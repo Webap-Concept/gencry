@@ -2,8 +2,10 @@
 
 import { signOut } from "@/app/(login)/actions";
 import { UserWithProfile } from "@/lib/db/schema";
-import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
+import type { ClientNotification } from "@/lib/notifications/serializers";
+import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { NotificationBell } from "./notification-bell";
 
 function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -31,7 +33,15 @@ function useTheme() {
   return { theme, toggle };
 }
 
-export default function AdminHeaderRight({ user }: { user: UserWithProfile }) {
+export default function AdminHeaderRight({
+  user,
+  notifications,
+  unreadCount,
+}: {
+  user: UserWithProfile;
+  notifications: ClientNotification[];
+  unreadCount: number;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { theme, toggle } = useTheme();
@@ -54,18 +64,10 @@ export default function AdminHeaderRight({ user }: { user: UserWithProfile }) {
 
   return (
     <div className="flex items-center gap-3">
-      <button
-        aria-label="Notifiche"
-        className="relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-        style={{ color: "var(--admin-icon-color)" }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.background = "var(--admin-hover-bg)")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.background = "transparent")
-        }>
-        <Bell size={18} />
-      </button>
+      <NotificationBell
+        initialNotifications={notifications}
+        initialUnreadCount={unreadCount}
+      />
 
       <button
         onClick={toggle}

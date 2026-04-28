@@ -6,6 +6,8 @@ import "@/app/(admin)/admin.css";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getUserPermissions } from "@/lib/rbac/can";
+import { runGeneratorsThrottled } from "@/lib/notifications/dispatcher";
+import { getInitialBellData } from "@/lib/notifications/queries";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import type { Metadata } from "next";
@@ -45,12 +47,23 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     ? new Set<string>(["__superadmin__"])
     : await getUserPermissions(user);
 
+  // Throttled (max 1/h): garantisce che le notifiche derivate
+  // siano in stato corrente senza un cron esterno.
+  await runGeneratorsThrottled();
+  const bell = await getInitialBellData(userPermissions);
+
   return (
     <AdminShellClient
       appName={appName}
       userPermissions={[...userPermissions]}
       isSuperAdmin={user.isAdmin === true}
-      header={<AdminHeaderRight user={user} />}>
+      header={
+        <AdminHeaderRight
+          user={user}
+          notifications={bell.notifications}
+          unreadCount={bell.unreadCount}
+        />
+      }>
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-32">
