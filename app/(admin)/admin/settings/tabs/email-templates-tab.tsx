@@ -36,6 +36,11 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "userName",    value: "{{userName}}" },
     { label: "deletedDate", value: "{{deletedDate}}" },
   ],
+  waitinglist: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "appUrl",    value: "{{appUrl}}" },
+  ],
 };
 
 const TEMPLATES = [
@@ -74,6 +79,15 @@ const TEMPLATES = [
     defaultBody:
       "Ciao {{userName}},\n\nIl tuo account {{appName}} è stato eliminato definitivamente in data {{deletedDate}} da un amministratore.\n\nI tuoi dati personali sono stati rimossi dai sistemi attivi.",
     defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "waitinglist",
+    label: "Waiting list (landing coming-soon)",
+    prefix: "email_waitinglist",
+    defaultSubject: "Sei nella waiting list di {{appName}}",
+    defaultBody:
+      "Ciao,\n\nGrazie per esserti iscritto alla waiting list di {{appName}}.\n\nSei tra i primi a sapere quando apriremo le porte: ti scriveremo non appena saremo pronti.\n\nA presto.",
+    defaultFooter: "© {{appName}}",
   },
 ] as const;
 

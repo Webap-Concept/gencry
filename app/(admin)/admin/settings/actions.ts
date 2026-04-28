@@ -175,6 +175,10 @@ export async function saveEmailTemplateSettings(
       "email_deleted_bcc",
       "email_deleted_body",
       "email_deleted_footer",
+      "email_waitinglist_subject",
+      "email_waitinglist_bcc",
+      "email_waitinglist_body",
+      "email_waitinglist_footer",
     ] as const;
     for (const key of keys) {
       const val = (formData.get(key) as string | null) ?? "";

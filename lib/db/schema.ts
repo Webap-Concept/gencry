@@ -349,6 +349,19 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const waitingList = pgTable("waiting_list", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type WaitingListEntry = typeof waitingList.$inferSelect;
+export type NewWaitingListEntry = typeof waitingList.$inferInsert;
+
 export const adminNotifications = pgTable(
   "admin_notifications",
   {
