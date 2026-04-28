@@ -500,11 +500,7 @@ export default function GenerazioneCrypto() {
           <footer className="gc-footer">
             <span>© 2026 Generazione Crypto</span>
             <span>Made in Italy</span>
-            <span>
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                x
-              </a>
-            </span>
+            <span></span>
           </footer>
         </div>
       </div>
