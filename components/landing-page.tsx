@@ -443,8 +443,8 @@ export default function GenerazioneCrypto() {
               </h1>
               <p className="gc-lede">
                 Stiamo costruendo lo spazio dove la community italiana di cripto
-                si incontra, impara e cresce. Lascia la tua email — ti avvisiamo
-                quando apriamo le porte.
+                si incontra, impara e cresce. Lascia la tua email e ti
+                avviseremo quando apriremo le porte.
               </p>
 
               <form
@@ -500,11 +500,7 @@ export default function GenerazioneCrypto() {
           <footer className="gc-footer">
             <span>© 2026 Generazione Crypto</span>
             <span>Made in Italy</span>
-            <span>
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                x
-              </a>
-            </span>
+            <span></span>
           </footer>
         </div>
       </div>
