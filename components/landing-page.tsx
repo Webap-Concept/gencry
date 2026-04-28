@@ -443,8 +443,8 @@ export default function GenerazioneCrypto() {
               </h1>
               <p className="gc-lede">
                 Stiamo costruendo lo spazio dove la community italiana di cripto
-                si incontra, impara e cresce. Lascia la tua email — ti avvisiamo
-                quando apriamo le porte.
+                si incontra, impara e cresce. Lascia la tua email e ti
+                avviseremo quando apriremo le porte.
               </p>
 
               <form
