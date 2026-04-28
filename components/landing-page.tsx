@@ -46,7 +46,7 @@ export default function GenerazioneCrypto() {
 
         :root {
           --gc-cream: #d4c1a4;
-          --gc-cream-tint: #e2d3bb;
+          --gc-cream-tint: #f0e4d1;
           --gc-cream-shade: #bca787;
           --gc-orange: #fa8b1e;
           --gc-orange-deep: #e07712;
