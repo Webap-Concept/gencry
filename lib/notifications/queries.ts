@@ -3,7 +3,17 @@
 import "server-only";
 import { db } from "@/lib/db/drizzle";
 import { adminNotifications, type AdminNotification } from "@/lib/db/schema";
-import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+} from "drizzle-orm";
 import { serializeNotification, type ClientNotification } from "./serializers";
 
 const SUPERADMIN_MARKER = "__superadmin__";
@@ -146,15 +156,15 @@ export async function listAllNotifications(
       );
       break;
     case "snoozed":
-      conditions.push(sql`${adminNotifications.snoozedUntil} > ${now}`);
+      conditions.push(gt(adminNotifications.snoozedUntil, now));
       conditions.push(isNull(adminNotifications.dismissedAt));
       conditions.push(isNull(adminNotifications.resolvedAt));
       break;
     case "dismissed":
-      conditions.push(sql`${adminNotifications.dismissedAt} IS NOT NULL`);
+      conditions.push(isNotNull(adminNotifications.dismissedAt));
       break;
     case "resolved":
-      conditions.push(sql`${adminNotifications.resolvedAt} IS NOT NULL`);
+      conditions.push(isNotNull(adminNotifications.resolvedAt));
       break;
     case "all":
       break;
