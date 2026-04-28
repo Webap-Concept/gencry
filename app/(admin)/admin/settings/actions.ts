@@ -324,22 +324,71 @@ export async function testGoogleOAuthSettings(
       };
     }
 
-    // Verifica liveness: richiede il discovery document di Google
-    const discovery = await fetch(
-      "https://accounts.google.com/.well-known/openid-configuration",
-      { cache: "no-store" },
-    );
-    if (!discovery.ok) {
+    // Probe del token endpoint con un authorization_code volutamente
+    // invalido. Google distingue tra credenziali errate (invalid_client) e
+    // codice non valido ma credenziali OK (invalid_grant): è il pattern
+    // standard per validare client_id+secret senza completare un flow reale.
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: "invalid-probe-code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      }),
+      cache: "no-store",
+    });
+
+    const data = (await res.json().catch(() => null)) as
+      | { error?: string; error_description?: string }
+      | null;
+
+    if (!data) {
       return {
-        error: "Impossibile contattare i server Google. Riprova tra qualche istante.",
+        error: `Risposta non leggibile da Google (HTTP ${res.status}).`,
         timestamp: Date.now(),
       };
     }
 
-    return {
-      success: "Formato credenziali valido e server Google raggiungibili.",
-      timestamp: Date.now(),
-    };
+    switch (data.error) {
+      case "invalid_grant":
+        // Credenziali accettate, è stato il code fittizio a essere rigettato.
+        return {
+          success: "Credenziali Google valide.",
+          timestamp: Date.now(),
+        };
+      case "invalid_client":
+        return {
+          error: "Client ID o Client Secret non validi.",
+          timestamp: Date.now(),
+        };
+      case "redirect_uri_mismatch":
+        return {
+          error:
+            "Redirect URI non registrato in Google Cloud Console per questo Client ID.",
+          timestamp: Date.now(),
+        };
+      case "unauthorized_client":
+        return {
+          error: "Client non autorizzato al grant authorization_code.",
+          timestamp: Date.now(),
+        };
+      case undefined:
+        // Nessun errore: improbabile con un code fittizio, ma trattalo come ok.
+        return {
+          success: "Credenziali Google valide.",
+          timestamp: Date.now(),
+        };
+      default:
+        return {
+          error: `Errore Google: ${data.error}${
+            data.error_description ? ` — ${data.error_description}` : ""
+          }`,
+          timestamp: Date.now(),
+        };
+    }
   } catch {
     return {
       error: "Errore durante la verifica. Controlla la connessione.",
