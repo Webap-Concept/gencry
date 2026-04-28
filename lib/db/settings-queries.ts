@@ -34,6 +34,11 @@ export type SettingKey =
   | 'email_deleted_bcc'
   | 'email_deleted_body'
   | 'email_deleted_footer'
+  // Waiting list (landing page coming-soon)
+  | 'email_waitinglist_subject'
+  | 'email_waitinglist_bcc'
+  | 'email_waitinglist_body'
+  | 'email_waitinglist_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -87,6 +92,10 @@ export type AppSettings = {
   email_deleted_bcc: string | null
   email_deleted_body: string | null
   email_deleted_footer: string | null
+  email_waitinglist_subject: string | null
+  email_waitinglist_bcc: string | null
+  email_waitinglist_body: string | null
+  email_waitinglist_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -136,6 +145,10 @@ const DEFAULTS: AppSettings = {
   email_deleted_bcc: null,
   email_deleted_body: null,
   email_deleted_footer: null,
+  email_waitinglist_subject: null,
+  email_waitinglist_bcc: null,
+  email_waitinglist_body: null,
+  email_waitinglist_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
