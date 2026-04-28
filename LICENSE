@@ -1,21 +1,30 @@
-MIT License
+TERMINI DI LICENZA E PROPRIETÀ
 
-Copyright (c) 2025 Vercel
+PROPRIETARY AND CONFIDENTIAL LICENSE
+Copyright (c) 2026 Webapp Concept srl
+Tutti i diritti riservati.
+1. PROPRIETÀ DEL SOFTWARE
+Il Codice Sorgente, la documentazione e tutti i file contenuti in questo repository (collettivamente
+denominati "Software") sono di proprietà esclusiva del Detentore del Copyright sopra indicato.
+2. RESTRIZIONI ALL'USO
+Fatta eccezione per i diritti minimi e non rinunciabili concessi dai Termini di Servizio di GitHub
+per la sola visualizzazione e il forking tecnico all'interno della piattaforma:
+a) È espressamente VIETATA la copia, la redistribuzione, la vendita o la pubblicazione del
+Software in qualsiasi forma o mezzo.
+b) È espressamente VIETATA la modifica, l'adattamento, la traduzione o la creazione di opere
+derivate basate sul Software.
+c) È espressamente VIETATO l'uso del Software per scopi commerciali o professionali senza una
+licenza scritta separata.
+d) È espressamente VIETATO l'uso del Software per l'addestramento di modelli di Intelligenza
+Artificiale (AI) o algoritmi di machine learning.
+3. NESSUNA LICENZA IMPLICITA
+Il fatto che il Software sia ospitato su un repository pubblico non costituisce, in nessun caso, una
+rinuncia al diritto d'autore o la concessione di una licenza d'uso gratuita o aperta. Qualsiasi utilizzo
+non autorizzato sarà considerato una violazione diretta della legge sul copyright.
+4. ESCLUSIONE DI GARANZIA
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IL SOFTWARE VIENE FORNITO "COSÌ COM'È", SENZA GARANZIE DI ALCUN TIPO,
+ESPLICITE O IMPLICITE. IL DETENTORE DEL COPYRIGHT NON SARÀ RESPONSABILE
+PER ALCUNA RIVENDICAZIONE, DANNO O ALTRA RESPONSABILITÀ.
+5. CONTATTI
+Per richieste di autorizzazione o licenze commerciali, contattare: webappconcept@gmail.com
