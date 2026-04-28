@@ -174,7 +174,7 @@ export default function GenerazioneCrypto() {
 
         .gc-h1 {
           font-family: "Satoshi", sans-serif;
-          font-weight: 900;
+          font-weight: 500;
           font-size: clamp(44px, 7.4vw, 104px);
           line-height: 0.95;
           letter-spacing: -0.035em;
@@ -461,10 +461,7 @@ export default function GenerazioneCrypto() {
                   required
                   disabled={isPending}
                 />
-                <button
-                  type="submit"
-                  className="gc-btn"
-                  disabled={isPending}>
+                <button type="submit" className="gc-btn" disabled={isPending}>
                   {isPending ? "Attendi…" : "Entra in lista"}
                   {!isPending && <span className="gc-arrow">→</span>}
                 </button>
