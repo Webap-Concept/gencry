@@ -1,7 +1,6 @@
 "use client";
 
 import { joinWaitingListAction } from "@/lib/waiting-list/actions";
-import Image from "next/image";
 import { useState, useTransition } from "react";
 
 export default function GenerazioneCrypto() {
@@ -175,7 +174,7 @@ export default function GenerazioneCrypto() {
 
         .gc-h1 {
           font-family: "Satoshi", sans-serif;
-          font-weight: 900;
+          font-weight: 500;
           font-size: clamp(44px, 7.4vw, 104px);
           line-height: 0.95;
           letter-spacing: -0.035em;
@@ -462,10 +461,7 @@ export default function GenerazioneCrypto() {
                   required
                   disabled={isPending}
                 />
-                <button
-                  type="submit"
-                  className="gc-btn"
-                  disabled={isPending}>
+                <button type="submit" className="gc-btn" disabled={isPending}>
                   {isPending ? "Attendi…" : "Entra in lista"}
                   {!isPending && <span className="gc-arrow">→</span>}
                 </button>
@@ -496,7 +492,8 @@ export default function GenerazioneCrypto() {
               <span className="gc-tick gc-t3">v 0.1</span>
               <span className="gc-tick gc-t4">IT</span>
 
-              <Image src="/gc_logo.svg" alt="Generazione Crypto" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/gc_logo.svg" alt="Generazione Crypto" />
             </section>
           </main>
 
@@ -504,14 +501,6 @@ export default function GenerazioneCrypto() {
             <span>© 2026 Generazione Crypto</span>
             <span>Made in Italy</span>
             <span>
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                instagram
-              </a>
-              &nbsp;·&nbsp;
-              <a href="#" target="_blank" rel="noopener noreferrer">
-                tiktok
-              </a>
-              &nbsp;·&nbsp;
               <a href="#" target="_blank" rel="noopener noreferrer">
                 x
               </a>
