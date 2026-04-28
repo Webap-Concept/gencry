@@ -1,6 +1,7 @@
 // lib/db/settings-queries.ts
 import { db } from '@/lib/db/drizzle'
 import { appSettings } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { cache } from 'react'
 
 export type SettingKey =
@@ -56,6 +57,9 @@ export type SettingKey =
   | 'github_repo'         // formato "owner/repo"
   | 'github_pat'          // fine-grained PAT con Contents:Read
   | 'github_ci_branch'    // default "ci-results"
+  // Notifiche admin — timestamp dell'ultimo run del dispatcher (throttle 1h).
+  // Valore: ISO 8601 string oppure null.
+  | 'notifications_dispatcher_last_run'
 
 export type AppSettings = {
   app_name: string
@@ -166,11 +170,24 @@ async function fetchAppSettings(): Promise<AppSettings> {
 export const getAppSettings = cache(fetchAppSettings)
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {
+  // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
+  // un Save "a vuoto" del form admin azzera il timer di rotazione delle
+  // chiavi (il sistema notifiche usa updated_at come "last rotated at").
+  const existing = await db
+    .select({ value: appSettings.value })
+    .from(appSettings)
+    .where(eq(appSettings.key, key))
+    .limit(1)
+
+  if (existing.length === 0) {
+    await db.insert(appSettings).values({ key, value, updatedAt: new Date() })
+    return
+  }
+
+  if (existing[0].value === value) return // no-op: niente bump di updated_at
+
   await db
-    .insert(appSettings)
-    .values({ key, value, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: appSettings.key,
-      set: { value, updatedAt: new Date() },
-    })
+    .update(appSettings)
+    .set({ value, updatedAt: new Date() })
+    .where(eq(appSettings.key, key))
 }

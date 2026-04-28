@@ -1,7 +1,9 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   serial,
@@ -346,6 +348,37 @@ export const appSettings = pgTable("app_settings", {
   value: text("value"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const adminNotifications = pgTable(
+  "admin_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: varchar("type", { length: 50 }).notNull(),
+    severity: varchar("severity", { length: 20 }).notNull().default("info"),
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"),
+    dedupKey: varchar("dedup_key", { length: 200 }).notNull().unique(),
+    requiredPermission: varchar("required_permission", { length: 100 }).notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => ({
+    activeIdx: index("idx_admin_notifications_active").on(
+      t.requiredPermission,
+      t.createdAt,
+    ),
+  }),
+);
+
+export type AdminNotification = typeof adminNotifications.$inferSelect;
+export type NewAdminNotification = typeof adminNotifications.$inferInsert;
 
 export const seoPages = pgTable("seo_pages", {
   pathname: varchar("pathname", { length: 255 }).primaryKey(),

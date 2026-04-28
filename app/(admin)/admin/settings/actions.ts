@@ -9,6 +9,7 @@ import { db } from "@/lib/db/drizzle";
 import type { SiteSnippet } from "@/lib/db/schema";
 import { blockedUsernames, disposableDomains, siteSnippets } from "@/lib/db/schema";
 import { updateAppSetting } from "@/lib/db/settings-queries";
+import { runGenerators } from "@/lib/notifications/dispatcher";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -109,6 +110,9 @@ export async function saveSenderSettings(
       "email_from_address",
       formData.get("email_from_address") as string,
     );
+    // Esecuzione esplicita: chiude subito eventuali alert di rotazione
+    // per resend_api_key se il valore e' stato aggiornato.
+    await runGenerators();
     getAdminPath("settings-resend");
     return { success: "Impostazioni Resend salvate.", timestamp: Date.now() };
   } catch {
@@ -218,6 +222,9 @@ export async function saveRedisSettings(
     // dal DB senza attendere il riavvio del processo Node.
     invalidateRedisConfigCache();
 
+    // Chiude subito alert di rotazione per upstash_redis_rest_token.
+    await runGenerators();
+
     revalidatePath(getAdminPath("settings-redis"));
     return { success: "Credenziali Redis salvate.", timestamp: Date.now() };
   } catch {
@@ -282,6 +289,9 @@ export async function saveGoogleOAuthSettings(
     await updateAppSetting("google_client_id",     clientId     || null);
     await updateAppSetting("google_client_secret", clientSecret || null);
     await updateAppSetting("google_redirect_uri",  redirectUri  || null);
+
+    // Chiude subito alert di rotazione per google_client_secret.
+    await runGenerators();
 
     revalidatePath(getAdminPath("settings-google"));
     return { success: "Credenziali Google OAuth salvate.", timestamp: Date.now() };
