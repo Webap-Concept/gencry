@@ -231,11 +231,19 @@ async function UserContent({
     <div className="space-y-6">
       {/* User Header */}
       <div className="flex items-start gap-4">
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold shrink-0 text-white"
-          style={{ background: "var(--admin-accent)" }}>
-          {initials}
-        </div>
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={`${user.firstName} ${user.lastName}`}
+            className="w-14 h-14 rounded-2xl object-cover shrink-0"
+          />
+        ) : (
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold shrink-0 text-white"
+            style={{ background: "var(--admin-accent)" }}>
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h2

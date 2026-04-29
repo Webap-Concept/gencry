@@ -60,11 +60,19 @@ function UserRow({ user }: { user: AdminUser }) {
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-            style={{ background: user.roleColor ?? "var(--admin-accent)" }}>
-            {initials}
-          </div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={`${user.firstName} ${user.lastName}`}
+              className="w-8 h-8 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+              style={{ background: user.roleColor ?? "var(--admin-accent)" }}>
+              {initials}
+            </div>
+          )}
           <div>
             <Link
               href={`${getAdminPath("users-list")}/${user.id}`}
