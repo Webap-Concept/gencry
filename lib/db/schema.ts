@@ -194,7 +194,7 @@ export const pageTemplates = pgTable("page_templates", {
   name: varchar("name", { length: 100 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   description: text("description"),
-  styleConfig: text("style_config").default("{}"),
+  rules: text("rules").default("{}"),
   thumbnail: text("thumbnail"),
   isSystem: boolean("is_system").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -202,7 +202,7 @@ export const pageTemplates = pgTable("page_templates", {
 });
 
 export const templateFields = pgTable("template_fields", {
-  id: integer("template_id").primaryKey().generatedAlwaysAsIdentity(),
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   templateId: integer("template_id")
     .notNull()
     .references(() => pageTemplates.id, { onDelete: "cascade" }),
@@ -493,16 +493,6 @@ export type SiteSnippet     = typeof siteSnippets.$inferSelect;
 export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
 export type RouteRegistry   = typeof routeRegistry.$inferSelect;
 export type NewRouteRegistry = typeof routeRegistry.$inferInsert;
-
-export interface TemplateStyleConfig {
-  fontBody?: string;
-  fontDisplay?: string;
-  colorPrimary?: string;
-  colorBg?: string;
-  colorText?: string;
-  spacing?: "compact" | "normal" | "spacious";
-  borderRadius?: "none" | "small" | "medium" | "large";
-}
 
 export enum ActivityType {
   SIGN_UP = "SIGN_UP",

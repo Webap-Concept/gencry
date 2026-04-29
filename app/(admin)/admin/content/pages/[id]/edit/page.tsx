@@ -8,10 +8,10 @@ import PageEditor from "../../_components/page-editor";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Modifica pagina" };
 
-/** Legge allowedChildTemplateIds dal styleConfig JSON del template padre */
-function getAllowedChildTemplateIds(styleConfig: string | null | undefined): number[] {
+/** Legge allowedChildTemplateIds dal JSON `rules` del template padre */
+function getAllowedChildTemplateIds(rules: string | null | undefined): number[] {
   try {
-    const parsed = JSON.parse(styleConfig ?? "{}");
+    const parsed = JSON.parse(rules ?? "{}");
     const raw = parsed?.allowedChildTemplateIds;
     if (!Array.isArray(raw)) return [];
     return raw.map(Number).filter((n) => !isNaN(n));
@@ -47,7 +47,7 @@ export default async function EditPagePage({
     if (parentPage?.templateId) {
       const parentTemplate = await getTemplateById(parentPage.templateId);
       if (parentTemplate) {
-        const allowed = getAllowedChildTemplateIds(parentTemplate.styleConfig);
+        const allowed = getAllowedChildTemplateIds(parentTemplate.rules);
         if (allowed.length === 1) {
           templateLocked = true;
         }

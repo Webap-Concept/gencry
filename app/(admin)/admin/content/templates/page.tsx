@@ -1,6 +1,7 @@
+import { isTemplateSlugRegistered } from "@/app/(frontend)/_templates/registered-slugs";
 import { getAdminPath } from "@/lib/admin-nav";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
-import { Copy, PanelTop, Plus } from "lucide-react";
+import { AlertTriangle, Copy, PanelTop, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import DeleteTemplateButton from "./_components/delete-template-button";
@@ -103,6 +104,19 @@ export default async function TemplatePage() {
                             color: "var(--admin-accent)",
                           }}>
                           sistema
+                        </span>
+                      )}
+                      {!isTemplateSlugRegistered(tpl.slug) && (
+                        <span
+                          title="Nessun componente React Template{Slug}.tsx trovato: le pagine che usano questo template cadranno sul TemplateDefault."
+                          className="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{
+                            background:
+                              "color-mix(in srgb, #f59e0b 14%, transparent)",
+                            color: "#b45309",
+                          }}>
+                          <AlertTriangle size={10} />
+                          fallback
                         </span>
                       )}
                     </p>

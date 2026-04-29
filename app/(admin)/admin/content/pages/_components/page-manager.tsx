@@ -41,7 +41,7 @@ interface DeleteTarget {
 type PagesTab = "user" | "system";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function parseStyleConfig(
+function parseRules(
   raw: string | null | undefined,
 ): Record<string, unknown> {
   try {
@@ -55,7 +55,7 @@ function getAllowedChildIds(
   template: TemplateWithFields | undefined,
 ): number[] {
   if (!template) return [];
-  const cfg = parseStyleConfig(template.styleConfig);
+  const cfg = parseRules(template.rules);
   const ids = cfg.allowedChildTemplateIds;
   if (Array.isArray(ids)) return ids.map(Number).filter(Boolean);
   return [];

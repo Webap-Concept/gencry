@@ -175,7 +175,7 @@ export async function duplicateTemplate(id: number): Promise<PageTemplate | unde
       name: `${source.name} (copia)`,
       slug: newSlug,
       description: source.description,
-      styleConfig: source.styleConfig,
+      rules: source.rules,
       thumbnail: source.thumbnail,
       isSystem: false,
     })

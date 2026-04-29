@@ -55,11 +55,13 @@ interface TemplateFormClientProps {
     name: string;
     slug: string;
     description: string;
-    styleConfig: Record<string, unknown>;
+    rules: Record<string, unknown>;
     fields: TemplateField[];
     isSystem: boolean;
   };
   allTemplates?: TemplateOption[];
+  /** Slug per cui esiste un componente Template{Slug}.tsx (incluso "default"). */
+  registeredSlugs?: string[];
   saveAction: (formData: FormData) => Promise<void>;
 }
 
@@ -403,9 +405,11 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
 export default function TemplateFormClient({
   template,
   allTemplates = [],
+  registeredSlugs = [],
   saveAction,
 }: TemplateFormClientProps) {
   const isEdit = !!template;
+  const registeredSlugSet = new Set(registeredSlugs);
   const [activeTab, setActiveTab] = useState<
     "general" | "rules" | "implementation"
   >("general");
@@ -415,7 +419,7 @@ export default function TemplateFormClient({
   const [description, setDescription] = useState(template?.description ?? "");
 
   const [allowedChildIds, setAllowedChildIds] = useState<number[]>(() => {
-    const raw = template?.styleConfig?.allowedChildTemplateIds;
+    const raw = template?.rules?.allowedChildTemplateIds;
     if (Array.isArray(raw)) return raw.map(Number).filter(Boolean);
     return [];
   });
@@ -500,23 +504,6 @@ export default function TemplateFormClient({
       fd.set("slug", slug);
       fd.set("description", description);
 
-      const formEl = formRef.current;
-      for (const key of [
-        "fontBody",
-        "fontDisplay",
-        "colorPrimary",
-        "colorBg",
-        "colorText",
-        "spacing",
-        "borderRadius",
-      ]) {
-        const el = formEl?.elements.namedItem(key) as
-          | HTMLInputElement
-          | HTMLSelectElement
-          | null;
-        if (el) fd.set(key, el.value);
-      }
-
       fd.set(
         "fieldsJson",
         JSON.stringify(
@@ -581,6 +568,8 @@ export default function TemplateFormClient({
       : "New template";
 
   const componentName = slug ? "Template" + slugToPascalCase(slug) : null;
+  const componentMissing =
+    !!slug && registeredSlugs.length > 0 && !registeredSlugSet.has(slug);
 
   return (
     <form id={FORM_ID} ref={formRef} onSubmit={handleSubmit}>
@@ -664,6 +653,45 @@ export default function TemplateFormClient({
           </button>
         </div>
       </div>
+
+      {componentMissing && (
+        <div
+          className="rounded-xl p-4 mb-5 flex items-start gap-3"
+          style={{
+            background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+            border:
+              "1px solid color-mix(in srgb, #f59e0b 35%, transparent)",
+          }}>
+          <span style={{ color: "#b45309", marginTop: 1 }}>⚠</span>
+          <div className="text-sm" style={{ color: "var(--admin-text)" }}>
+            <strong>Componente React mancante.</strong> Lo slug{" "}
+            <code
+              style={{
+                background: "var(--admin-input-bg)",
+                padding: "1px 6px",
+                borderRadius: 4,
+                fontSize: "0.78rem",
+              }}>
+              {slug}
+            </code>{" "}
+            non ha un file{" "}
+            <code
+              style={{
+                background: "var(--admin-input-bg)",
+                padding: "1px 6px",
+                borderRadius: 4,
+                fontSize: "0.78rem",
+              }}>
+              {componentName}.tsx
+            </code>{" "}
+            in <code>app/(frontend)/_templates/</code>. Le pagine che usano
+            questo template verranno renderizzate col fallback{" "}
+            <strong>TemplateDefault</strong> (nessuno style config né campo
+            custom). Vai nella tab <strong>Implementation</strong> per
+            generare il componente.
+          </div>
+        </div>
+      )}
 
       {activeTab === "general" && (
         <>

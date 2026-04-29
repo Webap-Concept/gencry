@@ -40,3 +40,6 @@ next-env.d.ts
 # Docker
 postgres_data/
 .env*.local
+
+# auto-generated CMS template registry (rebuilt by predev/prebuild)
+app/(frontend)/_templates/index.generated.ts

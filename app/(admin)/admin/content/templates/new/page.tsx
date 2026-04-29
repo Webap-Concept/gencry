@@ -1,3 +1,4 @@
+import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(frontend)/_templates/registered-slugs";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import TemplateFormClient from "../_components/template-form-client";
 import { saveTemplateAction } from "../actions";
@@ -15,6 +16,7 @@ export default async function NuovoTemplatePage() {
           name: t.name,
           slug: t.slug,
         }))}
+        registeredSlugs={Array.from(REGISTERED_TEMPLATE_SLUGS)}
         saveAction={saveTemplateAction}
       />
     </div>

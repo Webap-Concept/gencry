@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(frontend)/_templates/registered-slugs";
 import { getTemplateById, getAllTemplates } from "@/lib/db/template-queries";
 import { saveTemplateAction } from "../actions";
 import TemplateFormClient from "../_components/template-form-client";
@@ -18,9 +19,9 @@ export default async function EditTemplatePage({
   ]);
   if (!template) notFound();
 
-  let styleConfig: Record<string, unknown> = {};
+  let rules: Record<string, unknown> = {};
   try {
-    styleConfig = JSON.parse(template.styleConfig ?? "{}");
+    rules = JSON.parse(template.rules ?? "{}");
   } catch {
     // noop
   }
@@ -33,11 +34,12 @@ export default async function EditTemplatePage({
           name: template.name,
           slug: template.slug,
           description: template.description ?? "",
-          styleConfig,
+          rules,
           fields: template.fields,
           isSystem: template.isSystem,
         }}
         allTemplates={allTemplates.map((t) => ({ id: t.id, name: t.name, slug: t.slug }))}
+        registeredSlugs={Array.from(REGISTERED_TEMPLATE_SLUGS)}
         saveAction={saveTemplateAction}
       />
     </div>
