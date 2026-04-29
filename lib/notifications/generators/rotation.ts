@@ -28,7 +28,7 @@ const ROTATION_TARGETS: RotationTarget[] = [
   {
     key: "resend_api_key",
     label: "Resend API Key",
-    maxAgeDays: 180,
+    maxAgeDays: 2,
     link: "/admin/settings/resend",
   },
   {
