@@ -8,6 +8,9 @@ export type SettingKey =
   | 'app_name'
   | 'app_description'
   | 'app_domain'
+  | 'app_logo_url'
+  | 'app_logo_variant_url'
+  | 'app_favicon_url'
   | 'maintenance_mode'
   | 'registrations_enabled'
   | 'default_role'
@@ -70,6 +73,9 @@ export type AppSettings = {
   app_name: string
   app_description: string
   app_domain: string
+  app_logo_url: string | null
+  app_logo_variant_url: string | null
+  app_favicon_url: string | null
   maintenance_mode: string
   registrations_enabled: string
   default_role: string
@@ -123,6 +129,9 @@ const DEFAULTS: AppSettings = {
   app_name: "Nome dell'app",
   app_description: "Descrizione dell'app",
   app_domain: '',
+  app_logo_url: null,
+  app_logo_variant_url: null,
+  app_favicon_url: null,
   maintenance_mode: 'false',
   registrations_enabled: 'true',
   default_role: 'member',

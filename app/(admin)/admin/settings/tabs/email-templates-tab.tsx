@@ -3,7 +3,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { ChevronDown, Loader2, Save } from "lucide-react";
+import { ChevronDown, FileCode2, Loader2, Save } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveEmailTemplateSettings, type ActionState } from "../actions";
@@ -48,6 +48,7 @@ const TEMPLATES = [
     id: "welcome",
     label: "Welcome email",
     prefix: "email_welcome",
+    file: "lib/email/templates/welcome.ts",
     defaultSubject: "Benvenuto in {{appName}}",
     defaultBody:
       "Ciao {{userName}},\n\nBenvenuto in {{appName}}! Il tuo account è stato creato con successo.\n\nPuoi accedere alla piattaforma da: {{appUrl}}",
@@ -57,6 +58,7 @@ const TEMPLATES = [
     id: "signup",
     label: "Signup verification",
     prefix: "email_signup",
+    file: "lib/email/templates/signup-verification.ts",
     defaultSubject: "Verifica la tua email — {{appName}}",
     defaultBody:
       "Ciao {{userName}},\n\nUsa il codice qui sotto per verificare il tuo account.\nIl codice è valido per 15 minuti.\n\nCodice: {{otpCode}}",
@@ -66,6 +68,7 @@ const TEMPLATES = [
     id: "reset",
     label: "Password Reset",
     prefix: "email_reset",
+    file: "lib/email/templates/password-reset.ts",
     defaultSubject: "Reimposta la tua password — {{appName}}",
     defaultBody:
       "Ciao {{userName}},\n\nHai richiesto di reimpostare la password del tuo account.\nClicca il link qui sotto per procedere. Il link è valido per 30 minuti.\n\n{{resetLink}}",
@@ -75,6 +78,7 @@ const TEMPLATES = [
     id: "deleted",
     label: "User deleted",
     prefix: "email_deleted",
+    file: "lib/email/templates/user-deleted.ts",
     defaultSubject: "Il tuo account è stato eliminato — {{appName}}",
     defaultBody:
       "Ciao {{userName}},\n\nIl tuo account {{appName}} è stato eliminato definitivamente in data {{deletedDate}} da un amministratore.\n\nI tuoi dati personali sono stati rimossi dai sistemi attivi.",
@@ -84,6 +88,7 @@ const TEMPLATES = [
     id: "waitinglist",
     label: "Waiting list (landing coming-soon)",
     prefix: "email_waitinglist",
+    file: "lib/email/templates/waiting-list.ts",
     defaultSubject: "Sei nella waiting list di {{appName}}",
     defaultBody:
       "Ciao,\n\nGrazie per esserti iscritto alla waiting list di {{appName}}.\n\nSei tra i primi a sapere quando apriremo le porte: ti scriveremo non appena saremo pronti.\n\nA presto.",
@@ -115,7 +120,7 @@ function PlaceholderChip({
         color: "var(--admin-accent)",
         border: "1px solid " + "var(--admin-accent)" + "30",
       }}
-      title={`Inserisci ${value}`}>
+      title={`Insert ${value}`}>
       {label}
     </button>
   );
@@ -191,7 +196,7 @@ function TemplatePanel({
                 background: "var(--admin-accent)" + "18",
                 color: "var(--admin-accent)",
               }}>
-              Personalizzata
+              Customized
             </span>
           )}
           <ChevronDown
@@ -213,12 +218,37 @@ function TemplatePanel({
             background: "var(--admin-page-bg)",
             borderTop: "1px solid var(--admin-card-border)",
           }}>
+          {/* Template file location */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg"
+            style={{
+              background: "var(--admin-card-bg)",
+              border: "1px solid var(--admin-card-border)",
+            }}>
+            <FileCode2
+              size={13}
+              style={{ color: "var(--admin-text-muted)" }}
+            />
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-[10px] font-medium uppercase tracking-wide"
+                style={{ color: "var(--admin-text-faint)" }}>
+                Template file
+              </p>
+              <code
+                className="text-[12px] font-mono break-all"
+                style={{ color: "var(--admin-text)" }}>
+                {template.file}
+              </code>
+            </div>
+          </div>
+
           {/* Placeholder chips */}
           <div>
             <p
               className="text-[11px] font-medium mb-2"
               style={{ color: "var(--admin-text-muted)" }}>
-              Placeholder disponibili — clicca per inserire nel campo attivo:
+              Available placeholders — click to insert into the active field:
             </p>
             <div className="flex flex-wrap gap-1.5">
               {chips.map((chip) => (
@@ -242,12 +272,12 @@ function TemplatePanel({
             </div>
           </div>
 
-          {/* Oggetto */}
+          {/* Subject */}
           <div>
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              Oggetto email
+              Email subject
             </label>
             <input
               ref={subjectRef}
@@ -258,7 +288,7 @@ function TemplatePanel({
               style={inputStyle}
             />
             <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
-              Se vuoto, viene usato il testo predefinito.
+              If empty, the default text is used.
             </p>
           </div>
 
@@ -267,25 +297,25 @@ function TemplatePanel({
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              BCC (opzionale)
+              BCC (optional)
             </label>
             <input
               ref={bccRef}
               name={`${template.prefix}_bcc`}
               type="email"
               defaultValue={currentBcc}
-              placeholder="copia@tuodominio.com"
+              placeholder="copy@yourdomain.com"
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={inputStyle}
             />
           </div>
 
-          {/* Corpo */}
+          {/* Body */}
           <div>
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              Corpo email
+              Email body
             </label>
             <textarea
               ref={bodyRef}
@@ -297,7 +327,7 @@ function TemplatePanel({
               style={{ ...inputStyle, lineHeight: "1.6" }}
             />
             <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
-              Solo testo — l'HTML della email è gestito automaticamente. Usa i placeholder sopra.
+              Plain text only — the email HTML is handled automatically. Use the placeholders above.
             </p>
           </div>
 
@@ -378,7 +408,7 @@ function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
             ) : (
               <Save size={15} />
             )}
-            {isPending ? "Salvataggio..." : "Salva tutti i template"}
+            {isPending ? "Saving..." : "Save all templates"}
           </button>
         </div>
       </form>

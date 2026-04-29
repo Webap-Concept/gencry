@@ -8,8 +8,13 @@ import { getUser } from "@/lib/db/queries";
 import { db } from "@/lib/db/drizzle";
 import type { SiteSnippet } from "@/lib/db/schema";
 import { blockedUsernames, disposableDomains, siteSnippets } from "@/lib/db/schema";
-import { updateAppSetting } from "@/lib/db/settings-queries";
+import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { runGenerators } from "@/lib/notifications/dispatcher";
+import {
+  deleteBrandingAsset,
+  uploadBrandingAsset,
+  type BrandingSlot,
+} from "@/lib/storage/branding";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -64,9 +69,79 @@ export async function saveAppSettings(
     );
     await updateAppSetting("app_domain", domain ? `https://${domain}` : "");
     revalidatePath(getAdminPath("settings-general"));
-    return { success: "Impostazioni salvate.", timestamp: Date.now() };
+    return { success: "Settings saved.", timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+const BRANDING_SLOT_TO_KEY = {
+  logo: "app_logo_url",
+  "logo-variant": "app_logo_variant_url",
+  favicon: "app_favicon_url",
+} as const;
+
+function isBrandingSlot(value: unknown): value is BrandingSlot {
+  return value === "logo" || value === "logo-variant" || value === "favicon";
+}
+
+export async function uploadBrandingAssetAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const slot = formData.get("slot");
+    const file = formData.get("file");
+
+    if (!isBrandingSlot(slot)) {
+      return { error: "Invalid asset slot.", timestamp: Date.now() };
+    }
+    if (!(file instanceof File) || file.size === 0) {
+      return { error: "No file selected.", timestamp: Date.now() };
+    }
+
+    const key = BRANDING_SLOT_TO_KEY[slot];
+    const settings = await getAppSettings();
+    const previousUrl = (settings as Record<string, string | null>)[key];
+
+    const publicUrl = await uploadBrandingAsset(slot, file);
+    await updateAppSetting(key, publicUrl);
+
+    // Best-effort cleanup of the previous file (don't fail the action if delete errors)
+    if (previousUrl && previousUrl !== publicUrl) {
+      try { await deleteBrandingAsset(previousUrl); } catch {}
+    }
+
+    revalidatePath(getAdminPath("settings-general"));
+    return { success: "Asset uploaded.", timestamp: Date.now() };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Upload failed.";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+export async function removeBrandingAssetAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const slot = formData.get("slot");
+    if (!isBrandingSlot(slot)) {
+      return { error: "Invalid asset slot.", timestamp: Date.now() };
+    }
+    const key = BRANDING_SLOT_TO_KEY[slot];
+    const settings = await getAppSettings();
+    const previousUrl = (settings as Record<string, string | null>)[key];
+
+    await updateAppSetting(key, null);
+    if (previousUrl) {
+      try { await deleteBrandingAsset(previousUrl); } catch {}
+    }
+
+    revalidatePath(getAdminPath("settings-general"));
+    return { success: "Asset removed.", timestamp: Date.now() };
+  } catch {
+    return { error: "Remove failed.", timestamp: Date.now() };
   }
 }
 
@@ -185,9 +260,9 @@ export async function saveEmailTemplateSettings(
       await updateAppSetting(key, val.trim() || null);
     }
     revalidatePath(getAdminPath("settings-email"));
-    return { success: "Template email salvati.", timestamp: Date.now() };
+    return { success: "Email templates saved.", timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: "Save failed.", timestamp: Date.now() };
   }
 }
 

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.105.1
+        version: 2.105.1
       '@tailwindcss/postcss':
         specifier: 4.1.7
         version: 4.1.7
@@ -1856,6 +1859,33 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
+  '@supabase/auth-js@2.105.1':
+    resolution: {integrity: sha512-zc4s8Xg4truwE1Q4Q8M8oUVDARMd05pKh73NyQsMbYU1HDdDN2iiKzena/yu+yJze3WrD4c092FdckPiK1rLQw==}
+    engines: {node: '>=20.0.0'}
+
+  '@supabase/functions-js@2.105.1':
+    resolution: {integrity: sha512-dTk1e7oE51VGc1lS2S0J0NLo0Wp4JYChj74ArJKbIWgoWuFwO0wcJYjeyOV3AAEpKst8/LQWUZOUKO1tRXBrpA==}
+    engines: {node: '>=20.0.0'}
+
+  '@supabase/phoenix@0.4.1':
+    resolution: {integrity: sha512-hWGJkDAfWUNY8k0C080u3sGNFd2ncl9erhKgP7hnGkgJWEfT5Pd/SXal4QmWXBECVlZrannMAc9sBaaRyWpiUA==}
+
+  '@supabase/postgrest-js@2.105.1':
+    resolution: {integrity: sha512-6SbtsoWC55xfsm7gbfLqvF+yIwTQEbjt+jFGf4klDpwSnUy17Hv5x0Dq52oqwTQlw6Ta0h1D5gTP0/pApqNojA==}
+    engines: {node: '>=20.0.0'}
+
+  '@supabase/realtime-js@2.105.1':
+    resolution: {integrity: sha512-3X3cUEl5cJ4lRQHr1hXHx0b98OaL97RRO2vrRZ98FD91JV/MquZHhrGJSv/+IkOnjF6E2e0RUOxE8P3Zi035ow==}
+    engines: {node: '>=20.0.0'}
+
+  '@supabase/storage-js@2.105.1':
+    resolution: {integrity: sha512-owfdCNH5ikXXDusjzsgU6LavEBqGUoueOnL/9XIucld70/WJ/rbqp89K//c9QPICDNuegsmpoeasydDAiucLKQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@supabase/supabase-js@2.105.1':
+    resolution: {integrity: sha512-4gn6HmsAkCCVU7p8JmgKGhHJ5Btod4ZzSp8qKZf4JHaTxbhaIK86/usHzeLxWv7EJJDhBmILDmJOSOf9iF4CLA==}
+    engines: {node: '>=20.0.0'}
+
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
 
@@ -2203,6 +2233,9 @@ packages:
 
   '@types/use-sync-external-store@0.0.6':
     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@vitejs/plugin-react@4.7.0':
     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
@@ -2733,6 +2766,10 @@ packages:
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
+
+  iceberg-js@0.8.1:
+    resolution: {integrity: sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==}
+    engines: {node: '>=20.0.0'}
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -5046,6 +5083,46 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
+  '@supabase/auth-js@2.105.1':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/functions-js@2.105.1':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/phoenix@0.4.1': {}
+
+  '@supabase/postgrest-js@2.105.1':
+    dependencies:
+      tslib: 2.8.1
+
+  '@supabase/realtime-js@2.105.1':
+    dependencies:
+      '@supabase/phoenix': 0.4.1
+      '@types/ws': 8.18.1
+      tslib: 2.8.1
+      ws: 8.20.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@supabase/storage-js@2.105.1':
+    dependencies:
+      iceberg-js: 0.8.1
+      tslib: 2.8.1
+
+  '@supabase/supabase-js@2.105.1':
+    dependencies:
+      '@supabase/auth-js': 2.105.1
+      '@supabase/functions-js': 2.105.1
+      '@supabase/postgrest-js': 2.105.1
+      '@supabase/realtime-js': 2.105.1
+      '@supabase/storage-js': 2.105.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
@@ -5406,6 +5483,10 @@ snapshots:
       htmlparser2: 10.1.0
 
   '@types/use-sync-external-store@0.0.6': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.19.17
 
   '@vitejs/plugin-react@4.7.0(vite@7.3.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.21.0))':
     dependencies:
@@ -5892,6 +5973,8 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  iceberg-js@0.8.1: {}
 
   iconv-lite@0.6.3:
     dependencies:
