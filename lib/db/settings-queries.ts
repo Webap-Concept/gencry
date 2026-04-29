@@ -17,6 +17,7 @@ export type SettingKey =
   | 'resend_api_key'
   | 'email_from_name'
   | 'email_from_address'
+  | 'email_logo_choice'        // "logo" | "logo-variant" | "none"
   // Welcome email
   | 'email_welcome_subject'
   | 'email_welcome_bcc'
@@ -82,6 +83,7 @@ export type AppSettings = {
   resend_api_key: string | null
   email_from_name: string | null
   email_from_address: string | null
+  email_logo_choice: string
   email_welcome_subject: string | null
   email_welcome_bcc: string | null
   email_welcome_body: string | null
@@ -138,6 +140,7 @@ const DEFAULTS: AppSettings = {
   resend_api_key: null,
   email_from_name: null,
   email_from_address: null,
+  email_logo_choice: 'logo',
   email_welcome_subject: null,
   email_welcome_bcc: null,
   email_welcome_body: null,

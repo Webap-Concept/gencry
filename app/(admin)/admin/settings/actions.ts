@@ -259,6 +259,16 @@ export async function saveEmailTemplateSettings(
       const val = (formData.get(key) as string | null) ?? "";
       await updateAppSetting(key, val.trim() || null);
     }
+
+    // Logo choice è separata: ha valori vincolati (logo|logo-variant|none)
+    // e non può essere svuotata (default sempre "logo").
+    const logoChoiceRaw = (formData.get("email_logo_choice") as string | null) ?? "logo";
+    const logoChoice =
+      logoChoiceRaw === "logo-variant" || logoChoiceRaw === "none"
+        ? logoChoiceRaw
+        : "logo";
+    await updateAppSetting("email_logo_choice", logoChoice);
+
     revalidatePath(getAdminPath("settings-email"));
     return { success: "Email templates saved.", timestamp: Date.now() };
   } catch {

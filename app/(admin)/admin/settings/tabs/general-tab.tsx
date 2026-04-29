@@ -4,7 +4,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Globe, ImageIcon, Loader2, Save, Trash2, Upload } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   removeBrandingAssetAction,
@@ -286,6 +286,7 @@ function BrandAssetRow({
   currentUrl: string | null;
   onToast: ToastSetter;
 }) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadState, uploadAction, uploading] = useActionState<
@@ -304,21 +305,25 @@ function BrandAssetRow({
     if (!("timestamp" in uploadState)) return;
     if (uploadState.timestamp === lastUploadTs.current) return;
     lastUploadTs.current = uploadState.timestamp;
-    if ("success" in uploadState && uploadState.success)
+    if ("success" in uploadState && uploadState.success) {
       onToast({ message: uploadState.success, type: "success" });
+      router.refresh();
+    }
     if ("error" in uploadState && uploadState.error)
       onToast({ message: uploadState.error, type: "error" });
-  }, [uploadState, onToast]);
+  }, [uploadState, onToast, router]);
 
   useEffect(() => {
     if (!("timestamp" in removeState)) return;
     if (removeState.timestamp === lastRemoveTs.current) return;
     lastRemoveTs.current = removeState.timestamp;
-    if ("success" in removeState && removeState.success)
+    if ("success" in removeState && removeState.success) {
       onToast({ message: removeState.success, type: "success" });
+      router.refresh();
+    }
     if ("error" in removeState && removeState.error)
       onToast({ message: removeState.error, type: "error" });
-  }, [removeState, onToast]);
+  }, [removeState, onToast, router]);
 
   const busy = uploading || removing;
 
@@ -341,9 +346,11 @@ function BrandAssetRow({
       }}>
       {/* Preview */}
       <div
-        className="w-16 h-16 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+        className="w-20 h-20 rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-2"
         style={{
-          background: "var(--admin-card-bg)",
+          background: currentUrl
+            ? "repeating-conic-gradient(var(--admin-card-bg) 0% 25%, var(--admin-page-bg) 0% 50%) 50% / 16px 16px"
+            : "var(--admin-card-bg)",
           border: "1px solid var(--admin-input-border)",
         }}>
         {currentUrl ? (
@@ -354,7 +361,7 @@ function BrandAssetRow({
             className="max-w-full max-h-full object-contain"
           />
         ) : (
-          <ImageIcon size={20} style={{ color: "var(--admin-text-faint)" }} />
+          <ImageIcon size={24} style={{ color: "var(--admin-text-faint)" }} />
         )}
       </div>
 

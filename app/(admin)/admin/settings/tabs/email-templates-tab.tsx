@@ -3,7 +3,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { ChevronDown, FileCode2, Loader2, Save } from "lucide-react";
+import { ChevronDown, FileCode2, ImageIcon, Loader2, Save } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveEmailTemplateSettings, type ActionState } from "../actions";
@@ -355,6 +355,121 @@ function TemplatePanel({
 }
 
 // ---------------------------------------------------------------------------
+// Email logo selector
+// ---------------------------------------------------------------------------
+function EmailLogoCard({ settings }: { settings: AppSettings }) {
+  const initial =
+    settings.email_logo_choice === "logo-variant" ||
+    settings.email_logo_choice === "none"
+      ? settings.email_logo_choice
+      : "logo";
+  const [choice, setChoice] = useState<"logo" | "logo-variant" | "none">(
+    initial as "logo" | "logo-variant" | "none",
+  );
+
+  const previewUrl =
+    choice === "none"
+      ? null
+      : choice === "logo-variant"
+        ? (settings.app_logo_variant_url ?? settings.app_logo_url)
+        : settings.app_logo_url;
+
+  const missingForChoice =
+    choice !== "none" && !previewUrl;
+
+  return (
+    <div
+      className="rounded-xl p-5"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <div className="flex items-center gap-2 mb-1">
+        <ImageIcon size={14} style={{ color: "var(--admin-text)" }} />
+        <h3
+          className="text-sm font-semibold"
+          style={{ color: "var(--admin-text)" }}>
+          Email logo
+        </h3>
+      </div>
+      <p
+        className="text-[11px] mb-4"
+        style={{ color: "var(--admin-text-faint)" }}>
+        Choose which brand asset appears in the header of every transactional
+        email. Manage the assets in{" "}
+        <a
+          href="/admin/settings/general"
+          className="underline"
+          style={{ color: "var(--admin-accent)" }}>
+          General settings
+        </a>
+        .
+      </p>
+
+      <div className="flex items-center gap-4">
+        {/* Preview */}
+        <div
+          className="w-24 h-24 rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-2"
+          style={{
+            background: previewUrl
+              ? "repeating-conic-gradient(var(--admin-card-bg) 0% 25%, var(--admin-page-bg) 0% 50%) 50% / 16px 16px"
+              : "var(--admin-page-bg)",
+            border: "1px solid var(--admin-input-border)",
+          }}>
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt="Email logo preview"
+              className="max-w-full max-h-full object-contain"
+            />
+          ) : (
+            <span
+              className="text-[11px] font-medium text-center"
+              style={{ color: "var(--admin-text-faint)" }}>
+              {choice === "none" ? "Text only" : "Not uploaded"}
+            </span>
+          )}
+        </div>
+
+        {/* Selector */}
+        <div className="flex-1 min-w-0">
+          <label
+            className="block text-xs font-medium mb-1.5"
+            style={{ color: "var(--admin-text-muted)" }}>
+            Header style
+          </label>
+          <select
+            name="email_logo_choice"
+            value={choice}
+            onChange={(e) =>
+              setChoice(e.target.value as "logo" | "logo-variant" | "none")
+            }
+            className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
+            style={{
+              background: "var(--admin-input-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: "var(--admin-text)",
+            }}>
+            <option value="logo">Logo</option>
+            <option value="logo-variant">Logo variant</option>
+            <option value="none">No image — show app name as text</option>
+          </select>
+          {missingForChoice && (
+            <p
+              className="text-[11px] mt-1.5"
+              style={{ color: "var(--admin-accent)" }}>
+              No file uploaded for this slot yet — emails will fall back to the
+              app name until you upload one.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 export function EmailTemplatesTab({ settings }: { settings: AppSettings }) {
@@ -386,6 +501,8 @@ function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
   return (
     <>
       <form action={formAction} className="space-y-3">
+        <EmailLogoCard settings={settings} />
+
         {TEMPLATES.map((tpl) => (
           <TemplatePanel key={tpl.id} template={tpl} settings={settings} />
         ))}
