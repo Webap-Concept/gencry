@@ -1,33 +1,25 @@
 import type { TemplateProps } from "./types";
-import { styleConfigToCssVars } from "./types";
 
 /**
  * Layout Blog.
- * Campi custom usati:
+ * Stile hardcoded qui: per cambiarlo modifica direttamente questo file.
+ *
+ * Campi custom letti:
  *   - coverImage (image)    — URL immagine hero
  *   - author     (text)     — nome autore
  *   - category   (text)     — categoria / tag
  *   - readTime   (number)   — minuti di lettura stimati
  *   - excerpt    (textarea) — estratto/sommario del post
  */
-export function TemplateBlog({
-  page,
-  fields,
-  styleConfig,
-}: TemplateProps) {
-  const cssVars = styleConfigToCssVars(styleConfig);
-
+export function TemplateBlog({ page, fields }: TemplateProps) {
   return (
     <div
       style={{
-        ...cssVars,
-        fontFamily: styleConfig.fontBody ?? "inherit",
-        background: styleConfig.colorBg ?? "var(--color-bg, #fff)",
-        color: styleConfig.colorText ?? "var(--color-text, #1a1a1a)",
+        fontFamily: "inherit",
+        background: "#fff",
+        color: "#1a1a1a",
         minHeight: "100vh",
       }}>
-
-      {/* Hero immagine */}
       {fields.coverImage && (
         <div
           style={{
@@ -46,7 +38,6 @@ export function TemplateBlog({
 
       <main
         style={{ maxWidth: "760px", margin: "0 auto", padding: "3rem 1.5rem" }}>
-        {/* Meta: categoria + tempo di lettura */}
         {(fields.category || fields.readTime) && (
           <div
             style={{
@@ -54,7 +45,7 @@ export function TemplateBlog({
               gap: "1rem",
               marginBottom: "1rem",
               fontSize: "0.8125rem",
-              color: styleConfig.colorPrimary ?? "#6b7280",
+              color: "#6b7280",
               fontWeight: 600,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
@@ -66,8 +57,6 @@ export function TemplateBlog({
 
         <h1
           style={{
-            fontFamily:
-              styleConfig.fontDisplay ?? styleConfig.fontBody ?? "inherit",
             fontSize: "clamp(1.875rem, 5vw, 3rem)",
             fontWeight: 700,
             lineHeight: 1.15,
@@ -76,7 +65,6 @@ export function TemplateBlog({
           {page.title}
         </h1>
 
-        {/* Autore + data */}
         {(fields.author || page.publishedAt) && (
           <p
             style={{
@@ -84,7 +72,11 @@ export function TemplateBlog({
               color: "#6b7280",
               marginBottom: "1.5rem",
             }}>
-            {fields.author && <>Di <strong>{fields.author}</strong></>}
+            {fields.author && (
+              <>
+                Di <strong>{fields.author}</strong>
+              </>
+            )}
             {page.publishedAt && (
               <>
                 {fields.author ? " — " : ""}
@@ -96,14 +88,13 @@ export function TemplateBlog({
           </p>
         )}
 
-        {/* Excerpt */}
         {fields.excerpt && (
           <p
             style={{
               fontSize: "1.125rem",
               lineHeight: 1.7,
               color: "#374151",
-              borderLeft: `3px solid ${styleConfig.colorPrimary ?? "#6b7280"}`,
+              borderLeft: "3px solid #6b7280",
               paddingLeft: "1rem",
               marginBottom: "2rem",
               fontStyle: "italic",
@@ -112,7 +103,6 @@ export function TemplateBlog({
           </p>
         )}
 
-        {/* Body content */}
         <div
           className="tpl-content"
           dangerouslySetInnerHTML={{ __html: page.content }}

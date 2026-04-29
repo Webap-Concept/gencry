@@ -8,8 +8,9 @@ import { db } from "@/lib/db/drizzle";
 import { pageTemplates, templateFields } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
-import { parseStyleConfig, parseCustomFields } from "@/app/(frontend)/_templates/types";
+import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { requireAdminPage } from "@/lib/rbac/guards";
+import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import PreviewBar from "./_preview-bar";
 
 interface Props {
@@ -46,7 +47,8 @@ export default async function PreviewPage({ params }: Props) {
   const templateSlug = template?.slug ?? "default";
   const TemplateComponent = await getDynamicTemplate(templateSlug);
   const fields = parseCustomFields(page.customFields);
-  const styleConfig = parseStyleConfig(template?.styleConfig);
+
+  const safePage = { ...page, content: sanitizeRichTextHtml(page.content) };
 
   return (
     <>
@@ -58,10 +60,9 @@ export default async function PreviewPage({ params }: Props) {
       />
       <div style={{ paddingTop: "48px" }}>
         <TemplateComponent
-          page={page}
+          page={safePage}
           template={template}
           fields={fields}
-          styleConfig={styleConfig}
         />
       </div>
     </>

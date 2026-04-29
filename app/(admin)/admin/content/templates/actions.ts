@@ -37,16 +37,7 @@ export async function saveTemplateAction(formData: FormData) {
     }
   }
 
-  const styleConfig = {
-    fontBody: formData.get("fontBody") as string | null,
-    fontDisplay: formData.get("fontDisplay") as string | null,
-    colorPrimary: formData.get("colorPrimary") as string | null,
-    colorBg: formData.get("colorBg") as string | null,
-    colorText: formData.get("colorText") as string | null,
-    spacing: (formData.get("spacing") as string | null) ?? "normal",
-    borderRadius: (formData.get("borderRadius") as string | null) ?? "medium",
-    allowedChildTemplateIds,
-  };
+  const rules = { allowedChildTemplateIds };
 
   const fieldsJson = formData.get("fieldsJson") as string | null;
   let fields: Omit<NewTemplateField, "templateId">[] = [];
@@ -63,7 +54,7 @@ export async function saveTemplateAction(formData: FormData) {
     name,
     slug,
     description,
-    styleConfig: JSON.stringify(styleConfig),
+    rules: JSON.stringify(rules),
   };
 
   await upsertTemplate(id, templateData, fields);

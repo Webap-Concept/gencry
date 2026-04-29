@@ -1,10 +1,8 @@
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
-import {
-  parseCustomFields,
-  parseStyleConfig,
-} from "@/app/(frontend)/_templates/types";
+import { parseCustomFields } from "@/app/(frontend)/_templates/types";
+import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -62,14 +60,17 @@ export default async function FrontendPage({
   const TemplateComponent = getDynamicTemplate(templateSlug);
 
   const fields = parseCustomFields(pageData.customFields);
-  const styleConfig = parseStyleConfig(pageData.template?.styleConfig);
+
+  const safePage = {
+    ...pageData,
+    content: sanitizeRichTextHtml(pageData.content),
+  };
 
   return (
     <TemplateComponent
-      page={pageData}
+      page={safePage}
       template={pageData.template ?? null}
       fields={fields}
-      styleConfig={styleConfig}
     />
   );
 }

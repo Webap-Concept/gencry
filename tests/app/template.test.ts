@@ -1,8 +1,7 @@
 // tests/app/template.test.ts
 // Unit test per la logica Template:
 // - slugify (trasformazione nome → slug)
-// - styleConfig JSON parsing/serializzazione
-// - allowedChildTemplateIds parsing
+// - rules JSON parsing/serializzazione (allowedChildTemplateIds)
 // - fields JSON parsing
 // - validazione campi obbligatori (name, slug)
 // NON richiede DB — 100% unit, gira in CI.
@@ -109,73 +108,38 @@ describe("Template — allowedChildTemplateIds parsing", () => {
 });
 
 // ---------------------------------------------------------------------------
-// styleConfig costruzione e serializzazione
+// rules costruzione e serializzazione
 // ---------------------------------------------------------------------------
-type StyleConfig = {
-  fontBody: string | null;
-  fontDisplay: string | null;
-  colorPrimary: string | null;
-  colorBg: string | null;
-  colorText: string | null;
-  spacing: string;
-  borderRadius: string;
+type TemplateRules = {
   allowedChildTemplateIds: number[];
 };
 
-const buildStyleConfig = (
-  overrides: Partial<StyleConfig> = {},
-): StyleConfig => ({
-  fontBody: null,
-  fontDisplay: null,
-  colorPrimary: null,
-  colorBg: null,
-  colorText: null,
-  spacing: "normal",
-  borderRadius: "medium",
+const buildRules = (overrides: Partial<TemplateRules> = {}): TemplateRules => ({
   allowedChildTemplateIds: [],
   ...overrides,
 });
 
-describe("Template — styleConfig", () => {
+describe("Template — rules", () => {
   it("valori default corretti", () => {
-    const cfg = buildStyleConfig();
-    expect(cfg.spacing).toBe("normal");
-    expect(cfg.borderRadius).toBe("medium");
+    const cfg = buildRules();
     expect(cfg.allowedChildTemplateIds).toEqual([]);
   });
 
-  it("override singolo campo", () => {
-    const cfg = buildStyleConfig({ spacing: "compact" });
-    expect(cfg.spacing).toBe("compact");
-    expect(cfg.borderRadius).toBe("medium");
+  it("override allowedChildTemplateIds", () => {
+    const cfg = buildRules({ allowedChildTemplateIds: [1, 2] });
+    expect(cfg.allowedChildTemplateIds).toEqual([1, 2]);
   });
 
   it("serializza correttamente in JSON", () => {
-    const cfg = buildStyleConfig({ colorPrimary: "#ff0000" });
-    const json = JSON.stringify(cfg);
-    const parsed = JSON.parse(json) as StyleConfig;
-    expect(parsed.colorPrimary).toBe("#ff0000");
-    expect(parsed.spacing).toBe("normal");
+    const cfg = buildRules({ allowedChildTemplateIds: [3] });
+    const parsed = JSON.parse(JSON.stringify(cfg)) as TemplateRules;
+    expect(parsed.allowedChildTemplateIds).toEqual([3]);
   });
 
   it("JSON.stringify → JSON.parse è idempotente", () => {
-    const cfg = buildStyleConfig({
-      fontBody: "Inter",
-      fontDisplay: "Playfair Display",
-      allowedChildTemplateIds: [1, 2, 3],
-    });
-    const roundTrip = JSON.parse(JSON.stringify(cfg)) as StyleConfig;
+    const cfg = buildRules({ allowedChildTemplateIds: [1, 2, 3] });
+    const roundTrip = JSON.parse(JSON.stringify(cfg)) as TemplateRules;
     expect(roundTrip).toEqual(cfg);
-  });
-
-  it("colorPrimary null rimane null", () => {
-    const cfg = buildStyleConfig();
-    expect(cfg.colorPrimary).toBeNull();
-  });
-
-  it("accetta colorPrimary come hex valido", () => {
-    const cfg = buildStyleConfig({ colorPrimary: "#01696f" });
-    expect(cfg.colorPrimary).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });
 
