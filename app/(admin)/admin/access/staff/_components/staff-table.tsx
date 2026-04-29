@@ -44,6 +44,7 @@ function StaffRow({ user }: { user: AdminUser }) {
               src={user.avatarUrl}
               alt={`${user.firstName} ${user.lastName}`}
               className="w-8 h-8 rounded-full object-cover shrink-0"
+              referrerPolicy="no-referrer"
             />
           ) : (
             <div

@@ -236,6 +236,7 @@ async function UserContent({
             src={user.avatarUrl}
             alt={`${user.firstName} ${user.lastName}`}
             className="w-14 h-14 rounded-2xl object-cover shrink-0"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div
