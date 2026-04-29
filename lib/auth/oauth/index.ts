@@ -25,6 +25,7 @@ import {
   users,
   type NewActivityLog,
 } from "@/lib/db/schema";
+import { uploadAvatarFromUrl } from "@/lib/storage/avatars";
 import { and, eq, isNull } from "drizzle-orm";
 import type { GoogleTokens } from "./google";
 
@@ -92,10 +93,12 @@ export async function findOrCreateOAuthUser(
       );
 
     if (picture) {
+      const avatarUrl =
+        (await uploadAvatarFromUrl(picture, existingOAuth.userId)) ?? picture;
       // Aggiorna avatar_url solo se l'utente non ne ha già caricato uno suo
       await db
         .update(userProfiles)
-        .set({ avatarUrl: picture, updatedAt: new Date() })
+        .set({ avatarUrl, updatedAt: new Date() })
         .where(
           and(
             eq(userProfiles.userId, existingOAuth.userId),
@@ -134,9 +137,11 @@ export async function findOrCreateOAuthUser(
     });
 
     if (picture) {
+      const avatarUrl =
+        (await uploadAvatarFromUrl(picture, existingUser.id)) ?? picture;
       await db
         .update(userProfiles)
-        .set({ avatarUrl: picture, updatedAt: new Date() })
+        .set({ avatarUrl, updatedAt: new Date() })
         .where(
           and(
             eq(userProfiles.userId, existingUser.id),
@@ -188,11 +193,15 @@ export async function findOrCreateOAuthUser(
 
   if (!newUser) throw new Error("[oauth] Failed to create user");
 
+  const avatarUrl = picture
+    ? ((await uploadAvatarFromUrl(picture, newUser.id)) ?? picture)
+    : null;
+
   await db.insert(userProfiles).values({
     userId:    newUser.id,
     firstName: firstName ?? null,
     lastName:  lastName  ?? null,
-    avatarUrl: picture   ?? null,
+    avatarUrl,
     // username: null — l'utente lo sceglierà nel wizard di onboarding
   });
 
