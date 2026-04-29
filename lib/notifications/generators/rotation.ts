@@ -22,13 +22,13 @@ const ROTATION_TARGETS: RotationTarget[] = [
   {
     key: "google_client_secret",
     label: "Google Client Secret",
-    maxAgeDays: 180,
+    maxAgeDays: 1,
     link: "/admin/settings/google-oauth",
   },
   {
     key: "resend_api_key",
     label: "Resend API Key",
-    maxAgeDays: 180,
+    maxAgeDays: 2,
     link: "/admin/settings/resend",
   },
   {
