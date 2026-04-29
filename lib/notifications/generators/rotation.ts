@@ -71,8 +71,9 @@ export function computeRotationCandidates(
     if (!row || row.value === null || row.value === "") continue;
     if (!row.updatedAt) continue;
 
-    const ageDays = Math.floor((now - row.updatedAt.getTime()) / DAY_MS);
-    if (ageDays <= target.maxAgeDays) continue;
+    const ageMs = now - row.updatedAt.getTime();
+    if (ageMs <= target.maxAgeDays * DAY_MS) continue;
+    const ageDays = Math.floor(ageMs / DAY_MS);
 
     out.push({
       type: "secret_rotation_due",
