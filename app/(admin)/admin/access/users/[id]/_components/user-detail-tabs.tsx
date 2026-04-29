@@ -22,11 +22,11 @@ export function UserDetailTabs({
     { id: "info" as const, label: "Info", icon: User },
     {
       id: "access" as const,
-      label: "Accessi",
+      label: "Access",
       icon: Key,
       badge: overridesCount > 0 ? overridesCount : undefined,
     },
-    { id: "activity" as const, label: "Attivit\u00e0", icon: Activity },
+    { id: "activity" as const, label: "Activity", icon: Activity },
   ];
 
   return (
@@ -65,7 +65,7 @@ export function UserDetailTabs({
         })}
       </div>
 
-      {/* Contenuto tab */}
+      {/* Tab content */}
       {active === "info" && infoContent}
       {active === "access" && accessContent}
       {active === "activity" && activityContent}

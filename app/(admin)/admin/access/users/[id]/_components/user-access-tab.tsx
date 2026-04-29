@@ -24,6 +24,7 @@ type Props = {
   overrides: Override[];
   allPermissions: Permission[];
   userRole: RoleRow | null;
+  isDeleted?: boolean;
 };
 
 // ─── Permission Badge ───────────────────────────────────────────────────
@@ -218,6 +219,7 @@ export function UserAccessTab({
   overrides,
   allPermissions,
   userRole,
+  isDeleted = false,
 }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -341,7 +343,7 @@ export function UserAccessTab({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {expiredCount > 0 && (
+            {!isDeleted && expiredCount > 0 && (
               <button
                 onClick={handlePurgeExpired}
                 disabled={purging}
@@ -359,7 +361,7 @@ export function UserAccessTab({
                 Clear expired ({expiredCount})
               </button>
             )}
-            {!showAdd && (
+            {!isDeleted && !showAdd && (
               <button
                 onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white"
@@ -391,12 +393,14 @@ export function UserAccessTab({
             <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
               No overrides — this user uses role permissions
             </p>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white mt-1"
-              style={{ background: "var(--admin-accent)" }}>
-              <Plus size={12} /> Add the first one
-            </button>
+            {!isDeleted && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white mt-1"
+                style={{ background: "var(--admin-accent)" }}>
+                <Plus size={12} /> Add the first one
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -461,29 +465,31 @@ export function UserAccessTab({
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleRemove(ov.id)}
-                    disabled={deletingId === ov.id}
-                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
-                    title="Remove override"
-                    style={{
-                      color: "var(--admin-text-faint)",
-                      background: "transparent",
-                    }}
-                    onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLButtonElement).style.background =
-                        "var(--admin-hover-bg)")
-                    }
-                    onMouseLeave={(e) =>
-                      ((e.currentTarget as HTMLButtonElement).style.background =
-                        "transparent")
-                    }>
-                    {deletingId === ov.id ? (
-                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Trash2 size={12} />
-                    )}
-                  </button>
+                  {!isDeleted && (
+                    <button
+                      onClick={() => handleRemove(ov.id)}
+                      disabled={deletingId === ov.id}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
+                      title="Remove override"
+                      style={{
+                        color: "var(--admin-text-faint)",
+                        background: "transparent",
+                      }}
+                      onMouseEnter={(e) =>
+                        ((e.currentTarget as HTMLButtonElement).style.background =
+                          "var(--admin-hover-bg)")
+                      }
+                      onMouseLeave={(e) =>
+                        ((e.currentTarget as HTMLButtonElement).style.background =
+                          "transparent")
+                      }>
+                      {deletingId === ov.id ? (
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 size={12} />
+                      )}
+                    </button>
+                  )}
                 </div>
               );
             })}

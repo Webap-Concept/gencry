@@ -168,10 +168,14 @@ export async function setUserRole(userId: string, roleName: string) {
   if (!role) return { error: "Role not found" };
 
   const [target] = await db
-    .select({ role: users.role })
+    .select({ role: users.role, deletedAt: users.deletedAt })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+
+  if (target?.deletedAt) {
+    return { error: "This user has been deleted and cannot be modified." };
+  }
 
   await db
     .update(users)

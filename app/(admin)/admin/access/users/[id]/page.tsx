@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   Calendar,
   CreditCard,
+  Lock,
   Mail,
   ShieldCheck,
   ShieldX,
@@ -104,6 +105,7 @@ async function UserContent({
       .join("") || user.email[0].toUpperCase();
 
   const isPremium = user.subscriptionStatus === "active";
+  const isDeleted = !!user.deletedAt;
 
   const infoContent = (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -179,7 +181,11 @@ async function UserContent({
             Manage roles →
           </Link>
         </div>
-        <RoleSelector user={user} availableRoles={availableRoles} />
+        <RoleSelector
+          user={user}
+          availableRoles={availableRoles}
+          isDeleted={isDeleted}
+        />
       </div>
     </div>
   );
@@ -217,6 +223,7 @@ async function UserContent({
       overrides={overrides}
       allPermissions={allPermissions}
       userRole={userRoleRow}
+      isDeleted={isDeleted}
     />
   );
 
@@ -265,6 +272,26 @@ async function UserContent({
           <DeleteButton user={user} canDelete={canDelete} />
         </div>
       </div>
+
+      {isDeleted && (
+        <div
+          className="rounded-xl px-4 py-3 flex items-center gap-3"
+          style={{
+            background: "color-mix(in srgb, #ef4444 7%, var(--admin-card-bg))",
+            border: "1px solid color-mix(in srgb, #ef4444 25%, transparent)",
+          }}>
+          <Lock size={16} className="text-red-500 shrink-0" />
+          <div className="text-xs leading-relaxed">
+            <p className="font-semibold text-red-600">
+              This account has been deleted
+            </p>
+            <p style={{ color: "var(--admin-text-muted)" }}>
+              The user is read-only — role, permissions and account status
+              cannot be changed.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <UserDetailTabs
