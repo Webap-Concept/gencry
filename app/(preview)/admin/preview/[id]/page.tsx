@@ -4,12 +4,14 @@
 // Il banner "Anteprima" è gestito da PreviewBar, non dai template.
 import { notFound } from "next/navigation";
 import { getPageById } from "@/lib/db/pages-queries";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { db } from "@/lib/db/drizzle";
 import { pageTemplates, templateFields } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { requireAdminPage } from "@/lib/rbac/guards";
+import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import PreviewBar from "./_preview-bar";
 
@@ -24,7 +26,10 @@ export default async function PreviewPage({ params }: Props) {
   const pageId = parseInt(id, 10);
   if (isNaN(pageId)) return notFound();
 
-  const page = await getPageById(pageId);
+  const [page, settings] = await Promise.all([
+    getPageById(pageId),
+    getAppSettings(),
+  ]);
   if (!page) return notFound();
 
   let template = null;
@@ -48,7 +53,11 @@ export default async function PreviewPage({ params }: Props) {
   const TemplateComponent = await getDynamicTemplate(templateSlug);
   const fields = parseCustomFields(page.customFields);
 
-  const safePage = { ...page, content: sanitizeRichTextHtml(page.content) };
+  const resolvedContent = resolvePlaceholders(page.content, settings);
+  const safePage = {
+    ...page,
+    content: sanitizeRichTextHtml(resolvedContent),
+  };
 
   return (
     <>
