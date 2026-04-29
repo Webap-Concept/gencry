@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/db/drizzle", () => ({ db: {} }));
+
 import { computeRotationCandidates } from "@/lib/notifications/generators/rotation";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
