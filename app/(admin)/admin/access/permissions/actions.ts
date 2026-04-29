@@ -172,7 +172,21 @@ export async function createPermission(formData: FormData) {
     return { error: `Permission "${key}" already exists.` };
   }
 
-  await db.insert(permissions).values({ key, label, description, group });
+  const [insertedPerm] = await db
+    .insert(permissions)
+    .values({ key, label, description, group })
+    .returning({ id: permissions.id });
+
+  // Auto-assign to admin role
+  const [adminRole] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.name, "admin"))
+    .limit(1);
+
+  if (adminRole && insertedPerm) {
+    await addPermissionToRole(adminRole.id, insertedPerm.id);
+  }
 
   await logRbacAction(
     admin.id,
