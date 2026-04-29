@@ -68,8 +68,9 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               // Style: 'unsafe-inline' richiesto da Tailwind/CSS-in-JS
               "style-src 'self' 'unsafe-inline'",
-              // Immagini: aggiungere domini esterni quando noti
-              "img-src 'self' data: blob:",
+              // Immagini: 'self' + Supabase Storage (brand assets caricati
+              // dall'admin in /admin/settings/general → bucket "branding")
+              "img-src 'self' data: blob: https://*.supabase.co",
               // Font locali
               "font-src 'self'",
               // Stripe JS per pagamenti
