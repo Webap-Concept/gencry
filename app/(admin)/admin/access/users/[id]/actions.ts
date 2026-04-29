@@ -3,7 +3,12 @@
 import { getAdminPath } from "@/lib/admin-nav";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
-import { activityLogs, ActivityType, permissions } from "@/lib/db/schema";
+import {
+  activityLogs,
+  ActivityType,
+  permissions,
+  users,
+} from "@/lib/db/schema";
 import {
   addUserPermissionOverride,
   purgeExpiredOverrides,
@@ -14,7 +19,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 
-/** Scrive un record su activity_logs con IP del richiedente. */
+/** Writes a record to activity_logs with the requester's IP. */
 async function logRbacAction(
   adminId: string,
   action: ActivityType,
@@ -39,11 +44,11 @@ const OverrideSchema = z
     granted: z.string().transform((v) => v === "true"),
     reason: z.string().max(500).optional(),
     /**
-     * Riceviamo due campi separati:
-     * - expiresAt: stringa datetime-local (es. "2026-04-09T08:10") — ora locale del browser
-     * - tzOffset: offset in minuti da UTC (es. -180 per EEST UTC+3)
+     * Two separate fields are received:
+     * - expiresAt: datetime-local string (e.g. "2026-04-09T08:10") — browser local time
+     * - tzOffset: offset in minutes from UTC (e.g. -180 for EEST UTC+3)
      *
-     * Convertiamo in UTC sottraendo l'offset:
+     * Convert to UTC by adding the offset:
      *   utcMs = localMs + offsetMinutes * 60_000
      */
     expiresAt: z.string().optional(),
@@ -52,22 +57,37 @@ const OverrideSchema = z
   .transform((data) => {
     let expiresAt: Date | undefined;
     if (data.expiresAt && data.expiresAt.trim() !== "") {
-      // new Date("2026-04-09T08:10") è interpretato come UTC in Node — correggere con l'offset
+      // new Date("2026-04-09T08:10") is parsed as UTC in Node — correct with the offset
       const localMs = new Date(data.expiresAt).getTime();
-      // tzOffset è negativo per UTC+ (convenzione JS getTimezoneOffset)
+      // tzOffset is negative for UTC+ (JS getTimezoneOffset convention)
       expiresAt = new Date(localMs + data.tzOffset * 60_000);
     }
     return { ...data, expiresAt };
   });
 
+async function assertUserNotDeleted(userId: string) {
+  const [target] = await db
+    .select({ deletedAt: users.deletedAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (target?.deletedAt) {
+    return "This user has been deleted and cannot be modified.";
+  }
+  return null;
+}
+
 export async function addOverride(formData: FormData) {
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Non autorizzato" };
+  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
 
   const parsed = OverrideSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { userId, permissionId, granted, reason, expiresAt } = parsed.data;
+
+  const blocked = await assertUserNotDeleted(userId);
+  if (blocked) return { error: blocked };
 
   // Recupera la key del permesso per il log
   const [perm] = await db
@@ -100,7 +120,10 @@ export async function addOverride(formData: FormData) {
 
 export async function removeOverride(overrideId: number, userId: string) {
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Non autorizzato" };
+  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+
+  const blocked = await assertUserNotDeleted(userId);
+  if (blocked) return { error: blocked };
 
   await removeUserPermissionOverride(overrideId);
 
@@ -115,12 +138,15 @@ export async function removeOverride(overrideId: number, userId: string) {
 }
 
 /**
- * Elimina tutti gli override scaduti dell'utente.
- * Chiamata sia manualmente dal pulsante UI sia automaticamente al caricamento della pagina.
+ * Deletes all expired overrides for the user.
+ * Called both manually from the UI button and automatically on page load.
  */
 export async function purgeExpired(userId: string) {
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Non autorizzato" };
+  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+
+  const blocked = await assertUserNotDeleted(userId);
+  if (blocked) return { error: blocked };
 
   const deleted = await purgeExpiredOverrides(userId);
 

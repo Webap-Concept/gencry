@@ -19,13 +19,17 @@ export async function banUser(userId: string, reason?: string) {
   await requireAdmin();
 
   const [target] = await db
-    .select({ isAdmin: users.isAdmin })
+    .select({ isAdmin: users.isAdmin, deletedAt: users.deletedAt })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
   if (target?.isAdmin) {
     throw new Error("You cannot suspend an admin.");
+  }
+
+  if (target?.deletedAt) {
+    throw new Error("This user has been deleted and cannot be modified.");
   }
 
   await db
@@ -41,6 +45,17 @@ export async function banUser(userId: string, reason?: string) {
 
 export async function unbanUser(userId: string) {
   await requireAdmin();
+
+  const [target] = await db
+    .select({ deletedAt: users.deletedAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (target?.deletedAt) {
+    throw new Error("This user has been deleted and cannot be modified.");
+  }
+
   await db
     .update(users)
     .set({ bannedAt: null, updatedAt: new Date() })

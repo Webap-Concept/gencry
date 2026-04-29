@@ -103,7 +103,7 @@ export function ActivityList({ activity }: { activity: ActivityItem[] }) {
           <span
             className="text-xs shrink-0"
             style={{ color: "var(--admin-text-faint)" }}>
-            {new Date(log.timestamp).toLocaleDateString("it-IT", {
+            {new Date(log.timestamp).toLocaleDateString("en-US", {
               day: "numeric",
               month: "short",
               hour: "2-digit",

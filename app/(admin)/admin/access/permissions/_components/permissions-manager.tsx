@@ -134,7 +134,7 @@ function EditPermissionForm({
               background: "var(--admin-card-border)",
               color: "var(--admin-text-faint)",
             }}>
-            {perm.isSystem ? "sistema" : "custom"}
+            {perm.isSystem ? "system" : "custom"}
           </span>
         </div>
         <p
@@ -349,7 +349,7 @@ function PermissionCatalog({
               <label
                 className="block text-xs font-medium mb-1"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Chiave *
+                Key *
               </label>
               <input
                 name="key"
@@ -394,7 +394,7 @@ function PermissionCatalog({
                 key={(suggested?.key ?? "custom") + "-group"}
               />
               <p className="text-[11px] mt-1">
-                preferibilmente lascia il gruppo suggerito
+                Prefer to keep the suggested group
               </p>
             </div>
             <div>
@@ -405,7 +405,7 @@ function PermissionCatalog({
               </label>
               <input
                 name="description"
-                placeholder="Opzionale"
+                placeholder="Optional"
                 className={inputCls}
                 style={inputStyle}
               />
@@ -437,7 +437,7 @@ function PermissionCatalog({
               disabled={pending}
               className="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
               style={{ background: "var(--admin-accent)", color: "#fff" }}>
-              {pending ? "Salvataggio..." : "Salva"}
+              {pending ? "Saving..." : "Save"}
             </button>
           </div>
         </form>
@@ -510,7 +510,7 @@ function GroupSection({
               background: "var(--admin-card-border)",
               color: "var(--admin-text-faint)",
             }}>
-            {perms.length} {perms.length === 1 ? "chiave" : "chiavi"}
+            {perms.length} {perms.length === 1 ? "key" : "keys"}
           </span>
           {open ? (
             <ChevronDown
@@ -578,8 +578,8 @@ function GroupSection({
                       onMouseLeave={(e) =>
                         (e.currentTarget.style.background = "transparent")
                       }
-                      title={`Modifica "${perm.label}"`}
-                      aria-label={`Modifica permesso ${perm.label}`}>
+                      title={`Edit "${perm.label}"`}
+                      aria-label={`Edit permission ${perm.label}`}>
                       <Pencil size={13} />
                     </button>
                   )}
@@ -588,14 +588,14 @@ function GroupSection({
                       <button
                         onClick={() => handleDelete(perm.id)}
                         className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        title="Conferma eliminazione">
+                        title="Confirm deletion">
                         <Check size={13} />
                       </button>
                       <button
                         onClick={() => setDeletingId(null)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: "var(--admin-text-muted)" }}
-                        title="Annulla">
+                        title="Cancel">
                         <X size={13} />
                       </button>
                     </div>
@@ -766,7 +766,7 @@ function PresetGroupHeader({
               color: "#dc2626",
               border: "1px solid #fecaca",
             }}
-            title={`Revoca tutti i permessi del gruppo "${group}" da questo ruolo`}>
+            title={`Revoke all permissions in the group "${group}" from this role`}>
             <X size={10} />
             Revoke all
           </button>
@@ -844,7 +844,7 @@ function RoleMatrix({
   const role = roles.find((r) => r.id === selectedRole);
 
   const grouped = permissions.reduce<Record<string, Permission[]>>((acc, p) => {
-    const g = p.group ?? "Altro";
+    const g = p.group ?? "Other";
     (acc[g] ??= []).push(p);
     return acc;
   }, {});
@@ -918,7 +918,7 @@ function RoleMatrix({
         className="py-12 text-center"
         style={{ color: "var(--admin-text-faint)" }}>
         <Shield size={28} className="mx-auto mb-2 opacity-30" />
-        <p className="text-sm">Nessun ruolo trovato</p>
+        <p className="text-sm">No role found</p>
       </div>
     );
   }
@@ -940,7 +940,7 @@ function RoleMatrix({
             borderBottom: "1px solid var(--admin-card-border)",
             color: "var(--admin-text-faint)",
           }}>
-          Ruoli
+          Roles
         </div>
         {roles.map((r) => {
           const count = optimisticRPs.filter((rp) => rp.roleId === r.id).length;
@@ -1052,7 +1052,7 @@ function RoleMatrix({
                           "1px solid color-mix(in oklch, var(--admin-accent) 25%, transparent)",
                       }}
                       title="Grant ALL permissions to this Role">
-                      <CheckSquare size={10} /> Tutti
+                      <CheckSquare size={10} /> All
                     </button>
                     <button
                       onClick={() =>
@@ -1081,7 +1081,7 @@ function RoleMatrix({
                   />
                   <input
                     type="text"
-                    placeholder="Filtra..."
+                    placeholder="Filter..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-7 pr-3 py-1.5 text-xs rounded-lg outline-none border"
@@ -1145,7 +1145,7 @@ function RoleMatrix({
                           className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                           title={
                             role.isAdmin
-                              ? "Admin ha tutti i permessi"
+                              ? "Admin has all permissions"
                               : has
                                 ? `Revoke "${perm.label}"`
                                 : `Grant "${perm.label}"`

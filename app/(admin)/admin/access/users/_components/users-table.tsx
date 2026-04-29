@@ -123,11 +123,11 @@ function UserRow({ user }: { user: AdminUser }) {
 
       {/* Actions */}
       <td className="px-4 py-3">
-        {user.isAdmin ? (
+        {user.isAdmin || isDeleted ? (
           <span
             className="text-xs italic"
             style={{ color: "var(--admin-text-faint)" }}>
-            —
+            {isDeleted ? "Deleted" : "—"}
           </span>
         ) : (
           <div className="flex items-center gap-2">

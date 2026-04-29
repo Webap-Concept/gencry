@@ -14,6 +14,7 @@ export function BanButton({ user }: { user: AdminUserDetail }) {
   const [showModal, setShowModal] = useState(false);
   const [pending, startTransition] = useTransition();
   const isBanned = !!user.bannedAt;
+  const isDeleted = !!user.deletedAt;
   const userName =
     [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
 
@@ -24,6 +25,8 @@ export function BanButton({ user }: { user: AdminUserDetail }) {
       </span>
     );
   }
+
+  if (isDeleted) return null;
 
   return (
     <>
@@ -98,9 +101,11 @@ export function DeleteButton({
 export function RoleSelector({
   user,
   availableRoles,
+  isDeleted = false,
 }: {
   user: AdminUserDetail;
   availableRoles: RoleRow[];
+  isDeleted?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState(user.role);
@@ -109,11 +114,13 @@ export function RoleSelector({
   const currentRoleData = availableRoles.find((r) => r.name === selected);
 
   function handleSelect(roleName: string) {
+    if (isDeleted) return;
     setSelected(roleName);
     setSaved(false);
   }
 
   function handleSave() {
+    if (isDeleted) return;
     startTransition(async () => {
       await setUserRole(user.id, selected);
       setSaved(true);
@@ -124,7 +131,9 @@ export function RoleSelector({
   return (
     <div className="space-y-4">
       {/* Role Grid */}
-      <div className="grid grid-cols-1 gap-2">
+      <div
+        className="grid grid-cols-1 gap-2"
+        style={isDeleted ? { opacity: 0.55 } : undefined}>
         {availableRoles.map((role) => {
           const isSelected = selected === role.name;
           return (
@@ -132,7 +141,8 @@ export function RoleSelector({
               key={role.name}
               type="button"
               onClick={() => handleSelect(role.name)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+              disabled={isDeleted}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all disabled:cursor-not-allowed"
               style={{
                 background: isSelected ? role.color + "12" : "var(--admin-bg)",
                 border: isSelected
@@ -185,7 +195,7 @@ export function RoleSelector({
       </div>
 
       {/* Footer — save only if changed */}
-      {selected !== user.role && (
+      {!isDeleted && selected !== user.role && (
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
             Changing from{" "}
