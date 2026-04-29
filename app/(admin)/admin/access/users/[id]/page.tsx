@@ -235,12 +235,12 @@ async function UserContent({
           <img
             src={user.avatarUrl}
             alt={`${user.firstName} ${user.lastName}`}
-            className="w-14 h-14 rounded-2xl object-cover shrink-0"
+            className="w-14 h-14 rounded-full object-cover shrink-0"
             referrerPolicy="no-referrer"
           />
         ) : (
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold shrink-0 text-white"
+            className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0 text-white"
             style={{ background: "var(--admin-accent)" }}>
             {initials}
           </div>

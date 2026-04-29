@@ -64,12 +64,12 @@ function UserRow({ user }: { user: AdminUser }) {
             <img
               src={user.avatarUrl}
               alt={`${user.firstName} ${user.lastName}`}
-              className="w-8 h-8 rounded-full object-cover shrink-0"
+              className="w-10 h-10 rounded-full object-cover shrink-0"
               referrerPolicy="no-referrer"
             />
           ) : (
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
               style={{ background: user.roleColor ?? "var(--admin-accent)" }}>
               {initials}
             </div>
