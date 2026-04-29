@@ -1,7 +1,12 @@
 // lib/email/templates/welcome.ts
 import { getAppSettings } from "@/lib/db/settings-queries";
+import {
+  ctaButton,
+  paragraphs,
+  renderEmail,
+  resolveEmailLogoUrl,
+} from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
-import { emailTheme as t } from "@/lib/email/theme";
 
 export async function sendWelcomeEmail(to: string, userName?: string) {
   const settings = await getAppSettings();
@@ -9,7 +14,12 @@ export async function sendWelcomeEmail(to: string, userName?: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const greeting = userName ? `Ciao ${userName},` : "Ciao,";
 
-  const vars = { appName: app_name, userEmail: to, userName: userName ?? "", appUrl };
+  const vars = {
+    appName: app_name,
+    userEmail: to,
+    userName: userName ?? "",
+    appUrl,
+  };
 
   const subject = resolveTemplate(
     settings.email_welcome_subject,
@@ -17,98 +27,42 @@ export async function sendWelcomeEmail(to: string, userName?: string) {
     vars,
   );
   const bcc = settings.email_welcome_bcc ?? undefined;
-  const bodyText = resolveTemplate(settings.email_welcome_body, null, vars);
-  const footerText = resolveTemplate(
-    settings.email_welcome_footer,
-    `\u00a9 ${new Date().getFullYear()} ${app_name} \u00b7 Tutti i diritti riservati`,
+  const bodyText = resolveTemplate(
+    settings.email_welcome_body,
+    `Benvenuto in ${app_name}! Il tuo account è stato creato con successo.`,
     vars,
   );
+  const footerText = resolveTemplate(
+    settings.email_welcome_footer,
+    `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+    vars,
+  );
+
+  const contentHtml = `
+    ${paragraphs(bodyText)}
+    ${appUrl ? ctaButton(appUrl, "Accedi alla piattaforma") : ""}
+  `;
 
   await sendEmail({
     to,
     bcc,
     subject,
-    html: buildHtml({ greeting, bodyText, footerText, appName: app_name, appUrl }),
+    html: renderEmail({
+      appName: app_name,
+      logoUrl: resolveEmailLogoUrl(settings),
+      title: subject,
+      greeting,
+      contentHtml,
+      footerText,
+    }),
   });
 }
 
 function resolveTemplate(
   stored: string | null,
-  fallback: string | null,
+  fallback: string,
   vars: Record<string, string>,
 ): string {
-  const tpl = stored?.trim() || fallback || "";
+  const tpl = stored?.trim() || fallback;
   return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
-}
-
-function buildHtml({
-  greeting,
-  bodyText,
-  footerText,
-  appName,
-  appUrl,
-}: {
-  greeting: string;
-  bodyText: string;
-  footerText: string;
-  appName: string;
-  appUrl: string;
-}): string {
-  const bodyHtml = bodyText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `<p style="margin:0 0 12px;color:${t.textMuted};font-size:15px;line-height:1.6;">${line}</p>`)
-    .join("");
-
-  return `
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Benvenuto</title>
-</head>
-<body style="margin:0;padding:0;background:${t.bgPage};font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:${t.bgPage};padding:40px 0;">
-    <tr>
-      <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0"
-          style="background:${t.bgCard};border-radius:${t.radiusXl};overflow:hidden;border:1px solid ${t.border};">
-          <tr>
-            <td style="background:${t.brandPrimary};padding:32px 40px;">
-              <h1 style="margin:0;color:${t.textInverse};font-size:22px;font-weight:700;letter-spacing:-0.3px;">
-                \uD83D\uDCDA ${appName}
-              </h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:40px;">
-              <p style="margin:0 0 20px;color:${t.textPrimary};font-size:16px;">${greeting}</p>
-              ${bodyHtml}
-              ${appUrl ? `
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
-                <tr>
-                  <td align="center">
-                    <a href="${appUrl}"
-                      style="display:inline-block;background:${t.brandPrimary};color:${t.textInverse};font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:${t.radiusXl};">
-                      Accedi alla piattaforma
-                    </a>
-                  </td>
-                </tr>
-              </table>` : ""}
-            </td>
-          </tr>
-          <tr>
-            <td style="background:${t.bgPage};padding:20px 40px;border-top:1px solid ${t.border};">
-              <p style="margin:0;color:${t.textLight};font-size:12px;">${footerText}</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `;
 }

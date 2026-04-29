@@ -17,6 +17,14 @@ export const viewport: Viewport = {
 
 const manrope = Manrope({ subsets: ["latin"] });
 
+function faviconMimeFromUrl(url: string): string | undefined {
+  const clean = url.split("?")[0].toLowerCase();
+  if (clean.endsWith(".svg")) return "image/svg+xml";
+  if (clean.endsWith(".png")) return "image/png";
+  if (clean.endsWith(".ico")) return "image/x-icon";
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Snippet HEAD — tag nativi, NON next/script, NON Suspense.
 //
@@ -141,6 +149,18 @@ export default async function RootLayout({
         manrope.className
       }`}>
       <head>
+        {/*
+         * Favicon dinamico — sovrascrive app/favicon.ico quando l'admin
+         * ne carica uno custom. Va prima degli snippet così un eventuale
+         * snippet head con <link rel="icon"> ha l'ultima parola.
+         */}
+        {settings.app_favicon_url && (
+          <link
+            rel="icon"
+            href={settings.app_favicon_url}
+            type={faviconMimeFromUrl(settings.app_favicon_url)}
+          />
+        )}
         {/*
          * JsonLdScript rimane in Suspense: è opzionale e non urgente.
          * HeadSnippets NON usa Suspense: i dati sono già risolti sopra,
