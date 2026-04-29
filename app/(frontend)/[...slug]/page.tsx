@@ -1,7 +1,9 @@
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
+import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -50,7 +52,10 @@ export default async function FrontendPage({
   const { slug } = await params;
   const pageSlug = slug.join("/");
 
-  const pageData = await getPageWithTemplate(pageSlug);
+  const [pageData, settings] = await Promise.all([
+    getPageWithTemplate(pageSlug),
+    getAppSettings(),
+  ]);
 
   if (!pageData || pageData.status !== "published") {
     notFound();
@@ -61,9 +66,11 @@ export default async function FrontendPage({
 
   const fields = parseCustomFields(pageData.customFields);
 
+  // Risolvi i placeholder {token} con i valori reali, poi sanitizza l'HTML.
+  const resolvedContent = resolvePlaceholders(pageData.content, settings);
   const safePage = {
     ...pageData,
-    content: sanitizeRichTextHtml(pageData.content),
+    content: sanitizeRichTextHtml(resolvedContent),
   };
 
   return (
