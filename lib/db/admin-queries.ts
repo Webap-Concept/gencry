@@ -218,6 +218,7 @@ export type AdminUser = {
   bannedAt: Date | null;
   deletedAt: Date | null;
   bannedReason: string | null;
+  avatarUrl: string | null;
 };
 
 export async function getAdminUsers({
@@ -300,6 +301,7 @@ export async function getAdminUsers({
         bannedAt: users.bannedAt,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
+        avatarUrl: userProfiles.avatarUrl,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -375,6 +377,7 @@ export async function getStaffUsers({
         bannedAt: users.bannedAt,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
+        avatarUrl: userProfiles.avatarUrl,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -420,6 +423,7 @@ export async function getAdminUserById(id: string) {
       bannedAt: users.bannedAt,
       deletedAt: users.deletedAt,
       bannedReason: users.bannedReason,
+      avatarUrl: userProfiles.avatarUrl,
     })
     .from(users)
     .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
