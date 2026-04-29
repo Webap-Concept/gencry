@@ -46,7 +46,7 @@ function Badge({ blocked }: { blocked: boolean }) {
         border: `1px solid ${blocked ? "#fca5a5" : "#fcd34d"}`,
       }}
     >
-      {blocked ? "Blacklistato" : "Sospetto"}
+      {blocked ? "Blacklisted" : "Suspicious"}
     </span>
   );
 }
@@ -117,7 +117,7 @@ function NumberField({ label, desc, fieldKey, value, min, max, onChange }: {
           width: "100%",
           borderRadius: 6,
           border: "1px solid var(--admin-border)",
-          background: "var(--admin-bg)",
+          background: "var(--admin-page-bg)",
           color: "var(--admin-text)",
           padding: "7px 10px",
           fontSize: 13,
@@ -149,18 +149,18 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
     fd.set("ip", ip);
     startTransition(async () => {
       const res = await actionUnblockIp(fd);
-      if (res.ok) showFeedback(`IP ${ip} sbloccato`);
+      if (res.ok) showFeedback(`IP ${ip} unblocked`);
     });
   }
 
   function handleBlacklist(ip: string) {
-    const reason = window.prompt(`Motivo blacklist per ${ip} (opzionale):`) ?? undefined;
+    const reason = window.prompt(`Blacklist reason for ${ip} (optional):`) ?? undefined;
     const fd = new FormData();
     fd.set("ip", ip);
     if (reason) fd.set("reason", reason);
     startTransition(async () => {
       const res = await actionBlacklistIp(fd);
-      if (res.ok) showFeedback(`IP ${ip} aggiunto alla blacklist`);
+      if (res.ok) showFeedback(`IP ${ip} added to blacklist`);
     });
   }
 
@@ -169,7 +169,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
     fd.set("ip", ip);
     startTransition(async () => {
       const res = await actionRemoveFromBlacklist(fd);
-      if (res.ok) showFeedback(`IP ${ip} rimosso dalla blacklist`);
+      if (res.ok) showFeedback(`IP ${ip} removed from blacklist`);
     });
   }
 
@@ -184,15 +184,15 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
     fd.set("bf_alert_threshold", String(configValues.alertThreshold));
     startTransition(async () => {
       const res = await actionUpdateBruteforceConfig(fd);
-      if (res.ok) showFeedback("Configurazione salvata");
-      else showFeedback("Errore: " + (res as { ok: false; error: string }).error);
+      if (res.ok) showFeedback("Configuration saved");
+      else showFeedback("Error: " + (res as { ok: false; error: string }).error);
     });
   }
 
   const tabs = [
-    { key: "offenders" as const, label: `Tentativi (${offenders.length})` },
+    { key: "offenders" as const, label: `Attempts (${offenders.length})` },
     { key: "blacklist" as const, label: `Blacklist (${blacklist.length})` },
-    { key: "config" as const, label: "Configurazione" },
+    { key: "config" as const, label: "Configuration" },
   ];
 
   const thStyle: React.CSSProperties = {
@@ -233,12 +233,12 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
         {[
-          { label: "IP sospetti (24h)",    value: offenders.length },
-          { label: "IP blacklistati",       value: blacklist.length },
+          { label: "Suspicious IPs (24h)",    value: offenders.length },
+          { label: "Blacklisted IPs",       value: blacklist.length },
           { label: "Max login (signin)",    value: configValues.signinMax },
           { label: "Max signup",            value: configValues.signupMax },
           { label: "Max check (5 min)",     value: configValues.checkMax },
-          { label: "Finestra login (min)",  value: configValues.windowMinutes },
+          { label: "Login window (min)",  value: configValues.windowMinutes },
         ].map((s) => (
           <div key={s.label} style={{
             borderRadius: 10,
@@ -282,7 +282,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {["IP", "Email", "Tentativi (24h)", "Ultimo", "Stato", "Azioni"].map((h) => (
+                {["IP", "Email", "Attempts (24h)", "Last", "Status", "Actions"].map((h) => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -291,7 +291,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
               {offenders.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ ...tdStyle, textAlign: "center", padding: 32, color: "var(--admin-text-faint)" }}>
-                    Nessun IP sospetto nelle ultime 24h
+                    No suspicious IPs in the last 24h
                   </td>
                 </tr>
               )}
@@ -308,12 +308,12 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
                     <div style={{ display: "flex", gap: 6 }}>
                       {!o.isBlacklisted && (
                         <>
-                          <button disabled={pending} onClick={() => handleUnblock(o.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Sblocca</button>
+                          <button disabled={pending} onClick={() => handleUnblock(o.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Unblock</button>
                           <button disabled={pending} onClick={() => handleBlacklist(o.ip)} style={{ ...btnDanger, opacity: pending ? 0.5 : 1 }}>Blacklist</button>
                         </>
                       )}
                       {o.isBlacklisted && (
-                        <button disabled={pending} onClick={() => handleRemoveBlacklist(o.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Rimuovi</button>
+                        <button disabled={pending} onClick={() => handleRemoveBlacklist(o.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Remove</button>
                       )}
                     </div>
                   </td>
@@ -330,7 +330,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {["IP", "Motivo", "Aggiunto il", "Azioni"].map((h) => (
+                {["IP", "Reason", "Added on", "Actions"].map((h) => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -339,7 +339,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
               {blacklist.length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ ...tdStyle, textAlign: "center", padding: 32, color: "var(--admin-text-faint)" }}>
-                    Nessun IP in blacklist
+                    No IPs in blacklist
                   </td>
                 </tr>
               )}
@@ -351,7 +351,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
                     {new Date(b.createdAt).toLocaleString("it-IT")}
                   </td>
                   <td style={tdStyle}>
-                    <button disabled={pending} onClick={() => handleRemoveBlacklist(b.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Rimuovi</button>
+                    <button disabled={pending} onClick={() => handleRemoveBlacklist(b.ip)} style={{ ...btnBase, opacity: pending ? 0.5 : 1 }}>Remove</button>
                   </td>
                 </tr>
               ))}
@@ -360,47 +360,56 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
         </div>
       )}
 
-      {/* Tab: Configurazione */}
+      {/* Tab: Configuration */}
       {tab === "config" && (
-        <div style={{ maxWidth: 520, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{
+          maxWidth: 600,
+          borderRadius: 10,
+          border: "1px solid var(--admin-border)",
+          background: "var(--admin-card-bg)",
+          padding: "24px 28px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+        }}>
 
           <p style={{ fontSize: 12, color: "var(--admin-text-faint)" }}>
-            Le modifiche si applicano immediatamente ai nuovi tentativi.
+            Changes apply immediately to new attempts.
           </p>
 
           {/* Login */}
           <ConfigSection
             title="🔐 Login"
-            description="Tentativi di accesso falliti per coppia IP + email prima del blocco."
+            description="Failed login attempts per IP + email pair before blocking."
           >
-            <NumberField label="Max tentativi login" desc="Blocco dopo N password errate" fieldKey="signinMax" value={configValues.signinMax} min={1} max={100} onChange={handleFieldChange} />
+            <NumberField label="Max login attempts" desc="Block after N incorrect passwords" fieldKey="signinMax" value={configValues.signinMax} min={1} max={100} onChange={handleFieldChange} />
           </ConfigSection>
 
-          {/* Registrazione */}
+          {/* Registration */}
           <ConfigSection
-            title="📝 Registrazione"
-            description="Invii del form di registrazione per IP prima del blocco."
+            title="📝 Registration"
+            description="Registration form submissions per IP before blocking."
           >
-            <NumberField label="Max tentativi registrazione" desc="Blocco dopo N submit del form signup" fieldKey="signupMax" value={configValues.signupMax} min={1} max={100} onChange={handleFieldChange} />
+            <NumberField label="Max registration attempts" desc="Block after N signup form submissions" fieldKey="signupMax" value={configValues.signupMax} min={1} max={100} onChange={handleFieldChange} />
           </ConfigSection>
 
-          {/* Check disponibilità */}
+          {/* Availability check */}
           <ConfigSection
-            title="🔍 Check email / username"
-            description="Controlli di disponibilità nel form di registrazione (on-blur). Soglia alta per non penalizzare gli utenti reali."
+            title="🔍 Email / username check"
+            description="Availability checks in registration form (on-blur). High threshold to not penalize real users."
           >
-            <NumberField label="Max check per finestra" desc="Blocco dopo N check in bf_check_window minuti" fieldKey="checkMax" value={configValues.checkMax} min={5} max={500} onChange={handleFieldChange} />
-            <NumberField label="Finestra check (minuti)" desc="Durata della finestra di conteggio dei check" fieldKey="checkWindow" value={configValues.checkWindow} min={1} max={60} onChange={handleFieldChange} />
+            <NumberField label="Max checks per window" desc="Block after N checks in bf_check_window minutes" fieldKey="checkMax" value={configValues.checkMax} min={5} max={500} onChange={handleFieldChange} />
+            <NumberField label="Check window (minutes)" desc="Duration of the check counting window" fieldKey="checkWindow" value={configValues.checkWindow} min={1} max={60} onChange={handleFieldChange} />
           </ConfigSection>
 
-          {/* Comune */}
+          {/* Common */}
           <ConfigSection
-            title="⚙️ Parametri comuni"
-            description="Finestra e durata blocco condivisi tra login e registrazione. L'alert email scatta quando un IP supera la soglia in 24h."
+            title="⚙️ Common parameters"
+            description="Window and lockout duration shared between login and registration. Email alert triggers when an IP exceeds threshold in 24h."
           >
-            <NumberField label="Finestra login/signup (minuti)" desc="Intervallo in cui vengono contati i tentativi" fieldKey="windowMinutes" value={configValues.windowMinutes} min={1} max={1440} onChange={handleFieldChange} />
-            <NumberField label="Durata blocco (minuti)" desc="Per quanto tempo rimane bloccato l'IP" fieldKey="lockoutMinutes" value={configValues.lockoutMinutes} min={1} max={10080} onChange={handleFieldChange} />
-            <NumberField label="Soglia alert email" desc="Tentativi totali (24h) per alert via Resend" fieldKey="alertThreshold" value={configValues.alertThreshold} min={1} max={1000} onChange={handleFieldChange} />
+            <NumberField label="Login/signup window (minutes)" desc="Interval in which attempts are counted" fieldKey="windowMinutes" value={configValues.windowMinutes} min={1} max={1440} onChange={handleFieldChange} />
+            <NumberField label="Lockout duration (minutes)" desc="How long the IP remains blocked" fieldKey="lockoutMinutes" value={configValues.lockoutMinutes} min={1} max={10080} onChange={handleFieldChange} />
+            <NumberField label="Email alert threshold" desc="Total attempts (24h) to trigger Resend email alert" fieldKey="alertThreshold" value={configValues.alertThreshold} min={1} max={1000} onChange={handleFieldChange} />
           </ConfigSection>
 
           <button
@@ -420,7 +429,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
               transition: "opacity 0.15s",
             }}
           >
-            {pending ? "Salvataggio…" : "Salva configurazione"}
+            {pending ? "Saving…" : "Save configuration"}
           </button>
         </div>
       )}
