@@ -24,7 +24,7 @@ export default async function Layout({
   return (
     <div className="min-h-dvh bg-gc-bg">
       <PageShowRevalidator />
-      <div className="mx-auto max-w-[1440px] flex">
+      <div className="mx-auto max-w-[1280px] flex">
         <AppSidebar />
         <main className="flex-1 min-w-0 pb-20 md:pb-6">
           {/* Container del contenuto: max-w-760 centrato nel main.
