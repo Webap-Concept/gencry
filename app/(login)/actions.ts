@@ -13,6 +13,15 @@ import {
 } from "@/lib/auth/middleware";
 import { createVerificationCode } from "@/lib/auth/otp";
 import {
+  addTrustedDevice,
+  checkDeviceTrust,
+  generateDeviceToken,
+  getDeviceToken,
+  setPendingAuthCookie,
+  setDeviceTokenCookie,
+} from "@/lib/auth/trusted-device";
+import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
+import {
   isUniqueConstraintError,
   resolveConflictField,
 } from "@/lib/auth/race-condition";
@@ -135,12 +144,33 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
   }
 
   await recordLoginAttempt(email, ip, true);
-  await Promise.all([
-    setSession(foundUser),
-    logActivity(foundUser.id, ActivityType.SIGN_IN),
-  ]);
 
-  redirect(foundUser.role === "admin" ? "/admin" : "/");
+  const deviceToken = await getDeviceToken();
+  const { trusted, isFirstDevice } = await checkDeviceTrust(foundUser.id, deviceToken);
+
+  if (trusted) {
+    if (isFirstDevice) {
+      const newToken = generateDeviceToken();
+      const ua = headersList.get("user-agent") ?? undefined;
+      await addTrustedDevice(foundUser.id, newToken, ua);
+      await setDeviceTokenCookie(newToken);
+    }
+    await Promise.all([
+      setSession(foundUser),
+      logActivity(foundUser.id, ActivityType.SIGN_IN),
+    ]);
+    redirect(foundUser.role === "admin" ? "/admin" : "/");
+  }
+
+  // Dispositivo non riconosciuto: OTP via email, sessione sospesa
+  const code = await createVerificationCode(foundUser.id, "device_verification");
+  try {
+    await sendDeviceVerificationEmail(foundUser.email, code);
+  } catch (err) {
+    console.error("[signIn] sendDeviceVerificationEmail failed:", err);
+  }
+  await setPendingAuthCookie(foundUser.id, foundUser.role);
+  redirect("/verify-device");
 });
 
 // ---------------------------------------------------------------------------
