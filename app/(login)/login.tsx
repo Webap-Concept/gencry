@@ -580,7 +580,7 @@ export function Login({
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken("")}
                       onError={() => setTurnstileToken("")}
-                      options={{ theme: "auto" }}
+                      options={{ theme: "light", appearance: "interaction-only" }}
                     />
                   </>
                 )}
@@ -595,12 +595,7 @@ export function Login({
                 {/* Il bottone è sempre cliccabile: solo pending/checking bloccano */}
                 <Button
                   type="submit"
-                  disabled={
-                    pending ||
-                    checkingEmail ||
-                    checkingUsername ||
-                    (!!turnstileSiteKey && !turnstileToken)
-                  }
+                  disabled={pending || checkingEmail || checkingUsername}
                   className="w-full">
                   {pending ? (
                     <>
