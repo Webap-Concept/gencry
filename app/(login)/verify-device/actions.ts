@@ -14,6 +14,7 @@ import {
   generateDeviceToken,
   getPendingAuth,
   setDeviceTokenCookie,
+  setPendingAuthCookie,
 } from "@/lib/auth/trusted-device";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
@@ -71,7 +72,7 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
     return { error: "Sessione scaduta. Accedi di nuovo." };
   }
 
-  const { userId } = pending;
+  const { userId, role } = pending;
 
   const rlKey = `device-otp-resend:${userId}`;
   const { blocked } = await checkGeneralRateLimit(rlKey, RESEND_MAX, RESEND_WINDOW_SECONDS);
@@ -92,6 +93,10 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
 
   const code = await createVerificationCode(userId, "device_verification");
   await sendDeviceVerificationEmail(row.email, code);
+
+  // Rinnova il cookie pending per altri 10 minuti: l'utente ha una finestra
+  // piena per inserire il codice appena ricevuto
+  await setPendingAuthCookie(userId, role);
 
   return { success: "Codice inviato! Controlla la tua email." };
 });
