@@ -37,6 +37,12 @@ const ROTATION_TARGETS: RotationTarget[] = [
     maxAgeDays: 180,
     link: "/admin/settings/redis",
   },
+  {
+    key: "cf_turnstile_secret_key",
+    label: "Cloudflare Turnstile Secret Key",
+    maxAgeDays: 180,
+    link: "/admin/settings/cloudflare",
+  },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -78,8 +84,8 @@ export function computeRotationCandidates(
     out.push({
       type: "secret_rotation_due",
       severity: severityFor(ageDays, target.maxAgeDays),
-      title: `Ruota ${target.label}`,
-      body: `Non viene aggiornata da ${ageDays} giorni (soglia: ${target.maxAgeDays}gg).`,
+      title: `Rotate ${target.label}`,
+      body: `Not updated for ${ageDays} days (threshold: ${target.maxAgeDays}d).`,
       link: target.link,
       dedupKey: `rotation:${target.key}`,
       metadata: {

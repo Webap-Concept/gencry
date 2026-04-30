@@ -1,7 +1,7 @@
 // app/(admin)/admin/tests/_components/tests-dashboard.tsx
 "use client";
 import {
-  FlaskConical, Database, Zap, Mail, Globe,
+  FlaskConical, Database, Zap, Mail, Globe, Shield,
   CheckCircle2, XCircle, AlertCircle, HelpCircle,
   Clock, ChevronDown, ChevronRight,
   SkipForward, CircleDot, ShieldCheck,
@@ -50,10 +50,11 @@ function statusBorder(status: HealthStatus) {
 
 function serviceIcon(name: string) {
   const n = name.toLowerCase();
-  if (n.includes("redis"))  return <Zap      size={15} style={{ color: "var(--admin-accent)" }} />;
-  if (n.includes("resend")) return <Mail     size={15} style={{ color: "var(--admin-accent)" }} />;
-  if (n.includes("google")) return <Globe    size={15} style={{ color: "var(--admin-accent)" }} />;
-  return                            <Database size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (n.includes("redis"))      return <Zap      size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (n.includes("resend"))     return <Mail     size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (n.includes("google"))     return <Globe    size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (n.includes("cloudflare")) return <Shield   size={15} style={{ color: "var(--admin-accent)" }} />;
+  return                                <Database size={15} style={{ color: "var(--admin-accent)" }} />;
 }
 
 function fmt(iso: string) {
@@ -232,6 +233,7 @@ export function TestsDashboard({
     health.redis,
     health.resend,
     health.google,
+    health.cloudflare,
   ];
 
   const allOk    = services.every(s => s.status === "ok");

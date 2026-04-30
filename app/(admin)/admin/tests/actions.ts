@@ -31,6 +31,7 @@ export type HealthChecks = {
   redis: ServiceHealth;
   resend: ServiceHealth;
   google: ServiceHealth;
+  cloudflare: ServiceHealth;
   checkedAt: string;
 };
 
@@ -142,15 +143,46 @@ async function pingGoogle(): Promise<ServiceHealth> {
   }
 }
 
+async function pingCloudflare(): Promise<ServiceHealth> {
+  const start = Date.now();
+  try {
+    const settings = await getAppSettings();
+    const siteKey   = settings.cf_turnstile_site_key;
+    const secretKey = settings.cf_turnstile_secret_key;
+    if (!siteKey || !secretKey) {
+      return { name: "Cloudflare Turnstile", status: "unknown", latencyMs: null, detail: "Keys not configured" };
+    }
+    // POST with an invalid token — Turnstile returns 200 + error-codes.
+    // If the secret itself is wrong we get error-codes: ["invalid-input-secret"].
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret: secretKey, response: "probe" }),
+      signal: AbortSignal.timeout(4000),
+    });
+    const latencyMs = Date.now() - start;
+    if (!res.ok) return { name: "Cloudflare Turnstile", status: "error", latencyMs, detail: `HTTP ${res.status}` };
+    const body = await res.json() as { success: boolean; "error-codes"?: string[] };
+    const errCodes = body["error-codes"] ?? [];
+    if (errCodes.includes("invalid-input-secret")) {
+      return { name: "Cloudflare Turnstile", status: "error", latencyMs, detail: "Invalid secret key" };
+    }
+    return { name: "Cloudflare Turnstile", status: "ok", latencyMs, detail: "Endpoint reachable · keys present" };
+  } catch (e) {
+    return { name: "Cloudflare Turnstile", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+  }
+}
+
 export async function getHealthChecks(): Promise<HealthChecks> {
   await requireAdminPage();
-  const [supabase, redis, resend, google] = await Promise.all([
+  const [supabase, redis, resend, google, cloudflare] = await Promise.all([
     pingSupabase(),
     pingRedis(),
     pingResend(),
     pingGoogle(),
+    pingCloudflare(),
   ]);
-  return { supabase, redis, resend, google, checkedAt: new Date().toISOString() };
+  return { supabase, redis, resend, google, cloudflare, checkedAt: new Date().toISOString() };
 }
 
 // ---------------------------------------------------------------------------
