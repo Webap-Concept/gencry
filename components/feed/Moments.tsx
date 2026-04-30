@@ -29,6 +29,7 @@ export function Moments({ onOpenCoin, onOpenUser }: MomentsProps) {
       <button
         type="button"
         onClick={() => onOpenCoin?.(top.sym)}
+        aria-label={`Top mover 24h: ${top.name}, ${fmtChange(top.change)}`}
         className={cardBase}
         style={{
           background:
@@ -67,6 +68,7 @@ export function Moments({ onOpenCoin, onOpenUser }: MomentsProps) {
       <button
         type="button"
         onClick={() => onOpenCoin?.(flop.sym)}
+        aria-label={`In calo 24h: ${flop.name}, ${fmtChange(flop.change)}`}
         className={cardBase}
         style={{
           background:
@@ -105,6 +107,7 @@ export function Moments({ onOpenCoin, onOpenUser }: MomentsProps) {
       <button
         type="button"
         onClick={() => onOpenUser?.(trendingUser.handle)}
+        aria-label={`Da seguire: ${trendingUser.name}, ${trendingUser.followers.toLocaleString()} follower`}
         className={`${cardBase} col-span-1 sm:col-span-2`}
         style={{
           background:

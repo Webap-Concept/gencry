@@ -51,6 +51,7 @@ export function Ticker({ onOpenCoin }: TickerProps) {
             key={c.sym}
             type="button"
             onClick={() => onOpenCoin?.(c.sym)}
+            aria-label={`Apri ${c.name} — ${c.change >= 0 ? "+" : ""}${c.change.toFixed(1)}% nelle ultime 24 ore`}
             className="inline-flex items-center gap-2 bg-[rgba(245,236,220,0.08)] text-gc-bg px-3 py-1.5 rounded-full flex-shrink-0 transition hover:bg-[rgba(245,236,220,0.16)]"
           >
             <span className="font-mono font-semibold text-xs tabular-nums">

@@ -142,7 +142,7 @@ export default async function RootLayout({
 
   return (
     <html
-      lang="en"
+      lang="it"
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${satoshi.variable} ${instrumentSerif.variable}`}>
       <head>
         {/*

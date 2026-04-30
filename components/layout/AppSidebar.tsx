@@ -75,10 +75,13 @@ export function AppSidebar() {
               <Icon size={18} strokeWidth={1.6} />
               <span className="flex-1">{label}</span>
               {hasNotifications && (
-                <span
-                  aria-label="nuove notifiche"
-                  className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
-                />
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
+                  />
+                  <span className="sr-only">— nuove notifiche</span>
+                </>
               )}
             </Link>
           );
@@ -116,6 +119,16 @@ function UserMiniCard({ user }: { user: UserWithProfile }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ESC chiude il menu (a11y tastiera)
+  useEffect(() => {
+    if (!open) return;
+    function escHandler(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", escHandler);
+    return () => document.removeEventListener("keydown", escHandler);
+  }, [open]);
 
   // Avatar usa la shape User condivisa: ricostruisco da UserWithProfile.
   const initial = (user.firstName?.[0] ?? "U").toUpperCase();

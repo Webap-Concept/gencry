@@ -242,6 +242,26 @@
   }
 }
 
+/* ── a11y ────────────────────────────────────────────────────────────────
+   Focus ring visibile solo per la navigazione tastiera (focus-visible),
+   evita l'outline sgradevole sul click del mouse. Tinta accent per coerenza
+   con il brand. */
+:focus-visible {
+  outline: 2px solid var(--gc-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Disabilita le animazioni decorative GC per chi ha richiesto reduced motion.
+   Le transition più brevi (hover, dropdown) restano: non sono problematiche
+   per chi è sensibile e migliorano comunque la percezione di interazione. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-gc-screen,
+  .animate-gc-pulse {
+    animation: none !important;
+  }
+}
+
 /*
   ---break---
 */
