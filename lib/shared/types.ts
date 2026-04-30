@@ -22,3 +22,12 @@ export type User = {
   followers: number;
   bio: string;
 };
+
+export type Company = {
+  handle: string;
+  name: string;
+  avatar: string;
+  color: string;
+  /** Aziende verificate ottengono il check accanto al nome */
+  verified: boolean;
+};
