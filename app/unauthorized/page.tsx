@@ -31,12 +31,6 @@ export default function UnauthorizedPage() {
           >
             Torna alla home
           </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            Vai alla dashboard
-          </Link>
         </div>
       </div>
     </div>
