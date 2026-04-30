@@ -237,11 +237,12 @@ export default function AdminSidebar({
         </button>
 
         <div
-          className="overflow-hidden transition-all duration-200"
+          className="grid transition-[grid-template-rows] duration-200"
           style={{
-            maxHeight: isOpen ? (item.childrenMaxHeight ?? "400px") : "0px",
+            gridTemplateRows: isOpen ? "1fr" : "0fr",
             opacity: isOpen ? 1 : 0,
           }}>
+          <div className="overflow-hidden min-h-0">
           <div
             className="mt-0.5 mb-0.5 mx-1 rounded-lg py-1 space-y-0.5"
             style={{
@@ -257,6 +258,7 @@ export default function AdminSidebar({
                 sub
               />
             ))}
+          </div>
           </div>
         </div>
       </div>
