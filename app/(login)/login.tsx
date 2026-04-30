@@ -580,7 +580,7 @@ export function Login({
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken("")}
                       onError={() => setTurnstileToken("")}
-                      options={{ theme: "auto" }}
+                      options={{ theme: "light", appearance: "interaction-only" }}
                     />
                   </>
                 )}
