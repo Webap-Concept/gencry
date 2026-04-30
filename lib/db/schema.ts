@@ -436,6 +436,22 @@ export const routeRegistry = pgTable("route_registry", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const staffInvitations = pgTable("staff_invitations", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  invitedBy: uuid("invited_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type StaffInvitation = typeof staffInvitations.$inferSelect;
+
 export const disposableDomains = pgTable("disposable_domains", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   domain: varchar("domain", { length: 255 }).notNull().unique(),
