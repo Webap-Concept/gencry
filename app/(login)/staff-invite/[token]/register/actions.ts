@@ -82,6 +82,8 @@ export async function registerViaInvite(
     .limit(1);
 
   if (!role) return { error: "Il ruolo dell'invito non esiste più." };
+  // isAdmin viene propagato dal flag del ruolo; l'accesso admin via permessi
+  // è gestito dall'RBAC, non dal flag utente.
 
   // ── Validate username ─────────────────────────────────────────────────────
   const usernameValidation = validateUsernameFormat(username);
