@@ -9,6 +9,7 @@ import {
   Mail,
   Send,
   Settings,
+  Shield,
   SlidersHorizontal,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -54,6 +55,11 @@ const SECTIONS: Record<string, SectionMeta> = {
     label: "Redis",
     description: "Configure Redis cache connection and options.",
     icon: Database,
+  },
+  cloudflare: {
+    label: "Cloudflare",
+    description: "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up.",
+    icon: Shield,
   },
 };
 

@@ -11,7 +11,13 @@ export async function generateMetadata(): Promise<Metadata> {
 async function SignInContent() {
   const settings = await getAppSettings();
   const isMaintenance = settings.maintenance_mode === "true";
-  return <Login mode="signin" isMaintenance={isMaintenance} />;
+  return (
+    <Login
+      mode="signin"
+      isMaintenance={isMaintenance}
+      turnstileSiteKey={settings.cf_turnstile_site_key}
+    />
+  );
 }
 
 export default function SignInPage() {

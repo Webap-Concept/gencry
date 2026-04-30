@@ -58,6 +58,21 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+async function verifyTurnstile(token: string | null, ip: string): Promise<boolean> {
+  const settings = await getAppSettings();
+  const secret = settings.cf_turnstile_secret_key;
+  if (!secret) return true; // Turnstile non configurato: skip
+  if (!token) return false;
+
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+  });
+  const json = await res.json() as { success: boolean };
+  return json.success === true;
+}
+
 async function logActivity(
   userId: string,
   type: ActivityType,
@@ -88,6 +103,14 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     headersList.get("x-real-ip") ??
     "unknown";
+
+  const turnstileOk = await verifyTurnstile(
+    formData.get("cf_turnstile_token") as string | null,
+    ip,
+  );
+  if (!turnstileOk) {
+    return { error: "Verifica anti-bot fallita. Ricarica la pagina e riprova.", email, password };
+  }
 
   const { blocked } = await checkRateLimit(email, ip);
   if (blocked) {
@@ -215,7 +238,7 @@ const signUpSchema = z
     path: ["acceptPrivacy"],
   });
 
-export const signUp = validatedAction(signUpSchema, async (data) => {
+export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const { username, email, password } = data;
   // firstName e lastName non presenti in questa fase: saranno null nel DB
   // fino a quando l'utente non li compila dalla pagina del profilo.
@@ -234,6 +257,14 @@ export const signUp = validatedAction(signUpSchema, async (data) => {
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     headersList.get("x-real-ip") ??
     "unknown";
+
+  const turnstileOk = await verifyTurnstile(
+    formData.get("cf_turnstile_token") as string | null,
+    ip,
+  );
+  if (!turnstileOk) {
+    return { error: "Verifica anti-bot fallita. Ricarica la pagina e riprova.", email, password };
+  }
 
   // Rate limit registrazione (bf_signup_max, default 10 per IP)
   const signupCheck = await checkSignupRateLimit(ip);

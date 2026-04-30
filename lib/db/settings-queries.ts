@@ -66,6 +66,9 @@ export type SettingKey =
   | 'github_repo'         // formato "owner/repo"
   | 'github_pat'          // fine-grained PAT con Contents:Read
   | 'github_ci_branch'    // default "ci-results"
+  // Cloudflare Turnstile
+  | 'cf_turnstile_site_key'
+  | 'cf_turnstile_secret_key'
   // Notifiche admin — timestamp dell'ultimo run del dispatcher (throttle 1h).
   // Valore: ISO 8601 string oppure null.
   | 'notifications_dispatcher_last_run'
@@ -125,6 +128,9 @@ export type AppSettings = {
   github_repo: string | null
   github_pat: string | null
   github_ci_branch: string | null
+  // Cloudflare Turnstile
+  cf_turnstile_site_key: string | null
+  cf_turnstile_secret_key: string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -179,6 +185,8 @@ const DEFAULTS: AppSettings = {
   github_repo: null,
   github_pat: null,
   github_ci_branch: 'ci-results',
+  cf_turnstile_site_key: null,
+  cf_turnstile_secret_key: null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
