@@ -38,8 +38,8 @@ const registerSchema = z.object({
     .regex(/[A-Z]/, "La password deve contenere almeno una lettera maiuscola")
     .regex(/[0-9]/, "La password deve contenere almeno un numero")
     .regex(/[^a-zA-Z0-9]/, "La password deve contenere almeno un carattere speciale"),
-  acceptTerms: z.literal("on", { errorMap: () => ({ message: "Devi accettare i Termini di Servizio" }) }),
-  acceptPrivacy: z.literal("on", { errorMap: () => ({ message: "Devi accettare la Privacy Policy" }) }),
+  acceptTerms: z.literal("on", { message: "Devi accettare i Termini di Servizio" }),
+  acceptPrivacy: z.literal("on", { message: "Devi accettare la Privacy Policy" }),
 });
 
 export type RegisterState = { error?: string };
