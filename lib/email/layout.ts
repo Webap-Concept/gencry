@@ -66,7 +66,10 @@ export function otpCard(label: string, code: string): string {
 </table>`;
 }
 
-export function infoBox(message: string, variant: "info" | "danger" = "info"): string {
+export function infoBox(
+  message: string,
+  variant: "info" | "danger" = "info",
+): string {
   const palette =
     variant === "danger"
       ? { bg: "#fff5f5", border: "#fecaca", text: "#b91c1c" }
@@ -102,7 +105,7 @@ export function renderEmail({
 }): string {
   const headerInner = logoUrl
     ? `<img src="${logoUrl}" alt="${escapeAttr(appName)}" height="40"
-          style="display:block;height:40px;width:auto;max-width:200px;border:0;outline:none;text-decoration:none;" />`
+          style="display:block;height:100px;width:auto;border:0;outline:none;text-decoration:none;" />`
     : `<span style="font-size:20px;font-weight:700;letter-spacing:-0.3px;color:${t.textPrimary};">${appName}</span>`;
 
   const greetingHtml = greeting
@@ -152,10 +155,7 @@ export function renderEmail({
 }
 
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function escapeAttr(s: string): string {
