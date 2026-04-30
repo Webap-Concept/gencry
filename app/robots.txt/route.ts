@@ -15,7 +15,6 @@ const DEFAULT_ROBOTS = [
   "Allow: /",
   "Disallow: /admin/",
   "Disallow: /api/",
-  "Disallow: /dashboard/",
   "",
   `Sitemap: ${SITE_URL}/sitemap.xml`,
 ].join("\n");

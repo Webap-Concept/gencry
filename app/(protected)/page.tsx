@@ -1,7 +1,6 @@
 import { generatePageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/auth/session";
 import LandingPage from "@/components/landing-page";
-import HomeClient from "./home-client";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,12 +10,16 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const session = await getSession();
 
-  // Utente non loggato: mostra landing direttamente dal server
-  // così i meta sono già nel <head> prima dello stream del body
+  // Guest: landing coming-soon (full-screen, niente AppNav)
   if (!session) {
     return <LandingPage />;
   }
 
-  // Utente loggato: monta il client component con SWR per i dati
-  return <HomeClient />;
+  // Loggato: feed sociale (placeholder, viene popolato nei prossimi checkpoint)
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <h1 className="text-xl font-semibold">Feed</h1>
+      <p className="text-sm opacity-70 mt-1">In costruzione.</p>
+    </div>
+  );
 }
