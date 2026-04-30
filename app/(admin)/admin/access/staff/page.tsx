@@ -4,6 +4,7 @@ import { getAdminRoles } from "@/lib/db/roles-queries";
 import { Search, UserCog } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import AddStaffButton from "./_components/add-staff-button";
 import StaffTable from "./_components/staff-table";
 
 export const metadata: Metadata = { title: "Users / Staff Management" };
@@ -137,7 +138,7 @@ export default async function AdminStaffPage({
     <div className="space-y-5">
       <div className="flex items-center gap-3">
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background:
               "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
@@ -146,7 +147,7 @@ export default async function AdminStaffPage({
           }}>
           <UserCog size={18} style={{ color: "var(--admin-accent)" }} />
         </div>
-        <div>
+        <div className="flex-1">
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
@@ -160,6 +161,7 @@ export default async function AdminStaffPage({
             Admin user management
           </p>
         </div>
+        <AddStaffButton adminRoles={adminRoles} />
       </div>
 
       <div
