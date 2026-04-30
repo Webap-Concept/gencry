@@ -9,7 +9,7 @@ import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import {
   checkEmailAction,
   checkUsernameAction,
@@ -137,7 +137,6 @@ export function Login({
   const [acceptMarketing, setAcceptMarketing] = useState(false);
   // Traccia se l'utente ha già tentato il submit (per mostrare errori checkbox)
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const turnstileRef = useRef<{ reset: () => void }>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
 
   // Messaggio errore OAuth da searchParams
@@ -577,7 +576,6 @@ export function Login({
                   <>
                     <input type="hidden" name="cf_turnstile_token" value={turnstileToken} />
                     <Turnstile
-                      ref={turnstileRef}
                       siteKey={turnstileSiteKey}
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken("")}
