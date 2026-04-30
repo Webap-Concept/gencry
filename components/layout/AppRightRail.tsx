@@ -118,6 +118,7 @@ function CompanyRow({ company }: { company: typeof COMPANIES[number] }) {
       </div>
       <button
         type="button"
+        aria-label={`Segui ${company.name}`}
         className="px-3 py-1 text-[12px] font-medium rounded-full border border-gc-line-2 text-gc-fg-2 hover:bg-gc-bg-2 hover:border-gc-fg transition"
       >
         Segui
