@@ -5,17 +5,15 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
 import type { Viewport } from "next";
-import { Manrope } from "next/font/google";
 import { headers } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
+import { satoshi, instrumentSerif } from "./fonts";
 import "./globals.css";
 
 export const viewport: Viewport = {
   maximumScale: 1,
 };
-
-const manrope = Manrope({ subsets: ["latin"] });
 
 function faviconMimeFromUrl(url: string): string | undefined {
   const clean = url.split("?")[0].toLowerCase();
@@ -145,9 +143,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${
-        manrope.className
-      }`}>
+      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${satoshi.variable} ${instrumentSerif.variable}`}>
       <head>
         {/*
          * Favicon dinamico — sovrascrive app/favicon.ico quando l'admin

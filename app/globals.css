@@ -77,7 +77,17 @@
 
 @layer utilities {
   body {
-    font-family: "Manrope", Arial, Helvetica, sans-serif;
+    font-family: var(--font-satoshi), Helvetica, Arial, sans-serif;
+  }
+
+  /* Nasconde la scrollbar mantenendo lo scroll funzionante.
+     Usata sul ticker watchlist (scroll orizzontale fluido). */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
@@ -190,6 +200,46 @@
   --brand-text: #2c2416;
   --brand-border-focus: #7dbe9e;
   --brand-error-bg: #fdecea;
+
+  /* ── Generazione Crypto — feed design tokens ──────────────────────────────
+     Palette del feed sociale. Riusabili in tutta l'area loggata.
+     Convenzione: bg/fg con livelli numerati (più alto = più contrasto/pieno),
+     line per i bordi, accent per l'arancione brand, pos/neg per i prezzi. */
+  --gc-bg: #f5f0e8;          /* sfondo pagina (cream) */
+  --gc-bg-2: #fdfaf4;        /* card su pagina */
+  --gc-bg-3: #fffbf2;        /* item annidati nella card */
+  --gc-fg: #123928;          /* testo principale (verde scuro brand) */
+  --gc-fg-2: #5c5146;        /* testo secondario */
+  --gc-fg-3: #94897a;        /* testo terziario / metadata */
+  --gc-line: #e6dfd0;        /* bordo sottile */
+  --gc-line-2: #d4ccba;      /* bordo medio */
+  --gc-accent: #fa8b1e;      /* arancione brand (live, CTA) */
+  --gc-accent-soft: rgba(250, 139, 30, 0.1);
+  --gc-pos: #2d8659;         /* prezzi in salita */
+  --gc-neg: #c2553f;         /* prezzi in discesa */
+  --gc-green: #7dbe9e;       /* verde brand (badge, indicatori live) */
+}
+
+/* Keyframes GC (esposti come utility tramite @theme inline) */
+@keyframes gc-screen {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /*
@@ -271,6 +321,33 @@
   --color-brand-text: var(--brand-text);
   --color-brand-border-focus: var(--brand-border-focus);
   --color-brand-error-bg: var(--brand-error-bg);
+
+  /* Font families — Satoshi globale + Instrument Serif per i titoli display */
+  --font-sans: var(--font-satoshi);
+  --font-display: var(--font-instrument-serif);
+
+  /* GC color tokens → utility Tailwind (bg-gc-bg, text-gc-fg, border-gc-line, ecc.) */
+  --color-gc-bg: var(--gc-bg);
+  --color-gc-bg-2: var(--gc-bg-2);
+  --color-gc-bg-3: var(--gc-bg-3);
+  --color-gc-fg: var(--gc-fg);
+  --color-gc-fg-2: var(--gc-fg-2);
+  --color-gc-fg-3: var(--gc-fg-3);
+  --color-gc-line: var(--gc-line);
+  --color-gc-line-2: var(--gc-line-2);
+  --color-gc-accent: var(--gc-accent);
+  --color-gc-accent-soft: var(--gc-accent-soft);
+  --color-gc-pos: var(--gc-pos);
+  --color-gc-neg: var(--gc-neg);
+  --color-gc-green: var(--gc-green);
+
+  /* Radii custom GC */
+  --radius-gc: 14px;
+  --radius-gc-sm: 10px;
+
+  /* Animazioni GC → utility Tailwind (animate-gc-screen, animate-gc-pulse) */
+  --animate-gc-screen: gc-screen 0.5s ease-out;
+  --animate-gc-pulse: gc-pulse 2s ease-in-out infinite;
 }
 
 /*
