@@ -60,34 +60,31 @@ function UserRow({ user }: { user: AdminUser }) {
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={`${user.firstName} ${user.lastName}`}
-              className="w-12 h-12 rounded-full object-cover shrink-0"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-              style={{ background: user.roleColor ?? "var(--admin-accent)" }}>
-              {initials}
-            </div>
-          )}
+          <Link
+            href={`${getAdminPath("users-list")}/${user.id}`}
+            className="shrink-0">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.username ?? user.email}
+                className="w-12 h-12 rounded-full object-cover hover:opacity-80 transition-opacity"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
+                style={{ background: user.roleColor ?? "var(--admin-accent)" }}>
+                {initials}
+              </div>
+            )}
+          </Link>
           <div>
             <Link
               href={`${getAdminPath("users-list")}/${user.id}`}
               className="text-sm font-medium transition-colors leading-none admin-user-link"
-              style={{ color: "var(--admin-text)" }}>
-              {user.firstName} {user.lastName}
+              style={{ color: "var(--admin-accent)" }}>
+              @{user.username ?? user.email}
             </Link>
-            {user.username && (
-              <p
-                className="text-[11px] font-medium mt-0.5 leading-none"
-                style={{ color: "var(--admin-accent)" }}>
-                @{user.username}
-              </p>
-            )}
             <p
               className="text-xs mt-0.5"
               style={{ color: "var(--admin-text-faint)" }}>
