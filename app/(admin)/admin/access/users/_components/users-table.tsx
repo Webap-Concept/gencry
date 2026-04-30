@@ -83,7 +83,7 @@ function UserRow({ user }: { user: AdminUser }) {
               href={`${getAdminPath("users-list")}/${user.id}`}
               className="text-sm font-medium transition-colors leading-none admin-user-link"
               style={{ color: "var(--admin-accent)" }}>
-              @{user.username ?? user.email}
+              {user.username ? `@${user.username}` : user.email}
             </Link>
             <p
               className="text-xs mt-0.5"

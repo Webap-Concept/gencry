@@ -36,29 +36,33 @@ function StaffRow({ user }: { user: AdminUser }) {
         (e.currentTarget.style.background = "var(--admin-hover-bg)")
       }
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-      {/* Avatar + clickable name */}
+      {/* Avatar + clickable username */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={`${user.firstName} ${user.lastName}`}
-              className="w-8 h-8 rounded-full object-cover shrink-0"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-              style={{ background: roleColor }}>
-              {initials}
-            </div>
-          )}
+          <Link
+            href={`${getAdminPath("users-list")}/${user.id}`}
+            className="shrink-0">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.username ?? user.email}
+                className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
+                style={{ background: roleColor }}>
+                {initials}
+              </div>
+            )}
+          </Link>
           <div>
             <Link
               href={`${getAdminPath("users-list")}/${user.id}`}
               className="text-sm font-medium transition-colors leading-none admin-user-link"
-              style={{ color: "var(--admin-text)" }}>
-              {user.firstName} {user.lastName}
+              style={{ color: "var(--admin-accent)" }}>
+              {user.username ? `@${user.username}` : user.email}
             </Link>
             <p
               className="text-xs mt-0.5"
