@@ -64,8 +64,8 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              // Script: 'unsafe-inline' richiesto da Next.js e Tiptap
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              // Script: 'unsafe-inline' richiesto da Next.js e Tiptap; Cloudflare Turnstile
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
               // Style: 'unsafe-inline' richiesto da Tailwind/CSS-in-JS
               "style-src 'self' 'unsafe-inline'",
               // Immagini: 'self' + Supabase Storage (brand assets caricati
@@ -73,8 +73,8 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://*.supabase.co",
               // Font locali
               "font-src 'self'",
-              // Stripe JS per pagamenti
-              "frame-src 'self' https://js.stripe.com",
+              // Stripe JS + Cloudflare Turnstile (iframe widget)
+              "frame-src 'self' https://js.stripe.com https://challenges.cloudflare.com",
               // Connessioni API: Supabase + Stripe + Resend
               "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.resend.com",
             ].join("; "),
