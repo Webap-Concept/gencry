@@ -4,6 +4,8 @@ import LandingPage from "@/components/landing-page";
 import { HeroGreeting } from "@/components/feed/HeroGreeting";
 import { Ticker } from "@/components/feed/Ticker";
 import { Moments } from "@/components/feed/Moments";
+import { FeedList } from "@/components/feed/FeedList";
+import { FEED } from "@/lib/feed/mock";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,14 +21,15 @@ export default async function HomePage() {
   }
 
   // Loggato: feed sociale.
-  // Wiring intermedio: Hero + Ticker + Moments. Il feed list (CP5) e
-  // il layout a 3 colonne con sidebar/right-rail (CP6) arrivano dopo.
+  // Wiring colonna centrale completa. Il layout a 3 colonne con
+  // sidebar/right-rail arriva nel CP6.
   return (
     <div className="bg-gc-bg min-h-screen">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 animate-gc-screen">
         <HeroGreeting />
         <Ticker />
         <Moments />
+        <FeedList initialFeed={FEED} />
       </div>
     </div>
   );
