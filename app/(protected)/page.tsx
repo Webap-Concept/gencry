@@ -1,6 +1,9 @@
 import { generatePageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/auth/session";
 import LandingPage from "@/components/landing-page";
+import { HeroGreeting } from "@/components/feed/HeroGreeting";
+import { Ticker } from "@/components/feed/Ticker";
+import { Moments } from "@/components/feed/Moments";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,11 +18,16 @@ export default async function HomePage() {
     return <LandingPage />;
   }
 
-  // Loggato: feed sociale (placeholder, viene popolato nei prossimi checkpoint)
+  // Loggato: feed sociale.
+  // Wiring intermedio: Hero + Ticker + Moments. Il feed list (CP5) e
+  // il layout a 3 colonne con sidebar/right-rail (CP6) arrivano dopo.
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-xl font-semibold">Feed</h1>
-      <p className="text-sm opacity-70 mt-1">In costruzione.</p>
+    <div className="bg-gc-bg min-h-screen">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 animate-gc-screen">
+        <HeroGreeting />
+        <Ticker />
+        <Moments />
+      </div>
     </div>
   );
 }
