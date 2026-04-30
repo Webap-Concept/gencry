@@ -41,6 +41,7 @@ const PERMISSIONS_SEED = [
   { key: "admin:moderation",   label: "Access Moderation section",     group: "Admin", isSystem: true },
   // [FUTURE] Billing — sezione non ancora implementata, permessi già registrati
   { key: "admin:billing",      label: "Access Billing & Payments section", group: "Admin", isSystem: true },
+  { key: "admin:tests",        label: "Access Test Suite section",          group: "Admin", isSystem: true },
 
   // ── Users ─────────────────────────────────────────────────────────────
   { key: "users:read",              label: "View user list",                group: "Users", isSystem: true },
@@ -96,7 +97,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     // admin panel
     "admin:access", "admin:settings", "admin:analytics",
     "admin:content", "admin:seo", "admin:users", "admin:staff",
-    "admin:roles", "admin:logs", "admin:moderation", "admin:billing",
+    "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
     "users:role_assign", "users:permission_assign",

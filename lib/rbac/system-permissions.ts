@@ -109,6 +109,13 @@ export const SYSTEM_PERMISSIONS: SystemPermission[] = [
     description: "[Futuro] Permette di vedere e gestire piani, transazioni e gateway di pagamento.",
     isSystem: true,
   },
+  {
+    key: "admin:tests",
+    group: "Admin",
+    label: "Accesso sezione Test Suite",
+    description: "Permette di vedere il report Vitest e lo stato del sistema nella sezione Test Suite.",
+    isSystem: true,
+  },
 
   // ── Users ────────────────────────────────────────────────────────
   {
