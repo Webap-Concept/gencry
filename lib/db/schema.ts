@@ -331,6 +331,18 @@ export const emailVerifications = pgTable("email_verifications", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   attempts: integer("attempts").notNull().default(0),
+  type: varchar("type", { length: 50 }).notNull().default("email_verification"),
+});
+
+export const trustedDevices = pgTable("trusted_devices", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  deviceToken: varchar("device_token", { length: 255 }).notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
 });
 
 export const passwordResetTokens = pgTable("password_reset_tokens", {
@@ -479,6 +491,8 @@ export type ActivityLog     = typeof activityLogs.$inferSelect;
 export type NewActivityLog  = typeof activityLogs.$inferInsert;
 export type EmailVerification  = typeof emailVerifications.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type TrustedDevice      = typeof trustedDevices.$inferSelect;
+export type NewTrustedDevice   = typeof trustedDevices.$inferInsert;
 export type SeoPage         = typeof seoPages.$inferSelect;
 export type NewSeoPage      = typeof seoPages.$inferInsert;
 export type Page            = typeof pages.$inferSelect;
@@ -515,6 +529,7 @@ export enum ActivityType {
   ADMIN_UNBAN_USER = "ADMIN_UNBAN_USER",
   ADMIN_CHANGE_ROLE = "ADMIN_CHANGE_ROLE",
   ADMIN_DELETE_USER = "ADMIN_DELETE_USER",
+  DEVICE_VERIFIED = "DEVICE_VERIFIED",
   AVATAR_UPDATED = "AVATAR_UPDATED",
   BIO_UPDATED = "BIO_UPDATED",
   PROFILE_VIEWED = "PROFILE_VIEWED",

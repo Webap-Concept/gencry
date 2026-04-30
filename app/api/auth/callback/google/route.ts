@@ -17,10 +17,20 @@
 import { isDomainBlacklisted, isIpBlacklisted } from "@/lib/auth/blacklist";
 import { handleGoogleCallback } from "@/lib/auth/oauth/google";
 import { findOrCreateOAuthUser } from "@/lib/auth/oauth/index";
+import { createVerificationCode } from "@/lib/auth/otp";
 import { createSession } from "@/lib/auth/session";
+import {
+  addTrustedDevice,
+  checkDeviceTrust,
+  generateDeviceToken,
+  getDeviceToken,
+  setPendingAuthCookie,
+  setDeviceTokenCookie,
+} from "@/lib/auth/trusted-device";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -92,24 +102,48 @@ export async function GET(req: NextRequest) {
       return redirect("/sign-in?error=maintenance");
     }
 
+    const ua = headersList.get("user-agent") ?? undefined;
+
+    if (created) {
+      // Nuovo utente: auto-trust il primo dispositivo, nessuna verifica richiesta
+      const newToken = generateDeviceToken();
+      await addTrustedDevice(dbUser.id, newToken, ua);
+      await setDeviceTokenCookie(newToken);
+      await createSession(dbUser.id, dbUser.role);
+      return redirect(!dbUser.onboardingCompletedAt ? "/onboarding" : "/");
+    }
+
     // SIGN_UP è già loggato in findOrCreateOAuthUser; qui logghiamo SIGN_IN
     // per gli utenti esistenti (login OAuth oppure linking di un nuovo provider
     // a un account email pre-esistente).
-    if (!created) {
-      await db.insert(activityLogs).values({
-        userId:    dbUser.id,
-        action:    ActivityType.SIGN_IN,
-        ipAddress: ip,
-      });
+    await db.insert(activityLogs).values({
+      userId:    dbUser.id,
+      action:    ActivityType.SIGN_IN,
+      ipAddress: ip,
+    });
+
+    const deviceToken = await getDeviceToken();
+    const { trusted, isFirstDevice } = await checkDeviceTrust(dbUser.id, deviceToken);
+
+    if (trusted) {
+      if (isFirstDevice) {
+        const newToken = generateDeviceToken();
+        await addTrustedDevice(dbUser.id, newToken, ua);
+        await setDeviceTokenCookie(newToken);
+      }
+      await createSession(dbUser.id, dbUser.role);
+      return redirect(dbUser.role === "admin" ? "/admin" : "/");
     }
 
-    await createSession(dbUser.id, dbUser.role);
-
-    if (!dbUser.onboardingCompletedAt) {
-      return redirect("/onboarding");
+    // Dispositivo non riconosciuto: OTP via email
+    const otpCode = await createVerificationCode(dbUser.id, "device_verification");
+    try {
+      await sendDeviceVerificationEmail(dbUser.email, otpCode);
+    } catch (err) {
+      console.error("[auth/callback/google] sendDeviceVerificationEmail failed:", err);
     }
-
-    return redirect(dbUser.role === "admin" ? "/admin" : "/");
+    await setPendingAuthCookie(dbUser.id, dbUser.role);
+    return redirect("/verify-device");
   } catch (err) {
     console.error("[auth/callback/google] error:", err);
     return redirect("/sign-in?error=oauth_failed");
