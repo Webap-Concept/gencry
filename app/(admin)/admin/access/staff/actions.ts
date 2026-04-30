@@ -2,34 +2,51 @@
 
 import { getAdminPath } from "@/lib/admin-nav";
 import { db } from "@/lib/db/drizzle";
-import { roles, staffInvitations, userProfiles, users } from "@/lib/db/schema";
+import { permissions, rolePermissions, roles, staffInvitations, userProfiles, users } from "@/lib/db/schema";
 import { sendStaffInvitationEmail } from "@/lib/email/templates/staff-invitation";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-export async function changeStaffRole(userId: string, roleName: string) {
-  await requireAdmin();
+type StaffRole = { isAdmin: boolean; label: string } | null;
 
-  const [role] = await db
-    .select({ isAdmin: roles.isAdmin })
+/** Ritorna il ruolo solo se è assegnabile allo staff (isAdmin=true OR ha almeno un permesso admin:*). */
+async function getStaffRole(roleName: string): Promise<StaffRole> {
+  const [row] = await db
+    .select({ isAdmin: roles.isAdmin, label: roles.label })
     .from(roles)
     .where(eq(roles.name, roleName))
     .limit(1);
 
-  if (!role) throw new Error("Role not found.");
-  if (!role.isAdmin) {
-    throw new Error("You can only assign roles with the Administrator flag.");
-  }
+  if (!row) return null;
+  if (row.isAdmin) return row;
+
+  const [perm] = await db
+    .select({ id: rolePermissions.permissionId })
+    .from(rolePermissions)
+    .innerJoin(roles, eq(roles.id, rolePermissions.roleId))
+    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .where(
+      and(
+        eq(roles.name, roleName),
+        sql`${permissions.key} LIKE 'admin:%'`,
+      ),
+    )
+    .limit(1);
+
+  return perm ? row : null;
+}
+
+export async function changeStaffRole(userId: string, roleName: string) {
+  await requireAdmin();
+
+  const role = await getStaffRole(roleName);
+  if (!role) throw new Error("Role not found or not assignable to staff.");
 
   await db
     .update(users)
-    .set({
-      role: roleName,
-      isAdmin: role.isAdmin ?? false,
-      updatedAt: new Date(),
-    })
+    .set({ role: roleName, isAdmin: role.isAdmin, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
   revalidatePath(getAdminPath("users-staff"));
@@ -78,20 +95,12 @@ export async function searchNonAdminUsers(
 export async function addUserToStaff(userId: string, roleName: string) {
   await requireAdmin();
 
-  const [role] = await db
-    .select({ isAdmin: roles.isAdmin })
-    .from(roles)
-    .where(eq(roles.name, roleName))
-    .limit(1);
-
-  if (!role) throw new Error("Role not found.");
-  if (!role.isAdmin) {
-    throw new Error("You can only assign roles with the Administrator flag.");
-  }
+  const role = await getStaffRole(roleName);
+  if (!role) throw new Error("Role not found or not assignable to staff.");
 
   await db
     .update(users)
-    .set({ role: roleName, isAdmin: true, updatedAt: new Date() })
+    .set({ role: roleName, isAdmin: role.isAdmin, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
   revalidatePath(getAdminPath("users-staff"));
@@ -120,15 +129,8 @@ export async function inviteStaffMember(
     };
   }
 
-  const [role] = await db
-    .select({ isAdmin: roles.isAdmin, label: roles.label })
-    .from(roles)
-    .where(eq(roles.name, roleName))
-    .limit(1);
-
-  if (!role) return { error: "Ruolo non trovato." };
-  if (!role.isAdmin)
-    return { error: "Puoi assegnare solo ruoli con il flag Amministratore." };
+  const role = await getStaffRole(roleName);
+  if (!role) return { error: "Ruolo non trovato o non assegnabile allo staff." };
 
   const { randomBytes } = await import("crypto");
   const token = randomBytes(32).toString("hex");

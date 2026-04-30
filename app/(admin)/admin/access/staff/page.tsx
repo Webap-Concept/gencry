@@ -1,6 +1,6 @@
 // app/(admin)/admin/staff/page.tsx
 import { getStaffUsers } from "@/lib/db/admin-queries";
-import { getAdminRoles } from "@/lib/db/roles-queries";
+import { getStaffAssignableRoles } from "@/lib/db/roles-queries";
 import { Search, UserCog } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -129,8 +129,7 @@ export default async function AdminStaffPage({
   const role = params.role ?? "";
   const page = Number(params.page ?? 1);
 
-  const allRoles = await getAdminRoles();
-  const adminRoles = allRoles.filter((r) => r.isAdmin);
+  const adminRoles = await getStaffAssignableRoles();
 
   const hasFilters = !!(search || role);
 
