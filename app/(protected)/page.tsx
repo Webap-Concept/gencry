@@ -21,16 +21,14 @@ export default async function HomePage() {
   }
 
   // Loggato: feed sociale.
-  // Wiring colonna centrale completa. Il layout a 3 colonne con
-  // sidebar/right-rail arriva nel CP6.
+  // Lo shell 3-colonne (sidebar + right rail) è gestito da (protected)/layout.
+  // Qui resta solo il container della colonna centrale.
   return (
-    <div className="bg-gc-bg min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 animate-gc-screen">
-        <HeroGreeting />
-        <Ticker />
-        <Moments />
-        <FeedList initialFeed={FEED} />
-      </div>
+    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[640px] mx-auto animate-gc-screen">
+      <HeroGreeting />
+      <Ticker />
+      <Moments />
+      <FeedList initialFeed={FEED} />
     </div>
   );
 }

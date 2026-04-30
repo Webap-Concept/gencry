@@ -1,7 +1,7 @@
 // Mock data condivisi per la fase visiva (CP3-CP6).
 // Saranno sostituiti da query DB / API esterne nelle fasi successive.
 
-import type { Coin, User } from "./types";
+import type { Coin, Company, User } from "./types";
 
 export const COINS: Coin[] = [
   { sym: "BTC", name: "Bitcoin", cat: "Layer 1", price: 71285, change: 2.4 },
@@ -60,5 +60,37 @@ export const USERS: User[] = [
     color: "#5c5146",
     followers: 0,
     bio: "Il tuo profilo.",
+  },
+];
+
+// Aziende crypto verificate mostrate nella right rail della home loggata.
+export const COMPANIES: Company[] = [
+  {
+    handle: "youngplatform",
+    name: "Young Platform",
+    avatar: "Y",
+    color: "#fa8b1e",
+    verified: true,
+  },
+  {
+    handle: "bitpanda_it",
+    name: "Bitpanda Italia",
+    avatar: "B",
+    color: "#3a8c5e",
+    verified: true,
+  },
+  {
+    handle: "rock_trading",
+    name: "The Rock Trading",
+    avatar: "R",
+    color: "#7e8aff",
+    verified: true,
+  },
+  {
+    handle: "conio_app",
+    name: "Conio",
+    avatar: "C",
+    color: "#fa8b1e",
+    verified: true,
   },
 ];
