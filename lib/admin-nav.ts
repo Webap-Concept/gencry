@@ -321,7 +321,7 @@ export const ADMIN_NAV: NavItem[] = [
     href: "/admin/tests",
     label: "Test Suite",
     icon: "FlaskConical",
-    permission: "admin:access",
+    permission: "admin:tests",
   },
   {
     key: "logs",
