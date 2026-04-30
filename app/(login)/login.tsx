@@ -595,7 +595,12 @@ export function Login({
                 {/* Il bottone è sempre cliccabile: solo pending/checking bloccano */}
                 <Button
                   type="submit"
-                  disabled={pending || checkingEmail || checkingUsername}
+                  disabled={
+                    pending ||
+                    checkingEmail ||
+                    checkingUsername ||
+                    (!!turnstileSiteKey && !turnstileToken)
+                  }
                   className="w-full">
                   {pending ? (
                     <>
