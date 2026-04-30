@@ -21,10 +21,10 @@ export default async function HomePage() {
   }
 
   // Loggato: feed sociale.
-  // Lo shell 3-colonne (sidebar + right rail) è gestito da (protected)/layout.
-  // Qui resta solo il container della colonna centrale.
+  // Shell 3-colonne e container centrato sono gestiti dal layout (protected).
+  // Qui restano solo le sezioni del feed con l'animazione di mount.
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[640px] mx-auto animate-gc-screen">
+    <div className="animate-gc-screen">
       <HeroGreeting />
       <Ticker />
       <Moments />

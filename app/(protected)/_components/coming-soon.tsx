@@ -9,7 +9,7 @@ type ComingSoonProps = {
 
 export function ComingSoon({ title, description }: ComingSoonProps) {
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[640px] mx-auto animate-gc-screen">
+    <div className="animate-gc-screen">
       <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-10 text-center">
         <div className="inline-flex items-center gap-2 text-[10.5px] uppercase tracking-[0.08em] text-gc-fg-3 mb-3">
           <span className="w-[7px] h-[7px] rounded-full bg-gc-accent animate-gc-pulse" />
