@@ -48,7 +48,8 @@ export default function StaffRegisterForm({
   function handleUsernameChange(value: string) {
     setUsername(value);
     if (value.length >= 3) {
-      setUsernameError(validateUsernameFormat(value) ?? "");
+      const result = validateUsernameFormat(value);
+      setUsernameError(result.ok ? "" : result.error);
     } else {
       setUsernameError("");
     }

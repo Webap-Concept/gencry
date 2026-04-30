@@ -84,8 +84,8 @@ export async function registerViaInvite(
   if (!role) return { error: "Il ruolo dell'invito non esiste più." };
 
   // ── Validate username ─────────────────────────────────────────────────────
-  const usernameError = validateUsernameFormat(username);
-  if (usernameError) return { error: usernameError };
+  const usernameValidation = validateUsernameFormat(username);
+  if (!usernameValidation.ok) return { error: usernameValidation.error };
 
   if (await isUsernameBlacklisted(username)) {
     return { error: "Questo username non è disponibile. Scegli un altro username." };
