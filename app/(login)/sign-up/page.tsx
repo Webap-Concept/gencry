@@ -1,4 +1,5 @@
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { generatePageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -9,7 +10,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SignUpPage() {
-  const systemPageSlugs = await getSystemPageSlugs();
+  const [systemPageSlugs, settings] = await Promise.all([
+    getSystemPageSlugs(),
+    getAppSettings(),
+  ]);
 
   return (
     <Suspense>
@@ -17,6 +21,7 @@ export default async function SignUpPage() {
         mode="signup"
         isMaintenance={false}
         systemPageSlugs={systemPageSlugs}
+        turnstileSiteKey={settings.cf_turnstile_site_key}
       />
     </Suspense>
   );

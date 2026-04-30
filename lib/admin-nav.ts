@@ -307,6 +307,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "GitMerge",
         permission: "admin:settings",
       },
+      {
+        key: "settings-cloudflare",
+        href: "/admin/settings/cloudflare",
+        label: "Cloudflare",
+        icon: "Shield",
+        permission: "admin:settings",
+      },
     ],
   },
   {

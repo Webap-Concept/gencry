@@ -1,5 +1,6 @@
 "use client";
 
+import { Turnstile } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,11 +104,13 @@ export function Login({
   registrationsEnabled = true,
   isMaintenance = false,
   systemPageSlugs,
+  turnstileSiteKey,
 }: {
   mode?: "signin" | "signup";
   registrationsEnabled?: boolean;
   isMaintenance?: boolean;
   systemPageSlugs?: Record<string, string>;
+  turnstileSiteKey?: string | null;
 }) {
   const slugs = systemPageSlugs;
 
@@ -134,6 +137,7 @@ export function Login({
   const [acceptMarketing, setAcceptMarketing] = useState(false);
   // Traccia se l'utente ha già tentato il submit (per mostrare errori checkbox)
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   // Messaggio errore OAuth da searchParams
   const oauthError = searchParams.get("error");
@@ -568,6 +572,19 @@ export function Login({
                   </div>
                 )}
 
+                {turnstileSiteKey && (
+                  <>
+                    <input type="hidden" name="cf_turnstile_token" value={turnstileToken} />
+                    <Turnstile
+                      siteKey={turnstileSiteKey}
+                      onSuccess={setTurnstileToken}
+                      onExpire={() => setTurnstileToken("")}
+                      onError={() => setTurnstileToken("")}
+                      options={{ theme: "auto" }}
+                    />
+                  </>
+                )}
+
                 {state?.error && (
                   <div className="rounded-xl px-4 py-3 text-sm flex items-center gap-2 bg-brand-error-bg text-brand-destructive">
                     <X className="h-4 w-4 shrink-0" />
@@ -578,7 +595,12 @@ export function Login({
                 {/* Il bottone è sempre cliccabile: solo pending/checking bloccano */}
                 <Button
                   type="submit"
-                  disabled={pending || checkingEmail || checkingUsername}
+                  disabled={
+                    pending ||
+                    checkingEmail ||
+                    checkingUsername ||
+                    (!!turnstileSiteKey && !turnstileToken)
+                  }
                   className="w-full">
                   {pending ? (
                     <>

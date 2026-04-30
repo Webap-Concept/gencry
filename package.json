@@ -20,6 +20,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.1",
     "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/postcss": "4.1.7",
     "@tiptap/extension-link": "^2.11.5",

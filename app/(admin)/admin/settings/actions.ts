@@ -579,6 +579,75 @@ export async function testGitHubCISettings(
 }
 
 // ---------------------------------------------------------------------------
+// Cloudflare Turnstile
+// ---------------------------------------------------------------------------
+
+export async function saveCloudflareSettings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const siteKey   = ((formData.get("cf_turnstile_site_key")   as string) ?? "").trim();
+    const secretKey = ((formData.get("cf_turnstile_secret_key") as string) ?? "").trim();
+
+    await updateAppSetting("cf_turnstile_site_key",   siteKey   || null);
+    await updateAppSetting("cf_turnstile_secret_key", secretKey || null);
+
+    revalidatePath(getAdminPath("settings-cloudflare"));
+    return { success: "Cloudflare Turnstile credentials saved.", timestamp: Date.now() };
+  } catch {
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+export async function testCloudflareSettings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const secretKey = ((formData.get("cf_turnstile_secret_key") as string) ?? "").trim();
+
+    if (!secretKey) {
+      return { error: "Enter the Secret Key before testing.", timestamp: Date.now() };
+    }
+
+    // Verifica la secret key con un token volutamente invalido.
+    // Cloudflare risponde con success:false e error-codes contenenti
+    // "invalid-input-secret" se la chiave non è valida,
+    // oppure "invalid-input-response" se la chiave è corretta ma il token è sbagliato.
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret: secretKey, response: "probe-token-invalid" }),
+      cache: "no-store",
+    });
+
+    const data = (await res.json().catch(() => null)) as
+      | { success: boolean; "error-codes"?: string[] }
+      | null;
+
+    if (!data) {
+      return { error: `Unreadable response from Cloudflare (HTTP ${res.status}).`, timestamp: Date.now() };
+    }
+
+    const errorCodes = data["error-codes"] ?? [];
+
+    if (errorCodes.includes("invalid-input-secret")) {
+      return { error: "Secret Key is not valid.", timestamp: Date.now() };
+    }
+
+    // "invalid-input-response" means the key is recognised but the probe token was rejected.
+    if (errorCodes.includes("invalid-input-response") || errorCodes.includes("timeout-or-duplicate")) {
+      return { success: "Secret Key is valid.", timestamp: Date.now() };
+    }
+
+    return { success: "Secret Key is valid.", timestamp: Date.now() };
+  } catch {
+    return { error: "Verification failed. Check your connection.", timestamp: Date.now() };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Blocked Domains
 // ---------------------------------------------------------------------------
 
