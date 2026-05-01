@@ -289,6 +289,7 @@ export default function AdminSidebar({
                     href={child.href!}
                     label={child.label}
                     icon={child.icon}
+                    exact={child.exact}
                     sub
                   />
                 ),
@@ -370,6 +371,7 @@ export default function AdminSidebar({
                   href={leaf.href!}
                   label={leaf.label}
                   icon={leaf.icon}
+                  exact={leaf.exact}
                   sub
                 />
               ))}

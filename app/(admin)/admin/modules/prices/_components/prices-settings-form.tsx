@@ -1,9 +1,13 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import { Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { savePricesSettings, type ActionState } from "../actions";
+import {
+  savePricesSettings,
+  testCoinGeckoProAction,
+  type ActionState,
+} from "../actions";
 
 interface InitialValues {
   "modules.prices.cron_minutes": string;
@@ -127,8 +131,13 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
     savePricesSettings,
     {},
   );
+  const [testState, testAction, isTesting] = useActionState<ActionState, FormData>(
+    testCoinGeckoProAction,
+    {},
+  );
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const lastTs = useRef<number>(0);
+  const lastTestTs = useRef<number>(0);
 
   useEffect(() => {
     if (!("timestamp" in state)) return;
@@ -139,6 +148,16 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
     if ("error" in state && state.error)
       setToast({ message: state.error, type: "error" });
   }, [state]);
+
+  useEffect(() => {
+    if (!("timestamp" in testState)) return;
+    if (testState.timestamp === lastTestTs.current) return;
+    lastTestTs.current = testState.timestamp;
+    if ("success" in testState && testState.success)
+      setToast({ message: testState.success, type: "success" });
+    if ("error" in testState && testState.error)
+      setToast({ message: testState.error, type: "error" });
+  }, [testState]);
 
   const groups = (["ingestion", "breaker", "history"] as const).map((g) => ({
     key: g,
@@ -234,22 +253,44 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
                 style={{ color: "var(--admin-text-muted)" }}>
                 CoinGecko Pro API key
               </label>
-              <input
-                name="modules.prices.coingecko_pro_api_key"
-                type="password"
-                defaultValue={initial["modules.prices.coingecko_pro_api_key"] ?? ""}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="CG-..."
-                className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
-                style={{
-                  background: "var(--admin-page-bg)",
-                  border: "1px solid var(--admin-input-border)",
-                  color: "var(--admin-text)",
-                }}
-              />
+              <div className="flex items-stretch gap-2">
+                <input
+                  name="modules.prices.coingecko_pro_api_key"
+                  type="password"
+                  defaultValue={initial["modules.prices.coingecko_pro_api_key"] ?? ""}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="CG-..."
+                  className="flex-1 px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
+                  style={{
+                    background: "var(--admin-page-bg)",
+                    border: "1px solid var(--admin-input-border)",
+                    color: "var(--admin-text)",
+                  }}
+                />
+                {/* formAction sovrascrive l'action del form solo per questo
+                 *  bottone: testa la chiave SENZA salvare il resto. */}
+                <button
+                  type="submit"
+                  formAction={testAction}
+                  disabled={isTesting || isPending}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                  style={{
+                    background: "transparent",
+                    color: "var(--admin-text-muted)",
+                    border: "1px solid var(--admin-input-border)",
+                  }}>
+                  {isTesting ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={12} />
+                  )}
+                  {isTesting ? "Testing..." : "Test connection"}
+                </button>
+              </div>
               <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
                 Stored as a setting; not exposed to the public app. Required only if Pro is enabled.
+                "Test connection" calls <code className="font-mono">/ping</code> on the Pro endpoint to validate the key.
               </p>
             </div>
           </div>

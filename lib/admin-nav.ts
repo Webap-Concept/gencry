@@ -16,6 +16,11 @@ export interface NavChild {
   icon: string;
   permission: string;
   comingSoon?: boolean;
+  /** Quando true, il link è "active" SOLO con match esatto del pathname.
+   *  Serve per voci-radice di sezione (es. Health è `/admin/modules/prices`,
+   *  che è prefisso di `/admin/modules/prices/coins` → senza exact entrambe
+   *  risulterebbero attive). Default: false (match con startsWith). */
+  exact?: boolean;
   /** Sotto-figli per supportare 3 livelli (es. Modules → Module → Leaf).
    *  Quando presente, il NavChild diventa un sotto-gruppo espandibile e
    *  `href` viene ignorato. */
