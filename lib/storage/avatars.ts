@@ -51,3 +51,44 @@ export async function uploadAvatarFromUrl(
     return null;
   }
 }
+
+const ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"] as const;
+type AllowedMime = (typeof ALLOWED_MIME)[number];
+
+function extFromMime(mime: AllowedMime): "png" | "jpg" | "webp" {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
+}
+
+/**
+ * Carica un avatar inviato dall'utente. Path stabile {userId}/avatar.{ext},
+ * upsert. L'URL pubblico restituito ha un suffisso ?v=<timestamp> per
+ * invalidare la cache CDN/browser quando l'utente sostituisce la foto.
+ */
+export async function uploadAvatarFromBuffer(
+  userId: string,
+  buffer: Buffer,
+  mime: string,
+): Promise<{ url: string } | { error: string }> {
+  if (!(ALLOWED_MIME as readonly string[]).includes(mime)) {
+    return { error: "Formato non supportato. Usa PNG, JPG o WebP." };
+  }
+  const ext = extFromMime(mime as AllowedMime);
+  const path = `${userId}/avatar.${ext}`;
+
+  const supabase = getStorageClient();
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {
+    contentType: mime,
+    upsert: true,
+  });
+
+  if (error) {
+    console.error("[avatars] uploadAvatarFromBuffer failed:", error.message);
+    return { error: "Caricamento fallito. Riprova." };
+  }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
