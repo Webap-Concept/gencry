@@ -22,6 +22,9 @@ export const PRICES_MODULE: ModuleManifest = {
       label: "Health",
       icon: "Activity",
       permission: "modules:prices",
+      // exact: il path è prefisso di /coins e /settings, senza exact tutte
+      // le sottosezioni accenderebbero anche Health.
+      exact: true,
     },
     {
       key: "prices-coins",

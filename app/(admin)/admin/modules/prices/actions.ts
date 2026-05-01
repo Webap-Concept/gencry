@@ -62,6 +62,60 @@ export async function savePricesSettings(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// CoinGecko Pro — test connection
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Verifica che la chiave Pro sia valida facendo un /ping authenticato.
+// Chiavi invalide restituiscono 401/403, valide 200 con { gecko_says: ... }.
+export async function testCoinGeckoProAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const apiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
+    if (!apiKey) {
+      return { error: "Enter the API key before testing.", timestamp: Date.now() };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let res: Response;
+    try {
+      res = await fetch("https://pro-api.coingecko.com/api/v3/ping", {
+        headers: {
+          Accept: "application/json",
+          "x-cg-pro-api-key": apiKey,
+        },
+        signal: controller.signal,
+        cache: "no-store",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "fetch failed";
+      return { error: `Network error: ${message}`, timestamp: Date.now() };
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      return { error: "Invalid API key (401/403 from CoinGecko Pro).", timestamp: Date.now() };
+    }
+    if (res.status === 429) {
+      return { error: "Rate limit hit (429). Key may be valid but quota exhausted.", timestamp: Date.now() };
+    }
+    if (!res.ok) {
+      return { error: `CoinGecko Pro returned HTTP ${res.status}.`, timestamp: Date.now() };
+    }
+    const data = (await res.json().catch(() => null)) as { gecko_says?: string } | null;
+    if (data?.gecko_says) {
+      return { success: `Connected. ${data.gecko_says}`, timestamp: Date.now() };
+    }
+    return { success: "Connected (response OK).", timestamp: Date.now() };
+  } catch {
+    return { error: "Test failed.", timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Manual triggers (force = bypass early-exit)
 // ─────────────────────────────────────────────────────────────────────────
 
