@@ -15,6 +15,10 @@ export const PRICES_MODULE: ModuleManifest = {
   version: "1.0.0",
   icon: "LineChart",
   permission: "modules:prices",
+  permissionLabel: "Access Prices Engine module",
+  // extraPermissions: [...] — al momento basta uno, la sezione admin è
+  //   pure read+write. Quando avremo viste read-only / coin moderation
+  //   aggiungeremo permessi più granulari.
   navChildren: [
     {
       key: "prices-overview",
