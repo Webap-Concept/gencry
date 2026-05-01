@@ -8,28 +8,8 @@
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
 import { comparePasswords, hashPassword } from "@/lib/auth/session";
+import { isStrongPassword } from "@/lib/account/password-rules";
 import { eq } from "drizzle-orm";
-
-export type PasswordRuleId = "min" | "upper" | "number" | "special";
-
-export const passwordRules: Array<{
-  id: PasswordRuleId;
-  label: string;
-  test: (p: string) => boolean;
-}> = [
-  { id: "min", label: "Almeno 8 caratteri", test: (p) => p.length >= 8 },
-  { id: "upper", label: "Una lettera maiuscola", test: (p) => /[A-Z]/.test(p) },
-  { id: "number", label: "Un numero", test: (p) => /[0-9]/.test(p) },
-  {
-    id: "special",
-    label: "Un carattere speciale",
-    test: (p) => /[^a-zA-Z0-9]/.test(p),
-  },
-];
-
-export function isStrongPassword(password: string): boolean {
-  return passwordRules.every((r) => r.test(password));
-}
 
 export type ChangePasswordResult =
   | { ok: true }
