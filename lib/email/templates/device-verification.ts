@@ -1,4 +1,8 @@
 // lib/email/templates/device-verification.ts
+//
+// Email inviata quando l'utente accede da un dispositivo non riconosciuto.
+// Contiene un OTP di 6 cifre da inserire per confermare l'identità.
+
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   otpCard,
@@ -17,9 +21,29 @@ export async function sendDeviceVerificationEmail(
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 
-  const subject = `${code} è il tuo codice di accesso da nuovo dispositivo`;
+  const vars = {
+    appName: app_name,
+    userEmail: to,
+    userName: firstName ?? "",
+    otpCode: code,
+  };
 
-  const bodyText = `Abbiamo rilevato un accesso al tuo account su ${app_name} da un dispositivo non riconosciuto. Inserisci il codice qui sotto per confermare che sei tu.`;
+  const subject = resolveTemplate(
+    settings.email_device_subject,
+    `${code} è il tuo codice di accesso da nuovo dispositivo`,
+    vars,
+  );
+  const bcc = settings.email_device_bcc ?? undefined;
+  const bodyText = resolveTemplate(
+    settings.email_device_body,
+    `Abbiamo rilevato un accesso al tuo account su ${app_name} da un dispositivo non riconosciuto. Inserisci il codice qui sotto per confermare che sei tu.`,
+    vars,
+  );
+  const footerText = resolveTemplate(
+    settings.email_device_footer,
+    `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+    vars,
+  );
 
   const contentHtml = `
     ${paragraphs(bodyText)}
@@ -30,6 +54,7 @@ export async function sendDeviceVerificationEmail(
 
   const { error } = await sendEmail({
     to,
+    bcc,
     subject,
     html: renderEmail({
       appName: app_name,
@@ -37,11 +62,20 @@ export async function sendDeviceVerificationEmail(
       title: subject,
       greeting,
       contentHtml,
-      footerText: `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+      footerText,
     }),
   });
 
   if (error) {
     console.error("[device-verification] Resend error:", error);
   }
+}
+
+function resolveTemplate(
+  stored: string | null,
+  fallback: string,
+  vars: Record<string, string>,
+): string {
+  const tpl = stored?.trim() || fallback;
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }

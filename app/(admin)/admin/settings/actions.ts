@@ -254,6 +254,18 @@ export async function saveEmailTemplateSettings(
       "email_waitinglist_bcc",
       "email_waitinglist_body",
       "email_waitinglist_footer",
+      "email_emailchange_subject",
+      "email_emailchange_bcc",
+      "email_emailchange_body",
+      "email_emailchange_footer",
+      "email_device_subject",
+      "email_device_bcc",
+      "email_device_body",
+      "email_device_footer",
+      "email_staffinvite_subject",
+      "email_staffinvite_bcc",
+      "email_staffinvite_body",
+      "email_staffinvite_footer",
     ] as const;
     for (const key of keys) {
       const val = (formData.get(key) as string | null) ?? "";

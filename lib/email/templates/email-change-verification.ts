@@ -22,9 +22,29 @@ export async function sendEmailChangeVerificationEmail(
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 
-  const subject = `${code} è il tuo codice per confermare la nuova email ${app_name}`;
-  const bodyText = `Hai richiesto di cambiare l'email del tuo account ${app_name} con questo indirizzo. Inserisci il codice qui sotto per confermare il cambio. Se non sei stato tu, ignora questa email — il cambio non verrà applicato.`;
-  const footerText = `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`;
+  const vars = {
+    appName: app_name,
+    userEmail: to,
+    userName: firstName ?? "",
+    otpCode: code,
+  };
+
+  const subject = resolveTemplate(
+    settings.email_emailchange_subject,
+    `${code} è il tuo codice per confermare la nuova email ${app_name}`,
+    vars,
+  );
+  const bcc = settings.email_emailchange_bcc ?? undefined;
+  const bodyText = resolveTemplate(
+    settings.email_emailchange_body,
+    `Hai richiesto di cambiare l'email del tuo account ${app_name} con questo indirizzo. Inserisci il codice qui sotto per confermare il cambio. Se non sei stato tu, ignora questa email — il cambio non verrà applicato.`,
+    vars,
+  );
+  const footerText = resolveTemplate(
+    settings.email_emailchange_footer,
+    `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+    vars,
+  );
 
   const contentHtml = `
     ${paragraphs(bodyText)}
@@ -35,6 +55,7 @@ export async function sendEmailChangeVerificationEmail(
 
   const { error } = await sendEmail({
     to,
+    bcc,
     subject,
     html: renderEmail({
       appName: app_name,
@@ -49,4 +70,13 @@ export async function sendEmailChangeVerificationEmail(
   if (error) {
     console.error("[email-change-verification] Resend error:", error);
   }
+}
+
+function resolveTemplate(
+  stored: string | null,
+  fallback: string,
+  vars: Record<string, string>,
+): string {
+  const tpl = stored?.trim() || fallback;
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }

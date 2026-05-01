@@ -43,6 +43,21 @@ export type SettingKey =
   | 'email_waitinglist_bcc'
   | 'email_waitinglist_body'
   | 'email_waitinglist_footer'
+  // Email change verification (cambio email da /settings/account)
+  | 'email_emailchange_subject'
+  | 'email_emailchange_bcc'
+  | 'email_emailchange_body'
+  | 'email_emailchange_footer'
+  // Device verification (login da nuovo dispositivo)
+  | 'email_device_subject'
+  | 'email_device_bcc'
+  | 'email_device_body'
+  | 'email_device_footer'
+  // Staff invitation (invito a far parte dello staff)
+  | 'email_staffinvite_subject'
+  | 'email_staffinvite_bcc'
+  | 'email_staffinvite_body'
+  | 'email_staffinvite_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -122,6 +137,18 @@ export type AppSettings = {
   email_waitinglist_bcc: string | null
   email_waitinglist_body: string | null
   email_waitinglist_footer: string | null
+  email_emailchange_subject: string | null
+  email_emailchange_bcc: string | null
+  email_emailchange_body: string | null
+  email_emailchange_footer: string | null
+  email_device_subject: string | null
+  email_device_bcc: string | null
+  email_device_body: string | null
+  email_device_footer: string | null
+  email_staffinvite_subject: string | null
+  email_staffinvite_bcc: string | null
+  email_staffinvite_body: string | null
+  email_staffinvite_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -194,6 +221,18 @@ const DEFAULTS: AppSettings = {
   email_waitinglist_bcc: null,
   email_waitinglist_body: null,
   email_waitinglist_footer: null,
+  email_emailchange_subject: null,
+  email_emailchange_bcc: null,
+  email_emailchange_body: null,
+  email_emailchange_footer: null,
+  email_device_subject: null,
+  email_device_bcc: null,
+  email_device_body: null,
+  email_device_footer: null,
+  email_staffinvite_subject: null,
+  email_staffinvite_bcc: null,
+  email_staffinvite_body: null,
+  email_staffinvite_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
