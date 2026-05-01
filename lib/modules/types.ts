@@ -25,6 +25,15 @@ export interface ModuleUserTab {
   }>;
 }
 
+export interface ModulePermission {
+  /** Chiave RBAC, es. "modules:prices" o "modules:prices.write" */
+  key: string;
+  /** Label visibile nel pannello permessi admin */
+  label: string;
+  /** Descrizione opzionale (tooltip / help text) */
+  description?: string;
+}
+
 export interface ModuleManifest {
   /** Identificativo univoco del modulo (slug url-safe) */
   slug: string;
@@ -34,8 +43,15 @@ export interface ModuleManifest {
   version: string;
   /** Nome icona lucide-react usata nella nav */
   icon: string;
-  /** Permesso RBAC base del modulo, es. "modules:prices" */
+  /** Permesso RBAC base del modulo, es. "modules:prices".
+   *  Usato dalla nav e dai guard route. Deve esistere in `permissions`. */
   permission: string;
+  /** Label leggibile per il permesso `permission`. Usato dal seed RBAC. */
+  permissionLabel: string;
+  /** Permessi addizionali oltre `permission` (es. fine-grained read/write).
+   *  Quando presenti, vengono seedati anch'essi e diventano selezionabili
+   *  nel pannello /admin/access/permissions. */
+  extraPermissions?: ModulePermission[];
   /** Voci di nav esposte sotto la sezione "Modules" */
   navChildren: NavChild[];
   /** Cron jobs da registrare in vercel.json (oggi manuale) */

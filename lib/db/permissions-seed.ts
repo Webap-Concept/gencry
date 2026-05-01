@@ -20,10 +20,25 @@
  *  2. Assegna: admin:access, admin:billing
  *  3. Assegna: billing:read, billing:manage_plans, billing:manage_gateways
  *  4. L'utente entra nell'admin e vede solo la sezione Billing
+ *
+ * ── Permessi dei moduli (modules:*) ─────────────────────────────────────
+ * I permessi dei moduli social plugabili NON sono hardcoded qui ma
+ * vengono raccolti dinamicamente da `INSTALLED_MODULES` (vedi
+ * `lib/modules/registry.ts`). Cosi' una nuova installazione che usa il
+ * core senza moduli non si trova permessi orfani in DB.
+ *
+ * Convenzioni:
+ *  - Ogni modulo dichiara nel proprio manifest `permission` +
+ *    `permissionLabel` (e opzionalmente `extraPermissions[]`).
+ *  - Il seed inserisce tutti questi permessi nel gruppo "Modules".
+ *  - Il ruolo admin riceve automaticamente il permesso base di ogni
+ *    modulo installato (gli extraPermissions NON sono auto-grantati,
+ *    li gestisci manualmente da /admin/access/permissions).
  */
 import { db } from "./drizzle";
 import { permissions, roles, rolePermissions } from "./schema";
 import { eq } from "drizzle-orm";
+import { INSTALLED_MODULES } from "../modules/registry";
 
 const PERMISSIONS_SEED = [
   // ── Admin — accesso base ──────────────────────────────────────────────
@@ -42,10 +57,8 @@ const PERMISSIONS_SEED = [
   // [FUTURE] Billing — sezione non ancora implementata, permessi già registrati
   { key: "admin:billing",      label: "Access Billing & Payments section", group: "Admin", isSystem: true },
   { key: "admin:tests",        label: "Access Test Suite section",          group: "Admin", isSystem: true },
-  // ── Modules ───────────────────────────────────────────────────────────
-  // Permessi per i moduli social plugabili (vedi lib/modules/registry.ts).
-  // Ogni modulo possiede un permission del tipo `modules:<slug>`.
-  { key: "modules:prices",     label: "Access Prices Engine module",        group: "Modules", isSystem: true },
+  // I permessi `modules:*` NON sono qui — vengono caricati a runtime da
+  // INSTALLED_MODULES nella funzione seed() più sotto.
 
   // ── Users ─────────────────────────────────────────────────────────────
   { key: "users:read",              label: "View user list",                group: "Users", isSystem: true },
@@ -102,8 +115,9 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "admin:access", "admin:settings", "admin:analytics",
     "admin:content", "admin:seo", "admin:users", "admin:staff",
     "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
-    // modules
-    "modules:prices",
+    // I permessi dei moduli (modules:*) vengono aggiunti a runtime nella
+    // funzione seed() leggendo INSTALLED_MODULES. Lasciarli fuori da
+    // questo array tiene il core privo di riferimenti a moduli specifici.
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
     "users:role_assign", "users:permission_assign",
@@ -130,9 +144,32 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Costruisce la lista permessi dai manifest di INSTALLED_MODULES.
+ * - permission + permissionLabel: un permesso "Access <Module>"
+ * - extraPermissions: zero o più permessi addizionali
+ * Tutti finiscono nel gruppo "Modules".
+ */
+function buildModulePermissions(): Array<{
+  key: string;
+  label: string;
+  group: string;
+  isSystem: boolean;
+}> {
+  const out: Array<{ key: string; label: string; group: string; isSystem: boolean }> = [];
+  for (const m of INSTALLED_MODULES) {
+    out.push({ key: m.permission, label: m.permissionLabel, group: "Modules", isSystem: true });
+    for (const extra of m.extraPermissions ?? []) {
+      out.push({ key: extra.key, label: extra.label, group: "Modules", isSystem: true });
+    }
+  }
+  return out;
+}
+
 async function seed() {
   console.log("🌱 Seeding RBAC permissions...");
 
+  // Permessi core
   for (const p of PERMISSIONS_SEED) {
     await db
       .insert(permissions)
@@ -142,9 +179,35 @@ async function seed() {
         set: { label: p.label, group: p.group },
       });
   }
-  console.log(`  ✓ ${PERMISSIONS_SEED.length} permissions upserted`);
+  console.log(`  ✓ ${PERMISSIONS_SEED.length} core permissions upserted`);
 
-  for (const [roleName, permKeys] of Object.entries(ROLE_PERMISSION_MAP)) {
+  // Permessi dei moduli installati (caricati dinamicamente dal registry)
+  const modulePerms = buildModulePermissions();
+  for (const p of modulePerms) {
+    await db
+      .insert(permissions)
+      .values({ key: p.key, label: p.label, group: p.group, isSystem: p.isSystem })
+      .onConflictDoUpdate({
+        target: permissions.key,
+        set: { label: p.label, group: p.group },
+      });
+  }
+  console.log(
+    `  ✓ ${modulePerms.length} module permissions upserted (from ${INSTALLED_MODULES.length} installed modules)`,
+  );
+
+  // Role → permission map: combina map core + permessi base dei moduli installati
+  // (gli extraPermissions vanno gestiti manualmente, non auto-granted ad admin)
+  const adminPerms = [
+    ...ROLE_PERMISSION_MAP.admin,
+    ...INSTALLED_MODULES.map((m) => m.permission),
+  ];
+  const fullRoleMap: Record<string, string[]> = {
+    ...ROLE_PERMISSION_MAP,
+    admin: adminPerms,
+  };
+
+  for (const [roleName, permKeys] of Object.entries(fullRoleMap)) {
     const role = await db.query.roles.findFirst({ where: eq(roles.name, roleName) });
     if (!role) { console.warn(`  ⚠ Role "${roleName}" not found — skip`); continue; }
 
