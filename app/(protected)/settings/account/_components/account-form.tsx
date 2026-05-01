@@ -38,6 +38,17 @@ export function AccountForm({ initial }: { initial: Initial }) {
 // ---------------------------------------------------------------------------
 
 function EmailSection({ initial }: { initial: Initial }) {
+  // Stato locale per flip immediato del form al submit. router.refresh()
+  // sincronizza il server component, ma può tardare e qui vogliamo che
+  // l'utente veda subito il form di inserimento codice. La useEffect tiene
+  // lo stato locale allineato al prop quando il server aggiorna initial
+  // (es. dopo confirm/cancel/refresh esterno).
+  const [pendingEmail, setPendingEmail] = useState(initial.pendingEmail);
+
+  useEffect(() => {
+    setPendingEmail(initial.pendingEmail);
+  }, [initial.pendingEmail]);
+
   return (
     <section className="space-y-4">
       <div>
@@ -52,16 +63,28 @@ function EmailSection({ initial }: { initial: Initial }) {
         <Input value={initial.email} disabled readOnly />
       </div>
 
-      {initial.pendingEmail ? (
-        <ConfirmEmailChangeForm pendingEmail={initial.pendingEmail} />
+      {pendingEmail ? (
+        <ConfirmEmailChangeForm
+          pendingEmail={pendingEmail}
+          onCanceled={() => setPendingEmail(null)}
+        />
       ) : (
-        <RequestEmailChangeForm currentEmail={initial.email} />
+        <RequestEmailChangeForm
+          currentEmail={initial.email}
+          onRequested={(newEmail) => setPendingEmail(newEmail)}
+        />
       )}
     </section>
   );
 }
 
-function RequestEmailChangeForm({ currentEmail }: { currentEmail: string }) {
+function RequestEmailChangeForm({
+  currentEmail,
+  onRequested,
+}: {
+  currentEmail: string;
+  onRequested: (newEmail: string) => void;
+}) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     requestEmailChangeAction,
@@ -75,6 +98,18 @@ function RequestEmailChangeForm({ currentEmail }: { currentEmail: string }) {
   const [emailAvailable, setEmailAvailable] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Al successo della richiesta: notifica il parent per flippare subito al
+  // form di conferma + sincronizza SWR/server. Non aspettiamo il refresh.
+  useEffect(() => {
+    if (state.success) {
+      onRequested(emailValue.trim().toLowerCase());
+      mutate("/api/user");
+      router.refresh();
+    }
+    // emailValue volutamente escluso: leggiamo solo l'ultimo al momento del success.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.success]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -198,7 +233,13 @@ function RequestEmailChangeForm({ currentEmail }: { currentEmail: string }) {
   );
 }
 
-function ConfirmEmailChangeForm({ pendingEmail }: { pendingEmail: string }) {
+function ConfirmEmailChangeForm({
+  pendingEmail,
+  onCanceled,
+}: {
+  pendingEmail: string;
+  onCanceled: () => void;
+}) {
   const router = useRouter();
   const [confirmState, confirmAction, confirmPending] = useActionState<
     ActionState,
@@ -209,12 +250,24 @@ function ConfirmEmailChangeForm({ pendingEmail }: { pendingEmail: string }) {
     FormData
   >(cancelEmailChangeAction, {});
 
+  // Cancel: flippa subito al form di richiesta, senza aspettare il refresh.
+  // Confirm: lascia che router.refresh aggiorni initial.email/pendingEmail
+  // — la useEffect in EmailSection sincronizzerà lo stato locale.
   useEffect(() => {
-    if (confirmState.success || cancelState.success) {
+    if (cancelState.success) {
+      onCanceled();
       mutate("/api/user");
       router.refresh();
     }
-  }, [confirmState.success, cancelState.success, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelState.success]);
+
+  useEffect(() => {
+    if (confirmState.success) {
+      mutate("/api/user");
+      router.refresh();
+    }
+  }, [confirmState.success, router]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
