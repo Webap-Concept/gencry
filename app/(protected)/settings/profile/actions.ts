@@ -23,8 +23,8 @@ import { getUser } from "@/lib/db/queries";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
 
 const updateProfileSchema = z.object({
-  firstName: z.string().trim().min(1, "Il nome è obbligatorio").max(100),
-  lastName: z.string().trim().min(1, "Il cognome è obbligatorio").max(100),
+  firstName: z.string().trim().max(100).optional().default(""),
+  lastName: z.string().trim().max(100).optional().default(""),
   username: z
     .string()
     .trim()
@@ -36,12 +36,13 @@ const updateProfileSchema = z.object({
         ctx.addIssue({ code: "custom", message: result.error });
       }
     }),
+  bio: z.string().trim().max(160).optional().default(""),
 });
 
 export const updateProfile = validatedActionWithUser(
   updateProfileSchema,
   async (data, _formData, user) => {
-    const { firstName, lastName, username } = data;
+    const { firstName, lastName, username, bio } = data;
 
     // Lo username viene controllato (blacklist + bloom + DB) solo se è
     // cambiato rispetto a quello attuale. Confronto case-insensitive
@@ -71,10 +72,10 @@ export const updateProfile = validatedActionWithUser(
     try {
       await db
         .insert(userProfiles)
-        .values({ userId: user.id, firstName, lastName, username })
+        .values({ userId: user.id, firstName, lastName, username, bio })
         .onConflictDoUpdate({
           target: userProfiles.userId,
-          set: { firstName, lastName, username, updatedAt: new Date() },
+          set: { firstName, lastName, username, bio, updatedAt: new Date() },
         });
     } catch (err) {
       // Race condition: tra il check bloom/DB e l'UPDATE, qualcun altro
