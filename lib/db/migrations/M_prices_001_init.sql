@@ -26,27 +26,11 @@
 -- Tutti i parametri sono in `app_settings` (chiavi `modules.prices.*`)
 -- e modificabili dall'admin senza redeploy.
 --
--- Idempotente: può essere ri-eseguita senza effetti collaterali.
--- Compatibile con stato pre-modularizzazione: rinomina chiavi e permessi
--- vecchi (admin:prices, prices_*) ai nuovi nomi se presenti.
+-- Idempotente: può essere ri-eseguita senza effetti collaterali (CREATE
+-- TABLE IF NOT EXISTS + INSERT … ON CONFLICT DO NOTHING).
 --
 -- Da incollare nel Supabase SQL Editor.
 -- =============================================================================
-
--- ── 0) Migrazione di compatibilità (se la versione pre-modulare era stata
--- eseguita: rinomina permission e settings keys ai nuovi nomi) ────────────
-UPDATE "permissions" SET key = 'modules:prices', "group" = 'Modules', label = 'Access Prices Engine module'
-  WHERE key = 'admin:prices';
-
-UPDATE "app_settings" SET key = 'modules.prices.cron_minutes'      WHERE key = 'prices_cron_minutes';
-UPDATE "app_settings" SET key = 'modules.prices.universe_hours'    WHERE key = 'prices_universe_hours';
-UPDATE "app_settings" SET key = 'modules.prices.delta_threshold'   WHERE key = 'prices_delta_threshold';
-UPDATE "app_settings" SET key = 'modules.prices.kv_ttl_seconds'    WHERE key = 'prices_kv_ttl_seconds';
-UPDATE "app_settings" SET key = 'modules.prices.breaker_max_err'   WHERE key = 'prices_breaker_max_err';
-UPDATE "app_settings" SET key = 'modules.prices.breaker_window_s' WHERE key = 'prices_breaker_window_s';
-UPDATE "app_settings" SET key = 'modules.prices.breaker_open_s'    WHERE key = 'prices_breaker_open_s';
-UPDATE "app_settings" SET key = 'modules.prices.snapshot_minutes'  WHERE key = 'prices_snapshot_minutes';
-UPDATE "app_settings" SET key = 'modules.prices.retention_days'    WHERE key = 'prices_retention_days';
 
 -- ── 1) Catalogo coin trackati ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "coins" (
