@@ -1,6 +1,7 @@
 import { AppBottomNav } from "@/components/layout/AppBottomNav";
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AppTopBar } from "@/components/layout/AppTopBar";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getSession } from "@/lib/auth/session";
 import { Suspense } from "react";
@@ -24,6 +25,7 @@ export default async function Layout({
   return (
     <div className="min-h-dvh bg-gc-bg">
       <PageShowRevalidator />
+      <AppTopBar />
       <div className="mx-auto max-w-[1440px] flex">
         <AppSidebar />
         <main className="flex-1 min-w-0 pb-20 md:pb-6">
