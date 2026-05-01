@@ -1,17 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/cron/modules/prices/sync",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/modules/prices/snapshot",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/modules/prices/cleanup",
-      "schedule": "0 3 * * *"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

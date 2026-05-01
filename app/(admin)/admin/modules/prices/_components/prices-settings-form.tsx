@@ -198,10 +198,11 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
             color: "var(--admin-text-muted)",
           }}>
           <strong style={{ color: "var(--admin-text)" }}>Note about the cron schedule.</strong>{" "}
-          Vercel Cron is configured to fire every 5 minutes (see <code className="font-mono">vercel.json</code>).
+          The cron is fired by GitHub Actions every 5 minutes (see{" "}
+          <code className="font-mono">.github/workflows/prices-cron-frequent.yml</code>).
           The "Sync interval" above is enforced by the route as a minimum — if you raise it to 15&nbsp;min,
-          the route runs every 5&nbsp;min from Vercel but only does work every 15&nbsp;min.
-          To actually make the cron fire less often (to save on invocations), edit <code className="font-mono">vercel.json</code> and redeploy.
+          the workflow still fires every 5&nbsp;min but the route only does work every 15&nbsp;min.
+          To actually fire less often, edit the workflow's cron schedule.
         </div>
 
         <button

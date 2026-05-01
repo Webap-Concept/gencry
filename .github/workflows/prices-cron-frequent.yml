@@ -1,0 +1,48 @@
+name: Prices Engine — sync + snapshot (every 5min)
+
+# Esecutore dei cron del modulo Prices Engine (vedi memory
+# project_module1_prices.md). Sostituisce vercel.json crons che NON sono
+# disponibili sul piano Hobby di Vercel (limit: 1/giorno, max 2 job).
+#
+# Latenza tipica di GitHub Actions sui cron schedulati: ±2-5 min,
+# occasionalmente fino a 10-15 min sotto load. Accettabile: la route
+# in `runPricesSync` ha già un early-exit che salta il run se l'ultimo
+# successful è entro `modules.prices.cron_minutes`.
+#
+# Secrets richiesti nel repo (Settings → Secrets and variables → Actions):
+#   - APP_URL       URL pubblico del deploy Vercel, es. https://app.example.com
+#   - CRON_SECRET   stesso valore della env var su Vercel (deve combaciare)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# Cancella il run precedente se non finito: niente accumulo se Actions è lenta
+concurrency:
+  group: prices-cron-frequent
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger /api/cron/modules/prices/sync
+        run: |
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/modules/prices/sync"
+
+  snapshot:
+    name: Snapshot prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: sync
+    steps:
+      - name: Trigger /api/cron/modules/prices/snapshot
+        run: |
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/modules/prices/snapshot"

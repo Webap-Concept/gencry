@@ -1,0 +1,29 @@
+name: Prices Engine — cleanup (daily)
+
+# Pulizia giornaliera della tabella `coin_prices` oltre la retention
+# configurata (`modules.prices.retention_days`, default 30gg).
+#
+# Secrets richiesti nel repo:
+#   - APP_URL       URL pubblico del deploy Vercel
+#   - CRON_SECRET   stesso valore della env var su Vercel
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: prices-cron-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup old price points
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger /api/cron/modules/prices/cleanup
+        run: |
+          curl -fsS --max-time 240 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/modules/prices/cleanup"
