@@ -4,8 +4,8 @@ import { getAdminPath } from "@/lib/admin-nav";
 import { db } from "@/lib/db/drizzle";
 import { coins } from "@/lib/db/schema";
 import { updateAppSetting } from "@/lib/db/settings-queries";
-import { fetchCoinMetadata } from "@/lib/prices/sources/coingecko";
-import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/prices/sync";
+import { fetchCoinMetadata } from "@/lib/modules/prices/sources/coingecko";
+import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/modules/prices/sync";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -35,15 +35,15 @@ export async function savePricesSettings(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    await updateAppSetting("prices_cron_minutes",     clampInt(formData.get("prices_cron_minutes"),     1, 60,    5));
-    await updateAppSetting("prices_universe_hours",   clampInt(formData.get("prices_universe_hours"),   1, 168,   24));
-    await updateAppSetting("prices_delta_threshold",  clampFloat01(formData.get("prices_delta_threshold"), 0.0005));
-    await updateAppSetting("prices_kv_ttl_seconds",   clampInt(formData.get("prices_kv_ttl_seconds"),   1, 3600,  30));
-    await updateAppSetting("prices_breaker_max_err",  clampInt(formData.get("prices_breaker_max_err"),  1, 100,   3));
-    await updateAppSetting("prices_breaker_window_s", clampInt(formData.get("prices_breaker_window_s"), 10, 86400, 300));
-    await updateAppSetting("prices_breaker_open_s",   clampInt(formData.get("prices_breaker_open_s"),   10, 86400, 600));
-    await updateAppSetting("prices_snapshot_minutes", clampInt(formData.get("prices_snapshot_minutes"), 1, 60,    5));
-    await updateAppSetting("prices_retention_days",   clampInt(formData.get("prices_retention_days"),   1, 365,   30));
+    await updateAppSetting("modules.prices.cron_minutes",     clampInt(formData.get("modules.prices.cron_minutes"),     1, 60,    5));
+    await updateAppSetting("modules.prices.universe_hours",   clampInt(formData.get("modules.prices.universe_hours"),   1, 168,   24));
+    await updateAppSetting("modules.prices.delta_threshold",  clampFloat01(formData.get("modules.prices.delta_threshold"), 0.0005));
+    await updateAppSetting("modules.prices.kv_ttl_seconds",   clampInt(formData.get("modules.prices.kv_ttl_seconds"),   1, 3600,  30));
+    await updateAppSetting("modules.prices.breaker_max_err",  clampInt(formData.get("modules.prices.breaker_max_err"),  1, 100,   3));
+    await updateAppSetting("modules.prices.breaker_window_s", clampInt(formData.get("modules.prices.breaker_window_s"), 10, 86400, 300));
+    await updateAppSetting("modules.prices.breaker_open_s",   clampInt(formData.get("modules.prices.breaker_open_s"),   10, 86400, 600));
+    await updateAppSetting("modules.prices.snapshot_minutes", clampInt(formData.get("modules.prices.snapshot_minutes"), 1, 60,    5));
+    await updateAppSetting("modules.prices.retention_days",   clampInt(formData.get("modules.prices.retention_days"),   1, 365,   30));
     revalidatePath(getAdminPath("prices-settings"));
     return { success: "Prices settings saved.", timestamp: Date.now() };
   } catch {

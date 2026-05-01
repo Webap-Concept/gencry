@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BarChart2,
   BookOpen,
+  Boxes,
   ChevronDown,
   ClipboardList,
   Code2,
@@ -71,6 +72,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   LineChart,
   Activity,
   Coins,
+  Boxes,
 };
 
 interface AdminSidebarProps {

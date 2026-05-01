@@ -1,5 +1,5 @@
-import { isAuthorizedCron } from "@/lib/prices/cron-auth";
-import { runPricesCleanup } from "@/lib/prices/sync";
+import { isAuthorizedCron } from "@/lib/modules/prices/cron-auth";
+import { runPricesCleanup } from "@/lib/modules/prices/sync";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

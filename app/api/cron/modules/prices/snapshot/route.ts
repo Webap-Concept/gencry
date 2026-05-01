@@ -1,5 +1,5 @@
-import { isAuthorizedCron } from "@/lib/prices/cron-auth";
-import { runPricesSync } from "@/lib/prices/sync";
+import { isAuthorizedCron } from "@/lib/modules/prices/cron-auth";
+import { runPricesSnapshot } from "@/lib/modules/prices/sync";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const result = await runPricesSync();
+    const result = await runPricesSnapshot();
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

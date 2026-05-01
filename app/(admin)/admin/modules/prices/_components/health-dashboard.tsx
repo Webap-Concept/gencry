@@ -1,9 +1,9 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import type { BreakerState } from "@/lib/prices/circuit-breaker";
-import type { PricesConfig } from "@/lib/prices/config";
-import type { RecentRunStats } from "@/lib/prices/queries";
+import type { BreakerState } from "@/lib/modules/prices/circuit-breaker";
+import type { PricesConfig } from "@/lib/modules/prices/config";
+import type { RecentRunStats } from "@/lib/modules/prices/queries";
 import type { PriceSyncRun } from "@/lib/db/schema";
 import { CheckCircle2, Loader2, PlayCircle, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";

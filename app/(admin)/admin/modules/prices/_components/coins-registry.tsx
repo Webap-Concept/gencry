@@ -2,7 +2,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { Coin } from "@/lib/db/schema";
-import type { PriceRow } from "@/lib/prices/queries";
+import type { PriceRow } from "@/lib/modules/prices/queries";
 import { Loader2, Plus, RefreshCw, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {

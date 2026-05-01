@@ -1,6 +1,6 @@
-import { getAllBreakerStates } from "@/lib/prices/circuit-breaker";
-import { getPricesConfig } from "@/lib/prices/config";
-import { getRecentRuns, getRecentSyncStats } from "@/lib/prices/queries";
+import { getAllBreakerStates } from "@/lib/modules/prices/circuit-breaker";
+import { getPricesConfig } from "@/lib/modules/prices/config";
+import { getRecentRuns, getRecentSyncStats } from "@/lib/modules/prices/queries";
 import type { Metadata } from "next";
 import { HealthDashboard } from "./_components/health-dashboard";
 

@@ -6,15 +6,15 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { savePricesSettings, type ActionState } from "../actions";
 
 interface InitialValues {
-  prices_cron_minutes: string;
-  prices_universe_hours: string;
-  prices_delta_threshold: string;
-  prices_kv_ttl_seconds: string;
-  prices_breaker_max_err: string;
-  prices_breaker_window_s: string;
-  prices_breaker_open_s: string;
-  prices_snapshot_minutes: string;
-  prices_retention_days: string;
+  "modules.prices.cron_minutes": string;
+  "modules.prices.universe_hours": string;
+  "modules.prices.delta_threshold": string;
+  "modules.prices.kv_ttl_seconds": string;
+  "modules.prices.breaker_max_err": string;
+  "modules.prices.breaker_window_s": string;
+  "modules.prices.breaker_open_s": string;
+  "modules.prices.snapshot_minutes": string;
+  "modules.prices.retention_days": string;
 }
 
 const FIELDS: Array<{
@@ -29,7 +29,7 @@ const FIELDS: Array<{
 }> = [
   // Ingestion
   {
-    name: "prices_cron_minutes",
+    name: "modules.prices.cron_minutes",
     label: "Sync interval (minutes)",
     hint: "How often the cron pulls fresh prices from CoinGecko/DexScreener.",
     group: "ingestion",
@@ -38,7 +38,7 @@ const FIELDS: Array<{
     max: 60,
   },
   {
-    name: "prices_universe_hours",
+    name: "modules.prices.universe_hours",
     label: "Active universe window (hours)",
     hint: "Coins last seen within this window are kept refreshed by the cron.",
     group: "ingestion",
@@ -47,7 +47,7 @@ const FIELDS: Array<{
     max: 168,
   },
   {
-    name: "prices_delta_threshold",
+    name: "modules.prices.delta_threshold",
     label: "Upsert delta threshold",
     hint: "Skip writes if relative change is below this (e.g. 0.0005 = 0.05%).",
     group: "ingestion",
@@ -57,7 +57,7 @@ const FIELDS: Array<{
     step: "0.00001",
   },
   {
-    name: "prices_kv_ttl_seconds",
+    name: "modules.prices.kv_ttl_seconds",
     label: "KV cache TTL (seconds)",
     hint: "Edge cache TTL for current price reads (when KV is wired in).",
     group: "ingestion",
@@ -67,7 +67,7 @@ const FIELDS: Array<{
   },
   // Circuit breaker
   {
-    name: "prices_breaker_max_err",
+    name: "modules.prices.breaker_max_err",
     label: "Breaker — max errors",
     hint: "Consecutive errors within the window before the source is marked open.",
     group: "breaker",
@@ -76,7 +76,7 @@ const FIELDS: Array<{
     max: 100,
   },
   {
-    name: "prices_breaker_window_s",
+    name: "modules.prices.breaker_window_s",
     label: "Breaker — error window (seconds)",
     hint: "Errors older than this don't count toward opening the breaker.",
     group: "breaker",
@@ -85,7 +85,7 @@ const FIELDS: Array<{
     max: 86400,
   },
   {
-    name: "prices_breaker_open_s",
+    name: "modules.prices.breaker_open_s",
     label: "Breaker — open duration (seconds)",
     hint: "How long the source stays skipped after opening before retrying (half-open).",
     group: "breaker",
@@ -95,7 +95,7 @@ const FIELDS: Array<{
   },
   // History
   {
-    name: "prices_snapshot_minutes",
+    name: "modules.prices.snapshot_minutes",
     label: "Snapshot interval (minutes)",
     hint: "How often a row is written to coin_prices for sparklines.",
     group: "history",
@@ -104,7 +104,7 @@ const FIELDS: Array<{
     max: 60,
   },
   {
-    name: "prices_retention_days",
+    name: "modules.prices.retention_days",
     label: "Sparkline retention (days)",
     hint: "Older points are deleted by the daily cleanup cron.",
     group: "history",

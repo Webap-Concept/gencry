@@ -1,6 +1,12 @@
 /**
  * ADMIN NAV REGISTRY
+ *
+ * Le voci "core" sono hardcoded qui sotto.
+ * Le voci dei moduli social sono iniettate da `lib/modules/registry.ts`
+ * sotto la voce "Modules". Aggiungere/rimuovere un modulo non richiede
+ * di toccare questo file: basta editare INSTALLED_MODULES.
  */
+import { INSTALLED_MODULES } from "@/lib/modules/registry";
 
 export interface NavChild {
   key: string;
@@ -316,36 +322,27 @@ export const ADMIN_NAV: NavItem[] = [
       },
     ],
   },
-  {
-    key: "prices-group",
-    label: "Prices Engine",
-    icon: "LineChart",
-    permission: "admin:prices",
-    childrenMaxHeight: "180px",
-    children: [
-      {
-        key: "prices-overview",
-        href: "/admin/prices",
-        label: "Health",
-        icon: "Activity",
-        permission: "admin:prices",
-      },
-      {
-        key: "prices-coins",
-        href: "/admin/prices/coins",
-        label: "Coins Registry",
-        icon: "Coins",
-        permission: "admin:prices",
-      },
-      {
-        key: "prices-settings",
-        href: "/admin/prices/settings",
-        label: "Settings",
-        icon: "Settings",
-        permission: "admin:prices",
-      },
-    ],
-  },
+  // ── Modules ──────────────────────────────────────────────────────────
+  // Voce sintetica costruita da INSTALLED_MODULES. Resta visibile finché
+  // c'è almeno un modulo registrato. Per app non-social (registry vuoto)
+  // l'item viene filtrato via dal sidebar (zero children visibili).
+  ...(INSTALLED_MODULES.length > 0
+    ? [
+        {
+          key: "modules-group",
+          label: "Modules",
+          icon: "Boxes",
+          // Permesso "umbrella": basta avere admin:access per vedere il
+          // gruppo. Le singole voci children sono filtrate dalle proprie
+          // permission (modules:prices, modules:watchlist, ecc.).
+          permission: "admin:access",
+          childrenMaxHeight: `${
+            INSTALLED_MODULES.reduce((acc, m) => acc + m.navChildren.length, 0) * 44 + 40
+          }px`,
+          children: INSTALLED_MODULES.flatMap((m) => m.navChildren),
+        } as NavItem,
+      ]
+    : []),
   {
     key: "tests",
     href: "/admin/tests",

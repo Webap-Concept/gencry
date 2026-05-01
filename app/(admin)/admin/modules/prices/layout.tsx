@@ -9,7 +9,7 @@ export default async function PricesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdminSectionPage("admin:prices");
+  await requireAdminSectionPage("modules:prices");
   return (
     <div className="space-y-5">
       <PricesHeader />

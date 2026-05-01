@@ -1,4 +1,4 @@
-import { listCoins, getCurrentPrices } from "@/lib/prices/queries";
+import { listCoins, getCurrentPrices } from "@/lib/modules/prices/queries";
 import type { Metadata } from "next";
 import { CoinsRegistry } from "../_components/coins-registry";
 
