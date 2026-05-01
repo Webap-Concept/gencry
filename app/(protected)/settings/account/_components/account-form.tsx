@@ -1,14 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
-import { Check, Eye, EyeOff, X } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/auth/middleware";
 import { passwordRules } from "@/lib/account/password-rules";
+import { checkEmailAction } from "@/app/(login)/actions";
 import {
   cancelEmailChangeAction,
   changePasswordAction,
@@ -54,13 +55,13 @@ function EmailSection({ initial }: { initial: Initial }) {
       {initial.pendingEmail ? (
         <ConfirmEmailChangeForm pendingEmail={initial.pendingEmail} />
       ) : (
-        <RequestEmailChangeForm />
+        <RequestEmailChangeForm currentEmail={initial.email} />
       )}
     </section>
   );
 }
 
-function RequestEmailChangeForm() {
+function RequestEmailChangeForm({ currentEmail }: { currentEmail: string }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     requestEmailChangeAction,
@@ -68,12 +69,61 @@ function RequestEmailChangeForm() {
   );
   const [showPassword, setShowPassword] = useState(false);
 
+  // Email availability real-time check (stesso pattern di /sign-up)
+  const [emailValue, setEmailValue] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailAvailable, setEmailAvailable] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (state.success) {
-      mutate("/api/user");
-      router.refresh();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = emailValue.trim();
+
+    if (!trimmed) {
+      setEmailError("");
+      setEmailAvailable(false);
+      setCheckingEmail(false);
+      return;
     }
-  }, [state.success, router]);
+
+    // Stessa email corrente (case-insensitive) → segnala come no-op
+    if (trimmed.toLowerCase() === currentEmail.toLowerCase()) {
+      setEmailError("La nuova email coincide con quella attuale.");
+      setEmailAvailable(false);
+      setCheckingEmail(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError("Inserisci un indirizzo email valido");
+      setEmailAvailable(false);
+      setCheckingEmail(false);
+      return;
+    }
+
+    setCheckingEmail(true);
+    setEmailError("");
+    setEmailAvailable(false);
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const result = await checkEmailAction(trimmed);
+        setEmailError(result.error ?? "");
+        setEmailAvailable(Boolean(result.available));
+      } catch {
+        setEmailError("Impossibile verificare l'email in questo momento");
+        setEmailAvailable(false);
+      } finally {
+        setCheckingEmail(false);
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [emailValue, currentEmail]);
 
   return (
     <form action={action} className="space-y-4">
@@ -87,7 +137,23 @@ function RequestEmailChangeForm() {
           required
           maxLength={255}
           placeholder="nuova@esempio.com"
+          value={emailValue}
+          onChange={(e) => setEmailValue(e.target.value)}
+          aria-invalid={!!emailError}
         />
+        {checkingEmail ? (
+          <p className="text-[11.5px] flex items-center gap-1 text-gc-fg-3 px-1">
+            <Loader2 className="h-3 w-3 animate-spin" /> Verifica email in corso…
+          </p>
+        ) : emailError ? (
+          <p className="text-[11.5px] flex items-center gap-1 text-gc-neg px-1">
+            <X className="h-3 w-3" /> {emailError}
+          </p>
+        ) : emailAvailable ? (
+          <p className="text-[11.5px] flex items-center gap-1 text-emerald-700 px-1">
+            <Check className="h-3 w-3" /> Email disponibile
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-1.5">
