@@ -71,7 +71,7 @@ export async function getSparklinesBatch(
         price,
         ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY ts DESC) AS rn
       FROM coin_prices
-      WHERE symbol = ANY(${symbols})
+      WHERE symbol = ANY(${symbols}::text[])
     ) t
     WHERE rn <= ${points}
     ORDER BY symbol, rn DESC

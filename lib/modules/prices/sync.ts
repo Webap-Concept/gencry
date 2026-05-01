@@ -4,7 +4,7 @@
 // in `prices` con delta threshold, log run su `prices_sync_runs`.
 import { db } from "@/lib/db/drizzle";
 import { coinPrices, prices, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { getActiveUniverse } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
 import { getPricesConfig } from "./config";
@@ -158,7 +158,7 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   const existingRows = await db
     .select({ symbol: prices.symbol, price: prices.price })
     .from(prices)
-    .where(sql`${prices.symbol} = ANY(${symbols})`);
+    .where(inArray(prices.symbol, symbols));
 
   const existing = new Map<string, number>();
   for (const r of existingRows) existing.set(r.symbol, Number(r.price));
