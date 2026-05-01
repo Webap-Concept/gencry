@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/drizzle";
-import { pages, pageTemplates, templateFields, type NewPage, type Page, type PageTemplate, type TemplateField, type SystemPageKey } from "@/lib/db/schema";
-import { asc, eq, inArray } from "drizzle-orm";
+import { pages, pageTemplates, pageVersions, templateFields, type NewPage, type Page, type PageTemplate, type TemplateField, type SystemPageKey } from "@/lib/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Pages
@@ -179,6 +179,22 @@ export async function upsertPage(data: NewPage & { id?: number }): Promise<numbe
       const current = existing[0];
       if (current && rest.content !== undefined && rest.content !== current.content) {
         nextVersion = computeNextContentVersion(current.contentVersion);
+
+        // Snapshotta la VECCHIA versione in page_versions prima di sovrascriverla:
+        // così gli utenti che l'avevano accettata possono ancora rileggerne il
+        // testo originale da /settings/privacy. ON CONFLICT è no-op se per
+        // qualche motivo lo snapshot esiste già (es. seed iniziale + edit).
+        await db
+          .insert(pageVersions)
+          .values({
+            pageId: id,
+            contentVersion: current.contentVersion,
+            title: current.title,
+            content: current.content,
+          })
+          .onConflictDoNothing({
+            target: [pageVersions.pageId, pageVersions.contentVersion],
+          });
       }
     }
 

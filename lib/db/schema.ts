@@ -267,6 +267,33 @@ export const pages = pgTable("pages", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/**
+ * Snapshot storico delle pagine di sistema (Termini/Privacy/Marketing).
+ * Popolata automaticamente da `upsertPage` quando `contentVersion` cambia,
+ * salvando la VECCHIA versione prima di sovrascriverla.
+ * Permette di mostrare in /settings/privacy il testo esatto che l'utente
+ * ha accettato, anche dopo che l'admin ha pubblicato versioni successive.
+ */
+export const pageVersions = pgTable(
+  "page_versions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    contentVersion: varchar("content_version", { length: 20 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull(),
+    snapshottedAt: timestamp("snapshotted_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("page_versions_page_version_uq").on(
+      table.pageId,
+      table.contentVersion,
+    ),
+  ],
+);
+
 export const pagesRelations = relations(pages, ({ one, many }) => ({
   parent: one(pages, {
     fields: [pages.parentId],
