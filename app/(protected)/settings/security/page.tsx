@@ -1,10 +1,26 @@
-import { ComingSoon } from "../../_components/coming-soon";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/db/queries";
+import { getDeviceToken } from "@/lib/auth/trusted-device";
+import { listMyDevices } from "@/lib/account/devices";
+import { DevicesList } from "./_components/devices-list";
 
-export default function SecuritySettingsPage() {
+export default async function SecuritySettingsPage() {
+  const user = await getUser();
+  if (!user) redirect("/sign-in");
+
+  const currentDeviceToken = await getDeviceToken();
+  const devices = await listMyDevices(user.id, currentDeviceToken);
+
   return (
-    <ComingSoon
-      title="Sicurezza"
-      description="Sessioni attive, dispositivi fidati, autenticazione a due fattori. In arrivo."
+    <DevicesList
+      devices={devices.map((d) => ({
+        id: d.id,
+        label: d.parsed.label,
+        deviceType: d.parsed.deviceType,
+        createdAt: d.createdAt.toISOString(),
+        lastUsedAt: d.lastUsedAt.toISOString(),
+        isCurrent: d.isCurrent,
+      }))}
     />
   );
 }
