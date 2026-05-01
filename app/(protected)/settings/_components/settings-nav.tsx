@@ -17,7 +17,7 @@ export function SettingsNav() {
   return (
     <nav
       aria-label="Sezioni impostazioni"
-      className="flex gap-1 overflow-x-auto border-b border-gc-line -mx-1 px-1 scrollbar-thin"
+      className="flex gap-1 overflow-x-auto border-b border-gc-line -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(href + "/");

@@ -4,6 +4,9 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
 import { Camera, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/auth/middleware";
 import { removeAvatar, updateProfile, uploadAvatar } from "../actions";
 
@@ -21,7 +24,6 @@ export function ProfileForm({ initial }: { initial: Initial }) {
   const router = useRouter();
   const [previewUrl, setPreviewUrl] = useState<string | null>(initial.avatarUrl);
 
-  // Update profile (firstName/lastName/username)
   const [profileState, profileAction, profilePending] = useActionState<
     ActionState,
     FormData
@@ -72,23 +74,21 @@ export function ProfileForm({ initial }: { initial: Initial }) {
           label="Username"
           name="username"
           defaultValue={initial.username}
-          prefix="@"
           required
           maxLength={50}
-          help="3–50 caratteri. Lettere, numeri e underscore."
+          help={`Verrà mostrato come @${initial.username || "tuonome"}. 3–50 caratteri, lettere/numeri/underscore.`}
         />
 
-        <div>
-          <label className="block text-[12.5px] font-medium text-gc-fg-2 mb-1.5">
-            Email
-          </label>
-          <input
-            type="text"
+        <div className="space-y-1.5">
+          <Label htmlFor="email-readonly">Email</Label>
+          <Input
+            id="email-readonly"
+            type="email"
             value={initial.email}
             disabled
-            className="w-full px-3 py-2.5 bg-gc-bg-3 border border-gc-line rounded-gc-sm text-[14px] text-gc-fg-3 cursor-not-allowed"
+            readOnly
           />
-          <p className="text-[11.5px] text-gc-fg-3 mt-1.5">
+          <p className="text-[11.5px] text-gc-fg-3 px-1">
             Il cambio email sarà disponibile dalla sezione Account.
           </p>
         </div>
@@ -101,13 +101,9 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         )}
 
         <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={profilePending}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-gc-accent text-white font-medium text-[14px] hover:brightness-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+          <Button type="submit" disabled={profilePending}>
             {profilePending ? "Salvataggio…" : "Salva"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -120,7 +116,6 @@ function Field({
   defaultValue,
   required,
   maxLength,
-  prefix,
   help,
 }: {
   label: string;
@@ -128,32 +123,20 @@ function Field({
   defaultValue: string;
   required?: boolean;
   maxLength?: number;
-  prefix?: string;
   help?: string;
 }) {
   return (
-    <div>
-      <label
-        htmlFor={name}
-        className="block text-[12.5px] font-medium text-gc-fg-2 mb-1.5"
-      >
-        {label}
-      </label>
-      <div className="flex items-center gap-2 bg-gc-bg-2 border border-gc-line rounded-gc-sm focus-within:border-gc-fg transition">
-        {prefix && (
-          <span className="pl-3 text-gc-fg-3 text-[14px]">{prefix}</span>
-        )}
-        <input
-          id={name}
-          name={name}
-          type="text"
-          defaultValue={defaultValue}
-          required={required}
-          maxLength={maxLength}
-          className="flex-1 bg-transparent px-3 py-2.5 text-[14px] text-gc-fg outline-none"
-        />
-      </div>
-      {help && <p className="text-[11.5px] text-gc-fg-3 mt-1.5">{help}</p>}
+    <div className="space-y-1.5">
+      <Label htmlFor={name}>{label}</Label>
+      <Input
+        id={name}
+        name={name}
+        type="text"
+        defaultValue={defaultValue}
+        required={required}
+        maxLength={maxLength}
+      />
+      {help && <p className="text-[11.5px] text-gc-fg-3 px-1">{help}</p>}
     </div>
   );
 }
@@ -244,25 +227,28 @@ function AvatarSection({
           PNG, JPG o WebP. Verrà ridimensionata a {TARGET_SIZE}×{TARGET_SIZE}.
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => fileRef.current?.click()}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gc-line-2 text-[13px] font-medium text-gc-fg-2 hover:bg-gc-bg-2 hover:border-gc-fg transition disabled:opacity-60"
           >
             <Camera size={14} strokeWidth={1.7} />
             {uploading ? "Caricamento…" : avatarUrl ? "Cambia" : "Carica"}
-          </button>
+          </Button>
           {avatarUrl && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={triggerRemove}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium text-gc-neg hover:bg-gc-bg-2 transition disabled:opacity-60"
+              className="text-gc-neg hover:text-gc-neg"
             >
               <Trash2 size={14} strokeWidth={1.7} />
               {removing ? "Rimozione…" : "Rimuovi"}
-            </button>
+            </Button>
           )}
         </div>
         {error && <p className="text-[12.5px] text-gc-neg mt-2">{error}</p>}
@@ -282,10 +268,6 @@ function AvatarSection({
   );
 }
 
-/**
- * Carica l'immagine in un canvas, ritaglia centrato a quadrato e ridimensiona
- * a `size`x`size`. Esporta come JPEG (qualità 0.92). Non usa librerie esterne.
- */
 async function resizeToSquare(file: File, size: number): Promise<File> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();

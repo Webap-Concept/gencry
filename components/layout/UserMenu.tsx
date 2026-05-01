@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { createPortal } from "react-dom";
+import { LogOut, Palette, Settings, User as UserIcon } from "lucide-react";
 import { mutate } from "swr";
 import { signOut } from "@/app/(login)/actions";
 import { Avatar } from "@/components/shared/Avatar";
@@ -14,39 +15,46 @@ type Variant = "popover" | "sheet";
 type UserMenuProps = {
   user: UserWithProfile;
   /** "popover" si apre come dropdown verso l'alto (sidebar desktop).
-   *  "sheet" si apre come bottom-sheet (mobile, dall'AppTopBar).
+   *  "sheet" si apre come bottom-sheet (mobile, dall'AppTopBar);
+   *  renderizzato in portale a document.body per evitare interferenze
+   *  con stacking context e sticky parents.
    */
   variant: Variant;
-  /** Trigger custom: se assente usa l'avatar/dettagli utente come riga. */
   trigger?: (open: boolean, toggle: () => void) => React.ReactNode;
 };
 
 export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => setMounted(true), []);
+
+  // Chiusura su ESC (entrambe le varianti)
   useEffect(() => {
     if (!open) return;
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
     function escHandler(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", handler);
     document.addEventListener("keydown", escHandler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", escHandler);
-    };
+    return () => document.removeEventListener("keydown", escHandler);
   }, [open]);
+
+  // Click outside per il popover (la variante sheet usa l'overlay onClick)
+  useEffect(() => {
+    if (!open || variant !== "popover") return;
+    function handler(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open, variant]);
 
   // Blocca lo scroll del body quando il bottom-sheet è aperto
   useEffect(() => {
-    if (variant !== "sheet") return;
-    if (!open) return;
+    if (variant !== "sheet" || !open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -72,22 +80,24 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
     window.location.href = "/";
   }
 
+  const close = () => setOpen(false);
   const toggle = () => setOpen((o) => !o);
 
-  const items = (
+  const menuBody = (
     <>
       <MenuItem
         href="/profilo"
         icon={<UserIcon size={16} strokeWidth={1.6} />}
         label="Il tuo profilo"
-        onClick={() => setOpen(false)}
+        onClick={close}
       />
       <MenuItem
         href="/settings"
         icon={<Settings size={16} strokeWidth={1.6} />}
         label="Impostazioni"
-        onClick={() => setOpen(false)}
+        onClick={close}
       />
+      <ThemeToggleItem onAction={close} />
       <div className="my-1 h-px bg-gc-line" />
       <button
         type="button"
@@ -122,7 +132,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
 
   if (variant === "popover") {
     return (
-      <div ref={ref} className="relative">
+      <div ref={popoverRef} className="relative">
         {trigger ? (
           trigger(open, toggle)
         ) : (
@@ -140,16 +150,16 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
             className="absolute bottom-full left-0 right-0 mb-2 bg-gc-bg-2 border border-gc-line rounded-gc shadow-lg overflow-hidden z-30"
           >
             {header}
-            <div className="p-1">{items}</div>
+            <div className="p-1">{menuBody}</div>
           </div>
         )}
       </div>
     );
   }
 
-  // sheet
+  // sheet (mobile) — portale per evitare interferenze con il sticky topbar
   return (
-    <div ref={ref}>
+    <>
       {trigger ? (
         trigger(open, toggle)
       ) : (
@@ -163,24 +173,27 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
           <Avatar user={avatarUser} size={32} />
         </button>
       )}
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="menu"
-            className="fixed inset-x-0 bottom-0 z-50 bg-gc-bg-2 border-t border-gc-line rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-bottom"
-          >
-            <div className="mx-auto w-10 h-1 rounded-full bg-gc-line my-2" />
-            {header}
-            <div className="p-2">{items}</div>
-          </div>
-        </>
-      )}
-    </div>
+      {mounted && open
+        ? createPortal(
+            <div className="fixed inset-0 z-[100]">
+              <div
+                className="absolute inset-0 bg-black/40 animate-in fade-in"
+                onClick={close}
+                aria-hidden="true"
+              />
+              <div
+                role="menu"
+                className="absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col bg-gc-bg-2 border-t border-gc-line rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-bottom"
+              >
+                <div className="mx-auto w-10 h-1 rounded-full bg-gc-line my-2 shrink-0" />
+                <div className="shrink-0">{header}</div>
+                <div className="p-2 overflow-y-auto">{menuBody}</div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
@@ -242,5 +255,50 @@ function MenuItem({
       {icon}
       <span>{label}</span>
     </Link>
+  );
+}
+
+/**
+ * Toggle Sabbia/Bosco. Persiste in localStorage e applica la classe `dark`
+ * su <html>. Nota: i token gc-* del frontend non hanno ancora una variante
+ * dark — la voce sblocca il toggle, ma per vedere il tema "Bosco" effettivo
+ * serve una PR dedicata che definisca i colori dark.
+ */
+function ThemeToggleItem({ onAction }: { onAction?: () => void }) {
+  const [theme, setTheme] = useState<"sabbia" | "bosco">("sabbia");
+
+  useEffect(() => {
+    const saved =
+      typeof window !== "undefined" ? localStorage.getItem("gc-theme") : null;
+    if (saved === "bosco") {
+      document.documentElement.classList.add("dark");
+      setTheme("bosco");
+    } else {
+      document.documentElement.classList.remove("dark");
+      setTheme("sabbia");
+    }
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "bosco" ? "sabbia" : "bosco";
+    document.documentElement.classList.toggle("dark", next === "bosco");
+    localStorage.setItem("gc-theme", next);
+    setTheme(next);
+    onAction?.();
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      role="menuitem"
+      className="w-full flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-fg hover:bg-gc-bg-3 transition rounded-gc-sm"
+    >
+      <Palette size={16} strokeWidth={1.6} />
+      <span className="flex-1 text-left">Tema</span>
+      <span className="text-[11.5px] text-gc-fg-3">
+        {theme === "sabbia" ? "Sabbia" : "Bosco"}
+      </span>
+    </button>
   );
 }
