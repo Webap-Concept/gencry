@@ -1,15 +1,19 @@
-// Sparkline procedurale: data deterministica generata dal ticker, così
-// ogni coin ha sempre lo stesso "grafico" demo finché non plug-iniamo
-// dati reali. Niente useMemo/state → server-component-friendly.
+// Sparkline. Pure-render, server-component-friendly (niente useMemo/state).
+// Se il caller passa `points` reali (da `getSparklinesBatch` lato server),
+// li usa direttamente. Altrimenti genera una serie procedurale deterministica
+// dal ticker — fallback per coin non ancora trackati e per i mock UI.
 
 type SparkProps = {
   sym: string;
-  /** Direzione del trend (positivo/negativo) — bias del random walk */
+  /** Direzione del trend (positivo/negativo) — bias del random walk procedurale */
   change?: number;
   w?: number;
   h?: number;
   /** Override colore. Default: gc-pos / gc-neg in base a `change`. */
   color?: string;
+  /** Punti reali (es. da `coin_prices`). Se passati con almeno 2 elementi,
+   *  bypassano completamente la generazione procedurale. */
+  points?: number[];
 };
 
 function hashSeed(seed: string): number {
@@ -36,14 +40,17 @@ function genSpark(seed: string, len = 24, trend = 0): number[] {
   return out;
 }
 
-export function Spark({ sym, change = 0, w = 80, h = 28, color }: SparkProps) {
-  const pts = genSpark(sym, 24, change > 0 ? 1 : -1);
+export function Spark({ sym, change = 0, w = 80, h = 28, color, points }: SparkProps) {
+  const pts =
+    points && points.length >= 2
+      ? points
+      : genSpark(sym, 24, change > 0 ? 1 : -1);
   const stroke = color || (change >= 0 ? "var(--gc-pos)" : "var(--gc-neg)");
   const max = Math.max(...pts);
   const min = Math.min(...pts);
   const norm = (v: number) =>
     h - ((v - min) / (max - min || 1)) * (h - 4) - 2;
-  const step = w / (pts.length - 1);
+  const step = w / Math.max(1, pts.length - 1);
   const d = pts
     .map(
       (v, i) =>

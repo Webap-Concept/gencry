@@ -2,12 +2,14 @@
 
 import { ADMIN_NAV, type NavChild, type NavItem } from "@/lib/admin-nav";
 import {
+  Activity,
   ArrowRight,
   BarChart2,
   BookOpen,
   ChevronDown,
   ClipboardList,
   Code2,
+  Coins,
   Database,
   FileText,
   FlaskConical,
@@ -16,6 +18,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  LineChart,
   ListFilter,
   Lock,
   LogIn,
@@ -65,6 +68,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
   MailOpen,
   Code2,
   Database,
+  LineChart,
+  Activity,
+  Coins,
 };
 
 interface AdminSidebarProps {

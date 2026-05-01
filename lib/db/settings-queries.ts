@@ -72,6 +72,17 @@ export type SettingKey =
   // Notifiche admin — timestamp dell'ultimo run del dispatcher (throttle 1h).
   // Valore: ISO 8601 string oppure null.
   | 'notifications_dispatcher_last_run'
+  // Prices Engine (modulo prezzi crypto). Tutti i valori sono stringhe e
+  // vengono parsati lato app. Vedi migration 0026 per i range.
+  | 'prices_cron_minutes'      // intervallo cron sync prezzi (1..60)
+  | 'prices_universe_hours'    // finestra "active universe" (6..168)
+  | 'prices_delta_threshold'   // soglia upsert come float, es. 0.0005 = 0.05%
+  | 'prices_kv_ttl_seconds'    // TTL cache KV per prezzi correnti
+  | 'prices_breaker_max_err'   // errori consecutivi prima di aprire il circuit breaker
+  | 'prices_breaker_window_s'  // finestra in secondi per il conteggio errori
+  | 'prices_breaker_open_s'    // durata apertura circuit breaker
+  | 'prices_snapshot_minutes'  // intervallo snapshot timeseries (sparkline)
+  | 'prices_retention_days'    // retention coin_prices in giorni
 
 export type AppSettings = {
   app_name: string
@@ -131,6 +142,16 @@ export type AppSettings = {
   // Cloudflare Turnstile
   cf_turnstile_site_key: string | null
   cf_turnstile_secret_key: string | null
+  // Prices Engine
+  prices_cron_minutes: string
+  prices_universe_hours: string
+  prices_delta_threshold: string
+  prices_kv_ttl_seconds: string
+  prices_breaker_max_err: string
+  prices_breaker_window_s: string
+  prices_breaker_open_s: string
+  prices_snapshot_minutes: string
+  prices_retention_days: string
 }
 
 const DEFAULTS: AppSettings = {
@@ -187,6 +208,17 @@ const DEFAULTS: AppSettings = {
   github_ci_branch: 'ci-results',
   cf_turnstile_site_key: null,
   cf_turnstile_secret_key: null,
+  // Prices Engine — duplicano i defaults della migration 0026 (sicurezza:
+  // la migration potrebbe non essere stata eseguita in dev locale).
+  prices_cron_minutes: '5',
+  prices_universe_hours: '24',
+  prices_delta_threshold: '0.0005',
+  prices_kv_ttl_seconds: '30',
+  prices_breaker_max_err: '3',
+  prices_breaker_window_s: '300',
+  prices_breaker_open_s: '600',
+  prices_snapshot_minutes: '5',
+  prices_retention_days: '30',
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

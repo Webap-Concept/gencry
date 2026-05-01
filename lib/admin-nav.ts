@@ -317,6 +317,36 @@ export const ADMIN_NAV: NavItem[] = [
     ],
   },
   {
+    key: "prices-group",
+    label: "Prices Engine",
+    icon: "LineChart",
+    permission: "admin:prices",
+    childrenMaxHeight: "180px",
+    children: [
+      {
+        key: "prices-overview",
+        href: "/admin/prices",
+        label: "Health",
+        icon: "Activity",
+        permission: "admin:prices",
+      },
+      {
+        key: "prices-coins",
+        href: "/admin/prices/coins",
+        label: "Coins Registry",
+        icon: "Coins",
+        permission: "admin:prices",
+      },
+      {
+        key: "prices-settings",
+        href: "/admin/prices/settings",
+        label: "Settings",
+        icon: "Settings",
+        permission: "admin:prices",
+      },
+    ],
+  },
+  {
     key: "tests",
     href: "/admin/tests",
     label: "Test Suite",
