@@ -1,9 +1,12 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  bigint,
+  bigserial,
   boolean,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   serial,
@@ -523,6 +526,96 @@ export type SiteSnippet     = typeof siteSnippets.$inferSelect;
 export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
 export type RouteRegistry   = typeof routeRegistry.$inferSelect;
 export type NewRouteRegistry = typeof routeRegistry.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Prices Engine — coin metadata, current price, timeseries, source health
+// (vedi migration 0026_prices_engine.sql per il commento architetturale)
+// ---------------------------------------------------------------------------
+
+export const coins = pgTable(
+  "coins",
+  {
+    symbol:       varchar("symbol", { length: 20 }).primaryKey(),
+    coingeckoId:  varchar("coingecko_id", { length: 100 }).unique(),
+    name:         varchar("name", { length: 120 }).notNull(),
+    imageUrl:     text("image_url"),
+    marketCap:    bigint("market_cap", { mode: "number" }),
+    category:     varchar("category", { length: 50 }),
+    isActive:     boolean("is_active").notNull().default(true),
+    lastSeenAt:   timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_coins_active_mcap").on(t.isActive, t.marketCap),
+  ],
+);
+
+export const prices = pgTable("prices", {
+  symbol:       varchar("symbol", { length: 20 }).primaryKey()
+                  .references(() => coins.symbol, { onDelete: "cascade" }),
+  price:        numeric("price",      { precision: 24, scale: 8 }).notNull(),
+  change24h:    numeric("change_24h", { precision: 10, scale: 4 }),
+  volume24h:    numeric("volume_24h", { precision: 24, scale: 2 }),
+  source:       varchar("source", { length: 20 }).notNull().default("coingecko"),
+  lastUpdated:  timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const coinPrices = pgTable(
+  "coin_prices",
+  {
+    id:     bigserial("id", { mode: "number" }).primaryKey(),
+    symbol: varchar("symbol", { length: 20 }).notNull()
+              .references(() => coins.symbol, { onDelete: "cascade" }),
+    ts:     timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
+    price:  numeric("price", { precision: 24, scale: 8 }).notNull(),
+  },
+  (t) => [
+    index("idx_coin_prices_symbol_ts").on(t.symbol, t.ts),
+  ],
+);
+
+export const pricesSourceHealth = pgTable("prices_source_health", {
+  source:        varchar("source", { length: 20 }).primaryKey(),
+  status:        varchar("status", { length: 20 }).notNull().default("closed"),
+  errorCount:    integer("error_count").notNull().default(0),
+  successCount:  integer("success_count").notNull().default(0),
+  lastError:     text("last_error"),
+  lastErrorAt:   timestamp("last_error_at",   { withTimezone: true }),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  openUntil:     timestamp("open_until",      { withTimezone: true }),
+  avgLatencyMs:  integer("avg_latency_ms"),
+  updatedAt:     timestamp("updated_at",      { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const pricesSyncRuns = pgTable(
+  "prices_sync_runs",
+  {
+    id:           bigserial("id", { mode: "number" }).primaryKey(),
+    kind:         varchar("kind", { length: 20 }).notNull(),
+    startedAt:    timestamp("started_at",  { withTimezone: true }).notNull().defaultNow(),
+    finishedAt:   timestamp("finished_at", { withTimezone: true }),
+    durationMs:   integer("duration_ms"),
+    coinsTotal:   integer("coins_total").notNull().default(0),
+    coinsUpdated: integer("coins_updated").notNull().default(0),
+    sourceUsed:   varchar("source_used", { length: 20 }),
+    ok:           boolean("ok").notNull().default(false),
+    error:        text("error"),
+  },
+  (t) => [
+    index("idx_prices_sync_runs_kind_started").on(t.kind, t.startedAt),
+  ],
+);
+
+export type Coin              = typeof coins.$inferSelect;
+export type NewCoin           = typeof coins.$inferInsert;
+export type Price             = typeof prices.$inferSelect;
+export type NewPrice          = typeof prices.$inferInsert;
+export type CoinPrice         = typeof coinPrices.$inferSelect;
+export type NewCoinPrice      = typeof coinPrices.$inferInsert;
+export type PriceSourceHealth = typeof pricesSourceHealth.$inferSelect;
+export type PriceSyncRun      = typeof pricesSyncRuns.$inferSelect;
+export type NewPriceSyncRun   = typeof pricesSyncRuns.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = "SIGN_UP",
