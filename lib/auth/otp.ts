@@ -7,7 +7,10 @@ import { and, eq, sql } from "drizzle-orm";
 /** Massimo numero di tentativi OTP falliti prima di invalidare il codice. */
 export const MAX_OTP_ATTEMPTS = 5;
 
-export type OtpType = "email_verification" | "device_verification";
+export type OtpType =
+  | "email_verification"
+  | "device_verification"
+  | "email_change";
 
 export function generateOtpCode(): string {
   return String(randomInt(100000, 999999)); // 6 cifre sicure

@@ -35,6 +35,13 @@ export const users = pgTable("users", {
   acceptedMarketingVersion: text("accepted_marketing_version"),
   // Null = onboarding non completato (deve compilarlo prima di usare l'app)
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // Email change in 2 step: nuova email proposta in attesa di verifica.
+  // pendingEmail: target del cambio (null = nessuna richiesta attiva)
+  // pendingEmailRequestedAt: timestamp dell'ultima richiesta — usato sia per
+  // tracciare la richiesta attiva sia per il rate-limit (1/giorno). Non viene
+  // azzerato su cancel/confirm: il limite vale anche dopo annullamento.
+  pendingEmail: varchar("pending_email", { length: 255 }),
+  pendingEmailRequestedAt: timestamp("pending_email_requested_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
