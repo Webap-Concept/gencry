@@ -41,6 +41,25 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "userEmail", value: "{{userEmail}}" },
     { label: "appUrl",    value: "{{appUrl}}" },
   ],
+  emailchange: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+    { label: "otpCode",   value: "{{otpCode}}" },
+  ],
+  device: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+    { label: "otpCode",   value: "{{otpCode}}" },
+  ],
+  staffinvite: [
+    { label: "appName",      value: "{{appName}}" },
+    { label: "inviteeEmail", value: "{{inviteeEmail}}" },
+    { label: "inviterName",  value: "{{inviterName}}" },
+    { label: "roleLabel",    value: "{{roleLabel}}" },
+    { label: "inviteUrl",    value: "{{inviteUrl}}" },
+  ],
 };
 
 const TEMPLATES = [
@@ -93,6 +112,37 @@ const TEMPLATES = [
     defaultBody:
       "Ciao,\n\nGrazie per esserti iscritto alla waiting list di {{appName}}.\n\nSei tra i primi a sapere quando apriremo le porte: ti scriveremo non appena saremo pronti.\n\nA presto.",
     defaultFooter: "© {{appName}}",
+  },
+  {
+    id: "emailchange",
+    label: "Email change verification",
+    prefix: "email_emailchange",
+    file: "lib/email/templates/email-change-verification.ts",
+    defaultSubject:
+      "{{otpCode}} è il tuo codice per confermare la nuova email {{appName}}",
+    defaultBody:
+      "Ciao {{userName}},\n\nHai richiesto di cambiare l'email del tuo account {{appName}} con questo indirizzo. Inserisci il codice qui sotto per confermare il cambio. Se non sei stato tu, ignora questa email — il cambio non verrà applicato.\n\nCodice: {{otpCode}}",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "device",
+    label: "Device verification (login da nuovo dispositivo)",
+    prefix: "email_device",
+    file: "lib/email/templates/device-verification.ts",
+    defaultSubject: "{{otpCode}} è il tuo codice di accesso da nuovo dispositivo",
+    defaultBody:
+      "Ciao {{userName}},\n\nAbbiamo rilevato un accesso al tuo account su {{appName}} da un dispositivo non riconosciuto. Inserisci il codice qui sotto per confermare che sei tu.\n\nCodice: {{otpCode}}",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "staffinvite",
+    label: "Staff invitation",
+    prefix: "email_staffinvite",
+    file: "lib/email/templates/staff-invitation.ts",
+    defaultSubject: "Invito Staff — {{appName}}",
+    defaultBody:
+      "Ciao,\n\n{{inviterName}} ti ha invitato a entrare nel team staff di {{appName}} con il ruolo di {{roleLabel}}.\n\nClicca il pulsante qui sotto per accettare o rifiutare l'invito. Il link è valido per 48 ore.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
   },
 ] as const;
 

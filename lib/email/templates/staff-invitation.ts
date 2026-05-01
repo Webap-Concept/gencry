@@ -1,4 +1,8 @@
 // lib/email/templates/staff-invitation.ts
+//
+// Email inviata quando un admin invita un utente a far parte dello staff.
+// Contiene un link cliccabile (CTA) all'invito, valido 48h.
+
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   ctaButton,
@@ -18,11 +22,32 @@ export async function sendStaffInvitationEmail(
   const settings = await getAppSettings();
   const { app_name } = settings;
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/staff-invite/${token}`;
-
-  const subject = `Invito Staff — ${app_name}`;
   const greeting = "Ciao,";
 
-  const bodyText = `${inviterName} ti ha invitato a entrare nel team staff di ${app_name} con il ruolo di ${roleLabel}.\n\nClicca il pulsante qui sotto per accettare o rifiutare l'invito. Il link è valido per 48 ore.`;
+  const vars = {
+    appName: app_name,
+    inviteeEmail: to,
+    inviterName,
+    roleLabel,
+    inviteUrl,
+  };
+
+  const subject = resolveTemplate(
+    settings.email_staffinvite_subject,
+    `Invito Staff — ${app_name}`,
+    vars,
+  );
+  const bcc = settings.email_staffinvite_bcc ?? undefined;
+  const bodyText = resolveTemplate(
+    settings.email_staffinvite_body,
+    `${inviterName} ti ha invitato a entrare nel team staff di ${app_name} con il ruolo di ${roleLabel}.\n\nClicca il pulsante qui sotto per accettare o rifiutare l'invito. Il link è valido per 48 ore.`,
+    vars,
+  );
+  const footerText = resolveTemplate(
+    settings.email_staffinvite_footer,
+    `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+    vars,
+  );
 
   const contentHtml = `
     ${paragraphs(bodyText)}
@@ -38,6 +63,7 @@ export async function sendStaffInvitationEmail(
 
   await sendEmail({
     to,
+    bcc,
     subject,
     html: renderEmail({
       appName: app_name,
@@ -45,7 +71,16 @@ export async function sendStaffInvitationEmail(
       title: subject,
       greeting,
       contentHtml,
-      footerText: `© ${new Date().getFullYear()} ${app_name} · Tutti i diritti riservati`,
+      footerText,
     }),
   });
+}
+
+function resolveTemplate(
+  stored: string | null,
+  fallback: string,
+  vars: Record<string, string>,
+): string {
+  const tpl = stored?.trim() || fallback;
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
 }
