@@ -10,6 +10,11 @@ import {
 import { isUsernameBlacklisted } from "@/lib/auth/blacklist";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
+import {
+  addUsernameToBloom,
+  checkUsernameAvailability,
+  ensureBloomFilter,
+} from "@/lib/bloom/bloom-filter";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, userProfiles } from "@/lib/db/schema";
 import { uploadAvatarFromBuffer } from "@/lib/storage/avatars";
@@ -38,10 +43,29 @@ export const updateProfile = validatedActionWithUser(
   async (data, _formData, user) => {
     const { firstName, lastName, username } = data;
 
-    if (await isUsernameBlacklisted(username)) {
-      return {
-        error: "Questo username non è disponibile.",
-      } satisfies ActionState;
+    // Lo username viene controllato (blacklist + bloom + DB) solo se è
+    // cambiato rispetto a quello attuale. Confronto case-insensitive
+    // perché il bloom normalizza a lowercase.
+    const fullUser = await getUser();
+    const currentUsername = fullUser?.username ?? null;
+    const usernameChanged =
+      currentUsername === null ||
+      currentUsername.toLowerCase() !== username.toLowerCase();
+
+    if (usernameChanged) {
+      if (await isUsernameBlacklisted(username)) {
+        return {
+          error: "Questo username non è disponibile.",
+        } satisfies ActionState;
+      }
+
+      await ensureBloomFilter();
+      const availability = await checkUsernameAvailability(username);
+      if (!availability.available) {
+        return {
+          error: "Questo username è già in uso. Scegline un altro.",
+        } satisfies ActionState;
+      }
     }
 
     try {
@@ -53,12 +77,25 @@ export const updateProfile = validatedActionWithUser(
           set: { firstName, lastName, username, updatedAt: new Date() },
         });
     } catch (err) {
+      // Race condition: tra il check bloom/DB e l'UPDATE, qualcun altro
+      // potrebbe aver preso lo stesso username. Il vincolo UNIQUE
+      // ce lo dice in modo autoritativo.
       if (isUniqueConstraintError(err)) {
         return {
-          error: "Questo username è già in uso. Scegline un altro.",
+          error: "Questo username è appena stato preso da un altro utente. Scegline un altro.",
         } satisfies ActionState;
       }
       throw err;
+    }
+
+    if (usernameChanged) {
+      // Best-effort: il bloom non supporta rimozioni, quindi il vecchio
+      // username resta nel filter (false-positive che il DB-check ricaccia).
+      try {
+        await addUsernameToBloom(username);
+      } catch (err) {
+        console.error("[settings/profile] addUsernameToBloom failed:", err);
+      }
     }
 
     await db.insert(activityLogs).values({
