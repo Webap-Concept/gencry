@@ -23,7 +23,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Trigger /api/cron/modules/prices/cleanup
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
         run: |
-          curl -fsS --max-time 240 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.APP_URL }}/api/cron/modules/prices/cleanup"
+          status=$(curl -fsSL --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -w "%{http_code}" -o /tmp/cleanup-resp.json \
+            "$APP_URL/api/cron/modules/prices/cleanup")
+          echo "HTTP status: $status"
+          echo "Response body:"
+          cat /tmp/cleanup-resp.json || true
