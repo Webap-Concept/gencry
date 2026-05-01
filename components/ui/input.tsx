@@ -14,7 +14,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "border-brand-border",
         // Focus — verde menta
         "outline-none transition-colors",
-        "focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0",
+        "focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0",
         // Stato errore
         "aria-invalid:border-brand-error-border aria-invalid:ring-2 aria-invalid:ring-brand-error-border/20",
         // Disabled

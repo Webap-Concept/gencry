@@ -245,8 +245,13 @@
 /* ── a11y ────────────────────────────────────────────────────────────────
    Focus ring visibile solo per la navigazione tastiera (focus-visible),
    evita l'outline sgradevole sul click del mouse. Tinta accent per coerenza
-   con il brand. */
-:focus-visible {
+   con il brand.
+
+   Esclude input/textarea/select perché hanno già il loro stile di focus
+   (vedi components/ui/input.tsx — pill + ring menta). Senza questa
+   esclusione, l'outline arancione + `border-radius: 4px` sovrascriveva
+   `rounded-full` e faceva perdere la forma pill agli input al focus. */
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid var(--gc-accent);
   outline-offset: 2px;
   border-radius: 4px;
