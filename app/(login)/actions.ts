@@ -426,6 +426,10 @@ export async function checkEmailAction(email: string) {
     return { available: false, error: "Inserisci un indirizzo email valido" };
   }
 
+  if (await isDomainBlacklisted(normalizedEmail)) {
+    return { available: false, error: "Dominio email non consentito" };
+  }
+
   await ensureBloomFilter();
   const result = await checkEmailAvailability(normalizedEmail);
 
