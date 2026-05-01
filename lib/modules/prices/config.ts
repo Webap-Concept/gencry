@@ -6,15 +6,17 @@
 import { getAppSettings } from "@/lib/db/settings-queries";
 
 export interface PricesConfig {
-  cronMinutes: number;       // intervallo cron sync prezzi
-  universeHours: number;     // finestra "active universe"
-  deltaThreshold: number;    // soglia upsert (0..1, es. 0.0005 = 0.05%)
-  kvTtlSeconds: number;      // TTL cache KV
-  breakerMaxErr: number;     // errori prima di aprire il breaker
-  breakerWindowS: number;    // finestra in secondi per il conteggio
-  breakerOpenS: number;      // durata apertura breaker
-  snapshotMinutes: number;   // intervallo snapshot timeseries
-  retentionDays: number;     // retention coin_prices
+  cronMinutes: number;          // intervallo cron sync prezzi
+  universeHours: number;        // finestra "active universe"
+  deltaThreshold: number;       // soglia upsert (0..1, es. 0.0005 = 0.05%)
+  kvTtlSeconds: number;         // TTL cache KV
+  breakerMaxErr: number;        // errori prima di aprire il breaker
+  breakerWindowS: number;       // finestra in secondi per il conteggio
+  breakerOpenS: number;         // durata apertura breaker
+  snapshotMinutes: number;      // intervallo snapshot timeseries
+  retentionDays: number;        // retention coin_prices
+  coingeckoProEnabled: boolean; // se true usa endpoint Pro + header api_key
+  coingeckoProApiKey: string | null;
 }
 
 const DEFAULTS: PricesConfig = {
@@ -27,6 +29,8 @@ const DEFAULTS: PricesConfig = {
   breakerOpenS: 600,
   snapshotMinutes: 5,
   retentionDays: 30,
+  coingeckoProEnabled: false,
+  coingeckoProApiKey: null,
 };
 
 function parseInt(raw: string | null | undefined, fallback: number, min = 1, max = 100000): number {
@@ -55,6 +59,8 @@ export async function getPricesConfig(): Promise<PricesConfig> {
     breakerOpenS:    parseInt(s["modules.prices.breaker_open_s"],   DEFAULTS.breakerOpenS,    10, 86400),
     snapshotMinutes: parseInt(s["modules.prices.snapshot_minutes"], DEFAULTS.snapshotMinutes, 1, 60),
     retentionDays:   parseInt(s["modules.prices.retention_days"],   DEFAULTS.retentionDays,   1, 365),
+    coingeckoProEnabled: (s["modules.prices.coingecko_pro_enabled"] ?? "false") === "true",
+    coingeckoProApiKey:  s["modules.prices.coingecko_pro_api_key"] ?? null,
   };
 }
 

@@ -10,11 +10,16 @@ import { INSTALLED_MODULES } from "@/lib/modules/registry";
 
 export interface NavChild {
   key: string;
-  href: string;
+  /** Path linked. Optional only if this NavChild is a sub-group with children. */
+  href?: string;
   label: string;
   icon: string;
   permission: string;
   comingSoon?: boolean;
+  /** Sotto-figli per supportare 3 livelli (es. Modules → Module → Leaf).
+   *  Quando presente, il NavChild diventa un sotto-gruppo espandibile e
+   *  `href` viene ignorato. */
+  children?: NavChild[];
 }
 
 export interface NavItem {
@@ -323,9 +328,12 @@ export const ADMIN_NAV: NavItem[] = [
     ],
   },
   // ── Modules ──────────────────────────────────────────────────────────
-  // Voce sintetica costruita da INSTALLED_MODULES. Resta visibile finché
-  // c'è almeno un modulo registrato. Per app non-social (registry vuoto)
-  // l'item viene filtrato via dal sidebar (zero children visibili).
+  // Voce sintetica costruita da INSTALLED_MODULES. Ogni modulo è il proprio
+  // sotto-gruppo, le sue voci sono i figli del modulo. Tre livelli:
+  //   Modules → <Module label> → <leaf>
+  //
+  // Resta visibile finché c'è almeno un modulo registrato. Per app non-social
+  // (registry vuoto) l'item viene filtrato via dal sidebar.
   ...(INSTALLED_MODULES.length > 0
     ? [
         {
@@ -333,13 +341,21 @@ export const ADMIN_NAV: NavItem[] = [
           label: "Modules",
           icon: "Boxes",
           // Permesso "umbrella": basta avere admin:access per vedere il
-          // gruppo. Le singole voci children sono filtrate dalle proprie
-          // permission (modules:prices, modules:watchlist, ecc.).
+          // gruppo. I singoli moduli sono filtrati dalle proprie permission.
           permission: "admin:access",
           childrenMaxHeight: `${
-            INSTALLED_MODULES.reduce((acc, m) => acc + m.navChildren.length, 0) * 44 + 40
+            INSTALLED_MODULES.reduce(
+              (acc, m) => acc + m.navChildren.length + 1,
+              0,
+            ) * 44 + 40
           }px`,
-          children: INSTALLED_MODULES.flatMap((m) => m.navChildren),
+          children: INSTALLED_MODULES.map((m) => ({
+            key: `module-${m.slug}`,
+            label: m.label,
+            icon: m.icon,
+            permission: m.permission,
+            children: m.navChildren,
+          })),
         } as NavItem,
       ]
     : []),
@@ -359,16 +375,26 @@ export const ADMIN_NAV: NavItem[] = [
   },
 ];
 
-export function getAdminPath(key: string): string {
-  for (const item of ADMIN_NAV) {
-    if (item.key === key && item.href) {
-      return item.href;
-    }
-    if (item.children) {
-      const child = item.children.find((c) => c.key === key);
-      if (child) return child.href;
+// Ricerca ricorsiva nell'albero della nav: NavChild ora può avere figli
+// (3° livello, es. Modules → Prices Engine → Health), quindi la lookup
+// non si ferma al 2° livello.
+function findHrefByKey(
+  items: ReadonlyArray<NavItem | NavChild>,
+  key: string,
+): string | null {
+  for (const item of items) {
+    if (item.key === key && item.href) return item.href;
+    if (item.children && item.children.length > 0) {
+      const found = findHrefByKey(item.children, key);
+      if (found) return found;
     }
   }
+  return null;
+}
+
+export function getAdminPath(key: string): string {
+  const found = findHrefByKey(ADMIN_NAV, key);
+  if (found) return found;
   console.warn(`[getAdminPath] Key "${key}" not found in ADMIN_NAV registry.`);
   return "/admin";
 }

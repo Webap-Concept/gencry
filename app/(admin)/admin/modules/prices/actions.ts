@@ -44,6 +44,16 @@ export async function savePricesSettings(
     await updateAppSetting("modules.prices.breaker_open_s",   clampInt(formData.get("modules.prices.breaker_open_s"),   10, 86400, 600));
     await updateAppSetting("modules.prices.snapshot_minutes", clampInt(formData.get("modules.prices.snapshot_minutes"), 1, 60,    5));
     await updateAppSetting("modules.prices.retention_days",   clampInt(formData.get("modules.prices.retention_days"),   1, 365,   30));
+
+    // CoinGecko Pro
+    const proEnabledRaw = formData.get("modules.prices.coingecko_pro_enabled");
+    await updateAppSetting(
+      "modules.prices.coingecko_pro_enabled",
+      proEnabledRaw === "true" || proEnabledRaw === "on" ? "true" : "false",
+    );
+    const proApiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
+    await updateAppSetting("modules.prices.coingecko_pro_api_key", proApiKey || null);
+
     revalidatePath(getAdminPath("prices-settings"));
     return { success: "Prices settings saved.", timestamp: Date.now() };
   } catch {

@@ -85,6 +85,8 @@ export type SettingKey =
   | 'modules.prices.breaker_open_s'    // durata apertura circuit breaker
   | 'modules.prices.snapshot_minutes'  // intervallo snapshot timeseries (sparkline)
   | 'modules.prices.retention_days'    // retention coin_prices in giorni
+  | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
+  | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
 
 export type AppSettings = {
   app_name: string
@@ -154,6 +156,8 @@ export type AppSettings = {
   'modules.prices.breaker_open_s': string
   'modules.prices.snapshot_minutes': string
   'modules.prices.retention_days': string
+  'modules.prices.coingecko_pro_enabled': string
+  'modules.prices.coingecko_pro_api_key': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -221,6 +225,8 @@ const DEFAULTS: AppSettings = {
   'modules.prices.breaker_open_s': '600',
   'modules.prices.snapshot_minutes': '5',
   'modules.prices.retention_days': '30',
+  'modules.prices.coingecko_pro_enabled': 'false',
+  'modules.prices.coingecko_pro_api_key': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

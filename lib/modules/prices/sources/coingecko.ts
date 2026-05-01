@@ -1,11 +1,37 @@
-// lib/prices/sources/coingecko.ts
-// Adapter CoinGecko (free tier). Usa /simple/price con batch fino a 250 ID.
-// L'ID CoinGecko (es. "bitcoin", "ethereum") è memorizzato in coins.coingecko_id.
+// lib/modules/prices/sources/coingecko.ts
+// Adapter CoinGecko. Supporta:
+//  - Demo/Free tier (default): https://api.coingecko.com/api/v3, no auth
+//  - Pro tier (configurato dall'admin): https://pro-api.coingecko.com/api/v3
+//    con header `x-cg-pro-api-key: <api_key>`
+//
+// L'endpoint usato è risolto al volo da `getPricesConfig()` ad ogni chiamata,
+// così l'admin può attivare/disattivare Pro senza redeploy.
 import type { PriceQuote, SourceFetchResult } from "../types";
+import { getPricesConfig } from "../config";
 
-const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
+const COINGECKO_FREE_BASE = "https://api.coingecko.com/api/v3";
+const COINGECKO_PRO_BASE  = "https://pro-api.coingecko.com/api/v3";
 const BATCH_SIZE = 250;
 const TIMEOUT_MS = 10_000;
+
+interface CoinGeckoEndpoint {
+  baseUrl: string;
+  headers: Record<string, string>;
+}
+
+async function resolveEndpoint(): Promise<CoinGeckoEndpoint> {
+  const cfg = await getPricesConfig();
+  if (cfg.coingeckoProEnabled && cfg.coingeckoProApiKey) {
+    return {
+      baseUrl: COINGECKO_PRO_BASE,
+      headers: {
+        Accept: "application/json",
+        "x-cg-pro-api-key": cfg.coingeckoProApiKey,
+      },
+    };
+  }
+  return { baseUrl: COINGECKO_FREE_BASE, headers: { Accept: "application/json" } };
+}
 
 interface SimplePriceResponse {
   [coingeckoId: string]: {
@@ -41,11 +67,12 @@ export async function fetchCoinGeckoPrices(
   }
 
   const quotes = new Map<string, PriceQuote>();
+  const endpoint = await resolveEndpoint();
 
   // Batching: l'endpoint accetta CSV di ID, max ~250 per call
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
-    const url = new URL(`${COINGECKO_BASE}/simple/price`);
+    const url = new URL(`${endpoint.baseUrl}/simple/price`);
     url.searchParams.set("ids", batch.join(","));
     url.searchParams.set("vs_currencies", "usd");
     url.searchParams.set("include_24hr_change", "true");
@@ -57,7 +84,7 @@ export async function fetchCoinGeckoPrices(
     let response: Response;
     try {
       response = await fetch(url.toString(), {
-        headers: { Accept: "application/json" },
+        headers: endpoint.headers,
         signal: controller.signal,
         cache: "no-store",
       });
@@ -115,12 +142,13 @@ export async function fetchCoinMetadata(coingeckoId: string): Promise<{
   marketCap?: number;
   category?: string;
 } | null> {
-  const url = `${COINGECKO_BASE}/coins/${encodeURIComponent(coingeckoId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`;
+  const endpoint = await resolveEndpoint();
+  const url = `${endpoint.baseUrl}/coins/${encodeURIComponent(coingeckoId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: endpoint.headers,
       signal: controller.signal,
       cache: "no-store",
     });
