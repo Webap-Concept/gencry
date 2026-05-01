@@ -15,6 +15,8 @@ interface InitialValues {
   "modules.prices.breaker_open_s": string;
   "modules.prices.snapshot_minutes": string;
   "modules.prices.retention_days": string;
+  "modules.prices.coingecko_pro_enabled": string;
+  "modules.prices.coingecko_pro_api_key": string | null;
 }
 
 const FIELDS: Array<{
@@ -169,7 +171,7 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
                   <input
                     name={f.name}
                     type="number"
-                    defaultValue={initial[f.name]}
+                    defaultValue={initial[f.name] ?? ""}
                     min={f.min}
                     max={f.max}
                     step={f.step ?? "1"}
@@ -190,6 +192,69 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           </div>
         ))}
 
+        {/* CoinGecko Pro card — separated from cron tuning because it's */}
+        {/* source-specific configuration. */}
+        <div
+          className="rounded-xl shadow-sm p-6"
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
+            Source — CoinGecko Pro
+          </h3>
+          <p className="text-[11px] mb-5" style={{ color: "var(--admin-text-faint)" }}>
+            Switch from the free public endpoint to CoinGecko Pro (requires a paid plan and an API key).
+            When enabled, the cron can run as fast as every minute without hitting rate limits.
+          </p>
+          <div className="space-y-4 max-w-lg">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                name="modules.prices.coingecko_pro_enabled"
+                value="true"
+                defaultChecked={initial["modules.prices.coingecko_pro_enabled"] === "true"}
+                className="mt-0.5 w-4 h-4 rounded cursor-pointer"
+                style={{ accentColor: "var(--admin-accent)" }}
+              />
+              <span>
+                <span className="block text-sm font-medium" style={{ color: "var(--admin-text)" }}>
+                  Use CoinGecko Pro
+                </span>
+                <span className="block text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
+                  Calls go to <code className="font-mono">pro-api.coingecko.com</code> with header{" "}
+                  <code className="font-mono">x-cg-pro-api-key</code>.
+                </span>
+              </span>
+            </label>
+
+            <div>
+              <label
+                className="block text-xs font-medium mb-1.5"
+                style={{ color: "var(--admin-text-muted)" }}>
+                CoinGecko Pro API key
+              </label>
+              <input
+                name="modules.prices.coingecko_pro_api_key"
+                type="password"
+                defaultValue={initial["modules.prices.coingecko_pro_api_key"] ?? ""}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="CG-..."
+                className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
+                style={{
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
+                  color: "var(--admin-text)",
+                }}
+              />
+              <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
+                Stored as a setting; not exposed to the public app. Required only if Pro is enabled.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div
           className="rounded-xl shadow-sm p-4 text-[11px]"
           style={{
@@ -198,11 +263,11 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
             color: "var(--admin-text-muted)",
           }}>
           <strong style={{ color: "var(--admin-text)" }}>Note about the cron schedule.</strong>{" "}
-          The cron is fired by GitHub Actions every 5 minutes (see{" "}
-          <code className="font-mono">.github/workflows/prices-cron-frequent.yml</code>).
-          The "Sync interval" above is enforced by the route as a minimum — if you raise it to 15&nbsp;min,
-          the workflow still fires every 5&nbsp;min but the route only does work every 15&nbsp;min.
-          To actually fire less often, edit the workflow's cron schedule.
+          The cron is scheduled by Supabase <code className="font-mono">pg_cron</code> + <code className="font-mono">pg_net</code>.
+          The "Sync interval" above is enforced by the route as a minimum — if pg_cron triggers more often
+          than this value, the route returns immediately without doing work. To actually fire less or
+          more often (e.g. every 1&nbsp;min with Pro enabled), update the schedule in pg_cron with{" "}
+          <code className="font-mono">cron.alter_job</code>.
         </div>
 
         <button

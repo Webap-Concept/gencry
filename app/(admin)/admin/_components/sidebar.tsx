@@ -97,18 +97,43 @@ export default function AdminSidebar({
     return userPermissions.has(permission);
   }
 
-  const visibleNav: NavItem[] = ADMIN_NAV.filter((item) => {
-    if (!hasPerm(item.permission)) return false;
-    if (item.children) {
-      return item.children.some((c) => hasPerm(c.permission));
+  // Filtra ricorsivamente: un nodo è visibile se l'utente ha la permission
+  // E (è una foglia OR ha almeno un discendente visibile).
+  function isChildVisible(child: NavChild): boolean {
+    if (!hasPerm(child.permission)) return false;
+    if (child.children && child.children.length > 0) {
+      return child.children.some(isChildVisible);
     }
     return true;
-  });
+  }
+  function isItemVisible(item: NavItem): boolean {
+    if (!hasPerm(item.permission)) return false;
+    if (item.children && item.children.length > 0) {
+      return item.children.some(isChildVisible);
+    }
+    return true;
+  }
 
-  // Logica Accordion: teniamo traccia solo della chiave del sottomenu aperto
+  const visibleNav: NavItem[] = ADMIN_NAV.filter(isItemVisible);
+
+  // Helper: dato un NavChild, trova ricorsivamente tutti gli href delle sue
+  // foglie. Serve per decidere se un sotto-gruppo è "active" (path matchato).
+  function collectChildHrefs(child: NavChild): string[] {
+    if (child.children && child.children.length > 0) {
+      return child.children.flatMap(collectChildHrefs);
+    }
+    return child.href ? [child.href] : [];
+  }
+
+  function isPathInChild(child: NavChild): boolean {
+    return collectChildHrefs(child).some((h) => pathname.startsWith(h));
+  }
+
+  // Top-level accordion: una sola voce open alla volta (UX classica).
+  // I sotto-gruppi (3° livello) hanno il proprio state indipendente.
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(() => {
     const initial = visibleNav.find((item) =>
-      item.children?.some((c) => pathname.startsWith(c.href)),
+      item.children?.some(isPathInChild),
     );
     return initial ? initial.key : null;
   });
@@ -186,15 +211,13 @@ export default function AdminSidebar({
     );
   }
 
-  // Sotto-componente per i gruppi espandibili
+  // Sotto-componente per i gruppi top-level espandibili.
+  // Children possono essere foglie (NavLink) o sotto-gruppi (SubExpandableGroup)
+  // se il NavChild ha figli a sua volta — abilita il 3° livello.
   function ExpandableGroup({ item }: { item: NavItem }) {
     const Icon = ICON_MAP[item.icon] ?? Settings;
-    const visibleChildren = (item.children ?? []).filter((c) =>
-      hasPerm(c.permission),
-    );
-    const isGroupActive = visibleChildren.some((c) =>
-      pathname.startsWith(c.href),
-    );
+    const visibleChildren = (item.children ?? []).filter(isChildVisible);
+    const isGroupActive = visibleChildren.some(isPathInChild);
     const isOpen = openGroupKey === item.key;
 
     return (
@@ -251,22 +274,106 @@ export default function AdminSidebar({
             opacity: isOpen ? 1 : 0,
           }}>
           <div className="overflow-hidden min-h-0">
-          <div
-            className="mt-0.5 mb-0.5 mx-1 rounded-lg py-1 space-y-0.5"
-            style={{
-              background:
-                "color-mix(in srgb, var(--admin-sidebar-bg) 70%, #000 30%)",
-            }}>
-            {visibleChildren.map((child: NavChild) => (
-              <NavLink
-                key={child.href}
-                href={child.href}
-                label={child.label}
-                icon={child.icon}
-                sub
-              />
-            ))}
+            <div
+              className="mt-0.5 mb-0.5 mx-1 rounded-lg py-1 space-y-0.5"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--admin-sidebar-bg) 70%, #000 30%)",
+              }}>
+              {visibleChildren.map((child) =>
+                child.children && child.children.length > 0 ? (
+                  <SubExpandableGroup key={child.key} item={child} />
+                ) : (
+                  <NavLink
+                    key={child.key}
+                    href={child.href!}
+                    label={child.label}
+                    icon={child.icon}
+                    sub
+                  />
+                ),
+              )}
+            </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Sotto-gruppo (3° livello). State indipendente: ognuno si apre/chiude
+  // singolarmente, senza accordion forzato. Auto-open se la route attuale
+  // matcha una foglia interna.
+  function SubExpandableGroup({ item }: { item: NavChild }) {
+    const Icon = ICON_MAP[item.icon] ?? Settings;
+    const visibleChildren = (item.children ?? []).filter(isChildVisible);
+    const isGroupActive = visibleChildren.some(isPathInChild);
+    const [isOpen, setIsOpen] = useState(isGroupActive);
+
+    return (
+      <div>
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          className="w-full flex items-center gap-3 px-3 py-2 ml-3 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: isGroupActive && !isOpen
+              ? "color-mix(in srgb, var(--admin-sidebar-bg) 50%, #000 50%)"
+              : "transparent",
+            color: isGroupActive
+              ? "var(--admin-sidebar-text-active)"
+              : "var(--admin-sidebar-text)",
+          }}
+          onMouseEnter={(e) => {
+            if (!isGroupActive || isOpen) {
+              e.currentTarget.style.background =
+                "color-mix(in srgb, var(--admin-sidebar-bg) 60%, #000 40%)";
+              e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isGroupActive && !isOpen
+              ? "color-mix(in srgb, var(--admin-sidebar-bg) 50%, #000 50%)"
+              : "transparent";
+            e.currentTarget.style.color = isGroupActive
+              ? "var(--admin-sidebar-text-active)"
+              : "var(--admin-sidebar-text)";
+          }}>
+          <Icon
+            size={15}
+            style={{
+              color: isGroupActive
+                ? "var(--admin-accent)"
+                : "var(--admin-sidebar-icon-inactive)",
+            }}
+          />
+          <span className="flex-1 text-left">{item.label}</span>
+          <ChevronDown
+            size={13}
+            className="transition-transform duration-200"
+            style={{
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              color: "var(--admin-sidebar-icon-inactive)",
+            }}
+          />
+        </button>
+
+        <div
+          className="grid transition-[grid-template-rows] duration-200"
+          style={{
+            gridTemplateRows: isOpen ? "1fr" : "0fr",
+            opacity: isOpen ? 1 : 0,
+          }}>
+          <div className="overflow-hidden min-h-0">
+            <div className="mt-0.5 mb-0.5 ml-6 space-y-0.5">
+              {visibleChildren.map((leaf) => (
+                <NavLink
+                  key={leaf.key}
+                  href={leaf.href!}
+                  label={leaf.label}
+                  icon={leaf.icon}
+                  sub
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
