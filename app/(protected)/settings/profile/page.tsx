@@ -14,6 +14,7 @@ export default async function ProfileSettingsPage() {
         username: user.username ?? "",
         avatarUrl: user.avatarUrl ?? null,
         email: user.email,
+        bio: user.bio ?? "",
       }}
     />
   );
