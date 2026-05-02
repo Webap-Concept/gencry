@@ -1,9 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/auth/middleware";
 import { toggleMarketingConsentAction } from "../actions";
 
@@ -26,6 +32,11 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
   month: "long",
   year: "numeric",
 });
+
+// Soglia di troncamento del testo legale: ~15 righe a 13px/leading-relaxed.
+// Tenuta in px (non rem) perché ResizeObserver e scrollHeight ragionano in px,
+// e l'utente non cambia la zoom-aware base-font in questa app.
+const TRUNCATE_HEIGHT_PX = 320;
 
 export function ConsentsPanel({
   terms,
@@ -112,10 +123,7 @@ function ConsentCard({
 
       {open && consent.contentHtml && (
         <div className="border-t border-gc-line px-4 py-4">
-          <div
-            className="prose prose-sm max-w-none text-[13px] leading-relaxed text-gc-fg [&_a]:text-gc-accent [&_h1]:text-[16px] [&_h2]:text-[15px] [&_h3]:text-[14px]"
-            dangerouslySetInnerHTML={{ __html: consent.contentHtml }}
-          />
+          <CollapsibleHtmlBody html={consent.contentHtml} />
         </div>
       )}
     </article>
@@ -209,15 +217,80 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
           </div>
           {open && (
             <div className="border-t border-gc-line px-4 py-4">
-              <div
-                className="prose prose-sm max-w-none text-[13px] leading-relaxed text-gc-fg [&_a]:text-gc-accent [&_h1]:text-[16px] [&_h2]:text-[15px] [&_h3]:text-[14px]"
-                dangerouslySetInnerHTML={{ __html: consent.contentHtml }}
-              />
+              <CollapsibleHtmlBody html={consent.contentHtml} />
             </div>
           )}
         </>
       )}
     </article>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Body HTML con troncamento a ~15 righe e fade-out + bottone "Mostra tutto"
+// ---------------------------------------------------------------------------
+
+function CollapsibleHtmlBody({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+
+  // Misuro il contenuto reale a prescindere da `expanded`: scrollHeight è
+  // sempre l'altezza totale del contenuto, anche quando max-h tronca il
+  // visibile (clientHeight). Se sotto la soglia, niente fade né bottone.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const check = () => {
+      setOverflowing(el.scrollHeight > TRUNCATE_HEIGHT_PX + 1);
+    };
+
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [html]);
+
+  const showTruncation = overflowing && !expanded;
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <div
+          ref={ref}
+          className={cn(
+            "prose prose-sm max-w-none text-[13px] leading-relaxed text-gc-fg [&_a]:text-gc-accent [&_h1]:text-[16px] [&_h2]:text-[15px] [&_h3]:text-[14px]",
+            showTruncation && "overflow-hidden",
+          )}
+          style={showTruncation ? { maxHeight: TRUNCATE_HEIGHT_PX } : undefined}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {showTruncation && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gc-bg-2 via-gc-bg-2/70 to-transparent"
+          />
+        )}
+      </div>
+
+      {overflowing && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+            {expanded ? "Mostra meno" : "Mostra tutto"}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
