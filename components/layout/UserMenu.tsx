@@ -63,9 +63,15 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   }, [open, variant]);
 
   const initial = (user.firstName?.[0] ?? user.email[0] ?? "U").toUpperCase();
+  const name = fullName(user);
+  const handleLine = user.username ? `@${user.username}` : null;
+  // Quando manca il nome non mostriamo "Utente" sopra @username, ma collassiamo
+  // la card su una sola riga: handle (se c'è) o email come label primaria.
+  const primary = name || handleLine || user.email;
+  const secondary = name ? handleLine ?? user.email : null;
   const avatarUser = {
     handle: user.username ?? "",
-    name: fullName(user),
+    name: primary,
     avatar: initial,
     color: "#5c5146",
     followers: 0,
@@ -114,16 +120,20 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
     <div className="flex items-center gap-3 px-3 py-3 border-b border-gc-line">
       <Avatar user={avatarUser} size={40} />
       <div className="flex-1 min-w-0">
-        <div className="text-[13.5px] font-medium text-gc-fg truncate">
-          {fullName(user)}
+        <div
+          className={`text-[13.5px] font-medium text-gc-fg truncate ${
+            primary === handleLine ? "font-mono" : ""
+          }`}
+        >
+          {primary}
         </div>
-        {user.username ? (
-          <div className="text-[11.5px] text-gc-fg-3 font-mono truncate">
-            @{user.username}
-          </div>
-        ) : (
-          <div className="text-[11.5px] text-gc-fg-3 truncate">
-            {user.email}
+        {secondary && (
+          <div
+            className={`text-[11.5px] text-gc-fg-3 truncate ${
+              secondary === handleLine ? "font-mono" : ""
+            }`}
+          >
+            {secondary}
           </div>
         )}
       </div>
@@ -138,8 +148,8 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         ) : (
           <DefaultPopoverTrigger
             user={avatarUser}
-            label={fullName(user)}
-            sub={user.username ? `@${user.username}` : user.email}
+            label={primary}
+            sub={secondary}
             onClick={toggle}
             open={open}
           />
@@ -206,10 +216,11 @@ function DefaultPopoverTrigger({
 }: {
   user: { name: string; avatar: string; color: string; avatarUrl?: string | null };
   label: string;
-  sub: string;
+  sub: string | null;
   onClick: () => void;
   open: boolean;
 }) {
+  const labelIsHandle = label.startsWith("@");
   return (
     <button
       type="button"
@@ -223,12 +234,22 @@ function DefaultPopoverTrigger({
         size={32}
       />
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-medium text-gc-fg truncate">
+        <div
+          className={`text-[13px] font-medium text-gc-fg truncate ${
+            labelIsHandle ? "font-mono" : ""
+          }`}
+        >
           {label}
         </div>
-        <div className="text-[11.5px] text-gc-fg-3 font-mono truncate">
-          {sub}
-        </div>
+        {sub && (
+          <div
+            className={`text-[11.5px] text-gc-fg-3 truncate ${
+              sub.startsWith("@") ? "font-mono" : ""
+            }`}
+          >
+            {sub}
+          </div>
+        )}
       </div>
     </button>
   );
