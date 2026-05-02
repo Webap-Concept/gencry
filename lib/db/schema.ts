@@ -372,6 +372,49 @@ export const emailVerifications = pgTable("email_verifications", {
   type: varchar("type", { length: 50 }).notNull().default("email_verification"),
 });
 
+/**
+ * Job di export dati GDPR. L'utente richiede l'export dalle impostazioni
+ * privacy, viene creata una row `pending`; un cron worker la processa
+ * (build JSON → upload bucket privato `gdpr-exports` → email con signed
+ * URL 24h → status='ready'). I file restano nel bucket per 7 giorni
+ * (re-download via signed URL fresca dalle impostazioni), poi un altro
+ * passaggio del cron li purga e marca status='expired'.
+ */
+export const GDPR_EXPORT_STATUSES = [
+  "pending",
+  "processing",
+  "ready",
+  "failed",
+  "expired",
+] as const;
+export type GdprExportStatus = (typeof GDPR_EXPORT_STATUSES)[number];
+
+export const gdprExportJobs = pgTable(
+  "gdpr_export_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 20 })
+      .notNull()
+      .default("pending")
+      .$type<GdprExportStatus>(),
+    requestedAt: timestamp("requested_at").notNull().defaultNow(),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    error: text("error"),
+    /** Path nel bucket `gdpr-exports`, es. `{userId}/{jobId}.json`. */
+    storagePath: text("storage_path"),
+    /** Quando il file viene rimosso dal bucket (requestedAt + 7 giorni). */
+    expiresAt: timestamp("expires_at"),
+    emailSentAt: timestamp("email_sent_at"),
+  },
+  (table) => [
+    index("idx_gdpr_export_jobs_user_status").on(table.userId, table.status),
+  ],
+);
+
 export const trustedDevices = pgTable("trusted_devices", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: uuid("user_id")
