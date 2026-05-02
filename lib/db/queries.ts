@@ -1,35 +1,16 @@
 // lib/db/queries.ts
-import { verifyToken } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import { and, eq, isNull } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { cache } from "react";
 import { db } from "./drizzle";
 import { userProfiles, userSubscriptions, users } from "./schema";
 
 async function getUserInternal() {
-  const sessionCookie = (await cookies()).get("session");
-  if (!sessionCookie || !sessionCookie.value) {
-    return null;
-  }
-
-  let sessionData: Awaited<ReturnType<typeof verifyToken>> | null = null;
-  try {
-    sessionData = await verifyToken(sessionCookie.value);
-  } catch {
-    return null;
-  }
-
-  if (
-    !sessionData ||
-    !sessionData.user ||
-    typeof sessionData.user.id !== "string"
-  ) {
-    return null;
-  }
-
-  if (new Date(sessionData.expires) < new Date()) {
-    return null;
-  }
+  // getSession ora gestisce internamente: cookie missing, JWT non valido,
+  // sessione revocata/scaduta/idle, utente banned/soft-deleted. Se ritorna
+  // un valore, è valido — non serve ricontrollare expires.
+  const sessionData = await getSession();
+  if (!sessionData) return null;
 
   const rows = await db
     .select({

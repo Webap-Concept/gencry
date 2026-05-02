@@ -44,7 +44,10 @@ async function getRedisConfig(): Promise<{ url: string; token: string }> {
   return _cachedConfig;
 }
 
-async function redisCmd<T = unknown>(command: (string | number)[]): Promise<T> {
+// Esportato per essere riusato dalla cache sessions (lib/auth/sessions-cache.ts).
+// Resta interno al namespace `lib/auth/` per coerenza: l'unica altra utenza
+// possibile in futuro è altra logica di auth/cache.
+export async function redisCmd<T = unknown>(command: (string | number)[]): Promise<T> {
   const { url, token } = await getRedisConfig();
   const res = await fetch(url, {
     method: "POST",

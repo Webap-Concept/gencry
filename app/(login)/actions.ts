@@ -32,7 +32,12 @@ import {
   recordLoginAttempt,
   recordSignupAttempt,
 } from "@/lib/auth/rate-limit";
-import { comparePasswords, hashPassword, setSession } from "@/lib/auth/session";
+import {
+  comparePasswords,
+  endCurrentSession,
+  hashPassword,
+  setSession,
+} from "@/lib/auth/session";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import {
   addEmailToBloom,
@@ -497,7 +502,10 @@ export async function checkUsernameAction(
 export async function signOut() {
   const user = await getUser();
   if (user) await logActivity(user.id, ActivityType.SIGN_OUT);
-  (await cookies()).delete("session");
+  // endCurrentSession revoca la row sessions + invalida la cache Redis
+  // + cancella il cookie. Senza, la sessione resterebbe valida per altri
+  // 60s (TTL cache) anche dopo il "logout".
+  await endCurrentSession();
   redirect("/sign-in");
 }
 
@@ -588,7 +596,7 @@ export const deleteAccount = validatedActionWithUser(
       })
       .where(eq(users.id, user.id));
 
-    (await cookies()).delete("session");
+    await endCurrentSession();
     redirect("/sign-in");
   },
 );

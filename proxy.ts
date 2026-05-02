@@ -1,5 +1,5 @@
 // proxy.ts
-import { signToken, verifyToken } from "@/lib/auth/session";
+import { verifyToken } from "@/lib/auth/session";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
 import { getActiveRoutes } from "@/lib/db/route-registry-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
@@ -123,8 +123,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // --- [6] ROUTE ADMIN ---
-  // Proxy verifica solo sessione valida e non scaduta.
-  // RBAC reale avviene nel Server Component via requireAdminPage().
+  // Proxy verifica solo che il cookie esista e che il JWT sia firmato e
+  // non scaduto (jwtVerify controlla automaticamente l'`exp` claim).
+  // La validazione vera (revoca, idle timeout, ban) è server-side via
+  // getSession() dei Server Component — lì serve il DB, qui no.
   if (isAdminRoute) {
     if (!isLoggedIn) {
       const url = new URL(ADMIN_SIGNIN_ROUTE, request.url);
@@ -132,13 +134,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
     try {
-      const parsed = await verifyToken(sessionCookie!.value);
-      const notExpired = new Date(parsed.expires) > new Date();
-      if (!notExpired) {
-        const url = new URL(ADMIN_SIGNIN_ROUTE, request.url);
-        url.searchParams.set("from", pathname);
-        return NextResponse.redirect(url);
-      }
+      await verifyToken(sessionCookie!.value);
     } catch {
       return NextResponse.redirect(new URL(ADMIN_SIGNIN_ROUTE, request.url));
     }
@@ -149,36 +145,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // --- [8] REFRESH SESSION ---
-  let res = NextResponse.next({ request: { headers: requestHeaders } });
-
-  if (sessionCookie && request.method === "GET") {
-    try {
-      const parsed = await verifyToken(sessionCookie.value);
-      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      res.cookies.set({
-        name: "session",
-        value: await signToken({
-          user: {
-            id: parsed.user.id,
-            role: parsed.user.role ?? "member",
-          },
-          expires: expiresInOneDay.toISOString(),
-        }),
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-        expires: expiresInOneDay,
-      });
-    } catch {
-      res.cookies.delete("session");
-      if (isPrivateRoute || isAdminRoute) {
-        return NextResponse.redirect(new URL("/sign-in", request.url));
-      }
-    }
-  }
-
-  return res;
+  // Sliding-session refresh rimosso: il cookie ha la stessa durata di
+  // sessions.expires_at (15 giorni). Senza sliding la sessione muore in
+  // ogni caso a 15gg dal login; volutamente predicibile per l'utente.
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
