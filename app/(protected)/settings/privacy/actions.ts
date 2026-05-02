@@ -10,6 +10,10 @@ import {
 } from "@/lib/auth/middleware";
 import { setMarketingConsent } from "@/lib/account/consents";
 import { requestAccountDeletion } from "@/lib/account/deletion";
+import {
+  regenerateDownloadUrl,
+  requestGdprExport,
+} from "@/lib/account/gdpr-export";
 import { getUser } from "@/lib/db/queries";
 
 // "1" = on, qualsiasi altra cosa = off (coerente col comportamento dei
@@ -80,5 +84,49 @@ export const requestAccountDeletionAction = validatedActionWithUser(
     // viene respinto fino al purge (vedi check in signIn / OAuth callback).
     (await cookies()).delete("session");
     redirect("/sign-in?reason=deletion_requested");
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Export dati GDPR (richiesta + rigenerazione signed URL)
+// ---------------------------------------------------------------------------
+
+const requestGdprExportSchema = z.object({});
+
+export const requestGdprExportAction = validatedActionWithUser(
+  requestGdprExportSchema,
+  async (_data, _formData, user) => {
+    const result = await requestGdprExport(user.id);
+    if (!result.ok) {
+      return { error: result.error } satisfies ActionState;
+    }
+    revalidatePath("/settings/privacy");
+    return {
+      success:
+        "Richiesta registrata. Riceverai una mail quando l'export sarà pronto.",
+    } satisfies ActionState;
+  },
+);
+
+// State esteso con downloadUrl: il bottone "Scarica" rigenera una signed
+// URL fresca lato server e poi il client apre l'URL in nuova tab. Non
+// passa per redirect/header per evitare di esporre l'URL nel referer.
+export type DownloadActionState = ActionState & { downloadUrl?: string };
+
+const regenerateGdprUrlSchema = z.object({
+  jobId: z.string().uuid("Job non valido"),
+});
+
+export const regenerateGdprExportUrlAction = validatedActionWithUser(
+  regenerateGdprUrlSchema,
+  async (data, _formData, user): Promise<DownloadActionState> => {
+    const result = await regenerateDownloadUrl({
+      userId: user.id,
+      jobId: data.jobId,
+    });
+    if (!result.ok) {
+      return { error: result.error };
+    }
+    return { downloadUrl: result.url };
   },
 );

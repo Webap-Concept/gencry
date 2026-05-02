@@ -17,7 +17,7 @@ import {
   users,
   userSubscriptions,
 } from "@/lib/db/schema";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { uploadGdprExport, getGdprExportSignedUrl, deleteGdprExport } from "@/lib/storage/gdpr-exports";
 import { sendGdprExportReadyEmail } from "@/lib/email/templates/gdpr-export-ready";
 
@@ -32,6 +32,18 @@ export const GDPR_EXPORT_RETENTION_DAYS = 7;
 
 /** Quanti job pending processare per chiamata cron. */
 const PROCESS_BATCH_SIZE = 5;
+
+/**
+ * Rate-limit per la richiesta utente: blocca un nuovo export se esiste
+ * già un job recente non concluso negativamente. La logica:
+ * - Job `pending`/`processing` esistente → "ne hai già uno in corso"
+ * - Job `ready` non scaduto → "ne hai già uno scaricabile"
+ * - Job `failed`/`expired` → ignorati (può rifare subito)
+ *
+ * Inoltre, indipendentemente dallo stato, max 1 job ogni 7 giorni dalla
+ * `requestedAt`: anti-abuso lato storage e CPU.
+ */
+const REQUEST_THROTTLE_DAYS = 7;
 
 // ---------------------------------------------------------------------------
 // Raccolta dati GDPR
@@ -288,4 +300,164 @@ async function markFailed(jobId: string, error: string) {
       error: error.slice(0, 1000),
     })
     .where(eq(gdprExportJobs.id, jobId));
+}
+
+// ---------------------------------------------------------------------------
+// API per la UI utente in /settings/privacy
+// ---------------------------------------------------------------------------
+
+export type RequestExportResult =
+  | { ok: true; jobId: string }
+  | { ok: false; error: string };
+
+/**
+ * Richiesta utente di un nuovo export. Applica il rate-limit, crea la
+ * row `pending` e ritorna l'id del job. Il processing avviene async dal
+ * cron worker (vedi runGdprExportCron).
+ */
+export async function requestGdprExport(
+  userId: string,
+): Promise<RequestExportResult> {
+  // Job già "in lavorazione" o ancora scaricabili → blocca subito con
+  // messaggio specifico, senza scomodare il throttle generale.
+  const [active] = await db
+    .select({ id: gdprExportJobs.id, status: gdprExportJobs.status })
+    .from(gdprExportJobs)
+    .where(
+      and(
+        eq(gdprExportJobs.userId, userId),
+        inArray(gdprExportJobs.status, ["pending", "processing", "ready"]),
+      ),
+    )
+    .limit(1);
+
+  if (active) {
+    if (active.status === "ready") {
+      return {
+        ok: false,
+        error:
+          "Hai già un export pronto: scaricalo o aspetta che scada per richiederne uno nuovo.",
+      };
+    }
+    return {
+      ok: false,
+      error:
+        "Hai già una richiesta di export in elaborazione. Riceverai una mail quando sarà pronta.",
+    };
+  }
+
+  // Throttle anti-abuso: max 1 richiesta ogni REQUEST_THROTTLE_DAYS giorni
+  // a prescindere dallo stato (anche failed/expired contano qui).
+  const cutoff = new Date(
+    Date.now() - REQUEST_THROTTLE_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const [recent] = await db
+    .select({ requestedAt: gdprExportJobs.requestedAt })
+    .from(gdprExportJobs)
+    .where(
+      and(
+        eq(gdprExportJobs.userId, userId),
+        gt(gdprExportJobs.requestedAt, cutoff),
+      ),
+    )
+    .orderBy(desc(gdprExportJobs.requestedAt))
+    .limit(1);
+
+  if (recent) {
+    const nextAt = new Date(
+      recent.requestedAt.getTime() +
+        REQUEST_THROTTLE_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return {
+      ok: false,
+      error: `Puoi richiedere un nuovo export dopo il ${nextAt.toLocaleDateString("it-IT")}.`,
+    };
+  }
+
+  const [created] = await db
+    .insert(gdprExportJobs)
+    .values({ userId })
+    .returning({ id: gdprExportJobs.id });
+
+  return { ok: true, jobId: created.id };
+}
+
+export type UserExportJob = {
+  id: string;
+  status: (typeof gdprExportJobs.$inferSelect)["status"];
+  requestedAt: Date;
+  completedAt: Date | null;
+  expiresAt: Date | null;
+  hasFile: boolean;
+};
+
+/**
+ * Lista degli ultimi N job dell'utente, ordinati dal più recente.
+ * Usata per popolare la lista sotto il bottone "Richiedi esportazione".
+ */
+export async function listMyExportJobs(
+  userId: string,
+  limit = 5,
+): Promise<UserExportJob[]> {
+  const rows = await db
+    .select({
+      id: gdprExportJobs.id,
+      status: gdprExportJobs.status,
+      requestedAt: gdprExportJobs.requestedAt,
+      completedAt: gdprExportJobs.completedAt,
+      expiresAt: gdprExportJobs.expiresAt,
+      storagePath: gdprExportJobs.storagePath,
+    })
+    .from(gdprExportJobs)
+    .where(eq(gdprExportJobs.userId, userId))
+    .orderBy(desc(gdprExportJobs.requestedAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    requestedAt: r.requestedAt,
+    completedAt: r.completedAt,
+    expiresAt: r.expiresAt,
+    hasFile: r.storagePath !== null,
+  }));
+}
+
+/**
+ * Genera una signed URL fresca per un job `ready` non scaduto. Verifica
+ * l'ownership: un utente può scaricare solo i propri export.
+ * Il link in email può scadere a 24h: questa funzione permette di
+ * rigenerarne una dalle impostazioni finché il file vive nel bucket.
+ */
+export async function regenerateDownloadUrl(params: {
+  userId: string;
+  jobId: string;
+}): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { userId, jobId } = params;
+
+  const [job] = await db
+    .select({
+      status: gdprExportJobs.status,
+      storagePath: gdprExportJobs.storagePath,
+      expiresAt: gdprExportJobs.expiresAt,
+    })
+    .from(gdprExportJobs)
+    .where(
+      and(eq(gdprExportJobs.id, jobId), eq(gdprExportJobs.userId, userId)),
+    )
+    .limit(1);
+
+  if (!job) return { ok: false, error: "Export non trovato." };
+  if (job.status !== "ready" || !job.storagePath) {
+    return { ok: false, error: "Questo export non è scaricabile." };
+  }
+  if (job.expiresAt && job.expiresAt.getTime() < Date.now()) {
+    return { ok: false, error: "Questo export è scaduto." };
+  }
+
+  const url = await getGdprExportSignedUrl(job.storagePath);
+  if (!url) {
+    return { ok: false, error: "Impossibile generare il link al momento." };
+  }
+  return { ok: true, url };
 }
