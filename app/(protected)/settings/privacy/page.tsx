@@ -3,6 +3,7 @@ import { getUser } from "@/lib/db/queries";
 import { getAcceptedConsent, type ConsentSnapshot } from "@/lib/account/consents";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import { ConsentsPanel, type ConsentVM } from "./_components/consents-panel";
+import { DangerZone } from "./_components/danger-zone";
 
 export default async function PrivacySettingsPage() {
   const user = await getUser();
@@ -24,26 +25,30 @@ export default async function PrivacySettingsPage() {
   ]);
 
   return (
-    <ConsentsPanel
-      terms={toVM({
-        fallbackTitle: "Termini e Condizioni",
-        acceptedAt: user.acceptedTermsAt,
-        acceptedVersion: user.acceptedTermsVersion,
-        snapshot: terms,
-      })}
-      privacy={toVM({
-        fallbackTitle: "Privacy Policy",
-        acceptedAt: user.acceptedPrivacyAt,
-        acceptedVersion: user.acceptedPrivacyVersion,
-        snapshot: privacy,
-      })}
-      marketing={toVM({
-        fallbackTitle: "Comunicazioni marketing",
-        acceptedAt: user.acceptedMarketingAt,
-        acceptedVersion: user.acceptedMarketingVersion,
-        snapshot: marketing,
-      })}
-    />
+    <div className="space-y-12">
+      <ConsentsPanel
+        terms={toVM({
+          fallbackTitle: "Termini e Condizioni",
+          acceptedAt: user.acceptedTermsAt,
+          acceptedVersion: user.acceptedTermsVersion,
+          snapshot: terms,
+        })}
+        privacy={toVM({
+          fallbackTitle: "Privacy Policy",
+          acceptedAt: user.acceptedPrivacyAt,
+          acceptedVersion: user.acceptedPrivacyVersion,
+          snapshot: privacy,
+        })}
+        marketing={toVM({
+          fallbackTitle: "Comunicazioni marketing",
+          acceptedAt: user.acceptedMarketingAt,
+          acceptedVersion: user.acceptedMarketingVersion,
+          snapshot: marketing,
+        })}
+      />
+
+      <DangerZone hasPassword={user.passwordHash !== null} />
+    </div>
   );
 }
 
