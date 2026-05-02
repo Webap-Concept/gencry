@@ -2,7 +2,8 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { Loader2, Save } from "lucide-react";
+import { ArrowRight, Loader2, Save, Shield, ShieldOff } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveModeSettings, type ActionState } from "../actions";
@@ -67,6 +68,12 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
               activeColor="bg-red-500"
             />
           </div>
+
+          <TurnstileStatus
+            configured={Boolean(
+              settings.cf_turnstile_site_key && settings.cf_turnstile_secret_key,
+            )}
+          />
         </div>
 
         <button
@@ -98,5 +105,50 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
         />
       )}
     </>
+  );
+}
+
+function TurnstileStatus({ configured }: { configured: boolean }) {
+  const accent = configured
+    ? "color-mix(in oklch, var(--admin-accent) 20%, transparent)"
+    : "rgba(217,119,6,0.35)";
+  const tint = configured
+    ? "color-mix(in oklch, var(--admin-accent) 6%, var(--admin-card-bg))"
+    : "rgba(217,119,6,0.06)";
+  const iconColor = configured ? "var(--admin-accent)" : "#d97706";
+  const Icon = configured ? Shield : ShieldOff;
+
+  return (
+    <div
+      className="max-w-lg mt-4 flex gap-3 px-4 py-3 rounded-lg text-xs"
+      style={{
+        background: tint,
+        border: `1px solid ${accent}`,
+      }}>
+      <Icon size={14} className="shrink-0 mt-0.5" style={{ color: iconColor }} />
+      <div className="flex-1 space-y-1.5">
+        <p style={{ color: "var(--admin-text-muted)" }}>
+          The sign-up flow is protected by{" "}
+          <strong style={{ color: "var(--admin-text)" }}>Cloudflare Turnstile</strong>
+          {configured ? (
+            <>
+              {" "}— <span style={{ color: iconColor, fontWeight: 600 }}>active</span>.
+            </>
+          ) : (
+            <>
+              {" "}— <span style={{ color: iconColor, fontWeight: 600 }}>not configured</span>:
+              bot protection is silently disabled until you set the keys.
+            </>
+          )}
+        </p>
+        <Link
+          href="/admin/settings/cloudflare"
+          className="inline-flex items-center gap-1 font-medium transition-opacity hover:opacity-80"
+          style={{ color: iconColor }}>
+          {configured ? "Manage keys" : "Configure keys"}
+          <ArrowRight size={12} />
+        </Link>
+      </div>
+    </div>
   );
 }
