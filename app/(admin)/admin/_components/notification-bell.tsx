@@ -106,14 +106,14 @@ function ActionChip({
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.round(diff / 60_000);
-  if (mins < 1) return "ora";
-  if (mins < 60) return `${mins}m fa`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h fa`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days}g fa`;
+  if (days < 30) return `${days}d ago`;
   const months = Math.round(days / 30);
-  return `${months}mesi fa`;
+  return `${months}mo ago`;
 }
 
 export function NotificationBell({
@@ -190,7 +190,7 @@ export function NotificationBell({
   return (
     <div ref={ref} className="relative">
       <button
-        aria-label="Notifiche"
+        aria-label="Notifications"
         onClick={() => setOpen((v) => !v)}
         className="relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
         style={{ color: "var(--admin-icon-color)" }}
@@ -223,7 +223,7 @@ export function NotificationBell({
             <p
               className="text-xs font-semibold uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Notifiche {unread > 0 && `(${unread})`}
+              Notifications {unread > 0 && `(${unread})`}
             </p>
             {unread > 0 && (
               <button
@@ -236,7 +236,7 @@ export function NotificationBell({
                 ) : (
                   <CheckCheck size={12} />
                 )}
-                Segna tutte come lette
+                Mark all as read
               </button>
             )}
           </div>
@@ -252,7 +252,7 @@ export function NotificationBell({
                 <p
                   className="text-xs"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Nessuna notifica attiva.
+                  No active notifications.
                 </p>
               </div>
             )}
@@ -309,14 +309,14 @@ export function NotificationBell({
                         disabled={busyKey !== null}
                         onActivate={(e) => handleSnooze(e, n.id)}
                         icon={<Clock size={10} />}
-                        label="Ricordamelo tra 7g"
+                        label="Snooze 7 days"
                       />
                       <ActionChip
                         busy={busyKey === `dismiss:${n.id}`}
                         disabled={busyKey !== null}
                         onActivate={(e) => handleDismiss(e, n.id)}
                         icon={<X size={10} />}
-                        label="Ignora"
+                        label="Dismiss"
                       />
                     </div>
                   </div>
@@ -333,7 +333,7 @@ export function NotificationBell({
               color: "var(--admin-accent)",
               borderTop: "1px solid var(--admin-divider)",
             }}>
-            Vedi tutte
+            View all
           </Link>
         </div>
       )}

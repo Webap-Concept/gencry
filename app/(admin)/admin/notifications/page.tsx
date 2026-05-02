@@ -11,7 +11,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { NotificationsList } from "./_components/notifications-list";
 
-export const metadata: Metadata = { title: "Notifiche" };
+export const metadata: Metadata = { title: "Notifications" };
 
 const VALID_STATUSES: NotificationStatus[] = [
   "active",
@@ -66,12 +66,12 @@ export default async function AdminNotificationsPage({
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            Notifiche admin
+            Notifications
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Storico completo degli alert generati per il pannello.
+            Full history of alerts generated for the admin panel.
           </p>
         </div>
       </div>
