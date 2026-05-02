@@ -415,6 +415,38 @@ export const gdprExportJobs = pgTable(
   ],
 );
 
+/**
+ * Sessions server-side. Il cookie `session` contiene un JWT firmato che
+ * imbusta solo `{ sid }` (sessionId opaco): la validazione passa per la
+ * tabella sessions (cache Redis 60s, fallback DB), così possiamo
+ * revocare puntualmente una sessione (logout-elsewhere su cambio password,
+ * revoca da UI Sicurezza, ban admin) senza aspettare la scadenza JWT.
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Riferimento al trusted device usato per autenticarsi (nullable). */
+    deviceToken: varchar("device_token", { length: 255 }),
+    userAgent: text("user_agent"),
+    ip: varchar("ip", { length: 45 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    /** Aggiornato con throttle 5min — fire-and-forget dalle request. */
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+    /** Hard expiry: createdAt + SESSION_DURATION_DAYS, non sliding. */
+    expiresAt: timestamp("expires_at").notNull(),
+    /** Set a now() su signOut/revoke; null = sessione attiva. */
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => [
+    index("idx_sessions_user_active").on(table.userId),
+    index("idx_sessions_expires").on(table.expiresAt),
+  ],
+);
+
 export const trustedDevices = pgTable("trusted_devices", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: uuid("user_id")

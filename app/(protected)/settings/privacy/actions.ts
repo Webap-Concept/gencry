@@ -2,12 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   type ActionState,
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
+import { endCurrentSession } from "@/lib/auth/session";
 import { setMarketingConsent } from "@/lib/account/consents";
 import { requestAccountDeletion } from "@/lib/account/deletion";
 import {
@@ -79,10 +79,11 @@ export const requestAccountDeletionAction = validatedActionWithUser(
       return { error: result.error } satisfies ActionState;
     }
 
-    // Cancella la sessione e porta l'utente alla pagina di sign-in con un
-    // banner informativo. Da questo momento qualunque tentativo di rilogin
-    // viene respinto fino al purge (vedi check in signIn / OAuth callback).
-    (await cookies()).delete("session");
+    // Revoca la sessione corrente (DB + cache + cookie) e porta l'utente alla
+    // pagina di sign-in con un banner informativo. Da questo momento qualunque
+    // tentativo di rilogin viene respinto fino al purge (vedi check in signIn
+    // / OAuth callback).
+    await endCurrentSession();
     redirect("/sign-in?reason=deletion_requested");
   },
 );
