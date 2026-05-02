@@ -13,6 +13,7 @@
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
 import { comparePasswords } from "@/lib/auth/session";
+import { sendAccountDeletionRequestedEmail } from "@/lib/email/templates/account-deletion-requested";
 import { eq } from "drizzle-orm";
 
 /** Giorni di grace tra richiesta utente e purge fisico. */
@@ -27,13 +28,20 @@ export type DeletionResult =
  * Da chiamare DOPO aver re-autenticato l'utente: il caller è responsabile
  * di clearare il cookie di sessione subito dopo (la sessione esistente
  * resterebbe valida fino a scadenza JWT, ma getUser filtra deletedAt).
+ *
+ * `email`/`firstName` servono per inviare l'email di conferma post-richiesta;
+ * l'invio è best-effort — se Resend fallisce, la deletion è già registrata
+ * in DB e la richiesta utente non deve fallire per questo.
  */
 export async function requestAccountDeletion(params: {
   userId: string;
+  email: string;
+  firstName: string | null;
   currentPasswordHash: string | null;
   currentPassword: string;
 }): Promise<DeletionResult> {
-  const { userId, currentPasswordHash, currentPassword } = params;
+  const { userId, email, firstName, currentPasswordHash, currentPassword } =
+    params;
 
   // OAuth-only: l'utente non ha password locale → non possiamo verificarlo
   // qui. Caso edge che gestiamo restituendo un errore esplicito; in futuro
@@ -63,6 +71,21 @@ export async function requestAccountDeletion(params: {
       ipAddress: "",
     }),
   ]);
+
+  // Email di conferma all'utente. Best-effort: errori loggati ma non
+  // rilanciati — la deletion è il "fatto reale", la mail è cortesia.
+  try {
+    const purgeDate = new Date(
+      now.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
+    await sendAccountDeletionRequestedEmail({
+      toEmail: email,
+      firstName,
+      purgeDate,
+    });
+  } catch (err) {
+    console.error("[account/deletion] confirmation email failed:", err);
+  }
 
   return { ok: true };
 }

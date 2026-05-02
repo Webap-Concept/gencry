@@ -71,6 +71,8 @@ export const requestAccountDeletionAction = validatedActionWithUser(
 
     const result = await requestAccountDeletion({
       userId: user.id,
+      email: fullUser.email,
+      firstName: fullUser.firstName,
       currentPasswordHash: fullUser.passwordHash,
       currentPassword: data.password,
     });

@@ -63,6 +63,11 @@ export type SettingKey =
   | 'email_gdprexport_bcc'
   | 'email_gdprexport_body'
   | 'email_gdprexport_footer'
+  // Account deletion requested (conferma post-richiesta soft-delete da /settings/privacy)
+  | 'email_accountdeletion_subject'
+  | 'email_accountdeletion_bcc'
+  | 'email_accountdeletion_body'
+  | 'email_accountdeletion_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -158,6 +163,10 @@ export type AppSettings = {
   email_gdprexport_bcc: string | null
   email_gdprexport_body: string | null
   email_gdprexport_footer: string | null
+  email_accountdeletion_subject: string | null
+  email_accountdeletion_bcc: string | null
+  email_accountdeletion_body: string | null
+  email_accountdeletion_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -246,6 +255,10 @@ const DEFAULTS: AppSettings = {
   email_gdprexport_bcc: null,
   email_gdprexport_body: null,
   email_gdprexport_footer: null,
+  email_accountdeletion_subject: null,
+  email_accountdeletion_bcc: null,
+  email_accountdeletion_body: null,
+  email_accountdeletion_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
