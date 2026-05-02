@@ -189,7 +189,9 @@ export const userPermissions = pgTable(
       .notNull()
       .references(() => permissions.id, { onDelete: "cascade" }),
     granted: boolean("granted").notNull().default(true),
-    grantedBy: uuid("granted_by").references(() => users.id),
+    grantedBy: uuid("granted_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     reason: text("reason"),
     expiresAt: timestamp("expires_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -339,7 +341,12 @@ export const siteSnippets = pgTable("site_snippets", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  userId: uuid("user_id").references(() => users.id),
+  // SET NULL on delete: il purge GDPR (cron `soft-deleted-purge`) cancella
+  // l'utente ma vogliamo preservare l'audit trail. La row resta con
+  // user_id = null = "azione storica di un utente non più esistente".
+  userId: uuid("user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   action: text("action").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   ipAddress: varchar("ip_address", { length: 45 }),
