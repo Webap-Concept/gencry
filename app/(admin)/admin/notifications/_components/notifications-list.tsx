@@ -11,12 +11,13 @@ import {
   Bell,
   Clock,
   Info,
+  Loader2,
   ShieldAlert,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState } from "react";
 
 const TABS: Array<{ key: string; label: string }> = [
   { key: "active", label: "Attive" },
@@ -43,6 +44,48 @@ function SeverityIcon({ s }: { s: ClientNotification["severity"] }) {
   if (s === "critical") return <ShieldAlert size={16} style={{ color }} />;
   if (s === "warning") return <AlertTriangle size={16} style={{ color }} />;
   return <Info size={16} style={{ color }} />;
+}
+
+/**
+ * Action button della lista: hover background, loader durante l'azione,
+ * disabled (e meno opaco) se un'altra azione e' in volo.
+ */
+function ActionButton({
+  busy,
+  disabled,
+  onClick,
+  icon,
+  label,
+}: {
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const inert = busy || disabled;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={inert}
+      onMouseEnter={(e) => {
+        if (inert) return;
+        e.currentTarget.style.background = "var(--admin-hover-bg)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+      className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded transition-colors disabled:cursor-default"
+      style={{
+        color: "var(--admin-text-muted)",
+        border: "1px solid var(--admin-card-border)",
+        opacity: disabled && !busy ? 0.5 : 1,
+      }}>
+      {busy ? <Loader2 size={11} className="animate-spin" /> : icon}
+      {label}
+    </button>
+  );
 }
 
 function formatDate(iso: string): string {
@@ -77,7 +120,19 @@ export function NotificationsList({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
+  // Chiave dell'azione in volo: "snooze:<id>" o "dismiss:<id>". Una sola
+  // alla volta — vedi commento analogo in NotificationBell.
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  async function runAction(key: string, fn: () => Promise<void>) {
+    if (busyKey) return;
+    setBusyKey(key);
+    try {
+      await fn();
+    } finally {
+      setBusyKey(null);
+    }
+  }
 
   function buildHref(status: string) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -86,13 +141,13 @@ export function NotificationsList({
   }
 
   function handleSnooze(id: string) {
-    startTransition(() => snoozeAction(id));
+    void runAction(`snooze:${id}`, () => snoozeAction(id));
   }
   function handleDismiss(id: string) {
-    startTransition(() => dismissAction(id));
+    void runAction(`dismiss:${id}`, () => dismissAction(id));
   }
   function handleRowClick(n: ClientNotification) {
-    if (!n.readAt) startTransition(() => markReadAction(n.id));
+    if (!n.readAt) void markReadAction(n.id);
     if (n.link) router.push(n.link);
   }
 
@@ -199,26 +254,20 @@ export function NotificationsList({
                   </div>
                   {isActive && (
                     <div className="flex items-center gap-2 mt-2">
-                      <button
+                      <ActionButton
+                        busy={busyKey === `snooze:${n.id}`}
+                        disabled={busyKey !== null}
                         onClick={() => handleSnooze(n.id)}
-                        className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded"
-                        style={{
-                          color: "var(--admin-text-muted)",
-                          border: "1px solid var(--admin-card-border)",
-                        }}>
-                        <Clock size={11} />
-                        Rinvia 7 giorni
-                      </button>
-                      <button
+                        icon={<Clock size={11} />}
+                        label="Rinvia 7 giorni"
+                      />
+                      <ActionButton
+                        busy={busyKey === `dismiss:${n.id}`}
+                        disabled={busyKey !== null}
                         onClick={() => handleDismiss(n.id)}
-                        className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded"
-                        style={{
-                          color: "var(--admin-text-muted)",
-                          border: "1px solid var(--admin-card-border)",
-                        }}>
-                        <X size={11} />
-                        Ignora
-                      </button>
+                        icon={<X size={11} />}
+                        label="Ignora"
+                      />
                     </div>
                   )}
                 </div>
