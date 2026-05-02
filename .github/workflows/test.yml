@@ -61,6 +61,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `app/(frontend)/_templates/index.generated.ts` è generato da
+      # scripts/generate-templates.ts (hook predev/prebuild). In locale
+      # viene creato prima di dev/build; in CI dobbiamo invocarlo
+      # esplicitamente, altrimenti il typecheck fallisce con TS2307 sugli
+      # import di `./index.generated`.
+      - name: Generate template index
+        run: pnpm generate:templates
+
       # Type-check separato dai test: vitest non vede gli errori di tipo
       # (TS è erased a runtime). Senza questo step, errori `tsc --noEmit`
       # si accumulano silenziosamente nei file di test e nel codice
