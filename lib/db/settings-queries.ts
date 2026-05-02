@@ -68,6 +68,11 @@ export type SettingKey =
   | 'email_accountdeletion_bcc'
   | 'email_accountdeletion_body'
   | 'email_accountdeletion_footer'
+  // Account deletion OTP (codice 6-cifre per utenti OAuth-only senza password)
+  | 'email_accountdeletionotp_subject'
+  | 'email_accountdeletionotp_bcc'
+  | 'email_accountdeletionotp_body'
+  | 'email_accountdeletionotp_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -167,6 +172,10 @@ export type AppSettings = {
   email_accountdeletion_bcc: string | null
   email_accountdeletion_body: string | null
   email_accountdeletion_footer: string | null
+  email_accountdeletionotp_subject: string | null
+  email_accountdeletionotp_bcc: string | null
+  email_accountdeletionotp_body: string | null
+  email_accountdeletionotp_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -259,6 +268,10 @@ const DEFAULTS: AppSettings = {
   email_accountdeletion_bcc: null,
   email_accountdeletion_body: null,
   email_accountdeletion_footer: null,
+  email_accountdeletionotp_subject: null,
+  email_accountdeletionotp_bcc: null,
+  email_accountdeletionotp_body: null,
+  email_accountdeletionotp_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults

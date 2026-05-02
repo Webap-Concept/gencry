@@ -10,7 +10,8 @@ export const MAX_OTP_ATTEMPTS = 5;
 export type OtpType =
   | "email_verification"
   | "device_verification"
-  | "email_change";
+  | "email_change"
+  | "account_deletion";
 
 export function generateOtpCode(): string {
   return String(randomInt(100000, 999999)); // 6 cifre sicure

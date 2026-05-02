@@ -72,6 +72,12 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "userName",  value: "{{userName}}" },
     { label: "purgeDate", value: "{{purgeDate}}" },
   ],
+  accountdeletionotp: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+    { label: "otpCode",   value: "{{otpCode}}" },
+  ],
 };
 
 const TEMPLATES = [
@@ -174,6 +180,16 @@ const TEMPLATES = [
     defaultSubject: "Conferma richiesta di eliminazione account — {{appName}}",
     defaultBody:
       "Abbiamo ricevuto la tua richiesta di eliminazione dell'account su {{appName}}. I tuoi dati personali saranno cancellati definitivamente il {{purgeDate}}.\nFino a quel momento puoi annullare la richiesta scrivendo all'assistenza. Dopo il purge non sarà più possibile recuperare i dati.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "accountdeletionotp",
+    label: "Account deletion OTP (OAuth-only)",
+    prefix: "email_accountdeletionotp",
+    file: "lib/email/templates/account-deletion-otp.ts",
+    defaultSubject: "{{otpCode}} è il tuo codice per eliminare l'account {{appName}}",
+    defaultBody:
+      "Hai chiesto di eliminare il tuo account {{appName}}. Inserisci il codice qui sotto per confermare. Se non sei stato tu, ignora questa email — il codice scade tra 15 minuti.",
     defaultFooter: "© {{appName}} · Tutti i diritti riservati",
   },
 ] as const;
