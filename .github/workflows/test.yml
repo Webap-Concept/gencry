@@ -61,6 +61,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Type-check separato dai test: vitest non vede gli errori di tipo
+      # (TS è erased a runtime). Senza questo step, errori `tsc --noEmit`
+      # si accumulano silenziosamente nei file di test e nel codice
+      # applicativo. Falliamo subito qui se compaiono.
+      - name: Type-check
+        run: pnpm tsc --noEmit
+
       - name: Run tests
         # Always generate the report, even when tests fail (continue-on-error
         # is handled below so the commit step still runs).

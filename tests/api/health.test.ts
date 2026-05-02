@@ -14,7 +14,7 @@ describe('API response helpers', () => {
     const res = mockResponse({ message: 'ok' })
     expect(res.status).toBe(200)
     expect(res.ok).toBe(true)
-    const body = await res.json()
+    const body = await res.json() as { message: string }
     expect(body.message).toBe('ok')
   })
 

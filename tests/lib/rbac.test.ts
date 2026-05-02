@@ -81,31 +81,31 @@ describe('can()', () => {
   it('ritorna true se esiste un override individuale granted=true', async () => {
     seq([{ granted: true }], [])
     const { can } = await import('@/lib/rbac/can')
-    expect(await can({ id: 1, role: 'member' }, 'admin:access')).toBe(true)
+    expect(await can({ id: "1", role: 'member' }, 'admin:access')).toBe(true)
   })
 
   it('ritorna false se esiste un override individuale granted=false', async () => {
     seq([{ granted: false }], [])
     const { can } = await import('@/lib/rbac/can')
-    expect(await can({ id: 1, role: 'admin' }, 'admin:users')).toBe(false)
+    expect(await can({ id: "1", role: 'admin' }, 'admin:users')).toBe(false)
   })
 
   it('ritorna true se nessun override ma il ruolo ha il permesso', async () => {
     seq([], [{ id: 5 }])
     const { can } = await import('@/lib/rbac/can')
-    expect(await can({ id: 2, role: 'admin' }, 'admin:access')).toBe(true)
+    expect(await can({ id: "2", role: 'admin' }, 'admin:access')).toBe(true)
   })
 
   it('ritorna false se nessun override e il ruolo non ha il permesso', async () => {
     seq([], [])
     const { can } = await import('@/lib/rbac/can')
-    expect(await can({ id: 3, role: 'member' }, 'admin:access')).toBe(false)
+    expect(await can({ id: "3", role: 'member' }, 'admin:access')).toBe(false)
   })
 
   it('override ha priorita sul ruolo anche se il ruolo avrebbe accesso', async () => {
     seq([{ granted: false }], [{ id: 5 }])
     const { can } = await import('@/lib/rbac/can')
-    expect(await can({ id: 4, role: 'admin' }, 'admin:access')).toBe(false)
+    expect(await can({ id: "4", role: 'admin' }, 'admin:access')).toBe(false)
   })
 })
 
@@ -119,7 +119,7 @@ describe('getUserPermissions()', () => {
   it('restituisce i permessi del ruolo come Set', async () => {
     seq([{ key: 'admin:access' }, { key: 'admin:users' }], [])
     const { getUserPermissions } = await import('@/lib/rbac/can')
-    const perms = await getUserPermissions({ id: 1, role: 'admin' })
+    const perms = await getUserPermissions({ id: "1", role: 'admin' })
     expect(perms.has('admin:access')).toBe(true)
     expect(perms.has('admin:users')).toBe(true)
     expect(perms.has('admin:billing')).toBe(false)
@@ -131,7 +131,7 @@ describe('getUserPermissions()', () => {
       [{ key: 'admin:content', granted: true, createdAt: new Date() }],
     )
     const { getUserPermissions } = await import('@/lib/rbac/can')
-    const perms = await getUserPermissions({ id: 2, role: 'member' })
+    const perms = await getUserPermissions({ id: "2", role: 'member' })
     expect(perms.has('content:read')).toBe(true)
     expect(perms.has('admin:content')).toBe(true)
   })
@@ -142,7 +142,7 @@ describe('getUserPermissions()', () => {
       [{ key: 'admin:users', granted: false, createdAt: new Date() }],
     )
     const { getUserPermissions } = await import('@/lib/rbac/can')
-    const perms = await getUserPermissions({ id: 3, role: 'admin' })
+    const perms = await getUserPermissions({ id: "3", role: 'admin' })
     expect(perms.has('admin:access')).toBe(true)
     expect(perms.has('admin:users')).toBe(false)
   })
@@ -158,14 +158,14 @@ describe('getUserPermissions()', () => {
       ],
     )
     const { getUserPermissions } = await import('@/lib/rbac/can')
-    const perms = await getUserPermissions({ id: 4, role: 'admin' })
+    const perms = await getUserPermissions({ id: "4", role: 'admin' })
     expect(perms.has('admin:access')).toBe(false)
   })
 
   it('utente senza ruolo riconosciuto ha Set vuoto (no override)', async () => {
     seq([], [])
     const { getUserPermissions } = await import('@/lib/rbac/can')
-    const perms = await getUserPermissions({ id: 99, role: 'ghost' })
+    const perms = await getUserPermissions({ id: "99", role: 'ghost' })
     expect(perms.size).toBe(0)
   })
 })
@@ -180,25 +180,25 @@ describe('canAny() / canAll()', () => {
   it('canAny: true se almeno uno dei permessi e presente', async () => {
     seq([{ key: 'admin:access' }], [])
     const { canAny } = await import('@/lib/rbac/can')
-    expect(await canAny({ id: 1, role: 'admin' }, ['admin:access', 'admin:billing'])).toBe(true)
+    expect(await canAny({ id: "1", role: 'admin' }, ['admin:access', 'admin:billing'])).toBe(true)
   })
 
   it('canAny: false se nessuno dei permessi e presente', async () => {
     seq([], [])
     const { canAny } = await import('@/lib/rbac/can')
-    expect(await canAny({ id: 2, role: 'member' }, ['admin:access', 'admin:billing'])).toBe(false)
+    expect(await canAny({ id: "2", role: 'member' }, ['admin:access', 'admin:billing'])).toBe(false)
   })
 
   it('canAll: true se tutti i permessi sono presenti', async () => {
     seq([{ key: 'admin:access' }, { key: 'admin:users' }], [])
     const { canAll } = await import('@/lib/rbac/can')
-    expect(await canAll({ id: 1, role: 'admin' }, ['admin:access', 'admin:users'])).toBe(true)
+    expect(await canAll({ id: "1", role: 'admin' }, ['admin:access', 'admin:users'])).toBe(true)
   })
 
   it('canAll: false se anche solo un permesso manca', async () => {
     seq([{ key: 'admin:access' }], [])
     const { canAll } = await import('@/lib/rbac/can')
-    expect(await canAll({ id: 1, role: 'admin' }, ['admin:access', 'admin:billing'])).toBe(false)
+    expect(await canAll({ id: "1", role: 'admin' }, ['admin:access', 'admin:billing'])).toBe(false)
   })
 })
 
