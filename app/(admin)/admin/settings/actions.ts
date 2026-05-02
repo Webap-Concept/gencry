@@ -266,6 +266,14 @@ export async function saveEmailTemplateSettings(
       "email_staffinvite_bcc",
       "email_staffinvite_body",
       "email_staffinvite_footer",
+      "email_gdprexport_subject",
+      "email_gdprexport_bcc",
+      "email_gdprexport_body",
+      "email_gdprexport_footer",
+      "email_accountdeletion_subject",
+      "email_accountdeletion_bcc",
+      "email_accountdeletion_body",
+      "email_accountdeletion_footer",
     ] as const;
     for (const key of keys) {
       const val = (formData.get(key) as string | null) ?? "";
