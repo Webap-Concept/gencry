@@ -13,12 +13,13 @@ import {
   CheckCheck,
   Clock,
   Info,
+  Loader2,
   ShieldAlert,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function severityColor(s: ClientNotification["severity"]): string {
   switch (s) {
@@ -39,6 +40,67 @@ function SeverityIcon({ s }: { s: ClientNotification["severity"] }) {
   if (s === "warning")
     return <AlertTriangle size={14} style={{ color }} className="shrink-0 mt-0.5" />;
   return <Info size={14} style={{ color }} className="shrink-0 mt-0.5" />;
+}
+
+/**
+ * Action button reso come <span role="button"> perche' annidato dentro la
+ * riga-button della notifica (button-in-button non e' HTML valido).
+ *
+ * - Hover: background var(--admin-hover-bg) (coerente col resto del pannello)
+ * - Busy: l'icona diventa Loader2 spinning, pointer-events disabilitati
+ * - Disabled: opacity 50% e niente hover (es. mentre un'altra azione e' in volo)
+ */
+function ActionChip({
+  busy,
+  disabled,
+  onActivate,
+  icon,
+  label,
+}: {
+  busy: boolean;
+  disabled: boolean;
+  onActivate: (e: React.MouseEvent | React.KeyboardEvent) => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const inert = busy || disabled;
+  return (
+    <span
+      role="button"
+      tabIndex={inert ? -1 : 0}
+      aria-disabled={inert}
+      onClick={(e) => {
+        if (inert) {
+          e.stopPropagation();
+          return;
+        }
+        onActivate(e);
+      }}
+      onKeyDown={(e) => {
+        if (inert) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate(e);
+        }
+      }}
+      onMouseEnter={(e) => {
+        if (inert) return;
+        e.currentTarget.style.background = "var(--admin-hover-bg)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+      className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors select-none"
+      style={{
+        color: "var(--admin-text-muted)",
+        border: "1px solid var(--admin-card-border)",
+        cursor: inert ? "default" : "pointer",
+        opacity: disabled && !busy ? 0.5 : 1,
+      }}>
+      {busy ? <Loader2 size={10} className="animate-spin" /> : icon}
+      {label}
+    </span>
+  );
 }
 
 function relativeTime(iso: string): string {
@@ -64,7 +126,20 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  // Chiave dell'azione attualmente in volo, es. "snooze:<id>" / "dismiss:<id>" /
+  // "markAll" / "read:<id>". Una sola azione per click — basta a evitare che
+  // l'utente cliccando un bottone non ottenga feedback (era il problema UX).
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  async function runAction(key: string, fn: () => Promise<void>) {
+    if (busyKey) return;
+    setBusyKey(key);
+    try {
+      await fn();
+    } finally {
+      setBusyKey(null);
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -82,9 +157,9 @@ export function NotificationBell({
 
   function handleRowClick(n: ClientNotification) {
     if (!n.readAt) {
-      startTransition(() => {
-        markReadAction(n.id);
-      });
+      // Fire-and-forget: la riga si muove subito (link push), il
+      // markRead viaggia in background. Non bloccante per l'UX.
+      void markReadAction(n.id);
     }
     if (n.link) {
       setOpen(false);
@@ -92,18 +167,24 @@ export function NotificationBell({
     }
   }
 
-  function handleSnooze(e: React.MouseEvent, id: string) {
+  function handleSnooze(
+    e: React.MouseEvent | React.KeyboardEvent,
+    id: string,
+  ) {
     e.stopPropagation();
-    startTransition(() => snoozeAction(id));
+    void runAction(`snooze:${id}`, () => snoozeAction(id));
   }
 
-  function handleDismiss(e: React.MouseEvent, id: string) {
+  function handleDismiss(
+    e: React.MouseEvent | React.KeyboardEvent,
+    id: string,
+  ) {
     e.stopPropagation();
-    startTransition(() => dismissAction(id));
+    void runAction(`dismiss:${id}`, () => dismissAction(id));
   }
 
   function handleMarkAll() {
-    startTransition(() => markAllReadAction());
+    void runAction("markAll", () => markAllReadAction());
   }
 
   return (
@@ -147,9 +228,14 @@ export function NotificationBell({
             {unread > 0 && (
               <button
                 onClick={handleMarkAll}
-                className="flex items-center gap-1 text-[11px] transition-colors"
+                disabled={busyKey === "markAll"}
+                className="flex items-center gap-1 text-[11px] transition-opacity disabled:opacity-50 hover:underline underline-offset-2"
                 style={{ color: "var(--admin-accent)" }}>
-                <CheckCheck size={12} />
+                {busyKey === "markAll" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <CheckCheck size={12} />
+                )}
                 Segna tutte come lette
               </button>
             )}
@@ -218,26 +304,20 @@ export function NotificationBell({
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
-                      <span
-                        onClick={(e) => handleSnooze(e, n.id)}
-                        className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors cursor-pointer"
-                        style={{
-                          color: "var(--admin-text-muted)",
-                          border: "1px solid var(--admin-card-border)",
-                        }}>
-                        <Clock size={10} />
-                        Ricordamelo tra 7g
-                      </span>
-                      <span
-                        onClick={(e) => handleDismiss(e, n.id)}
-                        className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-colors cursor-pointer"
-                        style={{
-                          color: "var(--admin-text-muted)",
-                          border: "1px solid var(--admin-card-border)",
-                        }}>
-                        <X size={10} />
-                        Ignora
-                      </span>
+                      <ActionChip
+                        busy={busyKey === `snooze:${n.id}`}
+                        disabled={busyKey !== null}
+                        onActivate={(e) => handleSnooze(e, n.id)}
+                        icon={<Clock size={10} />}
+                        label="Ricordamelo tra 7g"
+                      />
+                      <ActionChip
+                        busy={busyKey === `dismiss:${n.id}`}
+                        disabled={busyKey !== null}
+                        onActivate={(e) => handleDismiss(e, n.id)}
+                        icon={<X size={10} />}
+                        label="Ignora"
+                      />
                     </div>
                   </div>
                 </button>
