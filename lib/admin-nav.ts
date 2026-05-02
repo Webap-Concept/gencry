@@ -330,6 +330,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "Shield",
         permission: "admin:settings",
       },
+      {
+        key: "settings-cron",
+        href: "/admin/settings/cron",
+        label: "Cron Jobs",
+        icon: "Clock",
+        permission: "admin:settings",
+      },
     ],
   },
   // ── Modules ──────────────────────────────────────────────────────────

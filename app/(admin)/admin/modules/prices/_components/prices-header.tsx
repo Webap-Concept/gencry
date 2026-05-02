@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Activity, Coins, LineChart, Settings } from "lucide-react";
+import { Activity, Clock, Coins, LineChart, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 type SectionMeta = {
@@ -20,6 +20,11 @@ const SECTIONS: Record<string, SectionMeta> = {
     label: "Coins Registry",
     description: "Tracked coins, last seen, force re-fetch metadata.",
     icon: Coins,
+  },
+  cron: {
+    label: "Cron Jobs",
+    description: "pg_cron jobs owned by the Prices Engine module.",
+    icon: Clock,
   },
   settings: {
     label: "Settings",

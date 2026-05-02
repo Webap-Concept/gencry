@@ -5,10 +5,20 @@
 import type { NavChild } from "@/lib/admin-nav";
 
 export interface ModuleCronJob {
-  /** Path della route Next, es. "/api/cron/modules/prices/sync" */
+  /** pg_cron jobname (cron.job.jobname). Identifica univocamente il job e
+   *  fa da chiave per la UI admin di gestione cron. */
+  jobname: string;
+  /** Path della route Next chiamata dal job, es. "/api/cron/modules/prices/sync" */
   path: string;
-  /** Cron schedule espressivo, formato Vercel Cron (5 campi) */
+  /** Cron schedule espressivo, formato pg_cron (5 campi). Solo display:
+   *  la fonte di verità è cron.job.schedule. */
   schedule: string;
+  /** Etichetta human-readable nella UI admin */
+  label: string;
+  /** Descrizione breve di cosa fa il job */
+  description: string;
+  /** Per cosa serve / perché esiste (motivazione di business) */
+  purpose: string;
 }
 
 export interface ModuleUserTab {
