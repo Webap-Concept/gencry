@@ -82,13 +82,26 @@ export async function createSession(
 /**
  * Marca la sessione come revocata e invalida la cache. Se la sessione
  * non esiste o è già revocata, no-op.
+ *
+ * Quando il chiamante è un'azione utente (revoca da UI), passare anche
+ * `userId` per ownership check: l'UPDATE applica solo se la sessione
+ * appartiene all'utente. Senza userId la revoca è incondizionata
+ * (caso d'uso: signOut della sessione corrente, il chiamante l'ha già
+ * letta dal cookie firmato).
  */
-export async function revokeSession(sessionId: string): Promise<void> {
-  await db
-    .update(sessions)
-    .set({ revokedAt: new Date() })
-    .where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)));
+export async function revokeSession(
+  sessionId: string,
+  userId?: string,
+): Promise<void> {
+  const condition = userId
+    ? and(
+        eq(sessions.id, sessionId),
+        eq(sessions.userId, userId),
+        isNull(sessions.revokedAt),
+      )
+    : and(eq(sessions.id, sessionId), isNull(sessions.revokedAt));
 
+  await db.update(sessions).set({ revokedAt: new Date() }).where(condition);
   await invalidateCache(sessionId);
 }
 

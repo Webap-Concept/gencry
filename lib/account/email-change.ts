@@ -15,6 +15,7 @@ import { addEmailToBloom, checkEmailAvailability, ensureBloomFilter } from "@/li
 import { isDomainBlacklisted } from "@/lib/auth/blacklist";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import { comparePasswords } from "@/lib/auth/session";
+import { revokeAllUserSessions } from "@/lib/auth/sessions";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import { db } from "@/lib/db/drizzle";
 import {
@@ -33,7 +34,7 @@ export type EmailChangeRequestResult =
   | { ok: false; error: string };
 
 export type EmailChangeConfirmResult =
-  | { ok: true; newEmail: string }
+  | { ok: true; newEmail: string; revokedOtherSessions: number }
   | { ok: false; error: string };
 
 function normalize(email: string): string {
@@ -150,8 +151,10 @@ export async function confirmEmailChange(params: {
   userId: string;
   pendingEmail: string | null;
   code: string;
+  /** Sessione corrente da preservare quando revochiamo le altre. */
+  currentSessionId?: string;
 }): Promise<EmailChangeConfirmResult> {
-  const { userId, pendingEmail, code } = params;
+  const { userId, pendingEmail, code, currentSessionId } = params;
 
   if (!pendingEmail) {
     return {
@@ -206,7 +209,14 @@ export async function confirmEmailChange(params: {
     ipAddress: "",
   });
 
-  return { ok: true, newEmail: pendingEmail };
+  // Cambio email = evento di sicurezza: kicka tutte le altre sessioni.
+  // Coerente col cambio password.
+  const { revokedCount } = await revokeAllUserSessions({
+    userId,
+    exceptSessionId: currentSessionId,
+  });
+
+  return { ok: true, newEmail: pendingEmail, revokedOtherSessions: revokedCount };
 }
 
 export async function cancelEmailChange(userId: string): Promise<void> {

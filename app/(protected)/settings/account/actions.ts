@@ -5,6 +5,7 @@ import {
   type ActionState,
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
+import { getSession } from "@/lib/auth/session";
 import { getUser } from "@/lib/db/queries";
 import {
   cancelEmailChange,
@@ -76,18 +77,27 @@ export const confirmEmailChangeAction = validatedActionWithUser(
       return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
     }
 
+    const session = await getSession();
+
     const result = await confirmEmailChange({
       userId: user.id,
       pendingEmail: fullUser.pendingEmail,
       code: data.code,
+      currentSessionId: session?.sessionId,
     });
 
     if (!result.ok) {
       return { error: result.error } satisfies ActionState;
     }
 
+    const tail =
+      result.revokedOtherSessions > 0
+        ? result.revokedOtherSessions === 1
+          ? " 1 altra sessione attiva è stata sloggata."
+          : ` ${result.revokedOtherSessions} altre sessioni attive sono state sloggate.`
+        : "";
     return {
-      success: `Email aggiornata: ora la tua email è ${result.newEmail}.`,
+      success: `Email aggiornata: ora la tua email è ${result.newEmail}.${tail}`,
     } satisfies ActionState;
   },
 );
@@ -124,18 +134,27 @@ export const changePasswordAction = validatedActionWithUser(
       return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
     }
 
+    const session = await getSession();
+
     const result = await changePassword(
       user.id,
       fullUser.passwordHash,
       data.currentPassword,
       data.newPassword,
       data.confirmPassword,
+      session?.sessionId,
     );
 
     if (!result.ok) {
       return { error: result.error } satisfies ActionState;
     }
 
-    return { success: "Password aggiornata." } satisfies ActionState;
+    const success =
+      result.revokedOtherSessions > 0
+        ? result.revokedOtherSessions === 1
+          ? "Password aggiornata. Hai sloggato 1 altra sessione attiva."
+          : `Password aggiornata. Hai sloggato ${result.revokedOtherSessions} altre sessioni attive.`
+        : "Password aggiornata.";
+    return { success } satisfies ActionState;
   },
 );
