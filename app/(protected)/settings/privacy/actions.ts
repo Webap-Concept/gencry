@@ -9,7 +9,11 @@ import {
 } from "@/lib/auth/middleware";
 import { endCurrentSession } from "@/lib/auth/session";
 import { setMarketingConsent } from "@/lib/account/consents";
-import { requestAccountDeletion } from "@/lib/account/deletion";
+import {
+  requestAccountDeletion,
+  requestAccountDeletionViaOtp,
+  sendAccountDeletionOtp,
+} from "@/lib/account/deletion";
 import {
   regenerateDownloadUrl,
   requestGdprExport,
@@ -85,6 +89,75 @@ export const requestAccountDeletionAction = validatedActionWithUser(
     // pagina di sign-in con un banner informativo. Da questo momento qualunque
     // tentativo di rilogin viene respinto fino al purge (vedi check in signIn
     // / OAuth callback).
+    await endCurrentSession();
+    redirect("/sign-in?reason=deletion_requested");
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Eliminazione via OTP (utenti OAuth-only senza password locale)
+// ---------------------------------------------------------------------------
+
+const sendAccountDeletionOtpSchema = z.object({});
+
+export const sendAccountDeletionOtpAction = validatedActionWithUser(
+  sendAccountDeletionOtpSchema,
+  async (_data, _formData, user) => {
+    const fullUser = await getUser();
+    if (!fullUser) {
+      return {
+        error: "Sessione scaduta. Effettua di nuovo il login.",
+      } satisfies ActionState;
+    }
+
+    const result = await sendAccountDeletionOtp({
+      userId: user.id,
+      email: fullUser.email,
+      firstName: fullUser.firstName,
+    });
+
+    if (!result.ok) {
+      return { error: result.error } satisfies ActionState;
+    }
+
+    return {
+      success: `Codice inviato a ${fullUser.email}. Inseriscilo qui sotto per confermare l'eliminazione.`,
+    } satisfies ActionState;
+  },
+);
+
+const confirmDeletionViaOtpSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .length(6, "Il codice deve essere di 6 cifre")
+    .regex(/^\d{6}$/, "Solo cifre"),
+  confirmDelete: z.literal("on", {
+    message: "Devi confermare di voler eliminare l'account",
+  }),
+});
+
+export const confirmAccountDeletionViaOtpAction = validatedActionWithUser(
+  confirmDeletionViaOtpSchema,
+  async (data, _formData, user) => {
+    const fullUser = await getUser();
+    if (!fullUser) {
+      return {
+        error: "Sessione scaduta. Effettua di nuovo il login.",
+      } satisfies ActionState;
+    }
+
+    const result = await requestAccountDeletionViaOtp({
+      userId: user.id,
+      email: fullUser.email,
+      firstName: fullUser.firstName,
+      code: data.code,
+    });
+
+    if (!result.ok) {
+      return { error: result.error } satisfies ActionState;
+    }
+
     await endCurrentSession();
     redirect("/sign-in?reason=deletion_requested");
   },

@@ -274,6 +274,10 @@ export async function saveEmailTemplateSettings(
       "email_accountdeletion_bcc",
       "email_accountdeletion_body",
       "email_accountdeletion_footer",
+      "email_accountdeletionotp_subject",
+      "email_accountdeletionotp_bcc",
+      "email_accountdeletionotp_body",
+      "email_accountdeletionotp_footer",
     ] as const;
     for (const key of keys) {
       const val = (formData.get(key) as string | null) ?? "";
