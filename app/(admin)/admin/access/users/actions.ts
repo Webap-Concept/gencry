@@ -113,6 +113,47 @@ export async function deleteUser(userId: string) {
   revalidatePath(getAdminPath("users-list"));
 }
 
+/**
+ * Cancel a pending soft-delete (admin-side restore). Mirror operation of
+ * `deleteUser`: clears `users.deleted_at` so the user can sign in again
+ * and the `soft-deleted-purge` cron stops targeting the row.
+ *
+ * Gated by `users:delete` (same permission as the destructive direction):
+ * whoever can delete an account is the same actor who should be allowed
+ * to roll back the request before the 30-day grace expires.
+ */
+export async function cancelUserDeletion(userId: string) {
+  const adminUser = await requireAdmin();
+
+  const allowed = await can(adminUser, "users:delete");
+  if (!allowed)
+    throw new Error("You do not have the users:delete permission.");
+
+  const [target] = await db
+    .select({ deletedAt: users.deletedAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!target) throw new Error("User not found.");
+  if (!target.deletedAt) throw new Error("User is not pending deletion.");
+
+  const now = new Date();
+
+  await db
+    .update(users)
+    .set({ deletedAt: null, updatedAt: now })
+    .where(eq(users.id, userId));
+
+  await db.insert(activityLogs).values({
+    userId: adminUser.id,
+    action: ActivityType.ADMIN_CANCEL_USER_DELETION,
+    timestamp: now,
+  });
+
+  revalidatePath(getAdminPath("users-list"));
+}
+
 /** @deprecated Use setUserRole in /admin/roles/actions.ts */
 export async function changeUserRole(userId: string, roleName: string) {
   await requireAdmin();
