@@ -98,6 +98,10 @@ export async function GET(req: NextRequest) {
       return redirect("/sign-in?error=banned");
     }
 
+    if (dbUser.deletedAt) {
+      return redirect("/sign-in?error=account_deleted");
+    }
+
     if (dbUser.role !== "admin" && settings.maintenance_mode === "true") {
       return redirect("/sign-in?error=maintenance");
     }

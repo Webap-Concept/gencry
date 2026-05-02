@@ -152,8 +152,20 @@ export function Login({
     maintenance:            "Il sito è in manutenzione. Solo gli amministratori possono accedere.",
     blocked:                "Il tuo IP è stato bloccato. Contatta il supporto.",
     banned:                 "Il tuo account è stato sospeso.",
+    account_deleted:        "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
   };
   const oauthErrorMessage = oauthError ? (oauthErrorMessages[oauthError] ?? "Errore di autenticazione.") : null;
+
+  // Banner informativo (non error) per scenari come l'utente che ha appena
+  // richiesto l'eliminazione del proprio account.
+  const reasonParam = searchParams.get("reason");
+  const reasonMessages: Record<string, string> = {
+    deletion_requested:
+      "Hai richiesto l'eliminazione del tuo account. Il purge avverrà entro 30 giorni; per annullare contatta l'assistenza.",
+  };
+  const reasonMessage = reasonParam
+    ? (reasonMessages[reasonParam] ?? null)
+    : null;
 
   const validateEmail = async (value: string) => {
     if (!value) {
@@ -262,6 +274,13 @@ export function Login({
             <div className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2 bg-brand-error-bg text-brand-destructive">
               <X className="h-4 w-4 shrink-0" />
               {oauthErrorMessage}
+            </div>
+          )}
+
+          {/* Banner informativo (non error) — es. eliminazione account richiesta */}
+          {reasonMessage && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {reasonMessage}
             </div>
           )}
 

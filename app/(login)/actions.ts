@@ -148,6 +148,22 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     };
   }
 
+  // Soft-delete: utente in attesa di purge fisico (entro 30gg). Niente login
+  // finché non viene annullato manualmente dall'assistenza. Compare dummy
+  // per evitare un timing oracle che riveli l'esistenza dell'account.
+  if (foundUser.deletedAt !== null) {
+    await comparePasswords(
+      password,
+      "$2b$12$dummyhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    );
+    return {
+      error:
+        "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
+      email,
+      password,
+    };
+  }
+
   const isPasswordValid = await comparePasswords(password, foundUser.passwordHash);
 
   if (!isPasswordValid) {
