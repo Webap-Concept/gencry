@@ -1,5 +1,13 @@
 // Registry dei generatori. Aggiungere qui i nuovi tipi di notifica.
 import type { NotificationGenerator } from "../types";
+import {
+  coreCronFailuresGenerator,
+  moduleCronFailuresGenerators,
+} from "./cron-failures";
 import { rotationGenerator } from "./rotation";
 
-export const GENERATORS: NotificationGenerator[] = [rotationGenerator];
+export const GENERATORS: NotificationGenerator[] = [
+  rotationGenerator,
+  coreCronFailuresGenerator,
+  ...moduleCronFailuresGenerators(),
+];
