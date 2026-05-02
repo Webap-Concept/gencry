@@ -143,7 +143,6 @@ describe("SEO schema — robots", () => {
   });
 
   it("rifiuta valore robots non previsto", () => {
-    // @ts-expect-error valore non valido intenzionale
     expect(schema.safeParse({ ...valid, robots: "all" }).success).toBe(false);
   });
 });

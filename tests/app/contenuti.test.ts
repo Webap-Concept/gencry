@@ -123,7 +123,6 @@ describe("Contenuti schema — status", () => {
   });
 
   it("rifiuta status non previsto", () => {
-    // @ts-expect-error valore non valido intenzionale
     expect(schema.safeParse({ ...valid, status: "archived" }).success).toBe(false);
   });
 });
