@@ -13,17 +13,19 @@ import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/lib/auth/middleware";
 import type { DeviceType } from "@/lib/account/parse-user-agent";
 import {
-  revokeAllOtherDevicesAction,
-  revokeDeviceAction,
+  revokeAllOtherSessionsAction,
+  revokeSessionAction,
 } from "../actions";
 
-type DeviceVM = {
-  id: number;
+type SessionVM = {
+  id: string;
   label: string;
   deviceType: DeviceType;
-  /** ISO string — il client formatta con Intl.DateTimeFormat. */
+  ip: string | null;
+  /** ISO. */
   createdAt: string;
-  lastUsedAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
   isCurrent: boolean;
 };
 
@@ -33,52 +35,50 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
   year: "numeric",
 });
 
-export function DevicesList({ devices }: { devices: DeviceVM[] }) {
-  const otherCount = devices.filter((d) => !d.isCurrent).length;
+export function SessionsList({ sessions }: { sessions: SessionVM[] }) {
+  const otherCount = sessions.filter((s) => !s.isCurrent).length;
 
   return (
-    <div className="space-y-10">
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">
-            Dispositivi fidati
-          </h2>
-          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            Da questi dispositivi puoi accedere senza ricevere il codice di
-            verifica via email. È diverso dalle sessioni qui sopra: revocare un
-            dispositivo non chiude alcuna sessione attiva, ma al prossimo login
-            da lì ti chiederemo il codice OTP.
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-[15px] font-semibold text-gc-fg">
+          Sessioni attive
+        </h2>
+        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
+          Accessi attivi al tuo account in questo momento. Revocando una
+          sessione esci immediatamente da quel dispositivo. La sessione che
+          stai usando ora non può essere revocata da qui — per uscire fai
+          logout.
+        </p>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
+          <p className="text-[13.5px] text-gc-fg-3">
+            Nessuna sessione attiva.
           </p>
         </div>
+      ) : (
+        <ul className="space-y-3">
+          {sessions.map((session) => (
+            <SessionRow key={session.id} session={session} />
+          ))}
+        </ul>
+      )}
 
-        {devices.length === 0 ? (
-          <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
-            <p className="text-[13.5px] text-gc-fg-3">
-              Nessun dispositivo fidato registrato.
-            </p>
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {devices.map((device) => (
-              <DeviceRow key={device.id} device={device} />
-            ))}
-          </ul>
-        )}
-
-        {otherCount > 0 && <RevokeAllOthersButton otherCount={otherCount} />}
-      </section>
-    </div>
+      {otherCount > 0 && <RevokeAllOthersButton otherCount={otherCount} />}
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Riga singola dispositivo
+// Riga sessione
 // ---------------------------------------------------------------------------
 
-function DeviceRow({ device }: { device: DeviceVM }) {
+function SessionRow({ session }: { session: SessionVM }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
-    revokeDeviceAction,
+    revokeSessionAction,
     {},
   );
 
@@ -86,7 +86,7 @@ function DeviceRow({ device }: { device: DeviceVM }) {
     if (state.success) router.refresh();
   }, [state.success, router]);
 
-  const Icon = iconForDeviceType(device.deviceType);
+  const Icon = iconForDeviceType(session.deviceType);
 
   return (
     <li className="rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
@@ -98,20 +98,21 @@ function DeviceRow({ device }: { device: DeviceVM }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13.5px] font-medium text-gc-fg">
-              {device.label}
+              {session.label}
             </span>
-            {device.isCurrent && (
+            {session.isCurrent && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                Questo dispositivo
+                Sessione corrente
               </span>
             )}
           </div>
           <p className="mt-1 text-[12px] text-gc-fg-3">
-            Aggiunto il {dateFmt.format(new Date(device.createdAt))} · Ultimo
-            uso{" "}
+            {session.ip && <>IP {session.ip} · </>}
+            Aperta il {dateFmt.format(new Date(session.createdAt))} · Ultima
+            attività{" "}
             <RelativeTime
-              iso={device.lastUsedAt}
-              fallback={dateFmt.format(new Date(device.lastUsedAt))}
+              iso={session.lastSeenAt}
+              fallback={dateFmt.format(new Date(session.lastSeenAt))}
             />
           </p>
           {state.error && (
@@ -119,9 +120,9 @@ function DeviceRow({ device }: { device: DeviceVM }) {
           )}
         </div>
 
-        {!device.isCurrent && (
+        {!session.isCurrent && (
           <form action={action}>
-            <input type="hidden" name="deviceId" value={device.id} />
+            <input type="hidden" name="sessionId" value={session.id} />
             <Button
               type="submit"
               variant="outline"
@@ -145,14 +146,14 @@ function DeviceRow({ device }: { device: DeviceVM }) {
 }
 
 // ---------------------------------------------------------------------------
-// Bottone "Revoca tutti gli altri" con conferma in due step
+// Bottone "Revoca tutte le altre" con conferma in due step
 // ---------------------------------------------------------------------------
 
 function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState<ActionState, FormData>(
-    revokeAllOtherDevicesAction,
+    revokeAllOtherSessionsAction,
     {},
   );
 
@@ -173,7 +174,7 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
           className="self-start text-gc-neg hover:text-gc-neg"
           onClick={() => setConfirming(true)}
         >
-          Revoca tutti gli altri dispositivi
+          Revoca tutte le altre sessioni
         </Button>
         {state.success && (
           <p className="text-[12.5px] text-emerald-700">{state.success}</p>
@@ -185,9 +186,9 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
       <p className="text-[13px] text-gc-fg">
-        Stai per revocare {otherCount === 1 ? "1 dispositivo" : `${otherCount} dispositivi`}.
-        Al prossimo accesso da quei dispositivi sarà richiesto un nuovo codice
-        di verifica via email.
+        Stai per chiudere{" "}
+        {otherCount === 1 ? "1 sessione" : `${otherCount} sessioni`}. Su quei
+        dispositivi sarà necessario rifare login.
       </p>
       {state.error && <p className="text-[12.5px] text-gc-neg">{state.error}</p>}
       <div className="flex flex-wrap gap-2">
@@ -240,9 +241,6 @@ function iconForDeviceType(type: DeviceType) {
 }
 
 function RelativeTime({ iso, fallback }: { iso: string; fallback: string }) {
-  // Mounted-only per evitare hydration mismatch (la "differenza" rispetto a now
-  // dipende dal momento del render). Sul primo render mostriamo il fallback
-  // assoluto, poi sostituiamo client-side con il relativo.
   const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -256,7 +254,7 @@ function formatRelative(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
 
-  if (diffMin < 1) return "pochi secondi fa";
+  if (diffMin < 1) return "ora";
   if (diffMin < 60) return diffMin === 1 ? "1 minuto fa" : `${diffMin} minuti fa`;
 
   const diffH = Math.floor(diffMin / 60);
