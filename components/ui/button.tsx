@@ -20,9 +20,11 @@ const buttonVariants = cva(
           "border border-border bg-surface text-[#2C2416] hover:bg-[#F5F0E8] focus-visible:ring-border",
         // Ghost — azioni terziarie
         ghost: "text-label hover:bg-[#F5F0E8] focus-visible:ring-border",
-        // Destructive — azioni pericolose
+        // Destructive — azioni pericolose. Usa il token gc-neg perché
+        // var(--destructive) è in formato HSL space-separated e in alcuni
+        // contesti non viene wrappato in hsl(), risultando trasparente.
         destructive:
-          "bg-destructive text-white hover:bg-[#B83C2C] focus-visible:ring-destructive/40",
+          "bg-gc-neg text-white hover:bg-[#a64635] focus-visible:ring-gc-neg/40",
         // Link
         link: "text-primary underline-offset-4 hover:underline",
       },
