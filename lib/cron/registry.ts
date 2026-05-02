@@ -49,6 +49,13 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     purpose: "Implements the GDPR 30-day grace window after an account-deletion request. Within 30 days the user can still recover the account; after that the row is purged and FK ON DELETE SET NULL preserves audit trails.",
     owner: "core",
   },
+  {
+    jobname: "notifications-dispatch",
+    label: "Admin Notifications Dispatch",
+    description: "Runs all notification generators (cron failures, secret rotation, …) and reconciles admin_notifications: inserts new alerts, refreshes severity, auto-resolves conditions that have cleared.",
+    purpose: "Ensures admin alerts (e.g. a cron going into failure) appear within minutes instead of waiting for an admin to navigate the panel. The layout-render trigger still acts as a fallback if pg_cron is not running.",
+    owner: "core",
+  },
 ];
 
 /** Costruisce l'elenco completo di metadati noti unendo core + moduli. */
