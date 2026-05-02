@@ -60,6 +60,18 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "roleLabel",    value: "{{roleLabel}}" },
     { label: "inviteUrl",    value: "{{inviteUrl}}" },
   ],
+  gdprexport: [
+    { label: "appName",      value: "{{appName}}" },
+    { label: "userEmail",    value: "{{userEmail}}" },
+    { label: "userName",     value: "{{userName}}" },
+    { label: "downloadLink", value: "{{downloadLink}}" },
+  ],
+  accountdeletion: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+    { label: "purgeDate", value: "{{purgeDate}}" },
+  ],
 };
 
 const TEMPLATES = [
@@ -142,6 +154,26 @@ const TEMPLATES = [
     defaultSubject: "Invito Staff — {{appName}}",
     defaultBody:
       "Ciao,\n\n{{inviterName}} ti ha invitato a entrare nel team staff di {{appName}} con il ruolo di {{roleLabel}}.\n\nClicca il pulsante qui sotto per accettare o rifiutare l'invito. Il link è valido per 48 ore.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "gdprexport",
+    label: "GDPR export ready",
+    prefix: "email_gdprexport",
+    file: "lib/email/templates/gdpr-export-ready.ts",
+    defaultSubject: "I tuoi dati sono pronti — {{appName}}",
+    defaultBody:
+      "Abbiamo preparato l'archivio dei tuoi dati personali su {{appName}}, come da tua richiesta.\nPuoi scaricarlo dal pulsante qui sotto. Il link è valido per 24 ore; se scade, puoi rigenerarlo dalle impostazioni privacy del tuo account.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "accountdeletion",
+    label: "Account deletion requested",
+    prefix: "email_accountdeletion",
+    file: "lib/email/templates/account-deletion-requested.ts",
+    defaultSubject: "Conferma richiesta di eliminazione account — {{appName}}",
+    defaultBody:
+      "Abbiamo ricevuto la tua richiesta di eliminazione dell'account su {{appName}}. I tuoi dati personali saranno cancellati definitivamente il {{purgeDate}}.\nFino a quel momento puoi annullare la richiesta scrivendo all'assistenza. Dopo il purge non sarà più possibile recuperare i dati.",
     defaultFooter: "© {{appName}} · Tutti i diritti riservati",
   },
 ] as const;
