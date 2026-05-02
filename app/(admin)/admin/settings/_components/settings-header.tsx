@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  Clock,
   Code2,
   Database,
   Globe,
@@ -60,6 +61,11 @@ const SECTIONS: Record<string, SectionMeta> = {
     label: "Cloudflare",
     description: "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up.",
     icon: Shield,
+  },
+  cron: {
+    label: "Cron Jobs",
+    description: "Inspect, monitor, enable or disable Supabase pg_cron jobs.",
+    icon: Clock,
   },
 };
 

@@ -38,6 +38,13 @@ export const PRICES_MODULE: ModuleManifest = {
       permission: "modules:prices",
     },
     {
+      key: "prices-cron",
+      href: "/admin/modules/prices/cron",
+      label: "Cron Jobs",
+      icon: "Clock",
+      permission: "modules:prices",
+    },
+    {
       key: "prices-settings",
       href: "/admin/modules/prices/settings",
       label: "Settings",
@@ -46,8 +53,29 @@ export const PRICES_MODULE: ModuleManifest = {
     },
   ],
   cronJobs: [
-    { path: "/api/cron/modules/prices/sync",     schedule: "*/5 * * * *" },
-    { path: "/api/cron/modules/prices/snapshot", schedule: "*/5 * * * *" },
-    { path: "/api/cron/modules/prices/cleanup",  schedule: "0 3 * * *"   },
+    {
+      jobname: "modules-prices-sync",
+      path: "/api/cron/modules/prices/sync",
+      schedule: "*/5 * * * *",
+      label: "Prices Sync",
+      description: "Fetches the latest prices for the active coin universe from CoinGecko / fallback sources and updates the live KV cache.",
+      purpose: "Keeps live prices fresh on the frontend (markets table, watchlists, charts).",
+    },
+    {
+      jobname: "modules-prices-snapshot",
+      path: "/api/cron/modules/prices/snapshot",
+      schedule: "*/5 * * * *",
+      label: "Prices Snapshot",
+      description: "Persists a periodic snapshot of prices into the time-series table for historical charts.",
+      purpose: "Powers historical charts and delta computations (24h, 7d).",
+    },
+    {
+      jobname: "modules-prices-cleanup",
+      path: "/api/cron/modules/prices/cleanup",
+      schedule: "0 3 * * *",
+      label: "Prices Cleanup",
+      description: "Deletes price snapshots older than the configured retention window from the time-series table.",
+      purpose: "Keeps DB size bounded and respects the retention policy in module settings.",
+    },
   ],
 };

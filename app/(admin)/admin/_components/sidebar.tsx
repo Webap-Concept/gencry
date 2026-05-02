@@ -9,6 +9,7 @@ import {
   Boxes,
   ChevronDown,
   ClipboardList,
+  Clock,
   Code2,
   Coins,
   Database,
@@ -73,6 +74,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Activity,
   Coins,
   Boxes,
+  Clock,
 };
 
 interface AdminSidebarProps {
