@@ -20,11 +20,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 const TABS: Array<{ key: string; label: string }> = [
-  { key: "active", label: "Attive" },
-  { key: "snoozed", label: "Rinviate" },
-  { key: "dismissed", label: "Ignorate" },
-  { key: "resolved", label: "Risolte" },
-  { key: "all", label: "Tutte" },
+  { key: "active", label: "Active" },
+  { key: "snoozed", label: "Snoozed" },
+  { key: "dismissed", label: "Dismissed" },
+  { key: "resolved", label: "Resolved" },
+  { key: "all", label: "All" },
 ];
 
 function severityColor(s: ClientNotification["severity"]): string {
@@ -89,7 +89,7 @@ function ActionButton({
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("it-IT", {
+  return new Date(iso).toLocaleString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -102,13 +102,13 @@ function statusBadge(n: ClientNotification): {
   label: string;
   color: string;
 } {
-  if (n.dismissedAt) return { label: "Ignorata", color: "#94a3b8" };
-  if (n.resolvedAt) return { label: "Risolta", color: "#22c55e" };
+  if (n.dismissedAt) return { label: "Dismissed", color: "#94a3b8" };
+  if (n.resolvedAt) return { label: "Resolved", color: "#22c55e" };
   if (n.snoozedUntil && new Date(n.snoozedUntil).getTime() > Date.now()) {
-    return { label: "Rinviata", color: "#f59e0b" };
+    return { label: "Snoozed", color: "#f59e0b" };
   }
-  if (n.readAt) return { label: "Letta", color: "var(--admin-text-faint)" };
-  return { label: "Non letta", color: "var(--admin-accent)" };
+  if (n.readAt) return { label: "Read", color: "var(--admin-text-faint)" };
+  return { label: "Unread", color: "var(--admin-accent)" };
 }
 
 export function NotificationsList({
@@ -188,7 +188,7 @@ export function NotificationsList({
             style={{ color: "var(--admin-text-faint)" }}
           />
           <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>
-            Nessuna notifica in questa categoria.
+            No notifications in this category.
           </p>
         </div>
       )}
@@ -241,14 +241,14 @@ export function NotificationsList({
                     style={{ color: "var(--admin-text-faint)" }}>
                     <span>{formatDate(n.createdAt)}</span>
                     {n.snoozedUntil && (
-                      <span>· Rinviata fino al {formatDate(n.snoozedUntil)}</span>
+                      <span>· Snoozed until {formatDate(n.snoozedUntil)}</span>
                     )}
                     {n.link && (
                       <Link
                         href={n.link}
                         className="underline underline-offset-2"
                         style={{ color: "var(--admin-accent)" }}>
-                        Vai alla sezione
+                        Go to section
                       </Link>
                     )}
                   </div>
@@ -259,14 +259,14 @@ export function NotificationsList({
                         disabled={busyKey !== null}
                         onClick={() => handleSnooze(n.id)}
                         icon={<Clock size={11} />}
-                        label="Rinvia 7 giorni"
+                        label="Snooze 7 days"
                       />
                       <ActionButton
                         busy={busyKey === `dismiss:${n.id}`}
                         disabled={busyKey !== null}
                         onClick={() => handleDismiss(n.id)}
                         icon={<X size={11} />}
-                        label="Ignora"
+                        label="Dismiss"
                       />
                     </div>
                   )}
