@@ -1,12 +1,16 @@
 "use client";
 
 import { getAdminPath } from "@/lib/admin-nav";
+import type { AdminUsersStatus } from "@/lib/db/admin-queries";
 import type { AdminUser } from "@/lib/db/admin-queries";
-import { ShieldBan, ShieldCheck } from "lucide-react";
+import { ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { unbanUser } from "../actions";
+import { cancelUserDeletion, unbanUser } from "../actions";
 import BanModal from "./ban-modal";
+
+const ACCOUNT_DELETION_GRACE_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Colored role badge — the color is passed from the server via roleColor */
 function RoleBadge({ label, color }: { label: string; color: string }) {
@@ -37,16 +41,67 @@ function PlanBadge({ status }: { status: string | null }) {
   );
 }
 
-function UserRow({ user }: { user: AdminUser }) {
+/**
+ * Mostra i giorni residui prima del purge fisico (deletedAt + 30gg).
+ * Color-coded: rosso ultimo giorno, ambra <= 7gg, grigio altrimenti.
+ * `Expired` quando la grace e' gia' passata (in attesa del cron purge).
+ */
+function DaysLeftBadge({ deletedAt }: { deletedAt: Date }) {
+  const purgeAt =
+    new Date(deletedAt).getTime() + ACCOUNT_DELETION_GRACE_DAYS * DAY_MS;
+  const msLeft = purgeAt - Date.now();
+
+  if (msLeft <= 0) {
+    return (
+      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
+        Expired
+      </span>
+    );
+  }
+
+  const days = Math.max(1, Math.ceil(msLeft / DAY_MS));
+  const tone =
+    days <= 1
+      ? "bg-red-100 text-red-700"
+      : days <= 7
+        ? "bg-amber-100 text-amber-700"
+        : "bg-gray-100 text-gray-600";
+
+  return (
+    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone}`}>
+      {days}d left
+    </span>
+  );
+}
+
+function UserRow({
+  user,
+  status,
+}: {
+  user: AdminUser;
+  status: AdminUsersStatus;
+}) {
   const [pending, startTransition] = useTransition();
   const [showBanModal, setShowBanModal] = useState(false);
   const isBanned = !!user.bannedAt;
   const isDeleted = !!user.deletedAt;
+  const showDeletionColumns = status === "deletion_requested";
   const initials =
     [user.firstName, user.lastName]
       .filter(Boolean)
       .map((n) => n![0].toUpperCase())
       .join("") || user.email[0].toUpperCase();
+
+  function handleCancelDeletion() {
+    if (
+      !window.confirm(
+        `Restore ${user.email}? The user will be able to sign in again.`,
+      )
+    ) {
+      return;
+    }
+    startTransition(() => cancelUserDeletion(user.id));
+  }
 
   return (
     <tr
@@ -107,34 +162,72 @@ function UserRow({ user }: { user: AdminUser }) {
         <PlanBadge status={user.subscriptionStatus} />
       </td>
 
-      {/* Verified Email */}
-      <td className="px-4 py-3 hidden lg:table-cell">
-        <span
-          className={`text-[11px] font-medium ${
-            user.emailVerified ? "text-emerald-600" : ""
-          }`}
-          style={
-            !user.emailVerified ? { color: "var(--admin-text-faint)" } : {}
-          }>
-          {user.emailVerified ? "✓ Verified" : "Not verified"}
-        </span>
-      </td>
+      {/* Verified Email — hidden when filtering deletion_requested to make
+          room for the deletion-specific columns. */}
+      {!showDeletionColumns && (
+        <td className="px-4 py-3 hidden lg:table-cell">
+          <span
+            className={`text-[11px] font-medium ${
+              user.emailVerified ? "text-emerald-600" : ""
+            }`}
+            style={
+              !user.emailVerified ? { color: "var(--admin-text-faint)" } : {}
+            }>
+            {user.emailVerified ? "✓ Verified" : "Not verified"}
+          </span>
+        </td>
+      )}
 
-      {/* Join Date */}
-      <td className="px-4 py-3 hidden lg:table-cell">
-        <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-          {new Date(user.createdAt).toLocaleDateString("en-US")}
-        </span>
-      </td>
+      {/* Join Date — same: hidden in deletion view to free a column. */}
+      {!showDeletionColumns && (
+        <td className="px-4 py-3 hidden lg:table-cell">
+          <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+            {new Date(user.createdAt).toLocaleDateString("en-US")}
+          </span>
+        </td>
+      )}
+
+      {/* Deletion-specific columns */}
+      {showDeletionColumns && (
+        <>
+          <td className="px-4 py-3 hidden lg:table-cell">
+            <span
+              className="text-xs"
+              style={{ color: "var(--admin-text-faint)" }}>
+              {user.deletedAt
+                ? new Date(user.deletedAt).toLocaleDateString("en-US")
+                : "—"}
+            </span>
+          </td>
+          <td className="px-4 py-3 hidden lg:table-cell">
+            {user.deletedAt ? (
+              <DaysLeftBadge deletedAt={user.deletedAt} />
+            ) : (
+              <span
+                className="text-xs"
+                style={{ color: "var(--admin-text-faint)" }}>
+                —
+              </span>
+            )}
+          </td>
+        </>
+      )}
 
       {/* Actions */}
       <td className="px-4 py-3">
-        {user.isAdmin || isDeleted ? (
+        {user.isAdmin ? (
           <span
             className="text-xs italic"
             style={{ color: "var(--admin-text-faint)" }}>
-            {isDeleted ? "Deleted" : "—"}
+            —
           </span>
+        ) : isDeleted ? (
+          <button
+            disabled={pending}
+            onClick={handleCancelDeletion}
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+            <Undo2 size={13} /> Cancel deletion
+          </button>
         ) : (
           <div className="flex items-center gap-2">
             {/* Ban / Unban */}
@@ -182,39 +275,62 @@ function UserRow({ user }: { user: AdminUser }) {
   );
 }
 
-export default function UsersTable({ users }: { users: AdminUser[] }) {
+export default function UsersTable({
+  users,
+  status = "active",
+}: {
+  users: AdminUser[];
+  status?: AdminUsersStatus;
+}) {
   if (users.length === 0) {
     return (
       <div
         className="text-center py-16 text-sm"
         style={{ color: "var(--admin-text-faint)" }}>
-        No users found.
+        {status === "deletion_requested"
+          ? "No users have requested account deletion."
+          : "No users found."}
       </div>
     );
   }
+
+  const showDeletionColumns = status === "deletion_requested";
+  const headers: { label: string; lgOnly: boolean }[] = [
+    { label: "User", lgOnly: false },
+    { label: "Role", lgOnly: false },
+    { label: "Plan", lgOnly: false },
+    ...(showDeletionColumns
+      ? [
+          { label: "Requested at", lgOnly: true },
+          { label: "Time left", lgOnly: true },
+        ]
+      : [
+          { label: "Email", lgOnly: true },
+          { label: "Joined on", lgOnly: true },
+        ]),
+    { label: "Actions", lgOnly: false },
+  ];
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px]">
         <thead>
           <tr style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-            {["User", "Role", "Plan", "Email", "Joined on", "Actions"].map(
-              (h, i) => (
-                <th
-                  key={h}
-                  className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide ${
-                    i >= 3 && i <= 4 ? "hidden lg:table-cell" : ""
-                  }`}
-                  style={{ color: "var(--admin-text-faint)" }}>
-                  {h}
-                </th>
-              ),
-            )}
+            {headers.map((h) => (
+              <th
+                key={h.label}
+                className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide ${
+                  h.lgOnly ? "hidden lg:table-cell" : ""
+                }`}
+                style={{ color: "var(--admin-text-faint)" }}>
+                {h.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <UserRow key={u.id} user={u} />
+            <UserRow key={u.id} user={u} status={status} />
           ))}
         </tbody>
       </table>

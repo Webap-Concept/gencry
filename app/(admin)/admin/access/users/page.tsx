@@ -1,5 +1,5 @@
 import { getAdminPath } from "@/lib/admin-nav";
-import { getAdminUsers } from "@/lib/db/admin-queries";
+import { type AdminUsersStatus, getAdminUsers } from "@/lib/db/admin-queries";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { Search, Users } from "lucide-react";
 import type { Metadata } from "next";
@@ -8,17 +8,31 @@ import UsersTable from "./_components/users-table";
 
 export const metadata: Metadata = { title: "Users" };
 
+const VALID_STATUSES: AdminUsersStatus[] = [
+  "active",
+  "deletion_requested",
+  "all",
+];
+
+function parseStatus(raw: string | undefined): AdminUsersStatus {
+  return VALID_STATUSES.includes(raw as AdminUsersStatus)
+    ? (raw as AdminUsersStatus)
+    : "active";
+}
+
 async function UsersContent({
   search,
   role,
   plan,
   verified,
+  status,
   page,
 }: {
   search: string;
   role: string;
   plan: string;
   verified: string;
+  status: AdminUsersStatus;
   page: number;
 }) {
   const { users, total } = await getAdminUsers({
@@ -26,6 +40,7 @@ async function UsersContent({
     role,
     plan,
     verified,
+    status,
     page,
   });
   const totalPages = Math.ceil(total / 20);
@@ -36,6 +51,7 @@ async function UsersContent({
     if (role) params.set("role", role);
     if (plan) params.set("plan", plan);
     if (verified) params.set("verified", verified);
+    if (status !== "active") params.set("status", status);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return `${getAdminPath("users-list")}${qs ? `?${qs}` : ""}`;
@@ -53,7 +69,7 @@ async function UsersContent({
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
         }}>
-        <UsersTable users={users} />
+        <UsersTable users={users} status={status} />
 
         {totalPages > 1 && (
           <div
@@ -142,6 +158,7 @@ export default async function AdminUsersPage({
     role?: string;
     plan?: string;
     verified?: string;
+    status?: string;
     page?: string;
   }>;
 }) {
@@ -150,10 +167,17 @@ export default async function AdminUsersPage({
   const role = params.role ?? "";
   const plan = params.plan ?? "";
   const verified = params.verified ?? "";
+  const status = parseStatus(params.status);
   const page = Number(params.page ?? 1);
 
   const allRoles = await getAdminRoles();
-  const hasFilters = !!(search || role || plan || verified);
+  const hasFilters = !!(
+    search ||
+    role ||
+    plan ||
+    verified ||
+    status !== "active"
+  );
 
   return (
     <div className="space-y-5">
@@ -253,6 +277,23 @@ export default async function AdminUsersPage({
             <option value="false">✗ Unverified email</option>
           </select>
 
+          <select
+            name="status"
+            defaultValue={status}
+            className="px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color:
+                status !== "active"
+                  ? "var(--admin-text)"
+                  : "var(--admin-text-muted)",
+            }}>
+            <option value="active">Active accounts</option>
+            <option value="deletion_requested">Deletion requested</option>
+            <option value="all">All (incl. deleted)</option>
+          </select>
+
           <button
             type="submit"
             className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
@@ -280,6 +321,7 @@ export default async function AdminUsersPage({
           role={role}
           plan={plan}
           verified={verified}
+          status={status}
           page={page}
         />
       </Suspense>

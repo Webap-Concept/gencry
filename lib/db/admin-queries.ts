@@ -221,11 +221,14 @@ export type AdminUser = {
   avatarUrl: string | null;
 };
 
+export type AdminUsersStatus = "active" | "deletion_requested" | "all";
+
 export async function getAdminUsers({
   search = "",
   role = "",
   plan = "",
   verified = "",
+  status = "active",
   page = 1,
   perPage = 20,
   filter,
@@ -234,6 +237,7 @@ export async function getAdminUsers({
   role?: string;
   plan?: string;
   verified?: string;
+  status?: AdminUsersStatus;
   page?: number;
   perPage?: number;
   filter?: "all" | "active" | "banned" | "premium" | "free";
@@ -251,8 +255,19 @@ export async function getAdminUsers({
           ? "free"
           : undefined;
 
+  // Filtro su deleted_at:
+  //   active             -> isNull (default, comportamento storico)
+  //   deletion_requested -> isNotNull (mostra solo i soft-deleted in grace o oltre)
+  //   all                -> nessun filtro
+  const deletionFilter =
+    status === "deletion_requested"
+      ? isNotNull(users.deletedAt)
+      : status === "all"
+        ? undefined
+        : isNull(users.deletedAt);
+
   const baseWhere = and(
-    isNull(users.deletedAt),
+    deletionFilter,
     lacksAdminPermission(users),
     search
       ? sql`(
