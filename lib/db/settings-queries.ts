@@ -58,6 +58,11 @@ export type SettingKey =
   | 'email_staffinvite_bcc'
   | 'email_staffinvite_body'
   | 'email_staffinvite_footer'
+  // GDPR export ready (export dati pronto per il download da /settings/privacy)
+  | 'email_gdprexport_subject'
+  | 'email_gdprexport_bcc'
+  | 'email_gdprexport_body'
+  | 'email_gdprexport_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -149,6 +154,10 @@ export type AppSettings = {
   email_staffinvite_bcc: string | null
   email_staffinvite_body: string | null
   email_staffinvite_footer: string | null
+  email_gdprexport_subject: string | null
+  email_gdprexport_bcc: string | null
+  email_gdprexport_body: string | null
+  email_gdprexport_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -233,6 +242,10 @@ const DEFAULTS: AppSettings = {
   email_staffinvite_bcc: null,
   email_staffinvite_body: null,
   email_staffinvite_footer: null,
+  email_gdprexport_subject: null,
+  email_gdprexport_bcc: null,
+  email_gdprexport_body: null,
+  email_gdprexport_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
