@@ -11,8 +11,8 @@ import type { ActionState } from "@/lib/auth/middleware";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { checkUsernameAction } from "@/app/(login)/actions";
 import { removeAvatar, updateProfile, uploadAvatar } from "../actions";
+import { AvatarCropDialog } from "./avatar-crop-dialog";
 
-const TARGET_SIZE = 512;
 const BIO_MAX = 160;
 
 type Initial = {
@@ -244,10 +244,18 @@ function AvatarSection({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [uploading, startUpload] = useTransition();
   const [removing, startRemove] = useTransition();
 
-  async function handleFile(file: File) {
+  // Revoca il blob URL precedente quando ne creiamo uno nuovo o quando smontiamo
+  useEffect(() => {
+    return () => {
+      if (cropSrc?.startsWith("blob:")) URL.revokeObjectURL(cropSrc);
+    };
+  }, [cropSrc]);
+
+  function pickFile(file: File) {
     setError(null);
     if (!file.type.startsWith("image/")) {
       setError("Seleziona un file immagine.");
@@ -257,26 +265,28 @@ function AvatarSection({
       setError("Immagine troppo grande. Massimo 8 MB.");
       return;
     }
+    const url = URL.createObjectURL(file);
+    setCropSrc(url);
+  }
 
-    let resized: File;
-    try {
-      resized = await resizeToSquare(file, TARGET_SIZE);
-    } catch (err) {
-      console.error(err);
-      setError("Impossibile leggere l'immagine. Riprova.");
-      return;
-    }
+  function handleCropCancel() {
+    if (uploading) return;
+    setCropSrc(null);
+  }
 
+  function handleCropConfirm(cropped: File) {
     const formData = new FormData();
-    formData.append("avatar", resized);
+    formData.append("avatar", cropped);
 
     startUpload(async () => {
       const result = await uploadAvatar({}, formData);
       if (result.error) {
         setError(result.error);
+        setCropSrc(null);
         return;
       }
       if (result.url) onUploaded(result.url);
+      setCropSrc(null);
     });
   }
 
@@ -316,7 +326,7 @@ function AvatarSection({
       <div className="flex-1 min-w-0">
         <div className="text-[14px] font-medium text-gc-fg">Foto profilo</div>
         <p className="text-[12px] text-gc-fg-3 mt-0.5">
-          PNG, JPG o WebP. Verrà ridimensionata a {TARGET_SIZE}×{TARGET_SIZE}.
+          PNG, JPG o WebP. Potrai ritagliare e zoomare prima del salvataggio.
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
           <Button
@@ -351,44 +361,19 @@ function AvatarSection({
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) handleFile(f);
+            if (f) pickFile(f);
             e.target.value = "";
           }}
         />
       </div>
+
+      <AvatarCropDialog
+        open={cropSrc !== null}
+        imageSrc={cropSrc}
+        saving={uploading}
+        onCancel={handleCropCancel}
+        onConfirm={handleCropConfirm}
+      />
     </section>
   );
-}
-
-async function resizeToSquare(file: File, size: number): Promise<File> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = () => reject(new Error("img-load"));
-    i.src = dataUrl;
-  });
-
-  const minSide = Math.min(img.width, img.height);
-  const sx = (img.width - minSide) / 2;
-  const sy = (img.height - minSide) / 2;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("no-canvas-ctx");
-  ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", 0.92),
-  );
-  if (!blob) throw new Error("no-blob");
-  return new File([blob], "avatar.jpg", { type: "image/jpeg" });
 }
