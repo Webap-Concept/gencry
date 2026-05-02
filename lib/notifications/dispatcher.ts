@@ -62,10 +62,16 @@ async function upsertCandidate(
   }
 
   const row = existing[0];
-  const isClosed = row.resolvedAt !== null || row.dismissedAt !== null;
 
-  if (isClosed) {
-    // Condizione tornata dopo resolved/dismissed: ri-apri come nuova.
+  if (row.dismissedAt !== null) {
+    // L'admin ha chiuso manualmente questa notifica. La condizione esiste
+    // ancora nel sistema ma la scelta dell'utente va rispettata: non riaprire.
+    return;
+  }
+
+  if (row.resolvedAt !== null) {
+    // Il sistema aveva auto-risolto (condizione scomparsa) ma ora è tornata
+    // → ri-apri come nuova notifica.
     await db
       .update(adminNotifications)
       .set({
@@ -77,7 +83,6 @@ async function upsertCandidate(
         metadata: c.metadata ?? {},
         requiredPermission,
         resolvedAt: null,
-        dismissedAt: null,
         readAt: null,
         snoozedUntil: null,
         createdAt: new Date(),
