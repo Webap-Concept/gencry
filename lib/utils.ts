@@ -9,5 +9,5 @@ export function fullName(user: {
   firstName?: string | null;
   lastName?: string | null;
 }): string {
-  return [user.firstName, user.lastName].filter(Boolean).join(" ") || "Utente";
+  return [user.firstName, user.lastName].filter(Boolean).join(" ");
 }
