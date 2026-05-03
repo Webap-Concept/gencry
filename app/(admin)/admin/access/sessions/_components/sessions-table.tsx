@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import {
   revokeAllSessionsForUserAdmin,
   revokeUserSessionAdmin,
@@ -110,40 +111,43 @@ function userDisplayName(row: AdminSessionRow): string {
 
 function SessionRow({ row }: { row: AdminSessionRow }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  // Plain useState (not useTransition) so the button spinner clears as soon
+  // as the action returns. Otherwise a slow / failing router.refresh() keeps
+  // the transition pending and the spinner spins forever.
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
 
-  function handleRevoke() {
-    if (!window.confirm("Revoke this session? The device will be signed out.")) {
-      return;
-    }
+  async function doRevoke() {
     setError(null);
-    startTransition(async () => {
-      try {
-        await revokeUserSessionAdmin(row.id);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Revoke failed");
-      }
-    });
+    setPending(true);
+    try {
+      await revokeUserSessionAdmin(row.id);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Revoke failed");
+    } finally {
+      setPending(false);
+    }
   }
 
-  function handleRevokeAll() {
+  async function handleRevokeAll() {
     setError(null);
-    startTransition(async () => {
-      try {
-        const { revokedCount } = await revokeAllSessionsForUserAdmin(row.userId);
-        if (revokedCount === 0) {
-          setError("No active sessions to revoke for this user.");
-        } else {
-          router.refresh();
-        }
-        setConfirmAll(false);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Revoke failed");
+    setPending(true);
+    try {
+      const { revokedCount } = await revokeAllSessionsForUserAdmin(row.userId);
+      if (revokedCount === 0) {
+        setError("No active sessions to revoke for this user.");
+      } else {
+        router.refresh();
       }
-    });
+      setConfirmAll(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Revoke failed");
+    } finally {
+      setPending(false);
+    }
   }
 
   const canRevoke = row.status === "active";
@@ -226,7 +230,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
 
           <button
             type="button"
-            onClick={handleRevoke}
+            onClick={() => setConfirmRevokeOpen(true)}
             disabled={!canRevoke || pending}
             className="p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-red-50"
             title={canRevoke ? "Revoke this session" : "Already inactive"}
@@ -237,6 +241,20 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
               <X size={14} />
             )}
           </button>
+
+          <ConfirmModal
+            open={confirmRevokeOpen}
+            title="Revoke session"
+            message="The device will be signed out immediately. The user will need to sign in again."
+            variant="danger"
+            confirmLabel="Revoke"
+            loading={pending}
+            onConfirm={async () => {
+              setConfirmRevokeOpen(false);
+              await doRevoke();
+            }}
+            onCancel={() => setConfirmRevokeOpen(false)}
+          />
 
           {!confirmAll ? (
             <button

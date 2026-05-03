@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import {
   revokeAllSessionsForUserAdmin,
   revokeUserSessionAdmin,
@@ -93,24 +94,25 @@ function SessionRow({
   s: SessionVM;
   onChanged: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
+  // Plain useState (not useTransition) so the button spinner clears when the
+  // action returns; we don't want a slow router.refresh() to pin it open.
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
   const Icon = deviceIcon(s.userAgent);
   const canRevoke = s.status === "active";
 
-  function handleRevoke() {
-    if (!window.confirm("Revoke this session? The device will be signed out.")) {
-      return;
-    }
+  async function doRevoke() {
     setError(null);
-    startTransition(async () => {
-      try {
-        await revokeUserSessionAdmin(s.id);
-        onChanged();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Revoke failed");
-      }
-    });
+    setPending(true);
+    try {
+      await revokeUserSessionAdmin(s.id);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Revoke failed");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -159,7 +161,7 @@ function SessionRow({
         {canRevoke && (
           <button
             type="button"
-            onClick={handleRevoke}
+            onClick={() => setConfirmRevokeOpen(true)}
             disabled={pending}
             className="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors hover:bg-red-50 disabled:opacity-40 inline-flex items-center gap-1.5"
             style={{ color: "#dc2626" }}>
@@ -172,6 +174,20 @@ function SessionRow({
           </button>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmRevokeOpen}
+        title="Revoke session"
+        message="The device will be signed out immediately. The user will need to sign in again."
+        variant="danger"
+        confirmLabel="Revoke"
+        loading={pending}
+        onConfirm={async () => {
+          setConfirmRevokeOpen(false);
+          await doRevoke();
+        }}
+        onCancel={() => setConfirmRevokeOpen(false)}
+      />
     </li>
   );
 }

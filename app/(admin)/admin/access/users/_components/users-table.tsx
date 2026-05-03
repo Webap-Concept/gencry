@@ -6,6 +6,7 @@ import type { AdminUser } from "@/lib/db/admin-queries";
 import { ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import { cancelUserDeletion, unbanUser } from "../actions";
 import BanModal from "./ban-modal";
 
@@ -83,6 +84,7 @@ function UserRow({
 }) {
   const [pending, startTransition] = useTransition();
   const [showBanModal, setShowBanModal] = useState(false);
+  const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
   const isBanned = !!user.bannedAt;
   const isDeleted = !!user.deletedAt;
   const showDeletionColumns = status === "deletion_requested";
@@ -93,13 +95,11 @@ function UserRow({
       .join("") || user.email[0].toUpperCase();
 
   function handleCancelDeletion() {
-    if (
-      !window.confirm(
-        `Restore ${user.email}? The user will be able to sign in again.`,
-      )
-    ) {
-      return;
-    }
+    setConfirmRestoreOpen(true);
+  }
+
+  function doCancelDeletion() {
+    setConfirmRestoreOpen(false);
     startTransition(() => cancelUserDeletion(user.id));
   }
 
@@ -270,6 +270,22 @@ function UserRow({
             onClose={() => setShowBanModal(false)}
           />
         )}
+
+        <ConfirmModal
+          open={confirmRestoreOpen}
+          title="Restore account"
+          message={
+            <>
+              Restore <strong>{user.email}</strong>? The user will be able to
+              sign in again.
+            </>
+          }
+          variant="warning"
+          confirmLabel="Restore"
+          loading={pending}
+          onConfirm={doCancelDeletion}
+          onCancel={() => setConfirmRestoreOpen(false)}
+        />
       </td>
     </tr>
   );
