@@ -6,9 +6,11 @@ import {
   revokeSession as revokeSessionHelper,
 } from "@/lib/auth/sessions";
 import { db } from "@/lib/db/drizzle";
-import { ActivityType, activityLogs } from "@/lib/db/schema";
+import { ActivityType, activityLogs, sessionAlerts } from "@/lib/db/schema";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
+import { runSuspiciousDetection } from "@/lib/sessions/suspicious/runner";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 async function requireSessionsPermission() {
@@ -80,4 +82,57 @@ export async function revokeSessionsBulkAdmin(sessionIds: string[]) {
   revalidatePath(getAdminPath("users-sessions"));
 
   return { revokedCount: sessionIds.length };
+}
+
+// ---------------------------------------------------------------------------
+// Suspicious-session alerts
+// ---------------------------------------------------------------------------
+
+export async function acknowledgeAlertAdmin(alertId: number) {
+  const adminUser = await requireSessionsPermission();
+
+  await db
+    .update(sessionAlerts)
+    .set({
+      acknowledgedAt: new Date(),
+      acknowledgedBy: adminUser.id,
+    })
+    .where(
+      and(eq(sessionAlerts.id, alertId), isNull(sessionAlerts.acknowledgedAt)),
+    );
+
+  revalidatePath(getAdminPath("users-sessions"));
+}
+
+export async function acknowledgeAlertsBulkAdmin(alertIds: number[]) {
+  const adminUser = await requireSessionsPermission();
+
+  if (!Array.isArray(alertIds) || alertIds.length === 0) {
+    return { acknowledgedCount: 0 };
+  }
+
+  const updated = await db
+    .update(sessionAlerts)
+    .set({
+      acknowledgedAt: new Date(),
+      acknowledgedBy: adminUser.id,
+    })
+    .where(
+      and(
+        inArray(sessionAlerts.id, alertIds),
+        isNull(sessionAlerts.acknowledgedAt),
+      ),
+    )
+    .returning({ id: sessionAlerts.id });
+
+  revalidatePath(getAdminPath("users-sessions"));
+  return { acknowledgedCount: updated.length };
+}
+
+/** Run the detection synchronously from the admin UI ("Refresh now"). */
+export async function triggerSuspiciousDetectionAdmin() {
+  await requireSessionsPermission();
+  const result = await runSuspiciousDetection();
+  revalidatePath(getAdminPath("users-sessions"));
+  return result;
 }

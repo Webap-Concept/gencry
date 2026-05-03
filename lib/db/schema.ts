@@ -459,6 +459,51 @@ export const sessions = pgTable(
   ],
 );
 
+/**
+ * Suspicious session alerts (Tier-1 heuristics, no external IP/geo).
+ *
+ * Reconciliation pattern: each detector emits a deterministic `dedupKey`
+ * (e.g. `multiple_ips:<userId>:<dayBucket>`) and the runner uses
+ * INSERT … ON CONFLICT (dedup_key) DO NOTHING. This keeps a stable record
+ * per "incident" without exploding rows on every cron tick.
+ *
+ * `sessionId` and `userId` are nullable on purpose:
+ *  - cross-user campaign alerts target an IP, not a single session
+ *  - session FK can become stale if a session is later purged from history
+ *
+ * Lifecycle: `acknowledged_at` is set when an admin reviews the alert from
+ * the panel. Acknowledged alerts stay in the table for audit; the alerts
+ * UI filters them out by default.
+ */
+export const sessionAlerts = pgTable(
+  "session_alerts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    sessionId: uuid("session_id"),
+    userId: uuid("user_id"),
+    /** Heuristic id, e.g. `multiple_ips`, `bot_user_agent` … */
+    reason: varchar("reason", { length: 50 }).notNull(),
+    /** `info` | `warning` | `critical` */
+    severity: varchar("severity", { length: 20 }).notNull(),
+    /** Free-form payload the UI / email digest can read for context. */
+    details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    acknowledgedAt: timestamp("acknowledged_at"),
+    acknowledgedBy: uuid("acknowledged_by"),
+    /** Stamped by the email-digest worker once the alert ships in a digest. */
+    emailSentAt: timestamp("email_sent_at"),
+    /** Deterministic key for idempotency. UNIQUE. */
+    dedupKey: text("dedup_key").notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniq_session_alerts_dedup").on(table.dedupKey),
+    index("idx_session_alerts_user").on(table.userId),
+    index("idx_session_alerts_created").on(table.createdAt),
+    index("idx_session_alerts_unack").on(table.acknowledgedAt),
+    index("idx_session_alerts_email_pending").on(table.emailSentAt),
+  ],
+);
+
 export const trustedDevices = pgTable("trusted_devices", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: uuid("user_id")

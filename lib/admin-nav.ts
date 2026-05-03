@@ -287,6 +287,13 @@ export const ADMIN_NAV: NavItem[] = [
         permission: "admin:settings",
       },
       {
+        key: "settings-notifications",
+        href: "/admin/settings/notifications",
+        label: "Notifications",
+        icon: "Bell",
+        permission: "admin:settings",
+      },
+      {
         key: "settings-signup",
         href: "/admin/settings/signup",
         label: "SignUp",

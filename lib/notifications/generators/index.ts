@@ -6,10 +6,12 @@ import {
   moduleCronFailuresGenerators,
 } from "./cron-failures";
 import { rotationGenerator } from "./rotation";
+import { suspiciousSessionsGenerator } from "./suspicious-sessions";
 
 export const GENERATORS: NotificationGenerator[] = [
   rotationGenerator,
   accountDeletionsGenerator,
   coreCronFailuresGenerator,
+  suspiciousSessionsGenerator,
   ...moduleCronFailuresGenerators(),
 ];

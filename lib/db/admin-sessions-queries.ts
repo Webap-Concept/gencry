@@ -10,7 +10,7 @@
 // expired sessions is useful for an admin auditing ghost devices.
 
 import { db } from "@/lib/db/drizzle";
-import { sessions, userProfiles, users } from "@/lib/db/schema";
+import { sessionAlerts, sessions, userProfiles, users } from "@/lib/db/schema";
 import { and, count, desc, eq, gt, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { unstable_noStore as noStore } from "next/cache";
 import "server-only";
@@ -202,6 +202,96 @@ export type AdminSessionsKpis = {
   /** Sessions opened in the last 24h. */
   createdLast24h: number;
 };
+
+// ---------------------------------------------------------------------------
+// Suspicious-session alerts
+// ---------------------------------------------------------------------------
+
+export type AlertStatusFilter = "open" | "acknowledged" | "all";
+export type AlertSeverityFilter = "all" | "info" | "warning" | "critical";
+
+export type AdminAlertRow = {
+  id: number;
+  reason: string;
+  severity: string;
+  details: Record<string, unknown>;
+  createdAt: Date;
+  acknowledgedAt: Date | null;
+  acknowledgedBy: string | null;
+  emailSentAt: Date | null;
+  sessionId: string | null;
+  userId: string | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+};
+
+export async function listAdminAlerts(params: {
+  status?: AlertStatusFilter;
+  severity?: AlertSeverityFilter;
+  page?: number;
+  perPage?: number;
+} = {}) {
+  noStore();
+  const { status = "open", severity = "all", page = 1, perPage = 25 } = params;
+  const offset = (page - 1) * perPage;
+
+  const statusFilter =
+    status === "open"
+      ? isNull(sessionAlerts.acknowledgedAt)
+      : status === "acknowledged"
+        ? isNotNull(sessionAlerts.acknowledgedAt)
+        : undefined;
+
+  const severityFilter =
+    severity === "all" ? undefined : eq(sessionAlerts.severity, severity);
+
+  const whereClause = and(
+    ...[statusFilter, severityFilter].filter(
+      (c): c is NonNullable<typeof c> => c !== undefined,
+    ),
+  );
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: sessionAlerts.id,
+        reason: sessionAlerts.reason,
+        severity: sessionAlerts.severity,
+        details: sessionAlerts.details,
+        createdAt: sessionAlerts.createdAt,
+        acknowledgedAt: sessionAlerts.acknowledgedAt,
+        acknowledgedBy: sessionAlerts.acknowledgedBy,
+        emailSentAt: sessionAlerts.emailSentAt,
+        sessionId: sessionAlerts.sessionId,
+        userId: sessionAlerts.userId,
+        email: users.email,
+        firstName: userProfiles.firstName,
+        lastName: userProfiles.lastName,
+        username: userProfiles.username,
+        avatarUrl: userProfiles.avatarUrl,
+      })
+      .from(sessionAlerts)
+      .leftJoin(users, eq(users.id, sessionAlerts.userId))
+      .leftJoin(userProfiles, eq(userProfiles.userId, sessionAlerts.userId))
+      .where(whereClause)
+      .orderBy(desc(sessionAlerts.createdAt))
+      .limit(perPage)
+      .offset(offset),
+    db
+      .select({ count: count() })
+      .from(sessionAlerts)
+      .where(whereClause),
+  ]);
+
+  const items: AdminAlertRow[] = rows.map((r) => ({
+    ...r,
+    details: (r.details ?? {}) as Record<string, unknown>,
+  }));
+  return { items, total: totalRows[0]?.count ?? 0 };
+}
 
 export async function getAdminSessionsKpis(): Promise<AdminSessionsKpis> {
   noStore();

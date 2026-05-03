@@ -56,6 +56,13 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     purpose: "Ensures admin alerts (e.g. a cron going into failure) appear within minutes instead of waiting for an admin to navigate the panel. The layout-render trigger still acts as a fallback if pg_cron is not running.",
     owner: "core",
   },
+  {
+    jobname: "sessions-suspicious-detection",
+    label: "Suspicious Sessions Detection",
+    description: "Runs the configured Tier-1 heuristics (multiple IPs, concurrent devices, bot UA, failed→success login, sensitive action on new IP, …) over recent sessions / login_attempts / activity_logs and persists candidates into session_alerts. Sends an email digest to admins when the schedule allows.",
+    purpose: "Surfaces compromised or hijacked sessions early. Detect-only by default — alerts appear in /admin/access/sessions and trigger an admin notification + email digest, but do not auto-revoke sessions. Tunable from /admin/settings/notifications.",
+    owner: "core",
+  },
 ];
 
 /** Costruisce l'elenco completo di metadati noti unendo core + moduli. */
