@@ -10,169 +10,37 @@
  * Tutti gli altri ruoli (es. editor, supporto, moderatore)
  * si creano dall'UI /admin/roles assegnando i permessi granulari RBAC.
  *
- * ── Permessi sezioni admin (admin:*) ─────────────────────────────────────
+ * ── Permessi sezioni admin (admin:*) ────────────────────────────────
  * Ogni sezione del pannello admin ha un permesso dedicato.
  * Questo permette di creare ruoli che accedono all'admin ma vedono
  * solo le sezioni per cui hanno il permesso.
  *
- * Esempio ruolo "Billing Manager":
- *  1. Crea ruolo dall'UI /admin/roles
- *  2. Assegna: admin:access, admin:billing
- *  3. Assegna: billing:read, billing:manage_plans, billing:manage_gateways
- *  4. L'utente entra nell'admin e vede solo la sezione Billing
+ * ── Permessi dei moduli (modules:*) ─────────────────────────────────
+ * I permessi dei moduli social plugabili NON sono hardcoded — vengono
+ * raccolti a runtime da `INSTALLED_MODULES` (vedi permissions-data.ts).
  *
- * ── Permessi dei moduli (modules:*) ─────────────────────────────────────
- * I permessi dei moduli social plugabili NON sono hardcoded qui ma
- * vengono raccolti dinamicamente da `INSTALLED_MODULES` (vedi
- * `lib/modules/registry.ts`). Cosi' una nuova installazione che usa il
- * core senza moduli non si trova permessi orfani in DB.
- *
- * Convenzioni:
- *  - Ogni modulo dichiara nel proprio manifest `permission` +
- *    `permissionLabel` (e opzionalmente `extraPermissions[]`).
- *  - Il seed inserisce tutti questi permessi nel gruppo "Modules".
- *  - Il ruolo admin riceve automaticamente il permesso base di ogni
- *    modulo installato (gli extraPermissions NON sono auto-grantati,
- *    li gestisci manualmente da /admin/access/permissions).
+ * ── Source of truth ─────────────────────────────────────────────────
+ * I dati (CORE_PERMISSIONS, ROLE_PERMISSION_MAP, builders dei moduli)
+ * vivono in `lib/db/permissions-data.ts` per essere condivisi tra
+ * questo script CLI e l'azione "Sync system permissions" del pannello.
+ * Aggiungere un permesso = editare quel file.
  */
-import { db } from "./drizzle";
-import { permissions, roles, rolePermissions } from "./schema";
 import { eq } from "drizzle-orm";
 import { INSTALLED_MODULES } from "../modules/registry";
-
-const PERMISSIONS_SEED = [
-  // ── Admin — accesso base ──────────────────────────────────────────────
-  { key: "admin:access",     label: "Access admin panel",          group: "Admin", isSystem: true },
-  { key: "admin:settings",   label: "Edit app settings",           group: "Admin", isSystem: true },
-  { key: "admin:analytics",  label: "View analytics",              group: "Admin", isSystem: true },
-
-  // ── Admin — section permissions (used by Nav Registry) ───────────────
-  { key: "admin:content",      label: "Access Content section",        group: "Admin", isSystem: true },
-  { key: "admin:seo",          label: "Access SEO section",            group: "Admin", isSystem: true },
-  { key: "admin:users",        label: "Access Users section",          group: "Admin", isSystem: true },
-  { key: "admin:staff",        label: "Access Staff section",          group: "Admin", isSystem: true },
-  { key: "admin:roles",        label: "Access Roles & Permissions",    group: "Admin", isSystem: true },
-  { key: "admin:logs",         label: "Access Activity Logs",          group: "Admin", isSystem: true },
-  { key: "admin:moderation",   label: "Access Moderation section",     group: "Admin", isSystem: true },
-  // [FUTURE] Billing — sezione non ancora implementata, permessi già registrati
-  { key: "admin:billing",      label: "Access Billing & Payments section", group: "Admin", isSystem: true },
-  { key: "admin:tests",        label: "Access Test Suite section",          group: "Admin", isSystem: true },
-  { key: "admin:sessions",     label: "Access Sessions section",            group: "Admin", isSystem: true },
-  // I permessi `modules:*` NON sono qui — vengono caricati a runtime da
-  // INSTALLED_MODULES nella funzione seed() più sotto.
-
-  // ── Users ─────────────────────────────────────────────────────────────
-  { key: "users:read",              label: "View user list",                group: "Users", isSystem: true },
-  { key: "users:edit",              label: "Edit other profiles",           group: "Users", isSystem: true },
-  { key: "users:delete",            label: "Delete accounts",               group: "Users", isSystem: true },
-  { key: "users:ban",               label: "Suspend users",                 group: "Users", isSystem: true },
-  { key: "users:role_assign",       label: "Assign roles",                  group: "Users", isSystem: true },
-  { key: "users:permission_assign", label: "Assign individual permissions",  group: "Users", isSystem: true },
-
-  // ── Moderation ────────────────────────────────────────────────────────
-  { key: "moderation:read", label: "View reports",   group: "Moderation", isSystem: true },
-  { key: "moderation:act",  label: "Handle reports", group: "Moderation", isSystem: true },
-
-  // ── Content ───────────────────────────────────────────────────────────
-  { key: "content:read",       label: "Read content",             group: "Content", isSystem: false },
-  { key: "content:create",     label: "Create content",           group: "Content", isSystem: false },
-  { key: "content:edit_own",   label: "Edit own content",         group: "Content", isSystem: false },
-  { key: "content:edit_any",   label: "Edit any content",         group: "Content", isSystem: false },
-  { key: "content:delete_own", label: "Delete own content",       group: "Content", isSystem: false },
-  { key: "content:delete_any", label: "Delete any content",       group: "Content", isSystem: false },
-  { key: "content:publish",    label: "Publish without approval", group: "Content", isSystem: false },
-
-  // ── Profile ───────────────────────────────────────────────────────────
-  { key: "profile:read",   label: "View own profile", group: "Profile", isSystem: false },
-  { key: "profile:edit",   label: "Edit own profile", group: "Profile", isSystem: false },
-  { key: "profile:export", label: "Export own data",  group: "Profile", isSystem: false },
-
-  // ── Billing & Payments ────────────────────────────────────────────────
-  // [FUTURE] Sezione non ancora implementata.
-  // I permessi sono già registrati così:
-  //  - il ruolo admin li eredita subito (vedere ROLE_PERMISSION_MAP)
-  //  - i ruoli custom possono riceverli già dall'UI matrice permessi
-  //  - quando la sezione /admin/billing sarà pronta basta aggiungere
-  //    il layout guard + la voce nav (commentata sotto in admin-nav.ts)
-  { key: "billing:read",             label: "View billing & invoices",      group: "Billing", isSystem: true },
-  { key: "billing:manage_plans",     label: "Create / edit plans",          group: "Billing", isSystem: true },
-  { key: "billing:manage_gateways",  label: "Configure payment gateways",   group: "Billing", isSystem: true },
-  { key: "billing:issue_refund",     label: "Issue refunds",                group: "Billing", isSystem: true },
-  { key: "billing:view_transactions",label: "View all transactions",        group: "Billing", isSystem: true },
-  { key: "billing:export",           label: "Export billing data",          group: "Billing", isSystem: true },
-
-  // ── Subscriptions ─────────────────────────────────────────────────────
-  // Permessi per la gestione degli abbonamenti degli utenti
-  // (upgrade, downgrade, cancel, trial)
-  { key: "subscriptions:read",       label: "View subscriptions",           group: "Subscriptions", isSystem: true },
-  { key: "subscriptions:manage",     label: "Change user subscriptions",    group: "Subscriptions", isSystem: true },
-  { key: "subscriptions:cancel",     label: "Cancel subscriptions",         group: "Subscriptions", isSystem: true },
-  { key: "subscriptions:grant_trial",label: "Grant trial access",           group: "Subscriptions", isSystem: true },
-] as const;
-
-const ROLE_PERMISSION_MAP: Record<string, string[]> = {
-  admin: [
-    // admin panel
-    "admin:access", "admin:settings", "admin:analytics",
-    "admin:content", "admin:seo", "admin:users", "admin:staff",
-    "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
-    "admin:sessions",
-    // I permessi dei moduli (modules:*) vengono aggiunti a runtime nella
-    // funzione seed() leggendo INSTALLED_MODULES. Lasciarli fuori da
-    // questo array tiene il core privo di riferimenti a moduli specifici.
-    // users
-    "users:read", "users:edit", "users:delete", "users:ban",
-    "users:role_assign", "users:permission_assign",
-    // moderation
-    "moderation:read", "moderation:act",
-    // content
-    "content:read", "content:create", "content:edit_own", "content:edit_any",
-    "content:delete_own", "content:delete_any", "content:publish",
-    // profile
-    "profile:read", "profile:edit", "profile:export",
-    // billing
-    "billing:read", "billing:manage_plans", "billing:manage_gateways",
-    "billing:issue_refund", "billing:view_transactions", "billing:export",
-    // subscriptions
-    "subscriptions:read", "subscriptions:manage",
-    "subscriptions:cancel", "subscriptions:grant_trial",
-  ],
-  member: [
-    "content:read", "content:create",
-    "content:edit_own", "content:delete_own",
-    "profile:read", "profile:edit", "profile:export",
-    // members possono vedere il proprio abbonamento (lato frontend, non admin)
-    "subscriptions:read",
-  ],
-};
-
-/**
- * Costruisce la lista permessi dai manifest di INSTALLED_MODULES.
- * - permission + permissionLabel: un permesso "Access <Module>"
- * - extraPermissions: zero o più permessi addizionali
- * Tutti finiscono nel gruppo "Modules".
- */
-function buildModulePermissions(): Array<{
-  key: string;
-  label: string;
-  group: string;
-  isSystem: boolean;
-}> {
-  const out: Array<{ key: string; label: string; group: string; isSystem: boolean }> = [];
-  for (const m of INSTALLED_MODULES) {
-    out.push({ key: m.permission, label: m.permissionLabel, group: "Modules", isSystem: true });
-    for (const extra of m.extraPermissions ?? []) {
-      out.push({ key: extra.key, label: extra.label, group: "Modules", isSystem: true });
-    }
-  }
-  return out;
-}
+import { db } from "./drizzle";
+import {
+  buildModulePermissions,
+  CORE_PERMISSIONS,
+  getAdminRoleKeys,
+  ROLE_PERMISSION_MAP,
+} from "./permissions-data";
+import { permissions, roles, rolePermissions } from "./schema";
 
 async function seed() {
   console.log("🌱 Seeding RBAC permissions...");
 
   // Permessi core
-  for (const p of PERMISSIONS_SEED) {
+  for (const p of CORE_PERMISSIONS) {
     await db
       .insert(permissions)
       .values({ key: p.key, label: p.label, group: p.group, isSystem: p.isSystem })
@@ -181,7 +49,7 @@ async function seed() {
         set: { label: p.label, group: p.group },
       });
   }
-  console.log(`  ✓ ${PERMISSIONS_SEED.length} core permissions upserted`);
+  console.log(`  ✓ ${CORE_PERMISSIONS.length} core permissions upserted`);
 
   // Permessi dei moduli installati (caricati dinamicamente dal registry)
   const modulePerms = buildModulePermissions();
@@ -200,13 +68,9 @@ async function seed() {
 
   // Role → permission map: combina map core + permessi base dei moduli installati
   // (gli extraPermissions vanno gestiti manualmente, non auto-granted ad admin)
-  const adminPerms = [
-    ...ROLE_PERMISSION_MAP.admin,
-    ...INSTALLED_MODULES.map((m) => m.permission),
-  ];
   const fullRoleMap: Record<string, string[]> = {
     ...ROLE_PERMISSION_MAP,
-    admin: adminPerms,
+    admin: getAdminRoleKeys(),
   };
 
   for (const [roleName, permKeys] of Object.entries(fullRoleMap)) {

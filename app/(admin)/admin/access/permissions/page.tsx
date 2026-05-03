@@ -2,7 +2,10 @@ import { db } from "@/lib/db/drizzle";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { rolePermissions } from "@/lib/db/schema";
 import { requireAdminPage } from "@/lib/rbac/guards";
-import { getAllPermissions } from "@/lib/rbac/permissions-queries";
+import {
+  getAllPermissions,
+  getSystemPermissionsDrift,
+} from "@/lib/rbac/permissions-queries";
 import { SYSTEM_PERMISSIONS } from "@/lib/rbac/system-permissions";
 import { KeyRound } from "lucide-react";
 import type { Metadata } from "next";
@@ -13,7 +16,7 @@ import { PermissionsManager } from "./_components/permissions-manager";
 export const metadata: Metadata = { title: "Users / Permissions" };
 
 async function PermissionsContent() {
-  const [allPermissions, roles, matrix] = await Promise.all([
+  const [allPermissions, roles, matrix, drift] = await Promise.all([
     getAllPermissions(),
     getAdminRoles(),
     db
@@ -22,6 +25,7 @@ async function PermissionsContent() {
         permissionId: rolePermissions.permissionId,
       })
       .from(rolePermissions),
+    getSystemPermissionsDrift(),
   ]);
 
   const systemKeys = SYSTEM_PERMISSIONS.map((p) => ({
@@ -36,6 +40,7 @@ async function PermissionsContent() {
       roles={roles}
       rolePermissions={matrix}
       systemKeys={systemKeys}
+      drift={drift}
     />
   );
 }

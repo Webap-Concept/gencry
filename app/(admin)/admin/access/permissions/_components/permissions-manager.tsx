@@ -1,5 +1,6 @@
 "use client";
 
+import type { SystemPermissionsDrift } from "@/lib/rbac/permissions-queries";
 import type { RoleRow } from "@/lib/db/roles-queries";
 import type { Permission } from "@/lib/db/schema";
 import {
@@ -13,6 +14,7 @@ import {
   MinusSquare,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Shield,
   ShieldCheck,
@@ -20,12 +22,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useId, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useId, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   createPermission,
   deletePermission,
   grantPermissionToRole,
   revokePermissionFromRole,
+  syncSystemPermissions,
   updatePermission,
 } from "../actions";
 
@@ -37,6 +41,7 @@ type Props = {
   roles: RoleRow[];
   rolePermissions: RolePermission[];
   systemKeys: { key: string; description: string; group: string }[];
+  drift: SystemPermissionsDrift;
 };
 
 // ─── PermissionBadge ──────────────────────────────────────────────────
@@ -1292,6 +1297,171 @@ function SystemKeysPanel({ keys }: { keys: Props["systemKeys"] }) {
   );
 }
 
+// ─── DriftBanner ──────────────────────────────────────────────────────
+// Shows when the in-code system catalog is ahead of the DB. One click on
+// "Sync now" runs the same upsert the seed script does — idempotent.
+function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<
+    | { ok: true; inserted: number; refreshed: number; granted: number }
+    | { ok: false; error: string }
+    | null
+  >(null);
+
+  const missingCount = drift.missing.length;
+  const divergentCount = drift.divergent.length;
+  const total = missingCount + divergentCount;
+
+  // Auto-clear "ok" feedback when the server-fresh drift comes back empty.
+  useEffect(() => {
+    if (total === 0) setResult(null);
+  }, [total]);
+
+  if (total === 0 && !result) return null;
+
+  function handleSync() {
+    setResult(null);
+    startTransition(async () => {
+      try {
+        const r = await syncSystemPermissions();
+        if ("error" in r) {
+          setResult({ ok: false, error: r.error });
+        } else {
+          setResult({
+            ok: true,
+            inserted: r.inserted,
+            refreshed: r.refreshed,
+            granted: r.granted,
+          });
+          router.refresh();
+        }
+      } catch (e) {
+        setResult({
+          ok: false,
+          error: e instanceof Error ? e.message : "Sync failed",
+        });
+      }
+    });
+  }
+
+  // Successful sync — show a brief confirmation banner before drift goes 0.
+  if (result?.ok && total === 0) {
+    return (
+      <div
+        className="rounded-xl px-4 py-3 flex items-center gap-3"
+        style={{
+          background:
+            "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-card-bg))",
+          border:
+            "1px solid color-mix(in srgb, var(--admin-accent) 30%, transparent)",
+        }}>
+        <Check
+          size={16}
+          style={{ color: "var(--admin-accent)", flexShrink: 0 }}
+        />
+        <p className="text-sm" style={{ color: "var(--admin-text)" }}>
+          Synced — {result.inserted} added, {result.refreshed} refreshed,{" "}
+          {result.granted} granted to admin role.
+        </p>
+      </div>
+    );
+  }
+
+  if (total === 0) return null;
+
+  const headline =
+    missingCount > 0 && divergentCount > 0
+      ? `${missingCount} system permission${missingCount === 1 ? "" : "s"} missing from DB · ${divergentCount} drifted`
+      : missingCount > 0
+        ? `${missingCount} system permission${missingCount === 1 ? "" : "s"} defined in code but missing from the DB`
+        : `${divergentCount} system permission${divergentCount === 1 ? "" : "s"} have drifted from the code definition`;
+
+  return (
+    <div
+      className="rounded-xl p-4 space-y-2"
+      style={{
+        background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+        border: "1px solid color-mix(in srgb, #f59e0b 35%, transparent)",
+      }}>
+      <div className="flex items-start gap-3">
+        <AlertTriangle
+          size={16}
+          style={{ color: "#b45309", flexShrink: 0, marginTop: 2 }}
+        />
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--admin-text)" }}>
+            {headline}
+          </p>
+          <p
+            className="text-[12px] mt-0.5"
+            style={{ color: "var(--admin-text-muted)" }}>
+            The matrix and catalog read from the DB — until you sync, these
+            keys won&apos;t be assignable. Click below to upsert them
+            (idempotent, safe to re-run).
+          </p>
+
+          {missingCount > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {drift.missing.slice(0, 8).map((m) => (
+                <code
+                  key={m.key}
+                  className="text-[11px] font-mono px-1.5 py-0.5 rounded"
+                  style={{
+                    background:
+                      "color-mix(in srgb, #f59e0b 14%, transparent)",
+                    color: "#92400e",
+                    border:
+                      "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                  }}
+                  title={m.label}>
+                  {m.key}
+                </code>
+              ))}
+              {missingCount > 8 && (
+                <span
+                  className="text-[11px]"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  +{missingCount - 8} more
+                </span>
+              )}
+            </div>
+          )}
+
+          {result && !result.ok && (
+            <p
+              className="mt-2 text-[12px] flex items-center gap-1"
+              style={{ color: "#dc2626" }}>
+              <AlertTriangle size={12} />
+              {result.error}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={pending}
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white disabled:opacity-60"
+          style={{ background: "#b45309" }}>
+          {pending ? (
+            <>
+              <Loader2 size={12} className="animate-spin" />
+              Syncing…
+            </>
+          ) : (
+            <>
+              <RefreshCw size={12} />
+              Sync now
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tabs ─────────────────────────────────────────────────────────────
 const TABS = [
   { id: "matrix", label: "Set Permissions to Roles", icon: ShieldCheck },
@@ -1305,6 +1475,7 @@ export function PermissionsManager({
   roles,
   rolePermissions,
   systemKeys,
+  drift,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("matrix");
   const [optimisticPerms, applyOptimistic] = useOptimistic(
@@ -1342,6 +1513,8 @@ export function PermissionsManager({
 
   return (
     <div className="space-y-4">
+      <DriftBanner drift={drift} />
+
       <SystemKeysPanel keys={systemKeys} />
 
       <div
