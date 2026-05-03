@@ -208,3 +208,55 @@ export async function recordSignupConsents(
 
   await Promise.all(tasks);
 }
+
+// ---------------------------------------------------------------------------
+// Marketing toggle helper
+// ---------------------------------------------------------------------------
+
+export type MarketingConsentChangeInput = {
+  userId: string;
+  action: "granted" | "revoked";
+  ip: string | null;
+  userAgent: string | null;
+  locale: string | null;
+};
+
+/**
+ * Registra un evento di toggle del consenso marketing nel ledger.
+ *
+ * Carica la versione + il testo della pagina di sistema "marketing" così
+ * il record contiene `policy_version` e (se hash_policy_text è abilitato)
+ * `policy_text_hash`. Per le revoke registriamo comunque la versione
+ * corrente — è la versione che era in vigore al momento della revoca,
+ * utile per ricostruire la timeline (la versione effettivamente
+ * accettata in passato resta tracciata dal record "granted" precedente).
+ *
+ * Best-effort: errori interni non rilanciati. Non sostituisce l'UPDATE su
+ * `users.acceptedMarketing*` (resta in setMarketingConsent per retro-
+ * compatibilità con la UI di /settings/privacy che legge da lì).
+ */
+export async function recordMarketingConsentChange(
+  input: MarketingConsentChangeInput,
+): Promise<void> {
+  let snapshots;
+  try {
+    snapshots = await getConsentSnapshots();
+  } catch (err) {
+    console.error("[consent-ledger] failed to load policy snapshots:", err);
+    return;
+  }
+
+  if (!snapshots.marketing) return;
+
+  await recordConsent({
+    userId: input.userId,
+    consentType: "marketing",
+    action: input.action,
+    policyVersion: snapshots.marketing.version,
+    policyText: snapshots.marketing.text,
+    ip: input.ip,
+    userAgent: input.userAgent,
+    locale: input.locale,
+    source: "settings_toggle",
+  });
+}

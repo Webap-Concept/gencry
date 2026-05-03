@@ -100,9 +100,10 @@ export default async function GdprCompliancePage() {
           />
           <ToolRow
             title="Export consent ledger (CSV)"
-            description="Dump all consent_records as a CSV for offline audit. Available once consent logging is enabled and the migration is applied."
-            disabled
-            cta="Coming in PR-1"
+            description="Download every row of consent_records as a UTF-8 CSV (BOM-prefixed for Excel) for offline audit. Includes user email when still available."
+            href="/admin/compliance/gdpr/export"
+            cta="Download CSV →"
+            download
           />
           <ToolRow
             title="View activity logs"
@@ -122,13 +123,24 @@ function ToolRow({
   href,
   cta,
   disabled,
+  download,
 }: {
   title: string;
   description: string;
   href?: string;
   cta: string;
   disabled?: boolean;
+  /** True per link a route handler che scaricano file (CSV / PDF / ecc.):
+   *  rendiamo un <a> normale invece di next/link, così niente prefetch di
+   *  un endpoint che restituisce il file vero. */
+  download?: boolean;
 }) {
+  const ctaClass = "text-xs px-3 py-1.5 rounded-lg shrink-0";
+  const ctaStyle: React.CSSProperties = {
+    background: "var(--admin-page-bg)",
+    color: "var(--admin-text-muted)",
+    border: "1px solid var(--admin-input-border)",
+  };
   return (
     <div className="flex items-start justify-between gap-4 py-2">
       <div className="min-w-0">
@@ -145,23 +157,20 @@ function ToolRow({
       </div>
       {disabled || !href ? (
         <span
-          className="text-xs px-3 py-1.5 rounded-lg shrink-0"
+          className={ctaClass}
           style={{
-            background: "var(--admin-page-bg)",
+            ...ctaStyle,
             color: "var(--admin-text-faint)",
             border: "1px solid var(--admin-card-border)",
           }}>
           {cta}
         </span>
+      ) : download ? (
+        <a href={href} className={ctaClass} style={ctaStyle}>
+          {cta}
+        </a>
       ) : (
-        <Link
-          href={href}
-          className="text-xs px-3 py-1.5 rounded-lg shrink-0"
-          style={{
-            background: "var(--admin-page-bg)",
-            color: "var(--admin-text-muted)",
-            border: "1px solid var(--admin-input-border)",
-          }}>
+        <Link href={href} className={ctaClass} style={ctaStyle}>
           {cta}
         </Link>
       )}

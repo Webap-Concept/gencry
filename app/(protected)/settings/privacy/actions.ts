@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -8,6 +9,7 @@ import {
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
 import { endCurrentSession } from "@/lib/auth/session";
+import { recordMarketingConsentChange } from "@/lib/account/consent-ledger";
 import { setMarketingConsent } from "@/lib/account/consents";
 import {
   requestAccountDeletion,
@@ -40,6 +42,20 @@ export const toggleMarketingConsentAction = validatedActionWithUser(
     if (!result.ok) {
       return { error: result.error } satisfies ActionState;
     }
+
+    // Append-only ledger: registra l'evento (granted/revoked) con
+    // metadata di dimostrabilità. Best-effort: errori non rilanciati.
+    const headersList = await headers();
+    await recordMarketingConsentChange({
+      userId: user.id,
+      action: data.enabled ? "granted" : "revoked",
+      ip:
+        headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        headersList.get("x-real-ip") ??
+        null,
+      userAgent: headersList.get("user-agent") ?? null,
+      locale: null,
+    });
 
     revalidatePath("/settings/privacy");
     return {
