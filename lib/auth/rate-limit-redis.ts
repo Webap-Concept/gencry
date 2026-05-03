@@ -67,7 +67,15 @@ export async function redisCmd<T = unknown>(command: (string | number)[]): Promi
   return json.result;
 }
 
-async function redisPipeline(commands: (string | number)[][]): Promise<unknown[]> {
+/**
+ * Batches N commands into a single Upstash REST round-trip via the
+ * `/pipeline` endpoint. Returns the raw result for each command in
+ * the same order. Use this any time you'd otherwise loop `redisCmd`
+ * — at scale the round-trip count is the dominant cost.
+ */
+export async function redisPipeline(
+  commands: (string | number)[][],
+): Promise<unknown[]> {
   const { url, token } = await getRedisConfig();
   const res = await fetch(`${url}/pipeline`, {
     method: "POST",
