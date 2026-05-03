@@ -451,6 +451,11 @@ export const sessions = pgTable(
   (table) => [
     index("idx_sessions_user_active").on(table.userId),
     index("idx_sessions_expires").on(table.expiresAt),
+    // Active-list ordering: la dashboard admin filtra `revoked_at IS NULL`
+    // + `expires_at > now()` e ordina per `last_seen_at desc`. Senza un
+    // indice dedicato la pagina diventa lenta in pochi mesi.
+    index("idx_sessions_active_last_seen").on(table.lastSeenAt),
+    index("idx_sessions_revoked").on(table.revokedAt),
   ],
 );
 
@@ -757,6 +762,8 @@ export enum ActivityType {
   ADMIN_CHANGE_ROLE = "ADMIN_CHANGE_ROLE",
   ADMIN_DELETE_USER = "ADMIN_DELETE_USER",
   ADMIN_CANCEL_USER_DELETION = "ADMIN_CANCEL_USER_DELETION",
+  ADMIN_REVOKE_SESSION = "ADMIN_REVOKE_SESSION",
+  ADMIN_REVOKE_ALL_USER_SESSIONS = "ADMIN_REVOKE_ALL_USER_SESSIONS",
   DEVICE_VERIFIED = "DEVICE_VERIFIED",
   AVATAR_UPDATED = "AVATAR_UPDATED",
   BIO_UPDATED = "BIO_UPDATED",

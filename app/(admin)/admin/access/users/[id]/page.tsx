@@ -1,4 +1,5 @@
 import { getAdminPath } from "@/lib/admin-nav";
+import { listAdminUserSessions } from "@/lib/db/admin-sessions-queries";
 import { getAdminUserActivity, getAdminUserById } from "@/lib/db/admin-queries";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
@@ -33,6 +34,7 @@ import {
   RoleSelector,
 } from "./_components/user-detail-client";
 import { UserDetailTabs } from "./_components/user-detail-tabs";
+import { UserSessionsTab } from "./_components/user-sessions-tab";
 
 // UUID v4 regex
 const UUID_REGEX =
@@ -75,12 +77,14 @@ async function UserContent({
   id: string;
   canDelete: boolean;
 }) {
-  const [user, activity, availableRoles, allPermissions] = await Promise.all([
-    getAdminUserById(id),
-    getAdminUserActivity(id),
-    getAdminRoles(),
-    getAllPermissions(),
-  ]);
+  const [user, activity, availableRoles, allPermissions, userSessions] =
+    await Promise.all([
+      getAdminUserById(id),
+      getAdminUserActivity(id),
+      getAdminRoles(),
+      getAllPermissions(),
+      listAdminUserSessions(id),
+    ]);
 
   if (!user) notFound();
 
@@ -227,6 +231,18 @@ async function UserContent({
     />
   );
 
+  const activeSessionsCount = userSessions.filter(
+    (s) => s.status === "active",
+  ).length;
+
+  const sessionsContent = (
+    <UserSessionsTab
+      userId={id}
+      sessions={userSessions}
+      isDeleted={isDeleted}
+    />
+  );
+
   return (
     <div className="space-y-6">
       {/* User Header */}
@@ -307,7 +323,9 @@ async function UserContent({
         infoContent={infoContent}
         activityContent={activityContent}
         accessContent={accessContent}
+        sessionsContent={sessionsContent}
         overridesCount={overrides.length}
+        activeSessionsCount={activeSessionsCount}
       />
     </div>
   );

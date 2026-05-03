@@ -57,6 +57,7 @@ const PERMISSIONS_SEED = [
   // [FUTURE] Billing — sezione non ancora implementata, permessi già registrati
   { key: "admin:billing",      label: "Access Billing & Payments section", group: "Admin", isSystem: true },
   { key: "admin:tests",        label: "Access Test Suite section",          group: "Admin", isSystem: true },
+  { key: "admin:sessions",     label: "Access Sessions section",            group: "Admin", isSystem: true },
   // I permessi `modules:*` NON sono qui — vengono caricati a runtime da
   // INSTALLED_MODULES nella funzione seed() più sotto.
 
@@ -115,6 +116,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "admin:access", "admin:settings", "admin:analytics",
     "admin:content", "admin:seo", "admin:users", "admin:staff",
     "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
+    "admin:sessions",
     // I permessi dei moduli (modules:*) vengono aggiunti a runtime nella
     // funzione seed() leggendo INSTALLED_MODULES. Lasciarli fuori da
     // questo array tiene il core privo di riferimenti a moduli specifici.
