@@ -16,7 +16,7 @@
 import "server-only";
 import { db } from "@/lib/db/drizzle";
 import { sql } from "drizzle-orm";
-import { redisCmd } from "@/lib/auth/rate-limit-redis";
+import { redisCmd, redisPipeline } from "@/lib/auth/rate-limit-redis";
 import type { AlertsConfig } from "./config";
 import type { AlertCandidate } from "./types";
 import { ipToSubnet } from "./types";
@@ -197,9 +197,25 @@ export async function detectBotUserAgent(
 // value). We snapshot per session in Redis and compare on the next tick.
 // If Redis is unavailable, the detector returns [] and logs a warning —
 // no other heuristic depends on Redis being up.
+//
+// Round-trip discipline: we MGET all keys in one call and then push all
+// SET-EX in one pipelined call, so the cost is O(1) round-trips instead
+// of O(N) where N is the number of recently active sessions.
 // ---------------------------------------------------------------------------
 
 const RESURRECT_KEY_PREFIX = "alert:lastseen:";
+
+/** How many keys per Upstash REST round-trip. Tuned defensively: a
+ *  payload of ~500 UUID-keyed commands is well under the 10MB REST limit
+ *  and keeps any single timeout window tight. */
+const RESURRECT_BATCH_SIZE = 500;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  if (size <= 0 || arr.length <= size) return arr.length === 0 ? [] : [arr];
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 export async function detectLongIdleResurrect(
   rule: AlertsConfig["rules"]["long_idle_resurrect"],
@@ -227,27 +243,40 @@ export async function detectLongIdleResurrect(
     last_seen_at: string;
     ip: string | null;
   }>;
+  if (sessions.length === 0) return [];
 
+  // Step 1: read all snapshots in batches of MGET (1 round-trip per batch).
+  const keys = sessions.map((s) => RESURRECT_KEY_PREFIX + s.id);
+  const previous: Array<number | null> = new Array(sessions.length).fill(null);
+
+  try {
+    let offset = 0;
+    for (const batch of chunk(keys, RESURRECT_BATCH_SIZE)) {
+      const raws = await redisCmd<Array<string | null>>(["MGET", ...batch]);
+      for (let i = 0; i < raws.length; i++) {
+        const raw = raws[i];
+        if (!raw) continue;
+        const n = Number(raw);
+        if (!Number.isNaN(n) && n > 0) previous[offset + i] = n;
+      }
+      offset += batch.length;
+    }
+  } catch (e) {
+    // Redis unavailable — fail closed for this run, other detectors keep going.
+    console.warn("[detect/long_idle_resurrect] Redis MGET failed:", e);
+    return [];
+  }
+
+  // Step 2: build candidates + the SET-EX commands at the same time.
   const idleMs = rule.idleDays * DAY_MS;
   const ttlSeconds = Math.max(rule.idleDays * 2, 1) * 24 * 3600;
   const out: AlertCandidate[] = [];
+  const writes: (string | number)[][] = [];
 
-  for (const s of sessions) {
+  for (let i = 0; i < sessions.length; i++) {
+    const s = sessions[i];
     const currentTs = new Date(s.last_seen_at).getTime();
-    const key = RESURRECT_KEY_PREFIX + s.id;
-
-    let prev: number | null = null;
-    try {
-      const raw = await redisCmd<string | null>(["GET", key]);
-      if (raw) {
-        const n = Number(raw);
-        if (!Number.isNaN(n) && n > 0) prev = n;
-      }
-    } catch (e) {
-      // Redis unavailable — just skip this detector silently for this run.
-      console.warn("[detect/long_idle_resurrect] Redis read failed:", e);
-      return [];
-    }
+    const prev = previous[i];
 
     if (prev !== null && currentTs - prev >= idleMs) {
       out.push({
@@ -264,17 +293,27 @@ export async function detectLongIdleResurrect(
       });
     }
 
-    // Update snapshot regardless of alert (so further idleness re-arms).
+    // Refresh the snapshot regardless of alert — every tick re-arms the
+    // window. We use SET … EX so stale rows for revoked/expired sessions
+    // self-evict without explicit DELETE.
+    writes.push([
+      "SET",
+      keys[i],
+      currentTs.toString(),
+      "EX",
+      String(ttlSeconds),
+    ]);
+  }
+
+  // Step 3: write back snapshots in a pipelined call (1 round-trip per batch).
+  // Failures here are non-fatal: worst case the detector misses one tick of
+  // updates and re-converges next time.
+  for (const batch of chunk(writes, RESURRECT_BATCH_SIZE)) {
     try {
-      await redisCmd<string>([
-        "SET",
-        key,
-        currentTs.toString(),
-        "EX",
-        String(ttlSeconds),
-      ]);
-    } catch {
-      // Soft failure — non-fatal.
+      await redisPipeline(batch);
+    } catch (e) {
+      console.warn("[detect/long_idle_resurrect] Redis pipeline write failed:", e);
+      break;
     }
   }
 
