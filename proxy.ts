@@ -1,5 +1,6 @@
 // proxy.ts
 import { verifyToken } from "@/lib/auth/session";
+import { getValidSession } from "@/lib/auth/sessions";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
 import { getActiveRoutes } from "@/lib/db/route-registry-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
@@ -77,12 +78,34 @@ export async function proxy(request: NextRequest) {
   }
 
   // --- [3] KERNEL: SYSTEM_AUTH_ROUTES (/sign-in, /sign-up) ---
-  // Gestite con logica hardcoded: accessibili solo a utenti non loggati.
-  // Non dipendono dal DB per funzionare correttamente.
+  // Accessibili solo a utenti realmente loggati. La presenza del cookie
+  // non basta: il JWT può essere scaduto o la riga sessions revocata
+  // (es. admin block, logout in altra tab). In quei casi il cookie è
+  // stantio — lo cancelliamo e lasciamo passare, altrimenti l'utente
+  // resta intrappolato fuori dal flusso di login.
   if (matchesPrefix(pathname, SYSTEM_AUTH_ROUTES)) {
-    const isLoggedIn = !!sessionCookie;
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/", request.url));
+    if (sessionCookie) {
+      let isValidSession = false;
+      try {
+        const { sid } = await verifyToken(sessionCookie.value);
+        if (sid) {
+          // getValidSession usa cache Redis (TTL 60s) → costo trascurabile.
+          const session = await getValidSession(sid);
+          isValidSession = !!session;
+        }
+      } catch {
+        // JWT firmato male / scaduto → cookie stantio.
+      }
+
+      if (isValidSession) {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+
+      const response = NextResponse.next({
+        request: { headers: requestHeaders },
+      });
+      response.cookies.delete("session");
+      return response;
     }
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
