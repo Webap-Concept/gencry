@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db/drizzle";
+import { getConsentSnapshots } from "@/lib/db/pages-queries";
 import { consentRecords } from "@/lib/db/schema";
 import type {
   ConsentAction,
@@ -13,6 +14,8 @@ import { applyConsentLogPolicy } from "./consent-ledger-pure";
 
 export type ConsentSource =
   | "signup"
+  | "oauth_signup"
+  | "staff_invite"
   | "settings_toggle"
   | "policy_reconsent"
   | "cookie_banner"
@@ -112,4 +115,96 @@ export async function recordConsent(input: RecordConsentInput): Promise<void> {
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+// ---------------------------------------------------------------------------
+// Signup helper
+// ---------------------------------------------------------------------------
+
+export type SignupConsentsInput = {
+  userId: string;
+  /** True sse l'utente ha spuntato il checkbox marketing al signup.
+   *  Se false, non logghiamo NIENTE per il marketing (silenzio = non
+   *  consenso, conforme al principio "consenso esplicito" GDPR). */
+  acceptMarketing: boolean;
+  ip: string | null;
+  userAgent: string | null;
+  locale: string | null;
+  /** Default 'signup' — usa 'oauth_signup' o 'staff_invite' per distinguere. */
+  source?: "signup" | "oauth_signup" | "staff_invite";
+};
+
+/**
+ * Wrapper convenience per i flussi di registrazione: carica lo snapshot
+ * delle policy una sola volta e scrive i `consent_records` per
+ * terms / privacy (sempre obbligatori) + marketing (solo se accettato).
+ *
+ * Best-effort: i singoli `recordConsent` interni catturano i propri errori,
+ * questa funzione non rilancia mai. Se lo snapshot non si carica, ritorna
+ * subito senza scrivere — meglio nessun record che record incompleti.
+ */
+export async function recordSignupConsents(
+  input: SignupConsentsInput,
+): Promise<void> {
+  const source = input.source ?? "signup";
+
+  let snapshots;
+  try {
+    snapshots = await getConsentSnapshots();
+  } catch (err) {
+    console.error("[consent-ledger] failed to load policy snapshots:", err);
+    return;
+  }
+
+  const tasks: Array<Promise<void>> = [];
+
+  if (snapshots.terms) {
+    tasks.push(
+      recordConsent({
+        userId: input.userId,
+        consentType: "terms",
+        action: "granted",
+        policyVersion: snapshots.terms.version,
+        policyText: snapshots.terms.text,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        locale: input.locale,
+        source,
+      }),
+    );
+  }
+
+  if (snapshots.privacy) {
+    tasks.push(
+      recordConsent({
+        userId: input.userId,
+        consentType: "privacy",
+        action: "granted",
+        policyVersion: snapshots.privacy.version,
+        policyText: snapshots.privacy.text,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        locale: input.locale,
+        source,
+      }),
+    );
+  }
+
+  if (input.acceptMarketing && snapshots.marketing) {
+    tasks.push(
+      recordConsent({
+        userId: input.userId,
+        consentType: "marketing",
+        action: "granted",
+        policyVersion: snapshots.marketing.version,
+        policyText: snapshots.marketing.text,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        locale: input.locale,
+        source,
+      }),
+    );
+  }
+
+  await Promise.all(tasks);
 }

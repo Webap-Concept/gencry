@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
         picture:           googleUser.picture     ?? null,
         tokens,
         ipAddress:         ip,
+        userAgent:         headersList.get("user-agent") ?? undefined,
       },
       { canCreate },
     );

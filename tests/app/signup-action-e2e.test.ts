@@ -179,6 +179,19 @@ vi.mock("@/lib/db/pages-queries", () => ({
   getConsentVersions: vi.fn().mockResolvedValue({
     termsVersion: "1.0", privacyVersion: "1.0", marketingVersion: "1.0",
   }),
+  getConsentSnapshots: vi.fn().mockResolvedValue({
+    terms:     { version: "1.0", text: "Terms text"     },
+    privacy:   { version: "1.0", text: "Privacy text"   },
+    marketing: { version: "1.0", text: "Marketing text" },
+  }),
+}));
+
+// ─── Mock consent-ledger (signup ledger writes) ──────────────────────────────
+const mockRecordSignupConsents = vi.fn().mockResolvedValue(undefined);
+const mockRecordConsent        = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/account/consent-ledger", () => ({
+  recordSignupConsents: mockRecordSignupConsents,
+  recordConsent:        mockRecordConsent,
 }));
 
 // ─── Mock middleware ──────────────────────────────────────────────────────────
@@ -316,6 +329,40 @@ describe("signUpAction — flusso end-to-end", () => {
       const callArg = mockProfilesValues.mock.calls[0][0] as Record<string, unknown>;
       expect(callArg.firstName).toBeUndefined();
       expect(callArg.lastName).toBeUndefined();
+    });
+  });
+
+  // ─── Consent ledger ───────────────────────────────────────────────────────
+  describe("Consent ledger (GDPR)", () => {
+    it("scrive consent_records con userId, ip e source='signup'", async () => {
+      await callSignUp();
+      expect(mockRecordSignupConsents).toHaveBeenCalledTimes(1);
+      expect(mockRecordSignupConsents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: MOCK_USER.id,
+          ip: "1.2.3.4",
+          source: "signup",
+        }),
+      );
+    });
+
+    it("acceptMarketing=false quando il checkbox non è spuntato", async () => {
+      await callSignUp();
+      const arg = mockRecordSignupConsents.mock.calls[0][0] as { acceptMarketing: boolean };
+      expect(arg.acceptMarketing).toBe(false);
+    });
+
+    it("acceptMarketing=true quando il checkbox è 'on'", async () => {
+      await callSignUp({ acceptMarketing: "on" });
+      const arg = mockRecordSignupConsents.mock.calls[0][0] as { acceptMarketing: boolean };
+      expect(arg.acceptMarketing).toBe(true);
+    });
+
+    it("non scrive il ledger quando la registrazione fallisce per email duplicata", async () => {
+      mockUsersReturning.mockRejectedValueOnce(new Error("unique violation"));
+      mockIsUniqueConstraintError.mockReturnValueOnce(true);
+      await callSignUp();
+      expect(mockRecordSignupConsents).not.toHaveBeenCalled();
     });
   });
 

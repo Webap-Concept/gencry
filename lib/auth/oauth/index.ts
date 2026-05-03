@@ -14,6 +14,7 @@
 //   - aggiunge l'email al Bloom filter `bloom:emails`
 //   - logga ActivityType.SIGN_UP (il caller logga SIGN_IN per i casi A/B)
 
+import { recordSignupConsents } from "@/lib/account/consent-ledger";
 import { addEmailToBloom } from "@/lib/bloom/bloom-filter";
 import { db } from "@/lib/db/drizzle";
 import { getConsentVersions } from "@/lib/db/pages-queries";
@@ -39,6 +40,7 @@ export interface OAuthProfile {
   picture:           string | null;
   tokens:            GoogleTokens;
   ipAddress?:        string;
+  userAgent?:        string;
 }
 
 export type FindOrCreateResult =
@@ -60,6 +62,7 @@ export async function findOrCreateOAuthUser(
     picture,
     tokens,
     ipAddress,
+    userAgent,
   } = profile;
 
   // ------------------------------------------------------------------
@@ -229,6 +232,18 @@ export async function findOrCreateOAuthUser(
     ipAddress: ipAddress ?? "",
   };
   await db.insert(activityLogs).values(log);
+
+  // Append-only consent ledger: terms + privacy (impliciti via consent screen
+  // del provider OAuth). Marketing resta non loggato — l'utente lo attiverà
+  // esplicitamente da /settings/privacy in seguito.
+  await recordSignupConsents({
+    userId: newUser.id,
+    acceptMarketing: false,
+    ip: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+    locale: null,
+    source: "oauth_signup",
+  });
 
   return { status: "ok", user: newUser, created: true };
 }

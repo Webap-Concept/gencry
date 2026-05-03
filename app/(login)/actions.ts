@@ -46,6 +46,7 @@ import {
   checkUsernameAvailability,
   ensureBloomFilter,
 } from "@/lib/bloom/bloom-filter";
+import { recordSignupConsents } from "@/lib/account/consent-ledger";
 import { db } from "@/lib/db/drizzle";
 import { getConsentVersions } from "@/lib/db/pages-queries";
 import { getUser } from "@/lib/db/queries";
@@ -396,6 +397,18 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
   await addEmailToBloom(createdUser.email);
   await addUsernameToBloom(username);
+
+  // Append-only consent ledger (GDPR Art. 7(1)). best-effort: errori interni
+  // non bloccano il signup. La cattura di IP/UA segue la strategy configurata
+  // in /admin/compliance/gdpr (ip_strategy, capture_ip, ecc.).
+  await recordSignupConsents({
+    userId: createdUser.id,
+    acceptMarketing: data.acceptMarketing === "on",
+    ip: ip === "unknown" ? null : ip,
+    userAgent: headersList.get("user-agent") ?? null,
+    locale: null,
+    source: "signup",
+  });
 
   const code = await createVerificationCode(createdUser.id);
 

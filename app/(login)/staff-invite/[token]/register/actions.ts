@@ -1,5 +1,6 @@
 "use server";
 
+import { recordSignupConsents } from "@/lib/account/consent-ledger";
 import { isUsernameBlacklisted } from "@/lib/auth/blacklist";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import { createSession, hashPassword } from "@/lib/auth/session";
@@ -22,6 +23,7 @@ import {
   type NewActivityLog,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -151,6 +153,22 @@ export async function registerViaInvite(
 
   await addEmailToBloom(invite.email);
   await addUsernameToBloom(username);
+
+  // Append-only consent ledger (terms + privacy obbligatori; lo schema Zod
+  // sopra garantisce che siano stati spuntati). Marketing non è in form.
+  const headersList = await headers();
+  const ip =
+    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    headersList.get("x-real-ip") ??
+    null;
+  await recordSignupConsents({
+    userId: createdUserId,
+    acceptMarketing: false,
+    ip,
+    userAgent: headersList.get("user-agent") ?? null,
+    locale: null,
+    source: "staff_invite",
+  });
 
   const log: NewActivityLog = {
     userId: createdUserId,
