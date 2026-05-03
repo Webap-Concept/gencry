@@ -1,6 +1,23 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { after } from "next/server";
+import { logNotFoundHit } from "@/lib/seo/log-not-found";
 
-export default function NotFound() {
+export default async function NotFound() {
+  // Il proxy (vedi proxy.ts) imposta `x-pathname` su ogni request: usiamolo
+  // per sapere QUALE URL ha generato il 404. Senza questo, dal not-found.tsx
+  // non avremmo modo di recuperare il pathname originario.
+  const h = await headers();
+  const pathname = h.get("x-pathname");
+  const referrer = h.get("referer");
+  const userAgent = h.get("user-agent");
+
+  // `after()` esegue il callback DOPO che la response è stata inviata
+  // all'utente: l'INSERT/UPDATE non aggiunge latenza percepita al 404.
+  after(async () => {
+    await logNotFoundHit({ pathname, referrer, userAgent });
+  });
+
   return (
     <div className="flex items-center justify-center min-h-[100dvh] bg-[var(--brand-bg)] px-4">
       <div className="max-w-sm w-full text-center space-y-8">

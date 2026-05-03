@@ -226,7 +226,7 @@ export const ADMIN_NAV: NavItem[] = [
     label: "SEO",
     icon: "Search",
     permission: "admin:seo",
-    childrenMaxHeight: "240px",
+    childrenMaxHeight: "290px",
     children: [
       {
         key: "seo-meta",
@@ -254,6 +254,13 @@ export const ADMIN_NAV: NavItem[] = [
         href: "/admin/seo/redirect",
         label: "Redirect",
         icon: "GitMerge",
+        permission: "admin:seo",
+      },
+      {
+        key: "seo-not-found",
+        href: "/admin/seo/not-found",
+        label: "404 Monitor",
+        icon: "SearchX",
         permission: "admin:seo",
       },
       {
