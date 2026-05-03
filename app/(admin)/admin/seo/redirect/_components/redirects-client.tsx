@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 const inputStyle: React.CSSProperties = {
@@ -106,6 +107,19 @@ export default function RedirectsClient({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+
+  // Deep-link da /admin/seo/not-found ("Create redirect" su una row 404):
+  // se arriva ?from=/path apriamo subito il form in modalità "new" col path
+  // pre-compilato. Consumiamo il search param solo al primo render e poi
+  // ignoriamo le sue variazioni successive.
+  const searchParams = useSearchParams();
+  const prefillFrom = searchParams.get("from");
+  const [didPrefill, setDidPrefill] = useState(false);
+  useEffect(() => {
+    if (didPrefill || !prefillFrom) return;
+    setMode({ type: "new" });
+    setDidPrefill(true);
+  }, [prefillFrom, didPrefill]);
 
   const [formState, formAction, isPending] = useActionState(
     async (prev: unknown, fd: FormData) => {
@@ -232,7 +246,10 @@ export default function RedirectsClient({
                 <label style={labelStyle}>Source path (from)</label>
                 <input
                   name="fromPath"
-                  defaultValue={editRow?.fromPath ?? ""}
+                  defaultValue={
+                    editRow?.fromPath ??
+                    (mode.type === "new" && prefillFrom ? prefillFrom : "")
+                  }
                   placeholder="/old-url"
                   required
                   style={inputStyle}
