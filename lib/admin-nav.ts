@@ -52,8 +52,13 @@ export const ADMIN_NAV: NavItem[] = [
     key: "users-group",
     label: "Access",
     icon: "Users",
-    permission: "admin:users",
-    childrenMaxHeight: "260px",
+    // Umbrella: chiunque entri nell'admin (admin:access) può vedere il
+    // gruppo se ha almeno un permesso per uno dei figli. Le voci dentro
+    // (Users / Staff / Roles / Permissions / Sessions) sono filtrate
+    // dalla propria permission. Stesso pattern di "modules-group" qui
+    // sotto.
+    permission: "admin:access",
+    childrenMaxHeight: "300px",
     children: [
       {
         key: "users-list",
@@ -82,6 +87,13 @@ export const ADMIN_NAV: NavItem[] = [
         label: "Permissions",
         icon: "KeyRound",
         permission: "admin:roles",
+      },
+      {
+        key: "users-sessions",
+        href: "/admin/access/sessions",
+        label: "Sessions",
+        icon: "Activity",
+        permission: "admin:sessions",
       },
     ],
   },

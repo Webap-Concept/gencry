@@ -116,6 +116,13 @@ export const SYSTEM_PERMISSIONS: SystemPermission[] = [
     description: "Permette di vedere il report Vitest e lo stato del sistema nella sezione Test Suite.",
     isSystem: true,
   },
+  {
+    key: "admin:sessions",
+    group: "Admin",
+    label: "Accesso sezione Sessions",
+    description: "Permette di monitorare le sessioni utente attive e revocarle dal pannello admin.",
+    isSystem: true,
+  },
 
   // ── Users ────────────────────────────────────────────────────────
   {
