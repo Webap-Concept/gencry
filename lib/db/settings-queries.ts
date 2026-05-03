@@ -102,6 +102,14 @@ export type SettingKey =
   // Notifiche admin — timestamp dell'ultimo run del dispatcher (throttle 1h).
   // Valore: ISO 8601 string oppure null.
   | 'notifications_dispatcher_last_run'
+  // ── Suspicious sessions / admin alerts ────────────────────────────────
+  // JSON serializzato (Zod-validated) con destinatari email, schedule
+  // digest, dry_run flag e thresholds per-heuristic. Vedi
+  // lib/sessions/suspicious/config.ts per lo schema.
+  | 'notifications.alerts_config'
+  // ISO timestamp dell'ultimo digest spedito — usato per throttle
+  // hourly/daily senza dover joinare la tabella session_alerts.
+  | 'notifications.alerts_last_digest_at'
   // ── Modules ─────────────────────────────────────────────────────────
   // Convenzione: `modules.<slug>.<key>`. I moduli social plugabili
   // espongono qui sotto le proprie chiavi (vedi lib/modules/registry.ts).
@@ -212,6 +220,9 @@ export type AppSettings = {
   'modules.prices.retention_days': string
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
+  // Suspicious sessions / admin alerts
+  'notifications.alerts_config': string | null
+  'notifications.alerts_last_digest_at': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -305,6 +316,10 @@ const DEFAULTS: AppSettings = {
   'modules.prices.retention_days': '30',
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
+  // Suspicious sessions: la chiave è null finché l'admin non salva una
+  // configurazione dalla UI; il loader applica i defaults Zod-side.
+  'notifications.alerts_config': null,
+  'notifications.alerts_last_digest_at': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
