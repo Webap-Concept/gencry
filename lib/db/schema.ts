@@ -441,6 +441,94 @@ export const gdprExportJobs = pgTable(
 );
 
 /**
+ * Append-only ledger di tutti gli eventi di consenso.
+ *
+ * Una row per ogni "granted" o "revoked" su qualsiasi consent_type
+ * (terms / privacy / marketing / cookie_*). La scrittura passa SEMPRE
+ * da `recordConsent()` in lib/account/consent-ledger.ts che applica le
+ * settings (gdpr.consent_log.*) per scegliere se salvare IP, mascherarlo,
+ * hashare il testo della policy, ecc.
+ *
+ * Immutabilità: due trigger BEFORE UPDATE/DELETE in DB sollevano
+ * l'eccezione "consent_records is append-only" — nessun UPDATE o DELETE
+ * passa, nemmeno da admin Supabase. L'unica eccezione è la cancellazione
+ * via cron retention: il cron passa per RAW SQL con `SET LOCAL
+ * session_replication_role = replica;` per bypassare i trigger sulla
+ * pulizia oltre `gdpr.consent_log.retention_after_deletion_days`.
+ *
+ * user_id ON DELETE SET NULL: quando l'utente è purgato fisicamente,
+ * la row di consenso resta come audit trail (uniformità con activity_logs).
+ */
+export const CONSENT_TYPES = [
+  "terms",
+  "privacy",
+  "marketing",
+  "cookie_necessary",
+  "cookie_preferences",
+  "cookie_analytics",
+  "cookie_marketing",
+] as const;
+export type ConsentType = (typeof CONSENT_TYPES)[number];
+
+export const CONSENT_ACTIONS = ["granted", "revoked"] as const;
+export type ConsentAction = (typeof CONSENT_ACTIONS)[number];
+
+export const CONSENT_IP_STRATEGIES = [
+  "full",
+  "mask_last_octet",
+  "hash_only",
+] as const;
+export type ConsentIpStrategy = (typeof CONSENT_IP_STRATEGIES)[number];
+
+export const consentRecords = pgTable(
+  "consent_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    consentType: varchar("consent_type", { length: 50 })
+      .notNull()
+      .$type<ConsentType>(),
+    action: varchar("action", { length: 20 }).notNull().$type<ConsentAction>(),
+    /** Versione policy al momento dell'evento (formato pages.contentVersion).
+     *  Null per consent_type=cookie_* dove non esiste una policy unica. */
+    policyVersion: varchar("policy_version", { length: 20 }),
+    /** SHA-256 hex (64 chars) del testo policy mostrato all'utente.
+     *  Null se hash_policy_text è disabilitato o se il testo non è disponibile. */
+    policyTextHash: varchar("policy_text_hash", { length: 64 }),
+    /** Forma dell'IP così come è stata SCRITTA (no trasformazioni successive):
+     *  - full:            IP raw (IPv4 max 15ch, IPv6 max 39ch)
+     *  - mask_last_octet: ultimo octet IPv4 mascherato (es. 192.168.1.X)
+     *  - hash_only:       SHA-256 hex 64ch dell'IP raw
+     *  Null se capture_ip è disabilitato o se l'IP non è disponibile. */
+    ip: varchar("ip", { length: 64 }),
+    ipStrategy: varchar("ip_strategy", { length: 20 })
+      .notNull()
+      .default("full")
+      .$type<ConsentIpStrategy>(),
+    userAgent: varchar("user_agent", { length: 512 }),
+    /** Locale UI dell'utente al momento dell'evento (es. "it", "en"). */
+    locale: varchar("locale", { length: 10 }),
+    /** Extensibility bag: cookie categories, source ("backfill"|"signup"|...), etc. */
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_consent_records_user_type_time").on(
+      table.userId,
+      table.consentType,
+      table.createdAt,
+    ),
+    index("idx_consent_records_type_time").on(
+      table.consentType,
+      table.createdAt,
+    ),
+    index("idx_consent_records_created_at").on(table.createdAt),
+  ],
+);
+
+/**
  * Sessions server-side. Il cookie `session` contiene un JWT firmato che
  * imbusta solo `{ sid }` (sessionId opaco): la validazione passa per la
  * tabella sessions (cache Redis 60s, fallback DB), così possiamo
