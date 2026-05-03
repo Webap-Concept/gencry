@@ -3,7 +3,7 @@
 // Shared types for the suspicious-sessions pipeline. Live in their own
 // file so detectors / runner / UI can import without pulling Zod or DB.
 
-import type { AlertSeverity, SuspicionReason } from "./config";
+import type { AlertSeverity, SuspicionReason } from "./config-types";
 
 export type AlertCandidate = {
   reason: SuspicionReason;

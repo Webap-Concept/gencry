@@ -5,7 +5,7 @@ import {
   type AlertsConfig,
   SCHEDULES,
   SEVERITIES,
-} from "@/lib/sessions/suspicious/config";
+} from "@/lib/sessions/suspicious/config-types";
 import { Bell, Loader2, Play, Save, Send, ShieldAlert } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
