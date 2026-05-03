@@ -161,6 +161,49 @@ export async function getConsentVersions(): Promise<{
 }
 
 /**
+ * Snapshot completo (versione + testo) delle 3 pagine di sistema, usato
+ * dai signup-flows per calcolare lo SHA-256 del testo policy che l'utente
+ * ha "visto" al momento dell'accettazione (vedi consent-ledger.ts).
+ *
+ * Ritorna `null` per le pagine non presenti / senza systemKey valido così
+ * il consumer può scegliere se loggare comunque (con policyTextHash null)
+ * o saltare il consenso.
+ */
+export type ConsentPageSnapshot = {
+  version: string;
+  text: string;
+};
+
+export type ConsentPageSnapshots = {
+  terms: ConsentPageSnapshot | null;
+  privacy: ConsentPageSnapshot | null;
+  marketing: ConsentPageSnapshot | null;
+};
+
+export async function getConsentSnapshots(): Promise<ConsentPageSnapshots> {
+  const rows = await db
+    .select({
+      systemKey: pages.systemKey,
+      contentVersion: pages.contentVersion,
+      content: pages.content,
+    })
+    .from(pages)
+    .where(eq(pages.isSystem, true));
+
+  const byKey = new Map<string, ConsentPageSnapshot>();
+  for (const r of rows) {
+    if (!r.systemKey) continue;
+    byKey.set(r.systemKey, { version: r.contentVersion, text: r.content });
+  }
+
+  return {
+    terms: byKey.get("terms") ?? null,
+    privacy: byKey.get("privacy") ?? null,
+    marketing: byKey.get("marketing") ?? null,
+  };
+}
+
+/**
  * Crea o aggiorna una pagina.
  * - Se `data.id` è presente → UPDATE WHERE id (gestisce cambio slug senza duplicati).
  * - Se `data.id` è assente → INSERT ... ON CONFLICT (slug) DO UPDATE (crea nuova pagina).
