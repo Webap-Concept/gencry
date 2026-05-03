@@ -4,6 +4,10 @@ import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Save } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveGdprSettingsAction, type ActionState } from "../actions";
+import {
+  RequirementBadge,
+  type RequirementLevel,
+} from "./requirement-badge";
 
 export type GdprSettingsValues = {
   "gdpr.consent_log.enabled": string;
@@ -35,11 +39,13 @@ function Bool({
   defaultChecked,
   title,
   hint,
+  requirement,
 }: {
   name: keyof GdprSettingsValues;
   defaultChecked: boolean;
   title: string;
   hint: string;
+  requirement: RequirementLevel;
 }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -53,12 +59,13 @@ function Bool({
       />
       <span>
         <span
-          className="block text-sm font-medium"
+          className="flex items-center gap-2 text-sm font-medium"
           style={{ color: "var(--admin-text)" }}>
           {title}
+          <RequirementBadge level={requirement} />
         </span>
         <span
-          className="block text-[11px]"
+          className="block text-[11px] mt-0.5"
           style={{ color: "var(--admin-text-faint)" }}>
           {hint}
         </span>
@@ -75,6 +82,7 @@ function NumberField({
   max,
   defaultValue,
   suffix,
+  requirement,
 }: {
   name: keyof GdprSettingsValues;
   label: string;
@@ -83,13 +91,15 @@ function NumberField({
   max: number;
   defaultValue: string;
   suffix?: string;
+  requirement: RequirementLevel;
 }) {
   return (
     <div>
       <label
-        className="block text-xs font-medium mb-1.5"
+        className="flex items-center gap-2 text-xs font-medium mb-1.5"
         style={{ color: "var(--admin-text-muted)" }}>
         {label}
+        <RequirementBadge level={requirement} />
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -126,19 +136,22 @@ function SelectField({
   hint,
   defaultValue,
   options,
+  requirement,
 }: {
   name: keyof GdprSettingsValues;
   label: string;
   hint: string;
   defaultValue: string;
   options: Array<{ value: string; label: string }>;
+  requirement: RequirementLevel;
 }) {
   return (
     <div>
       <label
-        className="block text-xs font-medium mb-1.5"
+        className="flex items-center gap-2 text-xs font-medium mb-1.5"
         style={{ color: "var(--admin-text-muted)" }}>
         {label}
+        <RequirementBadge level={requirement} />
       </label>
       <select
         name={name}
@@ -203,13 +216,15 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               name="gdpr.consent_log.enabled"
               defaultChecked={initial["gdpr.consent_log.enabled"] === "true"}
               title="Enable consent ledger (consent_records)"
-              hint="Master switch. When ON, every consent action is written to a dedicated append-only table. Effective only after the migration creating the table is applied (delivered in a follow-up PR)."
+              hint="Master switch. When ON, every consent action is written to a dedicated append-only table. Without this you cannot demonstrate consent under Art. 7(1)."
+              requirement="required"
             />
             <Bool
               name="gdpr.consent_log.capture_ip"
               defaultChecked={initial["gdpr.consent_log.capture_ip"] === "true"}
               title="Capture client IP at consent time"
-              hint="Stores the IP from x-forwarded-for. Recommended for demonstrability; combine with the strategy below to limit retention exposure."
+              hint="Stores the IP from x-forwarded-for at consent time — without it the ledger row lacks a key piece of evidence the supervisory authority expects to see."
+              requirement="required"
             />
             <SelectField
               name="gdpr.consent_log.ip_strategy"
@@ -223,7 +238,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 },
                 { value: "hash_only", label: "SHA-256 hash only (no raw IP)" },
               ]}
-              hint="How the IP is stored. Hash-only is the most privacy-preserving but cannot prove the IP address itself, only equality between two records."
+              hint="How the IP is stored. Required by Art. 5(1)(c) data minimisation: full raw IP is acceptable only with a documented justification, otherwise prefer mask or hash."
+              requirement="required"
             />
             <Bool
               name="gdpr.consent_log.capture_user_agent"
@@ -231,7 +247,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.consent_log.capture_user_agent"] === "true"
               }
               title="Capture browser user-agent"
-              hint="Useful as additional evidence; truncated to 512 chars by the consent writer."
+              hint="Useful as corroborating evidence; truncated to 512 chars by the consent writer. Not strictly required."
+              requirement="optional"
             />
             <Bool
               name="gdpr.consent_log.hash_policy_text"
@@ -239,7 +256,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.consent_log.hash_policy_text"] === "true"
               }
               title="Hash policy text at acceptance"
-              hint="Stores SHA-256 of the exact policy text the user saw. Protects against later tampering of pages.content / page_versions.content."
+              hint="Stores SHA-256 of the exact policy text the user saw. Strongly advised: protects against later tampering of pages.content / page_versions.content."
+              requirement="recommended"
             />
             <NumberField
               name="gdpr.consent_log.retention_after_deletion_days"
@@ -250,7 +268,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               min={0}
               max={3650}
               suffix="days"
-              hint="How long consent_records are kept after the user is physically purged. 1825 = 5 years (typical Italian statute-of-limitations buffer for civil claims). 0 = delete immediately."
+              hint="No-op in the current schema: consent_records.user_id has ON DELETE CASCADE, so records are wiped together with the user. Kept here for backwards compatibility."
+              requirement="unused"
             />
           </div>
         </div>
@@ -285,13 +304,15 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                   label: "External backup (custom cron / S3 dump)",
                 },
               ]}
-              hint="Informational only — declares the operational backup tier so it appears in the compliance dashboard and audit reports."
+              hint="Declares the operational backup tier. Art. 32 expects you to document the technical/organisational measures protecting the consent ledger."
+              requirement="recommended"
             />
             <div>
               <label
-                className="block text-xs font-medium mb-1.5"
+                className="flex items-center gap-2 text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
                 Backup setup notes
+                <RequirementBadge level="optional" />
               </label>
               <textarea
                 name="gdpr.backup.notes"
@@ -333,7 +354,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               min={0}
               max={365}
               suffix="days"
-              hint="Days between soft-delete (user requests deletion) and physical purge. Persisted now; the deletion code reads a 30-day default until wired in a follow-up PR."
+              hint="Days between soft-delete (user requests deletion) and physical purge. Art. 17 requires you to honour erasure requests; the specific number of days is a policy choice. Persisted now; the deletion code reads a 30-day default until wired in a follow-up PR."
+              requirement="required"
             />
             <NumberField
               name="gdpr.export.rate_limit_days"
@@ -342,7 +364,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               min={0}
               max={365}
               suffix="days"
-              hint="Minimum interval between two export requests for the same user. Persisted now; export code reads a 7-day default until wired in a follow-up PR."
+              hint="Anti-abuse cooldown between two export requests for the same user. Persisted now; export code reads a 7-day default until wired in a follow-up PR."
+              requirement="optional"
             />
           </div>
         </div>
@@ -367,7 +390,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.policy.force_reconsent_on_change"] === "true"
               }
               title="Force re-consent on policy change"
-              hint="When ON, users with an outdated terms/privacy version see a blocking modal at the next sign-in until they accept the new version. (Consumer wired in a follow-up PR.)"
+              hint="When ON, users with an outdated terms/privacy version see a blocking modal at the next sign-in until they accept the new version. EDPB guidance recommends re-consent for material policy changes. (Consumer wired in a follow-up PR.)"
+              requirement="recommended"
             />
             <Bool
               name="gdpr.cookie_banner.enabled"
@@ -375,7 +399,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.cookie_banner.enabled"] === "true"
               }
               title="Cookie banner enabled"
-              hint="Master switch for the cookie consent banner on the public site. The banner UI itself is delivered in a follow-up PR — turning this ON now has no effect yet."
+              hint="Master switch for the cookie consent banner. ePrivacy + GDPR require prior opt-in for non-technical cookies on EU traffic. The banner UI ships in a follow-up PR."
+              requirement="required"
             />
           </div>
         </div>
