@@ -2,6 +2,7 @@
  * Query DB per la gestione RBAC nel pannello admin.
  */
 import { db } from "@/lib/db/drizzle";
+import { getAllSystemPermissions } from "@/lib/db/permissions-data";
 import {
   permissions,
   rolePermissions,
@@ -159,4 +160,61 @@ export async function addUserPermissionOverride(data: {
 
 export async function removeUserPermissionOverride(overrideId: number) {
   return db.delete(userPermissions).where(eq(userPermissions.id, overrideId));
+}
+
+// ---------------------------------------------------------------------------
+// System permissions drift detection
+// ---------------------------------------------------------------------------
+
+export type SystemPermissionsDrift = {
+  /** Keys defined in code but not present in the DB. */
+  missing: Array<{ key: string; label: string; group: string }>;
+  /** Keys whose label or group in the DB differs from the code. */
+  divergent: Array<{
+    key: string;
+    dbLabel: string;
+    dbGroup: string;
+    codeLabel: string;
+    codeGroup: string;
+  }>;
+};
+
+/**
+ * Compares the in-code system permission catalog against the DB and
+ * reports the drift. Used by /admin/access/permissions to surface a
+ * banner + Sync button when the DB is behind the codebase.
+ */
+export async function getSystemPermissionsDrift(): Promise<SystemPermissionsDrift> {
+  const codePerms = getAllSystemPermissions();
+  const dbPerms = await db
+    .select({
+      key: permissions.key,
+      label: permissions.label,
+      group: permissions.group,
+    })
+    .from(permissions);
+
+  const dbByKey = new Map(dbPerms.map((p) => [p.key, p]));
+
+  const missing: SystemPermissionsDrift["missing"] = [];
+  const divergent: SystemPermissionsDrift["divergent"] = [];
+
+  for (const cp of codePerms) {
+    const existing = dbByKey.get(cp.key);
+    if (!existing) {
+      missing.push({ key: cp.key, label: cp.label, group: cp.group });
+      continue;
+    }
+    if (existing.label !== cp.label || existing.group !== cp.group) {
+      divergent.push({
+        key: cp.key,
+        dbLabel: existing.label,
+        dbGroup: existing.group,
+        codeLabel: cp.label,
+        codeGroup: cp.group,
+      });
+    }
+  }
+
+  return { missing, divergent };
 }

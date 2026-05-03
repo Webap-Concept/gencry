@@ -3,6 +3,10 @@
 import { getAdminPath } from "@/lib/admin-nav";
 import { db } from "@/lib/db/drizzle";
 import {
+  getAdminRoleKeys,
+  getAllSystemPermissions,
+} from "@/lib/db/permissions-data";
+import {
   activityLogs,
   ActivityType,
   permissions,
@@ -15,7 +19,7 @@ import {
   addPermissionToRole,
   removePermissionFromRole,
 } from "@/lib/rbac/permissions-queries";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -336,4 +340,120 @@ export async function fetchUsersWithPermission(permissionKey: string) {
   const { getUsersWithPermission } =
     await import("@/lib/rbac/permissions-queries");
   return getUsersWithPermission(permissionKey);
+}
+
+// ---------------------------------------------------------------------------
+// Sync system permissions
+//
+// Replays the seed-script logic on demand from the admin UI. Idempotent:
+// safe to click any time. Inserts permissions defined in code but missing
+// from the DB, refreshes label/group on rows that have drifted, and
+// auto-grants newly inserted admin-level permissions to the admin role.
+// Member overrides and other roles' assignments are left untouched.
+// ---------------------------------------------------------------------------
+
+export type SyncSystemPermissionsResult = {
+  inserted: number;
+  refreshed: number;
+  granted: number;
+  insertedKeys: string[];
+};
+
+export async function syncSystemPermissions(): Promise<
+  | SyncSystemPermissionsResult
+  | { error: string }
+> {
+  const admin = await requireAdmin();
+
+  const codePerms = getAllSystemPermissions();
+  const dbRows = await db
+    .select({
+      id: permissions.id,
+      key: permissions.key,
+      label: permissions.label,
+      group: permissions.group,
+    })
+    .from(permissions);
+  const dbByKey = new Map(dbRows.map((r) => [r.key, r]));
+
+  // Insert missing rows + refresh drifted ones in a single pass.
+  const insertedKeys: string[] = [];
+  let refreshed = 0;
+  for (const cp of codePerms) {
+    const existing = dbByKey.get(cp.key);
+    if (!existing) {
+      await db.insert(permissions).values({
+        key: cp.key,
+        label: cp.label,
+        group: cp.group,
+        isSystem: cp.isSystem,
+      });
+      insertedKeys.push(cp.key);
+      continue;
+    }
+    if (existing.label !== cp.label || existing.group !== cp.group) {
+      await db
+        .update(permissions)
+        .set({ label: cp.label, group: cp.group })
+        .where(eq(permissions.id, existing.id));
+      refreshed++;
+    }
+  }
+
+  // Auto-grant admin role assignments for any keys it should own that
+  // it currently doesn't. Uses getAdminRoleKeys() so this is consistent
+  // with what the seed script does after install.
+  let granted = 0;
+  if (insertedKeys.length > 0) {
+    const [adminRole] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, "admin"))
+      .limit(1);
+
+    if (adminRole) {
+      const adminKeys = new Set(getAdminRoleKeys());
+      const newlyInsertedAdminKeys = insertedKeys.filter((k) =>
+        adminKeys.has(k),
+      );
+
+      if (newlyInsertedAdminKeys.length > 0) {
+        const newPermRows = await db
+          .select({ id: permissions.id, key: permissions.key })
+          .from(permissions)
+          .where(inArray(permissions.key, newlyInsertedAdminKeys));
+
+        const existingAssignments = await db
+          .select({ permissionId: rolePermissions.permissionId })
+          .from(rolePermissions)
+          .where(eq(rolePermissions.roleId, adminRole.id));
+        const alreadyAssigned = new Set(
+          existingAssignments.map((a) => a.permissionId),
+        );
+
+        for (const p of newPermRows) {
+          if (!alreadyAssigned.has(p.id)) {
+            await addPermissionToRole(adminRole.id, p.id);
+            granted++;
+          }
+        }
+      }
+    }
+  }
+
+  await logRbacAction(
+    admin.id,
+    ActivityType.PERMISSION_GRANTED,
+    `sync_system_permissions inserted=${insertedKeys.length} refreshed=${refreshed} role_grants=${granted}`,
+  );
+
+  revalidatePath(getAdminPath("users-permissions"));
+  revalidatePath(getAdminPath("users-roles"));
+
+  return {
+    inserted: insertedKeys.length,
+    refreshed,
+    granted,
+    insertedKeys,
+  };
 }
