@@ -113,6 +113,21 @@ export type SettingKey =
   // ── Modules ─────────────────────────────────────────────────────────
   // Convenzione: `modules.<slug>.<key>`. I moduli social plugabili
   // espongono qui sotto le proprie chiavi (vedi lib/modules/registry.ts).
+  // ── GDPR / Compliance ───────────────────────────────────────────────
+  // Tutte le chiavi sono governate dalla sezione admin /admin/compliance/gdpr.
+  // Convenzione: 'gdpr.<area>.<key>'. I valori bool sono persistiti come 'true'/'false'.
+  | 'gdpr.consent_log.enabled'                       // master switch: scrivere su consent_records
+  | 'gdpr.consent_log.capture_ip'                    // salva IP all'accept
+  | 'gdpr.consent_log.ip_strategy'                   // 'full' | 'mask_last_octet' | 'hash_only'
+  | 'gdpr.consent_log.capture_user_agent'            // salva UA browser all'accept
+  | 'gdpr.consent_log.hash_policy_text'              // SHA-256 del testo policy all'accept
+  | 'gdpr.consent_log.retention_after_deletion_days' // mantieni consent_records dopo purge utente
+  | 'gdpr.backup.tier'                               // 'none' | 'supabase_pitr' | 'external'
+  | 'gdpr.backup.notes'                              // free-text per documentare il setup di backup
+  | 'gdpr.deletion.grace_days'                       // grace period soft-delete prima del purge fisico
+  | 'gdpr.export.rate_limit_days'                    // intervallo minimo fra due export per utente
+  | 'gdpr.policy.force_reconsent_on_change'          // forza modal riconsenso al login dopo bump versione
+  | 'gdpr.cookie_banner.enabled'                     // banner cookie attivo (placeholder per PR successiva)
   // Prices Engine
   | 'modules.prices.cron_minutes'      // intervallo cron sync prezzi (1..60)
   | 'modules.prices.universe_hours'    // finestra "active universe" (1..168)
@@ -208,6 +223,19 @@ export type AppSettings = {
   // Cloudflare Turnstile
   cf_turnstile_site_key: string | null
   cf_turnstile_secret_key: string | null
+  // GDPR / Compliance
+  'gdpr.consent_log.enabled': string
+  'gdpr.consent_log.capture_ip': string
+  'gdpr.consent_log.ip_strategy': string
+  'gdpr.consent_log.capture_user_agent': string
+  'gdpr.consent_log.hash_policy_text': string
+  'gdpr.consent_log.retention_after_deletion_days': string
+  'gdpr.backup.tier': string
+  'gdpr.backup.notes': string | null
+  'gdpr.deletion.grace_days': string
+  'gdpr.export.rate_limit_days': string
+  'gdpr.policy.force_reconsent_on_change': string
+  'gdpr.cookie_banner.enabled': string
   // Modules — Prices Engine
   'modules.prices.cron_minutes': string
   'modules.prices.universe_hours': string
@@ -303,6 +331,22 @@ const DEFAULTS: AppSettings = {
   github_ci_branch: 'ci-results',
   cf_turnstile_site_key: null,
   cf_turnstile_secret_key: null,
+  // GDPR / Compliance — defaults conservativi.
+  // L'effettivo logging su consent_records resta off finché l'admin non
+  // attiva esplicitamente `gdpr.consent_log.enabled` (richiede prima la
+  // creazione della tabella, fatta in PR successiva).
+  'gdpr.consent_log.enabled': 'false',
+  'gdpr.consent_log.capture_ip': 'true',
+  'gdpr.consent_log.ip_strategy': 'full',
+  'gdpr.consent_log.capture_user_agent': 'true',
+  'gdpr.consent_log.hash_policy_text': 'true',
+  'gdpr.consent_log.retention_after_deletion_days': '1825', // 5 anni
+  'gdpr.backup.tier': 'none',
+  'gdpr.backup.notes': null,
+  'gdpr.deletion.grace_days': '30',
+  'gdpr.export.rate_limit_days': '7',
+  'gdpr.policy.force_reconsent_on_change': 'false',
+  'gdpr.cookie_banner.enabled': 'false',
   // Modules — Prices Engine. Duplicano i defaults della migration M_prices_001
   // (sicurezza: la migration potrebbe non essere stata eseguita in dev locale).
   'modules.prices.cron_minutes': '5',

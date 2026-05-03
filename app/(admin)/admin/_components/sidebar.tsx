@@ -28,6 +28,8 @@ import {
   MailOpen,
   Map,
   PanelTop,
+  Scale,
+  ScrollText,
   Search,
   SearchX,
   Send,
@@ -79,6 +81,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Boxes,
   Clock,
   Bell,
+  Scale,
+  ScrollText,
 };
 
 interface AdminSidebarProps {

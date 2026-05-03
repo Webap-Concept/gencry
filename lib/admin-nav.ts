@@ -172,6 +172,24 @@ export const ADMIN_NAV: NavItem[] = [
     ],
   },
   {
+    key: "compliance-group",
+    label: "Compliance",
+    icon: "Scale",
+    // Umbrella: chi ha admin:gdpr (anche senza admin:access esplicito) può
+    // vedere il gruppo. I figli sono filtrati dalla loro permission.
+    permission: "admin:gdpr",
+    childrenMaxHeight: "120px",
+    children: [
+      {
+        key: "compliance-gdpr",
+        href: "/admin/compliance/gdpr",
+        label: "GDPR & Consents",
+        icon: "ScrollText",
+        permission: "admin:gdpr",
+      },
+    ],
+  },
+  {
     key: "billing-group",
     label: "Billing & Payment",
     icon: "CreditCard",
