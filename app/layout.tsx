@@ -4,6 +4,7 @@ import MaintenancePage from "@/components/maintenance-page";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
+import { Analytics } from "@vercel/analytics/next";
 import type { Viewport } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
@@ -177,6 +178,7 @@ export default async function RootLayout({
         )}
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
+        <Analytics />
       </body>
     </html>
   );
