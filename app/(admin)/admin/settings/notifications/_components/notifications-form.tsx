@@ -6,7 +6,15 @@ import {
   SCHEDULES,
   SEVERITIES,
 } from "@/lib/sessions/suspicious/config-types";
-import { Bell, Loader2, Play, Save, Send, ShieldAlert } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Loader2,
+  Play,
+  Save,
+  Send,
+  ShieldAlert,
+} from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   type ActionState,
@@ -85,6 +93,11 @@ const RULE_META: Record<
     help: "A trusted device added within minutes of a new session — attacker persisting access.",
   },
 };
+
+const TABS = [
+  { id: "sessions", label: "Sessions", icon: Activity },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
 // ---------------------------------------------------------------------------
 // Reusable atoms
@@ -307,6 +320,7 @@ export function NotificationsSettingsForm({
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("sessions");
 
   const [saveState, saveAction, isSaving] = useActionState<
     ActionState,
@@ -464,199 +478,277 @@ export function NotificationsSettingsForm({
           </div>
         </Section>
 
-        <Section
-          icon={ShieldAlert}
-          title="Detection rules"
-          subtitle="13 heuristics, all using internal data only — no external geo / VPN services. Tune thresholds per rule.">
-          <div className="space-y-3">
-            <RuleBlock reason="multiple_ips" rule={r.multiple_ips}>
-              <FieldGroup label="Min distinct IPs">
-                <NumberField
-                  name="rule_multiple_ips_count"
-                  defaultValue={r.multiple_ips.count}
-                />
-              </FieldGroup>
-              <FieldGroup label="Window (hours)">
-                <NumberField
-                  name="rule_multiple_ips_window_hours"
-                  defaultValue={r.multiple_ips.windowHours}
-                />
-              </FieldGroup>
-            </RuleBlock>
+        <div
+          className="flex items-center gap-1 p-1 rounded-xl w-fit"
+          style={{ background: "var(--admin-hover-bg)" }}>
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
+                style={{
+                  background: isActive ? "var(--admin-accent)" : "transparent",
+                  color: isActive ? "#fff" : "var(--admin-text-muted)",
+                  boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
+                }}>
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-            <RuleBlock reason="concurrent_devices" rule={r.concurrent_devices}>
-              <FieldGroup label="Min concurrent active sessions">
-                <NumberField
-                  name="rule_concurrent_devices_count"
-                  defaultValue={r.concurrent_devices.count}
-                />
-              </FieldGroup>
-            </RuleBlock>
+        {activeTab === "sessions" && (
+          <>
+            <Section
+              icon={ShieldAlert}
+              title="Detection rules"
+              subtitle="13 heuristics, all using internal data only — no external geo / VPN services. Tune thresholds per rule.">
+              <div className="space-y-3">
+                <RuleBlock reason="multiple_ips" rule={r.multiple_ips}>
+                  <FieldGroup label="Min distinct IPs">
+                    <NumberField
+                      name="rule_multiple_ips_count"
+                      defaultValue={r.multiple_ips.count}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Window (hours)">
+                    <NumberField
+                      name="rule_multiple_ips_window_hours"
+                      defaultValue={r.multiple_ips.windowHours}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
 
-            <RuleBlock reason="burst_creation" rule={r.burst_creation}>
-              <FieldGroup label="Min sessions in window">
-                <NumberField
-                  name="rule_burst_creation_count"
-                  defaultValue={r.burst_creation.count}
-                />
-              </FieldGroup>
-              <FieldGroup label="Window (minutes)">
-                <NumberField
-                  name="rule_burst_creation_window_minutes"
-                  defaultValue={r.burst_creation.windowMinutes}
-                />
-              </FieldGroup>
-            </RuleBlock>
+                <RuleBlock
+                  reason="concurrent_devices"
+                  rule={r.concurrent_devices}>
+                  <FieldGroup label="Min concurrent active sessions">
+                    <NumberField
+                      name="rule_concurrent_devices_count"
+                      defaultValue={r.concurrent_devices.count}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
 
-            <RuleBlock reason="bot_user_agent" rule={r.bot_user_agent}>
-              <div className="col-span-full">
-                <Label>UA regex pattern (case-insensitive, |-joined)</Label>
-                <input
-                  type="text"
-                  name="rule_bot_user_agent_pattern"
-                  defaultValue={r.bot_user_agent.pattern}
-                  className="w-full px-3 py-2 rounded-lg text-sm font-mono"
-                  style={inputStyle}
-                />
+                <RuleBlock reason="burst_creation" rule={r.burst_creation}>
+                  <FieldGroup label="Min sessions in window">
+                    <NumberField
+                      name="rule_burst_creation_count"
+                      defaultValue={r.burst_creation.count}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Window (minutes)">
+                    <NumberField
+                      name="rule_burst_creation_window_minutes"
+                      defaultValue={r.burst_creation.windowMinutes}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock reason="bot_user_agent" rule={r.bot_user_agent}>
+                  <div className="col-span-full">
+                    <Label>UA regex pattern (case-insensitive, |-joined)</Label>
+                    <input
+                      type="text"
+                      name="rule_bot_user_agent_pattern"
+                      defaultValue={r.bot_user_agent.pattern}
+                      className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                      style={inputStyle}
+                    />
+                  </div>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="long_idle_resurrect"
+                  rule={r.long_idle_resurrect}>
+                  <FieldGroup label="Idle days threshold">
+                    <NumberField
+                      name="rule_long_idle_resurrect_idle_days"
+                      defaultValue={r.long_idle_resurrect.idleDays}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="failed_then_success"
+                  rule={r.failed_then_success}>
+                  <FieldGroup label="Min failed attempts">
+                    <NumberField
+                      name="rule_failed_then_success_failed_count"
+                      defaultValue={r.failed_then_success.failedCount}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Window (minutes)">
+                    <NumberField
+                      name="rule_failed_then_success_window_minutes"
+                      defaultValue={r.failed_then_success.windowMinutes}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="sensitive_action_new_ip"
+                  rule={r.sensitive_action_new_ip}>
+                  <FieldGroup label="Within minutes of session creation">
+                    <NumberField
+                      name="rule_sensitive_action_new_ip_within_minutes"
+                      defaultValue={r.sensitive_action_new_ip.withinMinutes}
+                    />
+                  </FieldGroup>
+                  <div className="col-span-full">
+                    <Label>ActivityType values to monitor (one per line)</Label>
+                    <textarea
+                      name="rule_sensitive_action_new_ip_actions"
+                      defaultValue={r.sensitive_action_new_ip.actions.join("\n")}
+                      rows={3}
+                      className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+                      style={inputStyle}
+                    />
+                  </div>
+                </RuleBlock>
+
+                <RuleBlock reason="new_subnet" rule={r.new_subnet}>
+                  <FieldGroup label="History lookback (days)">
+                    <NumberField
+                      name="rule_new_subnet_lookback_days"
+                      defaultValue={r.new_subnet.lookbackDays}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock reason="ua_churn" rule={r.ua_churn}>
+                  <FieldGroup label="Min distinct UAs">
+                    <NumberField
+                      name="rule_ua_churn_count"
+                      defaultValue={r.ua_churn.count}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Window (minutes)">
+                    <NumberField
+                      name="rule_ua_churn_window_minutes"
+                      defaultValue={r.ua_churn.windowMinutes}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="cross_user_campaign"
+                  rule={r.cross_user_campaign}>
+                  <FieldGroup label="Min distinct users">
+                    <NumberField
+                      name="rule_cross_user_campaign_min_users"
+                      defaultValue={r.cross_user_campaign.minUsers}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Window (minutes)">
+                    <NumberField
+                      name="rule_cross_user_campaign_window_minutes"
+                      defaultValue={r.cross_user_campaign.windowMinutes}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="off_baseline_hours"
+                  rule={r.off_baseline_hours}>
+                  <FieldGroup label="Min historical samples">
+                    <NumberField
+                      name="rule_off_baseline_hours_min_samples"
+                      defaultValue={r.off_baseline_hours.minSamples}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Deviation tolerance (hours)">
+                    <NumberField
+                      name="rule_off_baseline_hours_deviation_hours"
+                      defaultValue={r.off_baseline_hours.deviationHours}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Lookback (days)">
+                    <NumberField
+                      name="rule_off_baseline_hours_lookback_days"
+                      defaultValue={r.off_baseline_hours.lookbackDays}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock reason="admin_off_hours" rule={r.admin_off_hours}>
+                  <FieldGroup label="Allowed start hour (UTC)">
+                    <NumberField
+                      name="rule_admin_off_hours_start_utc_hour"
+                      defaultValue={r.admin_off_hours.startUtcHour}
+                      min={0}
+                      max={23}
+                    />
+                  </FieldGroup>
+                  <FieldGroup label="Allowed end hour (UTC)">
+                    <NumberField
+                      name="rule_admin_off_hours_end_utc_hour"
+                      defaultValue={r.admin_off_hours.endUtcHour}
+                      min={1}
+                      max={24}
+                    />
+                  </FieldGroup>
+                </RuleBlock>
+
+                <RuleBlock
+                  reason="trusted_device_from_fresh_session"
+                  rule={r.trusted_device_from_fresh_session}>
+                  <FieldGroup label="Within minutes of session">
+                    <NumberField
+                      name="rule_trusted_device_from_fresh_session_within_minutes"
+                      defaultValue={
+                        r.trusted_device_from_fresh_session.withinMinutes
+                      }
+                    />
+                  </FieldGroup>
+                </RuleBlock>
               </div>
-            </RuleBlock>
+            </Section>
 
-            <RuleBlock reason="long_idle_resurrect" rule={r.long_idle_resurrect}>
-              <FieldGroup label="Idle days threshold">
-                <NumberField
-                  name="rule_long_idle_resurrect_idle_days"
-                  defaultValue={r.long_idle_resurrect.idleDays}
-                />
-              </FieldGroup>
-            </RuleBlock>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={isRunning}
+                onClick={() => runAction(new FormData())}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                style={{
+                  background: "var(--admin-hover-bg)",
+                  color: "var(--admin-text)",
+                  border: "1px solid var(--admin-card-border)",
+                }}>
+                {isRunning ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Play size={15} />
+                )}
+                {isRunning ? "Running…" : "Run detection now"}
+              </button>
 
-            <RuleBlock reason="failed_then_success" rule={r.failed_then_success}>
-              <FieldGroup label="Min failed attempts">
-                <NumberField
-                  name="rule_failed_then_success_failed_count"
-                  defaultValue={r.failed_then_success.failedCount}
-                />
-              </FieldGroup>
-              <FieldGroup label="Window (minutes)">
-                <NumberField
-                  name="rule_failed_then_success_window_minutes"
-                  defaultValue={r.failed_then_success.windowMinutes}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock
-              reason="sensitive_action_new_ip"
-              rule={r.sensitive_action_new_ip}>
-              <FieldGroup label="Within minutes of session creation">
-                <NumberField
-                  name="rule_sensitive_action_new_ip_within_minutes"
-                  defaultValue={r.sensitive_action_new_ip.withinMinutes}
-                />
-              </FieldGroup>
-              <div className="col-span-full">
-                <Label>ActivityType values to monitor (one per line)</Label>
-                <textarea
-                  name="rule_sensitive_action_new_ip_actions"
-                  defaultValue={r.sensitive_action_new_ip.actions.join("\n")}
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg text-sm font-mono"
-                  style={inputStyle}
-                />
-              </div>
-            </RuleBlock>
-
-            <RuleBlock reason="new_subnet" rule={r.new_subnet}>
-              <FieldGroup label="History lookback (days)">
-                <NumberField
-                  name="rule_new_subnet_lookback_days"
-                  defaultValue={r.new_subnet.lookbackDays}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock reason="ua_churn" rule={r.ua_churn}>
-              <FieldGroup label="Min distinct UAs">
-                <NumberField
-                  name="rule_ua_churn_count"
-                  defaultValue={r.ua_churn.count}
-                />
-              </FieldGroup>
-              <FieldGroup label="Window (minutes)">
-                <NumberField
-                  name="rule_ua_churn_window_minutes"
-                  defaultValue={r.ua_churn.windowMinutes}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock reason="cross_user_campaign" rule={r.cross_user_campaign}>
-              <FieldGroup label="Min distinct users">
-                <NumberField
-                  name="rule_cross_user_campaign_min_users"
-                  defaultValue={r.cross_user_campaign.minUsers}
-                />
-              </FieldGroup>
-              <FieldGroup label="Window (minutes)">
-                <NumberField
-                  name="rule_cross_user_campaign_window_minutes"
-                  defaultValue={r.cross_user_campaign.windowMinutes}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock reason="off_baseline_hours" rule={r.off_baseline_hours}>
-              <FieldGroup label="Min historical samples">
-                <NumberField
-                  name="rule_off_baseline_hours_min_samples"
-                  defaultValue={r.off_baseline_hours.minSamples}
-                />
-              </FieldGroup>
-              <FieldGroup label="Deviation tolerance (hours)">
-                <NumberField
-                  name="rule_off_baseline_hours_deviation_hours"
-                  defaultValue={r.off_baseline_hours.deviationHours}
-                />
-              </FieldGroup>
-              <FieldGroup label="Lookback (days)">
-                <NumberField
-                  name="rule_off_baseline_hours_lookback_days"
-                  defaultValue={r.off_baseline_hours.lookbackDays}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock reason="admin_off_hours" rule={r.admin_off_hours}>
-              <FieldGroup label="Allowed start hour (UTC)">
-                <NumberField
-                  name="rule_admin_off_hours_start_utc_hour"
-                  defaultValue={r.admin_off_hours.startUtcHour}
-                  min={0}
-                  max={23}
-                />
-              </FieldGroup>
-              <FieldGroup label="Allowed end hour (UTC)">
-                <NumberField
-                  name="rule_admin_off_hours_end_utc_hour"
-                  defaultValue={r.admin_off_hours.endUtcHour}
-                  min={1}
-                  max={24}
-                />
-              </FieldGroup>
-            </RuleBlock>
-
-            <RuleBlock
-              reason="trusted_device_from_fresh_session"
-              rule={r.trusted_device_from_fresh_session}>
-              <FieldGroup label="Within minutes of session">
-                <NumberField
-                  name="rule_trusted_device_from_fresh_session_within_minutes"
-                  defaultValue={r.trusted_device_from_fresh_session.withinMinutes}
-                />
-              </FieldGroup>
-            </RuleBlock>
-          </div>
-        </Section>
+              <button
+                type="button"
+                disabled={isTesting}
+                onClick={() => testAction(new FormData())}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                style={{
+                  background: "var(--admin-hover-bg)",
+                  color: "var(--admin-text)",
+                  border: "1px solid var(--admin-card-border)",
+                }}>
+                {isTesting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Send size={15} />
+                )}
+                {isTesting ? "Sending…" : "Send test digest"}
+              </button>
+            </div>
+          </>
+        )}
 
         <div className="flex flex-wrap items-center gap-3 sticky bottom-3">
           <button
@@ -670,42 +762,6 @@ export function NotificationsSettingsForm({
               <Save size={15} />
             )}
             {isSaving ? "Saving…" : "Save settings"}
-          </button>
-
-          <button
-            type="button"
-            disabled={isRunning}
-            onClick={() => runAction(new FormData())}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-            style={{
-              background: "var(--admin-hover-bg)",
-              color: "var(--admin-text)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            {isRunning ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Play size={15} />
-            )}
-            {isRunning ? "Running…" : "Run detection now"}
-          </button>
-
-          <button
-            type="button"
-            disabled={isTesting}
-            onClick={() => testAction(new FormData())}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-            style={{
-              background: "var(--admin-hover-bg)",
-              color: "var(--admin-text)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            {isTesting ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Send size={15} />
-            )}
-            {isTesting ? "Sending…" : "Send test digest"}
           </button>
         </div>
       </form>
