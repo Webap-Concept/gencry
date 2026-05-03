@@ -449,15 +449,17 @@ export const gdprExportJobs = pgTable(
  * settings (gdpr.consent_log.*) per scegliere se salvare IP, mascherarlo,
  * hashare il testo della policy, ecc.
  *
- * Immutabilità: due trigger BEFORE UPDATE/DELETE in DB sollevano
- * l'eccezione "consent_records is append-only" — nessun UPDATE o DELETE
- * passa, nemmeno da admin Supabase. L'unica eccezione è la cancellazione
- * via cron retention: il cron passa per RAW SQL con `SET LOCAL
- * session_replication_role = replica;` per bypassare i trigger sulla
- * pulizia oltre `gdpr.consent_log.retention_after_deletion_days`.
+ * Immutabilità del CONTENUTO: un trigger BEFORE UPDATE in DB rifiuta
+ * qualsiasi modifica della riga (RAISE EXCEPTION). Il contenuto del
+ * consenso è quindi append-only.
  *
- * user_id ON DELETE SET NULL: quando l'utente è purgato fisicamente,
- * la row di consenso resta come audit trail (uniformità con activity_logs).
+ * user_id ON DELETE CASCADE: quando l'utente è eliminato (dal cron
+ * retention soft-delete o manualmente), il record di consenso viene
+ * eliminato a sua volta. Allineamento letterale al "right to be
+ * forgotten" GDPR Art. 17 — preferiamo zero residui a un audit trail
+ * orfano (`user_id NULL`) che resterebbe comunque privo di valore
+ * probatorio individuale. Il DELETE via cascade è permesso dal trigger
+ * (il trigger BEFORE DELETE è stato rimosso nella migration 0027).
  */
 export const CONSENT_TYPES = [
   "terms",
@@ -485,7 +487,7 @@ export const consentRecords = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").references(() => users.id, {
-      onDelete: "set null",
+      onDelete: "cascade",
     }),
     consentType: varchar("consent_type", { length: 50 })
       .notNull()
