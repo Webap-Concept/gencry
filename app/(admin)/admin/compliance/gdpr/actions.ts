@@ -108,6 +108,19 @@ export async function saveGdprSettingsAction(
       readBool(formData.get("gdpr.policy.force_reconsent_on_change")),
     );
     await updateAppSetting(
+      "gdpr.policy.reconsent_grace_days",
+      clampInt(formData.get("gdpr.policy.reconsent_grace_days"), 0, 365, 14),
+    );
+    await updateAppSetting(
+      "gdpr.policy.notifications_cron_minutes",
+      clampInt(
+        formData.get("gdpr.policy.notifications_cron_minutes"),
+        1,
+        1440,
+        60,
+      ),
+    );
+    await updateAppSetting(
       "gdpr.cookie_banner.enabled",
       readBool(formData.get("gdpr.cookie_banner.enabled")),
     );

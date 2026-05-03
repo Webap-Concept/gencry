@@ -531,6 +531,71 @@ export const consentRecords = pgTable(
 );
 
 /**
+ * Job table per il cron `policy-change-notifications`. Quando una pagina di
+ * sistema (terms / privacy / marketing) viene aggiornata e
+ * `gdpr.policy.force_reconsent_on_change` è ON, `upsertPage` enqueue una
+ * riga `pending` per ogni utente con versione obsoleta. Il cron worker
+ * raggruppa per `user_id`, manda UNA mail con tutte le policy aggiornate
+ * di quell'utente, marca le righe `sent`. La frontend usa la presenza di
+ * righe (di qualunque stato) e il `created_at` più vecchio per decidere
+ * banner gentile vs modale bloccante (gdpr.policy.reconsent_grace_days).
+ *
+ * UNIQUE(user_id, policy_key, policy_version): se l'admin riapplica per
+ * sbaglio o il cron rilancia, niente duplicati. user_id ON DELETE CASCADE
+ * uniformemente con consent_records.
+ */
+export const POLICY_NOTIFICATION_STATUSES = [
+  "pending",
+  "sent",
+  "failed",
+  "skipped",
+] as const;
+export type PolicyNotificationStatus =
+  (typeof POLICY_NOTIFICATION_STATUSES)[number];
+
+export const POLICY_NOTIFICATION_KEYS = [
+  "terms",
+  "privacy",
+  "marketing",
+] as const;
+export type PolicyNotificationKey = (typeof POLICY_NOTIFICATION_KEYS)[number];
+
+export const policyChangeNotifications = pgTable(
+  "policy_change_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    policyKey: varchar("policy_key", { length: 20 })
+      .notNull()
+      .$type<PolicyNotificationKey>(),
+    /** Versione NUOVA che l'utente deve riaccettare. */
+    policyVersion: varchar("policy_version", { length: 20 }).notNull(),
+    status: varchar("status", { length: 20 })
+      .notNull()
+      .default("pending")
+      .$type<PolicyNotificationStatus>(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    sentAt: timestamp("sent_at"),
+    error: text("error"),
+  },
+  (table) => [
+    uniqueIndex("policy_change_notifications_uq").on(
+      table.userId,
+      table.policyKey,
+      table.policyVersion,
+    ),
+    index("idx_policy_change_notifications_status").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("idx_policy_change_notifications_user").on(table.userId),
+  ],
+);
+
+/**
  * Sessions server-side. Il cookie `session` contiene un JWT firmato che
  * imbusta solo `{ sid }` (sessionId opaco): la validazione passa per la
  * tabella sessions (cache Redis 60s, fallback DB), così possiamo

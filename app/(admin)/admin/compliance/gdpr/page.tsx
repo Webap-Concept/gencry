@@ -97,6 +97,10 @@ export default async function GdprCompliancePage() {
               settings["gdpr.export.rate_limit_days"],
             "gdpr.policy.force_reconsent_on_change":
               settings["gdpr.policy.force_reconsent_on_change"],
+            "gdpr.policy.reconsent_grace_days":
+              settings["gdpr.policy.reconsent_grace_days"],
+            "gdpr.policy.notifications_cron_minutes":
+              settings["gdpr.policy.notifications_cron_minutes"],
             "gdpr.cookie_banner.enabled":
               settings["gdpr.cookie_banner.enabled"],
           }}

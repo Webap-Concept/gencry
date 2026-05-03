@@ -21,6 +21,8 @@ export type GdprSettingsValues = {
   "gdpr.deletion.grace_days": string;
   "gdpr.export.rate_limit_days": string;
   "gdpr.policy.force_reconsent_on_change": string;
+  "gdpr.policy.reconsent_grace_days": string;
+  "gdpr.policy.notifications_cron_minutes": string;
   "gdpr.cookie_banner.enabled": string;
 };
 
@@ -390,8 +392,28 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.policy.force_reconsent_on_change"] === "true"
               }
               title="Force re-consent on policy change"
-              hint="When ON, users with an outdated terms/privacy version see a blocking modal at the next sign-in until they accept the new version. EDPB guidance recommends re-consent for material policy changes. (Consumer wired in a follow-up PR.)"
+              hint="When ON, bumping a system page (terms / privacy / marketing) enqueues an email notification and a sign-in banner asking the user to re-accept the new version. EDPB guidance recommends re-consent for material policy changes."
               requirement="recommended"
+            />
+            <NumberField
+              name="gdpr.policy.reconsent_grace_days"
+              label="Re-consent grace period"
+              defaultValue={initial["gdpr.policy.reconsent_grace_days"]}
+              min={0}
+              max={365}
+              suffix="days"
+              hint="How long the soft banner shows before turning into a blocking modal. Counts from the moment the bump is enqueued, not from the user's first login."
+              requirement="optional"
+            />
+            <NumberField
+              name="gdpr.policy.notifications_cron_minutes"
+              label="Notifications cron interval"
+              defaultValue={initial["gdpr.policy.notifications_cron_minutes"]}
+              min={1}
+              max={1440}
+              suffix="minutes"
+              hint="How often the policy-change-notifications cron worker dispatches pending email batches. Set the matching schedule in pg_cron — this value is informational unless your scheduler reads from settings."
+              requirement="optional"
             />
             <Bool
               name="gdpr.cookie_banner.enabled"
