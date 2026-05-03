@@ -6,6 +6,7 @@
 // (admin acknowledges all matching alerts).
 
 import { db } from "@/lib/db/drizzle";
+import { isUndefinedTableError } from "@/lib/db/errors";
 import { sessionAlerts } from "@/lib/db/schema";
 import { count, isNull } from "drizzle-orm";
 import { meetsThreshold } from "@/lib/sessions/suspicious/types";
@@ -32,15 +33,28 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
     const config = await getAlertsConfig();
 
     // Count unacknowledged alerts per severity. Acknowledged alerts are
-    // dropped: the admin already saw them.
-    const rows = await db
-      .select({
-        severity: sessionAlerts.severity,
-        c: count(sessionAlerts.id),
-      })
-      .from(sessionAlerts)
-      .where(isNull(sessionAlerts.acknowledgedAt))
-      .groupBy(sessionAlerts.severity);
+    // dropped: the admin already saw them. If the table doesn't exist yet
+    // (migration not applied) silently emit zero candidates so the rest
+    // of the dispatcher run keeps working.
+    let rows: Array<{ severity: string; c: number }>;
+    try {
+      rows = await db
+        .select({
+          severity: sessionAlerts.severity,
+          c: count(sessionAlerts.id),
+        })
+        .from(sessionAlerts)
+        .where(isNull(sessionAlerts.acknowledgedAt))
+        .groupBy(sessionAlerts.severity);
+    } catch (err) {
+      if (isUndefinedTableError(err, "session_alerts")) {
+        console.warn(
+          "[suspicious-sessions] session_alerts table missing — run the SQL migration",
+        );
+        return [];
+      }
+      throw err;
+    }
 
     const counts: Record<string, number> = {};
     for (const r of rows) counts[r.severity] = Number(r.c);
@@ -78,23 +92,30 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
   },
 };
 
-/** Counts unacknowledged alerts (used by the sessions admin page badge). */
+/** Counts unacknowledged alerts (used by the sessions admin page badge).
+ *  Returns zeros if `session_alerts` doesn't exist yet (migration not
+ *  applied) — the page should keep rendering. */
 export async function countUnacknowledgedAlerts(): Promise<{
   total: number;
   critical: number;
   warning: number;
   info: number;
 }> {
-  const rows = await db
-    .select({
-      severity: sessionAlerts.severity,
-      c: count(sessionAlerts.id),
-    })
-    .from(sessionAlerts)
-    .where(isNull(sessionAlerts.acknowledgedAt))
-    .groupBy(sessionAlerts.severity);
-
   const result = { total: 0, critical: 0, warning: 0, info: 0 };
+  let rows: Array<{ severity: string; c: number }>;
+  try {
+    rows = await db
+      .select({
+        severity: sessionAlerts.severity,
+        c: count(sessionAlerts.id),
+      })
+      .from(sessionAlerts)
+      .where(isNull(sessionAlerts.acknowledgedAt))
+      .groupBy(sessionAlerts.severity);
+  } catch (err) {
+    if (isUndefinedTableError(err, "session_alerts")) return result;
+    throw err;
+  }
   for (const r of rows) {
     const n = Number(r.c);
     result.total += n;
