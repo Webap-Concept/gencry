@@ -20,8 +20,16 @@ const SKIP_PATH_PREFIXES = [
   "/admin/", // l'area admin ha la sua not-found dedicata, non la logghiamo qui
 ];
 
+// Path esatti da ignorare. Casi:
+//   "/"      → root: spesso loggata da prefetch RSC o chunk sentinella di
+//              Next, raramente è un vero 404 utente. Se la homepage manca
+//              davvero, salta fuori dai log applicativi.
+//   "/admin" → variante senza trailing slash del prefisso /admin/ qui sopra.
+const SKIP_PATH_EXACT = new Set(["/", "/admin"]);
+
 function shouldSkip(pathname: string, userAgent: string | null): boolean {
   if (!pathname || pathname.length > 500) return true;
+  if (SKIP_PATH_EXACT.has(pathname)) return true;
   if (SKIP_PATH_REGEX.test(pathname)) return true;
   if (SKIP_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (userAgent && BOT_UA_REGEX.test(userAgent)) return true;
