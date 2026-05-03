@@ -145,62 +145,6 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
             </p>
           </div>
 
-          {/* Updated Info Box */}
-          <div
-            className="flex gap-3 px-4 py-3 rounded-lg text-xs"
-            style={{
-              background:
-                "color-mix(in oklch, var(--admin-accent) 6%, var(--admin-card-bg))",
-              border:
-                "1px solid color-mix(in oklch, var(--admin-accent) 20%, transparent)",
-            }}>
-            <Wifi
-              size={14}
-              className="shrink-0 mt-0.5"
-              style={{ color: "var(--admin-accent)" }}
-            />
-            <div className="space-y-2">
-              <p style={{ color: "var(--admin-text-muted)" }}>
-                These credentials are used by the{" "}
-                <strong style={{ color: "var(--admin-text)" }}>
-                  Bloom Filter
-                </strong>{" "}
-                to check emails and usernames directly on Upstash Redis.
-              </p>
-              <p style={{ color: "var(--admin-text-muted)" }}>
-                <span
-                  className="font-semibold"
-                  style={{ color: "var(--admin-accent)" }}>
-                  Note:
-                </span>{" "}
-                The system automatically manages the
-                <code
-                  className="mx-1 px-1 rounded"
-                  style={{
-                    background: "var(--admin-card-border)",
-                    color: "var(--admin-text)",
-                  }}>
-                  bloom:emails
-                </code>
-                and
-                <code
-                  className="mx-1 px-1 rounded"
-                  style={{
-                    background: "var(--admin-card-border)",
-                    color: "var(--admin-text)",
-                  }}>
-                  bloom:usernames
-                </code>
-                keys on Redis (type{" "}
-                <span className="italic">String/Bitmap</span>).
-              </p>
-              <p style={{ color: "var(--admin-text-muted)" }}>
-                The same Database is also used to record the rate limiting
-                actions for Emails and IP.
-              </p>
-            </div>
-          </div>
-
           {/* Action Buttons: Save + Test */}
           <div className="flex items-center gap-3 pt-2">
             <button

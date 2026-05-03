@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import type { LucideIcon } from "lucide-react";
 import {
   Clock,
@@ -14,11 +15,17 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { RedisAdminGuide } from "../redis/_components/redis-guide";
 
 type SectionMeta = {
   label: string;
   description: string;
   icon: LucideIcon;
+  /** Optional operator's guide rendered inside an AdminSectionInfo modal
+   *  next to the title. Add one per section that has non-obvious
+   *  operational caveats (Redis, Cron, Sessions…). */
+  guide?: React.ReactNode;
+  guideTitle?: string;
 };
 
 const SECTIONS: Record<string, SectionMeta> = {
@@ -56,6 +63,8 @@ const SECTIONS: Record<string, SectionMeta> = {
     label: "Redis",
     description: "Configure Redis cache connection and options.",
     icon: Database,
+    guide: <RedisAdminGuide />,
+    guideTitle: "Redis — operator's guide",
   },
   cloudflare: {
     label: "Cloudflare",
@@ -94,19 +103,28 @@ export function SettingsHeader() {
         <Icon size={18} style={{ color: "var(--admin-accent)" }} />
       </div>
       <div>
-        <h2
-          className="text-lg font-bold"
-          style={{ color: "var(--admin-text)" }}>
-          {section.label ? (
-            <>
-              <span style={{ color: "var(--admin-text-muted)" }}>Settings</span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{section.label}</span>
-            </>
-          ) : (
-            "Settings"
+        <div className="flex items-center gap-2">
+          <h2
+            className="text-lg font-bold"
+            style={{ color: "var(--admin-text)" }}>
+            {section.label ? (
+              <>
+                <span style={{ color: "var(--admin-text-muted)" }}>Settings</span>
+                <span style={{ color: "var(--admin-text-faint)" }}> / </span>
+                <span>{section.label}</span>
+              </>
+            ) : (
+              "Settings"
+            )}
+          </h2>
+          {section.guide && (
+            <AdminSectionInfo
+              title={section.guideTitle ?? `${section.label} — operator's guide`}
+              ariaLabel={`Show ${section.label || "section"} guide`}>
+              {section.guide}
+            </AdminSectionInfo>
           )}
-        </h2>
+        </div>
         <p
           className="text-sm mt-0.5"
           style={{ color: "var(--admin-text-faint)" }}>
