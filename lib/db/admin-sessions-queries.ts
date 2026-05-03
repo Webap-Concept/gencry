@@ -10,6 +10,7 @@
 // expired sessions is useful for an admin auditing ghost devices.
 
 import { db } from "@/lib/db/drizzle";
+import { isUndefinedTableError } from "@/lib/db/errors";
 import { sessionAlerts, sessions, userProfiles, users } from "@/lib/db/schema";
 import { and, count, desc, eq, gt, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { unstable_noStore as noStore } from "next/cache";
@@ -254,43 +255,48 @@ export async function listAdminAlerts(params: {
     ),
   );
 
-  const [rows, totalRows] = await Promise.all([
-    db
-      .select({
-        id: sessionAlerts.id,
-        reason: sessionAlerts.reason,
-        severity: sessionAlerts.severity,
-        details: sessionAlerts.details,
-        createdAt: sessionAlerts.createdAt,
-        acknowledgedAt: sessionAlerts.acknowledgedAt,
-        acknowledgedBy: sessionAlerts.acknowledgedBy,
-        emailSentAt: sessionAlerts.emailSentAt,
-        sessionId: sessionAlerts.sessionId,
-        userId: sessionAlerts.userId,
-        email: users.email,
-        firstName: userProfiles.firstName,
-        lastName: userProfiles.lastName,
-        username: userProfiles.username,
-        avatarUrl: userProfiles.avatarUrl,
-      })
-      .from(sessionAlerts)
-      .leftJoin(users, eq(users.id, sessionAlerts.userId))
-      .leftJoin(userProfiles, eq(userProfiles.userId, sessionAlerts.userId))
-      .where(whereClause)
-      .orderBy(desc(sessionAlerts.createdAt))
-      .limit(perPage)
-      .offset(offset),
-    db
-      .select({ count: count() })
-      .from(sessionAlerts)
-      .where(whereClause),
-  ]);
-
-  const items: AdminAlertRow[] = rows.map((r) => ({
-    ...r,
-    details: (r.details ?? {}) as Record<string, unknown>,
-  }));
-  return { items, total: totalRows[0]?.count ?? 0 };
+  // If the table doesn't exist yet (migration not applied) return an
+  // empty page so the Alerts tab keeps rendering instead of throwing.
+  let rows: AdminAlertRow[] = [];
+  let total = 0;
+  try {
+    const [rawRows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: sessionAlerts.id,
+          reason: sessionAlerts.reason,
+          severity: sessionAlerts.severity,
+          details: sessionAlerts.details,
+          createdAt: sessionAlerts.createdAt,
+          acknowledgedAt: sessionAlerts.acknowledgedAt,
+          acknowledgedBy: sessionAlerts.acknowledgedBy,
+          emailSentAt: sessionAlerts.emailSentAt,
+          sessionId: sessionAlerts.sessionId,
+          userId: sessionAlerts.userId,
+          email: users.email,
+          firstName: userProfiles.firstName,
+          lastName: userProfiles.lastName,
+          username: userProfiles.username,
+          avatarUrl: userProfiles.avatarUrl,
+        })
+        .from(sessionAlerts)
+        .leftJoin(users, eq(users.id, sessionAlerts.userId))
+        .leftJoin(userProfiles, eq(userProfiles.userId, sessionAlerts.userId))
+        .where(whereClause)
+        .orderBy(desc(sessionAlerts.createdAt))
+        .limit(perPage)
+        .offset(offset),
+      db.select({ count: count() }).from(sessionAlerts).where(whereClause),
+    ]);
+    rows = rawRows.map((r) => ({
+      ...r,
+      details: (r.details ?? {}) as Record<string, unknown>,
+    }));
+    total = totalRows[0]?.count ?? 0;
+  } catch (err) {
+    if (!isUndefinedTableError(err, "session_alerts")) throw err;
+  }
+  return { items: rows, total };
 }
 
 export async function getAdminSessionsKpis(): Promise<AdminSessionsKpis> {
