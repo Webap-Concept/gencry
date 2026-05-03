@@ -13,7 +13,9 @@ import { Activity, Search, ShieldAlert, Wifi } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { AlertsTable } from "./_components/alerts-table";
+import { SessionsAdminGuide } from "./_components/sessions-guide";
 import { SessionsTable } from "./_components/sessions-table";
 
 export const metadata: Metadata = { title: "Sessions" };
@@ -381,11 +383,18 @@ export default async function AdminSessionsPage({
           <Activity size={18} style={{ color: "var(--admin-accent)" }} />
         </div>
         <div>
-          <h2
-            className="text-xl font-bold"
-            style={{ color: "var(--admin-text)" }}>
-            Sessions
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2
+              className="text-xl font-bold"
+              style={{ color: "var(--admin-text)" }}>
+              Sessions
+            </h2>
+            <AdminSectionInfo
+              title="Sessions — operator's guide"
+              ariaLabel="Show sessions section guide">
+              <SessionsAdminGuide />
+            </AdminSectionInfo>
+          </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
