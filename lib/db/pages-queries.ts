@@ -217,11 +217,15 @@ export async function upsertPage(data: NewPage & { id?: number }): Promise<numbe
 
     // Calcola nuova versione solo per pagine di sistema quando il contenuto cambia
     let nextVersion: string | undefined;
+    let bumpedSystemKey: SystemPageKey | null = null;
     if (rest.isSystem) {
       const existing = await db.select().from(pages).where(eq(pages.id, id)).limit(1);
       const current = existing[0];
       if (current && rest.content !== undefined && rest.content !== current.content) {
         nextVersion = computeNextContentVersion(current.contentVersion);
+        bumpedSystemKey = (current.systemKey ?? rest.systemKey ?? null) as
+          | SystemPageKey
+          | null;
 
         // Snapshotta la VECCHIA versione in page_versions prima di sovrascriverla:
         // così gli utenti che l'avevano accettata possono ancora rileggerne il
@@ -259,6 +263,22 @@ export async function upsertPage(data: NewPage & { id?: number }): Promise<numbe
         updatedAt: new Date(),
       })
       .where(eq(pages.id, id));
+
+    // Hook re-consent: se la pagina aggiornata è terms/privacy/marketing
+    // e c'è stato un bump di versione, enqueue le notifiche per gli utenti
+    // con versione obsoleta (no-op se gdpr.policy.force_reconsent_on_change=off).
+    if (
+      nextVersion &&
+      (bumpedSystemKey === "terms" ||
+        bumpedSystemKey === "privacy" ||
+        bumpedSystemKey === "marketing")
+    ) {
+      const { enqueuePolicyChangeNotifications } = await import(
+        "@/lib/account/policy-reconsent"
+      );
+      await enqueuePolicyChangeNotifications(bumpedSystemKey, nextVersion);
+    }
+
     return id;
   } else {
     const [row] = await db

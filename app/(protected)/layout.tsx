@@ -3,8 +3,12 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
+import { getPendingReconsents } from "@/lib/account/policy-reconsent";
 import { getSession } from "@/lib/auth/session";
+import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import type { PolicyNotificationKey } from "@/lib/db/schema";
 import { Suspense } from "react";
+import { PolicyReconsentBanner } from "./_components/policy-reconsent-banner";
 
 // Shell dell'area loggata: sidebar a sinistra (md+), feed centrale, right
 // rail a destra (lg+); su mobile la nav passa al bottom-nav. I guest non
@@ -22,9 +26,47 @@ export default async function Layout({
     return <>{children}</>;
   }
 
+  // Re-consent banner: appare se l'utente ha policy obsolete e l'admin ha
+  // attivato gdpr.policy.force_reconsent_on_change. Modalità bloccante
+  // dopo gdpr.policy.reconsent_grace_days giorni dal bump.
+  const reconsent = await getPendingReconsents(session.user.id);
+  const slugsRaw = reconsent.items.length > 0 ? await getSystemPageSlugs() : {};
+  const slugs: Partial<Record<PolicyNotificationKey, string>> = {
+    terms: slugsRaw.terms,
+    privacy: slugsRaw.privacy,
+    marketing: slugsRaw.marketing,
+  };
+
+  let bannerMode: "banner" | "blocking" = "banner";
+  let daysRemaining: number | null = null;
+  if (reconsent.oldestEnqueuedAt) {
+    const elapsed = Date.now() - reconsent.oldestEnqueuedAt.getTime();
+    if (elapsed >= reconsent.graceMs) {
+      bannerMode = "blocking";
+      daysRemaining = 0;
+    } else {
+      daysRemaining = Math.max(
+        0,
+        Math.ceil((reconsent.graceMs - elapsed) / (24 * 60 * 60 * 1000)),
+      );
+    }
+  }
+
   return (
     <div className="min-h-dvh bg-gc-bg">
       <PageShowRevalidator />
+      {reconsent.items.length > 0 && (
+        <PolicyReconsentBanner
+          items={reconsent.items.map((i) => ({
+            policyKey: i.policyKey,
+            newVersion: i.newVersion,
+            acceptedVersion: i.acceptedVersion,
+          }))}
+          slugs={slugs}
+          mode={bannerMode}
+          daysRemaining={daysRemaining}
+        />
+      )}
       <AppTopBar />
       <div className="mx-auto max-w-[1440px] flex">
         <AppSidebar />

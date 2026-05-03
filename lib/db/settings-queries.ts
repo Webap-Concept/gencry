@@ -127,7 +127,14 @@ export type SettingKey =
   | 'gdpr.deletion.grace_days'                       // grace period soft-delete prima del purge fisico
   | 'gdpr.export.rate_limit_days'                    // intervallo minimo fra due export per utente
   | 'gdpr.policy.force_reconsent_on_change'          // forza modal riconsenso al login dopo bump versione
+  | 'gdpr.policy.reconsent_grace_days'               // giorni di grace prima che il banner diventi bloccante
+  | 'gdpr.policy.notifications_cron_minutes'         // intervallo cron policy-change-notifications
   | 'gdpr.cookie_banner.enabled'                     // banner cookie attivo (placeholder per PR successiva)
+  // Email policy-update (notifica all'utente che una policy è cambiata)
+  | 'email_policyupdate_subject'
+  | 'email_policyupdate_bcc'
+  | 'email_policyupdate_body'
+  | 'email_policyupdate_footer'
   // Prices Engine
   | 'modules.prices.cron_minutes'      // intervallo cron sync prezzi (1..60)
   | 'modules.prices.universe_hours'    // finestra "active universe" (1..168)
@@ -235,7 +242,13 @@ export type AppSettings = {
   'gdpr.deletion.grace_days': string
   'gdpr.export.rate_limit_days': string
   'gdpr.policy.force_reconsent_on_change': string
+  'gdpr.policy.reconsent_grace_days': string
+  'gdpr.policy.notifications_cron_minutes': string
   'gdpr.cookie_banner.enabled': string
+  email_policyupdate_subject: string | null
+  email_policyupdate_bcc: string | null
+  email_policyupdate_body: string | null
+  email_policyupdate_footer: string | null
   // Modules — Prices Engine
   'modules.prices.cron_minutes': string
   'modules.prices.universe_hours': string
@@ -346,7 +359,13 @@ const DEFAULTS: AppSettings = {
   'gdpr.deletion.grace_days': '30',
   'gdpr.export.rate_limit_days': '7',
   'gdpr.policy.force_reconsent_on_change': 'false',
+  'gdpr.policy.reconsent_grace_days': '14',
+  'gdpr.policy.notifications_cron_minutes': '60',
   'gdpr.cookie_banner.enabled': 'false',
+  email_policyupdate_subject: null,
+  email_policyupdate_bcc: null,
+  email_policyupdate_body: null,
+  email_policyupdate_footer: null,
   // Modules — Prices Engine. Duplicano i defaults della migration M_prices_001
   // (sicurezza: la migration potrebbe non essere stata eseguita in dev locale).
   'modules.prices.cron_minutes': '5',
