@@ -123,6 +123,13 @@ export const SYSTEM_PERMISSIONS: SystemPermission[] = [
     description: "Permette di monitorare le sessioni utente attive e revocarle dal pannello admin.",
     isSystem: true,
   },
+  {
+    key: "admin:gdpr",
+    group: "Admin",
+    label: "Accesso sezione Compliance & GDPR",
+    description: "Permette di vedere lo stato dei consensi, configurare le impostazioni privacy/GDPR e accedere agli strumenti di audit.",
+    isSystem: true,
+  },
 
   // ── Users ────────────────────────────────────────────────────────
   {
