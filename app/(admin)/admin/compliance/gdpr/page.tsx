@@ -1,11 +1,14 @@
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   getGdprDashboardStats,
   getGdprHealthChecks,
 } from "@/lib/account/gdpr-stats";
+import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConsentStatusDashboard } from "./_components/consent-status-dashboard";
+import { GdprLegendGuide } from "./_components/gdpr-legend-guide";
 import { GdprSettingsForm } from "./_components/gdpr-settings-form";
 
 export const metadata: Metadata = { title: "Compliance / GDPR" };
@@ -21,20 +24,41 @@ export default async function GdprCompliancePage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1
-          className="text-xl font-semibold"
-          style={{ color: "var(--admin-text)" }}>
-          GDPR &amp; Consents
-        </h1>
-        <p
-          className="text-xs mt-1 max-w-3xl"
-          style={{ color: "var(--admin-text-faint)" }}>
-          Compliance dashboard and runtime configuration for consent
-          management, data retention and right-to-be-forgotten flows. Settings
-          marked as &ldquo;follow-up PR&rdquo; are persisted now but their
-          consumers ship in subsequent pull requests.
-        </p>
+      <header className="flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background:
+              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
+            border:
+              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
+          }}>
+          <ScrollText size={18} style={{ color: "var(--admin-accent)" }} />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h2
+              className="text-lg font-bold"
+              style={{ color: "var(--admin-text)" }}>
+              <span style={{ color: "var(--admin-text-muted)" }}>
+                Compliance
+              </span>
+              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
+              <span>GDPR &amp; Consents</span>
+            </h2>
+            <AdminSectionInfo
+              title="GDPR settings — operator's guide"
+              ariaLabel="Show GDPR settings guide">
+              <GdprLegendGuide />
+            </AdminSectionInfo>
+          </div>
+          <p
+            className="text-sm mt-0.5"
+            style={{ color: "var(--admin-text-faint)" }}>
+            Compliance dashboard and runtime configuration for consent
+            management, data retention and right-to-be-forgotten flows.
+          </p>
+        </div>
       </header>
 
       {/* Section 1 — current consent status */}
