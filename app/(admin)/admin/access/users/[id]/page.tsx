@@ -1,3 +1,4 @@
+import { getUserConsentRecords } from "@/lib/account/consent-queries";
 import { getAdminPath } from "@/lib/admin-nav";
 import { listAdminUserSessions } from "@/lib/db/admin-sessions-queries";
 import { getAdminUserActivity, getAdminUserById } from "@/lib/db/admin-queries";
@@ -28,6 +29,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityList } from "./_components/activity-list";
 import { UserAccessTab } from "./_components/user-access-tab";
+import { UserConsentsTab } from "./_components/user-consents-tab";
 import {
   BanButton,
   DeleteButton,
@@ -77,14 +79,21 @@ async function UserContent({
   id: string;
   canDelete: boolean;
 }) {
-  const [user, activity, availableRoles, allPermissions, userSessions] =
-    await Promise.all([
-      getAdminUserById(id),
-      getAdminUserActivity(id),
-      getAdminRoles(),
-      getAllPermissions(),
-      listAdminUserSessions(id),
-    ]);
+  const [
+    user,
+    activity,
+    availableRoles,
+    allPermissions,
+    userSessions,
+    consentRecords,
+  ] = await Promise.all([
+    getAdminUserById(id),
+    getAdminUserActivity(id),
+    getAdminRoles(),
+    getAllPermissions(),
+    listAdminUserSessions(id),
+    getUserConsentRecords(id),
+  ]);
 
   if (!user) notFound();
 
@@ -243,6 +252,8 @@ async function UserContent({
     />
   );
 
+  const consentsContent = <UserConsentsTab records={consentRecords} />;
+
   return (
     <div className="space-y-6">
       {/* User Header */}
@@ -324,8 +335,10 @@ async function UserContent({
         activityContent={activityContent}
         accessContent={accessContent}
         sessionsContent={sessionsContent}
+        consentsContent={consentsContent}
         overridesCount={overrides.length}
         activeSessionsCount={activeSessionsCount}
+        consentsCount={consentRecords.length}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Key, Monitor, User } from "lucide-react";
+import { Activity, Key, Monitor, ScrollText, User } from "lucide-react";
 import { useState } from "react";
 
 type Props = {
@@ -8,8 +8,10 @@ type Props = {
   activityContent: React.ReactNode;
   accessContent: React.ReactNode;
   sessionsContent: React.ReactNode;
+  consentsContent: React.ReactNode;
   overridesCount: number;
   activeSessionsCount: number;
+  consentsCount: number;
 };
 
 export function UserDetailTabs({
@@ -17,11 +19,13 @@ export function UserDetailTabs({
   activityContent,
   accessContent,
   sessionsContent,
+  consentsContent,
   overridesCount,
   activeSessionsCount,
+  consentsCount,
 }: Props) {
   const [active, setActive] = useState<
-    "info" | "access" | "sessions" | "activity"
+    "info" | "access" | "sessions" | "activity" | "consents"
   >("info");
 
   const tabs = [
@@ -39,6 +43,12 @@ export function UserDetailTabs({
       badge: activeSessionsCount > 0 ? activeSessionsCount : undefined,
     },
     { id: "activity" as const, label: "Activity", icon: Activity },
+    {
+      id: "consents" as const,
+      label: "Consents",
+      icon: ScrollText,
+      badge: consentsCount > 0 ? consentsCount : undefined,
+    },
   ];
 
   return (
@@ -82,6 +92,7 @@ export function UserDetailTabs({
       {active === "access" && accessContent}
       {active === "sessions" && sessionsContent}
       {active === "activity" && activityContent}
+      {active === "consents" && consentsContent}
     </div>
   );
 }
