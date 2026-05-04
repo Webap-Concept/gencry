@@ -5,17 +5,15 @@
  * kernel di sicurezza del proxy.
  *
  * ─── ROUTING AUTH / VISIBILITY ────────────────────────────────────────
- * La logica public / private / admin / auth-only è gestita
- * esclusivamente dalla tabella `route_registry` su DB.
- * Proxy.ts legge il DB via getActiveRoutes() e usa queste costanti
- * SOLO come kernel di sicurezza per le route di sistema che non
- * possono dipendere dalla disponibilità del DB.
+ * La logica public / private / admin / auth-only è gestita dalla
+ * tabella `pages` (campo `visibility`) — vedi proxy.ts. Le costanti qui
+ * sotto sono il kernel hardcoded per le route di sistema che non
+ * possono dipendere dalla disponibilità del DB (auth + admin sign-in).
  *
- * ─── SISTEMA vs EDITORIALE ────────────────────────────────────────────
- * Le route di sistema (isSystemRoute = true nel DB) compaiono in
- * /admin/route-registry ma i campi pathname e visibility non sono
- * modificabili dall'admin. Solo label, meta tags e impostazioni
- * editoriali sono editabili.
+ * Storico: prima del PR system-pages-auth questa logica viveva nella
+ * tabella `route_registry`, oggi droppata. La gestione dei meta SEO e
+ * della visibility delle route editoriali si fa da
+ * /admin/content/pages → tab Sistema.
  */
 
 // ---------------------------------------------------------------------------

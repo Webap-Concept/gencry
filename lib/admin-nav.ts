@@ -254,13 +254,6 @@ export const ADMIN_NAV: NavItem[] = [
     childrenMaxHeight: "290px",
     children: [
       {
-        key: "seo-meta",
-        href: "/admin/seo/meta-tags",
-        label: "Meta Tags",
-        icon: "FileText",
-        permission: "admin:seo",
-      },
-      {
         key: "seo-robots",
         href: "/admin/seo/robots",
         label: "Robots",

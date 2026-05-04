@@ -801,20 +801,6 @@ export const seoPages = pgTable("seo_pages", {
 export const routeVisibility = ["public", "private"] as const;
 export type RouteVisibility = (typeof routeVisibility)[number];
 
-export const routeRegistry = pgTable("route_registry", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  pathname: varchar("pathname", { length: 500 }).notNull().unique(),
-  label: varchar("label", { length: 150 }).notNull(),
-  visibility: varchar("visibility", { length: 20 })
-    .notNull()
-    .default("public")
-    .$type<RouteVisibility>(),
-  isActive: boolean("is_active").notNull().default(true),
-  isSystemRoute: boolean("is_system_route").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
 export const staffInvitations = pgTable("staff_invitations", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull(),
@@ -901,8 +887,6 @@ export type Redirect        = typeof redirects.$inferSelect;
 export type NewRedirect     = typeof redirects.$inferInsert;
 export type SiteSnippet     = typeof siteSnippets.$inferSelect;
 export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
-export type RouteRegistry   = typeof routeRegistry.$inferSelect;
-export type NewRouteRegistry = typeof routeRegistry.$inferInsert;
 
 // ---------------------------------------------------------------------------
 // Prices Engine — coin metadata, current price, timeseries, source health
