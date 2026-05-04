@@ -74,11 +74,16 @@ const COINS = [
 
 // Default usato quando la system page CMS è assente o ha content vuoto.
 // Tenuto qui (non in app/not-found.tsx) per centralizzare il copy del
-// componente.
-const DEFAULT_DESCRIPTION =
-  "L'asset che cercavi non è in portafoglio. Forse è stata rugpullata, forse l'hai scritta male — succede ai migliori. Torna alla home e riparti dai movimenti del giorno.";
+// componente. È HTML perché lo rendiamo via dangerouslySetInnerHTML —
+// l'editor admin produce già markup, e così la fallback è omogenea.
+const DEFAULT_DESCRIPTION_HTML =
+  "<p>L'asset che cercavi non è in portafoglio. Forse è stata rugpullata, forse l'hai scritta male — succede ai migliori. Torna alla home e riparti dai movimenti del giorno.</p>";
 
-export function Crash404({ description }: { description?: string | null }) {
+export function Crash404({
+  descriptionHtml,
+}: {
+  descriptionHtml?: string | null;
+}) {
   const [price, setPrice] = useState("$0.000123");
   const [change, setChange] = useState("−99.87%");
   const [vol, setVol] = useState("1.234");
@@ -194,11 +199,16 @@ export function Crash404({ description }: { description?: string | null }) {
         style={{ animationDelay: "1.1s" }}>
         Questa pagina è andata <em className="text-gc-accent">−99.9%</em>
       </h1>
-      <p
+      {/* HTML sanitizzato server-side. `<div>` esterno (non `<p>`) per
+          evitare il nesting invalido `<p><p>...</p></p>` quando il content
+          dall'editor è già wrappato in <p>. */}
+      <div
         className="gc404-fade-up mx-auto max-w-[520px] text-center text-[15px] text-gc-fg-3 text-pretty"
-        style={{ animationDelay: "1.3s" }}>
-        {description ?? DEFAULT_DESCRIPTION}
-      </p>
+        style={{ animationDelay: "1.3s" }}
+        dangerouslySetInnerHTML={{
+          __html: descriptionHtml || DEFAULT_DESCRIPTION_HTML,
+        }}
+      />
 
       <div
         className="gc404-fade-up mx-auto mt-[22px] inline-flex max-w-full flex-wrap items-center gap-[18px] rounded-[14px] bg-gc-fg px-5 py-[14px] font-mono text-[12.5px]"
