@@ -421,7 +421,7 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 initial["gdpr.cookie_banner.enabled"] === "true"
               }
               title="Cookie banner enabled"
-              hint="Master switch for the cookie consent banner. ePrivacy + GDPR require prior opt-in for non-technical cookies on EU traffic. The banner UI ships in a follow-up PR."
+              hint="Master switch for the public cookie consent banner. When ON, visitors see a non-blocking banner with 4 categories (necessary, preferences, analytics, marketing). When OFF, the banner is hidden and all non-essential cookies (including Vercel Analytics) stay disabled — no tracking without an explicit opt-in."
               requirement="required"
             />
           </div>

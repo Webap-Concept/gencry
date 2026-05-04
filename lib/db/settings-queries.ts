@@ -129,7 +129,7 @@ export type SettingKey =
   | 'gdpr.policy.force_reconsent_on_change'          // forza modal riconsenso al login dopo bump versione
   | 'gdpr.policy.reconsent_grace_days'               // giorni di grace prima che il banner diventi bloccante
   | 'gdpr.policy.notifications_cron_minutes'         // intervallo cron policy-change-notifications
-  | 'gdpr.cookie_banner.enabled'                     // banner cookie attivo (placeholder per PR successiva)
+  | 'gdpr.cookie_banner.enabled'                     // master switch banner cookie pubblico (4 categorie + gating analytics)
   // Email policy-update (notifica all'utente che una policy è cambiata)
   | 'email_policyupdate_subject'
   | 'email_policyupdate_bcc'
