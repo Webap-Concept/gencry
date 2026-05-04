@@ -37,6 +37,22 @@ export async function getPageBySlug(slug: string): Promise<Page | undefined> {
   return row;
 }
 
+/**
+ * Recupera una pagina di sistema dalla `systemKey` invece che dallo `slug`.
+ * Più robusto del lookup per slug perché la systemKey è stabile mentre lo
+ * slug può essere rinominato dall'admin.
+ */
+export async function getPageBySystemKey(
+  key: SystemPageKey,
+): Promise<Page | undefined> {
+  const [row] = await db
+    .select()
+    .from(pages)
+    .where(and(eq(pages.isSystem, true), eq(pages.systemKey, key)))
+    .limit(1);
+  return row;
+}
+
 export async function getPageById(id: number): Promise<Page | undefined> {
   const [row] = await db
     .select()

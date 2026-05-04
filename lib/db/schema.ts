@@ -245,6 +245,7 @@ export const SYSTEM_PAGE_KEYS = [
   "privacy",
   "marketing",
   "cookie",
+  "not_found",
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
