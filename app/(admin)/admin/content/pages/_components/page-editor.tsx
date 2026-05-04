@@ -589,7 +589,16 @@ function StrutturaTab({
           style={inputStyle}>
           <option value="">— None (root page) —</option>
           {pages
-            .filter((p) => !currentPageId || p.id !== currentPageId)
+            .filter(
+              (p) =>
+                // Le system pages non possono essere parent di una user
+                // CMS page: non sono navigabili come URL CMS (sono
+                // container amministrativi) e mescolare le gerarchie
+                // creerebbe slug come `/sign-in/qualcosa` che non
+                // verrebbero mai serviti dal CMS.
+                !p.isSystem &&
+                (!currentPageId || p.id !== currentPageId),
+            )
             .map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title} (/{p.slug})
