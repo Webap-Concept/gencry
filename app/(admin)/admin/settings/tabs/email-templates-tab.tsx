@@ -78,6 +78,22 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "userName",  value: "{{userName}}" },
     { label: "otpCode",   value: "{{otpCode}}" },
   ],
+  mfaenabled: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+  ],
+  mfadisabled: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+  ],
+  mfaadminreset: [
+    { label: "appName",   value: "{{appName}}" },
+    { label: "userEmail", value: "{{userEmail}}" },
+    { label: "userName",  value: "{{userName}}" },
+    { label: "reason",    value: "{{reason}}" },
+  ],
 };
 
 const TEMPLATES = [
@@ -190,6 +206,36 @@ const TEMPLATES = [
     defaultSubject: "{{otpCode}} è il tuo codice per eliminare l'account {{appName}}",
     defaultBody:
       "Hai chiesto di eliminare il tuo account {{appName}}. Inserisci il codice qui sotto per confermare. Se non sei stato tu, ignora questa email — il codice scade tra 15 minuti.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "mfaenabled",
+    label: "MFA enabled (verifica a due fattori attivata)",
+    prefix: "email_mfaenabled",
+    file: "lib/email/templates/mfa-enabled.ts",
+    defaultSubject: "Autenticazione a due fattori attivata — {{appName}}",
+    defaultBody:
+      "Ciao {{userName}},\n\nHai appena attivato l'autenticazione a due fattori sul tuo account {{appName}}. Da ora in poi al login ti chiederemo un codice generato dalla tua app autenticatore oltre alla password.\n\nConserva i recovery codes in un posto sicuro: sono l'unico modo per accedere se perdi il telefono.\n\nSe non sei stato tu, accedi al tuo account, disabilita la verifica e contatta subito l'assistenza.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "mfadisabled",
+    label: "MFA disabled (verifica a due fattori disattivata)",
+    prefix: "email_mfadisabled",
+    file: "lib/email/templates/mfa-disabled.ts",
+    defaultSubject: "Autenticazione a due fattori disattivata — {{appName}}",
+    defaultBody:
+      "Ciao {{userName}},\n\nHai appena disattivato l'autenticazione a due fattori sul tuo account {{appName}}. Al prossimo login useremo solo email e password — il livello di protezione del tuo account è diminuito.\n\nTutti i recovery codes che avevi sono stati invalidati. Se vuoi puoi riattivare la verifica a due fattori in qualsiasi momento dalle impostazioni di sicurezza.\n\nSe non sei stato tu, cambia subito la password e contatta l'assistenza.",
+    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
+  },
+  {
+    id: "mfaadminreset",
+    label: "MFA reset by admin (supporto ha resettato il TOTP utente)",
+    prefix: "email_mfaadminreset",
+    file: "lib/email/templates/mfa-admin-reset.ts",
+    defaultSubject: "Verifica a due fattori resettata dal supporto — {{appName}}",
+    defaultBody:
+      "Ciao {{userName}},\n\nUn amministratore di {{appName}} ha resettato la verifica a due fattori sul tuo account. Tutti i recovery codes precedenti sono stati invalidati e al prossimo login useremo solo email e password.\n\nMotivazione del supporto: {{reason}}\n\nPer ripristinare la protezione, accedi al tuo account e riattiva la verifica a due fattori dalle impostazioni di sicurezza. Se non hai richiesto questa operazione, contatta subito l'assistenza e cambia la password.",
     defaultFooter: "© {{appName}} · Tutti i diritti riservati",
   },
 ] as const;
