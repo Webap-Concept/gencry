@@ -2,6 +2,7 @@
 
 import { Cookie } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   CookieCustomizeModal,
   type CustomizeInitialPrefs,
@@ -44,16 +45,16 @@ export function CookiePreferencesTrigger({
   if (variant === "button") {
     return (
       <>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen(true)}
-          className={
-            className ??
-            "inline-flex items-center gap-1.5 rounded-lg border border-gc-line bg-gc-bg-2 px-3 py-2 text-[13px] font-medium text-gc-fg transition-colors hover:bg-gc-bg"
-          }>
+          className={className}
+        >
           <Cookie size={14} />
           {label}
-        </button>
+        </Button>
         {open && (
           <CookieCustomizeModal
             initialPrefs={initialPrefs}

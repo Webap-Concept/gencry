@@ -191,11 +191,13 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
       {consent.contentHtml && (
         <>
           <div className="border-t border-gc-line px-4 py-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gc-fg-3 hover:text-gc-fg transition-colors">
+            >
               <ChevronDown
                 className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
               />
@@ -204,7 +206,7 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
                 : isOn
                   ? "Leggi testo accettato"
                   : "Leggi informativa"}
-            </button>
+            </Button>
           </div>
           {open && (
             <div className="border-t border-gc-line px-4 py-4">
