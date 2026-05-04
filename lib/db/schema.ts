@@ -265,6 +265,39 @@ export const SYSTEM_PAGE_KEYS = [
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
+/**
+ * Whitelist delle system pages che hanno lo slug "editorial": il routing
+ * CMS serve qualunque slug, quindi l'admin può rinominare (es. /privacy →
+ * /privacy-policy) senza rompere niente.
+ *
+ * Tutte le altre system pages hanno lo slug bound a un page handler
+ * hardcoded (es. /sign-in → app/(login)/sign-in/page.tsx, /404 → app/
+ * not-found.tsx). Rinominare il record in `pages` NON sposta la rotta
+ * vera: produrrebbe solo disallineamento tra il container amministrativo
+ * e il page handler. Per questo l'input slug è disabilitato lato UI e
+ * l'action rifiuta cambi server-side.
+ */
+export const SYSTEM_PAGE_KEYS_EDITABLE_SLUG: readonly SystemPageKey[] = [
+  "terms",
+  "privacy",
+  "marketing",
+  "cookie",
+];
+
+/**
+ * Restituisce true se lo slug della pagina può essere modificato.
+ * Le user pages (isSystem=false) hanno sempre slug editabile.
+ * Le system pages lo hanno solo se la systemKey è nella whitelist.
+ */
+export function isSystemSlugEditable(page: {
+  isSystem: boolean;
+  systemKey: SystemPageKey | null;
+}): boolean {
+  if (!page.isSystem) return true;
+  if (!page.systemKey) return true;
+  return SYSTEM_PAGE_KEYS_EDITABLE_SLUG.includes(page.systemKey);
+}
+
 export const pages = pgTable("pages", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),

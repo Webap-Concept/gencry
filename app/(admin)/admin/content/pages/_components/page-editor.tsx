@@ -715,7 +715,7 @@ function StrutturaTab({
               gap: "4px",
             }}>
             <Lock size={11} />
-            Template imposto dalla regola del template padre — non modificabile.
+            Template enforced by the parent template rule — not editable.
           </p>
         )}
       </div>
@@ -745,6 +745,7 @@ export default function PageEditor({
   isSystem = false,
   pageType = "page",
   contentEditable = true,
+  slugEditable = true,
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -758,6 +759,7 @@ export default function PageEditor({
   isSystem?: boolean;
   pageType?: string;
   contentEditable?: boolean;
+  slugEditable?: boolean;
 }) {
   const router = useRouter();
   const isEdit = !!page;
@@ -1001,14 +1003,28 @@ export default function PageEditor({
                   value={slugLeaf}
                   onChange={(e) => handleSlugLeafChange(e.target.value)}
                   placeholder="page-name"
+                  disabled={!slugEditable}
                   style={{
                     ...inputStyle,
                     borderRadius: "0 0.5rem 0.5rem 0",
                     fontFamily: "monospace",
+                    cursor: slugEditable ? undefined : "not-allowed",
+                    opacity: slugEditable ? 1 : 0.7,
                   }}
                 />
               </div>
-              {slugChanged ? (
+              {!slugEditable ? (
+                <p
+                  style={{
+                    ...hintStyle,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}>
+                  <Lock size={11} />
+                  This URL is bound to a hardcoded route handler — not editable.
+                </p>
+              ) : slugChanged ? (
                 <div
                   className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
                   style={{

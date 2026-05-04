@@ -1,4 +1,5 @@
 import { getPageById, getAllPages } from "@/lib/db/pages-queries";
+import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -68,6 +69,10 @@ export default async function EditPagePage({
         isSystem={page.isSystem ?? false}
         pageType={page.pageType ?? "page"}
         contentEditable={page.contentEditable ?? true}
+        slugEditable={isSystemSlugEditable({
+          isSystem: page.isSystem ?? false,
+          systemKey: page.systemKey ?? null,
+        })}
       />
     </div>
   );
