@@ -16,10 +16,14 @@ import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 // il prossimo deploy.
 export const dynamic = "force-dynamic";
 
-// Pseudopath usato dal sistema SEO interno per i meta della 404. Non
-// corrisponde a una rotta servita: è solo la chiave di lookup nella
-// tabella seo_pages, gestibile da /admin/seo/meta-tags.
-const NOT_FOUND_SEO_PATHNAME = "/__404";
+// Pathname usato per i meta della 404 nel sistema SEO interno. Corrisponde
+// allo slug della system page in `pages` (gestita da /admin/content/pages
+// tab Sistema), così l'admin trova UN SOLO record "/404" in entrambi i
+// pannelli — niente duplicati confusi.
+// L'URL letterale "/404" non è raggiungibile: `[...slug]/page.tsx` chiama
+// notFound() quando incontra la system page, così digitando "/404" parte
+// comunque la pagina 404 globale.
+const NOT_FOUND_SEO_PATHNAME = "/404";
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await getSeoPage(NOT_FOUND_SEO_PATHNAME);
