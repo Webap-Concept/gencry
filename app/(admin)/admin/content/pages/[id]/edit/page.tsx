@@ -67,6 +67,7 @@ export default async function EditPagePage({
         templateLocked={templateLocked}
         isSystem={page.isSystem ?? false}
         pageType={page.pageType ?? "page"}
+        contentEditable={page.contentEditable ?? true}
       />
     </div>
   );

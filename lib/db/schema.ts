@@ -246,6 +246,15 @@ export const SYSTEM_PAGE_KEYS = [
   "marketing",
   "cookie",
   "not_found",
+  // Auth routes hardcoded — non hanno content modificabile, l'admin
+  // gestisce solo titolo (per la lista) e i meta SEO. La rotta vera è
+  // servita da app/(login)/<slug>/page.tsx; la system page in `pages`
+  // è solo container amministrativo.
+  "sign_in",
+  "sign_up",
+  "verify_email",
+  "forgot_password",
+  "reset_password",
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
@@ -268,6 +277,12 @@ export const pages = pgTable("pages", {
   systemKey: varchar("system_key", {
     length: 50,
   }).$type<SystemPageKey | null>(),
+  // Quando false, la system page è "meta-only": l'admin può editare solo
+  // titolo + meta SEO, niente content/template/custom fields. Tipico per
+  // le rotte servite da page handlers Next.js (auth, /404) dove la system
+  // page è solo un container amministrativo. Default true per le pagine
+  // utente normali e per le system pages content-driven (privacy, terms…).
+  contentEditable: boolean("content_editable").notNull().default(true),
   contentVersion: varchar("content_version", { length: 20 })
     .notNull()
     .default("1-2026-04"),
