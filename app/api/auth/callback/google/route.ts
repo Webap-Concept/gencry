@@ -24,9 +24,11 @@ import {
   checkDeviceTrust,
   generateDeviceToken,
   getDeviceToken,
-  setPendingAuthCookie,
   setDeviceTokenCookie,
+  setPendingAuthCookie,
 } from "@/lib/auth/trusted-device";
+import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -136,6 +138,16 @@ export async function GET(req: NextRequest) {
         await addTrustedDevice(dbUser.id, newToken, ua);
         await setDeviceTokenCookie(newToken);
       }
+
+      // MFA gate: se attiva, sospendi la sessione e passa al challenge.
+      // Per i nuovi account OAuth (`created`) saltiamo perché non possono
+      // ancora avere MFA configurata.
+      const mfaState = await getMfaState(dbUser.id);
+      if (mfaState.enabled) {
+        await setPendingMfaCookie(dbUser.id, dbUser.role);
+        return redirect("/sign-in/mfa");
+      }
+
       await createSession(dbUser.id, dbUser.role);
       // Onboarding gate: utenti non-admin con onboarding incompleto vengono
       // rimandati al wizard (es. abbandono dopo signup OAuth).

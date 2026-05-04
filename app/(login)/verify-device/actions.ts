@@ -2,6 +2,8 @@
 "use server";
 
 import { validatedAction } from "@/lib/auth/middleware";
+import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import {
   checkGeneralRateLimit,
@@ -54,6 +56,20 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
   await addTrustedDevice(userId, newToken, ua);
   await setDeviceTokenCookie(newToken);
   await clearPendingAuthCookie();
+
+  // MFA gate: se l'utente ha attivato il TOTP, blocca la creazione di
+  // sessione e passa al challenge. Il device viene comunque memorizzato
+  // come trusted per il prossimo login.
+  const mfaState = await getMfaState(userId);
+  if (mfaState.enabled) {
+    await setPendingMfaCookie(userId, role);
+    await db.insert(activityLogs).values({
+      userId,
+      action: ActivityType.DEVICE_VERIFIED,
+    });
+    redirect("/sign-in/mfa");
+  }
+
   await createSession(userId, role);
 
   await db.insert(activityLogs).values({
