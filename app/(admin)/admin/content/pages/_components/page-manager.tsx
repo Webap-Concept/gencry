@@ -114,7 +114,7 @@ function ChildPaginator({
           ref={inputRef}
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Cerca tra i figli…"
+          placeholder="Search children…"
           style={{
             width: "100%",
             paddingLeft: "22px",
@@ -174,7 +174,7 @@ function ChildPaginator({
             whiteSpace: "nowrap",
             flexShrink: 0,
           }}>
-          {searchResults ?? 0} risultati
+          {searchResults ?? 0} results
         </span>
       ) : (
         <div
@@ -268,13 +268,13 @@ function ChildTemplatePicker({
         <div className="flex items-center gap-2 mb-1">
           <ShieldCheck size={15} style={{ color: "var(--admin-accent)" }} />
           <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-            Scegli il template
+            Choose template
           </h3>
         </div>
         <p className="text-xs mb-5" style={{ color: "var(--admin-text-muted)" }}>
-          Nuova pagina figlia di{" "}
+          New child page of{" "}
           <strong style={{ color: "var(--admin-text)" }}>{parentTitle}</strong>.
-          Seleziona il template da usare:
+          Select the template to use:
         </p>
         <div className="space-y-2 mb-5">
           {options.map((t) => (
@@ -318,7 +318,7 @@ function ChildTemplatePicker({
           }}
           onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--admin-input-border)")}
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--admin-border)")}>
-          Annulla
+          Cancel
         </button>
       </div>
     </div>
@@ -465,21 +465,6 @@ function PageRow({
             <p className="text-sm font-medium truncate" style={{ color: "var(--admin-text)" }}>
               {page.title}
             </p>
-            {isSystem && (
-              <Tooltip label="Pagina di sistema — non eliminabile" side="top">
-                <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
-                  style={{
-                    background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-                    color: "var(--admin-accent)",
-                    border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-                    cursor: "default",
-                  }}>
-                  <Lock size={9} />
-                  Sistema
-                </span>
-              </Tooltip>
-            )}
           </div>
           <p className="text-xs font-mono truncate" style={{ color: "var(--admin-text-faint)" }}>
             /{page.slug}
@@ -499,22 +484,26 @@ function PageRow({
           </span>
         )}
 
-        <span
-          className="hidden sm:flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap transition-all"
-          style={{
-            background: isPublished
-              ? "color-mix(in srgb, #22c55e 12%, var(--admin-card-bg))"
-              : "color-mix(in srgb, var(--admin-text-faint) 15%, var(--admin-card-bg))",
-            color: isPublished ? "#22c55e" : "var(--admin-text-muted)",
-            border: isPublished
-              ? "1px solid color-mix(in srgb, #22c55e 25%, transparent)"
-              : "1px solid color-mix(in srgb, var(--admin-text-faint) 25%, transparent)",
-          }}>
-          {isPublished ? (<><Globe size={10} /> Pubblicata</>) : (<>Bozza</>)}
-        </span>
+        {/* Status badge: nascosto per le system pages — sono sempre
+            published e non si depubblicano. */}
+        {!isSystem && (
+          <span
+            className="hidden sm:flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap transition-all"
+            style={{
+              background: isPublished
+                ? "color-mix(in srgb, #22c55e 12%, var(--admin-card-bg))"
+                : "color-mix(in srgb, var(--admin-text-faint) 15%, var(--admin-card-bg))",
+              color: isPublished ? "#22c55e" : "var(--admin-text-muted)",
+              border: isPublished
+                ? "1px solid color-mix(in srgb, #22c55e 25%, transparent)"
+                : "1px solid color-mix(in srgb, var(--admin-text-faint) 25%, transparent)",
+            }}>
+            {isPublished ? (<><Globe size={10} /> Published</>) : (<>Draft</>)}
+          </span>
+        )}
 
         <div className="flex items-center gap-0.5 shrink-0" onClick={stopRow}>
-          <Tooltip label="Modifica pagina" side="top">
+          <Tooltip label="Edit page" side="top">
             <button
               onClick={() => onEdit(page.id)}
               className="p-1.5 rounded-lg transition-colors"
@@ -532,7 +521,7 @@ function PageRow({
           </Tooltip>
 
           {isPublished && frontUrl && (
-            <Tooltip label="Vedi online" side="top">
+            <Tooltip label="View live" side="top">
               <a
                 href={frontUrl}
                 target="_blank"
@@ -552,7 +541,7 @@ function PageRow({
           )}
 
           {!isPublished && (
-            <Tooltip label="Anteprima bozza" side="top">
+            <Tooltip label="Preview draft" side="top">
               <a
                 href={previewUrl}
                 target="_blank"
@@ -573,9 +562,9 @@ function PageRow({
             </Tooltip>
           )}
 
-          {/* Nuova figlia — solo per pagine non di sistema */}
+          {/* New child — only for non-system pages */}
           {!isSystem && (
-            <Tooltip label="Nuova pagina figlia" side="top">
+            <Tooltip label="New child page" side="top">
               <button
                 onClick={() => onNewChild(page.id)}
                 className="p-1.5 rounded-lg transition-colors"
@@ -594,45 +583,50 @@ function PageRow({
             </Tooltip>
           )}
 
-          <Tooltip label={isPublished ? "Depubblica" : "Pubblica"} side="top">
-            <button
-              onClick={() => onToggleStatus(page.id, page.status)}
-              disabled={isPendingToggle}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: isPublished ? "#22c55e" : "var(--admin-text-faint)" }}
-              onMouseEnter={(e) => {
-                if (isPublished) {
-                  e.currentTarget.style.background =
-                    "color-mix(in srgb, #ef4444 10%, var(--admin-card-bg))";
-                  e.currentTarget.style.color = "#ef4444";
-                } else {
-                  e.currentTarget.style.background =
-                    "color-mix(in srgb, #22c55e 10%, var(--admin-card-bg))";
-                  e.currentTarget.style.color = "#22c55e";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = isPublished ? "#22c55e" : "var(--admin-text-faint)";
-              }}>
-              {isPendingToggle ? (
-                <span
-                  className="block w-3 h-3 border border-t-transparent rounded-full animate-spin"
-                  style={{
-                    borderColor: "var(--admin-accent)",
-                    borderTopColor: "transparent",
-                  }}
-                />
-              ) : isPublished ? (
-                <EyeOff size={13} />
-              ) : (
-                <Globe size={13} />
-              )}
-            </button>
-          </Tooltip>
+          {/* Toggle publish/unpublish: nascosto per le system pages —
+              sono sempre published per definizione (servono i meta a
+              runtime ai page handler dedicati). */}
+          {!isSystem && (
+            <Tooltip label={isPublished ? "Unpublish" : "Publish"} side="top">
+              <button
+                onClick={() => onToggleStatus(page.id, page.status)}
+                disabled={isPendingToggle}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: isPublished ? "#22c55e" : "var(--admin-text-faint)" }}
+                onMouseEnter={(e) => {
+                  if (isPublished) {
+                    e.currentTarget.style.background =
+                      "color-mix(in srgb, #ef4444 10%, var(--admin-card-bg))";
+                    e.currentTarget.style.color = "#ef4444";
+                  } else {
+                    e.currentTarget.style.background =
+                      "color-mix(in srgb, #22c55e 10%, var(--admin-card-bg))";
+                    e.currentTarget.style.color = "#22c55e";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = isPublished ? "#22c55e" : "var(--admin-text-faint)";
+                }}>
+                {isPendingToggle ? (
+                  <span
+                    className="block w-3 h-3 border border-t-transparent rounded-full animate-spin"
+                    style={{
+                      borderColor: "var(--admin-accent)",
+                      borderTopColor: "transparent",
+                    }}
+                  />
+                ) : isPublished ? (
+                  <EyeOff size={13} />
+                ) : (
+                  <Globe size={13} />
+                )}
+              </button>
+            </Tooltip>
+          )}
 
           {!isSystem && (
-            <Tooltip label="Elimina pagina" side="top">
+            <Tooltip label="Delete page" side="top">
               <button
                 onClick={() =>
                   onDeleteRequest({
@@ -774,7 +768,7 @@ function PageTreeView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cerca pagina..."
+            placeholder="Search page..."
             className="w-full pl-8 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
             style={{
               background: "var(--admin-page-bg)",
@@ -790,7 +784,7 @@ function PageTreeView({
             style={{ background: "var(--admin-accent)" }}
             onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.9)")}
             onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-            <Plus size={15} /> Nuova pagina
+            <Plus size={15} /> New page
           </button>
         )}
       </div>
@@ -800,7 +794,7 @@ function PageTreeView({
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <FileText size={36} className="mb-3" style={{ color: "var(--admin-text-faint)" }} />
           <p className="text-sm font-medium" style={{ color: "var(--admin-text-muted)" }}>
-            {searchActive ? "Nessuna pagina trovata" : emptyLabel}
+            {searchActive ? "No pages found" : emptyLabel}
           </p>
           {!searchActive && emptyHint && (
             <p className="text-xs mt-1" style={{ color: "var(--admin-text-faint)" }}>
@@ -924,7 +918,7 @@ export default function PageManager({
   function buildDeleteMessage(target: DeleteTarget): React.ReactNode {
     return (
       <span>
-        Stai per eliminare la pagina{" "}
+        You're about to delete page{" "}
         <strong style={{ color: "var(--admin-text, #cdccca)" }}>{target.title}</strong>{" "}
         (<code style={{ fontSize: "12px" }}>/{target.slug}</code>).
         {target.descendants > 0 && (
@@ -942,14 +936,14 @@ export default function PageManager({
                 fontSize: "13px",
                 fontWeight: 500,
               }}>
-              ⚠️ Verranno eliminate anche <strong>{target.descendants}</strong>{" "}
-              {target.descendants === 1 ? "pagina figlia" : "pagine figlie"}.
+              ⚠️ <strong>{target.descendants}</strong>{" "}
+              {target.descendants === 1 ? "child page" : "child pages"} will also be deleted.
             </span>
           </>
         )}
         <br /><br />
         <span style={{ fontSize: "13px" }}>
-          Questa operazione è <strong>irreversibile</strong>.
+          This action is <strong>irreversible</strong>.
         </span>
       </span>
     );
@@ -997,7 +991,7 @@ export default function PageManager({
           onMouseEnter={(e) => { if (activeTab !== "user") e.currentTarget.style.color = "var(--admin-text)"; }}
           onMouseLeave={(e) => { if (activeTab !== "user") e.currentTarget.style.color = "var(--admin-text-muted)"; }}>
           <FileText size={13} />
-          Pagine
+          Pages
           <span
             style={{
               display: "inline-flex",
@@ -1025,7 +1019,7 @@ export default function PageManager({
           onMouseEnter={(e) => { if (activeTab !== "system") e.currentTarget.style.color = "var(--admin-text)"; }}
           onMouseLeave={(e) => { if (activeTab !== "system") e.currentTarget.style.color = "var(--admin-text-muted)"; }}>
           <Lock size={13} />
-          Sistema
+          System
           <span
             style={{
               display: "inline-flex",
@@ -1060,8 +1054,8 @@ export default function PageManager({
           onDeleteRequest={setDeleteTarget}
           onNewChild={handleNewChild}
           onToggleStatus={handleToggleStatus}
-          emptyLabel="Nessuna pagina creata"
-          emptyHint='Clicca "Nuova pagina" per iniziare.'
+          emptyLabel="No pages created"
+          emptyHint='Click "New page" to begin.'
           showNewButton={true}
           onNewPage={() => router.push(`${getAdminPath("content-pages")}/new`)}
         />
@@ -1079,8 +1073,8 @@ export default function PageManager({
           onDeleteRequest={setDeleteTarget}
           onNewChild={handleNewChild}
           onToggleStatus={handleToggleStatus}
-          emptyLabel="Nessuna pagina di sistema"
-          emptyHint="Le pagine di sistema vengono create automaticamente dal setup."
+          emptyLabel="No system pages"
+          emptyHint="System pages are created automatically by setup."
           showNewButton={false}
           onNewPage={() => {}}
         />
@@ -1098,10 +1092,10 @@ export default function PageManager({
       {deleteTarget && (
         <ConfirmModal
           open={!!deleteTarget}
-          title="Elimina pagina"
+          title="Delete page"
           message={buildDeleteMessage(deleteTarget)}
-          confirmLabel="Elimina"
-          cancelLabel="Annulla"
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
           variant="danger"
           loading={deleteLoading}
           onConfirm={handleConfirmDelete}

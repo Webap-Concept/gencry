@@ -309,7 +309,7 @@ function SeoTab({
         <p
           className="text-xs font-semibold uppercase tracking-wide"
           style={{ color: "var(--admin-text-faint)" }}>
-          {seo ? "Meta SEO configurati" : "Nessun meta SEO"}
+          {seo ? "SEO meta configured" : "No SEO meta"}
         </p>
         <button
           type="button"
@@ -329,7 +329,7 @@ function SeoTab({
           }
           onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
           {seo ? <Pencil size={12} /> : <Search size={12} />}
-          {seo ? "Modifica SEO" : "Configura SEO"}
+          {seo ? "Edit SEO" : "Configure SEO"}
         </button>
       </div>
       {!seo ? (
@@ -339,13 +339,13 @@ function SeoTab({
             <p
               className="text-sm font-medium"
               style={{ color: "var(--admin-text-muted)" }}>
-              Nessun meta SEO configurato.
+              No SEO meta configured.
             </p>
             <p
               className="text-xs mt-1"
               style={{ color: "var(--admin-text-faint)" }}>
-              Clicca <strong>Configura SEO</strong> per aggiungere titolo,
-              descrizione e Open Graph.
+              Click <strong>Configure SEO</strong> to add title,
+              description and Open Graph.
             </p>
           </div>
         </div>
@@ -430,7 +430,7 @@ function PubTab({
           background: "var(--admin-page-bg)",
           border: "1px solid var(--admin-input-border)",
         }}>
-        <p style={labelStyle}>Visibilità</p>
+        <p style={labelStyle}>Visibility</p>
         <div className="flex gap-3">
           {(["public", "private"] as const).map((v) => (
             <button
@@ -452,14 +452,14 @@ function PubTab({
                     ? "1px solid color-mix(in srgb, var(--admin-accent) 30%, transparent)"
                     : "1px solid var(--admin-card-border)",
               }}>
-              {v === "public" ? "Pubblica" : "Privata (richiede login)"}
+              {v === "public" ? "Public" : "Private (login required)"}
             </button>
           ))}
         </div>
         <p style={hintStyle}>
           {visibility === "public"
-            ? "Accessibile a chiunque visiti l'URL."
-            : "Gli utenti non autenticati vengono reindirizzati a /sign-in."}
+            ? "Accessible to anyone visiting the URL."
+            : "Unauthenticated users are redirected to /sign-in."}
         </p>
       </div>
       <div
@@ -468,7 +468,7 @@ function PubTab({
           background: "var(--admin-page-bg)",
           border: "1px solid var(--admin-input-border)",
         }}>
-        <p style={labelStyle}>Stato pubblicazione</p>
+        <p style={labelStyle}>Publication status</p>
         <div className="flex gap-3">
           {(["draft", "published"] as const).map((s) => (
             <button
@@ -497,18 +497,18 @@ function PubTab({
                     : "1px solid var(--admin-card-border)",
               }}>
               {s === "published" ? <Eye size={15} /> : <EyeOff size={15} />}
-              {s === "published" ? "Pubblicata" : "Bozza"}
+              {s === "published" ? "Published" : "Draft"}
             </button>
           ))}
         </div>
         <p style={hintStyle}>
           {status === "published"
-            ? `La pagina è visibile pubblicamente su /${slug}`
-            : "La pagina non è visibile al pubblico"}
+            ? `Page is publicly visible at /${slug}`
+            : "Page is not publicly visible"}
         </p>
       </div>
       <div className="space-y-1.5">
-        <label style={labelStyle}>Data di pubblicazione</label>
+        <label style={labelStyle}>Publication date</label>
         <input
           type="datetime-local"
           value={publishedAt}
@@ -516,11 +516,11 @@ function PubTab({
           style={inputStyle}
         />
         <p style={hintStyle}>
-          Se vuota e lo stato è "Pubblicata", verrà usata la data e ora attuale.
+          If empty and status is "Published", the current date and time will be used.
         </p>
       </div>
       <div className="space-y-1.5">
-        <label style={labelStyle}>Data di scadenza (opzionale)</label>
+        <label style={labelStyle}>Expiry date (optional)</label>
         <input
           type="datetime-local"
           value={expiresAt}
@@ -528,7 +528,7 @@ function PubTab({
           style={inputStyle}
         />
         <p style={hintStyle}>
-          Dopo questa data la pagina tornerà automaticamente in bozza.
+          After this date the page automatically reverts to draft.
         </p>
       </div>
       {expiresAt && (
@@ -546,8 +546,8 @@ function PubTab({
           <p
             className="text-xs leading-relaxed"
             style={{ color: "var(--admin-text-muted)" }}>
-            Contenuto temporaneo: scade il{" "}
-            <strong>{new Date(expiresAt).toLocaleString("it-IT")}</strong>.
+            Temporary content: expires{" "}
+            <strong>{new Date(expiresAt).toLocaleString("en-US")}</strong>.
           </p>
         </div>
       )}
@@ -580,14 +580,14 @@ function StrutturaTab({
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <label style={labelStyle}>Pagina padre (opzionale)</label>
+        <label style={labelStyle}>Parent page (optional)</label>
         <select
           value={parentId ?? ""}
           onChange={(e) =>
             onParentChange(e.target.value ? Number(e.target.value) : null)
           }
           style={inputStyle}>
-          <option value="">— Nessuna (pagina radice) —</option>
+          <option value="">— None (root page) —</option>
           {pages
             .filter((p) => !currentPageId || p.id !== currentPageId)
             .map((p) => (
@@ -597,13 +597,13 @@ function StrutturaTab({
             ))}
         </select>
         <p style={hintStyle}>
-          Assegnare una pagina padre costruisce la gerarchia del sito (es.
-          /servizi/consulenza).
+          Assigning a parent page builds the site hierarchy (e.g.
+          /services/consulting).
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <label style={labelStyle}>Template (opzionale)</label>
+        <label style={labelStyle}>Template (optional)</label>
         {templateLocked && selectedTemplate ? (
           <div
             className="rounded-lg px-4 py-3 flex items-center gap-3"
@@ -657,14 +657,14 @@ function StrutturaTab({
               border: "1px solid var(--admin-input-border)",
               color: "var(--admin-text-faint)",
             }}>
-            Nessun template creato.{" "}
+            No template created.{" "}
             <a
               href={getAdminPath("content-templates")}
               className="underline"
               style={{ color: "var(--admin-accent)" }}>
-              Crea un template
+              Create a template
             </a>{" "}
-            per aggiungere campi custom alla pagina.
+            to add custom fields to the page.
           </div>
         ) : (
           <>
@@ -676,7 +676,7 @@ function StrutturaTab({
                 setCustomFields({});
               }}
               style={inputStyle}>
-              <option value="">— Nessun template —</option>
+              <option value="">— No template —</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -687,11 +687,11 @@ function StrutturaTab({
               <p style={hintStyle}>
                 {selectedTemplate.fields.length > 0 ? (
                   <>
-                    I campi custom di questo template appariranno{" "}
-                    <strong>sopra i tab</strong>, subito sotto il titolo pagina.
+                    The custom fields of this template will appear{" "}
+                    <strong>above the tabs</strong>, just below the page title.
                   </>
                 ) : (
-                  "Questo template non ha campi custom."
+                  "This template has no custom fields."
                 )}
               </p>
             )}
@@ -876,10 +876,10 @@ export default function PageEditor({
   const slugChanged = isEdit && slug !== originalSlug && slug.trim() !== "";
 
   const currentLabel = isEdit
-    ? title || page?.title || "Modifica pagina"
+    ? title || page?.title || "Edit page"
     : title
       ? title
-      : "Nuova pagina";
+      : "New page";
 
   return (
     <>
@@ -954,12 +954,12 @@ export default function PageEditor({
           }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label style={labelStyle}>Titolo pagina</label>
+              <label style={labelStyle}>Page title</label>
               <input
                 name="title"
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="Es. Chi siamo"
+                placeholder="e.g. About us"
                 required
                 style={inputStyle}
               />
@@ -991,7 +991,7 @@ export default function PageEditor({
                 <input
                   value={slugLeaf}
                   onChange={(e) => handleSlugLeafChange(e.target.value)}
-                  placeholder="nome-pagina"
+                  placeholder="page-name"
                   style={{
                     ...inputStyle,
                     borderRadius: "0 0.5rem 0.5rem 0",
@@ -1016,13 +1016,13 @@ export default function PageEditor({
                   <p
                     className="text-xs leading-relaxed"
                     style={{ color: "var(--admin-text-muted)" }}>
-                    Verrà creato un redirect 301 automatico da{" "}
+                    A 301 redirect will be created automatically from{" "}
                     <code
                       className="font-mono"
                       style={{ color: "var(--admin-text)" }}>
                       /{originalSlug}
                     </code>{" "}
-                    a{" "}
+                    to{" "}
                     <code
                       className="font-mono"
                       style={{ color: "var(--admin-text)" }}>
@@ -1035,7 +1035,7 @@ export default function PageEditor({
                 <p style={hintStyle}>
                   URL:{" "}
                   <strong style={{ color: "var(--admin-text-muted)" }}>
-                    /{slug || "slug-pagina"}
+                    /{slug || "page-slug"}
                   </strong>
                 </p>
               )}
@@ -1081,13 +1081,13 @@ export default function PageEditor({
                     <line x1="16" y1="17" x2="8" y2="17" />
                     <polyline points="10,9 9,9 8,9" />
                   </svg>
-                  Contenuto
+                  Content
                 </TabBtn>
                 <TabBtn
                   active={activeTab === "struttura"}
                   onClick={() => setActiveTab("struttura")}>
                   <GitBranch size={14} />
-                  Struttura
+                  Structure
                   {(parentId || templateId) && (
                     <span
                       className="w-1.5 h-1.5 rounded-full ml-0.5"
@@ -1114,7 +1114,7 @@ export default function PageEditor({
                 active={activeTab === "pub"}
                 onClick={() => setActiveTab("pub")}>
                 <Calendar size={14} />
-                <span className="hidden sm:inline">Pubblicazione</span>
+                <span className="hidden sm:inline">Publishing</span>
                 <span className="sm:hidden">Pub.</span>
               </TabBtn>
             )}

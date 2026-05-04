@@ -1,5 +1,6 @@
 import { getSeoPage as _getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings as _getAppSettings } from "@/lib/db/settings-queries";
+import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { connection } from "next/server";
@@ -34,20 +35,15 @@ export async function getSiteUrl(): Promise<string> {
 }
 
 /**
- * Sostituisce i placeholder supportati nel testo dei meta tag.
- * - {appName} → nome dell'app letto dalle impostazioni generali
- */
-function resolvePlaceholders(text: string, appName: string): string {
-  if (!text || !appName) return text;
-  return text.replace(/\{appName\}/gi, appName);
-}
-
-/**
  * Converte il valore stringa salvato in DB nel formato robots atteso da Next.js.
+ * Tollera spazi nella stringa salvata (es. "noindex, follow" oltre a
+ * "noindex,follow") perché entrambe le forme sono in giro nel DB.
  */
 function mapRobots(robots?: string | null): Metadata["robots"] | undefined {
-  if (robots === "noindex,nofollow") return { index: false, follow: false };
-  if (robots === "noindex,follow") return { index: false, follow: true };
+  if (!robots) return undefined;
+  const normalized = robots.replace(/\s+/g, "").toLowerCase();
+  if (normalized === "noindex,nofollow") return { index: false, follow: false };
+  if (normalized === "noindex,follow") return { index: false, follow: true };
   return undefined;
 }
 
@@ -67,11 +63,13 @@ export async function generatePageMetadata(
   ]);
 
   const appName = settings.app_name?.trim() || "App";
-  const resolve = (text: string) => resolvePlaceholders(text, appName);
+  // resolvePlaceholders gestisce {appName}, {appDescription}, {appDomain},
+  // {emailFrom}, {currentYear}: stesso set usato dal CMS per il content.
+  const resolve = (text: string) => resolvePlaceholders(text, settings);
 
   const title = resolve(row?.title || defaults?.title || appName);
   const description = resolve(
-    row?.description || defaults?.description || `Benvenuto su ${appName}.`,
+    row?.description || defaults?.description || `Welcome to ${appName}.`,
   );
   const ogTitle = resolve(row?.ogTitle || title);
   const ogDescription = resolve(row?.ogDescription || description);
