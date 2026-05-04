@@ -101,8 +101,6 @@ export default async function GdprCompliancePage() {
               settings["gdpr.policy.reconsent_grace_days"],
             "gdpr.policy.notifications_cron_minutes":
               settings["gdpr.policy.notifications_cron_minutes"],
-            "gdpr.cookie_banner.enabled":
-              settings["gdpr.cookie_banner.enabled"],
           }}
         />
       </section>
@@ -138,6 +136,12 @@ export default async function GdprCompliancePage() {
             description="Sign-in / sign-up / delete-account events with IP and timestamps."
             href="/admin/logs"
             cta="Open Activity Logs →"
+          />
+          <ToolRow
+            title="Cookie banner & services"
+            description="Manage the public cookie banner master switch, the cookie policy page link, and the registry of services bound to each consent category."
+            href="/admin/compliance/cookies"
+            cta="Open Cookies →"
           />
         </div>
       </section>

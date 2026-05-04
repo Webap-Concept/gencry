@@ -93,6 +93,7 @@ export async function getSystemPageSlugs(): Promise<Record<string, string>> {
     terms: "termini-e-condizioni",
     privacy: "privacy-policy",
     marketing: "marketing-comunicazioni",
+    cookie: "cookie-policy",
   };
 
   const fromDb = Object.fromEntries(

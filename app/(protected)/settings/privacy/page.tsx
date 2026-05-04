@@ -2,8 +2,12 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
 import { getAcceptedConsent, type ConsentSnapshot } from "@/lib/account/consents";
 import { listMyExportJobs } from "@/lib/account/gdpr-export";
+import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import { ConsentsPanel, type ConsentVM } from "./_components/consents-panel";
+import { CookiesPanel } from "./_components/cookies-panel";
 import { DangerZone } from "./_components/danger-zone";
 import { ExportPanel, type ExportJobVM } from "./_components/export-panel";
 
@@ -11,7 +15,15 @@ export default async function PrivacySettingsPage() {
   const user = await getUser();
   if (!user) redirect("/sign-in");
 
-  const [terms, privacy, marketing, exportJobs] = await Promise.all([
+  const [
+    terms,
+    privacy,
+    marketing,
+    exportJobs,
+    cookieConsent,
+    settings,
+    slugs,
+  ] = await Promise.all([
     getAcceptedConsent({
       systemKey: "terms",
       acceptedVersion: user.acceptedTermsVersion,
@@ -25,6 +37,9 @@ export default async function PrivacySettingsPage() {
       acceptedVersion: user.acceptedMarketingVersion,
     }),
     listMyExportJobs(user.id, 5),
+    readCookieConsent(),
+    getAppSettings(),
+    getSystemPageSlugs(),
   ]);
 
   const exportJobsVM: ExportJobVM[] = exportJobs.map((j) => ({
@@ -60,6 +75,23 @@ export default async function PrivacySettingsPage() {
           acceptedVersion: user.acceptedMarketingVersion,
           snapshot: marketing,
         })}
+      />
+
+      <CookiesPanel
+        bannerEnabled={settings["gdpr.cookie_banner.enabled"] === "true"}
+        prefs={
+          cookieConsent.hasDecision
+            ? {
+                preferences: cookieConsent.prefs.preferences,
+                analytics: cookieConsent.prefs.analytics,
+                marketing: cookieConsent.prefs.marketing,
+              }
+            : null
+        }
+        decidedAt={
+          cookieConsent.hasDecision ? cookieConsent.decidedAt : null
+        }
+        policyUrl={slugs.cookie ? `/${slugs.cookie}` : null}
       />
 
       <ExportPanel jobs={exportJobsVM} />

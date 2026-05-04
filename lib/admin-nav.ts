@@ -178,13 +178,20 @@ export const ADMIN_NAV: NavItem[] = [
     // Umbrella: chi ha admin:gdpr (anche senza admin:access esplicito) può
     // vedere il gruppo. I figli sono filtrati dalla loro permission.
     permission: "admin:gdpr",
-    childrenMaxHeight: "120px",
+    childrenMaxHeight: "160px",
     children: [
       {
         key: "compliance-gdpr",
         href: "/admin/compliance/gdpr",
         label: "GDPR & Consents",
         icon: "ScrollText",
+        permission: "admin:gdpr",
+      },
+      {
+        key: "compliance-cookies",
+        href: "/admin/compliance/cookies",
+        label: "Cookies",
+        icon: "Cookie",
         permission: "admin:gdpr",
       },
     ],
