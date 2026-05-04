@@ -61,6 +61,14 @@ export default async function FrontendPage({
     notFound();
   }
 
+  // Le system pages "not_found" sono container amministrativi per il
+  // titolo/sottotitolo della 404 globale (vedi app/not-found.tsx) — non
+  // devono essere navigabili come URL pubblici. Digitare /404 deve
+  // attivare la pagina 404, non rendere la system page.
+  if (pageData.isSystem && pageData.systemKey === "not_found") {
+    notFound();
+  }
+
   const templateSlug = pageData.template?.slug ?? null;
   const TemplateComponent = getDynamicTemplate(templateSlug);
 
