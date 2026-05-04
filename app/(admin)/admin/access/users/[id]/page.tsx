@@ -1,5 +1,6 @@
 import { getUserConsentRecords } from "@/lib/account/consent-queries";
 import { getAdminPath } from "@/lib/admin-nav";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { listAdminUserSessions } from "@/lib/db/admin-sessions-queries";
 import { getAdminUserActivity, getAdminUserById } from "@/lib/db/admin-queries";
 import { db } from "@/lib/db/drizzle";
@@ -28,6 +29,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityList } from "./_components/activity-list";
+import { AdminMfaCard } from "./_components/admin-mfa-card";
 import { UserAccessTab } from "./_components/user-access-tab";
 import { UserConsentsTab } from "./_components/user-consents-tab";
 import {
@@ -86,6 +88,7 @@ async function UserContent({
     allPermissions,
     userSessions,
     consentRecords,
+    mfaState,
   ] = await Promise.all([
     getAdminUserById(id),
     getAdminUserActivity(id),
@@ -93,6 +96,7 @@ async function UserContent({
     getAllPermissions(),
     listAdminUserSessions(id),
     getUserConsentRecords(id),
+    getMfaState(id),
   ]);
 
   if (!user) notFound();
@@ -197,6 +201,15 @@ async function UserContent({
         <RoleSelector
           user={user}
           availableRoles={availableRoles}
+          isDeleted={isDeleted}
+        />
+      </div>
+
+      <div className="lg:col-span-2">
+        <AdminMfaCard
+          userId={user.id}
+          userEmail={user.email}
+          mfa={mfaState}
           isDeleted={isDeleted}
         />
       </div>

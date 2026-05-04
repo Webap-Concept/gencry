@@ -1,14 +1,17 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
+import { resetMfaForAdmin } from "@/lib/auth/mfa/queries";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import {
   activityLogs,
   ActivityType,
   permissions,
+  userProfiles,
   users,
 } from "@/lib/db/schema";
+import { sendMfaAdminResetEmail } from "@/lib/email/templates/mfa-admin-reset";
 import {
   addUserPermissionOverride,
   purgeExpiredOverrides,
@@ -132,6 +135,69 @@ export async function removeOverride(overrideId: number, userId: string) {
     ActivityType.PERMISSION_REVOKED,
     `remove_override overrideId=${overrideId} userId=${userId}`,
   );
+
+  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Admin reset MFA
+//
+// Wipes user_mfa_totp + mfa_recovery_codes for the target user. Sends a
+// notification email (with the admin's stated reason) and writes an audit
+// log entry. Used when the user lost both phone and recovery codes and
+// reached out to support.
+// ---------------------------------------------------------------------------
+
+const AdminResetMfaSchema = z.object({
+  userId: z.string().uuid(),
+  reason: z.string().trim().min(3, "Reason is required").max(500),
+});
+
+export async function adminResetMfa(formData: FormData) {
+  const admin = await getUser();
+  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+
+  const parsed = AdminResetMfaSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { userId, reason } = parsed.data;
+
+  const blocked = await assertUserNotDeleted(userId);
+  if (blocked) return { error: blocked };
+
+  const [target] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!target) return { error: "User not found." };
+
+  await resetMfaForAdmin(userId);
+
+  await logRbacAction(
+    admin.id,
+    ActivityType.ADMIN_RESET_MFA,
+    `target=${userId} reason="${reason.replace(/"/g, '\\"')}"`,
+  );
+
+  // Email notification — fire-and-forget, non bloccare la response.
+  void (async () => {
+    try {
+      const [profile] = await db
+        .select({ firstName: userProfiles.firstName })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, userId))
+        .limit(1);
+      await sendMfaAdminResetEmail(
+        target.email,
+        reason,
+        profile?.firstName ?? undefined,
+      );
+    } catch (err: unknown) {
+      console.error("[adminResetMfa] sendMfaAdminResetEmail failed:", err);
+    }
+  })();
 
   revalidatePath(`${getAdminPath("users-list")}/${userId}`);
   return { success: true };
