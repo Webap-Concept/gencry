@@ -1,4 +1,4 @@
-import { CookieBanner } from "@/app/(frontend)/_components/cookie-banner/cookie-banner";
+import { CookieBanner } from "@/components/cookie-banner/cookie-banner";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
