@@ -1,3 +1,4 @@
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { getAllPages } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
@@ -5,6 +6,7 @@ import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import PageManager from "./_components/page-manager";
+import { PagesAdminGuide } from "./_components/pages-admin-guide";
 
 export const metadata: Metadata = { title: "Content / Pages" };
 export const dynamic = "force-dynamic";
@@ -46,13 +48,20 @@ export default function ContentPage() {
           <FileText size={18} style={{ color: "var(--admin-accent)" }} />
         </div>
         <div className="min-w-0">
-          <h2
-            className="text-lg font-bold"
-            style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Content</span>
-            <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Pages</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2
+              className="text-lg font-bold"
+              style={{ color: "var(--admin-text)" }}>
+              <span style={{ color: "var(--admin-text-muted)" }}>Content</span>
+              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
+              <span>Pages</span>
+            </h2>
+            <AdminSectionInfo
+              title="Pages — operator's guide"
+              ariaLabel="Show pages guide">
+              <PagesAdminGuide />
+            </AdminSectionInfo>
+          </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
