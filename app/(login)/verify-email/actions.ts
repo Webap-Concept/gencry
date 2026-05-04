@@ -50,7 +50,10 @@ export const verifyEmail = validatedAction(verifySchema, async (data) => {
   cookieStore.delete("pending_verification_user_id");
 
   await setSession(user);
-  redirect("/");
+  // Allinea form signup al flusso OAuth: dopo la verifica OTP indirizza
+  // al wizard di onboarding finché non è completato. Il guard in
+  // app/(onboarding)/layout.tsx evita comunque il loop per utenti già fatti.
+  redirect(user.onboardingCompletedAt ? "/" : "/onboarding");
 });
 
 // ─── Re-invio codice ────────────────────────────────────────────
