@@ -3,6 +3,7 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { getPendingReconsents } from "@/lib/account/policy-reconsent";
 import { getSession } from "@/lib/auth/session";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
@@ -23,7 +24,18 @@ export default async function Layout({
   const isGuest = !session;
 
   if (isGuest) {
-    return <>{children}</>;
+    // Guest sulla `/` → landing coming-soon. Niente shell loggata, ma
+    // includiamo il footer pubblico così visitatori anonimi hanno accesso
+    // ai link legali e al bottone "Preferenze cookie" senza dover
+    // accedere a (frontend)/(login).
+    return (
+      <div className="flex min-h-[100dvh] flex-col">
+        <div className="flex-1">{children}</div>
+        <Suspense fallback={null}>
+          <PublicFooter />
+        </Suspense>
+      </div>
+    );
   }
 
   // Re-consent banner: appare se l'utente ha policy obsolete e l'admin ha

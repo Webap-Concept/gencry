@@ -1,16 +1,16 @@
 -- Migration 0029: cookie system page
 --
 -- Aggiunge una pagina di sistema con `system_key = 'cookie'` per ospitare
--- la cookie policy linkata dal banner pubblico e dalla nuova sezione
--- admin /admin/compliance/cookies. Allineata alle altre 3 system pages
--- (terms, privacy, marketing) come pattern.
+-- la cookie policy linkata dal banner pubblico, dal footer e dalla
+-- nuova sezione admin /admin/compliance/cookies.
 --
--- Idempotente: usa ON CONFLICT su system_key e su slug così rieseguire la
--- migration su un DB che ha già la pagina non rompe nulla.
+-- Idempotente: la WHERE NOT EXISTS evita duplicati su rieseguzione.
 --
--- Contenuto: placeholder minimale in italiano. L'admin dovrà aprire la
--- pagina in /admin/content/pages e completarla con il testo reale prima
--- di abilitare il banner per traffico EU.
+-- Stato iniziale: 'draft'. L'admin DEVE aprire la pagina in
+-- /admin/content/pages, completare il testo e pubblicarla prima di
+-- abilitare il banner (altrimenti il link "Maggiori informazioni"
+-- punterebbe a una rotta che ritorna 404, dato che app/(frontend)/[...slug]
+-- serve solo le pagine con status='published').
 
 INSERT INTO "pages" (
   "slug",
@@ -25,7 +25,7 @@ INSERT INTO "pages" (
 SELECT
   'cookie-policy',
   'Cookie Policy',
-  '<h1>Cookie Policy</h1><p><em>Questa pagina è un placeholder. Aggiorna il testo prima di pubblicarla.</em></p>',
+  '<h1>Cookie Policy</h1><p><em>Questa pagina è un placeholder. Aggiorna il testo dalla sezione Pages e pubblicala prima di abilitare il banner.</em></p>',
   'draft',
   TRUE,
   'cookie',
