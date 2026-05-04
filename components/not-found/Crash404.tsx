@@ -189,7 +189,7 @@ export function Crash404() {
         Questa pagina è andata <em className="text-gc-accent">−99.9%</em>
       </h1>
       <p
-        className="gc404-fade-up mx-auto max-w-[520px] text-[15px] text-gc-fg-3 text-pretty"
+        className="gc404-fade-up mx-auto max-w-[520px] text-center text-[15px] text-gc-fg-3 text-pretty"
         style={{ animationDelay: "1.3s" }}>
         L&apos;asset che cercavi non è in portafoglio. Forse è stata rugpullata, forse l&apos;hai
         scritta male — succede ai migliori. Torna alla home e riparti dai movimenti del giorno.

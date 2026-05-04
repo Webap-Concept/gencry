@@ -3,7 +3,6 @@ import Image from "next/image";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { Crash404 } from "@/components/not-found/Crash404";
-import { PublicFooter } from "@/components/layout/PublicFooter";
 import { logNotFoundHit } from "@/lib/seo/log-not-found";
 
 export const metadata = {
@@ -26,11 +25,14 @@ export default async function NotFound() {
     await logNotFoundHit({ pathname, referrer, userAgent });
   });
 
+  // Niente wrapper flex/min-h e niente PublicFooter: quando notFound() viene
+  // chiamato da una rotta sotto (frontend), Next applica già FrontendLayout
+  // che wrappa in flex-col min-h-screen e monta il footer pubblico.
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-x-hidden bg-gc-bg text-gc-fg">
+    <div className="relative w-full overflow-x-hidden bg-gc-bg text-gc-fg">
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 z-0"
+        className="pointer-events-none absolute inset-0 z-0"
         style={{
           backgroundImage:
             "linear-gradient(var(--gc-line) 1px, transparent 1px), linear-gradient(90deg, var(--gc-line) 1px, transparent 1px)",
@@ -67,11 +69,7 @@ export default async function NotFound() {
         </div>
       </nav>
 
-      <div className="relative z-10 flex-1">
-        <Crash404 />
-      </div>
-
-      <PublicFooter />
+      <Crash404 />
     </div>
   );
 }
