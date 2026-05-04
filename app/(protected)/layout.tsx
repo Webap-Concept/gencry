@@ -2,8 +2,8 @@ import { AppBottomNav } from "@/components/layout/AppBottomNav";
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppTopBar } from "@/components/layout/AppTopBar";
-import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getPendingReconsents } from "@/lib/account/policy-reconsent";
 import { getSession } from "@/lib/auth/session";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
@@ -83,11 +83,7 @@ export default async function Layout({
       <div className="mx-auto max-w-[1440px] flex">
         <AppSidebar />
         <main className="flex-1 min-w-0 pb-20 md:pb-6">
-          {/* Container del contenuto: max-w-760 centrato nel main.
-              Su lg+ (con right rail attiva) il gap residuo per lato è ~70px
-              e visivamente bilancia il rail; su md (rail nascosto) resta
-              centrato; su sm prende tutta la larghezza meno il padding. */}
-          <div className="max-w-[760px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Suspense fallback={null}>{children}</Suspense>
           </div>
         </main>

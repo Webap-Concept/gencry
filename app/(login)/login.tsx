@@ -1,11 +1,11 @@
 "use client";
 
-import { Turnstile } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionState } from "@/lib/auth/middleware";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -142,19 +142,24 @@ export function Login({
   // Messaggio errore OAuth da searchParams
   const oauthError = searchParams.get("error");
   const oauthErrorMessages: Record<string, string> = {
-    oauth_denied:           "Accesso con Google annullato.",
-    oauth_invalid:          "Parametri OAuth non validi. Riprova.",
-    oauth_failed:           "Errore durante l'accesso con Google. Riprova.",
-    oauth_init_failed:      "Impossibile avviare il login con Google. Riprova.",
-    oauth_user_failed:      "Impossibile creare o trovare l'account. Riprova.",
-    oauth_domain_blocked:   "Non accettiamo registrazioni con questo provider email.",
+    oauth_denied: "Accesso con Google annullato.",
+    oauth_invalid: "Parametri OAuth non validi. Riprova.",
+    oauth_failed: "Errore durante l'accesso con Google. Riprova.",
+    oauth_init_failed: "Impossibile avviare il login con Google. Riprova.",
+    oauth_user_failed: "Impossibile creare o trovare l'account. Riprova.",
+    oauth_domain_blocked:
+      "Non accettiamo registrazioni con questo provider email.",
     registrations_disabled: "Le registrazioni sono temporaneamente chiuse.",
-    maintenance:            "Il sito è in manutenzione. Solo gli amministratori possono accedere.",
-    blocked:                "Il tuo IP è stato bloccato. Contatta il supporto.",
-    banned:                 "Il tuo account è stato sospeso.",
-    account_deleted:        "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
+    maintenance:
+      "Il sito è in manutenzione. Solo gli amministratori possono accedere.",
+    blocked: "Il tuo IP è stato bloccato. Contatta il supporto.",
+    banned: "Il tuo account è stato sospeso.",
+    account_deleted:
+      "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
   };
-  const oauthErrorMessage = oauthError ? (oauthErrorMessages[oauthError] ?? "Errore di autenticazione.") : null;
+  const oauthErrorMessage = oauthError
+    ? (oauthErrorMessages[oauthError] ?? "Errore di autenticazione.")
+    : null;
 
   // Banner informativo (non error) per scenari come l'utente che ha appena
   // richiesto l'eliminazione del proprio account.
@@ -321,7 +326,10 @@ export function Login({
               <OrDivider />
 
               {/* ── Form email + password ── */}
-              <form className="space-y-5" action={formAction} onSubmit={handleSubmit}>
+              <form
+                className="space-y-5"
+                action={formAction}
+                onSubmit={handleSubmit}>
                 <input type="hidden" name="redirect" value={redirect || ""} />
                 <input type="hidden" name="priceId" value={priceId || ""} />
 
@@ -340,7 +348,7 @@ export function Login({
                             ? "border-brand-accent"
                             : "border-brand-border"
                       } focus-within:ring-2 focus-within:ring-brand-accent focus-within:ring-offset-0`}>
-                      <span className="flex items-center px-3 text-sm font-semibold select-none border-r border-brand-border">
+                      <span className="flex items-center px-3 text-sm font-semibold select-none">
                         @
                       </span>
                       <Input
@@ -416,8 +424,8 @@ export function Login({
                   />
                   {checkingEmail && (
                     <p className="text-xs flex items-center gap-1 text-brand-text-muted">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Verifica email
-                      in corso...
+                      <Loader2 className="h-3 w-3 animate-spin" /> Verifica
+                      email in corso...
                     </p>
                   )}
                   {emailError && (
@@ -463,7 +471,9 @@ export function Login({
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+                      aria-label={
+                        showPassword ? "Nascondi password" : "Mostra password"
+                      }
                       className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-text-muted hover:text-brand-text transition-colors">
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" aria-hidden="true" />
@@ -501,7 +511,8 @@ export function Login({
                         <li
                           key={rule.id}
                           className="text-xs flex items-center gap-1 text-brand-text-light">
-                          <span className="w-3 text-center">•</span> {rule.label}
+                          <span className="w-3 text-center">•</span>{" "}
+                          {rule.label}
                         </li>
                       ))}
                     </ul>
@@ -541,7 +552,8 @@ export function Login({
                     </label>
                     {submitAttempted && !acceptTerms && (
                       <p className="text-xs flex items-center gap-1 text-brand-destructive -mt-2">
-                        <X className="h-3 w-3" /> Devi accettare i Termini e Condizioni
+                        <X className="h-3 w-3" /> Devi accettare i Termini e
+                        Condizioni
                       </p>
                     )}
 
@@ -565,7 +577,8 @@ export function Login({
                     </label>
                     {submitAttempted && !acceptPrivacy && (
                       <p className="text-xs flex items-center gap-1 text-brand-destructive -mt-2">
-                        <X className="h-3 w-3" /> Devi accettare la Privacy Policy
+                        <X className="h-3 w-3" /> Devi accettare la Privacy
+                        Policy
                       </p>
                     )}
 
@@ -593,13 +606,20 @@ export function Login({
 
                 {turnstileSiteKey && (
                   <>
-                    <input type="hidden" name="cf_turnstile_token" value={turnstileToken} />
+                    <input
+                      type="hidden"
+                      name="cf_turnstile_token"
+                      value={turnstileToken}
+                    />
                     <Turnstile
                       siteKey={turnstileSiteKey}
                       onSuccess={setTurnstileToken}
                       onExpire={() => setTurnstileToken("")}
                       onError={() => setTurnstileToken("")}
-                      options={{ theme: "light", appearance: "interaction-only" }}
+                      options={{
+                        theme: "light",
+                        appearance: "interaction-only",
+                      }}
                     />
                   </>
                 )}
@@ -618,7 +638,8 @@ export function Login({
                   className="w-full">
                   {pending ? (
                     <>
-                      <Loader2 className="animate-spin h-4 w-4" /> Caricamento...
+                      <Loader2 className="animate-spin h-4 w-4" />{" "}
+                      Caricamento...
                     </>
                   ) : mode === "signin" ? (
                     "Accedi"
