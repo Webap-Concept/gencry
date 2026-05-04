@@ -242,6 +242,184 @@
   }
 }
 
+@keyframes gc-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ── 404 page ─────────────────────────────────────────────────────────────
+   Animazioni dello stage "crash" (app/not-found.tsx + Crash404.tsx).
+   Vivono qui anziché in un CSS module per coerenza col resto del progetto. */
+
+@keyframes gc404-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gc404-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes gc404-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gc404-candle-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes gc404-dot-pulse {
+  0%,
+  100% {
+    r: 8;
+  }
+  50% {
+    r: 11;
+  }
+}
+@keyframes gc404-splat-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes gc404-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-30px, 110vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+.gc404-fade-up {
+  opacity: 0;
+  animation: gc404-fade-up 0.7s ease forwards;
+}
+.gc404-digit-fill {
+  fill: var(--gc-fg);
+  opacity: 0;
+  animation: gc404-fade-in 0.8s 1.4s ease forwards;
+}
+.gc404-digit-stroke {
+  fill: none;
+  stroke: var(--gc-fg);
+  stroke-width: 1.5;
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: gc404-draw 1.8s 0.2s ease forwards;
+}
+.gc404-chart-line {
+  fill: none;
+  stroke: var(--gc-accent);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1800;
+  stroke-dashoffset: 1800;
+  animation: gc404-draw 2.4s 0.9s cubic-bezier(0.7, 0.05, 0.4, 1) forwards;
+  filter: drop-shadow(0 4px 14px rgba(250, 139, 30, 0.32));
+}
+.gc404-chart-area {
+  fill: url(#gc404-grad);
+  opacity: 0;
+  animation: gc404-fade-in 1s 2.5s ease forwards;
+}
+.gc404-candle {
+  opacity: 0;
+  transform-origin: bottom center;
+  animation: gc404-candle-in 0.32s ease forwards;
+}
+.gc404-crash-dot {
+  fill: var(--gc-bg);
+  stroke: var(--gc-accent);
+  stroke-width: 3;
+  opacity: 0;
+  animation:
+    gc404-fade-in 0.3s 3s ease forwards,
+    gc404-dot-pulse 1.6s 3.3s ease-in-out infinite;
+}
+.gc404-splat {
+  opacity: 0;
+  transform-origin: 760px 320px;
+  animation: gc404-splat-pop 0.6s 3.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.gc404-coin {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gc-bg-2);
+  border: 1px solid var(--gc-line-2);
+  box-shadow: 0 6px 18px rgba(18, 57, 40, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  animation: gc404-fall linear infinite;
+}
+.gc404-coin-btc {
+  color: #f7931a;
+  border-color: rgba(247, 147, 26, 0.4);
+}
+.gc404-coin-eth {
+  color: #627eea;
+  border-color: rgba(98, 126, 234, 0.4);
+}
+.gc404-coin-sol {
+  color: #14a37a;
+  border-color: rgba(20, 163, 122, 0.4);
+}
+.gc404-coin-doge {
+  color: #c2a633;
+  border-color: rgba(194, 166, 51, 0.4);
+}
+.gc404-coin-ada {
+  color: #0033ad;
+  border-color: rgba(0, 51, 173, 0.4);
+}
+@media (max-width: 720px) {
+  .gc404-coin {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 /* ── a11y ────────────────────────────────────────────────────────────────
    Focus ring visibile solo per la navigazione tastiera (focus-visible),
    evita l'outline sgradevole sul click del mouse. Tinta accent per coerenza
@@ -262,8 +440,20 @@
    per chi è sensibile e migliorano comunque la percezione di interazione. */
 @media (prefers-reduced-motion: reduce) {
   .animate-gc-screen,
-  .animate-gc-pulse {
+  .animate-gc-pulse,
+  .animate-gc-blink,
+  .gc404-fade-up,
+  .gc404-digit-fill,
+  .gc404-digit-stroke,
+  .gc404-chart-line,
+  .gc404-chart-area,
+  .gc404-candle,
+  .gc404-crash-dot,
+  .gc404-splat,
+  .gc404-coin {
     animation: none !important;
+    opacity: 1 !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -370,9 +560,10 @@
   --radius-gc: 14px;
   --radius-gc-sm: 10px;
 
-  /* Animazioni GC → utility Tailwind (animate-gc-screen, animate-gc-pulse) */
+  /* Animazioni GC → utility Tailwind (animate-gc-screen, animate-gc-pulse, animate-gc-blink) */
   --animate-gc-screen: gc-screen 0.5s ease-out;
   --animate-gc-pulse: gc-pulse 2s ease-in-out infinite;
+  --animate-gc-blink: gc-blink 1.4s infinite;
 }
 
 /*
