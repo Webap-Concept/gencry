@@ -1,3 +1,4 @@
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   COOKIE_CATEGORIES,
   servicesByCategory,
@@ -15,6 +16,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CookieMasterSwitch } from "./_components/cookie-master-switch";
+import { CookiesAdminGuide } from "./_components/cookies-admin-guide";
 
 export const metadata: Metadata = { title: "Compliance / Cookies" };
 
@@ -43,11 +45,18 @@ export default async function CookiesCompliancePage() {
           <Cookie size={18} style={{ color: "var(--admin-accent)" }} />
         </div>
         <div>
-          <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Compliance</span>
-            <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Cookies</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
+              <span style={{ color: "var(--admin-text-muted)" }}>Compliance</span>
+              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
+              <span>Cookies</span>
+            </h2>
+            <AdminSectionInfo
+              title="Cookies — operator's guide"
+              ariaLabel="Show cookies guide">
+              <CookiesAdminGuide />
+            </AdminSectionInfo>
+          </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
