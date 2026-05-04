@@ -10,6 +10,8 @@ import { userProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { CoinRain } from "@/components/decor/coin-rain";
+import { GridBackdrop } from "@/components/decor/grid-backdrop";
 import { OnboardingWizard } from "./wizard";
 
 export const metadata: Metadata = { title: "Benvenuto" };
@@ -35,11 +37,19 @@ export default async function OnboardingPage() {
   if (initialUsername)              initialStep = 1;
   if (initialInterests.length >= 3) initialStep = 2;
 
+  // `relative overflow-hidden` per clippare le monete che cadono oltre il
+  // viewport (animazione +110vh). Il wizard interno è z-10 sopra il backdrop.
   return (
-    <OnboardingWizard
-      initialStep={initialStep}
-      initialUsername={initialUsername}
-      initialInterests={initialInterests}
-    />
+    <div className="relative min-h-dvh overflow-hidden bg-brand-bg">
+      <GridBackdrop />
+      <CoinRain />
+      <div className="relative z-10">
+        <OnboardingWizard
+          initialStep={initialStep}
+          initialUsername={initialUsername}
+          initialInterests={initialInterests}
+        />
+      </div>
+    </div>
   );
 }

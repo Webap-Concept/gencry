@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { Crash404 } from "@/components/not-found/Crash404";
+import { GridBackdrop } from "@/components/decor/grid-backdrop";
 import { logNotFoundHit } from "@/lib/seo/log-not-found";
 import { getPageBySystemKey } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
@@ -93,20 +94,7 @@ export default async function NotFound() {
   // (animation +110vh) senza generare scrollbar verticali decorative.
   return (
     <div className="relative flex w-full flex-1 flex-col overflow-hidden bg-gc-bg text-gc-fg">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--gc-line) 1px, transparent 1px), linear-gradient(90deg, var(--gc-line) 1px, transparent 1px)",
-          backgroundSize: "56px 56px",
-          backgroundPosition: "-1px -1px",
-          maskImage:
-            "radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 80%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 80%)",
-        }}
-      />
+      <GridBackdrop />
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1280px] items-center justify-between px-5 py-5 md:px-8 md:py-6">
         <Link
