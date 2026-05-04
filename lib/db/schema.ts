@@ -114,6 +114,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [userSubscriptions.userId],
   }),
   oauthAccounts: many(oauthAccounts),
+  mfaTotp: one(userMfaTotp, {
+    fields: [users.id],
+    references: [userMfaTotp.userId],
+  }),
+  mfaRecoveryCodes: many(mfaRecoveryCodes),
 }));
 
 export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
@@ -767,6 +772,85 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+/**
+ * MFA TOTP (RFC 6238) — secondo fattore opzionale al login.
+ *
+ * Tabella separata da `users` per isolare il secret cifrato e poter
+ * estendere in futuro con WebAuthn senza toccare lo schema utente.
+ *
+ * - `secret_ciphertext` / `secret_iv` / `secret_tag`: secret cifrato
+ *   AES-256-GCM con MFA_ENCRYPTION_KEY (vedi lib/crypto/aes-gcm.ts).
+ * - `enabled_at` NULL = setup pending (utente ha generato il secret ma
+ *   non ha ancora confermato col primo codice).
+ * - `last_used_counter` (= floor(unix_ts / period)) previene replay
+ *   dello stesso codice nello stesso step di 30s.
+ */
+export const userMfaTotp = pgTable(
+  "user_mfa_totp",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    secretIv: text("secret_iv").notNull(),
+    secretTag: text("secret_tag").notNull(),
+    algorithm: varchar("algorithm", { length: 16 }).notNull().default("SHA1"),
+    digits: integer("digits").notNull().default(6),
+    period: integer("period").notNull().default(30),
+    enabledAt: timestamp("enabled_at"),
+    lastUsedAt: timestamp("last_used_at"),
+    lastUsedCounter: bigint("last_used_counter", { mode: "number" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("idx_user_mfa_totp_user_id").on(t.userId)],
+);
+
+/**
+ * Recovery codes monouso per MFA TOTP. Generati 10 alla volta al
+ * momento dell'attivazione (e rigenerabili dall'utente). Hashati con
+ * bcrypt come le password — `used_at` valorizzato = già consumato.
+ */
+export const mfaRecoveryCodes = pgTable(
+  "mfa_recovery_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  // Partial index sui codici non ancora consumati: la lookup calda al login
+  // filtra `WHERE used_at IS NULL`. Le righe consumate restano (audit) ma
+  // non gonfiano l'indice.
+  (t) => [
+    index("idx_mfa_recovery_codes_user_id_unused")
+      .on(t.userId)
+      .where(sql`${t.usedAt} IS NULL`),
+  ],
+);
+
+export const userMfaTotpRelations = relations(userMfaTotp, ({ one }) => ({
+  user: one(users, {
+    fields: [userMfaTotp.userId],
+    references: [users.id],
+  }),
+}));
+
+export const mfaRecoveryCodesRelations = relations(
+  mfaRecoveryCodes,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [mfaRecoveryCodes.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
 export const appSettings = pgTable("app_settings", {
   key: varchar("key", { length: 100 }).primaryKey(),
   value: text("value"),
@@ -908,6 +992,10 @@ export type EmailVerification  = typeof emailVerifications.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type TrustedDevice      = typeof trustedDevices.$inferSelect;
 export type NewTrustedDevice   = typeof trustedDevices.$inferInsert;
+export type UserMfaTotp        = typeof userMfaTotp.$inferSelect;
+export type NewUserMfaTotp     = typeof userMfaTotp.$inferInsert;
+export type MfaRecoveryCode    = typeof mfaRecoveryCodes.$inferSelect;
+export type NewMfaRecoveryCode = typeof mfaRecoveryCodes.$inferInsert;
 export type SeoPage         = typeof seoPages.$inferSelect;
 export type NewSeoPage      = typeof seoPages.$inferInsert;
 export type Page            = typeof pages.$inferSelect;
@@ -1036,6 +1124,12 @@ export enum ActivityType {
   ADMIN_REVOKE_SESSION = "ADMIN_REVOKE_SESSION",
   ADMIN_REVOKE_ALL_USER_SESSIONS = "ADMIN_REVOKE_ALL_USER_SESSIONS",
   DEVICE_VERIFIED = "DEVICE_VERIFIED",
+  MFA_ENABLED = "MFA_ENABLED",
+  MFA_DISABLED = "MFA_DISABLED",
+  MFA_VERIFIED = "MFA_VERIFIED",
+  MFA_RECOVERY_CODE_USED = "MFA_RECOVERY_CODE_USED",
+  MFA_RECOVERY_CODES_REGENERATED = "MFA_RECOVERY_CODES_REGENERATED",
+  ADMIN_RESET_MFA = "ADMIN_RESET_MFA",
   AVATAR_UPDATED = "AVATAR_UPDATED",
   BIO_UPDATED = "BIO_UPDATED",
   PROFILE_VIEWED = "PROFILE_VIEWED",
