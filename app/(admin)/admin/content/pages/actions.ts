@@ -109,6 +109,29 @@ export async function upsertPageAction(
 
   const slugChanged = originalSlug && originalSlug !== data.slug;
 
+  // Server-side guard: il flag UI può essere bypassato. Se la pagina
+  // esistente è una system page con slug "locked" (whitelist in
+  // schema.ts), rifiutiamo qualunque cambio slug — verrebbe servita
+  // dal page handler hardcoded comunque, e il record resterebbe
+  // disallineato rispetto alla rotta vera.
+  if (slugChanged && id) {
+    const { getPageById } = await import("@/lib/db/pages-queries");
+    const { isSystemSlugEditable } = await import("@/lib/db/schema");
+    const existing = await getPageById(Number(id));
+    if (existing) {
+      const editable = isSystemSlugEditable({
+        isSystem: existing.isSystem ?? false,
+        systemKey: existing.systemKey ?? null,
+      });
+      if (!editable) {
+        return {
+          error:
+            "This page's URL is bound to a hardcoded route handler and cannot be renamed.",
+        };
+      }
+    }
+  }
+
   try {
     const savedId = await upsertPage({
       ...(id ? { id: Number(id) } : {}),
