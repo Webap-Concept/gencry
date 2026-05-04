@@ -8,6 +8,13 @@ import { logNotFoundHit } from "@/lib/seo/log-not-found";
 import { getPageBySystemKey } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
+
+// Disabilita lo static rendering: `generateMetadata` deve rieseguire
+// la query a seo_pages a ogni request, altrimenti l'admin che modifica
+// title/description da /admin/seo/meta-tags non vede l'effetto finché
+// il prossimo deploy.
+export const dynamic = "force-dynamic";
 
 // Pseudopath usato dal sistema SEO interno per i meta della 404. Non
 // corrisponde a una rotta servita: è solo la chiave di lookup nella
@@ -55,15 +62,21 @@ export default async function NotFound() {
   ]);
 
   const logoUrl = settings.app_logo_url ?? settings.app_logo_variant_url;
-  const description = systemPage?.content?.trim() || null;
+  // Il content arriva dal rich text editor di Tiptap, già wrappato in
+  // <p>...</p> e con eventuale formattazione inline. Sanitizziamo
+  // server-side e passiamo HTML al client component, che lo renderizza
+  // con dangerouslySetInnerHTML — altrimenti i tag arriverebbero come
+  // testo letterale al browser.
+  const descriptionHtml = sanitizeRichTextHtml(systemPage?.content).trim();
 
-  // Niente wrapper flex/min-h e niente PublicFooter: quando notFound() viene
-  // chiamato da una rotta sotto (frontend), Next applica già FrontendLayout
-  // che wrappa in flex-col min-h-screen e monta il footer pubblico.
-  // overflow-hidden nasconde le coin che cadono fuori (animation +110vh)
-  // senza generare scrollbar verticali decorative.
+  // Niente PublicFooter qui: lo monta già FrontendLayout. `flex flex-1
+  // flex-col` per stretchare lo sfondo gc-bg a tutta l'altezza disponibile
+  // tra topbar di Next e footer pubblico — senza il flex-1, il container
+  // si dimensionava sul solo content e lasciava il fondo del viewport
+  // scoperto. `overflow-hidden` nasconde le coin che cadono fuori
+  // (animation +110vh) senza generare scrollbar verticali decorative.
   return (
-    <div className="relative w-full overflow-hidden bg-gc-bg text-gc-fg">
+    <div className="relative flex w-full flex-1 flex-col overflow-hidden bg-gc-bg text-gc-fg">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0"
@@ -103,7 +116,9 @@ export default async function NotFound() {
         </div>
       </nav>
 
-      <Crash404 description={description} />
+      <div className="relative z-10 flex flex-1 items-center justify-center">
+        <Crash404 descriptionHtml={descriptionHtml || null} />
+      </div>
     </div>
   );
 }

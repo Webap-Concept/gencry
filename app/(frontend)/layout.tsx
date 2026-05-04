@@ -23,7 +23,12 @@ export default function FrontendLayout({
 }) {
   return (
     <div className="flex min-h-[100dvh] flex-col">
-      <div className="flex-1">{children}</div>
+      {/* flex flex-col qui: rende il children-wrapper un flex container,
+          così le pagine che vogliono stretchare lo sfondo a tutta l'altezza
+          disponibile (es. la 404) possono usare `flex-1` sul proprio
+          container. Le pagine che non lo fanno mantengono la stessa
+          impaginazione di prima (block flow naturale). */}
+      <div className="flex flex-1 flex-col">{children}</div>
       <Suspense fallback={null}>
         <PublicFooter />
       </Suspense>
