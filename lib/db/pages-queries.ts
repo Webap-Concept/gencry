@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/drizzle";
-import { pages, pageTemplates, pageVersions, templateFields, type NewPage, type Page, type PageTemplate, type TemplateField, type SystemPageKey } from "@/lib/db/schema";
+import { pages, pageTemplates, pageVersions, templateFields, type NewPage, type Page, type PageTemplate, type TemplateField, type SystemPageKey, type RouteVisibility } from "@/lib/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
@@ -8,6 +8,55 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 export async function getAllPages(): Promise<Page[]> {
   return db.select().from(pages).orderBy(asc(pages.sortOrder), asc(pages.slug));
+}
+
+// ---------------------------------------------------------------------------
+// Navigable pages — usate da proxy.ts per la routing visibility
+// ---------------------------------------------------------------------------
+
+/**
+ * Cache in-memory per `getNavigablePages` (TTL 60s).
+ * Stesso pattern di route-registry-queries.ts: il proxy gira su ogni request,
+ * non possiamo pagare un round-trip al DB ogni volta. La cache viene
+ * invalidata dalla server action che salva una page (vedi
+ * `app/(admin)/admin/content/pages/actions.ts`) tramite
+ * `invalidateNavigablePagesCache()`.
+ */
+type NavigablePage = { pathname: string; visibility: RouteVisibility };
+let _navCache: NavigablePage[] | null = null;
+let _navCacheAt = 0;
+const NAV_CACHE_TTL_MS = 60_000;
+
+export function invalidateNavigablePagesCache() {
+  _navCache = null;
+  _navCacheAt = 0;
+}
+
+/**
+ * Restituisce tutte le pages pubblicate sotto forma di {pathname, visibility},
+ * pronte per il pattern matching del proxy. Una page con slug "" diventa "/",
+ * uno slug "esplora" diventa "/esplora".
+ *
+ * NB: include sia user CMS pages (visibility='public' di default) sia system
+ * pages "meta-only" — le seconde non vengono comunque navigate (i page handler
+ * dedicati le servono direttamente, e il guard in [...slug]/page.tsx blocca il
+ * render della system page CMS), ma non fanno male nella lista.
+ */
+export async function getNavigablePages(): Promise<NavigablePage[]> {
+  if (_navCache !== null && Date.now() - _navCacheAt < NAV_CACHE_TTL_MS) {
+    return _navCache;
+  }
+  const rows = await db
+    .select({ slug: pages.slug, visibility: pages.visibility })
+    .from(pages)
+    .where(eq(pages.status, "published"));
+  const list: NavigablePage[] = rows.map((r) => ({
+    pathname: `/${r.slug}`,
+    visibility: r.visibility,
+  }));
+  _navCache = list;
+  _navCacheAt = Date.now();
+  return list;
 }
 
 /** Restituisce le pagine root (senza parent) con le loro figlie dirette */
@@ -269,6 +318,7 @@ export async function upsertPage(data: NewPage & { id?: number }): Promise<numbe
         title: rest.title,
         content: rest.content,
         status: rest.status,
+        visibility: rest.visibility ?? "public",
         publishedAt: rest.publishedAt ?? null,
         expiresAt: rest.expiresAt ?? null,
         parentId: rest.parentId ?? null,
@@ -307,6 +357,7 @@ export async function upsertPage(data: NewPage & { id?: number }): Promise<numbe
           title: data.title,
           content: data.content,
           status: data.status,
+          visibility: data.visibility ?? "public",
           publishedAt: data.publishedAt ?? null,
           expiresAt: data.expiresAt ?? null,
           parentId: data.parentId ?? null,

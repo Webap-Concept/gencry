@@ -290,6 +290,14 @@ export const pages = pgTable("pages", {
   // page è solo un container amministrativo. Default true per le pagine
   // utente normali e per le system pages content-driven (privacy, terms…).
   contentEditable: boolean("content_editable").notNull().default(true),
+  // Visibility usata da proxy.ts per decidere se richiedere sessione.
+  // "public" = accessibile senza login; "private" = redirect a /sign-in
+  // se l'utente non è autenticato. Default "public" per le user CMS
+  // pages, override sui system pages secondo necessità.
+  visibility: varchar("visibility", { length: 20 })
+    .notNull()
+    .default("public")
+    .$type<RouteVisibility>(),
   contentVersion: varchar("content_version", { length: 20 })
     .notNull()
     .default("1-2026-04"),
