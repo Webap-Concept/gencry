@@ -1,7 +1,7 @@
 import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
-import { getAppSettings } from "@/lib/db/settings-queries";
-import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import Link from "next/link";
 
 /**
@@ -41,7 +41,7 @@ export async function PublicFooter() {
     : undefined;
 
   const year = new Date().getFullYear();
-  const appName = settings.app_name || "Generazione Crypto";
+  const appName = settings.app_name || "App Name";
 
   return (
     <footer

@@ -201,23 +201,23 @@
   --brand-border-focus: #7dbe9e;
   --brand-error-bg: #fdecea;
 
-  /* ── Generazione Crypto — feed design tokens ──────────────────────────────
+  /* ── feed design tokens ──────────────────────────────
      Palette del feed sociale. Riusabili in tutta l'area loggata.
      Convenzione: bg/fg con livelli numerati (più alto = più contrasto/pieno),
      line per i bordi, accent per l'arancione brand, pos/neg per i prezzi. */
-  --gc-bg: #f5f0e8;          /* sfondo pagina (cream) */
-  --gc-bg-2: #fdfaf4;        /* card su pagina */
-  --gc-bg-3: #fffbf2;        /* item annidati nella card */
-  --gc-fg: #123928;          /* testo principale (verde scuro brand) */
-  --gc-fg-2: #5c5146;        /* testo secondario */
-  --gc-fg-3: #94897a;        /* testo terziario / metadata */
-  --gc-line: #e6dfd0;        /* bordo sottile */
-  --gc-line-2: #d4ccba;      /* bordo medio */
-  --gc-accent: #fa8b1e;      /* arancione brand (live, CTA) */
+  --gc-bg: #f5f0e8; /* sfondo pagina (cream) */
+  --gc-bg-2: #fdfaf4; /* card su pagina */
+  --gc-bg-3: #fffbf2; /* item annidati nella card */
+  --gc-fg: #123928; /* testo principale (verde scuro brand) */
+  --gc-fg-2: #5c5146; /* testo secondario */
+  --gc-fg-3: #94897a; /* testo terziario / metadata */
+  --gc-line: #e6dfd0; /* bordo sottile */
+  --gc-line-2: #d4ccba; /* bordo medio */
+  --gc-accent: #fa8b1e; /* arancione brand (live, CTA) */
   --gc-accent-soft: rgba(250, 139, 30, 0.1);
-  --gc-pos: #2d8659;         /* prezzi in salita */
-  --gc-neg: #c2553f;         /* prezzi in discesa */
-  --gc-green: #7dbe9e;       /* verde brand (badge, indicatori live) */
+  --gc-pos: #2d8659; /* prezzi in salita */
+  --gc-neg: #c2553f; /* prezzi in discesa */
+  --gc-green: #7dbe9e; /* verde brand (badge, indicatori live) */
 }
 
 /* Keyframes GC (esposti come utility tramite @theme inline) */
@@ -376,7 +376,8 @@
 .gc404-splat {
   opacity: 0;
   transform-origin: 760px 320px;
-  animation: gc404-splat-pop 0.6s 3.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: gc404-splat-pop 0.6s 3.1s cubic-bezier(0.34, 1.56, 0.64, 1)
+    forwards;
 }
 .gc404-coin {
   position: absolute;

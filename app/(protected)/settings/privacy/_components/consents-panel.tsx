@@ -1,16 +1,11 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/auth/middleware";
+import { cn } from "@/lib/utils";
+import { ChevronDown, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toggleMarketingConsentAction } from "../actions";
 
 export type ConsentVM = {
@@ -53,10 +48,9 @@ export function ConsentsPanel({
         <div>
           <h2 className="text-[15px] font-semibold text-gc-fg">Consensi</h2>
           <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            Qui trovi le condizioni che hai accettato e che hai dato a
-            Generazione Crypto. I Termini e la Privacy Policy sono obbligatori
-            per usare la piattaforma; il consenso marketing è facoltativo e
-            puoi modificarlo quando vuoi.
+            Qui trovi le condizioni che hai accettato. I Termini e la Privacy
+            Policy sono obbligatori per usare la piattaforma; il consenso
+            marketing è facoltativo e puoi modificarlo quando vuoi.
           </p>
         </div>
 
@@ -111,8 +105,7 @@ function ConsentCard({
             variant="ghost"
             size="sm"
             onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-          >
+            aria-expanded={open}>
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
             />
@@ -180,8 +173,7 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
             type="submit"
             variant={isOn ? "outline" : "default"}
             size="sm"
-            disabled={pending}
-          >
+            disabled={pending}>
             {pending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -203,8 +195,7 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gc-fg-3 hover:text-gc-fg transition-colors"
-            >
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gc-fg-3 hover:text-gc-fg transition-colors">
               <ChevronDown
                 className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
               />
@@ -281,8 +272,7 @@ function CollapsibleHtmlBody({ html }: { html: string }) {
             variant="ghost"
             size="sm"
             onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-          >
+            aria-expanded={expanded}>
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
             />
