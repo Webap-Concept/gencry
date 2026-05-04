@@ -240,7 +240,12 @@ export const templateFieldsRelations = relations(templateFields, ({ one }) => ({
   }),
 }));
 
-export const SYSTEM_PAGE_KEYS = ["terms", "privacy", "marketing"] as const;
+export const SYSTEM_PAGE_KEYS = [
+  "terms",
+  "privacy",
+  "marketing",
+  "cookie",
+] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
 export const pages = pgTable("pages", {

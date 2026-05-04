@@ -3,6 +3,7 @@ import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
@@ -131,11 +132,13 @@ export default async function RootLayout({
   const isAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
 
-  // Fetch unico: snippet + settings + cookie consent in parallelo
-  const [allSnippets, settings, cookieConsent] = await Promise.all([
+  // Fetch unico: snippet + settings + cookie consent + system page slugs.
+  // Gli slugs servono per linkare la cookie policy dal banner.
+  const [allSnippets, settings, cookieConsent, systemPageSlugs] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
     readCookieConsent(),
+    getSystemPageSlugs(),
   ]);
 
   const headSnippets = allSnippets.filter((s) => s.position === "head");
@@ -154,6 +157,7 @@ export default async function RootLayout({
   const showCookieBanner =
     !isAdminRoute && !isMaintenance && cookieBannerEnabled && !cookieConsent.hasDecision;
   const analyticsAllowed = cookieBannerEnabled && cookieConsent.prefs.analytics;
+  const cookiePolicyUrl = systemPageSlugs.cookie ? `/${systemPageSlugs.cookie}` : null;
 
   return (
     <html
@@ -192,7 +196,7 @@ export default async function RootLayout({
         )}
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
-        {showCookieBanner && <CookieBanner />}
+        {showCookieBanner && <CookieBanner policyUrl={cookiePolicyUrl} />}
         {analyticsAllowed && <Analytics />}
       </body>
     </html>

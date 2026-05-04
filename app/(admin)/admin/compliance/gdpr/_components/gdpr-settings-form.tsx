@@ -23,7 +23,6 @@ export type GdprSettingsValues = {
   "gdpr.policy.force_reconsent_on_change": string;
   "gdpr.policy.reconsent_grace_days": string;
   "gdpr.policy.notifications_cron_minutes": string;
-  "gdpr.cookie_banner.enabled": string;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -383,7 +382,7 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
             className="text-[11px] mb-5"
             style={{ color: "var(--admin-text-faint)" }}>
             Behavior when policies (Terms / Privacy) are bumped to a new
-            version, and cookie banner toggle.
+            version. Cookie banner has its own dedicated section.
           </p>
           <div className="space-y-4 max-w-2xl">
             <Bool
@@ -414,15 +413,6 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               suffix="minutes"
               hint="How often the policy-change-notifications cron worker dispatches pending email batches. Set the matching schedule in pg_cron — this value is informational unless your scheduler reads from settings."
               requirement="optional"
-            />
-            <Bool
-              name="gdpr.cookie_banner.enabled"
-              defaultChecked={
-                initial["gdpr.cookie_banner.enabled"] === "true"
-              }
-              title="Cookie banner enabled"
-              hint="Master switch for the public cookie consent banner. When ON, visitors see a non-blocking banner with 4 categories (necessary, preferences, analytics, marketing). When OFF, the banner is hidden and all non-essential cookies (including Vercel Analytics) stay disabled — no tracking without an explicit opt-in."
-              requirement="required"
             />
           </div>
         </div>

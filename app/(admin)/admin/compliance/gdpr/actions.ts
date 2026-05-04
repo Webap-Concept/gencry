@@ -120,10 +120,6 @@ export async function saveGdprSettingsAction(
         60,
       ),
     );
-    await updateAppSetting(
-      "gdpr.cookie_banner.enabled",
-      readBool(formData.get("gdpr.cookie_banner.enabled")),
-    );
 
     revalidatePath(getAdminPath("compliance-gdpr"));
     return { success: "GDPR settings saved.", timestamp: Date.now() };
