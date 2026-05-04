@@ -1,8 +1,8 @@
 // proxy.ts
 import { verifyToken } from "@/lib/auth/session";
 import { getValidSession } from "@/lib/auth/sessions";
+import { getNavigablePages } from "@/lib/db/pages-queries";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
-import { getActiveRoutes } from "@/lib/db/route-registry-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
 import {
   ADMIN_SIGNIN_ROUTE,
@@ -21,11 +21,18 @@ function matchesPrefix(pathname: string, routes: readonly string[]): boolean {
 }
 
 /**
- * Carica le route dal DB e le suddivide per visibilità.
- * NON ha più un fallback a liste statiche: le route di sistema
- * sono gestite dal kernel hardcoded sopra, il resto viene dal DB.
- * Se il DB non risponde, le route non-system degradano silenziosamente
- * (utente non autenticato non accede a route private).
+ * Carica le route dalla tabella `pages` e le suddivide per visibility.
+ * Sostituisce il vecchio lookup su `route_registry`: dopo la migration
+ * 0034, sia le user CMS pages sia le ex-editorial routes vivono in
+ * `pages` con un campo `visibility` proprio. Le system pages "meta-only"
+ * (auth, /404, ecc.) sono gestite dal kernel hardcoded sopra — la loro
+ * presenza in questa lista è innocua perché il flusso 1-3 le intercetta
+ * prima di arrivare qui.
+ *
+ * NON ha più un fallback a liste statiche: le route di sistema sono
+ * gestite dal kernel hardcoded sopra, il resto viene dal DB. Se il DB
+ * non risponde, le route non-system degradano silenziosamente (utente
+ * non autenticato non accede a route private).
  */
 async function resolveRoutes(): Promise<{
   publicRoutes: string[];
@@ -37,7 +44,7 @@ async function resolveRoutes(): Promise<{
   };
 
   try {
-    const rows = await getActiveRoutes();
+    const rows = await getNavigablePages();
     if (!rows || rows.length === 0) return empty;
 
     const byVisibility = (v: RouteVisibility) =>

@@ -409,6 +409,8 @@ function PubTab({
   expiresAt,
   setExpiresAt,
   slug,
+  visibility,
+  setVisibility,
 }: {
   status: "draft" | "published";
   setStatus: (v: "draft" | "published") => void;
@@ -417,9 +419,49 @@ function PubTab({
   expiresAt: string;
   setExpiresAt: (v: string) => void;
   slug: string;
+  visibility: "public" | "private";
+  setVisibility: (v: "public" | "private") => void;
 }) {
   return (
     <div className="space-y-5">
+      <div
+        className="rounded-xl px-4 py-4 space-y-3"
+        style={{
+          background: "var(--admin-page-bg)",
+          border: "1px solid var(--admin-input-border)",
+        }}>
+        <p style={labelStyle}>Visibilità</p>
+        <div className="flex gap-3">
+          {(["public", "private"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setVisibility(v)}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                background:
+                  visibility === v
+                    ? "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))"
+                    : "var(--admin-card-bg)",
+                color:
+                  visibility === v
+                    ? "var(--admin-accent)"
+                    : "var(--admin-text-muted)",
+                border:
+                  visibility === v
+                    ? "1px solid color-mix(in srgb, var(--admin-accent) 30%, transparent)"
+                    : "1px solid var(--admin-card-border)",
+              }}>
+              {v === "public" ? "Pubblica" : "Privata (richiede login)"}
+            </button>
+          ))}
+        </div>
+        <p style={hintStyle}>
+          {visibility === "public"
+            ? "Accessibile a chiunque visiti l'URL."
+            : "Gli utenti non autenticati vengono reindirizzati a /sign-in."}
+        </p>
+      </div>
       <div
         className="rounded-xl px-4 py-4 space-y-3"
         style={{
@@ -726,6 +768,9 @@ export default function PageEditor({
   const [status, setStatus] = useState<"draft" | "published">(
     (page?.status as "draft" | "published") ?? "draft",
   );
+  const [visibility, setVisibility] = useState<"public" | "private">(
+    (page?.visibility as "public" | "private") ?? "public",
+  );
   const [publishedAt, setPublishedAt] = useState(
     page?.publishedAt ? toDatetimeLocal(page.publishedAt) : "",
   );
@@ -869,6 +914,7 @@ export default function PageEditor({
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="content" ref={contentRef} />
         <input type="hidden" name="status" value={status} />
+        <input type="hidden" name="visibility" value={visibility} />
         <input type="hidden" name="publishedAt" value={publishedAt} />
         <input type="hidden" name="expiresAt" value={expiresAt} />
         <input type="hidden" name="parentId" value={parentId ?? ""} />
@@ -1238,6 +1284,8 @@ export default function PageEditor({
                 expiresAt={expiresAt}
                 setExpiresAt={setExpiresAt}
                 slug={slug}
+                visibility={visibility}
+                setVisibility={setVisibility}
               />
             </div>
           )}

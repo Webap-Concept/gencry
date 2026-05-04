@@ -5,6 +5,7 @@ import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
   getPageBySlug,
+  invalidateNavigablePagesCache,
   togglePageStatus,
   upsertPage,
 } from "@/lib/db/pages-queries";
@@ -29,6 +30,7 @@ const schema = z.object({
   title: z.string().min(1, "Il titolo è obbligatorio").max(255),
   content: z.string().default(""),
   status: z.enum(["draft", "published"]).default("draft"),
+  visibility: z.enum(["public", "private"]).default("public"),
   publishedAt: z.string().optional(),
   expiresAt: z.string().optional(),
   parentId: z.string().optional(),
@@ -56,6 +58,7 @@ export async function upsertPageAction(
     title: formData.get("title"),
     content: formData.get("content") ?? "",
     status: formData.get("status") ?? "draft",
+    visibility: formData.get("visibility") ?? "public",
     publishedAt: formData.get("publishedAt") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
     parentId: formData.get("parentId") || undefined,
@@ -147,6 +150,12 @@ export async function upsertPageAction(
       revalidatePath(getAdminPath("seo-redirects"));
     }
 
+    // Cache del proxy: invalida la lista navigable, altrimenti per
+    // ~60s il proxy può ancora vedere lo slug vecchio o la visibility
+    // precedente. Importante quando si cambia status (draft↔published)
+    // o visibility (public↔private).
+    invalidateNavigablePagesCache();
+
     // ── Activity log ──────────────────────────────────────────────────────────
     const user = await getUser();
     const uid = user?.id ?? null;
@@ -184,6 +193,7 @@ export async function deletePageAction(
     revalidatePath(getAdminPath("content-pages"));
     revalidatePath(`/${slug}`);
     revalidatePath(getAdminPath("seo-meta"));
+    invalidateNavigablePagesCache();
 
     const user = await getUser();
     await logContentActivity(
@@ -214,6 +224,7 @@ export async function togglePageStatusAction(
   try {
     await togglePageStatus(id, currentStatus);
     revalidatePath(getAdminPath("content-pages"));
+    invalidateNavigablePagesCache();
 
     const user = await getUser();
     const nextStatus = currentStatus === "published" ? "draft" : "published";

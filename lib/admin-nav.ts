@@ -288,13 +288,6 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "SearchX",
         permission: "admin:seo",
       },
-      {
-        key: "seo-registry",
-        href: "/admin/seo/route-registry",
-        label: "Route Registry",
-        icon: "Map",
-        permission: "admin:seo",
-      },
     ],
   },
   {
