@@ -35,7 +35,20 @@ import {
   activityLogs,
   ActivityType,
   type NewActivityLog,
+  userProfiles,
 } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { sendMfaDisabledEmail } from "@/lib/email/templates/mfa-disabled";
+import { sendMfaEnabledEmail } from "@/lib/email/templates/mfa-enabled";
+
+async function getFirstNameForEmail(userId: string): Promise<string | undefined> {
+  const [row] = await db
+    .select({ firstName: userProfiles.firstName })
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, userId))
+    .limit(1);
+  return row?.firstName ?? undefined;
+}
 
 async function logActivity(userId: string, type: ActivityType) {
   const entry: NewActivityLog = { userId, action: type, ipAddress: "" };
@@ -232,6 +245,15 @@ export const confirmMfaSetupAction = validatedActionWithUser(
     }
 
     await logActivity(user.id, ActivityType.MFA_ENABLED);
+
+    // Email di notifica fire-and-forget — non bloccare la risposta se Resend
+    // ha problemi (l'attivazione è comunque andata a buon fine).
+    void getFirstNameForEmail(user.id)
+      .then((firstName) => sendMfaEnabledEmail(user.email, firstName))
+      .catch((err: unknown) => {
+        console.error("[mfa] sendMfaEnabledEmail failed:", err);
+      });
+
     revalidatePath("/settings/security");
     return {
       success: "Autenticazione a due fattori attivata.",
@@ -282,6 +304,13 @@ export const disableMfaAction = validatedActionWithUser(
 
     await disableMfaQuery(user.id);
     await logActivity(user.id, ActivityType.MFA_DISABLED);
+
+    void getFirstNameForEmail(user.id)
+      .then((firstName) => sendMfaDisabledEmail(user.email, firstName))
+      .catch((err: unknown) => {
+        console.error("[mfa] sendMfaDisabledEmail failed:", err);
+      });
+
     revalidatePath("/settings/security");
     return { success: "Autenticazione a due fattori disabilitata." };
   },
