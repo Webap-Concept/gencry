@@ -80,7 +80,7 @@ export function OnboardingWizard({
   const [step, setStep] = useState<0 | 1 | 2>(initialStep);
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 py-12 bg-brand-bg">
+    <div className="min-h-dvh flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-xl">
         <div className="rounded-2xl p-8 shadow-sm border border-brand-border bg-brand-surface">
           <StepDots current={step} total={3} />
