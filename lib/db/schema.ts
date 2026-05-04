@@ -255,6 +255,13 @@ export const SYSTEM_PAGE_KEYS = [
   "verify_email",
   "forgot_password",
   "reset_password",
+  // Altre rotte di sistema "meta-only" che non hanno content CMS:
+  // - "home" → "/" (slug vuoto), servita dal page handler della homepage
+  // - "admin_home" → "/admin", landing del pannello admin
+  // - "admin_sign_in" → "/admin/sign-in", login admin (vedi ADMIN_SIGNIN_ROUTE)
+  "home",
+  "admin_home",
+  "admin_sign_in",
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
