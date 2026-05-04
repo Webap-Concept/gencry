@@ -72,7 +72,13 @@ const COINS = [
   { Icon: AdaIcon, cls: "gc404-coin-ada", left: "50%", dur: "6.4s", delay: "4s" },
 ];
 
-export function Crash404() {
+// Default usato quando la system page CMS è assente o ha content vuoto.
+// Tenuto qui (non in app/not-found.tsx) per centralizzare il copy del
+// componente.
+const DEFAULT_DESCRIPTION =
+  "L'asset che cercavi non è in portafoglio. Forse è stata rugpullata, forse l'hai scritta male — succede ai migliori. Torna alla home e riparti dai movimenti del giorno.";
+
+export function Crash404({ description }: { description?: string | null }) {
   const [price, setPrice] = useState("$0.000123");
   const [change, setChange] = useState("−99.87%");
   const [vol, setVol] = useState("1.234");
@@ -191,8 +197,7 @@ export function Crash404() {
       <p
         className="gc404-fade-up mx-auto max-w-[520px] text-center text-[15px] text-gc-fg-3 text-pretty"
         style={{ animationDelay: "1.3s" }}>
-        L&apos;asset che cercavi non è in portafoglio. Forse è stata rugpullata, forse l&apos;hai
-        scritta male — succede ai migliori. Torna alla home e riparti dai movimenti del giorno.
+        {description ?? DEFAULT_DESCRIPTION}
       </p>
 
       <div
