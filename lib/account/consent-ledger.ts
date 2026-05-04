@@ -260,3 +260,73 @@ export async function recordMarketingConsentChange(
     source: "settings_toggle",
   });
 }
+
+// ---------------------------------------------------------------------------
+// Cookie banner helper
+// ---------------------------------------------------------------------------
+
+export type CookieConsentChoice = {
+  preferences: boolean;
+  analytics: boolean;
+  marketing: boolean;
+};
+
+export type CookieConsentInput = {
+  /** Null per visitatori non autenticati (caso più comune del banner). */
+  userId: string | null;
+  choice: CookieConsentChoice;
+  ip: string | null;
+  userAgent: string | null;
+  locale: string | null;
+  /** "accept_all" | "reject_all" | "custom" — finisce in metadata.variant. */
+  variant: "accept_all" | "reject_all" | "custom";
+};
+
+/**
+ * Registra le 4 categorie di cookie sul ledger come eventi separati.
+ *
+ * `cookie_necessary` viene sempre loggato come "granted": tecnicamente non
+ * è opt-in (è un cookie funzionale ai sensi dell'art. 5(3) ePrivacy), ma
+ * lo registriamo per completezza dell'audit trail e per documentare cosa
+ * l'utente ha visto al momento del consenso.
+ *
+ * Le altre tre vengono loggate come "granted" o "revoked" in base alla
+ * scelta. Una "revoked" iniziale è perfettamente valida e rappresenta
+ * un opt-out esplicito (es. click su "Rifiuta tutti").
+ *
+ * `policy_version` e `policy_text` sono null perché per i cookie non
+ * esiste una policy unica versionata — il consenso è sulla categoria,
+ * non sul testo. La cookie policy è documentata altrove (privacy page).
+ *
+ * Best-effort come tutto il resto del ledger: non rilancia mai.
+ */
+export async function recordCookieConsents(input: CookieConsentInput): Promise<void> {
+  const baseMetadata = { variant: input.variant };
+  const tasks: Array<Promise<void>> = [];
+
+  const items: Array<{ type: ConsentType; granted: boolean }> = [
+    { type: "cookie_necessary", granted: true },
+    { type: "cookie_preferences", granted: input.choice.preferences },
+    { type: "cookie_analytics", granted: input.choice.analytics },
+    { type: "cookie_marketing", granted: input.choice.marketing },
+  ];
+
+  for (const item of items) {
+    tasks.push(
+      recordConsent({
+        userId: input.userId,
+        consentType: item.type,
+        action: item.granted ? "granted" : "revoked",
+        policyVersion: null,
+        policyText: null,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        locale: input.locale,
+        source: "cookie_banner",
+        extraMetadata: baseMetadata,
+      }),
+    );
+  }
+
+  await Promise.all(tasks);
+}

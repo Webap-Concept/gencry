@@ -1,6 +1,8 @@
+import { CookieBanner } from "@/app/(frontend)/_components/cookie-banner/cookie-banner";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
+import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
@@ -129,10 +131,11 @@ export default async function RootLayout({
   const isAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
 
-  // Fetch unico: snippet + settings in parallelo
-  const [allSnippets, settings] = await Promise.all([
+  // Fetch unico: snippet + settings + cookie consent in parallelo
+  const [allSnippets, settings, cookieConsent] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
+    readCookieConsent(),
   ]);
 
   const headSnippets = allSnippets.filter((s) => s.position === "head");
@@ -140,6 +143,17 @@ export default async function RootLayout({
 
   const isMaintenance =
     settings.maintenance_mode === "true" && !isAdminRoute;
+
+  // Cookie banner: solo nel frontend pubblico, mai in admin (gli admin sono
+  // staff e accedono al pannello sapendo cosa traccia il sistema).
+  // Se l'admin ha lasciato il master switch a OFF, il banner non appare —
+  // e di conseguenza i cookie non-tecnici (analytics inclusi) restano OFF
+  // perché manca un consenso esplicito. Decisione consapevole: meglio
+  // non tracciare che tracciare senza base legale.
+  const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
+  const showCookieBanner =
+    !isAdminRoute && !isMaintenance && cookieBannerEnabled && !cookieConsent.hasDecision;
+  const analyticsAllowed = cookieBannerEnabled && cookieConsent.prefs.analytics;
 
   return (
     <html
@@ -178,7 +192,8 @@ export default async function RootLayout({
         )}
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
-        <Analytics />
+        {showCookieBanner && <CookieBanner />}
+        {analyticsAllowed && <Analytics />}
       </body>
     </html>
   );
