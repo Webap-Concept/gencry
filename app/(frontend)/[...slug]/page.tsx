@@ -25,6 +25,34 @@ export async function generateMetadata({
     getPageWithTemplate(slug.join("/")),
   ]);
 
+  // Se la pagina non esiste (e non c'è un override SEO per quel pathname),
+  // questa request finirà in notFound() → render di app/not-found.tsx.
+  // In Next.js i meta del not-found NON vengono presi da `not-found.tsx`
+  // ma da QUESTA generateMetadata (è il page handler che ha triggerato
+  // notFound). Per evitare un <title> vuoto, facciamo il fallback al
+  // record SEO della 404 globale ('/404'), modificabile dall'admin.
+  // Anche le system pages "not_found" passano da qui (servite come URL
+  // ma bloccate nel page handler con notFound()): per loro vogliamo gli
+  // stessi meta della 404 globale, non quelli della system page stessa.
+  const isMissing = !page || page.status !== "published";
+  const isNotFoundSystemPage =
+    page?.isSystem === true && page?.systemKey === "not_found";
+  if (!seo && (isMissing || isNotFoundSystemPage)) {
+    const fallback = await getSeoPage("/404");
+    return {
+      title: fallback?.title ?? "404 — Pagina non trovata",
+      description:
+        fallback?.description ??
+        "L'asset che cercavi non è in portafoglio.",
+      openGraph: {
+        title: fallback?.ogTitle ?? fallback?.title ?? undefined,
+        description: fallback?.ogDescription ?? fallback?.description ?? undefined,
+        ...(fallback?.ogImage ? { images: [{ url: fallback.ogImage }] } : {}),
+      },
+      robots: fallback?.robots ?? "noindex, follow",
+    };
+  }
+
   const title = seo?.title || page?.title || undefined;
   const description = seo?.description || undefined;
 
