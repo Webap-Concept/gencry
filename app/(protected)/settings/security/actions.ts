@@ -7,7 +7,7 @@ import {
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
 import { getDeviceToken } from "@/lib/auth/trusted-device";
-import { getSession } from "@/lib/auth/session";
+import { comparePasswords, getSession } from "@/lib/auth/session";
 import {
   revokeAllUserSessions,
   revokeSession,
@@ -16,6 +16,31 @@ import {
   revokeAllOtherDevices,
   revokeDevice,
 } from "@/lib/account/devices";
+import {
+  confirmMfaSetup,
+  disableMfa as disableMfaQuery,
+  getMfaState,
+  regenerateRecoveryCodes,
+  startMfaSetup,
+  verifyTotpForLogin,
+} from "@/lib/auth/mfa/queries";
+import { buildOtpauthUrl } from "@/lib/auth/mfa/totp";
+import { qrCodeDataUrl } from "@/lib/auth/mfa/qrcode";
+import {
+  checkMfaTotpRateLimit,
+  recordMfaTotpAttempt,
+} from "@/lib/auth/mfa/rate-limit";
+import { db } from "@/lib/db/drizzle";
+import {
+  activityLogs,
+  ActivityType,
+  type NewActivityLog,
+} from "@/lib/db/schema";
+
+async function logActivity(userId: string, type: ActivityType) {
+  const entry: NewActivityLog = { userId, action: type, ipAddress: "" };
+  await db.insert(activityLogs).values(entry);
+}
 
 // ---------------------------------------------------------------------------
 // Revoca singolo dispositivo
@@ -133,5 +158,180 @@ export const revokeAllOtherSessionsAction = validatedActionWithUser(
           ? "1 sessione revocata."
           : `${revokedCount} sessioni revocate.`,
     } satisfies ActionState;
+  },
+);
+
+// ---------------------------------------------------------------------------
+// MFA TOTP — start setup
+//
+// Genera un secret pending e ritorna QR + chiave manuale al client.
+// Il setup non è ancora attivo: serve `confirmMfaSetupAction` con il
+// primo codice valido per attivarlo davvero.
+// ---------------------------------------------------------------------------
+
+export type MfaStartState = ActionState & {
+  qrCodeDataUrl?: string;
+  manualKey?: string;
+};
+
+const ISSUER = "GenCrypto";
+
+const startMfaSetupSchema = z.object({});
+
+export const startMfaSetupAction = validatedActionWithUser(
+  startMfaSetupSchema,
+  async (_data, _formData, user): Promise<MfaStartState> => {
+    const state = await getMfaState(user.id);
+    if (state.enabled) {
+      return { error: "MFA già attiva. Disabilitala prima di rifare il setup." };
+    }
+
+    const { secretBase32 } = await startMfaSetup(user.id);
+    const otpauthUrl = buildOtpauthUrl({
+      secretBase32,
+      label: user.email,
+      issuer: ISSUER,
+    });
+    const dataUrl = await qrCodeDataUrl(otpauthUrl);
+
+    return {
+      success: "Scansiona il QR con la tua app autenticatore.",
+      qrCodeDataUrl: dataUrl,
+      manualKey: secretBase32,
+    };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// MFA TOTP — confirm setup
+//
+// Verifica il primo codice, attiva MFA, e ritorna i 10 recovery codes
+// in chiaro (mostrati una sola volta).
+// ---------------------------------------------------------------------------
+
+export type MfaConfirmState = ActionState & {
+  recoveryCodes?: string[];
+};
+
+const confirmMfaSetupSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+});
+
+export const confirmMfaSetupAction = validatedActionWithUser(
+  confirmMfaSetupSchema,
+  async (data, _formData, user): Promise<MfaConfirmState> => {
+    const result = await confirmMfaSetup(user.id, data.token);
+    if (!result.ok) {
+      if (result.reason === "no_pending") {
+        return { error: "Nessun setup in corso. Riavvia la procedura." };
+      }
+      return { error: "Codice non valido. Riprova." };
+    }
+
+    await logActivity(user.id, ActivityType.MFA_ENABLED);
+    revalidatePath("/settings/security");
+    return {
+      success: "Autenticazione a due fattori attivata.",
+      recoveryCodes: result.recoveryCodes,
+    };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// MFA TOTP — disable
+//
+// Step-up: richiede password CORRENTE + codice TOTP corrente.
+// ---------------------------------------------------------------------------
+
+const disableMfaSchema = z.object({
+  password: z.string().min(1, "Inserisci la password."),
+  token: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+});
+
+export const disableMfaAction = validatedActionWithUser(
+  disableMfaSchema,
+  async (data, _formData, user): Promise<ActionState> => {
+    const state = await getMfaState(user.id);
+    if (!state.enabled) {
+      return { error: "MFA non è attiva su questo account." };
+    }
+
+    const passwordOk = await comparePasswords(data.password, user.passwordHash);
+    if (!passwordOk) {
+      return { error: "Password non corretta." };
+    }
+
+    const rl = await checkMfaTotpRateLimit(user.id);
+    if (rl.blocked) {
+      return {
+        error: "Troppi tentativi. Riprova fra qualche minuto.",
+      };
+    }
+
+    const totpResult = await verifyTotpForLogin(user.id, data.token);
+    if (!totpResult.valid) {
+      await recordMfaTotpAttempt(user.id);
+      return { error: "Codice non valido. Riprova." };
+    }
+
+    await disableMfaQuery(user.id);
+    await logActivity(user.id, ActivityType.MFA_DISABLED);
+    revalidatePath("/settings/security");
+    return { success: "Autenticazione a due fattori disabilitata." };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// MFA TOTP — regenerate recovery codes
+//
+// Step-up: richiede codice TOTP corrente. I 10 codici precedenti vengono
+// invalidati e ne vengono generati 10 nuovi.
+// ---------------------------------------------------------------------------
+
+export type MfaRegenerateState = ActionState & {
+  recoveryCodes?: string[];
+};
+
+const regenerateRecoveryCodesSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+});
+
+export const regenerateRecoveryCodesAction = validatedActionWithUser(
+  regenerateRecoveryCodesSchema,
+  async (data, _formData, user): Promise<MfaRegenerateState> => {
+    const state = await getMfaState(user.id);
+    if (!state.enabled) {
+      return { error: "MFA non è attiva su questo account." };
+    }
+
+    const rl = await checkMfaTotpRateLimit(user.id);
+    if (rl.blocked) {
+      return {
+        error: "Troppi tentativi. Riprova fra qualche minuto.",
+      };
+    }
+
+    const totpResult = await verifyTotpForLogin(user.id, data.token);
+    if (!totpResult.valid) {
+      await recordMfaTotpAttempt(user.id);
+      return { error: "Codice non valido. Riprova." };
+    }
+
+    const codes = await regenerateRecoveryCodes(user.id);
+    await logActivity(user.id, ActivityType.MFA_RECOVERY_CODES_REGENERATED);
+    revalidatePath("/settings/security");
+    return {
+      success: "Nuovi recovery codes generati. Salvali subito.",
+      recoveryCodes: codes,
+    };
   },
 );

@@ -3,9 +3,11 @@ import { getUser } from "@/lib/db/queries";
 import { getDeviceToken } from "@/lib/auth/trusted-device";
 import { getSession } from "@/lib/auth/session";
 import { listActiveSessions } from "@/lib/auth/sessions";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { listMyDevices } from "@/lib/account/devices";
 import { parseUserAgent } from "@/lib/account/parse-user-agent";
 import { DevicesList } from "./_components/devices-list";
+import { MfaSection } from "./_components/mfa-section";
 import { SessionsList } from "./_components/sessions-list";
 
 export default async function SecuritySettingsPage() {
@@ -16,9 +18,10 @@ export default async function SecuritySettingsPage() {
   const currentSessionId = session?.sessionId ?? null;
   const currentDeviceToken = await getDeviceToken();
 
-  const [sessionsRaw, devices] = await Promise.all([
+  const [sessionsRaw, devices, mfaState] = await Promise.all([
     listActiveSessions({ userId: user.id, currentSessionId }),
     listMyDevices(user.id, currentDeviceToken),
+    getMfaState(user.id),
   ]);
 
   const sessions = sessionsRaw.map((s) => ({
@@ -34,6 +37,8 @@ export default async function SecuritySettingsPage() {
 
   return (
     <div className="space-y-12">
+      <MfaSection initialState={mfaState} />
+
       <SessionsList sessions={sessions} />
 
       <DevicesList
