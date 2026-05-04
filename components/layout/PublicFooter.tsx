@@ -1,4 +1,4 @@
-import { CookiePreferencesTrigger } from "@/app/(frontend)/_components/cookie-banner/preferences-trigger";
+import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";

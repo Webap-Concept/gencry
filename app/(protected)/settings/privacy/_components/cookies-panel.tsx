@@ -1,4 +1,4 @@
-import { CookiePreferencesTrigger } from "@/app/(frontend)/_components/cookie-banner/preferences-trigger";
+import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
 import { COOKIE_CATEGORIES } from "@/lib/cookie-consent/services";
 import { Check, Minus } from "lucide-react";
 
