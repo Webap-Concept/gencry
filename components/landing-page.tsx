@@ -496,12 +496,6 @@ export default function GenerazioneCrypto() {
               <img src="/gc_logo.svg" alt="Generazione Crypto" />
             </section>
           </main>
-
-          <footer className="gc-footer">
-            <span>© 2026 Generazione Crypto</span>
-            <span>Made in Italy</span>
-            <span></span>
-          </footer>
         </div>
       </div>
     </>
