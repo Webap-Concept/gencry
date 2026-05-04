@@ -1,7 +1,15 @@
 import Link from "next/link";
+import Image from "next/image";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { Crash404 } from "@/components/not-found/Crash404";
+import { PublicFooter } from "@/components/layout/PublicFooter";
 import { logNotFoundHit } from "@/lib/seo/log-not-found";
+
+export const metadata = {
+  title: "404 — Pagina non trovata · Generazione Crypto",
+  description: "L'asset che cercavi non è in portafoglio.",
+};
 
 export default async function NotFound() {
   // Il proxy (vedi proxy.ts) imposta `x-pathname` su ogni request: usiamolo
@@ -19,207 +27,51 @@ export default async function NotFound() {
   });
 
   return (
-    <div className="flex items-center justify-center min-h-[100dvh] bg-[var(--brand-bg)] px-4">
-      <div className="max-w-sm w-full text-center space-y-8">
-        <div className="flex justify-center">
-          <svg
-            viewBox="0 0 120 80"
-            width="160"
-            height="107"
-            fill="none"
-            aria-hidden="true">
-            {/* Libro sinistra 3 */}
-            <rect
-              x="8"
-              y="28"
-              width="28"
-              height="42"
-              rx="3"
-              fill="var(--brand-accent)"
-              opacity="0.5"
-            />
-            <rect
-              x="8"
-              y="28"
-              width="4"
-              height="42"
-              rx="2"
-              fill="var(--brand-accent)"
-            />
-            <line
-              x1="16"
-              y1="38"
-              x2="32"
-              y2="38"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.7"
-            />
-            <line
-              x1="16"
-              y1="44"
-              x2="28"
-              y2="44"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.7"
-            />
-            <line
-              x1="16"
-              y1="50"
-              x2="30"
-              y2="50"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.7"
-            />
+    <div className="relative flex min-h-[100dvh] flex-col overflow-x-hidden bg-gc-bg text-gc-fg">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--gc-line) 1px, transparent 1px), linear-gradient(90deg, var(--gc-line) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          backgroundPosition: "-1px -1px",
+          maskImage:
+            "radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 80%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 80%)",
+        }}
+      />
 
-            {/* Libro centro (più grande, inclinato) */}
-            <g transform="rotate(-6 60 50)">
-              <rect
-                x="42"
-                y="18"
-                width="36"
-                height="52"
-                rx="3"
-                fill="var(--brand-primary)"
-                opacity="0.85"
-              />
-              <rect
-                x="42"
-                y="18"
-                width="5"
-                height="52"
-                rx="2"
-                fill="var(--brand-primary)"
-              />
-              <line
-                x1="52"
-                y1="30"
-                x2="74"
-                y2="30"
-                stroke="white"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-              <line
-                x1="52"
-                y1="37"
-                x2="74"
-                y2="37"
-                stroke="white"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-              <line
-                x1="52"
-                y1="44"
-                x2="68"
-                y2="44"
-                stroke="white"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-              <line
-                x1="52"
-                y1="51"
-                x2="72"
-                y2="51"
-                stroke="white"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-            </g>
-
-            {/* Libro destra */}
-            <rect
-              x="84"
-              y="32"
-              width="26"
-              height="38"
-              rx="3"
-              fill="var(--brand-accent)"
-              opacity="0.35"
-            />
-            <rect
-              x="84"
-              y="32"
-              width="4"
-              height="38"
-              rx="2"
-              fill="var(--brand-accent)"
-              opacity="0.6"
-            />
-            <line
-              x1="92"
-              y1="42"
-              x2="106"
-              y2="42"
-              stroke="var(--brand-text-muted)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.5"
-            />
-            <line
-              x1="92"
-              y1="48"
-              x2="104"
-              y2="48"
-              stroke="var(--brand-text-muted)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.5"
-            />
-
-            {/* Punto interrogativo */}
-            <text
-              x="60"
-              y="12"
-              textAnchor="middle"
-              fontSize="14"
-              fontWeight="bold"
-              fill="var(--brand-primary)"
-              opacity="0.9">
-              ?
-            </text>
-          </svg>
-        </div>
-
-        {/* Testo */}
-        <div className="space-y-3">
-          <p
-            className="text-7xl font-extrabold tracking-tight"
-            style={{ color: "var(--brand-primary)" }}>
-            404
-          </p>
-          <h1
-            className="text-xl font-semibold"
-            style={{ color: "var(--brand-text)" }}>
-            Pagina non trovata
-          </h1>
-          <p
-            className="text-sm leading-relaxed"
-            style={{ color: "var(--brand-text-muted)" }}>
-            Questa pagina non esiste o è stata spostata.
-            <br />
-            Torna alla home e riprendi a leggere.
-          </p>
-        </div>
-
-        {/* CTA */}
+      <nav className="relative z-10 mx-auto flex w-full max-w-[1280px] items-center justify-between px-5 py-5 md:px-8 md:py-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] transition-colors">
-          ← Torna alla home
+          className="flex items-center gap-3 font-bold tracking-tight text-gc-fg no-underline">
+          <Image
+            src="/gc_logo.svg"
+            alt="Generazione Crypto"
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-lg object-contain"
+            priority
+          />
+          <span className="flex flex-col leading-[1.05]">
+            <span className="text-base">Generazione</span>
+            <span className="text-base font-bold text-gc-accent">Crypto</span>
+          </span>
         </Link>
+
+        <div className="inline-flex items-center gap-2 rounded-full border border-gc-line bg-gc-bg-2 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-gc-fg-3">
+          <span className="h-[7px] w-[7px] animate-gc-blink rounded-full bg-gc-neg" />
+          Errore 404 · Pagina non trovata
+        </div>
+      </nav>
+
+      <div className="relative z-10 flex-1">
+        <Crash404 />
       </div>
+
+      <PublicFooter />
     </div>
   );
 }
