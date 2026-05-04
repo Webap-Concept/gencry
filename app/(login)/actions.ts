@@ -11,6 +11,8 @@ import {
   validatedAction,
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
+import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { createVerificationCode } from "@/lib/auth/otp";
 import {
   addTrustedDevice,
@@ -200,6 +202,17 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
       await addTrustedDevice(foundUser.id, newToken, ua);
       await setDeviceTokenCookie(newToken);
     }
+
+    // MFA gate: se l'utente ha attivato il TOTP, sospendi la sessione e
+    // manda al challenge. setSession verrà chiamata da /sign-in/mfa solo
+    // dopo verifica del codice. Niente logActivity SIGN_IN qui — viene
+    // loggato MFA_VERIFIED dopo il check.
+    const mfaState = await getMfaState(foundUser.id);
+    if (mfaState.enabled) {
+      await setPendingMfaCookie(foundUser.id, foundUser.role);
+      redirect("/sign-in/mfa");
+    }
+
     await Promise.all([
       setSession(foundUser),
       logActivity(foundUser.id, ActivityType.SIGN_IN),
