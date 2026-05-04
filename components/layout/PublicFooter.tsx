@@ -5,15 +5,19 @@ import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import Link from "next/link";
 
 /**
- * Footer per le pagine pubbliche (frontend pubblico + pagine di login).
+ * Footer per le pagine pubbliche (frontend pubblico + pagine di login
+ * + landing guest).
  *
  * Pensato come slot condiviso per dati legali e link di servizio:
  * appena ci servirà esporre altri link (chi siamo, contatti, social),
  * vanno aggiunti qui senza moltiplicare i layout.
  *
- * Mostra il bottone "Preferenze cookie" SOLO se il banner è abilitato
- * dall'admin: se il master switch è OFF, non c'è nulla da modificare
- * (tutti i cookie non-essenziali sono già OFF per default).
+ * Bottone "Preferenze cookie" — è mostrato SOLO se:
+ *   1. il master switch admin è ON, e
+ *   2. l'utente ha già preso una decisione (cookie presente).
+ * Se il banner è ancora visibile (decisione non presa), il bottone
+ * sarebbe ridondante e si sovrapporrebbe visivamente al banner sticky
+ * bottom.
  */
 export async function PublicFooter() {
   const [settings, slugs, cookieConsent] = await Promise.all([
@@ -78,7 +82,7 @@ export async function PublicFooter() {
               Cookie policy
             </Link>
           )}
-          {cookieBannerEnabled && (
+          {cookieBannerEnabled && cookieConsent.hasDecision && (
             <CookiePreferencesTrigger
               initialPrefs={initialPrefs}
               policyUrl={cookiePolicyUrl}
