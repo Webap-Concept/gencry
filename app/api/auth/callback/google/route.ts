@@ -137,6 +137,11 @@ export async function GET(req: NextRequest) {
         await setDeviceTokenCookie(newToken);
       }
       await createSession(dbUser.id, dbUser.role);
+      // Onboarding gate: utenti non-admin con onboarding incompleto vengono
+      // rimandati al wizard (es. abbandono dopo signup OAuth).
+      if (dbUser.role !== "admin" && !dbUser.onboardingCompletedAt) {
+        return redirect("/onboarding");
+      }
       return redirect(dbUser.role === "admin" ? "/admin" : "/");
     }
 

@@ -61,6 +61,20 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
     action: ActivityType.DEVICE_VERIFIED,
   });
 
+  // Onboarding gate per non-admin: leggiamo onboardingCompletedAt qui
+  // (cookie pendingAuth non lo contiene). PK lookup, sul path raro della
+  // verifica dispositivo: costo trascurabile.
+  if (role !== "admin") {
+    const [u] = await db
+      .select({ onboardingCompletedAt: users.onboardingCompletedAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!u?.onboardingCompletedAt) {
+      redirect("/onboarding");
+    }
+  }
+
   redirect(role === "admin" ? "/admin" : "/");
 });
 

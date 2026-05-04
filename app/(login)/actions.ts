@@ -204,6 +204,11 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
       setSession(foundUser),
       logActivity(foundUser.id, ActivityType.SIGN_IN),
     ]);
+    // Onboarding gate: utenti non-admin che non hanno completato il wizard
+    // (es. abbandonato dopo signup) tornano sempre lì finché non finiscono.
+    if (foundUser.role !== "admin" && !foundUser.onboardingCompletedAt) {
+      redirect("/onboarding");
+    }
     redirect(foundUser.role === "admin" ? "/admin" : "/");
   }
 
