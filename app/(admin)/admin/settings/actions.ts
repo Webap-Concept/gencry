@@ -278,6 +278,18 @@ export async function saveEmailTemplateSettings(
       "email_accountdeletionotp_bcc",
       "email_accountdeletionotp_body",
       "email_accountdeletionotp_footer",
+      "email_mfaenabled_subject",
+      "email_mfaenabled_bcc",
+      "email_mfaenabled_body",
+      "email_mfaenabled_footer",
+      "email_mfadisabled_subject",
+      "email_mfadisabled_bcc",
+      "email_mfadisabled_body",
+      "email_mfadisabled_footer",
+      "email_mfaadminreset_subject",
+      "email_mfaadminreset_bcc",
+      "email_mfaadminreset_body",
+      "email_mfaadminreset_footer",
     ] as const;
     for (const key of keys) {
       const val = (formData.get(key) as string | null) ?? "";

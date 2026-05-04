@@ -73,6 +73,21 @@ export type SettingKey =
   | 'email_accountdeletionotp_bcc'
   | 'email_accountdeletionotp_body'
   | 'email_accountdeletionotp_footer'
+  // MFA enabled (notifica security-touchpoint dopo attivazione TOTP)
+  | 'email_mfaenabled_subject'
+  | 'email_mfaenabled_bcc'
+  | 'email_mfaenabled_body'
+  | 'email_mfaenabled_footer'
+  // MFA disabled (notifica security-touchpoint dopo disattivazione TOTP)
+  | 'email_mfadisabled_subject'
+  | 'email_mfadisabled_bcc'
+  | 'email_mfadisabled_body'
+  | 'email_mfadisabled_footer'
+  // MFA reset by admin (utente ha contattato il supporto, admin ha resettato)
+  | 'email_mfaadminreset_subject'
+  | 'email_mfaadminreset_bcc'
+  | 'email_mfaadminreset_body'
+  | 'email_mfaadminreset_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -206,6 +221,18 @@ export type AppSettings = {
   email_accountdeletionotp_bcc: string | null
   email_accountdeletionotp_body: string | null
   email_accountdeletionotp_footer: string | null
+  email_mfaenabled_subject: string | null
+  email_mfaenabled_bcc: string | null
+  email_mfaenabled_body: string | null
+  email_mfaenabled_footer: string | null
+  email_mfadisabled_subject: string | null
+  email_mfadisabled_bcc: string | null
+  email_mfadisabled_body: string | null
+  email_mfadisabled_footer: string | null
+  email_mfaadminreset_subject: string | null
+  email_mfaadminreset_bcc: string | null
+  email_mfaadminreset_body: string | null
+  email_mfaadminreset_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -324,6 +351,18 @@ const DEFAULTS: AppSettings = {
   email_accountdeletionotp_bcc: null,
   email_accountdeletionotp_body: null,
   email_accountdeletionotp_footer: null,
+  email_mfaenabled_subject: null,
+  email_mfaenabled_bcc: null,
+  email_mfaenabled_body: null,
+  email_mfaenabled_footer: null,
+  email_mfadisabled_subject: null,
+  email_mfadisabled_bcc: null,
+  email_mfadisabled_body: null,
+  email_mfadisabled_footer: null,
+  email_mfaadminreset_subject: null,
+  email_mfaadminreset_bcc: null,
+  email_mfaadminreset_body: null,
+  email_mfaadminreset_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
