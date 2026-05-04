@@ -693,6 +693,7 @@ export default function PageEditor({
   templateLocked = false,
   isSystem = false,
   pageType = "page",
+  contentEditable = true,
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -705,13 +706,19 @@ export default function PageEditor({
   templateLocked?: boolean;
   isSystem?: boolean;
   pageType?: string;
+  contentEditable?: boolean;
 }) {
   const router = useRouter();
   const isEdit = !!page;
   const originalSlug = page?.slug ?? "";
+  // Le system pages "meta-only" (contentEditable=false) hanno un editor
+  // ridotto: niente tab Contenuto/Struttura/Pubblicazione, solo SEO.
+  // L'admin gestisce esclusivamente titolo (in alto, fuori dai tab) e
+  // meta SEO. Default tab = "seo" per non aprire un tab nascosto.
+  const isMetaOnly = isSystem && contentEditable === false;
   const [activeTab, setActiveTab] = useState<
     "content" | "seo" | "pub" | "struttura"
-  >("content");
+  >(isMetaOnly ? "seo" : "content");
 
   const [state, action, isPending] = useActionState(upsertPageAction, {});
   const [title, setTitle] = useState(page?.title ?? "");
@@ -990,13 +997,15 @@ export default function PageEditor({
           </div>
         </div>
 
-        {selectedTemplate && selectedTemplate.fields.length > 0 && (
-          <CustomFieldsBlock
-            template={selectedTemplate}
-            customFields={customFields}
-            setCustomFields={setCustomFields}
-          />
-        )}
+        {!isMetaOnly &&
+          selectedTemplate &&
+          selectedTemplate.fields.length > 0 && (
+            <CustomFieldsBlock
+              template={selectedTemplate}
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+            />
+          )}
 
         {/* Tabs */}
         <div
@@ -1008,36 +1017,40 @@ export default function PageEditor({
           <div
             className="flex overflow-x-auto"
             style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-            <TabBtn
-              active={activeTab === "content"}
-              onClick={() => setActiveTab("content")}>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10,9 9,9 8,9" />
-              </svg>
-              Contenuto
-            </TabBtn>
-            <TabBtn
-              active={activeTab === "struttura"}
-              onClick={() => setActiveTab("struttura")}>
-              <GitBranch size={14} />
-              Struttura
-              {(parentId || templateId) && (
-                <span
-                  className="w-1.5 h-1.5 rounded-full ml-0.5"
-                  style={{ background: "var(--admin-accent)" }}
-                />
-              )}
-            </TabBtn>
+            {!isMetaOnly && (
+              <>
+                <TabBtn
+                  active={activeTab === "content"}
+                  onClick={() => setActiveTab("content")}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10,9 9,9 8,9" />
+                  </svg>
+                  Contenuto
+                </TabBtn>
+                <TabBtn
+                  active={activeTab === "struttura"}
+                  onClick={() => setActiveTab("struttura")}>
+                  <GitBranch size={14} />
+                  Struttura
+                  {(parentId || templateId) && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full ml-0.5"
+                      style={{ background: "var(--admin-accent)" }}
+                    />
+                  )}
+                </TabBtn>
+              </>
+            )}
             <TabBtn
               active={activeTab === "seo"}
               onClick={() => setActiveTab("seo")}>
@@ -1050,13 +1063,15 @@ export default function PageEditor({
                 />
               )}
             </TabBtn>
-            <TabBtn
-              active={activeTab === "pub"}
-              onClick={() => setActiveTab("pub")}>
-              <Calendar size={14} />
-              <span className="hidden sm:inline">Pubblicazione</span>
-              <span className="sm:hidden">Pub.</span>
-            </TabBtn>
+            {!isMetaOnly && (
+              <TabBtn
+                active={activeTab === "pub"}
+                onClick={() => setActiveTab("pub")}>
+                <Calendar size={14} />
+                <span className="hidden sm:inline">Pubblicazione</span>
+                <span className="sm:hidden">Pub.</span>
+              </TabBtn>
+            )}
           </div>
 
           {activeTab === "content" && (

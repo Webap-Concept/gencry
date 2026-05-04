@@ -31,13 +31,14 @@ export async function generateMetadata({
   // ma da QUESTA generateMetadata (è il page handler che ha triggerato
   // notFound). Per evitare un <title> vuoto, facciamo il fallback al
   // record SEO della 404 globale ('/404'), modificabile dall'admin.
-  // Anche le system pages "not_found" passano da qui (servite come URL
-  // ma bloccate nel page handler con notFound()): per loro vogliamo gli
-  // stessi meta della 404 globale, non quelli della system page stessa.
+  // Anche le system pages "meta-only" (contentEditable=false) passano da
+  // qui se per qualche routing fallback finiscono nel catch-all: il
+  // page handler le bloccherà con notFound(), così evitiamo di servire
+  // la system page CMS al posto della rotta vera.
   const isMissing = !page || page.status !== "published";
-  const isNotFoundSystemPage =
-    page?.isSystem === true && page?.systemKey === "not_found";
-  if (!seo && (isMissing || isNotFoundSystemPage)) {
+  const isMetaOnlySystemPage =
+    page?.isSystem === true && page?.contentEditable === false;
+  if (!seo && (isMissing || isMetaOnlySystemPage)) {
     const fallback = await getSeoPage("/404");
     return {
       title: fallback?.title ?? "404 — Pagina non trovata",
@@ -89,11 +90,13 @@ export default async function FrontendPage({
     notFound();
   }
 
-  // Le system pages "not_found" sono container amministrativi per il
-  // titolo/sottotitolo della 404 globale (vedi app/not-found.tsx) — non
-  // devono essere navigabili come URL pubblici. Digitare /404 deve
-  // attivare la pagina 404, non rendere la system page.
-  if (pageData.isSystem && pageData.systemKey === "not_found") {
+  // Le system pages "meta-only" (contentEditable=false) sono container
+  // amministrativi: l'admin gestisce solo titolo + meta SEO, e le rotte
+  // vere sono servite da page handler dedicati (es. /sign-in →
+  // (login)/sign-in/page.tsx, /404 → app/not-found.tsx). Non devono
+  // essere navigabili come URL CMS — digitare /sign-in deve attivare la
+  // login page, non rendere la system page CMS.
+  if (pageData.isSystem && !pageData.contentEditable) {
     notFound();
   }
 

@@ -33,20 +33,33 @@ async function SeoContent() {
   // l'admin deve poter creare meta tag (title, description, og, ecc.)
   const systemPaths = [...SYSTEM_AUTH_ROUTES, ...SYSTEM_ALWAYS_PUBLIC];
 
-  // Route CMS dinamiche
-  const cmsRoutes = cmsPages.map((p) => `/${p.slug}`);
+  // Pathname che hanno una page in `pages` (CMS o system): vanno
+  // gestite da /admin/content/pages → tab SEO. Le filtriamo da qui per
+  // evitare la doppia UI (l'admin ha confuso records duplicati con
+  // questa lista quando esistevano sia pages.slug='404' sia
+  // seo_pages.pathname='/404'). Il salvataggio dei meta scrive comunque
+  // sulla stessa tabella seo_pages — il tab SEO del page-editor riusa
+  // il SeoForm con pathname=/${slug}.
+  const pagesPathnames = new Set(cmsPages.map((p) => `/${p.slug}`));
 
-  // Lista finale deduplicata e ordinata
-  const allRoutes = [
-    ...new Set([...systemPaths, ...registryPaths, ...cmsRoutes]),
-  ].sort();
+  // Lista finale deduplicata, filtrata e ordinata. Niente cmsRoutes:
+  // tutte le routes da pages sono escluse a prescindere.
+  const allRoutes = [...new Set([...systemPaths, ...registryPaths])]
+    .filter((r) => !pagesPathnames.has(r))
+    .sort();
 
-  const configuredPaths = new Set(seoPagesList.map((p) => p.pathname));
+  // Anche tra le righe seo_pages già configurate: nascondo quelle che
+  // ora sono "owned" da una page CMS, perché si gestiscono da lì.
+  const filteredSeoPages = seoPagesList.filter(
+    (p) => !pagesPathnames.has(p.pathname),
+  );
+
+  const configuredPaths = new Set(filteredSeoPages.map((p) => p.pathname));
   const unconfiguredRoutes = allRoutes.filter((r) => !configuredPaths.has(r));
 
   return (
     <SeoManager
-      initialPages={seoPagesList}
+      initialPages={filteredSeoPages}
       unconfiguredRoutes={unconfiguredRoutes}
       domain={domain}
       appName={appName}
