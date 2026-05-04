@@ -20,10 +20,18 @@ export async function generateMetadata({
   const { slug } = await params;
   const pathname = "/" + slug.join("/");
 
-  const [seo, page] = await Promise.all([
+  const [seo, page, settings] = await Promise.all([
     getSeoPage(pathname),
     getPageWithTemplate(slug.join("/")),
+    getAppSettings(),
   ]);
+
+  // Helper locale: applica il resolve dei placeholder ({appName},
+  // {appDomain}, ecc.) ai testi dei meta. Stesso resolver usato dal
+  // content CMS, così l'admin può scrivere ad esempio "Login {appName}"
+  // come title in /admin/seo e vedere il valore sostituito.
+  const resolve = (text?: string | null) =>
+    text ? resolvePlaceholders(text, settings) : undefined;
 
   // Se la pagina non esiste (e non c'è un override SEO per quel pathname),
   // questa request finirà in notFound() → render di app/not-found.tsx.
@@ -41,28 +49,29 @@ export async function generateMetadata({
   if (!seo && (isMissing || isMetaOnlySystemPage)) {
     const fallback = await getSeoPage("/404");
     return {
-      title: fallback?.title ?? "404 — Pagina non trovata",
+      title: resolve(fallback?.title) ?? "404 — Pagina non trovata",
       description:
-        fallback?.description ??
+        resolve(fallback?.description) ??
         "L'asset che cercavi non è in portafoglio.",
       openGraph: {
-        title: fallback?.ogTitle ?? fallback?.title ?? undefined,
-        description: fallback?.ogDescription ?? fallback?.description ?? undefined,
+        title: resolve(fallback?.ogTitle) ?? resolve(fallback?.title),
+        description:
+          resolve(fallback?.ogDescription) ?? resolve(fallback?.description),
         ...(fallback?.ogImage ? { images: [{ url: fallback.ogImage }] } : {}),
       },
       robots: fallback?.robots ?? "noindex, follow",
     };
   }
 
-  const title = seo?.title || page?.title || undefined;
-  const description = seo?.description || undefined;
+  const title = resolve(seo?.title) ?? page?.title ?? undefined;
+  const description = resolve(seo?.description);
 
   return {
     title,
     description,
     openGraph: {
-      title: seo?.ogTitle || title,
-      description: seo?.ogDescription || description,
+      title: resolve(seo?.ogTitle) ?? title,
+      description: resolve(seo?.ogDescription) ?? description,
       ...(seo?.ogImage ? { images: [{ url: seo.ogImage }] } : {}),
     },
     robots: seo?.robots || undefined,

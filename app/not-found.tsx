@@ -9,6 +9,7 @@ import { getPageBySystemKey } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
+import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 
 // Disabilita lo static rendering: `generateMetadata` deve rieseguire
 // la query a seo_pages a ogni request, altrimenti l'admin che modifica
@@ -26,14 +27,25 @@ export const dynamic = "force-dynamic";
 const NOT_FOUND_SEO_PATHNAME = "/404";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const seo = await getSeoPage(NOT_FOUND_SEO_PATHNAME);
+  // In pratica questo `generateMetadata` non viene quasi mai invocato:
+  // i 404 da URL inesistenti passano per (frontend)/[...slug]/page.tsx
+  // e i meta arrivano dal generateMetadata di QUEL handler. Lo teniamo
+  // defensive — se per qualche caso il framework lo chiama, vogliamo
+  // comunque title valido e placeholder risolti.
+  const [seo, settings] = await Promise.all([
+    getSeoPage(NOT_FOUND_SEO_PATHNAME),
+    getAppSettings(),
+  ]);
+  const resolve = (text?: string | null) =>
+    text ? resolvePlaceholders(text, settings) : undefined;
   return {
-    title: seo?.title ?? "404 — Pagina non trovata",
+    title: resolve(seo?.title) ?? "404 — Pagina non trovata",
     description:
-      seo?.description ?? "L'asset che cercavi non è in portafoglio.",
+      resolve(seo?.description) ?? "L'asset che cercavi non è in portafoglio.",
     openGraph: {
-      title: seo?.ogTitle ?? seo?.title ?? "404 — Pagina non trovata",
-      description: seo?.ogDescription ?? seo?.description ?? undefined,
+      title:
+        resolve(seo?.ogTitle) ?? resolve(seo?.title) ?? "404 — Pagina non trovata",
+      description: resolve(seo?.ogDescription) ?? resolve(seo?.description),
       images: seo?.ogImage ? [{ url: seo.ogImage }] : undefined,
     },
     robots: seo?.robots ?? "noindex, follow",

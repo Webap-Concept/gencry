@@ -13,23 +13,23 @@ export const PLACEHOLDER_MAP: Record<
   { description: string; resolve: (s: AppSettings) => string }
 > = {
   appName: {
-    description: "Nome dell'applicazione",
+    description: "Application name",
     resolve: (s) => s.app_name,
   },
   appDescription: {
-    description: "Descrizione dell'applicazione",
+    description: "Application description",
     resolve: (s) => s.app_description,
   },
   appDomain: {
-    description: "Dominio (es. https://miodominio.it)",
+    description: "Domain (e.g. https://mydomain.com)",
     resolve: (s) => s.app_domain,
   },
   emailFrom: {
-    description: "Indirizzo email mittente",
+    description: "Sender email address",
     resolve: (s) => s.email_from_address ?? s.app_name,
   },
   currentYear: {
-    description: "Anno corrente",
+    description: "Current year",
     resolve: () => String(new Date().getFullYear()),
   },
 };

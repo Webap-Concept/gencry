@@ -21,13 +21,13 @@ const schema = z.object({
   originalSlug: z.string().optional(),
   slug: z
     .string()
-    .min(1, "Lo slug è obbligatorio")
+    .min(1, "Slug is required")
     .max(255)
     .regex(/^[a-z0-9]+(?:[/-][a-z0-9]+)*$/, {
       message:
-        "Slug non valido: usa solo lettere minuscole, numeri, trattini e slash",
+        "Invalid slug: use only lowercase letters, numbers, dashes and slashes",
     }),
-  title: z.string().min(1, "Il titolo è obbligatorio").max(255),
+  title: z.string().min(1, "Title is required").max(255),
   content: z.string().default(""),
   status: z.enum(["draft", "published"]).default("draft"),
   visibility: z.enum(["public", "private"]).default("public"),
@@ -178,14 +178,14 @@ export async function upsertPageAction(
     };
   } catch (err) {
     console.error("[upsertPageAction] error:", err);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: "Error while saving. Please try again." };
   }
 }
 
 export async function deletePageAction(
   slug: string,
 ): Promise<{ error?: string; success?: boolean; deleted?: number }> {
-  if (!slug) return { error: "Slug mancante" };
+  if (!slug) return { error: "Missing slug" };
   try {
     const deleted = await deletePageCascade(slug);
     await deleteSeoPage(`/${slug}`);
@@ -206,10 +206,10 @@ export async function deletePageAction(
   } catch (err) {
     // Guard: pagina di sistema non eliminabile
     if (err instanceof Error && err.message === "SYSTEM_PAGE_PROTECTED") {
-      return { error: "Le pagine di sistema non possono essere eliminate." };
+      return { error: "System pages cannot be deleted." };
     }
     console.error("[deletePageAction] error:", err);
-    return { error: "Errore nell'eliminazione. Riprova." };
+    return { error: "Error during deletion. Please try again." };
   }
 }
 
@@ -239,7 +239,7 @@ export async function togglePageStatusAction(
     );
   } catch (err) {
     console.error("[togglePageStatusAction] error:", err);
-    return { error: "Errore nel cambio stato. Riprova." };
+    return { error: "Error while changing status. Please try again." };
   }
   return { success: true };
 }
