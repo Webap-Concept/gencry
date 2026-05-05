@@ -1,4 +1,4 @@
-// Guide content shown inside the AdminSectionInfo modal on /admin/settings/redis.
+// Guide content shown inside the AdminSectionInfo modal on /admin/services/redis.
 // Replaces the inline "Wifi" info-card that used to live in RedisTab so the
 // configuration form stays focused on credentials only.
 

@@ -2,34 +2,34 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { Eye, EyeOff, Loader2, Save, Wifi } from "lucide-react";
+import { Eye, EyeOff, Loader2, Save, Shield } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
-  saveRedisSettings,
-  testRedisConnection,
+  saveCloudflareSettings,
+  testCloudflareSettings,
   type ActionState,
 } from "../actions";
 
-export function RedisTab({ settings }: { settings: AppSettings }) {
-  const t = useTranslations("admin.settings.redis");
-  const [showToken, setShowToken] = useState(false);
+export function CloudflareForm({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.services.cloudflare");
+  const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  const urlRef = useRef<HTMLInputElement>(null);
-  const tokenRef = useRef<HTMLInputElement>(null);
+  const siteKeyRef = useRef<HTMLInputElement>(null);
+  const secretKeyRef = useRef<HTMLInputElement>(null);
 
-  const [saveState, saveAction, isSaving] = useActionState<
-    ActionState,
-    FormData
-  >(saveRedisSettings, {});
-  const [testState, testAction, isTesting] = useActionState<
-    ActionState,
-    FormData
-  >(testRedisConnection, {});
+  const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
+    saveCloudflareSettings,
+    {},
+  );
+  const [testState, testAction, isTesting] = useActionState<ActionState, FormData>(
+    testCloudflareSettings,
+    {},
+  );
 
   const lastSaveTs = useRef<number>(0);
   const lastTestTs = useRef<number>(0);
@@ -38,30 +38,25 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
     if (!("timestamp" in saveState)) return;
     if (saveState.timestamp === lastSaveTs.current) return;
     lastSaveTs.current = saveState.timestamp;
-    if ("success" in saveState)
-      setToast({ message: saveState.success, type: "success" });
-    if ("error" in saveState)
-      setToast({ message: saveState.error, type: "error" });
+    if ("success" in saveState) setToast({ message: saveState.success, type: "success" });
+    if ("error" in saveState) setToast({ message: saveState.error, type: "error" });
   }, [saveState]);
 
   useEffect(() => {
     if (!("timestamp" in testState)) return;
     if (testState.timestamp === lastTestTs.current) return;
     lastTestTs.current = testState.timestamp;
-    if ("success" in testState)
-      setToast({ message: testState.success, type: "success" });
-    if ("error" in testState)
-      setToast({ message: testState.error, type: "error" });
+    if ("success" in testState) setToast({ message: testState.success, type: "success" });
+    if ("error" in testState) setToast({ message: testState.error, type: "error" });
   }, [testState]);
 
-  const tokenMasked = settings.upstash_redis_rest_token
-    ? settings.upstash_redis_rest_token.slice(0, 8) + "????????????????"
+  const secretMasked = settings.cf_turnstile_secret_key
+    ? settings.cf_turnstile_secret_key.slice(0, 6) + "????????????????"
     : "";
 
   function handleTest() {
     const fd = new FormData();
-    fd.append("upstash_redis_rest_url", urlRef.current?.value ?? "");
-    fd.append("upstash_redis_rest_token", tokenRef.current?.value ?? "");
+    fd.append("cf_turnstile_secret_key", secretKeyRef.current?.value ?? "");
     testAction(fd);
   }
 
@@ -71,18 +66,18 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
         <form action={saveAction} className="space-y-5">
           <div className="space-y-1.5">
             <label
-              htmlFor="upstash_redis_rest_url"
+              htmlFor="cf_turnstile_site_key"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              {t("urlLabel")}
+              {t("siteKeyLabel")}
             </label>
             <input
-              ref={urlRef}
-              id="upstash_redis_rest_url"
-              name="upstash_redis_rest_url"
-              type="url"
-              defaultValue={settings.upstash_redis_rest_url ?? ""}
-              placeholder="https://your-db.upstash.io"
+              ref={siteKeyRef}
+              id="cf_turnstile_site_key"
+              name="cf_turnstile_site_key"
+              type="text"
+              defaultValue={settings.cf_turnstile_site_key ?? ""}
+              placeholder="0x4AAAAAAA…"
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -90,33 +85,29 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
                 color: "var(--admin-text)",
                 outline: "none",
               }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--admin-accent)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--admin-card-border)")
-              }
+              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--admin-accent)")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              {t("urlHint")}
+              {t("siteKeyHint")}
             </p>
           </div>
 
           <div className="space-y-1.5">
             <label
-              htmlFor="upstash_redis_rest_token"
+              htmlFor="cf_turnstile_secret_key"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              {t("tokenLabel")}
+              {t("secretKeyLabel")}
             </label>
             <div className="relative">
               <input
-                ref={tokenRef}
-                id="upstash_redis_rest_token"
-                name="upstash_redis_rest_token"
-                type={showToken ? "text" : "password"}
-                defaultValue={settings.upstash_redis_rest_token ?? ""}
-                placeholder={tokenMasked || "AX????????????????"}
+                ref={secretKeyRef}
+                id="cf_turnstile_secret_key"
+                name="cf_turnstile_secret_key"
+                type={showSecret ? "text" : "password"}
+                defaultValue={settings.cf_turnstile_secret_key ?? ""}
+                placeholder={secretMasked || "0x4AAAAAAA????????????????"}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",
@@ -124,29 +115,53 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
                   color: "var(--admin-text)",
                   outline: "none",
                 }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = "var(--admin-accent)")
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "var(--admin-card-border)")
-                }
+                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--admin-accent)")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
               />
               <button
                 type="button"
-                aria-label={showToken ? t("hideTokenAria") : t("showTokenAria")}
-                onClick={() => setShowToken((v) => !v)}
+                aria-label={showSecret ? t("hideSecretAria") : t("showSecretAria")}
+                onClick={() => setShowSecret((v) => !v)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded transition-colors"
                 style={{ color: "var(--admin-text-muted)" }}>
-                {showToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                {showSecret ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              {t("tokenHint")}
+              {t("secretKeyHint")}
             </p>
           </div>
 
-          {/* Action Buttons: Save + Test */}
+          <div
+            className="flex gap-3 px-4 py-3 rounded-lg text-xs"
+            style={{
+              background: "color-mix(in oklch, var(--admin-accent) 6%, var(--admin-card-bg))",
+              border: "1px solid color-mix(in oklch, var(--admin-accent) 20%, transparent)",
+            }}>
+            <Shield
+              size={14}
+              className="shrink-0 mt-0.5"
+              style={{ color: "var(--admin-accent)" }}
+            />
+            <div className="space-y-1.5">
+              <p style={{ color: "var(--admin-text-muted)" }}>
+                {t("infoBoxLine1Before")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>
+                  {t("infoBoxBrand")}
+                </strong>{" "}
+                {t("infoBoxLine1After")}
+              </p>
+              <p style={{ color: "var(--admin-text-muted)" }}>
+                {t("infoBoxLine2Before")}{" "}
+                <span className="font-semibold" style={{ color: "var(--admin-accent)" }}>
+                  {t("infoBoxLine2Path")}
+                </span>{" "}
+                {t("infoBoxLine2After")}{" "}
+                <span className="italic">{t("infoBoxLine2WidgetType")}</span>.
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 pt-2">
             <button
               type="submit"
@@ -154,17 +169,12 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "var(--admin-accent)" }}
               onMouseEnter={(e) =>
-                !isSaving &&
-                (e.currentTarget.style.background = "var(--admin-accent-hover)")
+                !isSaving && (e.currentTarget.style.background = "var(--admin-accent-hover)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "var(--admin-accent)")
               }>
-              {isSaving ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Save size={15} />
-              )}
+              {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
               {isSaving ? t("savingButton") : t("saveButton")}
             </button>
 
@@ -180,17 +190,12 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               }}
               onMouseEnter={(e) =>
                 !isTesting &&
-                (e.currentTarget.style.background =
-                  "var(--admin-sidebar-item-hover-bg)")
+                (e.currentTarget.style.background = "var(--admin-sidebar-item-hover-bg)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "var(--admin-hover-bg)")
               }>
-              {isTesting ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Wifi size={15} />
-              )}
+              {isTesting ? <Loader2 size={15} className="animate-spin" /> : <Shield size={15} />}
               {isTesting ? t("testingButton") : t("testButton")}
             </button>
           </div>
