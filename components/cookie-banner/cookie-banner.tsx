@@ -1,6 +1,7 @@
 "use client";
 
 import { Cookie, Settings2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import {
   acceptAllCookiesAction,
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function CookieBanner({ policyUrl }: Props) {
+  const t = useTranslations("public.cookieBanner");
   const [isPending, startTransition] = useTransition();
   const [showCustomize, setShowCustomize] = useState(false);
 
@@ -33,7 +35,7 @@ export function CookieBanner({ policyUrl }: Props) {
           z-30 per stare sotto modali/dropdown ma sopra il contenuto. */}
       <div
         role="region"
-        aria-label="Avviso cookie"
+        aria-label={t("ariaLabel")}
         className="fixed inset-x-0 bottom-0 z-30 px-3 pb-3 sm:px-4 sm:pb-4 pointer-events-none">
         <div
           className="pointer-events-auto mx-auto max-w-5xl rounded-2xl shadow-2xl"
@@ -52,11 +54,10 @@ export function CookieBanner({ policyUrl }: Props) {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold" style={{ color: "#111827" }}>
-                  Rispettiamo la tua privacy
+                  {t("title")}
                 </p>
                 <p className="text-xs sm:text-sm mt-0.5" style={{ color: "#4b5563" }}>
-                  Usiamo cookie tecnici necessari e, con il tuo consenso, cookie
-                  di preferenze, statistiche e marketing per migliorare il sito.
+                  {t("description")}
                   {policyUrl && (
                     <>
                       {" "}
@@ -64,7 +65,7 @@ export function CookieBanner({ policyUrl }: Props) {
                         href={policyUrl}
                         className="underline"
                         style={{ color: "#b45309" }}>
-                        Maggiori informazioni
+                        {t("moreInfo")}
                       </a>
                     </>
                   )}
@@ -80,7 +81,7 @@ export function CookieBanner({ policyUrl }: Props) {
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                 style={{ background: "#f3f4f6", color: "#374151" }}>
                 <Settings2 size={14} />
-                Personalizza
+                {t("customize")}
               </button>
               <button
                 type="button"
@@ -88,7 +89,7 @@ export function CookieBanner({ policyUrl }: Props) {
                 disabled={isPending}
                 className="text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                 style={{ background: "#f3f4f6", color: "#374151" }}>
-                Rifiuta tutti
+                {t("rejectAll")}
               </button>
               <button
                 type="button"
@@ -96,7 +97,7 @@ export function CookieBanner({ policyUrl }: Props) {
                 disabled={isPending}
                 className="text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-50"
                 style={{ background: "#b45309" }}>
-                Accetta tutti
+                {t("acceptAll")}
               </button>
             </div>
           </div>
