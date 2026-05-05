@@ -67,8 +67,13 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
 
   return (
     <>
-      <div className="space-y-6">
-        <form action={saveAction} className="space-y-5">
+      <form action={saveAction} className="space-y-5">
+        <div
+          className="rounded-xl shadow-sm p-6 space-y-5"
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
           <div className="space-y-1.5">
             <label
               htmlFor="upstash_redis_rest_url"
@@ -86,7 +91,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
-                border: "1px solid var(--admin-card-border)",
+                border: "1px solid var(--admin-input-border)",
                 color: "var(--admin-text)",
                 outline: "none",
               }}
@@ -94,7 +99,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
                 (e.currentTarget.style.borderColor = "var(--admin-accent)")
               }
               onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--admin-card-border)")
+                (e.currentTarget.style.borderColor = "var(--admin-input-border)")
               }
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
@@ -120,7 +125,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",
-                  border: "1px solid var(--admin-card-border)",
+                  border: "1px solid var(--admin-input-border)",
                   color: "var(--admin-text)",
                   outline: "none",
                 }}
@@ -129,7 +134,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
                 }
                 onBlur={(e) =>
                   (e.currentTarget.style.borderColor =
-                    "var(--admin-card-border)")
+                    "var(--admin-input-border)")
                 }
               />
               <button
@@ -145,57 +150,57 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
               {t("tokenHint")}
             </p>
           </div>
+        </div>
 
-          {/* Action Buttons: Save + Test */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ background: "var(--admin-accent)" }}
-              onMouseEnter={(e) =>
-                !isSaving &&
-                (e.currentTarget.style.background = "var(--admin-accent-hover)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "var(--admin-accent)")
-              }>
-              {isSaving ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Save size={15} />
-              )}
-              {isSaving ? t("savingButton") : t("saveButton")}
-            </button>
+        {/* Action Buttons: Save + Test */}
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: "var(--admin-accent)" }}
+            onMouseEnter={(e) =>
+              !isSaving &&
+              (e.currentTarget.style.background = "var(--admin-accent-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--admin-accent)")
+            }>
+            {isSaving ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            {isSaving ? t("savingButton") : t("saveButton")}
+          </button>
 
-            <button
-              type="button"
-              onClick={handleTest}
-              disabled={isTesting}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{
-                background: "var(--admin-hover-bg)",
-                color: "var(--admin-text)",
-                border: "1px solid var(--admin-card-border)",
-              }}
-              onMouseEnter={(e) =>
-                !isTesting &&
-                (e.currentTarget.style.background =
-                  "var(--admin-sidebar-item-hover-bg)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "var(--admin-hover-bg)")
-              }>
-              {isTesting ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Wifi size={15} />
-              )}
-              {isTesting ? t("testingButton") : t("testButton")}
-            </button>
-          </div>
-        </form>
-      </div>
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={isTesting}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              background: "var(--admin-hover-bg)",
+              color: "var(--admin-text)",
+              border: "1px solid var(--admin-card-border)",
+            }}
+            onMouseEnter={(e) =>
+              !isTesting &&
+              (e.currentTarget.style.background =
+                "var(--admin-sidebar-item-hover-bg)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--admin-hover-bg)")
+            }>
+            {isTesting ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Wifi size={15} />
+            )}
+            {isTesting ? t("testingButton") : t("testButton")}
+          </button>
+        </div>
+      </form>
 
       {toast && (
         <AdminToast
