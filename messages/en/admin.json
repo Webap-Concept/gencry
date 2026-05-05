@@ -23,6 +23,32 @@
     "defaultCancel": "Cancel",
     "closeAria": "Close"
   },
+  "cron": {
+    "defaultEmpty": "No cron jobs registered.",
+    "colJob": "Job",
+    "colSchedule": "Schedule",
+    "colLastRun": "Last run",
+    "colStatus": "Status",
+    "colActive": "Active",
+    "untrackedBadge": "Untracked",
+    "untrackedTooltip": "This job is in pg_cron but not in the application registry. Add it to lib/cron/registry.ts or to a module manifest.",
+    "expandAria": "Expand",
+    "collapseAria": "Collapse",
+    "clickToEnable": "Click to enable",
+    "clickToDisable": "Click to disable",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "purposeTitle": "Purpose",
+    "noMetadata": "No metadata. Register this job in lib/cron/registry.ts (core) or in the matching module manifest to add a description.",
+    "commandTitle": "Command",
+    "recentRunsTitle": "Recent runs",
+    "loading": "Loading…",
+    "noRunsRecorded": "No runs recorded yet.",
+    "noRunsBadge": "No runs",
+    "runStatusSucceeded": "Succeeded",
+    "runStatusFailed": "Failed",
+    "failedToLoadRuns": "Failed to load runs"
+  },
   "signIn": {
     "eyebrow": "Administration Panel",
     "title": "Admin sign-in",
@@ -177,7 +203,10 @@
       "githubCITestBranchNotFound": "Branch \"{branch}\" or file vitest-results.json not found. The first CI run will create it.",
       "githubCITestApiResponded": "GitHub API responded {status}.",
       "githubCITestOk": "Connection OK · branch \"{branch}\" reachable.",
-      "githubCITestNetworkFailed": "Verification failed. Check your connection."
+      "githubCITestNetworkFailed": "Verification failed. Check your connection.",
+      "cronJobEnabled": "Job enabled.",
+      "cronJobDisabled": "Job disabled.",
+      "cronJobToggleFailed": "Toggle failed."
     },
     "mode": {
       "cardTitle": "Operation Mode",
@@ -297,6 +326,22 @@
       "savingButton": "Saving…",
       "testButton": "Verify connection",
       "testingButton": "Verifying…"
+    },
+    "cron": {
+      "dbErrorTitle": "Cannot read cron jobs from the database.",
+      "dbErrorHintBefore": "The pg_cron extension must be enabled and the connection user (POSTGRES_URL) must have access to the",
+      "dbErrorHintCron": "cron",
+      "dbErrorHintAfter": "schema. On Supabase the default",
+      "dbErrorHintRole": "postgres",
+      "dbErrorHintTail": "role works.",
+      "coreJobsTitle": "Core jobs",
+      "coreJobsSubtitle": "System-level cron jobs owned by the core (not by any module).",
+      "coreJobsEmpty": "No core cron jobs found in pg_cron. If you expect some, double-check the jobname matches lib/cron/registry.ts.",
+      "untrackedJobsTitle": "Untracked jobs",
+      "untrackedJobsSubtitle": "Jobs present in pg_cron that are not registered in any manifest. Add them to lib/cron/registry.ts to give them a description.",
+      "untrackedJobsEmpty": "No untracked jobs. Every cron in pg_cron is mapped to the core or to a module.",
+      "moduleJobsTitle": "Module-owned cron jobs",
+      "moduleJobsHint": "Jobs that belong to an installed module are managed inside the module itself. Open the module page to see and toggle them:"
     },
     "signup": {
       "registrationCardTitle": "User Registration",

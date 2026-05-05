@@ -23,6 +23,32 @@
     "defaultCancel": "Annulla",
     "closeAria": "Chiudi"
   },
+  "cron": {
+    "defaultEmpty": "Nessun cron job registrato.",
+    "colJob": "Job",
+    "colSchedule": "Schedule",
+    "colLastRun": "Ultimo run",
+    "colStatus": "Stato",
+    "colActive": "Attivo",
+    "untrackedBadge": "Untracked",
+    "untrackedTooltip": "Questo job è presente in pg_cron ma non è registrato nell'applicazione. Aggiungilo a lib/cron/registry.ts o al manifest di un modulo.",
+    "expandAria": "Espandi",
+    "collapseAria": "Riduci",
+    "clickToEnable": "Clicca per abilitare",
+    "clickToDisable": "Clicca per disabilitare",
+    "statusActive": "Attivo",
+    "statusDisabled": "Disabilitato",
+    "purposeTitle": "Scopo",
+    "noMetadata": "Nessun metadata. Registra questo job in lib/cron/registry.ts (core) o nel manifest del modulo corrispondente per aggiungere una descrizione.",
+    "commandTitle": "Comando",
+    "recentRunsTitle": "Run recenti",
+    "loading": "Caricamento…",
+    "noRunsRecorded": "Nessun run registrato finora.",
+    "noRunsBadge": "Nessun run",
+    "runStatusSucceeded": "Riuscito",
+    "runStatusFailed": "Fallito",
+    "failedToLoadRuns": "Impossibile caricare i run."
+  },
   "signIn": {
     "eyebrow": "Pannello Amministrazione",
     "title": "Accesso admin",
@@ -177,7 +203,10 @@
       "githubCITestBranchNotFound": "Branch \"{branch}\" o file vitest-results.json non trovato. Il primo run del CI lo creerà.",
       "githubCITestApiResponded": "GitHub API ha risposto {status}.",
       "githubCITestOk": "Connessione OK · branch \"{branch}\" raggiungibile.",
-      "githubCITestNetworkFailed": "Errore durante la verifica. Controlla la connessione."
+      "githubCITestNetworkFailed": "Errore durante la verifica. Controlla la connessione.",
+      "cronJobEnabled": "Job abilitato.",
+      "cronJobDisabled": "Job disabilitato.",
+      "cronJobToggleFailed": "Toggle fallito."
     },
     "mode": {
       "cardTitle": "Modalità operativa",
@@ -297,6 +326,22 @@
       "savingButton": "Salvataggio…",
       "testButton": "Verifica connessione",
       "testingButton": "Verifica in corso…"
+    },
+    "cron": {
+      "dbErrorTitle": "Impossibile leggere i cron job dal database.",
+      "dbErrorHintBefore": "L'estensione pg_cron deve essere abilitata e l'utente di connessione (POSTGRES_URL) deve avere accesso allo schema",
+      "dbErrorHintCron": "cron",
+      "dbErrorHintAfter": ". Su Supabase il ruolo di default",
+      "dbErrorHintRole": "postgres",
+      "dbErrorHintTail": "funziona.",
+      "coreJobsTitle": "Core jobs",
+      "coreJobsSubtitle": "Cron job di sistema gestiti dal core (non da nessun modulo).",
+      "coreJobsEmpty": "Nessun core cron job trovato in pg_cron. Se te ne aspetti qualcuno, verifica che il jobname combaci con lib/cron/registry.ts.",
+      "untrackedJobsTitle": "Job untracked",
+      "untrackedJobsSubtitle": "Job presenti in pg_cron ma non registrati in nessun manifest. Aggiungili a lib/cron/registry.ts per dargli una descrizione.",
+      "untrackedJobsEmpty": "Nessun job untracked. Ogni cron in pg_cron è mappato sul core o su un modulo.",
+      "moduleJobsTitle": "Cron job di proprietà di un modulo",
+      "moduleJobsHint": "I job che appartengono a un modulo installato sono gestiti all'interno del modulo stesso. Apri la pagina del modulo per vederli e attivarli/disattivarli:"
     },
     "signup": {
       "registrationCardTitle": "Registrazione utenti",
