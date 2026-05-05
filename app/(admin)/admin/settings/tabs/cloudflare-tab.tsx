@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Eye, EyeOff, Loader2, Save, Shield } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveCloudflareSettings,
@@ -11,13 +12,14 @@ import {
 } from "../actions";
 
 export function CloudflareTab({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.cloudflare");
   const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  const siteKeyRef   = useRef<HTMLInputElement>(null);
+  const siteKeyRef = useRef<HTMLInputElement>(null);
   const secretKeyRef = useRef<HTMLInputElement>(null);
 
   const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
@@ -37,7 +39,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
     if (saveState.timestamp === lastSaveTs.current) return;
     lastSaveTs.current = saveState.timestamp;
     if ("success" in saveState) setToast({ message: saveState.success, type: "success" });
-    if ("error"   in saveState) setToast({ message: saveState.error,   type: "error"   });
+    if ("error" in saveState) setToast({ message: saveState.error, type: "error" });
   }, [saveState]);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
     if (testState.timestamp === lastTestTs.current) return;
     lastTestTs.current = testState.timestamp;
     if ("success" in testState) setToast({ message: testState.success, type: "success" });
-    if ("error"   in testState) setToast({ message: testState.error,   type: "error"   });
+    if ("error" in testState) setToast({ message: testState.error, type: "error" });
   }, [testState]);
 
   const secretMasked = settings.cf_turnstile_secret_key
@@ -67,7 +69,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
               htmlFor="cf_turnstile_site_key"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Site Key
+              {t("siteKeyLabel")}
             </label>
             <input
               ref={siteKeyRef}
@@ -84,10 +86,10 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
                 outline: "none",
               }}
               onFocus={(e) => (e.currentTarget.style.borderColor = "var(--admin-accent)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Cloudflare Dashboard → Turnstile → your site → Site Key
+              {t("siteKeyHint")}
             </p>
           </div>
 
@@ -96,7 +98,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
               htmlFor="cf_turnstile_secret_key"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Secret Key
+              {t("secretKeyLabel")}
             </label>
             <div className="relative">
               <input
@@ -114,11 +116,11 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
                   outline: "none",
                 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = "var(--admin-accent)")}
-                onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
               />
               <button
                 type="button"
-                aria-label={showSecret ? "Hide secret" : "Show secret"}
+                aria-label={showSecret ? t("hideSecretAria") : t("showSecretAria")}
                 onClick={() => setShowSecret((v) => !v)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded transition-colors"
                 style={{ color: "var(--admin-text-muted)" }}>
@@ -126,7 +128,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Cloudflare Dashboard → Turnstile → your site → Secret Key. Never exposed in the frontend.
+              {t("secretKeyHint")}
             </p>
           </div>
 
@@ -143,17 +145,19 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
             />
             <div className="space-y-1.5">
               <p style={{ color: "var(--admin-text-muted)" }}>
-                The{" "}
-                <strong style={{ color: "var(--admin-text)" }}>Turnstile (Managed)</strong>{" "}
-                widget is shown on both the sign-in and sign-up forms. If keys are not
-                configured, bot protection is silently disabled.
+                {t("infoBoxLine1Before")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>
+                  {t("infoBoxBrand")}
+                </strong>{" "}
+                {t("infoBoxLine1After")}
               </p>
               <p style={{ color: "var(--admin-text-muted)" }}>
-                Create a site in{" "}
+                {t("infoBoxLine2Before")}{" "}
                 <span className="font-semibold" style={{ color: "var(--admin-accent)" }}>
-                  Cloudflare Dashboard → Turnstile → Add site
+                  {t("infoBoxLine2Path")}
                 </span>{" "}
-                and select widget type <span className="italic">Managed</span>.
+                {t("infoBoxLine2After")}{" "}
+                <span className="italic">{t("infoBoxLine2WidgetType")}</span>.
               </p>
             </div>
           </div>
@@ -171,7 +175,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
                 (e.currentTarget.style.background = "var(--admin-accent)")
               }>
               {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {isSaving ? "Saving…" : "Save credentials"}
+              {isSaving ? t("savingButton") : t("saveButton")}
             </button>
 
             <button
@@ -192,7 +196,7 @@ export function CloudflareTab({ settings }: { settings: AppSettings }) {
                 (e.currentTarget.style.background = "var(--admin-hover-bg)")
               }>
               {isTesting ? <Loader2 size={15} className="animate-spin" /> : <Shield size={15} />}
-              {isTesting ? "Testing…" : "Test secret key"}
+              {isTesting ? t("testingButton") : t("testButton")}
             </button>
           </div>
         </form>

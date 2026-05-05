@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ExternalLink, Loader2, Save, Wifi } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
@@ -17,6 +18,7 @@ export function SenderTab({ settings }: { settings: AppSettings }) {
 }
 
 function SenderTabInner({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.resend");
   const [saveState, saveAction, isSaving] = useActionState<
     ActionState,
     FormData
@@ -79,7 +81,7 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
             <h3
               className="text-sm font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              Resend
+              {t("cardTitle")}
             </h3>
             <a
               href="https://resend.com/api-keys"
@@ -87,7 +89,7 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs transition-colors"
               style={{ color: "var(--admin-accent)" }}>
-              Get API Key <ExternalLink size={11} />
+              {t("getApiKey")} <ExternalLink size={11} />
             </a>
           </div>
 
@@ -96,7 +98,7 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
               <label
                 className="block text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
-                API Key
+                {t("apiKeyLabel")}
               </label>
               <div className="relative">
                 <input
@@ -113,16 +115,15 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
                   onClick={() => setShowKey((v) => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium px-2 py-0.5 rounded transition-colors"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  {showKey ? "Nascondi" : "Mostra"}
+                  {showKey ? t("hide") : t("show")}
                 </button>
               </div>
               <p
                 className="text-[11px] mt-1"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Salvata in modo sicuro. Non viene mai esposta nel frontend.
+                {t("apiKeyHint")}
               </p>
 
-              {/* Bottone Testa subito sotto la input API Key */}
               <button
                 type="button"
                 onClick={handleTest}
@@ -138,13 +139,12 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
                 ) : (
                   <Wifi size={13} />
                 )}
-                {isTesting ? "Test in corso..." : "Testa connessione Resend"}
+                {isTesting ? t("testButtonPending") : t("testButton")}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Card Mittente */}
         <div
           className="rounded-xl shadow-sm p-6"
           style={{
@@ -154,7 +154,7 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
           <h3
             className="text-sm font-semibold mb-5"
             style={{ color: "var(--admin-text)" }}>
-            Mittente
+            {t("senderCardTitle")}
           </h3>
 
           <div className="space-y-4 max-w-lg">
@@ -162,12 +162,12 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
               <label
                 className="block text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Nome mittente
+                {t("senderNameLabel")}
               </label>
               <input
                 name="email_from_name"
                 defaultValue={settings.email_from_name ?? settings.app_name}
-                placeholder="Il mio servizio"
+                placeholder={t("senderNamePlaceholder")}
                 className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                 style={inputStyle}
               />
@@ -177,20 +177,20 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
               <label
                 className="block text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Indirizzo mittente
+                {t("senderAddressLabel")}
               </label>
               <input
                 name="email_from_address"
                 type="email"
                 defaultValue={settings.email_from_address ?? ""}
-                placeholder="noreply@tuodominio.com"
+                placeholder={t("senderAddressPlaceholder")}
                 className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                 style={inputStyle}
               />
               <p
                 className="text-[11px] mt-1"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Deve essere un dominio verificato su Resend.
+                {t("senderAddressHint")}
               </p>
             </div>
           </div>
@@ -213,7 +213,7 @@ function SenderTabInner({ settings }: { settings: AppSettings }) {
           ) : (
             <Save size={15} />
           )}
-          {isSaving ? "Salvataggio..." : "Salva"}
+          {isSaving ? t("saving") : t("save")}
         </button>
       </form>
 
