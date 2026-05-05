@@ -1,7 +1,6 @@
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages, setRequestLocale } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
 // Reset/typography per CMS templates (.tpl-*). Era ereditato dal vecchio
 // (frontend)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
@@ -38,18 +37,17 @@ export default async function LocaleLayout({
   const { locale } = await params;
   const effectiveLocale = isLocale(locale) ? locale : DEFAULT_LOCALE;
 
+  // setRequestLocale segna il locale per i Server Components di static
+  // rendering. Il NextIntlClientProvider è montato in app/layout.tsx (root)
+  // e copre tutte le route della app.
   setRequestLocale(effectiveLocale);
 
-  const messages = await getMessages();
-
   return (
-    <NextIntlClientProvider locale={effectiveLocale} messages={messages}>
-      <div className="flex min-h-[100dvh] flex-col">
-        <div className="flex-1">{children}</div>
-        <Suspense fallback={null}>
-          <PublicFooter />
-        </Suspense>
-      </div>
-    </NextIntlClientProvider>
+    <div className="flex min-h-[100dvh] flex-col">
+      <div className="flex-1">{children}</div>
+      <Suspense fallback={null}>
+        <PublicFooter />
+      </Suspense>
+    </div>
   );
 }

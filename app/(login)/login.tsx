@@ -7,6 +7,7 @@ import { ActionState } from "@/lib/auth/middleware";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
@@ -16,29 +17,6 @@ import {
   signIn,
   signUp,
 } from "./actions";
-
-const passwordRules = [
-  {
-    id: "min",
-    label: "8+ car.",
-    test: (p: string) => p.length >= 8,
-  },
-  {
-    id: "upper",
-    label: "Maiuscola",
-    test: (p: string) => /[A-Z]/.test(p),
-  },
-  {
-    id: "number",
-    label: "Numero",
-    test: (p: string) => /[0-9]/.test(p),
-  },
-  {
-    id: "special",
-    label: "Carattere speciale",
-    test: (p: string) => /[^a-zA-Z0-9]/.test(p),
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Icona Google SVG inline (no dipendenze esterne)
@@ -70,24 +48,18 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Separatore OR
-// ---------------------------------------------------------------------------
-function OrDivider() {
+function OrDivider({ label }: { label: string }) {
   return (
     <div className="relative flex items-center gap-3 py-1">
       <div className="flex-1 h-px bg-brand-border" />
       <span className="text-xs font-medium text-brand-text-muted uppercase tracking-widest select-none">
-        oppure
+        {label}
       </span>
       <div className="flex-1 h-px bg-brand-border" />
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pulsante Google
-// ---------------------------------------------------------------------------
 function GoogleButton({ label }: { label: string }) {
   return (
     <a
@@ -112,7 +84,15 @@ export function Login({
   systemPageSlugs?: Record<string, string>;
   turnstileSiteKey?: string | null;
 }) {
+  const t = useTranslations("auth");
   const slugs = systemPageSlugs;
+
+  const passwordRules = [
+    { id: "min", label: t("passwordRulesShort.min"), test: (p: string) => p.length >= 8 },
+    { id: "upper", label: t("passwordRulesShort.upper"), test: (p: string) => /[A-Z]/.test(p) },
+    { id: "number", label: t("passwordRulesShort.number"), test: (p: string) => /[0-9]/.test(p) },
+    { id: "special", label: t("passwordRulesShort.special"), test: (p: string) => /[^a-zA-Z0-9]/.test(p) },
+  ];
 
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
@@ -135,42 +115,38 @@ export function Login({
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptMarketing, setAcceptMarketing] = useState(false);
-  // Traccia se l'utente ha già tentato il submit (per mostrare errori checkbox)
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
 
   // Messaggio errore OAuth da searchParams
   const oauthError = searchParams.get("error");
-  const oauthErrorMessages: Record<string, string> = {
-    oauth_denied: "Accesso con Google annullato.",
-    oauth_invalid: "Parametri OAuth non validi. Riprova.",
-    oauth_failed: "Errore durante l'accesso con Google. Riprova.",
-    oauth_init_failed: "Impossibile avviare il login con Google. Riprova.",
-    oauth_user_failed: "Impossibile creare o trovare l'account. Riprova.",
-    oauth_domain_blocked:
-      "Non accettiamo registrazioni con questo provider email.",
-    registrations_disabled: "Le registrazioni sono temporaneamente chiuse.",
-    maintenance:
-      "Il sito è in manutenzione. Solo gli amministratori possono accedere.",
-    blocked: "Il tuo IP è stato bloccato. Contatta il supporto.",
-    banned: "Il tuo account è stato sospeso.",
-    account_deleted:
-      "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
-  };
+  const OAUTH_ERROR_KEYS = new Set([
+    "oauth_denied",
+    "oauth_invalid",
+    "oauth_failed",
+    "oauth_init_failed",
+    "oauth_user_failed",
+    "oauth_domain_blocked",
+    "registrations_disabled",
+    "maintenance",
+    "blocked",
+    "banned",
+    "account_deleted",
+  ]);
   const oauthErrorMessage = oauthError
-    ? (oauthErrorMessages[oauthError] ?? "Errore di autenticazione.")
+    ? OAUTH_ERROR_KEYS.has(oauthError)
+      ? t(`oauthError.${oauthError}` as never)
+      : t("oauthError.generic")
     : null;
 
   // Banner informativo (non error) per scenari come l'utente che ha appena
   // richiesto l'eliminazione del proprio account.
   const reasonParam = searchParams.get("reason");
-  const reasonMessages: Record<string, string> = {
-    deletion_requested:
-      "Hai richiesto l'eliminazione del tuo account. Il purge avverrà entro 30 giorni; per annullare contatta l'assistenza.",
-  };
-  const reasonMessage = reasonParam
-    ? (reasonMessages[reasonParam] ?? null)
-    : null;
+  const REASON_KEYS = new Set(["deletion_requested"]);
+  const reasonMessage =
+    reasonParam && REASON_KEYS.has(reasonParam)
+      ? t(`reason.${reasonParam}` as never)
+      : null;
 
   const validateEmail = async (value: string) => {
     if (!value) {
@@ -180,7 +156,7 @@ export function Login({
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setEmailError("Inserisci un indirizzo email valido");
+      setEmailError(t("validation.emailInvalid"));
       setEmailAvailable(false);
       return;
     }
@@ -199,7 +175,7 @@ export function Login({
       setEmailError(result.error ?? "");
       setEmailAvailable(Boolean(result.available));
     } catch {
-      setEmailError("Impossibile verificare l'email in questo momento");
+      setEmailError(t("validation.emailCheckFailed"));
       setEmailAvailable(false);
     } finally {
       setCheckingEmail(false);
@@ -213,7 +189,7 @@ export function Login({
       return;
     }
     if (value.length < 3) {
-      setUsernameError("Minimo 3 caratteri");
+      setUsernameError(t("validation.usernameMinLength"));
       setUsernameAvailable(false);
       return;
     }
@@ -231,7 +207,7 @@ export function Login({
       setUsernameError(result.error ?? "");
       setUsernameAvailable(Boolean(result.available));
     } catch {
-      setUsernameError("Impossibile verificare lo username in questo momento");
+      setUsernameError(t("validation.usernameCheckFailed"));
       setUsernameAvailable(false);
     } finally {
       setCheckingUsername(false);
@@ -240,7 +216,7 @@ export function Login({
 
   // Guard client-side: mostra errori inline invece di bloccare il bottone
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (mode !== "signup") return; // signin: nessun guard aggiuntivo
+    if (mode !== "signup") return;
 
     setSubmitAttempted(true);
 
@@ -265,16 +241,13 @@ export function Login({
         <div className="rounded-2xl p-8 shadow-sm border border-brand-border bg-brand-surface">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-              {mode === "signin" ? "Bentornato" : "Crea un account"}
+              {mode === "signin" ? t("signin.title") : t("signup.title")}
             </h1>
             <p className="text-sm text-brand-text-muted">
-              {mode === "signin"
-                ? "Inserisci le tue credenziali per accedere"
-                : "Compila il modulo per registrarti"}
+              {mode === "signin" ? t("signin.subtitle") : t("signup.subtitle")}
             </p>
           </div>
 
-          {/* Errore OAuth da redirect */}
           {oauthErrorMessage && (
             <div className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2 bg-brand-error-bg text-brand-destructive">
               <X className="h-4 w-4 shrink-0" />
@@ -282,7 +255,6 @@ export function Login({
             </div>
           )}
 
-          {/* Banner informativo (non error) — es. eliminazione account richiesta */}
           {reasonMessage && (
             <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               {reasonMessage}
@@ -294,10 +266,10 @@ export function Login({
               <span className="text-lg leading-none mt-0.5">🔧</span>
               <div>
                 <p className="text-sm font-semibold text-amber-800">
-                  Sito in manutenzione
+                  {t("maintenance.title")}
                 </p>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  Solo gli amministratori possono accedere in questo momento.
+                  {t("maintenance.subtitle")}
                 </p>
               </div>
             </div>
@@ -306,26 +278,22 @@ export function Login({
           {mode === "signup" && !registrationsEnabled ? (
             <div className="rounded-xl px-4 py-8 text-center bg-amber-50 border border-amber-200">
               <p className="text-sm font-medium text-amber-800">
-                Le registrazioni sono temporaneamente chiuse.
+                {t("registrationsDisabled.title")}
               </p>
               <p className="text-xs text-amber-600 mt-1">
-                Riprova più tardi o contatta il supporto.
+                {t("registrationsDisabled.subtitle")}
               </p>
             </div>
           ) : (
             <div className="space-y-5">
-              {/* ── Pulsante Google ── */}
               <GoogleButton
                 label={
-                  mode === "signin"
-                    ? "Accedi con Google"
-                    : "Registrati con Google"
+                  mode === "signin" ? t("google.signin") : t("google.signup")
                 }
               />
 
-              <OrDivider />
+              <OrDivider label={t("common.or")} />
 
-              {/* ── Form email + password ── */}
               <form
                 className="space-y-5"
                 action={formAction}
@@ -338,7 +306,7 @@ export function Login({
                     <Label
                       htmlFor="username"
                       className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                      Username
+                      {t("fields.username")}
                     </Label>
                     <div
                       className={`flex rounded-full overflow-hidden border transition-colors ${
@@ -359,7 +327,7 @@ export function Login({
                         required
                         minLength={3}
                         maxLength={50}
-                        placeholder="mario_rossi"
+                        placeholder={t("fields.usernamePlaceholder")}
                         value={username}
                         onChange={(e) => {
                           setUsername(e.target.value);
@@ -374,8 +342,8 @@ export function Login({
                     </div>
                     {checkingUsername && (
                       <p className="text-xs flex items-center gap-1 text-brand-text-muted">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Verifica
-                        username in corso...
+                        <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                        {t("validation.usernameChecking")}
                       </p>
                     )}
                     {usernameError && (
@@ -388,7 +356,8 @@ export function Login({
                       usernameAvailable &&
                       !checkingUsername && (
                         <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                          <Check className="h-3 w-3" /> Username disponibile
+                          <Check className="h-3 w-3" />{" "}
+                          {t("validation.usernameAvailable")}
                         </p>
                       )}
                   </div>
@@ -398,7 +367,7 @@ export function Login({
                   <Label
                     htmlFor="email"
                     className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                    Email
+                    {t("fields.email")}
                   </Label>
                   <Input
                     id="email"
@@ -419,13 +388,13 @@ export function Login({
                     }}
                     required
                     maxLength={50}
-                    placeholder="nome@esempio.com"
+                    placeholder={t("fields.emailPlaceholder")}
                     aria-invalid={!!emailError}
                   />
                   {checkingEmail && (
                     <p className="text-xs flex items-center gap-1 text-brand-text-muted">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Verifica
-                      email in corso...
+                      <Loader2 className="h-3 w-3 animate-spin" />{" "}
+                      {t("validation.emailChecking")}
                     </p>
                   )}
                   {emailError && (
@@ -439,7 +408,8 @@ export function Login({
                     emailAvailable &&
                     !checkingEmail && (
                       <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                        <Check className="h-3 w-3" /> Email disponibile
+                        <Check className="h-3 w-3" />{" "}
+                        {t("validation.emailAvailable")}
                       </p>
                     )}
                 </div>
@@ -448,7 +418,7 @@ export function Login({
                   <Label
                     htmlFor="password"
                     className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                    Password
+                    {t("fields.password")}
                   </Label>
                   <div className="relative">
                     <Input
@@ -465,14 +435,16 @@ export function Login({
                       required
                       minLength={8}
                       maxLength={30}
-                      placeholder="••••••••"
+                      placeholder={t("fields.passwordPlaceholder")}
                       className="pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       aria-label={
-                        showPassword ? "Nascondi password" : "Mostra password"
+                        showPassword
+                          ? t("common.hidePassword")
+                          : t("common.showPassword")
                       }
                       className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-text-muted hover:text-brand-text transition-colors">
                       {showPassword ? (
@@ -524,7 +496,7 @@ export function Login({
                     <Link
                       href="/forgot-password"
                       className="text-xs text-brand-text-muted hover:text-brand-primary underline-offset-2 hover:underline">
-                      Password dimenticata?
+                      {t("signin.forgotPassword")}
                     </Link>
                   </div>
                 )}
@@ -540,20 +512,19 @@ export function Login({
                         className="mt-0.5 h-4 w-4 shrink-0 rounded border-brand-border accent-brand-accent cursor-pointer"
                       />
                       <span className="text-xs text-brand-text-muted leading-relaxed">
-                        Ho letto e accetto i{" "}
+                        {t("consent.termsLabelPrefix")}{" "}
                         <Link
                           href={`/${slugs?.terms}`}
                           target="_blank"
                           className="font-medium text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover">
-                          Termini e Condizioni
+                          {t("consent.termsLink")}
                         </Link>{" "}
-                        d&apos;uso
+                        {t("consent.termsLabelSuffix")}
                       </span>
                     </label>
                     {submitAttempted && !acceptTerms && (
                       <p className="text-xs flex items-center gap-1 text-brand-destructive -mt-2">
-                        <X className="h-3 w-3" /> Devi accettare i Termini e
-                        Condizioni
+                        <X className="h-3 w-3" /> {t("consent.termsRequired")}
                       </p>
                     )}
 
@@ -566,19 +537,19 @@ export function Login({
                         className="mt-0.5 h-4 w-4 shrink-0 rounded border-brand-border accent-brand-accent cursor-pointer"
                       />
                       <span className="text-xs text-brand-text-muted leading-relaxed">
-                        Ho letto e accetto la{" "}
+                        {t("consent.privacyLabelPrefix")}{" "}
                         <Link
                           href={`/${slugs?.privacy}`}
                           target="_blank"
                           className="font-medium text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover">
-                          Privacy Policy
+                          {t("consent.privacyLink")}
                         </Link>
                       </span>
                     </label>
                     {submitAttempted && !acceptPrivacy && (
                       <p className="text-xs flex items-center gap-1 text-brand-destructive -mt-2">
-                        <X className="h-3 w-3" /> Devi accettare la Privacy
-                        Policy
+                        <X className="h-3 w-3" />{" "}
+                        {t("consent.privacyRequired")}
                       </p>
                     )}
 
@@ -591,14 +562,14 @@ export function Login({
                         className="mt-0.5 h-4 w-4 shrink-0 rounded border-brand-border accent-brand-accent cursor-pointer"
                       />
                       <span className="text-xs text-brand-text-muted leading-relaxed">
-                        Acconsento a ricevere{" "}
+                        {t("consent.marketingLabelPrefix")}{" "}
                         <Link
                           href={`/${slugs?.marketing}`}
                           target="_blank"
                           className="font-medium text-brand-primary underline underline-offset-2 hover:text-brand-primary-hover">
-                          comunicazioni promozionali
+                          {t("consent.marketingLink")}
                         </Link>{" "}
-                        e aggiornamenti via email.
+                        {t("consent.marketingLabelSuffix")}
                       </span>
                     </label>
                   </div>
@@ -631,7 +602,6 @@ export function Login({
                   </div>
                 )}
 
-                {/* Il bottone è sempre cliccabile: solo pending/checking bloccano */}
                 <Button
                   type="submit"
                   disabled={pending || checkingEmail || checkingUsername}
@@ -639,12 +609,12 @@ export function Login({
                   {pending ? (
                     <>
                       <Loader2 className="animate-spin h-4 w-4" />{" "}
-                      Caricamento...
+                      {t("common.loading")}
                     </>
                   ) : mode === "signin" ? (
-                    "Accedi"
+                    t("signin.submit")
                   ) : (
-                    "Registrati"
+                    t("signup.submit")
                   )}
                 </Button>
               </form>
@@ -654,15 +624,15 @@ export function Login({
           <div className="mt-6 text-center">
             <span className="text-sm text-brand-text-muted">
               {mode === "signin"
-                ? "Non hai un account? "
-                : "Hai già un account? "}
+                ? t("signin.switchPrompt")
+                : t("signup.switchPrompt")}
             </span>
             <Link
               href={`${
                 mode === "signin" ? "/sign-up" : "/sign-in"
               }${redirect ? `?redirect=${redirect}` : ""}${priceId ? `&priceId=${priceId}` : ""}`}
               className="text-sm font-semibold underline-offset-2 hover:underline text-brand-primary">
-              {mode === "signin" ? "Registrati" : "Accedi"}
+              {mode === "signin" ? t("signin.switchLink") : t("signup.switchLink")}
             </Link>
           </div>
         </div>
