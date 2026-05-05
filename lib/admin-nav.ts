@@ -374,6 +374,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "Clock",
         permission: "admin:settings",
       },
+      {
+        key: "settings-languages",
+        href: "/admin/settings/languages",
+        label: "Languages",
+        icon: "Languages",
+        permission: "admin:languages",
+      },
     ],
   },
   // ── Modules ──────────────────────────────────────────────────────────

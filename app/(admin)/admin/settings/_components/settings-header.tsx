@@ -7,6 +7,7 @@ import {
   Code2,
   Database,
   Globe,
+  Languages,
   LogIn,
   Mail,
   Send,
@@ -75,6 +76,12 @@ const SECTIONS: Record<string, SectionMeta> = {
     label: "Cron Jobs",
     description: "Inspect, monitor, enable or disable Supabase pg_cron jobs.",
     icon: Clock,
+  },
+  languages: {
+    label: "Languages",
+    description:
+      "Manage supported locales, sort order, and native labels. Default locale is set via the I18N_DEFAULT_LOCALE env var.",
+    icon: Languages,
   },
 };
 
