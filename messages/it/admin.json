@@ -412,6 +412,94 @@
       "moduleJobsTitle": "Cron job di proprietà di un modulo",
       "moduleJobsHint": "I job che appartengono a un modulo installato sono gestiti all'interno del modulo stesso. Apri la pagina del modulo per vederli e attivarli/disattivarli:"
     },
+    "snippets": {
+      "title": "Snippet globali",
+      "subtitle": "CSS, JavaScript e markup iniettati in tutte le pagine frontend.",
+      "presetsButton": "Modelli",
+      "addButton": "Aggiungi",
+      "sectionHead": "Head",
+      "sectionBodyEnd": "Fine body",
+      "emptyTitle": "Nessuno snippet",
+      "emptyDescription": "Usa \"Modelli\" per aggiungere Analytics, GTM o altri script in pochi secondi.",
+      "deleteConfirmTitle": "Elimina snippet",
+      "deleteConfirmMessage": "Stai per eliminare {name}.",
+      "deleteConfirmIrreversible": "L'operazione è irreversibile.",
+      "deleteConfirmFallbackName": "questo snippet",
+      "deleteConfirmLabel": "Elimina",
+      "rowInactiveBadge": "inattivo",
+      "rowActivateTitle": "Attiva",
+      "rowDeactivateTitle": "Disattiva",
+      "rowEditTitle": "Modifica",
+      "rowDeleteTitle": "Elimina",
+      "types": {
+        "linkCss": "CSS esterno (link)",
+        "style": "CSS inline (style)",
+        "scriptSrc": "JS esterno (script src)",
+        "script": "JS inline (script)",
+        "raw": "Codice arbitrario"
+      },
+      "positions": {
+        "head": "<head>",
+        "bodyEnd": "Fine <body>"
+      },
+      "form": {
+        "titleNew": "Nuovo snippet",
+        "titleEdit": "Modifica snippet",
+        "nameLabel": "Nome (solo admin)",
+        "namePlaceholder": "Es. Google Analytics, Meta Pixel…",
+        "typeLabel": "Tipo",
+        "positionLabel": "Posizione",
+        "urlLabel": "URL",
+        "contentLabel": "Codice",
+        "activeOn": "Attivo — verrà iniettato nel frontend",
+        "activeOff": "Inattivo — salvato ma non iniettato",
+        "cancelButton": "Annulla",
+        "saveButton": "Salva",
+        "savingButton": "Salvataggio…"
+      },
+      "preset": {
+        "modalTitle": "Scegli un modello",
+        "snippetCount": "{count, plural, one {1 snippet} other {# snippet}}",
+        "willCreate": "Verranno creati {count, plural, one {1 snippet} other {# snippet}}:",
+        "backButton": "Indietro",
+        "confirmButton": "Aggiungi snippet",
+        "list": {
+          "ga4": {
+            "label": "Google Analytics 4",
+            "description": "Tracciamento visite e conversioni via gtag.js",
+            "paramLabel": "Measurement ID",
+            "step1Name": "Google Analytics — script src",
+            "step2Name": "Google Analytics — config"
+          },
+          "gtm": {
+            "label": "Google Tag Manager",
+            "description": "Contenitore GTM per gestire tutti i tag da un'unica interfaccia",
+            "paramLabel": "Container ID",
+            "step1Name": "GTM — head script",
+            "step2Name": "GTM — noscript body"
+          },
+          "metaPixel": {
+            "label": "Meta Pixel",
+            "description": "Tracciamento conversioni e pubblici personalizzati per Facebook/Instagram Ads",
+            "paramLabel": "Pixel ID",
+            "step1Name": "Meta Pixel — base code",
+            "step2Name": "Meta Pixel — noscript"
+          },
+          "searchConsole": {
+            "label": "Google Search Console",
+            "description": "Meta tag di verifica proprietà del sito",
+            "paramLabel": "Codice di verifica",
+            "step1Name": "Search Console — verifica"
+          },
+          "hotjar": {
+            "label": "Hotjar",
+            "description": "Heatmap, registrazioni sessioni e sondaggi utente",
+            "paramLabel": "Site ID",
+            "step1Name": "Hotjar — tracking"
+          }
+        }
+      }
+    },
     "signup": {
       "registrationCardTitle": "Registrazione utenti",
       "defaultRoleLabel": "Ruolo predefinito alla registrazione",
