@@ -131,7 +131,55 @@
       "noFileSelected": "Nessun file selezionato.",
       "assetUploaded": "Risorsa caricata.",
       "assetRemoved": "Risorsa rimossa.",
-      "removeFailed": "Rimozione fallita."
+      "removeFailed": "Rimozione fallita.",
+      "modeSaved": "Impostazioni comportamento salvate.",
+      "modeSaveFailed": "Errore durante il salvataggio.",
+      "usersSaved": "Impostazioni utenti salvate.",
+      "usersSaveFailed": "Errore durante il salvataggio."
+    },
+    "mode": {
+      "cardTitle": "Modalità operativa",
+      "save": "Salva",
+      "saving": "Salvataggio...",
+      "registrationsLabel": "Registrazioni aperte",
+      "registrationsDescription": "Gli utenti possono registrarsi all'app",
+      "maintenanceLabel": "Modalità manutenzione",
+      "maintenanceDescription": "Tutte le pagine non sono disponibili, viene mostrato un messaggio",
+      "turnstileText": "Il flusso di registrazione è protetto da",
+      "turnstileBrand": "Cloudflare Turnstile",
+      "turnstileActive": "attivo",
+      "turnstileNotConfigured": "non configurato",
+      "turnstileNotConfiguredHint": "la protezione anti-bot è silenziosamente disabilitata finché non imposti le chiavi.",
+      "manageKeys": "Gestisci chiavi",
+      "configureKeys": "Configura chiavi"
+    },
+    "signup": {
+      "registrationCardTitle": "Registrazione utenti",
+      "defaultRoleLabel": "Ruolo predefinito alla registrazione",
+      "defaultRoleHint": "Ruolo assegnato automaticamente a ogni nuovo utente che si registra. I ruoli con privilegi di amministratore non sono selezionabili.",
+      "noRolesAvailable": "Nessun ruolo non-admin disponibile. Crea almeno un ruolo nella sezione Accesso › Ruoli.",
+      "availableRoles": "Ruoli disponibili",
+      "save": "Salva",
+      "saving": "Salvataggio...",
+      "consentVersionsTitle": "Versioni consensi registrazione",
+      "consentVersionsHint": "Le versioni si aggiornano automaticamente ogni volta che il contenuto della pagina viene modificato dal CMS. Non è necessaria nessuna azione manuale.",
+      "consentLastUpdate": "Ultimo aggiornamento:",
+      "consentEdit": "Modifica",
+      "consentPageNotFound": "Pagina non trovata",
+      "consents": {
+        "terms": {
+          "label": "Termini e Condizioni",
+          "description": "Versione salvata alla registrazione nel campo accepted_terms_version"
+        },
+        "privacy": {
+          "label": "Privacy Policy",
+          "description": "Versione salvata alla registrazione nel campo accepted_privacy_version"
+        },
+        "marketing": {
+          "label": "Marketing Policy",
+          "description": "Versione salvata alla registrazione nel campo accepted_marketing_version"
+        }
+      }
     }
   },
   "nav": {

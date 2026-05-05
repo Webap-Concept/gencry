@@ -4,6 +4,7 @@ import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { Role } from "@/lib/db/schema";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ExternalLink, FileText, Loader2, Save, ShieldCheck, Megaphone } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveUsersSettings, type ActionState } from "../actions";
@@ -17,22 +18,12 @@ type SystemPageInfo = {
   updatedAt: Date;
 };
 
-const SYSTEM_PAGE_META: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
-  terms: {
-    label: "Termini e Condizioni",
-    icon: <FileText size={15} />,
-    description: "Versione salvata alla registrazione nel campo accepted_terms_version",
-  },
-  privacy: {
-    label: "Privacy Policy",
-    icon: <ShieldCheck size={15} />,
-    description: "Versione salvata alla registrazione nel campo accepted_privacy_version",
-  },
-  marketing: {
-    label: "Marketing Policy",
-    icon: <Megaphone size={15} />,
-    description: "Versione salvata alla registrazione nel campo accepted_marketing_version",
-  },
+type ConsentKey = "terms" | "privacy" | "marketing";
+
+const CONSENT_ICON: Record<ConsentKey, React.ReactNode> = {
+  terms: <FileText size={15} />,
+  privacy: <ShieldCheck size={15} />,
+  marketing: <Megaphone size={15} />,
 };
 
 // ---------------------------------------------------------------------------
@@ -81,6 +72,7 @@ function RegistrationPanel({
   settings: AppSettings;
   roles: Role[];
 }) {
+  const t = useTranslations("admin.settings.signup");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveUsersSettings,
     {},
@@ -119,27 +111,25 @@ function RegistrationPanel({
           <h3
             className="text-sm font-semibold mb-4"
             style={{ color: "var(--admin-text)" }}>
-            User Registration
+            {t("registrationCardTitle")}
           </h3>
           <div className="space-y-5 max-w-lg">
             <div>
               <label
                 className="block text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Default role upon registration
+                {t("defaultRoleLabel")}
               </label>
               <p
                 className="text-[11px] mb-2.5"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Role automatically assigned to every new user who registers.
-                Roles with administrator privileges are not selectable.
+                {t("defaultRoleHint")}
               </p>
               {assignableRoles.length === 0 ? (
                 <p
                   className="text-sm italic"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  No non-admin roles available. Create at least one role in the
-                  Users › Roles section.
+                  {t("noRolesAvailable")}
                 </p>
               ) : (
                 <select
@@ -188,7 +178,7 @@ function RegistrationPanel({
                 <p
                   className="text-[11px] mb-2"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  Available roles
+                  {t("availableRoles")}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {assignableRoles.map((role) => (
@@ -239,7 +229,7 @@ function RegistrationPanel({
           ) : (
             <Save size={15} />
           )}
-          {isPending ? "Saving..." : "Save"}
+          {isPending ? t("saving") : t("save")}
         </button>
       </form>
       {toast && (
@@ -257,7 +247,11 @@ function RegistrationPanel({
 // Consent Versions Panel
 // ---------------------------------------------------------------------------
 function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }) {
-  const ordered = ["terms", "privacy", "marketing"];
+  const t = useTranslations("admin.settings.signup");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+
+  const ordered: ConsentKey[] = ["terms", "privacy", "marketing"];
   const byKey = Object.fromEntries(
     systemPages
       .filter((p) => p.systemKey !== null)
@@ -274,20 +268,17 @@ function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }
       <h3
         className="text-sm font-semibold mb-1"
         style={{ color: "var(--admin-text)" }}>
-        Versioni Consensi Registrazione
+        {t("consentVersionsTitle")}
       </h3>
       <p
         className="text-[11px] mb-5"
         style={{ color: "var(--admin-text-faint)" }}>
-        Le versioni si aggiornano automaticamente ogni volta che il contenuto
-        della pagina viene modificato dal CMS. Non è necessaria nessuna azione manuale.
+        {t("consentVersionsHint")}
       </p>
 
       <div className="space-y-3">
         {ordered.map((key) => {
-          const meta = SYSTEM_PAGE_META[key];
           const page = byKey[key];
-          if (!meta) return null;
           return (
             <div
               key={key}
@@ -300,25 +291,25 @@ function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }
                 <span
                   className="mt-0.5 shrink-0"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  {meta.icon}
+                  {CONSENT_ICON[key]}
                 </span>
                 <div className="min-w-0">
                   <p
                     className="text-xs font-medium"
                     style={{ color: "var(--admin-text)" }}>
-                    {meta.label}
+                    {t(`consents.${key}.label`)}
                   </p>
                   <p
                     className="text-[11px] mt-0.5"
                     style={{ color: "var(--admin-text-faint)" }}>
-                    {meta.description}
+                    {t(`consents.${key}.description`)}
                   </p>
                   {page && (
                     <p
                       className="text-[11px] mt-1"
                       style={{ color: "var(--admin-text-faint)" }}>
-                      Ultimo aggiornamento:{" "}
-                      {new Date(page.updatedAt).toLocaleDateString("it-IT", {
+                      {t("consentLastUpdate")}{" "}
+                      {new Date(page.updatedAt).toLocaleDateString(dateLocale, {
                         day: "2-digit",
                         month: "long",
                         year: "numeric",
@@ -351,14 +342,14 @@ function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }
                         (e.currentTarget.style.color = "var(--admin-text-muted)")
                       }>
                       <ExternalLink size={11} />
-                      Modifica
+                      {t("consentEdit")}
                     </a>
                   </>
                 ) : (
                   <span
                     className="text-xs italic"
                     style={{ color: "var(--admin-text-faint)" }}>
-                    Pagina non trovata
+                    {t("consentPageNotFound")}
                   </span>
                 )}
               </div>

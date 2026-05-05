@@ -131,7 +131,55 @@
       "noFileSelected": "No file selected.",
       "assetUploaded": "Asset uploaded.",
       "assetRemoved": "Asset removed.",
-      "removeFailed": "Remove failed."
+      "removeFailed": "Remove failed.",
+      "modeSaved": "Operation mode settings saved.",
+      "modeSaveFailed": "Save failed.",
+      "usersSaved": "User settings saved.",
+      "usersSaveFailed": "Save failed."
+    },
+    "mode": {
+      "cardTitle": "Operation Mode",
+      "save": "Save",
+      "saving": "Saving...",
+      "registrationsLabel": "SignUp Open",
+      "registrationsDescription": "Users can sign up to the app",
+      "maintenanceLabel": "Maintenance Mode",
+      "maintenanceDescription": "All pages are unavailable, a message will be displayed",
+      "turnstileText": "The sign-up flow is protected by",
+      "turnstileBrand": "Cloudflare Turnstile",
+      "turnstileActive": "active",
+      "turnstileNotConfigured": "not configured",
+      "turnstileNotConfiguredHint": "bot protection is silently disabled until you set the keys.",
+      "manageKeys": "Manage keys",
+      "configureKeys": "Configure keys"
+    },
+    "signup": {
+      "registrationCardTitle": "User Registration",
+      "defaultRoleLabel": "Default role upon registration",
+      "defaultRoleHint": "Role automatically assigned to every new user who registers. Roles with administrator privileges are not selectable.",
+      "noRolesAvailable": "No non-admin roles available. Create at least one role in the Access › Roles section.",
+      "availableRoles": "Available roles",
+      "save": "Save",
+      "saving": "Saving...",
+      "consentVersionsTitle": "Registration Consent Versions",
+      "consentVersionsHint": "Versions are updated automatically every time the page content is modified from the CMS. No manual action is required.",
+      "consentLastUpdate": "Last updated:",
+      "consentEdit": "Edit",
+      "consentPageNotFound": "Page not found",
+      "consents": {
+        "terms": {
+          "label": "Terms and Conditions",
+          "description": "Version saved at registration in the accepted_terms_version field"
+        },
+        "privacy": {
+          "label": "Privacy Policy",
+          "description": "Version saved at registration in the accepted_privacy_version field"
+        },
+        "marketing": {
+          "label": "Marketing Policy",
+          "description": "Version saved at registration in the accepted_marketing_version field"
+        }
+      }
     }
   },
   "nav": {
