@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Loader2, PartyPopper, Sparkles, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { checkUsernameAction } from "@/app/(login)/actions";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
@@ -116,6 +117,7 @@ function UsernameStep({
   initial: string;
   onDone: () => void;
 }) {
+  const t = useTranslations("public.onboarding.username");
   const [username, setUsername]                 = useState(initial);
   const [available, setAvailable]               = useState<boolean>(Boolean(initial));
   const [checking, setChecking]                 = useState(false);
@@ -141,7 +143,7 @@ function UsernameStep({
     }
     if (username.length < 3 || username.length > 50) {
       requestIdRef.current++;
-      setValidationError("Username tra 3 e 50 caratteri");
+      setValidationError(t("lengthError"));
       setAvailable(false);
       setChecking(false);
       return;
@@ -166,7 +168,7 @@ function UsernameStep({
         setValidationError(res.error ?? "");
       } catch {
         if (requestIdRef.current !== myId) return;
-        setValidationError("Impossibile verificare lo username");
+        setValidationError(t("checkFailed"));
         setAvailable(false);
       } finally {
         if (requestIdRef.current === myId) setChecking(false);
@@ -174,7 +176,7 @@ function UsernameStep({
     }, 400);
 
     return () => clearTimeout(handle);
-  }, [username]);
+  }, [username, t]);
 
   const canSubmit = available && !checking && !validationError && !pending;
 
@@ -196,17 +198,15 @@ function UsernameStep({
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-bg mb-3">
           <Sparkles className="h-6 w-6 text-brand-primary" />
         </div>
-        <h1 className="text-2xl font-semibold text-brand-text">Benvenuto!</h1>
-        <p className="text-sm text-brand-text-muted mt-1">
-          Iniziamo scegliendo il tuo username pubblico.
-        </p>
+        <h1 className="text-2xl font-semibold text-brand-text">{t("title")}</h1>
+        <p className="text-sm text-brand-text-muted mt-1">{t("subtitle")}</p>
       </div>
 
       <div className="space-y-2">
         <Label
           htmlFor="onb-username"
           className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-          Username
+          {t("label")}
         </Label>
         <div className="relative">
           <Input
@@ -214,7 +214,7 @@ function UsernameStep({
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="es. cripto_lover"
+            placeholder={t("placeholder")}
             autoComplete="off"
             autoFocus
             className="pr-10"
@@ -234,9 +234,7 @@ function UsernameStep({
         {validationError ? (
           <p className="text-xs text-brand-destructive">{validationError}</p>
         ) : (
-          <p className="text-xs text-brand-text-muted">
-            3-50 caratteri, lettere, numeri, punto (.) e underscore (_)
-          </p>
+          <p className="text-xs text-brand-text-muted">{t("hint")}</p>
         )}
       </div>
 
@@ -253,10 +251,10 @@ function UsernameStep({
         className="w-full">
         {pending ? (
           <>
-            <Loader2 className="animate-spin h-4 w-4" /> Salvataggio…
+            <Loader2 className="animate-spin h-4 w-4" /> {t("submitPending")}
           </>
         ) : (
-          "Continua"
+          t("submit")
         )}
       </Button>
     </div>
@@ -276,6 +274,7 @@ function InterestsStep({
   onBack: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("public.onboarding.interests");
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
   const [submitError, setSubmitError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -307,13 +306,12 @@ function InterestsStep({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold text-brand-text">
-          Cosa ti interessa?
-        </h1>
+        <h1 className="text-2xl font-semibold text-brand-text">{t("title")}</h1>
         <p className="text-sm text-brand-text-muted mt-1">
-          Scegli almeno {MIN_INTERESTS} asset da seguire.
-          Ne hai selezionati{" "}
-          <span className="font-semibold text-brand-text">{selected.size}</span>.
+          {t("subtitleStart")} {MIN_INTERESTS} {t("subtitleAssets")}{" "}
+          {t("subtitleSelectedStart")}{" "}
+          <span className="font-semibold text-brand-text">{selected.size}</span>
+          {t("subtitleSelectedEnd")}
         </p>
       </div>
 
@@ -363,7 +361,7 @@ function InterestsStep({
           onClick={onBack}
           disabled={pending}
           className="flex-1">
-          Indietro
+          {t("back")}
         </Button>
         <Button
           type="button"
@@ -372,10 +370,10 @@ function InterestsStep({
           className="flex-1">
           {pending ? (
             <>
-              <Loader2 className="animate-spin h-4 w-4" /> Salvataggio…
+              <Loader2 className="animate-spin h-4 w-4" /> {t("submitPending")}
             </>
           ) : (
-            "Continua"
+            t("submit")
           )}
         </Button>
       </div>
@@ -388,6 +386,7 @@ function InterestsStep({
 // ---------------------------------------------------------------------------
 
 function DoneStep() {
+  const t = useTranslations("public.onboarding.done");
   const [pending, startTransition] = useTransition();
 
   const handleStart = () => {
@@ -403,18 +402,18 @@ function DoneStep() {
         <PartyPopper className="h-7 w-7 text-emerald-600" />
       </div>
       <div>
-        <h1 className="text-2xl font-semibold text-brand-text">Tutto pronto!</h1>
+        <h1 className="text-2xl font-semibold text-brand-text">{t("title")}</h1>
         <p className="text-sm text-brand-text-muted mt-2 max-w-sm mx-auto">
-          Il tuo profilo è impostato. Ora puoi iniziare a esplorare l'app.
+          {t("subtitle")}
         </p>
       </div>
       <Button onClick={handleStart} disabled={pending} className="w-full">
         {pending ? (
           <>
-            <Loader2 className="animate-spin h-4 w-4" /> Apro l'app…
+            <Loader2 className="animate-spin h-4 w-4" /> {t("submitPending")}
           </>
         ) : (
-          "Inizia"
+          t("submit")
         )}
       </Button>
     </div>

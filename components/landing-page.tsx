@@ -1,9 +1,11 @@
 "use client";
 
 import { joinWaitingListAction } from "@/lib/waiting-list/actions";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 export default function GenerazioneCrypto() {
+  const t = useTranslations("public.landing");
   const [statusMsg, setStatusMsg] = useState("");
   const [statusColor, setStatusColor] = useState("");
   const [statusVisible, setStatusVisible] = useState(false);
@@ -18,7 +20,7 @@ export default function GenerazioneCrypto() {
 
     // Validazione client (UX immediata). La server action e' autoritativa.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setStatusMsg("Hmm, controlla l'email e riprova.");
+      setStatusMsg(t("emailInvalid"));
       setStatusColor("#b8420f");
       setStatusVisible(true);
       return;
@@ -427,25 +429,22 @@ export default function GenerazioneCrypto() {
               <span className="gc-dot" />
               Generazione Crypto
             </span>
-            <span className="gc-right">In arrivo · MMXXVI</span>
+            <span className="gc-right">{t("comingTag")}</span>
           </header>
 
           <main className="gc-main">
             <section className="gc-copy">
               <span className="gc-eyebrow">
-                <span className="gc-sq" /> Coming soon
+                <span className="gc-sq" /> {t("comingSoon")}
               </span>
               <h1 className="gc-h1">
-                Il <span className="gc-it">social</span>
+                {t("headline1")}{" "}
+                <span className="gc-it">{t("headlineSocial")}</span>
                 <br />
-                della nuova <br />
-                <span className="gc-amp">generazione</span>.
+                {t("headline2")} <br />
+                <span className="gc-amp">{t("headlineGeneration")}</span>.
               </h1>
-              <p className="gc-lede">
-                Stiamo costruendo lo spazio dove la community italiana di cripto
-                si incontra, impara e cresce. Lascia la tua email e ti
-                avviseremo quando apriremo le porte.
-              </p>
+              <p className="gc-lede">{t("lede")}</p>
 
               <form
                 id="waitlist"
@@ -456,23 +455,23 @@ export default function GenerazioneCrypto() {
                   className="gc-email-input"
                   type="email"
                   name="email"
-                  placeholder="la-tua@email.it"
+                  placeholder={t("emailPlaceholder")}
                   autoComplete="email"
                   required
                   disabled={isPending}
                 />
                 <button type="submit" className="gc-btn" disabled={isPending}>
-                  {isPending ? "Attendi…" : "Entra in lista"}
+                  {isPending ? t("submitPending") : t("submit")}
                   {!isPending && <span className="gc-arrow">→</span>}
                 </button>
               </form>
 
               <div className="gc-meta">
                 <span>
-                  <b>01.</b> Accesso anticipato
+                  <b>01.</b> {t("metaItem1")}
                 </span>
                 <span>
-                  <b>02.</b> Zero spam
+                  <b>02.</b> {t("metaItem2")}
                 </span>
               </div>
 

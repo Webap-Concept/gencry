@@ -4,6 +4,7 @@ import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import Link from "next/link";
 
@@ -23,11 +24,12 @@ import Link from "next/link";
  * bottom.
  */
 export async function PublicFooter() {
-  const [settings, slugs, cookieConsent, headersList] = await Promise.all([
+  const [settings, slugs, cookieConsent, headersList, t] = await Promise.all([
     getAppSettings(),
     getSystemPageSlugs(),
     readCookieConsent(),
     headers(),
+    getTranslations("public.footer"),
   ]);
 
   const localeHeader = headersList.get("x-locale");
@@ -62,17 +64,17 @@ export async function PublicFooter() {
       }}>
       <div className="mx-auto max-w-6xl px-4 py-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-[12.5px]" style={{ color: "#6b7280" }}>
-          © {year} {appName}. Tutti i diritti riservati.
+          © {year} {appName}. {t("rightsReserved")}
         </div>
         <nav
           className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]"
-          aria-label="Footer">
+          aria-label={t("ariaLabel")}>
           {termsSlug && (
             <Link
               href={`/${termsSlug}`}
               className="hover:underline"
               style={{ color: "#4b5563" }}>
-              Termini
+              {t("terms")}
             </Link>
           )}
           {privacySlug && (
@@ -80,7 +82,7 @@ export async function PublicFooter() {
               href={`/${privacySlug}`}
               className="hover:underline"
               style={{ color: "#4b5563" }}>
-              Privacy
+              {t("privacy")}
             </Link>
           )}
           {cookiePolicySlug && (
@@ -88,7 +90,7 @@ export async function PublicFooter() {
               href={`/${cookiePolicySlug}`}
               className="hover:underline"
               style={{ color: "#4b5563" }}>
-              Cookie policy
+              {t("cookiePolicy")}
             </Link>
           )}
           {cookieBannerEnabled && cookieConsent.hasDecision && (
@@ -96,7 +98,7 @@ export async function PublicFooter() {
               initialPrefs={initialPrefs}
               policyUrl={cookiePolicyUrl}
               variant="link"
-              label="Preferenze cookie"
+              label={t("cookiePreferences")}
             />
           )}
           <LanguageSwitcher current={currentLocale} currentPath={currentPath} />

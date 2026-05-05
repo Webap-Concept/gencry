@@ -1,3 +1,4 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import type { TemplateProps } from "./types";
 
 /**
@@ -11,7 +12,12 @@ import type { TemplateProps } from "./types";
  *   - readTime   (number)   — minuti di lettura stimati
  *   - excerpt    (textarea) — estratto/sommario del post
  */
-export function TemplateBlog({ page, fields }: TemplateProps) {
+export async function TemplateBlog({ page, fields }: TemplateProps) {
+  const [locale, t] = await Promise.all([
+    getLocale(),
+    getTranslations("public.cms"),
+  ]);
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   return (
     <div
       style={{
@@ -74,13 +80,13 @@ export function TemplateBlog({ page, fields }: TemplateProps) {
             }}>
             {fields.author && (
               <>
-                Di <strong>{fields.author}</strong>
+                {t("byAuthor")} <strong>{fields.author}</strong>
               </>
             )}
             {page.publishedAt && (
               <>
                 {fields.author ? " — " : ""}
-                {new Date(page.publishedAt).toLocaleDateString("it-IT", {
+                {new Date(page.publishedAt).toLocaleDateString(dateLocale, {
                   dateStyle: "long",
                 })}
               </>
