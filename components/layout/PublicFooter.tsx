@@ -1,7 +1,10 @@
 import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 /**
@@ -20,11 +23,17 @@ import Link from "next/link";
  * bottom.
  */
 export async function PublicFooter() {
-  const [settings, slugs, cookieConsent] = await Promise.all([
+  const [settings, slugs, cookieConsent, headersList] = await Promise.all([
     getAppSettings(),
     getSystemPageSlugs(),
     readCookieConsent(),
+    headers(),
   ]);
+
+  const localeHeader = headersList.get("x-locale");
+  const currentLocale =
+    localeHeader && isLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
+  const currentPath = headersList.get("x-pathname") ?? "/";
 
   const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
   const cookiePolicySlug = slugs.cookie ?? null;
@@ -90,6 +99,7 @@ export async function PublicFooter() {
               label="Preferenze cookie"
             />
           )}
+          <LanguageSwitcher current={currentLocale} currentPath={currentPath} />
         </nav>
       </div>
     </footer>
