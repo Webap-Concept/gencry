@@ -12,13 +12,13 @@ import {
   type ActionState,
 } from "../actions";
 
-export function SenderTab({ settings }: { settings: AppSettings }) {
+export function ResendForm({ settings }: { settings: AppSettings }) {
   const pathname = usePathname();
-  return <SenderTabInner key={pathname} settings={settings} />;
+  return <ResendFormInner key={pathname} settings={settings} />;
 }
 
-function SenderTabInner({ settings }: { settings: AppSettings }) {
-  const t = useTranslations("admin.settings.resend");
+function ResendFormInner({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.services.resend");
   const [saveState, saveAction, isSaving] = useActionState<
     ActionState,
     FormData

@@ -154,7 +154,7 @@ function TurnstileStatus({ configured }: { configured: boolean }) {
           )}
         </p>
         <Link
-          href="/admin/settings/cloudflare"
+          href="/admin/services/cloudflare"
           className="inline-flex items-center gap-1 font-medium transition-opacity hover:opacity-80"
           style={{ color: iconColor }}>
           {configured ? t("manageKeys") : t("configureKeys")}

@@ -3,60 +3,52 @@
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import type { LucideIcon } from "lucide-react";
 import {
-  Clock,
-  Code2,
-  Globe,
-  Languages,
+  Database,
+  GitMerge,
   LogIn,
-  Mail,
-  Settings,
-  SlidersHorizontal,
+  Plug,
+  Send,
+  Shield,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
+import { RedisAdminGuide } from "../redis/_components/redis-guide";
 
 type SectionMeta = {
-  /** Chiave del sotto-percorso (segment finale di /admin/settings/<segment>).
-   *  Le label/description vengono risolte da admin.settings.sections.<key>.* */
+  /** Chiave del sotto-percorso (segment finale di /admin/services/<segment>).
+   *  Le label/description vengono risolte da admin.services.sections.<key>.* */
   icon: LucideIcon;
   /** Operator's guide opzionale. Quando presente, un bottone info nel
    *  titolo apre il modale con questo contenuto e usa
-   *  admin.settings.sections.<key>.guideTitle (se definito). */
+   *  admin.services.sections.<key>.guideTitle (se definito). */
   guide?: React.ReactNode;
   /** true se questa sezione ha una chiave dedicata `guideTitle` nel JSON. */
   hasGuideTitle?: boolean;
 };
 
 const SECTIONS: Record<string, SectionMeta> = {
-  general: { icon: Globe },
-  "operation-mode": { icon: SlidersHorizontal },
-  signup: { icon: LogIn },
-  email: { icon: Mail },
-  snippets: { icon: Code2 },
-  cron: { icon: Clock },
-  languages: { icon: Languages },
+  cloudflare: { icon: Shield },
+  github: { icon: GitMerge },
+  "google-oauth": { icon: LogIn },
+  redis: { icon: Database, guide: <RedisAdminGuide />, hasGuideTitle: true },
+  resend: { icon: Send },
 };
 
-const DEFAULT: SectionMeta = { icon: Settings };
+const DEFAULT: SectionMeta = { icon: Plug };
 
-export function SettingsHeader() {
-  const t = useTranslations("admin.settings");
+export function ServicesHeader() {
+  const t = useTranslations("admin.services");
   const pathname = usePathname();
   const segment = pathname.split("/").pop() ?? "";
   const section = SECTIONS[segment] ?? DEFAULT;
   const Icon = section.icon;
   const isKnown = segment in SECTIONS;
 
-  const sectionLabel = isKnown
-    ? t(`sections.${segment}.label`)
-    : "";
+  const sectionLabel = isKnown ? t(`sections.${segment}.label`) : "";
   const sectionDescription = isKnown
     ? t(`sections.${segment}.description`)
     : t("defaultDescription");
 
-  // Il guideTitle vive sotto admin.settings.sections.<key>.guideTitle
-  // SOLO per le sezioni che lo hanno (oggi solo "redis"). Per le altre
-  // costruiamo `<label> — operator's guide` da chiavi i18n.
   const guideTitle = section.guide
     ? section.hasGuideTitle
       ? t(`sections.${segment}.guideTitle`)
@@ -95,9 +87,7 @@ export function SettingsHeader() {
             )}
           </h2>
           {section.guide && guideTitle && (
-            <AdminSectionInfo
-              title={guideTitle}
-              ariaLabel={guideAriaLabel}>
+            <AdminSectionInfo title={guideTitle} ariaLabel={guideAriaLabel}>
               {section.guide}
             </AdminSectionInfo>
           )}

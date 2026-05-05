@@ -11,8 +11,8 @@ import {
   type ActionState,
 } from "../actions";
 
-export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
-  const t = useTranslations("admin.settings.googleOAuth");
+export function GoogleOAuthForm({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.services.googleOAuth");
   const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast] = useState<{
     message: string;

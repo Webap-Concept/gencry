@@ -11,8 +11,8 @@ import {
   type ActionState,
 } from "../actions";
 
-export function GitHubCITab({ settings }: { settings: AppSettings }) {
-  const t = useTranslations("admin.settings.githubCI");
+export function GitHubCIForm({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.services.githubCI");
   const [showToken, setShowToken] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
