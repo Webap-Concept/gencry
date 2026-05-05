@@ -4,6 +4,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Globe, ImageIcon, Loader2, Save, Trash2, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
@@ -19,6 +20,7 @@ export function GeneralTab({ settings }: { settings: AppSettings }) {
 }
 
 function GeneralTabInner({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.general");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveAppSettings,
     {},
@@ -39,7 +41,6 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
       setToast({ message: state.error, type: "error" });
   }, [state]);
 
-  // Mostra il dominio già pulito (senza protocollo) nel campo
   const cleanDomain = (settings.app_domain ?? "")
     .replace(/^https?:\/\//i, "")
     .replace(/\/$/, "");
@@ -57,7 +58,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
             <h3
               className="text-sm font-semibold mb-5"
               style={{ color: "var(--admin-text)" }}>
-              App identity
+              {t("appIdentityTitle")}
             </h3>
 
             <div className="space-y-4 max-w-lg">
@@ -65,7 +66,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                 <label
                   className="block text-xs font-medium mb-1.5"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  App name
+                  {t("appNameLabel")}
                 </label>
                 <input
                   name="app_name"
@@ -82,7 +83,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                 <p
                   className="text-[11px] mt-1"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  Used everywhere in the app
+                  {t("appNameHint")}
                 </p>
               </div>
 
@@ -90,7 +91,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                 <label
                   className="block text-xs font-medium mb-1.5"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Short description, claim
+                  {t("appDescLabel")}
                 </label>
                 <textarea
                   name="app_description"
@@ -107,7 +108,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                 <p
                   className="text-[11px] mt-1"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  Used
+                  {t("appDescHint")}
                 </p>
               </div>
 
@@ -117,7 +118,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                   style={{ color: "var(--admin-text-muted)" }}>
                   <span className="flex items-center gap-1.5">
                     <Globe size={12} />
-                    Domain site
+                    {t("domainLabel")}
                   </span>
                 </label>
                 <div
@@ -138,7 +139,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                     name="app_domain"
                     defaultValue={cleanDomain}
                     maxLength={253}
-                    placeholder="example.com"
+                    placeholder={t("domainPlaceholder")}
                     className="flex-1 px-3 py-2 text-sm focus:outline-none transition-colors"
                     style={{
                       background: "var(--admin-page-bg)",
@@ -149,11 +150,13 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                 <p
                   className="text-[11px] mt-1"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  Just the domain (ex.{" "}
-                  <code className="font-mono">example.com</code> or{" "}
-                  <code className="font-mono">app.example.com</code>). Prefix{" "}
-                  <code className="font-mono">https://</code> is added
-                  automatically.
+                  {t("domainHintBefore")}{" "}
+                  <code className="font-mono">example.com</code>{" "}
+                  {t("domainHintMiddleOr")}{" "}
+                  <code className="font-mono">app.example.com</code>
+                  {t("domainHintAfterPrefix")}{" "}
+                  <code className="font-mono">https://</code>{" "}
+                  {t("domainHintAfterSuffix")}
                 </p>
               </div>
             </div>
@@ -176,7 +179,7 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
             ) : (
               <Save size={15} />
             )}
-            {isPending ? "Saving..." : "Save"}
+            {isPending ? t("saving") : t("save")}
           </button>
         </form>
 
@@ -205,22 +208,16 @@ type ToastSetter = React.Dispatch<
 const BRAND_SLOTS = [
   {
     slot: "logo" as const,
-    label: "Logo",
-    hint: "Main logo. Shown in transactional emails and the public site header.",
     settingKey: "app_logo_url" as const,
     accept: "image/png,image/jpeg,image/svg+xml,image/webp",
   },
   {
     slot: "logo-variant" as const,
-    label: "Logo variant",
-    hint: "Alternate logo (e.g. for dark backgrounds).",
     settingKey: "app_logo_variant_url" as const,
     accept: "image/png,image/jpeg,image/svg+xml,image/webp",
   },
   {
     slot: "favicon" as const,
-    label: "Favicon",
-    hint: "Browser tab icon. PNG, SVG or ICO, ideally 32×32 or 64×64.",
     settingKey: "app_favicon_url" as const,
     accept: "image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon",
   },
@@ -233,6 +230,7 @@ function BrandAssetsCard({
   settings: AppSettings;
   onToast: ToastSetter;
 }) {
+  const t = useTranslations("admin.settings.general");
   return (
     <div
       className="rounded-xl shadow-sm p-6"
@@ -245,24 +243,22 @@ function BrandAssetsCard({
         <h3
           className="text-sm font-semibold"
           style={{ color: "var(--admin-text)" }}>
-          Brand assets
+          {t("brandAssetsTitle")}
         </h3>
       </div>
       <p
         className="text-[11px] mb-5"
         style={{ color: "var(--admin-text-faint)" }}>
-        Stored on Supabase Storage. Max 1&nbsp;MB per file.
+        {t("brandAssetsHint")}
       </p>
 
       <div className="space-y-4">
-        {BRAND_SLOTS.map((slot) => (
+        {BRAND_SLOTS.map((s) => (
           <BrandAssetRow
-            key={slot.slot}
-            slot={slot.slot}
-            label={slot.label}
-            hint={slot.hint}
-            accept={slot.accept}
-            currentUrl={settings[slot.settingKey]}
+            key={s.slot}
+            slot={s.slot}
+            accept={s.accept}
+            currentUrl={settings[s.settingKey]}
             onToast={onToast}
           />
         ))}
@@ -273,21 +269,21 @@ function BrandAssetsCard({
 
 function BrandAssetRow({
   slot,
-  label,
-  hint,
   accept,
   currentUrl,
   onToast,
 }: {
   slot: "logo" | "logo-variant" | "favicon";
-  label: string;
-  hint: string;
   accept: string;
   currentUrl: string | null;
   onToast: ToastSetter;
 }) {
+  const t = useTranslations("admin.settings.general");
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const label = t(`slots.${slot}.label`);
+  const hint = t(`slots.${slot}.hint`);
 
   const [uploadState, uploadAction, uploading] = useActionState<
     ActionState,
@@ -334,7 +330,7 @@ function BrandAssetRow({
     fd.set("slot", slot);
     fd.set("file", file);
     uploadAction(fd);
-    e.target.value = ""; // permette di ri-uploadare lo stesso file
+    e.target.value = "";
   }
 
   return (
@@ -344,7 +340,6 @@ function BrandAssetRow({
         background: "var(--admin-page-bg)",
         border: "1px solid var(--admin-input-border)",
       }}>
-      {/* Preview */}
       <div
         className="w-20 h-20 rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-2"
         style={{
@@ -365,7 +360,6 @@ function BrandAssetRow({
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p
           className="text-sm font-medium"
@@ -389,7 +383,6 @@ function BrandAssetRow({
         )}
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2 shrink-0">
         <input
           ref={fileInputRef}
@@ -412,7 +405,11 @@ function BrandAssetRow({
           ) : (
             <Upload size={12} />
           )}
-          {uploading ? "Uploading..." : currentUrl ? "Replace" : "Upload"}
+          {uploading
+            ? t("uploading")
+            : currentUrl
+              ? t("replace")
+              : t("upload")}
         </button>
 
         {currentUrl && (
@@ -427,7 +424,7 @@ function BrandAssetRow({
                 color: "var(--admin-text-muted)",
                 border: "1px solid var(--admin-input-border)",
               }}
-              title="Remove asset">
+              title={t("removeTitle")}>
               {removing ? (
                 <Loader2 size={12} className="animate-spin" />
               ) : (
