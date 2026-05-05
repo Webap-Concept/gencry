@@ -100,9 +100,19 @@ export async function proxy(request: NextRequest) {
   if (fromPath) {
     if (fromPath.locale === DEFAULT_LOCALE) {
       // Caso 1: prefix è già il default → redirect canonico (clean URL)
+      // + cookie aggiornato. Per simmetria col caso 3: visitare un URL con
+      // prefix locale è "scelta esplicita di lingua", e qui lo trattiamo
+      // come reset al default (utile quando un visitatore con cookie=en
+      // vuole tornare alla lingua di default visitando /it/qualcosa).
       const cleanUrl = new URL(fromPath.rest || "/", request.url);
       cleanUrl.search = request.nextUrl.search;
-      return NextResponse.redirect(cleanUrl, { status: 308 });
+      const res = NextResponse.redirect(cleanUrl, { status: 308 });
+      res.cookies.set(
+        LOCALE_COOKIE_NAME,
+        fromPath.locale,
+        LOCALE_COOKIE_OPTIONS,
+      );
+      return res;
     }
 
     if (isNonPrefixablePath(fromPath.rest)) {
