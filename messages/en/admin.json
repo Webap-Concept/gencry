@@ -148,7 +148,13 @@
       "cloudflareTestUnreadable": "Unreadable response from Cloudflare (HTTP {status}).",
       "cloudflareTestInvalidSecret": "Secret Key is not valid.",
       "cloudflareTestOk": "Secret Key is valid.",
-      "cloudflareTestNetworkFailed": "Verification failed. Check your connection."
+      "cloudflareTestNetworkFailed": "Verification failed. Check your connection.",
+      "redisSaved": "Redis credentials saved.",
+      "redisSaveFailed": "Save failed.",
+      "redisTestCredentialsRequired": "Enter Redis URL and token before testing.",
+      "redisTestFailedStatus": "Redis connection failed ({status}).",
+      "redisTestOk": "Redis connection successful.",
+      "redisTestFailed": "Unable to contact Redis / Upstash."
     },
     "mode": {
       "cardTitle": "Operation Mode",
@@ -202,6 +208,18 @@
       "savingButton": "Saving…",
       "testButton": "Test Secret Key",
       "testingButton": "Testing…"
+    },
+    "redis": {
+      "urlLabel": "REST URL",
+      "urlHint": "Find it in Upstash Console → Database → REST API → Endpoint",
+      "tokenLabel": "REST Token",
+      "tokenHint": "Find it in Upstash Console → Database → REST API → Read/Write Token",
+      "showTokenAria": "Show token",
+      "hideTokenAria": "Hide token",
+      "saveButton": "Save credentials",
+      "savingButton": "Saving…",
+      "testButton": "Test connection",
+      "testingButton": "Testing..."
     },
     "signup": {
       "registrationCardTitle": "User Registration",

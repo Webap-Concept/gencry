@@ -342,6 +342,7 @@ export async function saveRedisSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const url = (
       (formData.get("upstash_redis_rest_url") as string) ?? ""
@@ -361,9 +362,9 @@ export async function saveRedisSettings(
     await runGenerators();
 
     revalidatePath(getAdminPath("settings-redis"));
-    return { success: "Credenziali Redis salvate.", timestamp: Date.now() };
+    return { success: t("redisSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: t("redisSaveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -371,6 +372,7 @@ export async function testRedisConnection(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const url = (
       (formData.get("upstash_redis_rest_url") as string | null) ?? ""
@@ -380,7 +382,7 @@ export async function testRedisConnection(
     ).trim();
     if (!url || !token) {
       return {
-        error: "Inserisci URL e token Redis prima di testare.",
+        error: t("redisTestCredentialsRequired"),
         timestamp: Date.now(),
       };
     }
@@ -395,14 +397,14 @@ export async function testRedisConnection(
     });
     if (!response.ok) {
       return {
-        error: `Connessione Redis fallita (${response.status}).`,
+        error: t("redisTestFailedStatus", { status: response.status }),
         timestamp: Date.now(),
       };
     }
-    return { success: "Connessione Redis riuscita.", timestamp: Date.now() };
+    return { success: t("redisTestOk"), timestamp: Date.now() };
   } catch {
     return {
-      error: "Impossibile contattare Redis / Upstash.",
+      error: t("redisTestFailed"),
       timestamp: Date.now(),
     };
   }
