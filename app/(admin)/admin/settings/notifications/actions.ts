@@ -14,6 +14,7 @@ import {
   SUSPICION_REASONS,
 } from "@/lib/sessions/suspicious/config";
 import { runSuspiciousDetection } from "@/lib/sessions/suspicious/runner";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 export type ActionState =
@@ -277,12 +278,14 @@ export async function saveNotificationsConfigAction(
     },
   };
 
+  const t = await getTranslations("admin.settings.actionMessages");
   const parsed = AlertsConfigSchema.safeParse(next);
   if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join(".")} — ${i.message}`)
+      .join("; ");
     return {
-      error: `Invalid configuration: ${parsed.error.issues
-        .map((i) => `${i.path.join(".")} — ${i.message}`)
-        .join("; ")}`,
+      error: t("notificationsConfigInvalid", { issues }),
       timestamp: Date.now(),
     };
   }
@@ -291,11 +294,11 @@ export async function saveNotificationsConfigAction(
     await saveAlertsConfig(parsed.data);
     revalidatePath(getAdminPath("settings-notifications"));
     return {
-      success: "Notification settings saved.",
+      success: t("notificationsConfigSaved"),
       timestamp: Date.now(),
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Save failed";
+    const message = err instanceof Error ? err.message : t("notificationsConfigSaveFailed");
     return { error: message, timestamp: Date.now() };
   }
 }
@@ -309,14 +312,20 @@ export async function runDetectionNowAction(
   _formData: FormData,
 ): Promise<ActionState> {
   await requireAdminSectionPage("admin:settings");
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const result = await runSuspiciousDetection();
     return {
-      success: `Run complete: detected ${result.detected}, inserted ${result.inserted}, emailed ${result.emailedCount}${result.dryRun ? " (dry-run)" : ""}.`,
+      success: t("notificationsRunComplete", {
+        detected: result.detected,
+        inserted: result.inserted,
+        emailed: result.emailedCount,
+        dryRun: result.dryRun ? "true" : "false",
+      }),
       timestamp: Date.now(),
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Run failed";
+    const message = err instanceof Error ? err.message : t("notificationsRunFailed");
     return { error: message, timestamp: Date.now() };
   }
 }
@@ -326,13 +335,13 @@ export async function sendTestDigestAction(
   _formData: FormData,
 ): Promise<ActionState> {
   await requireAdminSectionPage("admin:settings");
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const config = await getAlertsConfig();
     const recipients = config.recipients.emails;
     if (recipients.length === 0) {
       return {
-        error:
-          "Add at least one recipient email before sending a test digest.",
+        error: t("notificationsTestRecipientRequired"),
         timestamp: Date.now(),
       };
     }
@@ -354,12 +363,12 @@ export async function sendTestDigestAction(
       ],
     });
     return {
-      success: `Test digest sent to ${recipients.length} ${recipients.length === 1 ? "recipient" : "recipients"}.`,
+      success: t("notificationsTestDigestSent", { count: recipients.length }),
       timestamp: Date.now(),
     };
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Failed to send test digest";
+      err instanceof Error ? err.message : t("notificationsTestDigestFailed");
     return { error: message, timestamp: Date.now() };
   }
 }

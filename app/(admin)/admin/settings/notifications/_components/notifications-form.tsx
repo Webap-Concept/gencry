@@ -15,6 +15,7 @@ import {
   Send,
   ShieldAlert,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   type ActionState,
@@ -23,76 +24,7 @@ import {
   sendTestDigestAction,
 } from "../actions";
 
-const SCHEDULE_LABELS: Record<(typeof SCHEDULES)[number], string> = {
-  instant: "Instant — one email per detection cycle",
-  hourly_digest: "Hourly digest (recommended)",
-  daily_digest: "Daily digest",
-  off: "Off — only panel notifications",
-};
-
-const SEVERITY_LABELS: Record<(typeof SEVERITIES)[number], string> = {
-  info: "Info",
-  warning: "Warning",
-  critical: "Critical",
-};
-
-const RULE_META: Record<
-  keyof AlertsConfig["rules"],
-  { label: string; help: string }
-> = {
-  multiple_ips: {
-    label: "Multiple IPs",
-    help: "Same user logging in from N+ distinct IP addresses within a time window.",
-  },
-  concurrent_devices: {
-    label: "Concurrent devices",
-    help: "User has N+ active sessions open at the same time.",
-  },
-  burst_creation: {
-    label: "Burst creation",
-    help: "Unusually high number of new sessions opened by the user in a short window.",
-  },
-  bot_user_agent: {
-    label: "Bot User-Agent",
-    help: "User-Agent string matches a regex of common bots / scrapers / headless browsers.",
-  },
-  long_idle_resurrect: {
-    label: "Long idle resurrect",
-    help: "Old session newly active after being idle for at least N days. Requires Redis.",
-  },
-  failed_then_success: {
-    label: "Failed → success login",
-    help: "N+ failed login attempts followed by a successful login (likely brute-force success).",
-  },
-  sensitive_action_new_ip: {
-    label: "Sensitive action on new IP",
-    help: "Account-impacting action (password change, deletion, …) right after a session from a never-seen IP.",
-  },
-  new_subnet: {
-    label: "New subnet",
-    help: "Login from a /16 (IPv4) or /64 (IPv6) prefix never seen for that user in the lookback window.",
-  },
-  ua_churn: {
-    label: "User-Agent churn",
-    help: "Same user with N+ different User-Agents in a short window — often indicates cookie theft.",
-  },
-  cross_user_campaign: {
-    label: "Cross-user campaign",
-    help: "Same IP creating sessions for N+ different users in a short window — credential stuffing pattern.",
-  },
-  off_baseline_hours: {
-    label: "Off-baseline hours",
-    help: "Login at an hour outside the user's typical activity window (computed from history).",
-  },
-  admin_off_hours: {
-    label: "Admin off-hours",
-    help: "Admin user logging in outside the configured business window (UTC hours).",
-  },
-  trusted_device_from_fresh_session: {
-    label: "Trusted device from fresh session",
-    help: "A trusted device added within minutes of a new session — attacker persisting access.",
-  },
-};
+type RuleKey = keyof AlertsConfig["rules"];
 
 const TABS = [
   { id: "sessions", label: "Sessions", icon: Activity },
@@ -197,9 +129,11 @@ function NumberField({
 function SeveritySelect({
   name,
   defaultValue,
+  severityLabels,
 }: {
   name: string;
   defaultValue: AlertsConfig["rules"]["multiple_ips"]["severity"];
+  severityLabels: Record<(typeof SEVERITIES)[number], string>;
 }) {
   return (
     <select
@@ -209,7 +143,7 @@ function SeveritySelect({
       style={inputStyle}>
       {SEVERITIES.map((s) => (
         <option key={s} value={s}>
-          {SEVERITY_LABELS[s]}
+          {severityLabels[s]}
         </option>
       ))}
     </select>
@@ -246,13 +180,20 @@ function Checkbox({
 function RuleBlock({
   reason,
   rule,
+  ruleLabel,
+  ruleHelp,
+  severityLabel,
+  severityLabels,
   children,
 }: {
-  reason: keyof AlertsConfig["rules"];
-  rule: AlertsConfig["rules"][keyof AlertsConfig["rules"]];
+  reason: RuleKey;
+  rule: AlertsConfig["rules"][RuleKey];
+  ruleLabel: string;
+  ruleHelp: string;
+  severityLabel: string;
+  severityLabels: Record<(typeof SEVERITIES)[number], string>;
   children: React.ReactNode;
 }) {
-  const meta = RULE_META[reason];
   return (
     <div
       className="rounded-lg p-4 space-y-3"
@@ -267,21 +208,22 @@ function RuleBlock({
             defaultChecked={rule.enabled}
             label={
               <span className="font-semibold" style={{ color: "var(--admin-text)" }}>
-                {meta.label}
+                {ruleLabel}
               </span>
             }
           />
           <p
             className="text-[12px] mt-1 ml-6"
             style={{ color: "var(--admin-text-muted)" }}>
-            {meta.help}
+            {ruleHelp}
           </p>
         </div>
         <div className="min-w-[140px]">
-          <Label>Severity</Label>
+          <Label>{severityLabel}</Label>
           <SeveritySelect
             name={`rule_${reason}_severity`}
             defaultValue={rule.severity}
+            severityLabels={severityLabels}
           />
         </div>
       </div>
@@ -316,6 +258,23 @@ export function NotificationsSettingsForm({
 }: {
   initialConfig: AlertsConfig;
 }) {
+  const t = useTranslations("admin.settings.notifications");
+  const tRule = useTranslations("admin.settings.notifications.rules");
+  const tField = useTranslations("admin.settings.notifications.fields");
+
+  const SCHEDULE_LABELS: Record<(typeof SCHEDULES)[number], string> = {
+    instant: t("scheduleInstant"),
+    hourly_digest: t("scheduleHourlyDigest"),
+    daily_digest: t("scheduleDailyDigest"),
+    off: t("scheduleOff"),
+  };
+
+  const SEVERITY_LABELS: Record<(typeof SEVERITIES)[number], string> = {
+    info: t("severityInfo"),
+    warning: t("severityWarning"),
+    critical: t("severityCritical"),
+  };
+
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -374,16 +333,25 @@ export function NotificationsSettingsForm({
 
   const r = initialConfig.rules;
 
+  const ruleProps = (reason: RuleKey, rule: AlertsConfig["rules"][RuleKey]) => ({
+    reason,
+    rule,
+    ruleLabel: tRule(`${reason}.label`),
+    ruleHelp: tRule(`${reason}.help`),
+    severityLabel: t("severityFieldLabel"),
+    severityLabels: SEVERITY_LABELS,
+  });
+
   return (
     <>
       <form action={saveAction} className="space-y-5">
         <Section
           icon={Bell}
-          title="Recipients & schedule"
-          subtitle="Who receives the email digest, how often, and the panel/email severity floor.">
+          title={t("recipientsScheduleTitle")}
+          subtitle={t("recipientsScheduleSubtitle")}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="recipients_emails">Recipient emails</Label>
+              <Label htmlFor="recipients_emails">{t("recipientsLabel")}</Label>
               <textarea
                 id="recipients_emails"
                 name="recipients_emails"
@@ -396,13 +364,13 @@ export function NotificationsSettingsForm({
               <p
                 className="text-[12px]"
                 style={{ color: "var(--admin-text-muted)" }}>
-                One per line or comma-separated.
+                {t("recipientsHint")}
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label htmlFor="schedule">Email schedule</Label>
+                <Label htmlFor="schedule">{t("scheduleLabel")}</Label>
                 <select
                   id="schedule"
                   name="schedule"
@@ -418,7 +386,7 @@ export function NotificationsSettingsForm({
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="severity_threshold">Severity threshold</Label>
+                <Label htmlFor="severity_threshold">{t("severityThresholdLabel")}</Label>
                 <select
                   id="severity_threshold"
                   name="severity_threshold"
@@ -427,14 +395,14 @@ export function NotificationsSettingsForm({
                   style={inputStyle}>
                   {SEVERITIES.map((s) => (
                     <option key={s} value={s}>
-                      {SEVERITY_LABELS[s]} or above
+                      {t("severityThresholdOption", { severity: SEVERITY_LABELS[s] })}
                     </option>
                   ))}
                 </select>
                 <p
                   className="text-[12px]"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Alerts below this floor are silently logged for audit only.
+                  {t("severityThresholdHint")}
                 </p>
               </div>
 
@@ -443,7 +411,7 @@ export function NotificationsSettingsForm({
                 defaultChecked={initialConfig.recipients.includeAdminUsers}
                 label={
                   <>
-                    Also email all users with{" "}
+                    {t("includeAdminUsersBefore")}{" "}
                     <code
                       className="px-1 rounded text-[11px]"
                       style={{
@@ -469,7 +437,7 @@ export function NotificationsSettingsForm({
                   defaultChecked={initialConfig.dryRun}
                   label={
                     <span style={{ color: "#92400e", fontWeight: 600 }}>
-                      Dry-run — log alerts only, never email or notify
+                      {t("dryRunLabel")}
                     </span>
                   }
                 />
@@ -496,7 +464,7 @@ export function NotificationsSettingsForm({
                   boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
                 }}>
                 <Icon size={13} />
-                {tab.label}
+                {t("tabSessions")}
               </button>
             );
           })}
@@ -506,17 +474,17 @@ export function NotificationsSettingsForm({
           <>
             <Section
               icon={ShieldAlert}
-              title="Detection rules"
-              subtitle="13 heuristics, all using internal data only — no external geo / VPN services. Tune thresholds per rule.">
+              title={t("detectionRulesTitle")}
+              subtitle={t("detectionRulesSubtitle")}>
               <div className="space-y-3">
-                <RuleBlock reason="multiple_ips" rule={r.multiple_ips}>
-                  <FieldGroup label="Min distinct IPs">
+                <RuleBlock {...ruleProps("multiple_ips", r.multiple_ips)}>
+                  <FieldGroup label={tField("minDistinctIps")}>
                     <NumberField
                       name="rule_multiple_ips_count"
                       defaultValue={r.multiple_ips.count}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Window (hours)">
+                  <FieldGroup label={tField("windowHours")}>
                     <NumberField
                       name="rule_multiple_ips_window_hours"
                       defaultValue={r.multiple_ips.windowHours}
@@ -524,10 +492,8 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="concurrent_devices"
-                  rule={r.concurrent_devices}>
-                  <FieldGroup label="Min concurrent active sessions">
+                <RuleBlock {...ruleProps("concurrent_devices", r.concurrent_devices)}>
+                  <FieldGroup label={tField("minConcurrentSessions")}>
                     <NumberField
                       name="rule_concurrent_devices_count"
                       defaultValue={r.concurrent_devices.count}
@@ -535,14 +501,14 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock reason="burst_creation" rule={r.burst_creation}>
-                  <FieldGroup label="Min sessions in window">
+                <RuleBlock {...ruleProps("burst_creation", r.burst_creation)}>
+                  <FieldGroup label={tField("minSessionsInWindow")}>
                     <NumberField
                       name="rule_burst_creation_count"
                       defaultValue={r.burst_creation.count}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Window (minutes)">
+                  <FieldGroup label={tField("windowMinutes")}>
                     <NumberField
                       name="rule_burst_creation_window_minutes"
                       defaultValue={r.burst_creation.windowMinutes}
@@ -550,9 +516,9 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock reason="bot_user_agent" rule={r.bot_user_agent}>
+                <RuleBlock {...ruleProps("bot_user_agent", r.bot_user_agent)}>
                   <div className="col-span-full">
-                    <Label>UA regex pattern (case-insensitive, |-joined)</Label>
+                    <Label>{tField("uaRegexPattern")}</Label>
                     <input
                       type="text"
                       name="rule_bot_user_agent_pattern"
@@ -563,10 +529,8 @@ export function NotificationsSettingsForm({
                   </div>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="long_idle_resurrect"
-                  rule={r.long_idle_resurrect}>
-                  <FieldGroup label="Idle days threshold">
+                <RuleBlock {...ruleProps("long_idle_resurrect", r.long_idle_resurrect)}>
+                  <FieldGroup label={tField("idleDaysThreshold")}>
                     <NumberField
                       name="rule_long_idle_resurrect_idle_days"
                       defaultValue={r.long_idle_resurrect.idleDays}
@@ -574,16 +538,14 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="failed_then_success"
-                  rule={r.failed_then_success}>
-                  <FieldGroup label="Min failed attempts">
+                <RuleBlock {...ruleProps("failed_then_success", r.failed_then_success)}>
+                  <FieldGroup label={tField("minFailedAttempts")}>
                     <NumberField
                       name="rule_failed_then_success_failed_count"
                       defaultValue={r.failed_then_success.failedCount}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Window (minutes)">
+                  <FieldGroup label={tField("windowMinutes")}>
                     <NumberField
                       name="rule_failed_then_success_window_minutes"
                       defaultValue={r.failed_then_success.windowMinutes}
@@ -591,17 +553,15 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="sensitive_action_new_ip"
-                  rule={r.sensitive_action_new_ip}>
-                  <FieldGroup label="Within minutes of session creation">
+                <RuleBlock {...ruleProps("sensitive_action_new_ip", r.sensitive_action_new_ip)}>
+                  <FieldGroup label={tField("withinMinutesOfSessionCreation")}>
                     <NumberField
                       name="rule_sensitive_action_new_ip_within_minutes"
                       defaultValue={r.sensitive_action_new_ip.withinMinutes}
                     />
                   </FieldGroup>
                   <div className="col-span-full">
-                    <Label>ActivityType values to monitor (one per line)</Label>
+                    <Label>{tField("activityTypeValues")}</Label>
                     <textarea
                       name="rule_sensitive_action_new_ip_actions"
                       defaultValue={r.sensitive_action_new_ip.actions.join("\n")}
@@ -612,8 +572,8 @@ export function NotificationsSettingsForm({
                   </div>
                 </RuleBlock>
 
-                <RuleBlock reason="new_subnet" rule={r.new_subnet}>
-                  <FieldGroup label="History lookback (days)">
+                <RuleBlock {...ruleProps("new_subnet", r.new_subnet)}>
+                  <FieldGroup label={tField("historyLookbackDays")}>
                     <NumberField
                       name="rule_new_subnet_lookback_days"
                       defaultValue={r.new_subnet.lookbackDays}
@@ -621,14 +581,14 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock reason="ua_churn" rule={r.ua_churn}>
-                  <FieldGroup label="Min distinct UAs">
+                <RuleBlock {...ruleProps("ua_churn", r.ua_churn)}>
+                  <FieldGroup label={tField("minDistinctUAs")}>
                     <NumberField
                       name="rule_ua_churn_count"
                       defaultValue={r.ua_churn.count}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Window (minutes)">
+                  <FieldGroup label={tField("windowMinutes")}>
                     <NumberField
                       name="rule_ua_churn_window_minutes"
                       defaultValue={r.ua_churn.windowMinutes}
@@ -636,16 +596,14 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="cross_user_campaign"
-                  rule={r.cross_user_campaign}>
-                  <FieldGroup label="Min distinct users">
+                <RuleBlock {...ruleProps("cross_user_campaign", r.cross_user_campaign)}>
+                  <FieldGroup label={tField("minDistinctUsers")}>
                     <NumberField
                       name="rule_cross_user_campaign_min_users"
                       defaultValue={r.cross_user_campaign.minUsers}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Window (minutes)">
+                  <FieldGroup label={tField("windowMinutes")}>
                     <NumberField
                       name="rule_cross_user_campaign_window_minutes"
                       defaultValue={r.cross_user_campaign.windowMinutes}
@@ -653,22 +611,20 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="off_baseline_hours"
-                  rule={r.off_baseline_hours}>
-                  <FieldGroup label="Min historical samples">
+                <RuleBlock {...ruleProps("off_baseline_hours", r.off_baseline_hours)}>
+                  <FieldGroup label={tField("minHistoricalSamples")}>
                     <NumberField
                       name="rule_off_baseline_hours_min_samples"
                       defaultValue={r.off_baseline_hours.minSamples}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Deviation tolerance (hours)">
+                  <FieldGroup label={tField("deviationToleranceHours")}>
                     <NumberField
                       name="rule_off_baseline_hours_deviation_hours"
                       defaultValue={r.off_baseline_hours.deviationHours}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Lookback (days)">
+                  <FieldGroup label={tField("lookbackDays")}>
                     <NumberField
                       name="rule_off_baseline_hours_lookback_days"
                       defaultValue={r.off_baseline_hours.lookbackDays}
@@ -676,8 +632,8 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock reason="admin_off_hours" rule={r.admin_off_hours}>
-                  <FieldGroup label="Allowed start hour (UTC)">
+                <RuleBlock {...ruleProps("admin_off_hours", r.admin_off_hours)}>
+                  <FieldGroup label={tField("allowedStartHourUtc")}>
                     <NumberField
                       name="rule_admin_off_hours_start_utc_hour"
                       defaultValue={r.admin_off_hours.startUtcHour}
@@ -685,7 +641,7 @@ export function NotificationsSettingsForm({
                       max={23}
                     />
                   </FieldGroup>
-                  <FieldGroup label="Allowed end hour (UTC)">
+                  <FieldGroup label={tField("allowedEndHourUtc")}>
                     <NumberField
                       name="rule_admin_off_hours_end_utc_hour"
                       defaultValue={r.admin_off_hours.endUtcHour}
@@ -695,10 +651,8 @@ export function NotificationsSettingsForm({
                   </FieldGroup>
                 </RuleBlock>
 
-                <RuleBlock
-                  reason="trusted_device_from_fresh_session"
-                  rule={r.trusted_device_from_fresh_session}>
-                  <FieldGroup label="Within minutes of session">
+                <RuleBlock {...ruleProps("trusted_device_from_fresh_session", r.trusted_device_from_fresh_session)}>
+                  <FieldGroup label={tField("withinMinutesOfSession")}>
                     <NumberField
                       name="rule_trusted_device_from_fresh_session_within_minutes"
                       defaultValue={
@@ -726,7 +680,7 @@ export function NotificationsSettingsForm({
                 ) : (
                   <Play size={15} />
                 )}
-                {isRunning ? "Running…" : "Run detection now"}
+                {isRunning ? t("runningDetection") : t("runDetectionNow")}
               </button>
 
               <button
@@ -744,7 +698,7 @@ export function NotificationsSettingsForm({
                 ) : (
                   <Send size={15} />
                 )}
-                {isTesting ? "Sending…" : "Send test digest"}
+                {isTesting ? t("sendingTestDigest") : t("sendTestDigest")}
               </button>
             </div>
           </>
@@ -761,7 +715,7 @@ export function NotificationsSettingsForm({
             ) : (
               <Save size={15} />
             )}
-            {isSaving ? "Saving…" : "Save settings"}
+            {isSaving ? t("savingSettings") : t("saveSettings")}
           </button>
         </div>
       </form>

@@ -206,7 +206,15 @@
       "githubCITestNetworkFailed": "Verification failed. Check your connection.",
       "cronJobEnabled": "Job enabled.",
       "cronJobDisabled": "Job disabled.",
-      "cronJobToggleFailed": "Toggle failed."
+      "cronJobToggleFailed": "Toggle failed.",
+      "notificationsConfigSaved": "Notification settings saved.",
+      "notificationsConfigSaveFailed": "Save failed.",
+      "notificationsConfigInvalid": "Invalid configuration: {issues}",
+      "notificationsRunComplete": "Run complete: detected {detected}, inserted {inserted}, emailed {emailed}{dryRun, select, true { (dry-run)} other {}}.",
+      "notificationsRunFailed": "Run failed.",
+      "notificationsTestRecipientRequired": "Add at least one recipient email before sending a test digest.",
+      "notificationsTestDigestSent": "Test digest sent to {count, plural, one {# recipient} other {# recipients}}.",
+      "notificationsTestDigestFailed": "Failed to send test digest."
     },
     "mode": {
       "cardTitle": "Operation Mode",
@@ -326,6 +334,110 @@
       "savingButton": "Saving…",
       "testButton": "Verify connection",
       "testingButton": "Verifying…"
+    },
+    "notifications": {
+      "recipientsScheduleTitle": "Recipients & schedule",
+      "recipientsScheduleSubtitle": "Who receives the email digest, how often, and the panel/email severity floor.",
+      "recipientsLabel": "Recipient emails",
+      "recipientsHint": "One per line or comma-separated.",
+      "scheduleLabel": "Email schedule",
+      "scheduleInstant": "Instant — one email per detection cycle",
+      "scheduleHourlyDigest": "Hourly digest (recommended)",
+      "scheduleDailyDigest": "Daily digest",
+      "scheduleOff": "Off — only panel notifications",
+      "severityThresholdLabel": "Severity threshold",
+      "severityThresholdOption": "{severity} or above",
+      "severityThresholdHint": "Alerts below this floor are silently logged for audit only.",
+      "severityInfo": "Info",
+      "severityWarning": "Warning",
+      "severityCritical": "Critical",
+      "includeAdminUsersBefore": "Also email all users with",
+      "dryRunLabel": "Dry-run — log alerts only, never email or notify",
+      "tabSessions": "Sessions",
+      "detectionRulesTitle": "Detection rules",
+      "detectionRulesSubtitle": "13 heuristics, all using internal data only — no external geo / VPN services. Tune thresholds per rule.",
+      "severityFieldLabel": "Severity",
+      "rules": {
+        "multiple_ips": {
+          "label": "Multiple IPs",
+          "help": "Same user logging in from N+ distinct IP addresses within a time window."
+        },
+        "concurrent_devices": {
+          "label": "Concurrent devices",
+          "help": "User has N+ active sessions open at the same time."
+        },
+        "burst_creation": {
+          "label": "Burst creation",
+          "help": "Unusually high number of new sessions opened by the user in a short window."
+        },
+        "bot_user_agent": {
+          "label": "Bot User-Agent",
+          "help": "User-Agent string matches a regex of common bots / scrapers / headless browsers."
+        },
+        "long_idle_resurrect": {
+          "label": "Long idle resurrect",
+          "help": "Old session newly active after being idle for at least N days. Requires Redis."
+        },
+        "failed_then_success": {
+          "label": "Failed → success login",
+          "help": "N+ failed login attempts followed by a successful login (likely brute-force success)."
+        },
+        "sensitive_action_new_ip": {
+          "label": "Sensitive action on new IP",
+          "help": "Account-impacting action (password change, deletion, …) right after a session from a never-seen IP."
+        },
+        "new_subnet": {
+          "label": "New subnet",
+          "help": "Login from a /16 (IPv4) or /64 (IPv6) prefix never seen for that user in the lookback window."
+        },
+        "ua_churn": {
+          "label": "User-Agent churn",
+          "help": "Same user with N+ different User-Agents in a short window — often indicates cookie theft."
+        },
+        "cross_user_campaign": {
+          "label": "Cross-user campaign",
+          "help": "Same IP creating sessions for N+ different users in a short window — credential stuffing pattern."
+        },
+        "off_baseline_hours": {
+          "label": "Off-baseline hours",
+          "help": "Login at an hour outside the user's typical activity window (computed from history)."
+        },
+        "admin_off_hours": {
+          "label": "Admin off-hours",
+          "help": "Admin user logging in outside the configured business window (UTC hours)."
+        },
+        "trusted_device_from_fresh_session": {
+          "label": "Trusted device from fresh session",
+          "help": "A trusted device added within minutes of a new session — attacker persisting access."
+        }
+      },
+      "fields": {
+        "minDistinctIps": "Min distinct IPs",
+        "windowHours": "Window (hours)",
+        "minConcurrentSessions": "Min concurrent active sessions",
+        "minSessionsInWindow": "Min sessions in window",
+        "windowMinutes": "Window (minutes)",
+        "uaRegexPattern": "UA regex pattern (case-insensitive, |-joined)",
+        "idleDaysThreshold": "Idle days threshold",
+        "minFailedAttempts": "Min failed attempts",
+        "withinMinutesOfSessionCreation": "Within minutes of session creation",
+        "activityTypeValues": "ActivityType values to monitor (one per line)",
+        "historyLookbackDays": "History lookback (days)",
+        "minDistinctUAs": "Min distinct UAs",
+        "minDistinctUsers": "Min distinct users",
+        "minHistoricalSamples": "Min historical samples",
+        "deviationToleranceHours": "Deviation tolerance (hours)",
+        "lookbackDays": "Lookback (days)",
+        "allowedStartHourUtc": "Allowed start hour (UTC)",
+        "allowedEndHourUtc": "Allowed end hour (UTC)",
+        "withinMinutesOfSession": "Within minutes of session"
+      },
+      "runDetectionNow": "Run detection now",
+      "runningDetection": "Running…",
+      "sendTestDigest": "Send test digest",
+      "sendingTestDigest": "Sending…",
+      "saveSettings": "Save settings",
+      "savingSettings": "Saving…"
     },
     "cron": {
       "dbErrorTitle": "Cannot read cron jobs from the database.",
