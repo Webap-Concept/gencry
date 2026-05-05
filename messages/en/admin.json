@@ -335,6 +335,121 @@
       "testButton": "Verify connection",
       "testingButton": "Verifying…"
     },
+    "emailTemplates": {
+      "customizedBadge": "Customized",
+      "templateFile": "Template file",
+      "placeholdersHint": "Available placeholders — click to insert into the active field:",
+      "placeholderInsertTitle": "Insert {value}",
+      "subjectLabel": "Email subject",
+      "subjectHint": "If empty, the default text is used.",
+      "bccLabel": "BCC (optional)",
+      "bccPlaceholder": "copy@yourdomain.com",
+      "bodyLabel": "Email body",
+      "bodyHint": "Plain text only — the email HTML is handled automatically. Use the placeholders above.",
+      "footerLabel": "Footer",
+      "saveAll": "Save all templates",
+      "saving": "Saving...",
+      "emailLogo": {
+        "title": "Email logo",
+        "descBefore": "Choose which brand asset appears in the header of every transactional email. Manage the assets in",
+        "descLink": "General settings",
+        "descAfter": ".",
+        "headerStyleLabel": "Header style",
+        "optionLogo": "Logo",
+        "optionLogoVariant": "Logo variant",
+        "optionNone": "No image — show app name as text",
+        "previewTextOnly": "Text only",
+        "previewNotUploaded": "Not uploaded",
+        "previewAlt": "Email logo preview",
+        "missingHint": "No file uploaded for this slot yet — emails will fall back to the app name until you upload one."
+      },
+      "templates": {
+        "welcome": {
+          "label": "Welcome email",
+          "defaultSubject": "Welcome to '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nWelcome to '{{appName}}'! Your account has been created successfully.\n\nYou can sign in to the platform from: '{{appUrl}}'",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "signup": {
+          "label": "Signup verification",
+          "defaultSubject": "Verify your email — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nUse the code below to verify your account.\nThe code is valid for 15 minutes.\n\nCode: '{{otpCode}}'",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "reset": {
+          "label": "Password Reset",
+          "defaultSubject": "Reset your password — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nYou requested to reset your account password.\nClick the link below to proceed. The link is valid for 30 minutes.\n\n'{{resetLink}}'",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "deleted": {
+          "label": "User deleted",
+          "defaultSubject": "Your account has been deleted — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nYour '{{appName}}' account was permanently deleted on '{{deletedDate}}' by an administrator.\n\nYour personal data has been removed from active systems.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "waitinglist": {
+          "label": "Waiting list (landing coming-soon)",
+          "defaultSubject": "You're on the '{{appName}}' waiting list",
+          "defaultBody": "Hi,\n\nThanks for joining the '{{appName}}' waiting list.\n\nYou'll be among the first to know when we open the doors — we'll write as soon as we're ready.\n\nSee you soon.",
+          "defaultFooter": "© '{{appName}}'"
+        },
+        "emailchange": {
+          "label": "Email change verification",
+          "defaultSubject": "'{{otpCode}}' is your code to confirm the new '{{appName}}' email",
+          "defaultBody": "Hi '{{userName}}',\n\nYou requested to change your '{{appName}}' account email to this address. Enter the code below to confirm the change. If this wasn't you, ignore this email — the change won't be applied.\n\nCode: '{{otpCode}}'",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "device": {
+          "label": "Device verification (login from new device)",
+          "defaultSubject": "'{{otpCode}}' is your sign-in code from a new device",
+          "defaultBody": "Hi '{{userName}}',\n\nWe detected a sign-in to your '{{appName}}' account from an unrecognised device. Enter the code below to confirm it's you.\n\nCode: '{{otpCode}}'",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "staffinvite": {
+          "label": "Staff invitation",
+          "defaultSubject": "Staff invitation — '{{appName}}'",
+          "defaultBody": "Hi,\n\n'{{inviterName}}' invited you to join the '{{appName}}' staff team with the role of '{{roleLabel}}'.\n\nClick the button below to accept or decline the invitation. The link is valid for 48 hours.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "gdprexport": {
+          "label": "GDPR export ready",
+          "defaultSubject": "Your data is ready — '{{appName}}'",
+          "defaultBody": "We've prepared the archive of your personal data on '{{appName}}', as you requested.\nYou can download it from the button below. The link is valid for 24 hours; if it expires, you can regenerate it from the privacy settings of your account.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "accountdeletion": {
+          "label": "Account deletion requested",
+          "defaultSubject": "Confirm account deletion request — '{{appName}}'",
+          "defaultBody": "We've received your account deletion request on '{{appName}}'. Your personal data will be permanently deleted on '{{purgeDate}}'.\nUntil then you can cancel the request by contacting support. After the purge it will no longer be possible to recover the data.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "accountdeletionotp": {
+          "label": "Account deletion OTP (OAuth-only)",
+          "defaultSubject": "'{{otpCode}}' is your code to delete your '{{appName}}' account",
+          "defaultBody": "You requested to delete your '{{appName}}' account. Enter the code below to confirm. If this wasn't you, ignore this email — the code expires in 15 minutes.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "mfaenabled": {
+          "label": "MFA enabled (two-factor authentication)",
+          "defaultSubject": "Two-factor authentication enabled — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nYou just enabled two-factor authentication on your '{{appName}}' account. From now on at sign-in we'll ask for a code generated by your authenticator app in addition to your password.\n\nKeep your recovery codes in a safe place: they're the only way to sign in if you lose your phone.\n\nIf this wasn't you, sign in to your account, disable two-factor authentication and contact support immediately.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "mfadisabled": {
+          "label": "MFA disabled (two-factor authentication)",
+          "defaultSubject": "Two-factor authentication disabled — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nYou just disabled two-factor authentication on your '{{appName}}' account. At the next sign-in we'll only use email and password — your account's protection level has decreased.\n\nAll the recovery codes you had have been invalidated. You can re-enable two-factor authentication at any time from your security settings.\n\nIf this wasn't you, change your password immediately and contact support.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "mfaadminreset": {
+          "label": "MFA reset by admin (support reset user TOTP)",
+          "defaultSubject": "Two-factor authentication reset by support — '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nA '{{appName}}' administrator reset two-factor authentication on your account. All previous recovery codes have been invalidated and at the next sign-in we'll only use email and password.\n\nSupport reason: '{{reason}}'\n\nTo restore protection, sign in to your account and re-enable two-factor authentication from your security settings. If you didn't request this operation, contact support immediately and change your password.",
+          "defaultFooter": "© '{{appName}}' · All rights reserved"
+        }
+      }
+    },
     "notifications": {
       "recipientsScheduleTitle": "Recipients & schedule",
       "recipientsScheduleSubtitle": "Who receives the email digest, how often, and the panel/email severity floor.",

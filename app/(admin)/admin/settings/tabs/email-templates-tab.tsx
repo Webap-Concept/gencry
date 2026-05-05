@@ -4,6 +4,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ChevronDown, FileCode2, ImageIcon, Loader2, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveEmailTemplateSettings, type ActionState } from "../actions";
@@ -96,151 +97,58 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-const TEMPLATES = [
-  {
-    id: "welcome",
-    label: "Welcome email",
-    prefix: "email_welcome",
-    file: "lib/email/templates/welcome.ts",
-    defaultSubject: "Benvenuto in {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nBenvenuto in {{appName}}! Il tuo account è stato creato con successo.\n\nPuoi accedere alla piattaforma da: {{appUrl}}",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "signup",
-    label: "Signup verification",
-    prefix: "email_signup",
-    file: "lib/email/templates/signup-verification.ts",
-    defaultSubject: "Verifica la tua email — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nUsa il codice qui sotto per verificare il tuo account.\nIl codice è valido per 15 minuti.\n\nCodice: {{otpCode}}",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "reset",
-    label: "Password Reset",
-    prefix: "email_reset",
-    file: "lib/email/templates/password-reset.ts",
-    defaultSubject: "Reimposta la tua password — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nHai richiesto di reimpostare la password del tuo account.\nClicca il link qui sotto per procedere. Il link è valido per 30 minuti.\n\n{{resetLink}}",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "deleted",
-    label: "User deleted",
-    prefix: "email_deleted",
-    file: "lib/email/templates/user-deleted.ts",
-    defaultSubject: "Il tuo account è stato eliminato — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nIl tuo account {{appName}} è stato eliminato definitivamente in data {{deletedDate}} da un amministratore.\n\nI tuoi dati personali sono stati rimossi dai sistemi attivi.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "waitinglist",
-    label: "Waiting list (landing coming-soon)",
-    prefix: "email_waitinglist",
-    file: "lib/email/templates/waiting-list.ts",
-    defaultSubject: "Sei nella waiting list di {{appName}}",
-    defaultBody:
-      "Ciao,\n\nGrazie per esserti iscritto alla waiting list di {{appName}}.\n\nSei tra i primi a sapere quando apriremo le porte: ti scriveremo non appena saremo pronti.\n\nA presto.",
-    defaultFooter: "© {{appName}}",
-  },
-  {
-    id: "emailchange",
-    label: "Email change verification",
-    prefix: "email_emailchange",
-    file: "lib/email/templates/email-change-verification.ts",
-    defaultSubject:
-      "{{otpCode}} è il tuo codice per confermare la nuova email {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nHai richiesto di cambiare l'email del tuo account {{appName}} con questo indirizzo. Inserisci il codice qui sotto per confermare il cambio. Se non sei stato tu, ignora questa email — il cambio non verrà applicato.\n\nCodice: {{otpCode}}",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "device",
-    label: "Device verification (login da nuovo dispositivo)",
-    prefix: "email_device",
-    file: "lib/email/templates/device-verification.ts",
-    defaultSubject: "{{otpCode}} è il tuo codice di accesso da nuovo dispositivo",
-    defaultBody:
-      "Ciao {{userName}},\n\nAbbiamo rilevato un accesso al tuo account su {{appName}} da un dispositivo non riconosciuto. Inserisci il codice qui sotto per confermare che sei tu.\n\nCodice: {{otpCode}}",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "staffinvite",
-    label: "Staff invitation",
-    prefix: "email_staffinvite",
-    file: "lib/email/templates/staff-invitation.ts",
-    defaultSubject: "Invito Staff — {{appName}}",
-    defaultBody:
-      "Ciao,\n\n{{inviterName}} ti ha invitato a entrare nel team staff di {{appName}} con il ruolo di {{roleLabel}}.\n\nClicca il pulsante qui sotto per accettare o rifiutare l'invito. Il link è valido per 48 ore.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "gdprexport",
-    label: "GDPR export ready",
-    prefix: "email_gdprexport",
-    file: "lib/email/templates/gdpr-export-ready.ts",
-    defaultSubject: "I tuoi dati sono pronti — {{appName}}",
-    defaultBody:
-      "Abbiamo preparato l'archivio dei tuoi dati personali su {{appName}}, come da tua richiesta.\nPuoi scaricarlo dal pulsante qui sotto. Il link è valido per 24 ore; se scade, puoi rigenerarlo dalle impostazioni privacy del tuo account.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "accountdeletion",
-    label: "Account deletion requested",
-    prefix: "email_accountdeletion",
-    file: "lib/email/templates/account-deletion-requested.ts",
-    defaultSubject: "Conferma richiesta di eliminazione account — {{appName}}",
-    defaultBody:
-      "Abbiamo ricevuto la tua richiesta di eliminazione dell'account su {{appName}}. I tuoi dati personali saranno cancellati definitivamente il {{purgeDate}}.\nFino a quel momento puoi annullare la richiesta scrivendo all'assistenza. Dopo il purge non sarà più possibile recuperare i dati.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "accountdeletionotp",
-    label: "Account deletion OTP (OAuth-only)",
-    prefix: "email_accountdeletionotp",
-    file: "lib/email/templates/account-deletion-otp.ts",
-    defaultSubject: "{{otpCode}} è il tuo codice per eliminare l'account {{appName}}",
-    defaultBody:
-      "Hai chiesto di eliminare il tuo account {{appName}}. Inserisci il codice qui sotto per confermare. Se non sei stato tu, ignora questa email — il codice scade tra 15 minuti.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "mfaenabled",
-    label: "MFA enabled (verifica a due fattori attivata)",
-    prefix: "email_mfaenabled",
-    file: "lib/email/templates/mfa-enabled.ts",
-    defaultSubject: "Autenticazione a due fattori attivata — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nHai appena attivato l'autenticazione a due fattori sul tuo account {{appName}}. Da ora in poi al login ti chiederemo un codice generato dalla tua app autenticatore oltre alla password.\n\nConserva i recovery codes in un posto sicuro: sono l'unico modo per accedere se perdi il telefono.\n\nSe non sei stato tu, accedi al tuo account, disabilita la verifica e contatta subito l'assistenza.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "mfadisabled",
-    label: "MFA disabled (verifica a due fattori disattivata)",
-    prefix: "email_mfadisabled",
-    file: "lib/email/templates/mfa-disabled.ts",
-    defaultSubject: "Autenticazione a due fattori disattivata — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nHai appena disattivato l'autenticazione a due fattori sul tuo account {{appName}}. Al prossimo login useremo solo email e password — il livello di protezione del tuo account è diminuito.\n\nTutti i recovery codes che avevi sono stati invalidati. Se vuoi puoi riattivare la verifica a due fattori in qualsiasi momento dalle impostazioni di sicurezza.\n\nSe non sei stato tu, cambia subito la password e contatta l'assistenza.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
-  {
-    id: "mfaadminreset",
-    label: "MFA reset by admin (supporto ha resettato il TOTP utente)",
-    prefix: "email_mfaadminreset",
-    file: "lib/email/templates/mfa-admin-reset.ts",
-    defaultSubject: "Verifica a due fattori resettata dal supporto — {{appName}}",
-    defaultBody:
-      "Ciao {{userName}},\n\nUn amministratore di {{appName}} ha resettato la verifica a due fattori sul tuo account. Tutti i recovery codes precedenti sono stati invalidati e al prossimo login useremo solo email e password.\n\nMotivazione del supporto: {{reason}}\n\nPer ripristinare la protezione, accedi al tuo account e riattiva la verifica a due fattori dalle impostazioni di sicurezza. Se non hai richiesto questa operazione, contatta subito l'assistenza e cambia la password.",
-    defaultFooter: "© {{appName}} · Tutti i diritti riservati",
-  },
+const TEMPLATE_IDS = [
+  "welcome",
+  "signup",
+  "reset",
+  "deleted",
+  "waitinglist",
+  "emailchange",
+  "device",
+  "staffinvite",
+  "gdprexport",
+  "accountdeletion",
+  "accountdeletionotp",
+  "mfaenabled",
+  "mfadisabled",
+  "mfaadminreset",
 ] as const;
 
-type TemplateId = (typeof TEMPLATES)[number]["id"];
+type TemplateId = (typeof TEMPLATE_IDS)[number];
+
+const TEMPLATE_PREFIX: Record<TemplateId, string> = {
+  welcome: "email_welcome",
+  signup: "email_signup",
+  reset: "email_reset",
+  deleted: "email_deleted",
+  waitinglist: "email_waitinglist",
+  emailchange: "email_emailchange",
+  device: "email_device",
+  staffinvite: "email_staffinvite",
+  gdprexport: "email_gdprexport",
+  accountdeletion: "email_accountdeletion",
+  accountdeletionotp: "email_accountdeletionotp",
+  mfaenabled: "email_mfaenabled",
+  mfadisabled: "email_mfadisabled",
+  mfaadminreset: "email_mfaadminreset",
+};
+
+const TEMPLATE_FILE: Record<TemplateId, string> = {
+  welcome: "lib/email/templates/welcome.ts",
+  signup: "lib/email/templates/signup-verification.ts",
+  reset: "lib/email/templates/password-reset.ts",
+  deleted: "lib/email/templates/user-deleted.ts",
+  waitinglist: "lib/email/templates/waiting-list.ts",
+  emailchange: "lib/email/templates/email-change-verification.ts",
+  device: "lib/email/templates/device-verification.ts",
+  staffinvite: "lib/email/templates/staff-invitation.ts",
+  gdprexport: "lib/email/templates/gdpr-export-ready.ts",
+  accountdeletion: "lib/email/templates/account-deletion-requested.ts",
+  accountdeletionotp: "lib/email/templates/account-deletion-otp.ts",
+  mfaenabled: "lib/email/templates/mfa-enabled.ts",
+  mfadisabled: "lib/email/templates/mfa-disabled.ts",
+  mfaadminreset: "lib/email/templates/mfa-admin-reset.ts",
+};
 
 // ---------------------------------------------------------------------------
 // Chip placeholder
@@ -249,10 +157,12 @@ function PlaceholderChip({
   label,
   value,
   onInsert,
+  insertTitle,
 }: {
   label: string;
   value: string;
   onInsert: (v: string) => void;
+  insertTitle: string;
 }) {
   return (
     <button
@@ -264,7 +174,7 @@ function PlaceholderChip({
         color: "var(--admin-accent)",
         border: "1px solid " + "var(--admin-accent)" + "30",
       }}
-      title={`Insert ${value}`}>
+      title={insertTitle}>
       {label}
     </button>
   );
@@ -274,23 +184,28 @@ function PlaceholderChip({
 // Single Template Accordion Panel
 // ---------------------------------------------------------------------------
 function TemplatePanel({
-  template,
+  id,
   settings,
 }: {
-  template: (typeof TEMPLATES)[number];
+  id: TemplateId;
   settings: AppSettings;
 }) {
+  const t = useTranslations("admin.settings.emailTemplates");
+  const tTpl = useTranslations(`admin.settings.emailTemplates.templates.${id}`);
   const [open, setOpen] = useState(false);
   const subjectRef = useRef<HTMLInputElement>(null);
   const bccRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const footerRef = useRef<HTMLTextAreaElement>(null);
 
+  const prefix = TEMPLATE_PREFIX[id];
+  const file = TEMPLATE_FILE[id];
+
   const s = settings as Record<string, string | null>;
-  const currentSubject = s[`${template.prefix}_subject`] ?? "";
-  const currentBcc = s[`${template.prefix}_bcc`] ?? "";
-  const currentBody = s[`${template.prefix}_body`] ?? "";
-  const currentFooter = s[`${template.prefix}_footer`] ?? "";
+  const currentSubject = s[`${prefix}_subject`] ?? "";
+  const currentBcc = s[`${prefix}_bcc`] ?? "";
+  const currentBody = s[`${prefix}_body`] ?? "";
+  const currentFooter = s[`${prefix}_footer`] ?? "";
 
   function insertPlaceholder(
     ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
@@ -319,7 +234,7 @@ function TemplatePanel({
     color: "var(--admin-text)",
   };
 
-  const chips = PLACEHOLDERS[template.id] ?? [];
+  const chips = PLACEHOLDERS[id] ?? [];
 
   return (
     <div
@@ -331,7 +246,7 @@ function TemplatePanel({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors"
         style={{ background: "var(--admin-card-bg)", color: "var(--admin-text)" }}>
-        <span className="text-sm font-semibold">{template.label}</span>
+        <span className="text-sm font-semibold">{tTpl("label")}</span>
         <div className="flex items-center gap-2">
           {(currentSubject || currentBody) && (
             <span
@@ -340,7 +255,7 @@ function TemplatePanel({
                 background: "var(--admin-accent)" + "18",
                 color: "var(--admin-accent)",
               }}>
-              Customized
+              {t("customizedBadge")}
             </span>
           )}
           <ChevronDown
@@ -377,12 +292,12 @@ function TemplatePanel({
               <p
                 className="text-[10px] font-medium uppercase tracking-wide"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Template file
+                {t("templateFile")}
               </p>
               <code
                 className="text-[12px] font-mono break-all"
                 style={{ color: "var(--admin-text)" }}>
-                {template.file}
+                {file}
               </code>
             </div>
           </div>
@@ -392,7 +307,7 @@ function TemplatePanel({
             <p
               className="text-[11px] font-medium mb-2"
               style={{ color: "var(--admin-text-muted)" }}>
-              Available placeholders — click to insert into the active field:
+              {t("placeholdersHint")}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {chips.map((chip) => (
@@ -400,6 +315,7 @@ function TemplatePanel({
                   key={chip.value}
                   label={chip.label}
                   value={chip.value}
+                  insertTitle={t("placeholderInsertTitle", { value: chip.value })}
                   onInsert={(v) => {
                     const active = document.activeElement;
                     if (active === subjectRef.current)
@@ -421,18 +337,18 @@ function TemplatePanel({
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              Email subject
+              {t("subjectLabel")}
             </label>
             <input
               ref={subjectRef}
-              name={`${template.prefix}_subject`}
+              name={`${prefix}_subject`}
               defaultValue={currentSubject}
-              placeholder={template.defaultSubject}
+              placeholder={tTpl("defaultSubject")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={inputStyle}
             />
             <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
-              If empty, the default text is used.
+              {t("subjectHint")}
             </p>
           </div>
 
@@ -441,14 +357,14 @@ function TemplatePanel({
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              BCC (optional)
+              {t("bccLabel")}
             </label>
             <input
               ref={bccRef}
-              name={`${template.prefix}_bcc`}
+              name={`${prefix}_bcc`}
               type="email"
               defaultValue={currentBcc}
-              placeholder="copy@yourdomain.com"
+              placeholder={t("bccPlaceholder")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={inputStyle}
             />
@@ -459,19 +375,19 @@ function TemplatePanel({
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              Email body
+              {t("bodyLabel")}
             </label>
             <textarea
               ref={bodyRef}
-              name={`${template.prefix}_body`}
+              name={`${prefix}_body`}
               rows={6}
               defaultValue={currentBody}
-              placeholder={template.defaultBody}
+              placeholder={tTpl("defaultBody")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-y font-mono"
               style={{ ...inputStyle, lineHeight: "1.6" }}
             />
             <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
-              Plain text only — the email HTML is handled automatically. Use the placeholders above.
+              {t("bodyHint")}
             </p>
           </div>
 
@@ -480,14 +396,14 @@ function TemplatePanel({
             <label
               className="block text-xs font-medium mb-1.5"
               style={{ color: "var(--admin-text-muted)" }}>
-              Footer
+              {t("footerLabel")}
             </label>
             <textarea
               ref={footerRef}
-              name={`${template.prefix}_footer`}
+              name={`${prefix}_footer`}
               rows={2}
               defaultValue={currentFooter}
-              placeholder={template.defaultFooter}
+              placeholder={tTpl("defaultFooter")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-y"
               style={{ ...inputStyle, lineHeight: "1.6" }}
             />
@@ -502,6 +418,7 @@ function TemplatePanel({
 // Email logo selector
 // ---------------------------------------------------------------------------
 function EmailLogoCard({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.emailTemplates.emailLogo");
   const initial =
     settings.email_logo_choice === "logo-variant" ||
     settings.email_logo_choice === "none"
@@ -533,21 +450,20 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
         <h3
           className="text-sm font-semibold"
           style={{ color: "var(--admin-text)" }}>
-          Email logo
+          {t("title")}
         </h3>
       </div>
       <p
         className="text-[11px] mb-4"
         style={{ color: "var(--admin-text-faint)" }}>
-        Choose which brand asset appears in the header of every transactional
-        email. Manage the assets in{" "}
+        {t("descBefore")}{" "}
         <a
           href="/admin/settings/general"
           className="underline"
           style={{ color: "var(--admin-accent)" }}>
-          General settings
+          {t("descLink")}
         </a>
-        .
+        {t("descAfter")}
       </p>
 
       <div className="flex items-center gap-4">
@@ -564,14 +480,14 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={previewUrl}
-              alt="Email logo preview"
+              alt={t("previewAlt")}
               className="max-w-full max-h-full object-contain"
             />
           ) : (
             <span
               className="text-[11px] font-medium text-center"
               style={{ color: "var(--admin-text-faint)" }}>
-              {choice === "none" ? "Text only" : "Not uploaded"}
+              {choice === "none" ? t("previewTextOnly") : t("previewNotUploaded")}
             </span>
           )}
         </div>
@@ -581,7 +497,7 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
           <label
             className="block text-xs font-medium mb-1.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            Header style
+            {t("headerStyleLabel")}
           </label>
           <select
             name="email_logo_choice"
@@ -595,16 +511,15 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
               border: "1px solid var(--admin-input-border)",
               color: "var(--admin-text)",
             }}>
-            <option value="logo">Logo</option>
-            <option value="logo-variant">Logo variant</option>
-            <option value="none">No image — show app name as text</option>
+            <option value="logo">{t("optionLogo")}</option>
+            <option value="logo-variant">{t("optionLogoVariant")}</option>
+            <option value="none">{t("optionNone")}</option>
           </select>
           {missingForChoice && (
             <p
               className="text-[11px] mt-1.5"
               style={{ color: "var(--admin-accent)" }}>
-              No file uploaded for this slot yet — emails will fall back to the
-              app name until you upload one.
+              {t("missingHint")}
             </p>
           )}
         </div>
@@ -622,6 +537,7 @@ export function EmailTemplatesTab({ settings }: { settings: AppSettings }) {
 }
 
 function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.emailTemplates");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveEmailTemplateSettings,
     {},
@@ -647,8 +563,8 @@ function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
       <form action={formAction} className="space-y-3">
         <EmailLogoCard settings={settings} />
 
-        {TEMPLATES.map((tpl) => (
-          <TemplatePanel key={tpl.id} template={tpl} settings={settings} />
+        {TEMPLATE_IDS.map((id) => (
+          <TemplatePanel key={id} id={id} settings={settings} />
         ))}
 
         <div className="pt-2">
@@ -669,7 +585,7 @@ function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
             ) : (
               <Save size={15} />
             )}
-            {isPending ? "Saving..." : "Save all templates"}
+            {isPending ? t("saving") : t("saveAll")}
           </button>
         </div>
       </form>
