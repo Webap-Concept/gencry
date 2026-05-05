@@ -3,6 +3,7 @@
 import type { RoleRow } from "@/lib/db/roles-queries";
 import type { Permission } from "@/lib/db/schema";
 import { Check, Clock, Plus, Shield, ShieldOff, Trash2, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { addOverride, purgeExpired, removeOverride } from "../actions";
 
@@ -52,6 +53,7 @@ function AddOverrideForm({
   allPermissions: Permission[];
   onClose: () => void;
 }) {
+  const t = useTranslations("admin.access.users.detail");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -101,7 +103,7 @@ function AddOverrideForm({
       <h4
         className="text-sm font-semibold"
         style={{ color: "var(--admin-text)" }}>
-        Add Override
+        {t("accessOverrideFormHeading")}
       </h4>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -110,14 +112,14 @@ function AddOverrideForm({
           <label
             className="block text-xs font-medium mb-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Permission
+            {t("accessFieldPermission")}
           </label>
           <select
             name="permissionId"
             required
             className={inputCls}
             style={inputStyle}>
-            <option value="">Select...</option>
+            <option value="">{t("accessFieldPermissionPlaceholder")}</option>
             {Object.entries(groups).map(([group, perms]) => (
               <optgroup key={group} label={group}>
                 {perms.map((p) => (
@@ -135,15 +137,15 @@ function AddOverrideForm({
           <label
             className="block text-xs font-medium mb-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Type
+            {t("accessFieldType")}
           </label>
           <select
             name="granted"
             required
             className={inputCls}
             style={inputStyle}>
-            <option value="true">✅ Grant</option>
-            <option value="false">❌ Revoke</option>
+            <option value="true">{t("accessTypeGrant")}</option>
+            <option value="false">{t("accessTypeRevoke")}</option>
           </select>
         </div>
       </div>
@@ -153,9 +155,9 @@ function AddOverrideForm({
         <label
           className="block text-xs font-medium mb-1"
           style={{ color: "var(--admin-text-muted)" }}>
-          Expiry{" "}
+          {t("accessFieldExpiry")}{" "}
           <span style={{ color: "var(--admin-text-faint)" }}>
-            (leave empty = permanent)
+            {t("accessFieldExpiryHint")}
           </span>
         </label>
         <input
@@ -171,12 +173,12 @@ function AddOverrideForm({
         <label
           className="block text-xs font-medium mb-1"
           style={{ color: "var(--admin-text-muted)" }}>
-          Reason (optional)
+          {t("accessFieldReason")}
         </label>
         <textarea
           name="reason"
           rows={2}
-          placeholder="Why are you applying this override..."
+          placeholder={t("accessFieldReasonPlaceholder")}
           className={inputCls}
           style={inputStyle}
         />
@@ -193,7 +195,7 @@ function AddOverrideForm({
             color: "var(--admin-text-muted)",
             background: "var(--admin-hover-bg)",
           }}>
-          Cancel
+          {t("accessFormCancel")}
         </button>
         <button
           type="submit"
@@ -205,7 +207,7 @@ function AddOverrideForm({
           ) : (
             <Check size={14} />
           )}
-          Apply
+          {t("accessFormApply")}
         </button>
       </div>
     </form>
@@ -221,6 +223,9 @@ export function UserAccessTab({
   userRole,
   isDeleted = false,
 }: Props) {
+  const t = useTranslations("admin.access.users.detail");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const [showAdd, setShowAdd] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [purging, startPurgeTransition] = useTransition();
@@ -267,7 +272,7 @@ export function UserAccessTab({
           <h4
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            Role Permissions
+            {t("accessRolePermsHeading")}
           </h4>
           {userRole && (
             <span
@@ -283,13 +288,13 @@ export function UserAccessTab({
           <span
             className="text-xs ml-auto"
             style={{ color: "var(--admin-text-faint)" }}>
-            {rolePerms.length} permissions
+            {t("accessRolePermsCount", { count: rolePerms.length })}
           </span>
         </div>
 
         {rolePerms.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-            No permissions assigned to this role.
+            {t("accessRolePermsEmpty")}
           </p>
         ) : (
           <div className="space-y-3">
@@ -334,7 +339,7 @@ export function UserAccessTab({
             <h4
               className="text-sm font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              Individual Overrides
+              {t("accessOverridesHeading")}
             </h4>
             <span
               className="text-xs"
@@ -358,7 +363,7 @@ export function UserAccessTab({
                 ) : (
                   <Trash2 size={11} />
                 )}
-                Clear expired ({expiredCount})
+                {t("accessOverridesClearExpired", { count: expiredCount })}
               </button>
             )}
             {!isDeleted && !showAdd && (
@@ -366,7 +371,7 @@ export function UserAccessTab({
                 onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white"
                 style={{ background: "var(--admin-accent)" }}>
-                <Plus size={12} /> Add
+                <Plus size={12} /> {t("accessOverridesAdd")}
               </button>
             )}
           </div>
@@ -391,14 +396,14 @@ export function UserAccessTab({
               style={{ opacity: 0.2, color: "var(--admin-text)" }}
             />
             <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-              No overrides — this user uses role permissions
+              {t("accessOverridesEmpty")}
             </p>
             {!isDeleted && (
               <button
                 onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white mt-1"
                 style={{ background: "var(--admin-accent)" }}>
-                <Plus size={12} /> Add the first one
+                <Plus size={12} /> {t("accessOverridesAddFirst")}
               </button>
             )}
           </div>
@@ -438,13 +443,17 @@ export function UserAccessTab({
                       </code>
                       <PermBadge
                         granted={ov.granted}
-                        label={ov.granted ? "Granted" : "Revoked"}
+                        label={
+                          ov.granted
+                            ? t("accessOverrideGranted")
+                            : t("accessOverrideRevoked")
+                        }
                       />
                       {isExpired && (
                         <span
                           className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
                           style={{ background: "#fef9c3", color: "#854d0e" }}>
-                          <Clock size={8} /> Expired
+                          <Clock size={8} /> {t("accessOverrideExpired")}
                         </span>
                       )}
                     </div>
@@ -459,8 +468,11 @@ export function UserAccessTab({
                       <p
                         className="text-[10px] mt-0.5"
                         style={{ color: "var(--admin-text-faint)" }}>
-                        Expires:{" "}
-                        {new Date(ov.expiresAt).toLocaleString("en-US")}
+                        {t("accessOverrideExpires", {
+                          date: new Date(ov.expiresAt).toLocaleString(
+                            dateLocale,
+                          ),
+                        })}
                       </p>
                     )}
                   </div>
@@ -470,7 +482,7 @@ export function UserAccessTab({
                       onClick={() => handleRemove(ov.id)}
                       disabled={deletingId === ov.id}
                       className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
-                      title="Remove override"
+                      title={t("accessOverrideRemoveTitle")}
                       style={{
                         color: "var(--admin-text-faint)",
                         background: "transparent",

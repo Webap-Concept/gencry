@@ -1,29 +1,30 @@
 import { parseUserAgent } from "@/lib/account/parse-user-agent";
 import type { UserConsentRecord } from "@/lib/account/consent-queries";
 import { ScrollText } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
-const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+type ConsentsT = Awaited<
+  ReturnType<typeof getTranslations<"admin.access.users.detail">>
+>;
 
 const cardStyle: React.CSSProperties = {
   background: "var(--admin-card-bg)",
   border: "1px solid var(--admin-card-border)",
 };
 
-function deviceLabel(ua: string | null): string {
-  if (!ua) return "—";
-  const parsed = parseUserAgent(ua);
-  if (parsed.deviceType === "unknown") return "Unknown";
-  const browser = parsed.browser.startsWith("Browser ")
-    ? "Unknown"
-    : parsed.browser;
-  const os = parsed.os.startsWith("Sistema ") ? "Unknown OS" : parsed.os;
-  return `${browser} · ${os}`;
+function makeDeviceLabel(t: ConsentsT) {
+  return (ua: string | null): string => {
+    if (!ua) return "—";
+    const parsed = parseUserAgent(ua);
+    if (parsed.deviceType === "unknown") return t("consentsDeviceUnknown");
+    const browser = parsed.browser.startsWith("Browser ")
+      ? t("consentsDeviceUnknown")
+      : parsed.browser;
+    const os = parsed.os.startsWith("Sistema ")
+      ? t("consentsDeviceUnknownOs")
+      : parsed.os;
+    return `${browser} · ${os}`;
+  };
 }
 
 function TypeBadge({ type }: { type: UserConsentRecord["consentType"] }) {
@@ -39,17 +40,23 @@ function TypeBadge({ type }: { type: UserConsentRecord["consentType"] }) {
   );
 }
 
-function ActionBadge({ action }: { action: UserConsentRecord["action"] }) {
+function ActionBadge({
+  action,
+  t,
+}: {
+  action: UserConsentRecord["action"];
+  t: ConsentsT;
+}) {
   if (action === "granted") {
     return (
       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-        granted
+        {t("consentsActionGranted")}
       </span>
     );
   }
   return (
     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-      revoked
+      {t("consentsActionRevoked")}
     </span>
   );
 }
@@ -75,17 +82,19 @@ function HashCell({ hash }: { hash: string | null }) {
 function IpCell({
   ip,
   strategy,
+  t,
 }: {
   ip: string | null;
   strategy: UserConsentRecord["ipStrategy"];
+  t: ConsentsT;
 }) {
   if (!ip) return <span style={{ color: "var(--admin-text-faint)" }}>—</span>;
   const tooltip =
     strategy === "hash_only"
-      ? "Stored as SHA-256 hash"
+      ? t("consentsIpTooltipHash")
       : strategy === "mask_last_octet"
-        ? "Last octet masked"
-        : "Stored in full";
+        ? t("consentsIpTooltipMask")
+        : t("consentsIpTooltipFull");
   return (
     <span className="font-mono text-[11px]" title={tooltip}>
       {ip}
@@ -93,7 +102,25 @@ function IpCell({
   );
 }
 
-export function UserConsentsTab({ records }: { records: UserConsentRecord[] }) {
+export async function UserConsentsTab({
+  records,
+}: {
+  records: UserConsentRecord[];
+}) {
+  const t = await getTranslations("admin.access.users.detail");
+  const locale = await getLocale();
+  const dateTimeFmt = new Intl.DateTimeFormat(
+    locale === "en" ? "en-US" : "it-IT",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
+  const deviceLabel = makeDeviceLabel(t);
+
   if (records.length === 0) {
     return (
       <div
@@ -107,14 +134,14 @@ export function UserConsentsTab({ records }: { records: UserConsentRecord[] }) {
         <p
           className="text-sm font-medium"
           style={{ color: "var(--admin-text)" }}>
-          No consent records
+          {t("consentsEmptyTitle")}
         </p>
         <p
           className="text-[11px] mt-1"
           style={{ color: "var(--admin-text-faint)" }}>
-          The user predates the consent ledger, or
+          {t("consentsEmptyHintBefore")}
           <code className="font-mono mx-1">gdpr.consent_log.enabled</code>
-          is off when they signed up.
+          {t("consentsEmptyHintAfter")}
         </p>
       </div>
     );
@@ -128,14 +155,30 @@ export function UserConsentsTab({ records }: { records: UserConsentRecord[] }) {
         <table className="w-full text-xs">
           <thead>
             <tr style={{ color: "var(--admin-text-faint)" }}>
-              <th className="text-left font-medium py-2.5 px-3">Type</th>
-              <th className="text-left font-medium py-2.5 px-3">Action</th>
-              <th className="text-left font-medium py-2.5 px-3">Version</th>
-              <th className="text-left font-medium py-2.5 px-3">When</th>
-              <th className="text-left font-medium py-2.5 px-3">IP</th>
-              <th className="text-left font-medium py-2.5 px-3">Device</th>
-              <th className="text-left font-medium py-2.5 px-3">Source</th>
-              <th className="text-left font-medium py-2.5 px-3">Policy hash</th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderType")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderAction")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderVersion")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderWhen")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderIp")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderDevice")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderSource")}
+              </th>
+              <th className="text-left font-medium py-2.5 px-3">
+                {t("consentsHeaderHash")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -152,7 +195,7 @@ export function UserConsentsTab({ records }: { records: UserConsentRecord[] }) {
                     <TypeBadge type={r.consentType} />
                   </td>
                   <td className="py-2 px-3">
-                    <ActionBadge action={r.action} />
+                    <ActionBadge action={r.action} t={t} />
                   </td>
                   <td
                     className="py-2 px-3 font-mono"
@@ -165,7 +208,7 @@ export function UserConsentsTab({ records }: { records: UserConsentRecord[] }) {
                     {dateTimeFmt.format(r.createdAt)}
                   </td>
                   <td className="py-2 px-3">
-                    <IpCell ip={r.ip} strategy={r.ipStrategy} />
+                    <IpCell ip={r.ip} strategy={r.ipStrategy} t={t} />
                   </td>
                   <td
                     className="py-2 px-3"

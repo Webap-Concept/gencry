@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ShieldCheck, ShieldOff } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import type { MfaState } from "@/lib/auth/mfa/queries";
 import { adminResetMfa } from "../actions";
@@ -13,13 +14,14 @@ type Props = {
   isDeleted: boolean;
 };
 
-const dateFmt = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
 export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
+  const t = useTranslations("admin.access.users.detail");
+  const locale = useLocale();
+  const dateFmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "it-IT", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
   const [showModal, setShowModal] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
   function handleReset() {
     setError(null);
     if (reason.trim().length < 3) {
-      setError("Reason is required (min 3 chars).");
+      setError(t("mfaReasonRequired"));
       return;
     }
     const fd = new FormData();
@@ -58,13 +60,13 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
           <h4
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            Multi-factor authentication
+            {t("mfaHeading")}
           </h4>
           {mfa.enabled && (
             <span
               className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
               style={{ background: "#dcfce7", color: "#16a34a" }}>
-              <ShieldCheck size={10} /> Enabled
+              <ShieldCheck size={10} /> {t("mfaEnabledBadge")}
             </span>
           )}
           {!mfa.enabled && (
@@ -74,20 +76,27 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
                 background: "var(--admin-hover-bg)",
                 color: "var(--admin-text-faint)",
               }}>
-              <ShieldOff size={10} /> Not configured
+              <ShieldOff size={10} /> {t("mfaNotConfiguredBadge")}
             </span>
           )}
         </div>
 
         {mfa.enabled && (
           <div className="space-y-2 mb-4">
-            <Row label="Active since" value={mfa.enabledAt ? dateFmt.format(mfa.enabledAt) : "—"} />
             <Row
-              label="Last used"
-              value={mfa.lastUsedAt ? dateFmt.format(mfa.lastUsedAt) : "Never"}
+              label={t("mfaActiveSince")}
+              value={mfa.enabledAt ? dateFmt.format(mfa.enabledAt) : "—"}
             />
             <Row
-              label="Recovery codes left"
+              label={t("mfaLastUsed")}
+              value={
+                mfa.lastUsedAt
+                  ? dateFmt.format(mfa.lastUsedAt)
+                  : t("mfaLastUsedNever")
+              }
+            />
+            <Row
+              label={t("mfaRecoveryCodesLeft")}
               value={`${mfa.recoveryCodesRemaining} / 10`}
             />
           </div>
@@ -97,7 +106,7 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
           <p
             className="text-sm mb-2"
             style={{ color: "var(--admin-text-faint)" }}>
-            This user has not configured a second factor.
+            {t("mfaNotConfiguredText")}
           </p>
         )}
 
@@ -105,7 +114,7 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
           <p
             className="text-sm mb-2"
             style={{ color: "var(--admin-text-muted)" }}>
-            Setup started but not yet confirmed.
+            {t("mfaPendingSetupText")}
           </p>
         )}
 
@@ -114,7 +123,7 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
             onClick={() => setShowModal(true)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
             style={{ background: "#dc2626" }}>
-            Reset MFA
+            {t("mfaResetButton")}
           </button>
         )}
       </div>
@@ -123,28 +132,28 @@ export function AdminMfaCard({ userId, userEmail, mfa, isDeleted }: Props) {
         <ConfirmModal
           open={showModal}
           variant="danger"
-          title="Reset MFA for this user"
-          confirmLabel={pending ? "Resetting…" : "Reset MFA"}
+          title={t("mfaResetTitle")}
+          confirmLabel={pending ? t("mfaResetting") : t("mfaResetButton")}
           loading={pending}
           message={
             <div className="space-y-3">
               <p>
-                This will wipe the TOTP secret and all recovery codes for{" "}
-                <strong>{userEmail}</strong>. They'll fall back to email +
-                password at the next login. The user will receive an email
-                notification with the reason below.
+                {t.rich("mfaResetMessage", {
+                  email: userEmail,
+                  em: (chunks) => <strong>{chunks}</strong>,
+                })}
               </p>
               <div>
                 <label
                   className="block text-xs font-medium mb-1"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Reason (visible to the user)
+                  {t("mfaReasonLabel")}
                 </label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  placeholder="e.g. Lost phone and recovery codes — verified identity via support ticket #123"
+                  placeholder={t("mfaReasonPlaceholder")}
                   className="w-full px-3 py-2 text-sm rounded-lg outline-none border focus:ring-2"
                   style={{
                     background: "var(--admin-bg)",
