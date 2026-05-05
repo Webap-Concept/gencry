@@ -1,9 +1,13 @@
 "use client";
 
 import { signOut } from "@/app/(login)/actions";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { UserWithProfile } from "@/lib/db/schema";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import type { ClientNotification } from "@/lib/notifications/serializers";
 import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { NotificationBell } from "./notification-bell";
 
@@ -42,6 +46,10 @@ export default function AdminHeaderRight({
   notifications: ClientNotification[];
   unreadCount: number;
 }) {
+  const t = useTranslations("admin.shell");
+  const localeRaw = useLocale();
+  const currentLocale = isLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE;
+  const currentPath = usePathname() ?? "/admin";
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { theme, toggle } = useTheme();
@@ -71,7 +79,7 @@ export default function AdminHeaderRight({
 
       <button
         onClick={toggle}
-        aria-label="Cambia tema"
+        aria-label={t("themeToggleAria")}
         className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
         style={{ color: "var(--admin-icon-color)" }}
         onMouseEnter={(e) =>
@@ -140,6 +148,15 @@ export default function AdminHeaderRight({
                 {user.email}
               </p>
             </div>
+            <div
+              className="px-4 py-2.5"
+              style={{ borderBottom: "1px solid var(--admin-divider)" }}>
+              <LanguageSwitcher
+                current={currentLocale}
+                currentPath={currentPath}
+                className="block w-full text-xs"
+              />
+            </div>
             <form action={signOut}>
               <button
                 type="submit"
@@ -151,7 +168,7 @@ export default function AdminHeaderRight({
                   (e.currentTarget.style.background = "transparent")
                 }>
                 <LogOut size={15} />
-                Logout
+                {t("logout")}
               </button>
             </form>
           </div>

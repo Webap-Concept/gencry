@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import MobileMenuButton from "./mobile-menu-button";
 import AdminSidebar from "./sidebar";
@@ -21,6 +22,7 @@ export default function AdminShellClient({
   userPermissions,
   isSuperAdmin,
 }: AdminShellClientProps) {
+  const t = useTranslations("admin.shell");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const permissionsSet = new Set(userPermissions);
 
@@ -49,12 +51,12 @@ export default function AdminShellClient({
             <h1
               className="text-sm font-semibold hidden lg:block"
               style={{ color: "var(--admin-header-text)" }}>
-              Admin Dashboard
+              {t("dashboardTitle")}
             </h1>
             <h1
               className="text-sm font-semibold lg:hidden"
               style={{ color: "var(--admin-header-text)" }}>
-              Admin
+              {t("dashboardTitleShort")}
             </h1>
           </div>
           {header}

@@ -6,6 +6,7 @@ import { db } from "@/lib/db/drizzle";
 import { users } from "@/lib/db/schema";
 import { can } from "@/lib/rbac/can";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -18,6 +19,7 @@ export const adminSignIn = validatedAction(
   adminSignInSchema,
   async (data) => {
     const { email, password } = data;
+    const t = await getTranslations("admin.signInErrors");
 
     const [foundUser] = await db
       .select()
@@ -26,22 +28,22 @@ export const adminSignIn = validatedAction(
       .limit(1);
 
     if (!foundUser) {
-      return { error: "Credenziali non valide.", email, password };
+      return { error: t("invalidCredentials"), email, password };
     }
 
     // Verifica accesso admin: flag is_admin OPPURE permesso RBAC "admin:access"
     const hasAccess = foundUser.isAdmin || (await can(foundUser, "admin:access"));
     if (!hasAccess) {
-      return { error: "Accesso non autorizzato.", email, password };
+      return { error: t("noAccess"), email, password };
     }
 
     if (foundUser.bannedAt !== null) {
-      return { error: "Account sospeso. Contatta il supporto.", email, password };
+      return { error: t("banned"), email, password };
     }
 
     const isPasswordValid = await comparePasswords(password, foundUser.passwordHash);
     if (!isPasswordValid) {
-      return { error: "Credenziali non valide.", email, password };
+      return { error: t("invalidCredentials"), email, password };
     }
 
     await setSession(foundUser);

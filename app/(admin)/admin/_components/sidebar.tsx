@@ -1,6 +1,7 @@
 "use client";
 
 import { ADMIN_NAV, type NavChild, type NavItem } from "@/lib/admin-nav";
+import { useTranslations } from "next-intl";
 import {
   Activity,
   ArrowRight,
@@ -103,6 +104,20 @@ export default function AdminSidebar({
   isSuperAdmin,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const tNav = useTranslations("admin.nav");
+
+  /**
+   * Resolve label per nav item:
+   * - voci core (es. "users-list", "settings-general") hanno la chiave i18n
+   *   in messages/{en,it}/admin.json sotto admin.nav.<key> → tradotte
+   * - voci dinamiche dei moduli (es. "module-prices", "prices-overview")
+   *   non hanno chiave i18n e ricadono sull'item.label originale dal manifest.
+   * Quando i moduli porteranno i propri messages files (vedi piano i18n),
+   * questo fallback diventerà obsoleto.
+   */
+  function navLabel(key: string, fallback: string): string {
+    return tNav.has(key) ? tNav(key) : fallback;
+  }
 
   function hasPerm(permission: string): boolean {
     if (isSuperAdmin) return true;
@@ -268,7 +283,7 @@ export default function AdminSidebar({
                 : "var(--admin-sidebar-icon-inactive)",
             }}
           />
-          <span className="flex-1 text-left">{item.label}</span>
+          <span className="flex-1 text-left">{navLabel(item.key, item.label)}</span>
           <ChevronDown
             size={15}
             className="transition-transform duration-200"
@@ -299,7 +314,7 @@ export default function AdminSidebar({
                   <NavLink
                     key={child.key}
                     href={child.href!}
-                    label={child.label}
+                    label={navLabel(child.key, child.label)}
                     icon={child.icon}
                     exact={child.exact}
                     sub
@@ -358,7 +373,7 @@ export default function AdminSidebar({
                 : "var(--admin-sidebar-icon-inactive)",
             }}
           />
-          <span className="flex-1 text-left">{item.label}</span>
+          <span className="flex-1 text-left">{navLabel(item.key, item.label)}</span>
           <ChevronDown
             size={13}
             className="transition-transform duration-200"
@@ -381,7 +396,7 @@ export default function AdminSidebar({
                 <NavLink
                   key={leaf.key}
                   href={leaf.href!}
-                  label={leaf.label}
+                  label={navLabel(leaf.key, leaf.label)}
                   icon={leaf.icon}
                   exact={leaf.exact}
                   sub
@@ -444,7 +459,7 @@ export default function AdminSidebar({
             <NavLink
               key={item.key}
               href={item.href!}
-              label={item.label}
+              label={navLabel(item.key, item.label)}
               icon={item.icon}
               exact={item.exact}
             />
