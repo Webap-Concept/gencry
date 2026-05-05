@@ -412,6 +412,94 @@
       "moduleJobsTitle": "Module-owned cron jobs",
       "moduleJobsHint": "Jobs that belong to an installed module are managed inside the module itself. Open the module page to see and toggle them:"
     },
+    "snippets": {
+      "title": "Global snippets",
+      "subtitle": "CSS, JavaScript and markup injected on every frontend page.",
+      "presetsButton": "Presets",
+      "addButton": "Add",
+      "sectionHead": "Head",
+      "sectionBodyEnd": "Body end",
+      "emptyTitle": "No snippets",
+      "emptyDescription": "Use \"Presets\" to add Analytics, GTM or other scripts in seconds.",
+      "deleteConfirmTitle": "Delete snippet",
+      "deleteConfirmMessage": "You're about to delete {name}.",
+      "deleteConfirmIrreversible": "This operation cannot be undone.",
+      "deleteConfirmFallbackName": "this snippet",
+      "deleteConfirmLabel": "Delete",
+      "rowInactiveBadge": "inactive",
+      "rowActivateTitle": "Activate",
+      "rowDeactivateTitle": "Deactivate",
+      "rowEditTitle": "Edit",
+      "rowDeleteTitle": "Delete",
+      "types": {
+        "linkCss": "External CSS (link)",
+        "style": "Inline CSS (style)",
+        "scriptSrc": "External JS (script src)",
+        "script": "Inline JS (script)",
+        "raw": "Arbitrary code"
+      },
+      "positions": {
+        "head": "<head>",
+        "bodyEnd": "Body end"
+      },
+      "form": {
+        "titleNew": "New snippet",
+        "titleEdit": "Edit snippet",
+        "nameLabel": "Name (admin only)",
+        "namePlaceholder": "E.g. Google Analytics, Meta Pixel…",
+        "typeLabel": "Type",
+        "positionLabel": "Position",
+        "urlLabel": "URL",
+        "contentLabel": "Code",
+        "activeOn": "Active — will be injected on the frontend",
+        "activeOff": "Inactive — saved but not injected",
+        "cancelButton": "Cancel",
+        "saveButton": "Save",
+        "savingButton": "Saving…"
+      },
+      "preset": {
+        "modalTitle": "Pick a preset",
+        "snippetCount": "{count, plural, one {1 snippet} other {# snippets}}",
+        "willCreate": "{count, plural, one {1 snippet will be created} other {# snippets will be created}}:",
+        "backButton": "Back",
+        "confirmButton": "Add snippets",
+        "list": {
+          "ga4": {
+            "label": "Google Analytics 4",
+            "description": "Track visits and conversions via gtag.js",
+            "paramLabel": "Measurement ID",
+            "step1Name": "Google Analytics — script src",
+            "step2Name": "Google Analytics — config"
+          },
+          "gtm": {
+            "label": "Google Tag Manager",
+            "description": "GTM container to manage all tags from a single interface",
+            "paramLabel": "Container ID",
+            "step1Name": "GTM — head script",
+            "step2Name": "GTM — noscript body"
+          },
+          "metaPixel": {
+            "label": "Meta Pixel",
+            "description": "Conversion tracking and custom audiences for Facebook/Instagram Ads",
+            "paramLabel": "Pixel ID",
+            "step1Name": "Meta Pixel — base code",
+            "step2Name": "Meta Pixel — noscript"
+          },
+          "searchConsole": {
+            "label": "Google Search Console",
+            "description": "Meta tag verifying site ownership",
+            "paramLabel": "Verification code",
+            "step1Name": "Search Console — verification"
+          },
+          "hotjar": {
+            "label": "Hotjar",
+            "description": "Heatmaps, session recordings and user surveys",
+            "paramLabel": "Site ID",
+            "step1Name": "Hotjar — tracking"
+          }
+        }
+      }
+    },
     "signup": {
       "registrationCardTitle": "User Registration",
       "defaultRoleLabel": "Default role upon registration",

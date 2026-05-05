@@ -20,6 +20,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import {
@@ -30,16 +31,8 @@ import {
 } from "../actions";
 
 // ---------------------------------------------------------------------------
-// Costanti UI
+// Costanti UI (puramente strutturali — i label sono i18n)
 // ---------------------------------------------------------------------------
-const TYPE_LABELS: Record<SnippetType, string> = {
-  link_css: "CSS esterno (link)",
-  style: "CSS inline (style)",
-  script_src: "JS esterno (script src)",
-  script: "JS inline (script)",
-  raw: "Codice arbitrario",
-};
-
 const TYPE_ICONS: Record<SnippetType, React.ReactNode> = {
   link_css: <Globe size={13} />,
   style: <FileCode2 size={13} />,
@@ -48,9 +41,17 @@ const TYPE_ICONS: Record<SnippetType, React.ReactNode> = {
   raw: <FileCode2 size={13} />,
 };
 
-const POSITION_LABELS: Record<SnippetPosition, string> = {
-  head: "<head>",
-  body_end: "Fine <body>",
+const TYPE_TKEY: Record<SnippetType, string> = {
+  link_css: "linkCss",
+  style: "style",
+  script_src: "scriptSrc",
+  script: "script",
+  raw: "raw",
+};
+
+const POSITION_TKEY: Record<SnippetPosition, string> = {
+  head: "head",
+  body_end: "bodyEnd",
 };
 
 const CONTENT_PLACEHOLDER: Record<SnippetType, string> = {
@@ -62,10 +63,13 @@ const CONTENT_PLACEHOLDER: Record<SnippetType, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Modelli predefiniti
+// Modelli predefiniti — la struttura tecnica è qui (id, icon, type, position,
+// content), le label/descrizioni/step name vivono nel catalogo i18n sotto
+// admin.settings.snippets.preset.list.<presetKey>.
 // ---------------------------------------------------------------------------
 type PresetStep = {
-  name: string;
+  /** Chiave i18n del nome dello step, sotto preset.list.<id>.step{N}Name */
+  nameKey: "step1Name" | "step2Name";
   type: SnippetType;
   position: SnippetPosition;
   /** Contenuto con placeholder ${ID} / ${PIXEL_ID} / ecc. */
@@ -74,10 +78,8 @@ type PresetStep = {
 
 type Preset = {
   id: string;
-  label: string;
-  description: string;
-  /** Variabile che l'utente deve inserire (es. "Measurement ID") */
-  paramLabel: string;
+  /** Chiave i18n sotto preset.list */
+  tKey: string;
   paramPlaceholder: string;
   /** Icona testuale / emoji */
   icon: string;
@@ -87,20 +89,18 @@ type Preset = {
 const PRESETS: Preset[] = [
   {
     id: "ga4",
-    label: "Google Analytics 4",
-    description: "Tracciamento visite e conversioni via gtag.js",
-    paramLabel: "Measurement ID",
+    tKey: "ga4",
     paramPlaceholder: "G-XXXXXXXXXX",
     icon: "📊",
     steps: [
       {
-        name: "Google Analytics — script src",
+        nameKey: "step1Name",
         type: "script_src",
         position: "head",
         content: "https://www.googletagmanager.com/gtag/js?id=${ID}",
       },
       {
-        name: "Google Analytics — config",
+        nameKey: "step2Name",
         type: "script",
         position: "head",
         content:
@@ -110,22 +110,19 @@ const PRESETS: Preset[] = [
   },
   {
     id: "gtm",
-    label: "Google Tag Manager",
-    description:
-      "Contenitore GTM per gestire tutti i tag da un'unica interfaccia",
-    paramLabel: "Container ID",
+    tKey: "gtm",
     paramPlaceholder: "GTM-XXXXXXX",
     icon: "🏷️",
     steps: [
       {
-        name: "GTM — head script",
+        nameKey: "step1Name",
         type: "script",
         position: "head",
         content:
           "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${ID}');",
       },
       {
-        name: "GTM — noscript body",
+        nameKey: "step2Name",
         type: "raw",
         position: "body_end",
         content:
@@ -135,22 +132,19 @@ const PRESETS: Preset[] = [
   },
   {
     id: "meta_pixel",
-    label: "Meta Pixel",
-    description:
-      "Tracciamento conversioni e pubblici personalizzati per Facebook/Instagram Ads",
-    paramLabel: "Pixel ID",
+    tKey: "metaPixel",
     paramPlaceholder: "1234567890123456",
     icon: "🎯",
     steps: [
       {
-        name: "Meta Pixel — base code",
+        nameKey: "step1Name",
         type: "script",
         position: "head",
         content:
           "!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '${ID}');\nfbq('track', 'PageView');",
       },
       {
-        name: "Meta Pixel — noscript",
+        nameKey: "step2Name",
         type: "raw",
         position: "head",
         content:
@@ -160,14 +154,12 @@ const PRESETS: Preset[] = [
   },
   {
     id: "search_console",
-    label: "Google Search Console",
-    description: "Meta tag di verifica proprietà del sito",
-    paramLabel: "Codice di verifica",
+    tKey: "searchConsole",
     paramPlaceholder: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     icon: "🔍",
     steps: [
       {
-        name: "Search Console — verifica",
+        nameKey: "step1Name",
         type: "raw",
         position: "head",
         content: '<meta name="google-site-verification" content="${ID}" />',
@@ -176,14 +168,12 @@ const PRESETS: Preset[] = [
   },
   {
     id: "hotjar",
-    label: "Hotjar",
-    description: "Heatmap, registrazioni sessioni e sondaggi utente",
-    paramLabel: "Site ID",
+    tKey: "hotjar",
     paramPlaceholder: "1234567",
     icon: "🔥",
     steps: [
       {
-        name: "Hotjar — tracking",
+        nameKey: "step1Name",
         type: "script",
         position: "head",
         content:
@@ -200,9 +190,14 @@ function PresetPicker({
   onPick,
   onCancel,
 }: {
-  onPick: (preset: Preset, paramValue: string) => void;
+  onPick: (preset: Preset, paramValue: string, resolvedSteps: { name: string; type: SnippetType; position: SnippetPosition; content: string }[]) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("admin.settings.snippets");
+  const tType = useTranslations("admin.settings.snippets.types");
+  const tPosition = useTranslations("admin.settings.snippets.positions");
+  const tPreset = useTranslations("admin.settings.snippets.preset");
+  const tList = useTranslations("admin.settings.snippets.preset.list");
   const [selected, setSelected] = useState<Preset | null>(null);
   const [paramValue, setParamValue] = useState("");
 
@@ -241,7 +236,7 @@ function PresetPicker({
             <span
               className="text-sm font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              {selected ? selected.label : "Scegli un modello"}
+              {selected ? tList(`${selected.tKey}.label`) : tPreset("modalTitle")}
             </span>
           </div>
           <button
@@ -284,19 +279,17 @@ function PresetPicker({
                   <div
                     className="text-sm font-medium"
                     style={{ color: "var(--admin-text)" }}>
-                    {p.label}
+                    {tList(`${p.tKey}.label`)}
                   </div>
                   <div
                     className="text-xs"
                     style={{ color: "var(--admin-text-muted)" }}>
-                    {p.description}
+                    {tList(`${p.tKey}.description`)}
                   </div>
                   <div
                     className="text-xs mt-0.5"
                     style={{ color: "var(--admin-text-faint)" }}>
-                    {p.steps.length === 1
-                      ? "1 snippet"
-                      : `${p.steps.length} snippet`}
+                    {tPreset("snippetCount", { count: p.steps.length })}
                   </div>
                 </div>
                 <ChevronRight
@@ -310,7 +303,7 @@ function PresetPicker({
           /* Form parametro */
           <div className="p-5 space-y-4">
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              {selected.description}
+              {tList(`${selected.tKey}.description`)}
             </p>
 
             {/* Anteprima snippet che verranno creati */}
@@ -318,7 +311,7 @@ function PresetPicker({
               <p
                 className="text-xs font-medium"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Verranno creati {selected.steps.length} snippet:
+                {tPreset("willCreate", { count: selected.steps.length })}
               </p>
               {selected.steps.map((s, i) => (
                 <div
@@ -336,7 +329,7 @@ function PresetPicker({
                   <span
                     className="text-xs"
                     style={{ color: "var(--admin-text-muted)" }}>
-                    {s.name}
+                    {tList(`${selected.tKey}.${s.nameKey}`)}
                   </span>
                   <span
                     className="ml-auto text-xs px-1.5 py-0.5 rounded-full"
@@ -345,7 +338,7 @@ function PresetPicker({
                         "color-mix(in srgb, var(--admin-text-faint) 12%, var(--admin-card-bg))",
                       color: "var(--admin-text-faint)",
                     }}>
-                    {POSITION_LABELS[s.position]}
+                    {tPosition(POSITION_TKEY[s.position])}
                   </span>
                 </div>
               ))}
@@ -361,7 +354,7 @@ function PresetPicker({
                   marginBottom: "4px",
                   color: "var(--admin-text-muted)",
                 }}>
-                {selected.paramLabel}
+                {tList(`${selected.tKey}.paramLabel`)}
               </label>
               <input
                 value={paramValue}
@@ -385,18 +378,26 @@ function PresetPicker({
                   border: "1px solid var(--admin-border)",
                   color: "var(--admin-text-muted)",
                 }}>
-                Indietro
+                {tPreset("backButton")}
               </button>
               <button
                 type="button"
                 disabled={!paramValue.trim()}
-                onClick={() => onPick(selected, paramValue.trim())}
+                onClick={() => {
+                  const resolvedSteps = selected.steps.map((s) => ({
+                    name: tList(`${selected.tKey}.${s.nameKey}`),
+                    type: s.type,
+                    position: s.position,
+                    content: s.content,
+                  }));
+                  onPick(selected, paramValue.trim(), resolvedSteps);
+                }}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
                 style={{
                   background: "var(--admin-accent)",
                   opacity: paramValue.trim() ? 1 : 0.5,
                 }}>
-                <Save size={13} /> Aggiungi snippet
+                <Save size={13} /> {tPreset("confirmButton")}
               </button>
             </div>
           </div>
@@ -420,6 +421,8 @@ function SnippetForm({
   onCancel: () => void;
   loading: boolean;
 }) {
+  const t = useTranslations("admin.settings.snippets.form");
+  const tType = useTranslations("admin.settings.snippets.types");
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<SnippetType>(
     (initial?.type as SnippetType) ?? "script",
@@ -484,7 +487,7 @@ function SnippetForm({
           <h3
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            {initial?.id ? "Modifica snippet" : "Nuovo snippet"}
+            {initial?.id ? t("titleEdit") : t("titleNew")}
           </h3>
           <button
             type="button"
@@ -496,11 +499,11 @@ function SnippetForm({
 
         {/* Nome */}
         <div>
-          <label style={labelStyle}>Nome (solo admin)</label>
+          <label style={labelStyle}>{t("nameLabel")}</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Es. Google Analytics, Meta Pixel…"
+            placeholder={t("namePlaceholder")}
             required
             style={fieldStyle}
           />
@@ -509,33 +512,33 @@ function SnippetForm({
         {/* Tipo + Posizione */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={labelStyle}>Tipo</label>
+            <label style={labelStyle}>{t("typeLabel")}</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as SnippetType)}
               style={fieldStyle}>
-              {(Object.keys(TYPE_LABELS) as SnippetType[]).map((k) => (
+              {(Object.keys(TYPE_TKEY) as SnippetType[]).map((k) => (
                 <option key={k} value={k}>
-                  {TYPE_LABELS[k]}
+                  {tType(TYPE_TKEY[k])}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Posizione</label>
+            <label style={labelStyle}>{t("positionLabel")}</label>
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value as SnippetPosition)}
               style={fieldStyle}>
               <option value="head">&lt;head&gt;</option>
-              <option value="body_end">Fine &lt;body&gt;</option>
+              <option value="body_end">{`Fine <body>`}</option>
             </select>
           </div>
         </div>
 
         {/* Contenuto */}
         <div>
-          <label style={labelStyle}>{isUrl ? "URL" : "Codice"}</label>
+          <label style={labelStyle}>{isUrl ? t("urlLabel") : t("contentLabel")}</label>
           {isUrl ? (
             <input
               value={content}
@@ -600,9 +603,7 @@ function SnippetForm({
           <span
             className="text-sm"
             style={{ color: "var(--admin-text-muted)" }}>
-            {isActive
-              ? "Attivo — verrà iniettato nel frontend"
-              : "Inattivo — salvato ma non iniettato"}
+            {isActive ? t("activeOn") : t("activeOff")}
           </span>
         </div>
 
@@ -617,7 +618,7 @@ function SnippetForm({
               border: "1px solid var(--admin-border)",
               color: "var(--admin-text-muted)",
             }}>
-            Annulla
+            {t("cancelButton")}
           </button>
           <button
             type="submit"
@@ -628,7 +629,7 @@ function SnippetForm({
               opacity: loading ? 0.7 : 1,
             }}>
             <Save size={14} />
-            {loading ? "Salvataggio…" : "Salva"}
+            {loading ? t("savingButton") : t("saveButton")}
           </button>
         </div>
       </form>
@@ -652,9 +653,12 @@ function SnippetRow({
   onToggle: (id: number, current: boolean) => void;
   pendingId: number | null;
 }) {
+  const t = useTranslations("admin.settings.snippets");
+  const tType = useTranslations("admin.settings.snippets.types");
+  const tPosition = useTranslations("admin.settings.snippets.positions");
   const isPending = pendingId === snippet.id;
-  const t = snippet.type as SnippetType;
-  const p = snippet.position as SnippetPosition;
+  const type = snippet.type as SnippetType;
+  const position = snippet.position as SnippetPosition;
   const previewContent =
     snippet.content.length > 60
       ? snippet.content.slice(0, 60) + "…"
@@ -678,7 +682,7 @@ function SnippetRow({
         }}
       />
       <span style={{ color: "var(--admin-accent)", flexShrink: 0 }}>
-        {TYPE_ICONS[t]}
+        {TYPE_ICONS[type]}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -696,7 +700,7 @@ function SnippetRow({
               border:
                 "1px solid color-mix(in srgb, var(--admin-accent) 20%, transparent)",
             }}>
-            {TYPE_LABELS[t]}
+            {tType(TYPE_TKEY[type])}
           </span>
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
@@ -707,13 +711,13 @@ function SnippetRow({
               border:
                 "1px solid color-mix(in srgb, var(--admin-text-faint) 20%, transparent)",
             }}>
-            {POSITION_LABELS[p]}
+            {tPosition(POSITION_TKEY[position])}
           </span>
           {!snippet.isActive && (
             <span
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
-              inattivo
+              {t("rowInactiveBadge")}
             </span>
           )}
         </div>
@@ -730,7 +734,7 @@ function SnippetRow({
           disabled={isPending}
           role="switch"
           aria-checked={snippet.isActive}
-          title={snippet.isActive ? "Disattiva" : "Attiva"}
+          title={snippet.isActive ? t("rowDeactivateTitle") : t("rowActivateTitle")}
           style={{
             position: "relative",
             width: 36,
@@ -764,7 +768,7 @@ function SnippetRow({
         </button>
         <button
           onClick={() => onEdit(snippet)}
-          title="Modifica"
+          title={t("rowEditTitle")}
           className="p-1.5 rounded-lg transition-colors"
           style={{ color: "var(--admin-text-faint)" }}
           onMouseEnter={(e) => {
@@ -779,7 +783,7 @@ function SnippetRow({
         </button>
         <button
           onClick={() => onDelete(snippet.id)}
-          title="Elimina"
+          title={t("rowDeleteTitle")}
           className="p-1.5 rounded-lg transition-colors"
           style={{ color: "var(--admin-text-faint)" }}
           onMouseEnter={(e) => {
@@ -806,6 +810,7 @@ export function SnippetsTab({
 }: {
   initialSnippets: SiteSnippet[];
 }) {
+  const t = useTranslations("admin.settings.snippets");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [snippets, setSnippets] = useOptimistic(initialSnippets);
@@ -835,10 +840,14 @@ export function SnippetsTab({
     startTransition(() => router.refresh());
   }
 
-  async function handlePresetPick(preset: Preset, paramValue: string) {
+  async function handlePresetPick(
+    preset: Preset,
+    paramValue: string,
+    resolvedSteps: { name: string; type: SnippetType; position: SnippetPosition; content: string }[],
+  ) {
     setShowPresets(false);
     setFormLoading(true);
-    for (const step of preset.steps) {
+    for (const step of resolvedSteps) {
       const content = step.content.replaceAll("${ID}", paramValue);
       await createSnippetAction({
         name: step.name,
@@ -855,7 +864,10 @@ export function SnippetsTab({
 
   async function handleDelete(id: number) {
     const snippet = snippets.find((s) => s.id === id);
-    setConfirmDelete({ id, name: snippet?.name ?? "questo snippet" });
+    setConfirmDelete({
+      id,
+      name: snippet?.name ?? t("deleteConfirmFallbackName"),
+    });
   }
 
   async function doDelete() {
@@ -911,12 +923,12 @@ export function SnippetsTab({
           <h2
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            Snippet globali
+            {t("title")}
           </h2>
           <p
             className="text-xs mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            CSS, JavaScript e markup iniettati in tutte le pagine frontend.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -935,7 +947,7 @@ export function SnippetsTab({
             onMouseLeave={(e) =>
               (e.currentTarget.style.background = "var(--admin-input-bg)")
             }>
-            <Wand2 size={13} /> Modelli
+            <Wand2 size={13} /> {t("presetsButton")}
           </button>
           {/* Aggiungi manuale */}
           <button
@@ -949,7 +961,7 @@ export function SnippetsTab({
               (e.currentTarget.style.filter = "brightness(0.88)")
             }
             onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-            <Plus size={13} /> Aggiungi
+            <Plus size={13} /> {t("addButton")}
           </button>
         </div>
       </div>
@@ -957,7 +969,7 @@ export function SnippetsTab({
       {/* Lista head */}
       {headSnippets.length > 0 && (
         <div>
-          <SectionTitle label="Head" count={headSnippets.length} />
+          <SectionTitle label={t("sectionHead")} count={headSnippets.length} />
           <div className="space-y-2">
             {headSnippets.map((s) => (
               <SnippetRow
@@ -979,7 +991,7 @@ export function SnippetsTab({
       {/* Lista body_end */}
       {bodySnippets.length > 0 && (
         <div>
-          <SectionTitle label="Fine body" count={bodySnippets.length} />
+          <SectionTitle label={t("sectionBodyEnd")} count={bodySnippets.length} />
           <div className="space-y-2">
             {bodySnippets.map((s) => (
               <SnippetRow
@@ -1010,13 +1022,12 @@ export function SnippetsTab({
           <p
             className="text-sm font-medium"
             style={{ color: "var(--admin-text-muted)" }}>
-            Nessuno snippet
+            {t("emptyTitle")}
           </p>
           <p
             className="text-xs mt-1"
             style={{ color: "var(--admin-text-faint)" }}>
-            Usa &quot;Modelli&quot; per aggiungere Analytics, GTM o altri script
-            in pochi secondi.
+            {t("emptyDescription")}
           </p>
         </div>
       )}
@@ -1024,19 +1035,21 @@ export function SnippetsTab({
       {/* ConfirmModal eliminazione */}
       <ConfirmModal
         open={!!confirmDelete}
-        title="Elimina snippet"
+        title={t("deleteConfirmTitle")}
         message={
           <>
-            Stai per eliminare{" "}
-            <strong style={{ color: "var(--admin-text)" }}>
-              {confirmDelete?.name}
-            </strong>
-            .
+            {t.rich("deleteConfirmMessage", {
+              name: () => (
+                <strong style={{ color: "var(--admin-text)" }}>
+                  {confirmDelete?.name}
+                </strong>
+              ),
+            })}
             <br />
-            L&apos;operazione è irreversibile.
+            {t("deleteConfirmIrreversible")}
           </>
         }
-        confirmLabel="Elimina"
+        confirmLabel={t("deleteConfirmLabel")}
         variant="danger"
         loading={deleteLoading}
         onConfirm={doDelete}
