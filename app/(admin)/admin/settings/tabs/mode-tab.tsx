@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ArrowRight, Loader2, Save, Shield, ShieldOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -15,6 +16,7 @@ export function ModeTab({ settings }: { settings: AppSettings }) {
 }
 
 function ModeTabInner({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.mode");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveModeSettings,
     {},
@@ -47,7 +49,7 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
           <h3
             className="text-sm font-semibold mb-4"
             style={{ color: "var(--admin-text)" }}>
-            Operation Mode
+            {t("cardTitle")}
           </h3>
 
           <div
@@ -55,15 +57,15 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
             style={{ borderTop: "1px solid var(--admin-divider)" }}>
             <SettingToggle
               name="registrations_enabled"
-              label="SignUp Open"
-              description="User can sign up to the app"
+              label={t("registrationsLabel")}
+              description={t("registrationsDescription")}
               defaultValue={settings.registrations_enabled === "true"}
               activeColor="bg-green-500"
             />
             <SettingToggle
               name="maintenance_mode"
-              label="Maintenance Mode"
-              description="All pages are unavailable, a message will be displayed"
+              label={t("maintenanceLabel")}
+              description={t("maintenanceDescription")}
               defaultValue={settings.maintenance_mode === "true"}
               activeColor="bg-red-500"
             />
@@ -93,7 +95,7 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
           ) : (
             <Save size={15} />
           )}
-          {isPending ? "Saving..." : "Save"}
+          {isPending ? t("saving") : t("save")}
         </button>
       </form>
 
@@ -109,6 +111,7 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
 }
 
 function TurnstileStatus({ configured }: { configured: boolean }) {
+  const t = useTranslations("admin.settings.mode");
   const accent = configured
     ? "color-mix(in oklch, var(--admin-accent) 20%, transparent)"
     : "rgba(217,119,6,0.35)";
@@ -128,16 +131,25 @@ function TurnstileStatus({ configured }: { configured: boolean }) {
       <Icon size={14} className="shrink-0 mt-0.5" style={{ color: iconColor }} />
       <div className="flex-1 space-y-1.5">
         <p style={{ color: "var(--admin-text-muted)" }}>
-          The sign-up flow is protected by{" "}
-          <strong style={{ color: "var(--admin-text)" }}>Cloudflare Turnstile</strong>
+          {t("turnstileText")}{" "}
+          <strong style={{ color: "var(--admin-text)" }}>
+            {t("turnstileBrand")}
+          </strong>
           {configured ? (
             <>
-              {" "}— <span style={{ color: iconColor, fontWeight: 600 }}>active</span>.
+              {" "}—{" "}
+              <span style={{ color: iconColor, fontWeight: 600 }}>
+                {t("turnstileActive")}
+              </span>
+              .
             </>
           ) : (
             <>
-              {" "}— <span style={{ color: iconColor, fontWeight: 600 }}>not configured</span>:
-              bot protection is silently disabled until you set the keys.
+              {" "}—{" "}
+              <span style={{ color: iconColor, fontWeight: 600 }}>
+                {t("turnstileNotConfigured")}
+              </span>
+              : {t("turnstileNotConfiguredHint")}
             </>
           )}
         </p>
@@ -145,7 +157,7 @@ function TurnstileStatus({ configured }: { configured: boolean }) {
           href="/admin/settings/cloudflare"
           className="inline-flex items-center gap-1 font-medium transition-opacity hover:opacity-80"
           style={{ color: iconColor }}>
-          {configured ? "Manage keys" : "Configure keys"}
+          {configured ? t("manageKeys") : t("configureKeys")}
           <ArrowRight size={12} />
         </Link>
       </div>

@@ -323,15 +323,16 @@ export async function saveUsersSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     await updateAppSetting(
       "default_role",
       formData.get("default_role") as string,
     );
     revalidatePath(getAdminPath("settings-signin"));
-    return { success: "Impostazioni utenti salvate.", timestamp: Date.now() };
+    return { success: t("usersSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: t("usersSaveFailed"), timestamp: Date.now() };
   }
 }
 
