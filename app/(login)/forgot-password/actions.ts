@@ -11,6 +11,7 @@ import { db } from "@/lib/db/drizzle";
 import { users, userProfiles } from "@/lib/db/schema";
 import { sendPasswordResetEmail } from "@/lib/email/templates/password-reset";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { z } from "zod";
 
@@ -21,6 +22,7 @@ const forgotPasswordSchema = z.object({
 export const forgotPassword = validatedAction(
   forgotPasswordSchema,
   async (data) => {
+    const t = await getTranslations("auth");
     const headersList = await headers();
     const ip =
       headersList.get("x-forwarded-for") ??
@@ -31,7 +33,7 @@ export const forgotPassword = validatedAction(
     const { blocked } = await checkGeneralRateLimit(rateLimitKey, 3, 15 * 60);
 
     if (blocked) {
-      return { error: "Troppe richieste. Riprova tra qualche minuto." };
+      return { error: t("actionErrors.common.tooManyRequests") };
     }
 
     await recordGeneralAttempt(rateLimitKey);
@@ -51,7 +53,7 @@ export const forgotPassword = validatedAction(
 
     if (!row) {
       return {
-        success: "Se l'email è registrata, riceverai le istruzioni a breve.",
+        success: t("actionErrors.forgotPassword.successAlways"),
       };
     }
 
@@ -63,7 +65,7 @@ export const forgotPassword = validatedAction(
     );
 
     return {
-      success: "Se l'email è registrata, riceverai le istruzioni a breve.",
+      success: t("actionErrors.forgotPassword.successAlways"),
     };
   },
 );

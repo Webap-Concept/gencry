@@ -62,6 +62,7 @@ import {
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { sendSignupVerificationEmail } from "@/lib/email/templates/signup-verification";
 import { eq, sql } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -105,6 +106,7 @@ const signInSchema = z.object({
 
 export const signIn = validatedAction(signInSchema, async (data, formData) => {
   const { email, password } = data;
+  const t = await getTranslations("auth");
 
   const headersList = await headers();
   const ip =
@@ -117,13 +119,13 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     ip,
   );
   if (!turnstileOk) {
-    return { error: "Verifica anti-bot fallita. Ricarica la pagina e riprova.", email, password };
+    return { error: t("actionErrors.common.turnstileFailed"), email, password };
   }
 
   const { blocked } = await checkRateLimit(email, ip);
   if (blocked) {
     return {
-      error: "Troppi tentativi falliti. Riprova tra qualche minuto.",
+      error: t("actionErrors.common.tooManyAttempts"),
       email,
       password,
     };
@@ -141,7 +143,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
       "$2b$12$dummyhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     );
     await recordLoginAttempt(email, ip, false);
-    return { error: "Email o password errate, riprova.", email, password };
+    return { error: t("actionErrors.signIn.invalidCredentials"), email, password };
   }
 
   if (foundUser.bannedAt !== null) {
@@ -150,7 +152,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
       "$2b$12$dummyhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     );
     return {
-      error: "Il tuo account è stato sospeso. Contatta il supporto.",
+      error: t("actionErrors.signIn.banned"),
       email,
       password,
     };
@@ -165,8 +167,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
       "$2b$12$dummyhashXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
     );
     return {
-      error:
-        "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza.",
+      error: t("actionErrors.signIn.deleted"),
       email,
       password,
     };
@@ -176,14 +177,14 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
 
   if (!isPasswordValid) {
     await recordLoginAttempt(email, ip, false);
-    return { error: "Email o password errate, riprova.", email, password };
+    return { error: t("actionErrors.signIn.invalidCredentials"), email, password };
   }
 
   if (foundUser.role !== "admin") {
     const settings = await getAppSettings();
     if (settings.maintenance_mode === "true") {
       return {
-        error: "Il sito è in manutenzione. Solo gli amministratori possono accedere.",
+        error: t("actionErrors.signIn.maintenance"),
         email,
         password,
       };
@@ -282,11 +283,12 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const { username, email, password } = data;
   // firstName e lastName non presenti in questa fase: saranno null nel DB
   // fino a quando l'utente non li compila dalla pagina del profilo.
+  const t = await getTranslations("auth");
 
   const settings = await getAppSettings();
   if (settings.registrations_enabled === "false") {
     return {
-      error: "Le registrazioni sono temporaneamente chiuse.",
+      error: t("actionErrors.signUp.registrationsDisabled"),
       email,
       password,
     };
@@ -303,26 +305,26 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     ip,
   );
   if (!turnstileOk) {
-    return { error: "Verifica anti-bot fallita. Ricarica la pagina e riprova.", email, password };
+    return { error: t("actionErrors.common.turnstileFailed"), email, password };
   }
 
   // Rate limit registrazione (bf_signup_max, default 10 per IP)
   const signupCheck = await checkSignupRateLimit(ip);
   if (signupCheck.blocked) {
     return {
-      error: "Troppi tentativi di registrazione. Riprova tra qualche minuto.",
+      error: t("actionErrors.signUp.tooManyAttempts"),
       email,
       password,
     };
   }
 
   if (await isIpBlacklisted(ip)) {
-    return { error: "Accesso non consentito.", email, password };
+    return { error: t("actionErrors.common.ipBlocked"), email, password };
   }
 
   if (await isDomainBlacklisted(email)) {
     return {
-      error: "Non accettiamo registrazioni con questo provider email.",
+      error: t("actionErrors.signUp.domainBlocked"),
       email,
       password,
     };
@@ -330,7 +332,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
   if (await isUsernameBlacklisted(username)) {
     return {
-      error: "Questo username non è disponibile. Scegli un altro username.",
+      error: t("actionErrors.signUp.usernameBlocked"),
       email,
       password,
     };
@@ -344,11 +346,11 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   ]);
 
   if (!emailAvailability.available) {
-    return { error: "Questa email è già stata registrata", email, password };
+    return { error: t("actionErrors.signUp.emailTaken"), email, password };
   }
 
   if (!usernameAvailability.available) {
-    return { error: "Questo username è già in uso.", email, password };
+    return { error: t("actionErrors.signUp.usernameTaken"), email, password };
   }
 
   const { termsVersion, privacyVersion, marketingVersion } =
@@ -378,7 +380,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
       .returning();
 
     if (!inserted) {
-      return { error: "Impossibile creare l'account. Riprova.", email, password };
+      return { error: t("actionErrors.common.createAccountFailed"), email, password };
     }
 
     createdUser = inserted;
@@ -386,7 +388,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     if (isUniqueConstraintError(err)) {
       await recordSignupAttempt(ip);
       return {
-        error: "Questa email è appena stata registrata da un altro utente. Prova con un'altra.",
+        error: t("actionErrors.signUp.emailRace"),
         email,
         password,
       };
@@ -405,7 +407,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
       await db.delete(users).where(eq(users.id, createdUser.id));
       await recordSignupAttempt(ip);
       return {
-        error: "Questo username è appena stato scelto da un altro utente. Scegline un altro.",
+        error: t("actionErrors.signUp.usernameRace"),
         email,
         password,
       };
@@ -456,6 +458,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 // ---------------------------------------------------------------------------
 
 export async function checkEmailAction(email: string) {
+  const t = await getTranslations("auth");
   const headersList = await headers();
   const ip =
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -464,22 +467,22 @@ export async function checkEmailAction(email: string) {
   if (availCheck.blocked) {
     return {
       available: false,
-      error: "Hai effettuato troppi controlli. Riprova tra qualche minuto.",
+      error: t("actionErrors.common.tooManyChecks"),
     };
   }
 
   const normalizedEmail = email.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    return { available: false, error: "Inserisci un indirizzo email" };
+    return { available: false, error: t("actionErrors.checkEmail.emailRequired") };
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-    return { available: false, error: "Inserisci un indirizzo email valido" };
+    return { available: false, error: t("actionErrors.checkEmail.emailInvalid") };
   }
 
   if (await isDomainBlacklisted(normalizedEmail)) {
-    return { available: false, error: "Dominio email non consentito" };
+    return { available: false, error: t("actionErrors.checkEmail.domainBlocked") };
   }
 
   await ensureBloomFilter();
@@ -488,7 +491,7 @@ export async function checkEmailAction(email: string) {
   return {
     available: result.available,
     checkedViaDb: result.checkedViaDb,
-    error: result.available ? "" : "Questa email è già stata registrata",
+    error: result.available ? "" : t("actionErrors.checkEmail.alreadyRegistered"),
   };
 }
 
@@ -499,6 +502,7 @@ export async function checkEmailAction(email: string) {
 export async function checkUsernameAction(
   username: string,
 ): Promise<{ available: boolean; error?: string }> {
+  const t = await getTranslations("auth");
   const headersList = await headers();
   const ip =
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -507,7 +511,7 @@ export async function checkUsernameAction(
   if (availCheck.blocked) {
     return {
       available: false,
-      error: "Hai effettuato troppi controlli. Riprova tra qualche minuto.",
+      error: t("actionErrors.common.tooManyChecks"),
     };
   }
 
@@ -516,13 +520,13 @@ export async function checkUsernameAction(
   }
 
   if (await isUsernameBlacklisted(username)) {
-    return { available: false, error: "Questo username non è disponibile." };
+    return { available: false, error: t("actionErrors.checkUsername.blocked") };
   }
 
   const result = await checkUsernameAvailability(username);
   return {
     available: result.available,
-    error: result.available ? undefined : "Questo username è già in uso.",
+    error: result.available ? undefined : t("actionErrors.checkUsername.alreadyTaken"),
   };
 }
 

@@ -1,6 +1,7 @@
 // app/(login)/sign-in/mfa/actions.ts
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -34,9 +35,10 @@ const TOTP_RE = /^\d{6}$/;
 const RECOVERY_RE = /^[a-zA-Z0-9-\s]+$/;
 
 export const verifyMfa = validatedAction(verifySchema, async (data) => {
+  const t = await getTranslations("auth");
   const pending = await getPendingMfa();
   if (!pending) {
-    return { error: "Sessione di verifica scaduta. Accedi di nuovo." };
+    return { error: t("actionErrors.mfa.sessionExpired") };
   }
   const { userId, role } = pending;
 
@@ -54,14 +56,14 @@ export const verifyMfa = validatedAction(verifySchema, async (data) => {
     const rl = await checkMfaTotpRateLimit(userId);
     if (rl.blocked) {
       return {
-        error: "Troppi tentativi. Riprova fra qualche minuto.",
+        error: t("actionErrors.mfa.tooManyAttempts"),
       };
     }
 
     const result = await verifyTotpForLogin(userId, raw);
     if (!result.valid) {
       await recordMfaTotpAttempt(userId);
-      return { error: "Codice non valido. Riprova." };
+      return { error: t("actionErrors.mfa.invalidCode") };
     }
 
     await onMfaSuccess(userId, role, ip, ActivityType.MFA_VERIFIED);
@@ -70,20 +72,20 @@ export const verifyMfa = validatedAction(verifySchema, async (data) => {
 
   // Path 2: recovery code (xxxxx-xxxxx, lowercase, eventualmente con spazi).
   if (!RECOVERY_RE.test(raw)) {
-    return { error: "Formato codice non valido." };
+    return { error: t("actionErrors.mfa.invalidFormat") };
   }
 
   const rl = await checkMfaRecoveryRateLimit(userId);
   if (rl.blocked) {
     return {
-      error: "Troppi tentativi. Riprova fra qualche minuto.",
+      error: t("actionErrors.mfa.tooManyAttempts"),
     };
   }
 
   const result = await consumeRecoveryCode(userId, raw);
   if (!result.ok) {
     await recordMfaRecoveryAttempt(userId);
-    return { error: "Codice non valido. Riprova." };
+    return { error: t("actionErrors.mfa.invalidCode") };
   }
 
   await onMfaSuccess(userId, role, ip, ActivityType.MFA_RECOVERY_CODE_USED);

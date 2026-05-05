@@ -22,6 +22,7 @@ import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
 import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -37,9 +38,10 @@ const verifySchema = z.object({
 });
 
 export const verifyDevice = validatedAction(verifySchema, async (data) => {
+  const t = await getTranslations("auth");
   const pending = await getPendingAuth();
   if (!pending) {
-    return { error: "Sessione scaduta. Accedi di nuovo." };
+    return { error: t("actionErrors.verifyDevice.sessionExpired") };
   }
 
   const { userId, role } = pending;
@@ -97,9 +99,10 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
 // ─── Re-invio codice OTP ────────────────────────────────────────────────────
 
 export const resendDeviceCode = validatedAction(z.object({}), async () => {
+  const t = await getTranslations("auth");
   const pending = await getPendingAuth();
   if (!pending) {
-    return { error: "Sessione scaduta. Accedi di nuovo." };
+    return { error: t("actionErrors.verifyDevice.sessionExpired") };
   }
 
   const { userId, role } = pending;
@@ -107,7 +110,7 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
   const rlKey = `device-otp-resend:${userId}`;
   const { blocked } = await checkGeneralRateLimit(rlKey, RESEND_MAX, RESEND_WINDOW_SECONDS);
   if (blocked) {
-    return { error: "Hai richiesto troppi codici. Riprova tra qualche minuto." };
+    return { error: t("actionErrors.verifyDevice.tooManyResends") };
   }
   await recordGeneralAttempt(rlKey);
 
@@ -118,7 +121,7 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
     .limit(1);
 
   if (!row) {
-    return { error: "Utente non trovato." };
+    return { error: t("actionErrors.common.userNotFound") };
   }
 
   const code = await createVerificationCode(userId, "device_verification");
@@ -128,5 +131,5 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
   // piena per inserire il codice appena ricevuto
   await setPendingAuthCookie(userId, role);
 
-  return { success: "Codice inviato! Controlla la tua email." };
+  return { success: t("actionErrors.verifyDevice.codeSent") };
 });
