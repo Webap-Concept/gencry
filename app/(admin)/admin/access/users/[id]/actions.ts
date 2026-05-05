@@ -18,6 +18,7 @@ import {
   removeUserPermissionOverride,
 } from "@/lib/rbac/permissions-queries";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -75,14 +76,16 @@ async function assertUserNotDeleted(userId: string) {
     .where(eq(users.id, userId))
     .limit(1);
   if (target?.deletedAt) {
-    return "This user has been deleted and cannot be modified.";
+    const t = await getTranslations("admin.access.users.detail");
+    return t("actionUserDeleted");
   }
   return null;
 }
 
 export async function addOverride(formData: FormData) {
+  const t = await getTranslations("admin.access.users.detail");
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+  if (!admin || !admin.isAdmin) return { error: t("actionUnauthorized") };
 
   const parsed = OverrideSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -122,8 +125,9 @@ export async function addOverride(formData: FormData) {
 }
 
 export async function removeOverride(overrideId: number, userId: string) {
+  const t = await getTranslations("admin.access.users.detail");
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+  if (!admin || !admin.isAdmin) return { error: t("actionUnauthorized") };
 
   const blocked = await assertUserNotDeleted(userId);
   if (blocked) return { error: blocked };
@@ -151,15 +155,21 @@ export async function removeOverride(overrideId: number, userId: string) {
 
 const AdminResetMfaSchema = z.object({
   userId: z.string().uuid(),
-  reason: z.string().trim().min(3, "Reason is required").max(500),
+  reason: z.string().trim().min(3, "reasonRequired").max(500),
 });
 
 export async function adminResetMfa(formData: FormData) {
+  const t = await getTranslations("admin.access.users.detail");
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+  if (!admin || !admin.isAdmin) return { error: t("actionUnauthorized") };
 
   const parsed = AdminResetMfaSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0].message;
+    return {
+      error: msg === "reasonRequired" ? t("actionReasonRequired") : msg,
+    };
+  }
 
   const { userId, reason } = parsed.data;
 
@@ -171,7 +181,7 @@ export async function adminResetMfa(formData: FormData) {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (!target) return { error: "User not found." };
+  if (!target) return { error: t("actionUserNotFound") };
 
   await resetMfaForAdmin(userId);
 
@@ -208,8 +218,9 @@ export async function adminResetMfa(formData: FormData) {
  * Called both manually from the UI button and automatically on page load.
  */
 export async function purgeExpired(userId: string) {
+  const t = await getTranslations("admin.access.users.detail");
   const admin = await getUser();
-  if (!admin || !admin.isAdmin) return { error: "Unauthorized" };
+  if (!admin || !admin.isAdmin) return { error: t("actionUnauthorized") };
 
   const blocked = await assertUserNotDeleted(userId);
   if (blocked) return { error: blocked };

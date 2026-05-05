@@ -1,6 +1,7 @@
 "use client";
 
 import { ActivityLog, ActivityType } from "@/lib/db/schema";
+import { useLocale, useTranslations } from "next-intl";
 
 const ACTION_ICONS: Record<string, string> = {
   // Auth
@@ -60,12 +61,16 @@ type ActivityItem = {
 };
 
 export function ActivityList({ activity }: { activity: ActivityItem[] }) {
+  const t = useTranslations("admin.access.users.detail");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+
   if (activity.length === 0) {
     return (
       <p
         className="text-sm text-center py-8"
         style={{ color: "var(--admin-text-faint)" }}>
-        No activity logged.
+        {t("activityEmpty")}
       </p>
     );
   }
@@ -96,14 +101,14 @@ export function ActivityList({ activity }: { activity: ActivityItem[] }) {
               <p
                 className="text-xs"
                 style={{ color: "var(--admin-text-faint)" }}>
-                IP: {log.ipAddress}
+                {t("activityIp", { ip: log.ipAddress })}
               </p>
             )}
           </div>
           <span
             className="text-xs shrink-0"
             style={{ color: "var(--admin-text-faint)" }}>
-            {new Date(log.timestamp).toLocaleDateString("en-US", {
+            {new Date(log.timestamp).toLocaleDateString(dateLocale, {
               day: "numeric",
               month: "short",
               hour: "2-digit",

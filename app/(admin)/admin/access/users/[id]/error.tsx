@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect } from "react";
 
@@ -11,6 +12,8 @@ export default function UserDetailError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("admin.access.users.detail");
+
   useEffect(() => {
     console.error("[admin/users/[id]] error:", error);
   }, [error]);
@@ -29,7 +32,7 @@ export default function UserDetailError({
           className="flex items-center gap-1.5 text-sm"
           style={{ color: "var(--admin-text-muted)" }}>
           <ArrowLeft size={15} />
-          Users
+          {t("errorBreadcrumb")}
         </Link>
       </div>
 
@@ -44,14 +47,14 @@ export default function UserDetailError({
           <h2
             className="text-base font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            Error loading user
+            {t("errorLoadingTitle")}
           </h2>
           <p
             className="text-sm max-w-sm"
             style={{ color: "var(--admin-text-muted)" }}>
             {isMissingTable
-              ? "RBAC tables are not yet present in the DB. Run migration 0013 on Supabase, then reload."
-              : error.message || "An unexpected error occurred."}
+              ? t("errorRbacMissing")
+              : error.message || t("errorFallback")}
           </p>
         </div>
 
@@ -64,14 +67,14 @@ export default function UserDetailError({
               color: "var(--admin-text-muted)",
             }}>
             <ArrowLeft size={14} />
-            Back to users
+            {t("errorBackButton")}
           </Link>
           <button
             onClick={reset}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
             style={{ background: "var(--admin-accent)" }}>
             <RefreshCw size={14} />
-            Try again
+            {t("errorTryAgain")}
           </button>
         </div>
       </div>

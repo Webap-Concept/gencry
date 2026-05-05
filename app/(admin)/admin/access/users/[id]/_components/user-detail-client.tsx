@@ -3,6 +3,7 @@
 import type { AdminUserDetail } from "@/lib/db/admin-queries";
 import type { RoleRow } from "@/lib/db/roles-queries";
 import { Check, Shield, ShieldBan, ShieldCheck, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { setUserRole } from "../../../roles/actions";
 import BanModal from "../../_components/ban-modal";
@@ -11,6 +12,7 @@ import { unbanUser } from "../../actions";
 
 // ─── BanButton ────────────────────────────────────────────────────────
 export function BanButton({ user }: { user: AdminUserDetail }) {
+  const t = useTranslations("admin.access.users.detail");
   const [showModal, setShowModal] = useState(false);
   const [pending, startTransition] = useTransition();
   const isBanned = !!user.bannedAt;
@@ -21,7 +23,7 @@ export function BanButton({ user }: { user: AdminUserDetail }) {
   if (user.isAdmin) {
     return (
       <span className="text-xs text-gray-400 italic">
-        Admins cannot be suspended
+        {t("buttonAdminsCannotSuspend")}
       </span>
     );
   }
@@ -35,13 +37,13 @@ export function BanButton({ user }: { user: AdminUserDetail }) {
           disabled={pending}
           onClick={() => startTransition(() => unbanUser(user.id))}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50">
-          <ShieldCheck size={15} /> Reactivate account
+          <ShieldCheck size={15} /> {t("buttonReactivate")}
         </button>
       ) : (
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">
-          <ShieldBan size={15} /> Suspend account
+          <ShieldBan size={15} /> {t("buttonSuspend")}
         </button>
       )}
       {showModal && (
@@ -63,6 +65,7 @@ export function DeleteButton({
   user: AdminUserDetail;
   canDelete: boolean;
 }) {
+  const t = useTranslations("admin.access.users.detail");
   const [showModal, setShowModal] = useState(false);
 
   // Don't show anything if: no permission, already deleted, or is admin
@@ -75,15 +78,15 @@ export function DeleteButton({
     <>
       <button
         onClick={() => setShowModal(true)}
-        title="Delete user"
-        aria-label="Delete user"
+        title={t("buttonDeleteAria")}
+        aria-label={t("buttonDeleteAria")}
         className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
         style={{
           background: "var(--admin-hover-bg)",
           color: "var(--color-error, #a12c7b)",
         }}>
         <Trash2 size={15} />
-        Delete account
+        {t("buttonDelete")}
       </button>
       {showModal && (
         <DeleteModal
@@ -107,6 +110,7 @@ export function RoleSelector({
   availableRoles: RoleRow[];
   isDeleted?: boolean;
 }) {
+  const t = useTranslations("admin.access.users.detail");
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState(user.role);
   const [saved, setSaved] = useState(false);
@@ -169,7 +173,7 @@ export function RoleSelector({
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded font-medium"
                       style={{ background: "#f5f3ff", color: "#7c3aed" }}>
-                      Admin
+                      {t("roleAdminBadge")}
                     </span>
                   )}
                 </div>
@@ -198,15 +202,22 @@ export function RoleSelector({
       {!isDeleted && selected !== user.role && (
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-            Changing from{" "}
-            <strong style={{ color: "var(--admin-text-muted)" }}>
-              {availableRoles.find((r) => r.name === user.role)?.label ??
-                user.role}
-            </strong>{" "}
-            →{" "}
-            <strong style={{ color: currentRoleData?.color }}>
-              {currentRoleData?.label ?? selected}
-            </strong>
+            {t.rich("roleChangingFrom", {
+              fromLabel:
+                availableRoles.find((r) => r.name === user.role)?.label ??
+                user.role,
+              toLabel: currentRoleData?.label ?? selected,
+              from: (chunks) => (
+                <strong style={{ color: "var(--admin-text-muted)" }}>
+                  {chunks}
+                </strong>
+              ),
+              to: (chunks) => (
+                <strong style={{ color: currentRoleData?.color }}>
+                  {chunks}
+                </strong>
+              ),
+            })}
           </p>
           <button
             onClick={handleSave}
@@ -218,7 +229,7 @@ export function RoleSelector({
             ) : saved ? (
               <Check size={12} />
             ) : null}
-            {saved ? "Saved" : "Apply role"}
+            {saved ? t("roleSaved") : t("roleApply")}
           </button>
         </div>
       )}

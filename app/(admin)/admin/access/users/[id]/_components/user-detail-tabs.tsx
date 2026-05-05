@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, Key, Monitor, ScrollText, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 type Props = {
@@ -24,28 +25,29 @@ export function UserDetailTabs({
   activeSessionsCount,
   consentsCount,
 }: Props) {
+  const t = useTranslations("admin.access.users.detail");
   const [active, setActive] = useState<
     "info" | "access" | "sessions" | "activity" | "consents"
   >("info");
 
   const tabs = [
-    { id: "info" as const, label: "Info", icon: User },
+    { id: "info" as const, label: t("tabInfo"), icon: User },
     {
       id: "access" as const,
-      label: "Access",
+      label: t("tabAccess"),
       icon: Key,
       badge: overridesCount > 0 ? overridesCount : undefined,
     },
     {
       id: "sessions" as const,
-      label: "Sessions",
+      label: t("tabSessions"),
       icon: Monitor,
       badge: activeSessionsCount > 0 ? activeSessionsCount : undefined,
     },
-    { id: "activity" as const, label: "Activity", icon: Activity },
+    { id: "activity" as const, label: t("tabActivity"), icon: Activity },
     {
       id: "consents" as const,
-      label: "Consents",
+      label: t("tabConsents"),
       icon: ScrollText,
       badge: consentsCount > 0 ? consentsCount : undefined,
     },

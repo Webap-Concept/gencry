@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   ShieldX,
 } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -46,14 +47,16 @@ const UUID_REGEX =
 
 function StatusBadge({
   user,
+  t,
 }: {
   user: Awaited<ReturnType<typeof getAdminUserById>>;
+  t: Awaited<ReturnType<typeof getTranslations<"admin.access.users.detail">>>;
 }) {
   if (!user) return null;
   if (user.bannedAt)
     return (
       <span className="px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
-        Suspended
+        {t("statusSuspended")}
       </span>
     );
   if (user.deletedAt)
@@ -64,12 +67,12 @@ function StatusBadge({
           background: "var(--admin-hover-bg)",
           color: "var(--admin-text-muted)",
         }}>
-        Deleted
+        {t("statusDeleted")}
       </span>
     );
   return (
     <span className="px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700 rounded-full">
-      Active
+      {t("statusActive")}
     </span>
   );
 }
@@ -81,6 +84,10 @@ async function UserContent({
   id: string;
   canDelete: boolean;
 }) {
+  const t = await getTranslations("admin.access.users.detail");
+  const locale = await getLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+
   const [
     user,
     activity,
@@ -135,25 +142,29 @@ async function UserContent({
         <h4
           className="text-sm font-semibold mb-4"
           style={{ color: "var(--admin-text)" }}>
-          Account Information
+          {t("accountInfoHeading")}
         </h4>
         <div className="space-y-3">
           {[
-            { icon: Mail, label: "Email", value: user.email },
+            { icon: Mail, label: t("labelEmail"), value: user.email },
             {
               icon: Calendar,
-              label: "Joined on",
-              value: new Date(user.createdAt).toLocaleDateString("en-US", {
+              label: t("labelJoinedOn"),
+              value: new Date(user.createdAt).toLocaleDateString(dateLocale, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
               }),
             },
-            { icon: CreditCard, label: "Plan", value: user.planName ?? "Free" },
+            {
+              icon: CreditCard,
+              label: t("labelPlan"),
+              value: user.planName ?? t("planFree"),
+            },
             {
               icon: isPremium ? ShieldCheck : ShieldX,
-              label: "Stripe",
-              value: user.stripeCustomerId ?? "Not connected",
+              label: t("labelStripe"),
+              value: user.stripeCustomerId ?? t("stripeNotConnected"),
             },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-center gap-3">
@@ -189,13 +200,13 @@ async function UserContent({
           <h4
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}>
-            Role
+            {t("roleHeading")}
           </h4>
           <Link
             href={getAdminPath("users-roles")}
             className="text-xs transition-colors"
             style={{ color: "var(--admin-accent)" }}>
-            Manage roles →
+            {t("roleManageRoles")}
           </Link>
         </div>
         <RoleSelector
@@ -228,13 +239,13 @@ async function UserContent({
         <h4
           className="text-sm font-semibold"
           style={{ color: "var(--admin-text)" }}>
-          Recent Activity
+          {t("recentActivityHeading")}
         </h4>
       </div>
       <Suspense
         fallback={
           <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-            Loading...
+            {t("recentActivityLoading")}
           </p>
         }>
         <ActivityList activity={activity} />
@@ -294,7 +305,7 @@ async function UserContent({
                 ? `${user.firstName} ${user.lastName}`
                 : user.email}
             </h2>
-            <StatusBadge user={user} />
+            <StatusBadge user={user} t={t} />
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-0.5">
             {user.username && (
@@ -332,11 +343,10 @@ async function UserContent({
           <Lock size={16} className="text-red-500 shrink-0" />
           <div className="text-xs leading-relaxed">
             <p className="font-semibold text-red-600">
-              This account has been deleted
+              {t("deletedNoticeTitle")}
             </p>
             <p style={{ color: "var(--admin-text-muted)" }}>
-              The user is read-only — role, permissions and account status
-              cannot be changed.
+              {t("deletedNoticeBody")}
             </p>
           </div>
         </div>
@@ -371,6 +381,8 @@ export default async function AdminUserPage({
     ? currentUser.isAdmin || (await can(currentUser, "users:delete"))
     : false;
 
+  const t = await getTranslations("admin.access.users.detail");
+
   return (
     <div className="space-y-6">
       <Link
@@ -378,7 +390,7 @@ export default async function AdminUserPage({
         className="inline-flex items-center gap-1.5 text-sm transition-colors"
         style={{ color: "var(--admin-text-muted)" }}>
         <ArrowLeft size={14} />
-        All users
+        {t("backToUsers")}
       </Link>
       <Suspense
         fallback={
