@@ -8,6 +8,7 @@ import { getPendingReconsents } from "@/lib/account/policy-reconsent";
 import { getSession } from "@/lib/auth/session";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
+import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { Suspense } from "react";
 import { PolicyReconsentBanner } from "./_components/policy-reconsent-banner";
 
@@ -20,6 +21,9 @@ export default async function Layout({
 }: {
   children: React.ReactNode;
 }) {
+  // PR-1b: locale dall'header x-locale (cookie/Accept-Language/default).
+  // PR-5 sovrascriverà con users.locale per l'utente loggato.
+  await setRequestLocaleFromHeaders();
   const session = await getSession();
   const isGuest = !session;
 

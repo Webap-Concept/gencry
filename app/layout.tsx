@@ -7,6 +7,7 @@ import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { Analytics } from "@vercel/analytics/next";
 import type { Viewport } from "next";
 import { headers } from "next/headers";
@@ -128,6 +129,8 @@ export default async function RootLayout({
 }) {
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") ?? "/";
+  const localeHeader = headersList.get("x-locale");
+  const lang = localeHeader && isLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
 
   const isAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
@@ -161,7 +164,7 @@ export default async function RootLayout({
 
   return (
     <html
-      lang="it"
+      lang={lang}
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${satoshi.variable} ${instrumentSerif.variable}`}>
       <head>
         {/*
