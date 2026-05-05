@@ -3,6 +3,10 @@ import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
+// Reset/typography per CMS templates (.tpl-*). Era ereditato dal vecchio
+// (frontend)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
+// va caricato a questo livello. Vedi project_frontend_css_split.md.
+import "@/app/(frontend)/frontend.css";
 
 /**
  * Layout outer per le rotte con primo segment dinamico (`/<x>` o `/<x>/...`).
