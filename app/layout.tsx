@@ -204,10 +204,11 @@ export default async function RootLayout({
               <DynamicWrapper>{children}</DynamicWrapper>
             </Suspense>
           )}
+          {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
+          {showCookieBanner && <CookieBanner policyUrl={cookiePolicyUrl} />}
         </NextIntlClientProvider>
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
-        {showCookieBanner && <CookieBanner policyUrl={cookiePolicyUrl} />}
         {analyticsAllowed && <Analytics />}
       </body>
     </html>

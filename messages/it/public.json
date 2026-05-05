@@ -55,5 +55,43 @@
     "legalsEyebrow": "Informativa",
     "legalsLastUpdate": "Ultimo aggiornamento:",
     "byAuthor": "Di"
+  },
+  "cookieBanner": {
+    "ariaLabel": "Avviso cookie",
+    "title": "Rispettiamo la tua privacy",
+    "description": "Usiamo cookie tecnici necessari e, con il tuo consenso, cookie di preferenze, statistiche e marketing per migliorare il sito.",
+    "moreInfo": "Maggiori informazioni",
+    "customize": "Personalizza",
+    "rejectAll": "Rifiuta tutti",
+    "acceptAll": "Accetta tutti"
+  },
+  "cookieModal": {
+    "title": "Preferenze cookie",
+    "close": "Chiudi",
+    "intro": "Scegli quali categorie di cookie attivare. Puoi cambiare idea in qualsiasi momento.",
+    "policyLink": "Cookie policy",
+    "alwaysActive": "Sempre attivi",
+    "rejectAll": "Rifiuta tutti",
+    "saveSelection": "Salva selezione",
+    "savingPending": "Salvataggio…",
+    "acceptAll": "Accetta tutti",
+    "categories": {
+      "necessary": {
+        "label": "Necessari",
+        "description": "Indispensabili per il funzionamento del sito (sessione, sicurezza, preferenze di base). Sempre attivi: senza non potresti navigare."
+      },
+      "preferences": {
+        "label": "Preferenze",
+        "description": "Memorizzano le tue scelte (lingua, tema, visualizzazioni) per personalizzare l'esperienza nelle visite successive."
+      },
+      "analytics": {
+        "label": "Statistiche",
+        "description": "Ci aiutano a capire come viene usato il sito (pagine più viste, errori). I dati sono aggregati e ci servono per migliorare."
+      },
+      "marketing": {
+        "label": "Marketing",
+        "description": "Permettono di mostrare contenuti e annunci più rilevanti per te su questo sito o su piattaforme di terze parti."
+      }
+    }
   }
 }

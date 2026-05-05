@@ -1,6 +1,7 @@
 "use client";
 
 import { Cookie, ExternalLink, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import {
   acceptAllCookiesAction,
@@ -29,35 +30,13 @@ const DEFAULT_INITIAL: CustomizeInitialPrefs = {
   marketing: false,
 };
 
-const CATEGORIES = [
-  {
-    key: "necessary" as const,
-    label: "Necessari",
-    description:
-      "Indispensabili per il funzionamento del sito (sessione, sicurezza, preferenze di base). Sempre attivi: senza non potresti navigare.",
-    locked: true,
-  },
-  {
-    key: "preferences" as const,
-    label: "Preferenze",
-    description:
-      "Memorizzano le tue scelte (lingua, tema, visualizzazioni) per personalizzare l'esperienza nelle visite successive.",
-    locked: false,
-  },
-  {
-    key: "analytics" as const,
-    label: "Statistiche",
-    description:
-      "Ci aiutano a capire come viene usato il sito (pagine più viste, errori). I dati sono aggregati e ci servono per migliorare.",
-    locked: false,
-  },
-  {
-    key: "marketing" as const,
-    label: "Marketing",
-    description:
-      "Permettono di mostrare contenuti e annunci più rilevanti per te su questo sito o su piattaforme di terze parti.",
-    locked: false,
-  },
+type CategoryKey = "necessary" | "preferences" | "analytics" | "marketing";
+
+const CATEGORY_KEYS: { key: CategoryKey; locked: boolean }[] = [
+  { key: "necessary", locked: true },
+  { key: "preferences", locked: false },
+  { key: "analytics", locked: false },
+  { key: "marketing", locked: false },
 ];
 
 export function CookieCustomizeModal({
@@ -69,6 +48,7 @@ export function CookieCustomizeModal({
   policyUrl?: string | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("public.cookieModal");
   const [isPending, startTransition] = useTransition();
   const [preferences, setPreferences] = useState(initialPrefs.preferences);
   const [analytics, setAnalytics] = useState(initialPrefs.analytics);
@@ -94,16 +74,14 @@ export function CookieCustomizeModal({
     });
   };
 
-  const stateFor = (key: (typeof CATEGORIES)[number]["key"]): boolean => {
+  const stateFor = (key: CategoryKey): boolean => {
     if (key === "necessary") return true;
     if (key === "preferences") return preferences;
     if (key === "analytics") return analytics;
     return marketing;
   };
 
-  const setterFor = (
-    key: (typeof CATEGORIES)[number]["key"],
-  ): ((v: boolean) => void) => {
+  const setterFor = (key: CategoryKey): ((v: boolean) => void) => {
     if (key === "preferences") return setPreferences;
     if (key === "analytics") return setAnalytics;
     if (key === "marketing") return setMarketing;
@@ -147,12 +125,12 @@ export function CookieCustomizeModal({
               id="cookie-customize-title"
               className="flex-1 text-base font-semibold"
               style={{ color: "#111827" }}>
-              Preferenze cookie
+              {t("title")}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Chiudi"
+              aria-label={t("close")}
               className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center"
               style={{ color: "#6b7280" }}>
               <X size={16} />
@@ -161,8 +139,7 @@ export function CookieCustomizeModal({
 
           <div className="flex-1 overflow-auto px-5 py-4">
             <p className="text-sm mb-4" style={{ color: "#4b5563" }}>
-              Scegli quali categorie di cookie attivare. Puoi cambiare idea in
-              qualsiasi momento.
+              {t("intro")}
               {policyUrl && (
                 <>
                   {" "}
@@ -172,7 +149,7 @@ export function CookieCustomizeModal({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 underline"
                     style={{ color: "#b45309" }}>
-                    Cookie policy
+                    {t("policyLink")}
                     <ExternalLink size={11} />
                   </a>
                 </>
@@ -180,50 +157,50 @@ export function CookieCustomizeModal({
             </p>
 
             <ul className="space-y-3">
-              {CATEGORIES.map((cat) => {
-                const checked = stateFor(cat.key);
-                const setChecked = setterFor(cat.key);
+              {CATEGORY_KEYS.map(({ key, locked }) => {
+                const checked = stateFor(key);
+                const setChecked = setterFor(key);
                 return (
                   <li
-                    key={cat.key}
+                    key={key}
                     className="rounded-lg p-3 flex items-start gap-3"
                     style={{
                       background: "#f9fafb",
                       border: "1px solid #e5e7eb",
                     }}>
                     <input
-                      id={`cookie-cat-${cat.key}`}
+                      id={`cookie-cat-${key}`}
                       type="checkbox"
                       checked={checked}
-                      disabled={cat.locked || isPending}
+                      disabled={locked || isPending}
                       onChange={(e) => setChecked(e.target.checked)}
                       className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-600"
                       style={
-                        cat.locked
+                        locked
                           ? { cursor: "not-allowed", opacity: 0.7 }
                           : undefined
                       }
                     />
                     <label
-                      htmlFor={`cookie-cat-${cat.key}`}
+                      htmlFor={`cookie-cat-${key}`}
                       className="flex-1 min-w-0 cursor-pointer"
-                      style={cat.locked ? { cursor: "not-allowed" } : undefined}>
+                      style={locked ? { cursor: "not-allowed" } : undefined}>
                       <div
                         className="text-sm font-medium"
                         style={{ color: "#111827" }}>
-                        {cat.label}
-                        {cat.locked && (
+                        {t(`categories.${key}.label`)}
+                        {locked && (
                           <span
                             className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
                             style={{ background: "#e5e7eb", color: "#374151" }}>
-                            Sempre attivi
+                            {t("alwaysActive")}
                           </span>
                         )}
                       </div>
                       <div
                         className="text-[12px] mt-0.5"
                         style={{ color: "#6b7280" }}>
-                        {cat.description}
+                        {t(`categories.${key}.description`)}
                       </div>
                     </label>
                   </li>
@@ -241,7 +218,7 @@ export function CookieCustomizeModal({
               disabled={isPending}
               className="text-xs font-medium px-3 py-2 rounded-md transition-colors disabled:opacity-50"
               style={{ background: "#f3f4f6", color: "#374151" }}>
-              Rifiuta tutti
+              {t("rejectAll")}
             </button>
             <button
               type="button"
@@ -249,7 +226,7 @@ export function CookieCustomizeModal({
               disabled={isPending}
               className="text-xs font-semibold px-3 py-2 rounded-md transition-colors disabled:opacity-50"
               style={{ background: "#374151", color: "#ffffff" }}>
-              {isPending ? "Salvataggio…" : "Salva selezione"}
+              {isPending ? t("savingPending") : t("saveSelection")}
             </button>
             <button
               type="button"
@@ -257,7 +234,7 @@ export function CookieCustomizeModal({
               disabled={isPending}
               className="text-xs font-semibold px-3 py-2 rounded-md text-white transition-colors disabled:opacity-50"
               style={{ background: "#b45309" }}>
-              Accetta tutti
+              {t("acceptAll")}
             </button>
           </div>
         </div>

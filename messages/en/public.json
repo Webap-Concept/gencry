@@ -55,5 +55,43 @@
     "legalsEyebrow": "Information",
     "legalsLastUpdate": "Last updated:",
     "byAuthor": "By"
+  },
+  "cookieBanner": {
+    "ariaLabel": "Cookie notice",
+    "title": "We respect your privacy",
+    "description": "We use essential cookies and, with your consent, preferences, analytics and marketing cookies to improve the site.",
+    "moreInfo": "Learn more",
+    "customize": "Customize",
+    "rejectAll": "Reject all",
+    "acceptAll": "Accept all"
+  },
+  "cookieModal": {
+    "title": "Cookie preferences",
+    "close": "Close",
+    "intro": "Choose which cookie categories to enable. You can change your mind at any time.",
+    "policyLink": "Cookie policy",
+    "alwaysActive": "Always active",
+    "rejectAll": "Reject all",
+    "saveSelection": "Save selection",
+    "savingPending": "Saving…",
+    "acceptAll": "Accept all",
+    "categories": {
+      "necessary": {
+        "label": "Essential",
+        "description": "Required for the site to work (session, security, basic preferences). Always on: without these you couldn't browse."
+      },
+      "preferences": {
+        "label": "Preferences",
+        "description": "Remember your choices (language, theme, layout) to personalize the experience on future visits."
+      },
+      "analytics": {
+        "label": "Analytics",
+        "description": "Help us understand how the site is used (most-viewed pages, errors). Data is aggregated and helps us improve."
+      },
+      "marketing": {
+        "label": "Marketing",
+        "description": "Allow us to show more relevant content and ads on this site or on third-party platforms."
+      }
+    }
   }
 }
