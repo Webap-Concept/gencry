@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Info, Trash2, X } from "lucide-react";
@@ -63,15 +64,18 @@ export default function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = "Conferma",
-  cancelLabel = "Annulla",
+  confirmLabel,
+  cancelLabel,
   variant = "danger",
   loading = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const t = useTranslations("admin.confirmModal");
   const cancelRef = useRef<HTMLButtonElement>(null);
   const { icon, confirmBg, confirmHover } = variantMap[variant];
+  const resolvedConfirm = confirmLabel ?? t("defaultConfirm");
+  const resolvedCancel = cancelLabel ?? t("defaultCancel");
 
   // Focus trap: focus sul bottone annulla all'apertura
   useEffect(() => {
@@ -204,7 +208,7 @@ export default function ConfirmModal({
                 e.currentTarget.style.background = "transparent";
                 e.currentTarget.style.color = "var(--admin-text-faint, #5a5957)";
               }}
-              aria-label="Chiudi"
+              aria-label={t("closeAria")}
             >
               <X size={15} />
             </button>
@@ -255,7 +259,7 @@ export default function ConfirmModal({
                 e.currentTarget.style.color = "var(--admin-text-muted, #797876)";
               }}
             >
-              {cancelLabel}
+              {resolvedCancel}
             </button>
 
             <button
@@ -295,7 +299,7 @@ export default function ConfirmModal({
                   }}
                 />
               )}
-              {confirmLabel}
+              {resolvedConfirm}
             </button>
           </div>
         </div>

@@ -21,7 +21,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/config";
  * dopo aver creato i file `messages/{en,it}/<ns>.json`.
  */
 
-const NAMESPACES = ["core", "auth", "public"] as const;
+const NAMESPACES = ["core", "auth", "public", "admin"] as const;
 type Namespace = (typeof NAMESPACES)[number];
 
 const LOADERS: Record<
@@ -32,11 +32,13 @@ const LOADERS: Record<
     core: () => import("@/messages/en/core.json"),
     auth: () => import("@/messages/en/auth.json"),
     public: () => import("@/messages/en/public.json"),
+    admin: () => import("@/messages/en/admin.json"),
   },
   it: {
     core: () => import("@/messages/it/core.json"),
     auth: () => import("@/messages/it/auth.json"),
     public: () => import("@/messages/it/public.json"),
+    admin: () => import("@/messages/it/admin.json"),
   },
 };
 
