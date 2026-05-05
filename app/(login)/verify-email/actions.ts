@@ -8,6 +8,7 @@ import { db } from "@/lib/db/drizzle";
 import { users, userProfiles } from "@/lib/db/schema";
 import { sendSignupVerificationEmail } from "@/lib/email/templates/signup-verification";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -30,9 +31,10 @@ const verifySchema = z.object({
 });
 
 export const verifyEmail = validatedAction(verifySchema, async (data) => {
+  const t = await getTranslations("auth");
   const userId = await getPendingUserId();
   if (!userId) {
-    return { error: "Sessione scaduta. Registrati di nuovo." };
+    return { error: t("actionErrors.verifyEmail.sessionExpired") };
   }
 
   const result = await verifyOtpCode(userId, data.code);
@@ -60,9 +62,10 @@ export const verifyEmail = validatedAction(verifySchema, async (data) => {
 export const resendVerificationEmail = validatedAction(
   z.object({}),
   async () => {
+    const t = await getTranslations("auth");
     const userId = await getPendingUserId();
     if (!userId) {
-      return { error: "Sessione scaduta. Registrati di nuovo." };
+      return { error: t("actionErrors.verifyEmail.sessionExpired") };
     }
 
     const [row] = await db
@@ -76,7 +79,7 @@ export const resendVerificationEmail = validatedAction(
       .limit(1);
 
     if (!row) {
-      return { error: "Utente non trovato." };
+      return { error: t("actionErrors.common.userNotFound") };
     }
 
     const code = await createVerificationCode(userId);
@@ -86,6 +89,6 @@ export const resendVerificationEmail = validatedAction(
       row.firstName ?? undefined,
     );
 
-    return { success: "Codice inviato! Controlla la tua email." };
+    return { success: t("actionErrors.verifyEmail.codeSent") };
   },
 );

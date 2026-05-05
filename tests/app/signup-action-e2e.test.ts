@@ -26,6 +26,31 @@ vi.mock("next/headers", () => ({
 // ─── Mock server-only ────────────────────────────────────────────────────────
 vi.mock("server-only", () => ({}));
 
+// ─── Mock next-intl/server (getTranslations) ─────────────────────────────────
+// Le actions chiamano getTranslations("auth") per ritornare error messages
+// localizzati. Nel test environment non c'è un request scope di next-intl,
+// quindi mockiamo il loader leggendo direttamente il JSON italiano e
+// risolvendo la chiave dotted (es. "actionErrors.signUp.emailTaken").
+vi.mock("next-intl/server", async () => {
+  const itAuth = (await import("@/messages/it/auth.json")).default as Record<string, unknown>;
+  return {
+    getTranslations: async (_namespace?: string) => {
+      return (key: string) => {
+        const parts = key.split(".");
+        let value: unknown = itAuth;
+        for (const p of parts) {
+          if (typeof value === "object" && value !== null && p in (value as Record<string, unknown>)) {
+            value = (value as Record<string, unknown>)[p];
+          } else {
+            return key;
+          }
+        }
+        return typeof value === "string" ? value : key;
+      };
+    },
+  };
+});
+
 // ─── Mock getAppSettings ─────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   registrations_enabled: "true",

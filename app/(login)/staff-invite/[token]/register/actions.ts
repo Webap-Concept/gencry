@@ -23,6 +23,7 @@ import {
   type NewActivityLog,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -50,6 +51,7 @@ export async function registerViaInvite(
   prevState: RegisterState,
   formData: FormData,
 ): Promise<RegisterState> {
+  const t = await getTranslations("auth");
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
@@ -71,10 +73,10 @@ export async function registerViaInvite(
     .where(eq(staffInvitations.token, token))
     .limit(1);
 
-  if (!invite) return { error: "Invito non valido." };
-  if (invite.acceptedAt) return { error: "Questo invito è già stato utilizzato." };
-  if (invite.declinedAt) return { error: "Questo invito è stato rifiutato." };
-  if (new Date() > invite.expiresAt) return { error: "Questo invito è scaduto." };
+  if (!invite) return { error: t("actionErrors.staffRegister.inviteInvalid") };
+  if (invite.acceptedAt) return { error: t("actionErrors.staffRegister.inviteAlreadyUsed") };
+  if (invite.declinedAt) return { error: t("actionErrors.staffRegister.inviteDeclined") };
+  if (new Date() > invite.expiresAt) return { error: t("actionErrors.staffRegister.inviteExpired") };
 
   // ── Validate role ─────────────────────────────────────────────────────────
   const [role] = await db
@@ -83,7 +85,7 @@ export async function registerViaInvite(
     .where(eq(roles.name, invite.role))
     .limit(1);
 
-  if (!role) return { error: "Il ruolo dell'invito non esiste più." };
+  if (!role) return { error: t("actionErrors.staffRegister.roleNotFound") };
   // isAdmin viene propagato dal flag del ruolo; l'accesso admin via permessi
   // è gestito dall'RBAC, non dal flag utente.
 
@@ -92,14 +94,14 @@ export async function registerViaInvite(
   if (!usernameValidation.ok) return { error: usernameValidation.error };
 
   if (await isUsernameBlacklisted(username)) {
-    return { error: "Questo username non è disponibile. Scegli un altro username." };
+    return { error: t("actionErrors.signUp.usernameBlocked") };
   }
 
   await ensureBloomFilter();
 
   const usernameAvail = await checkUsernameAvailability(username);
   if (!usernameAvail.available) {
-    return { error: "Questo username è già in uso." };
+    return { error: t("actionErrors.signUp.usernameTaken") };
   }
 
   // ── Create user ───────────────────────────────────────────────────────────
@@ -126,11 +128,11 @@ export async function registerViaInvite(
       })
       .returning({ id: users.id, role: users.role });
 
-    if (!inserted) return { error: "Impossibile creare l'account. Riprova." };
+    if (!inserted) return { error: t("actionErrors.common.createAccountFailed") };
     createdUserId = inserted.id;
   } catch (err) {
     if (isUniqueConstraintError(err)) {
-      return { error: "Questa email è già registrata. Prova ad accedere." };
+      return { error: t("actionErrors.staffRegister.emailExists") };
     }
     throw err;
   }
@@ -140,7 +142,7 @@ export async function registerViaInvite(
   } catch (err) {
     if (isUniqueConstraintError(err)) {
       await db.delete(users).where(eq(users.id, createdUserId));
-      return { error: "Questo username è appena stato scelto da un altro utente. Scegline un altro." };
+      return { error: t("actionErrors.signUp.usernameRace") };
     }
     throw err;
   }
