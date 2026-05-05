@@ -8,6 +8,7 @@
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import { users } from "@/lib/db/schema";
+import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -16,6 +17,7 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await setRequestLocaleFromHeaders();
   const user = await getUser();
   if (!user) {
     redirect("/sign-in");

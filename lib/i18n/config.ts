@@ -17,7 +17,10 @@ function resolveDefaultLocale(): Locale {
   if (env && (LOCALES as readonly string[]).includes(env)) {
     return env as Locale;
   }
-  return "en";
+  // Fallback "it": Gencry-prod parte da italiano. I customer white-label
+  // settano `I18N_DEFAULT_LOCALE` esplicitamente nella loro env; chi clona
+  // senza settare l'env riceve il default storico del repo.
+  return "it";
 }
 
 export const DEFAULT_LOCALE: Locale = resolveDefaultLocale();

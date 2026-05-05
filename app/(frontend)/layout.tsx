@@ -13,14 +13,16 @@
  * dentro questo layout quando una rotta (frontend) chiama notFound().
  */
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { Suspense } from "react";
 import "./frontend.css";
 
-export default function FrontendLayout({
+export default async function FrontendLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await setRequestLocaleFromHeaders();
   return (
     <div className="flex min-h-[100dvh] flex-col">
       {/* flex flex-col qui: rende il children-wrapper un flex container,

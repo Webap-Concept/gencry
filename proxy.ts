@@ -1,6 +1,16 @@
 // proxy.ts
 import { verifyToken } from "@/lib/auth/session";
 import { getValidSession } from "@/lib/auth/sessions";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import {
+  LOCALE_COOKIE_NAME,
+  LOCALE_COOKIE_OPTIONS,
+} from "@/lib/i18n/locale-cookie";
+import {
+  extractLocaleFromPathname,
+  guessLocaleFromRequest,
+  isNonPrefixablePath,
+} from "@/lib/i18n/resolve-locale";
 import { getNavigablePages } from "@/lib/db/pages-queries";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
@@ -70,18 +80,81 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
 
+  // --- [0] I18N: LOCALE PREFIX HANDLING ---
+  // Modello E del piano i18n: prefix locale valido solo per home guest e
+  // CMS pubblico catch-all. Tre casi gestiti qui:
+  //
+  //   1. /<default>/<rest>      → 308 redirect canonico a /<rest>
+  //                                (es. con default=it, /it/about → /about)
+  //   2. /<locale>/<system>     → 307 redirect a /<system> + cookie locale
+  //                                (es. /en/sign-in → /sign-in, cookie en)
+  //   3. /<locale>/<rest>       → propaga, header x-locale + cookie locale
+  //                                (es. /en/about → app/[locale]/[...slug])
+  //
+  // Per path senza prefix, settiamo solo `x-locale` da guess (cookie /
+  // Accept-Language / default). I layout dei Server Component possono
+  // sovrascrivere chiamando setRequestLocale(users.locale) per i loggati.
+  let localeCookieToSet: Locale | null = null;
+
+  const fromPath = extractLocaleFromPathname(pathname);
+  if (fromPath) {
+    if (fromPath.locale === DEFAULT_LOCALE) {
+      // Caso 1: prefix è già il default → redirect canonico (clean URL)
+      const cleanUrl = new URL(fromPath.rest || "/", request.url);
+      cleanUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(cleanUrl, { status: 308 });
+    }
+
+    if (isNonPrefixablePath(fromPath.rest)) {
+      // Caso 2: prefix locale + path system → redirect a clean + cookie
+      const cleanUrl = new URL(fromPath.rest, request.url);
+      cleanUrl.search = request.nextUrl.search;
+      const res = NextResponse.redirect(cleanUrl, { status: 307 });
+      res.cookies.set(
+        LOCALE_COOKIE_NAME,
+        fromPath.locale,
+        LOCALE_COOKIE_OPTIONS,
+      );
+      return res;
+    }
+
+    // Caso 3: prefix locale valido per home/CMS → propaga
+    requestHeaders.set("x-locale", fromPath.locale);
+    localeCookieToSet = fromPath.locale;
+  } else {
+    // Path senza prefix: locale guess da cookie / Accept-Language / default
+    requestHeaders.set("x-locale", guessLocaleFromRequest(request));
+  }
+
+  /**
+   * Wrapper applicato a OGNI response del proxy quando il prefix locale è
+   * stato visto in URL: assicura che il cookie NEXT_LOCALE rifletta la
+   * lingua scelta esplicitamente dal visitatore. Per le response senza
+   * prefix nell'URL, il cookie esistente non viene toccato (preservato).
+   */
+  function finalize(response: NextResponse): NextResponse {
+    if (localeCookieToSet) {
+      response.cookies.set(
+        LOCALE_COOKIE_NAME,
+        localeCookieToSet,
+        LOCALE_COOKIE_OPTIONS,
+      );
+    }
+    return response;
+  }
+
   // --- [1] KERNEL: SYSTEM_ALWAYS_PUBLIC ---
   // /verify-email, /forgot-password, /reset-password
   // Bypass totale DB — queste route devono funzionare sempre.
   if (matchesPrefix(pathname, SYSTEM_ALWAYS_PUBLIC)) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return finalize(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // --- [2] KERNEL: ADMIN SIGN-IN ---
   // Sempre accessibile, nessun redirect automatico post-login qui
   // per evitare loop con requireAdminPage().
   if (pathname === ADMIN_SIGNIN_ROUTE) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return finalize(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // --- [3] KERNEL: SYSTEM_AUTH_ROUTES (/sign-in, /sign-up) ---
@@ -105,16 +178,16 @@ export async function proxy(request: NextRequest) {
       }
 
       if (isValidSession) {
-        return NextResponse.redirect(new URL("/", request.url));
+        return finalize(NextResponse.redirect(new URL("/", request.url)));
       }
 
       const response = NextResponse.next({
         request: { headers: requestHeaders },
       });
       response.cookies.delete("session");
-      return response;
+      return finalize(response);
     }
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return finalize(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // --- [4] REDIRECT DA DB (301/302/307/308) ---
@@ -129,9 +202,11 @@ export async function proxy(request: NextRequest) {
       const redirect = await getRedirectByFromPath(pathname);
       if (redirect && redirect.isActive) {
         const destination = new URL(redirect.toPath, request.url);
-        return NextResponse.redirect(destination, {
-          status: redirect.statusCode,
-        });
+        return finalize(
+          NextResponse.redirect(destination, {
+            status: redirect.statusCode,
+          }),
+        );
       }
     } catch {
       // DB non risponde — degrada silenziosamente
@@ -149,7 +224,7 @@ export async function proxy(request: NextRequest) {
 
   // Route pubbliche — lascia passare senza check sessione
   if (isPublicRoute) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return finalize(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
   // --- [6] ROUTE ADMIN ---
@@ -161,24 +236,28 @@ export async function proxy(request: NextRequest) {
     if (!isLoggedIn) {
       const url = new URL(ADMIN_SIGNIN_ROUTE, request.url);
       url.searchParams.set("from", pathname);
-      return NextResponse.redirect(url);
+      return finalize(NextResponse.redirect(url));
     }
     try {
       await verifyToken(sessionCookie!.value);
     } catch {
-      return NextResponse.redirect(new URL(ADMIN_SIGNIN_ROUTE, request.url));
+      return finalize(
+        NextResponse.redirect(new URL(ADMIN_SIGNIN_ROUTE, request.url)),
+      );
     }
   }
 
   // --- [7] ROUTE PRIVATE ---
   if (isPrivateRoute && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return finalize(NextResponse.redirect(new URL("/sign-in", request.url)));
   }
 
   // Sliding-session refresh rimosso: il cookie ha la stessa durata di
   // sessions.expires_at (15 giorni). Senza sliding la sessione muore in
   // ogni caso a 15gg dal login; volutamente predicibile per l'utente.
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return finalize(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+  );
 }
 
 export const config = {
