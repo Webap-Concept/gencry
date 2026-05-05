@@ -1,28 +1,38 @@
+import { CmsPage, cmsPageMetadata } from "@/app/(frontend)/_render/cms-page";
 import LandingPage from "@/components/landing-page";
 import { getSession } from "@/lib/auth/session";
 import { isLocale } from "@/lib/i18n/config";
 import { generatePageMetadata } from "@/lib/seo";
 import { setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 /**
- * Home guest in altra lingua. Es. `/en` con default = it.
+ * Page handler per `/<x>` (Modello E i18n).
  *
- * - Loggato → redirect alla home canonica `/` (la sua lingua è già in
- *   `users.locale`, niente prefix nell'URL — vedi piano i18n decisione 6).
- * - Guest → landing coming-soon nel locale richiesto.
+ *   - `<x>` ∈ LOCALES (≠ default, perché il proxy redirige `/<default>` → `/`):
+ *     home guest landing in altra lingua. Loggato → redirect a `/`.
+ *
+ *   - `<x>` ∉ LOCALES: fallback al CMS catch-all, trattando `<x>` come
+ *     slug singolo (es. `/privacy`, `/cookie-policy`). Senza questo
+ *     fallback, Next.js matcherebbe `[locale]/page.tsx` con priorità sul
+ *     `(frontend)/[...slug]` e tutte le pagine CMS sarebbero 404.
  */
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  if (!isLocale(locale)) return {};
-  // Per ora i meta della landing prefixed riusano quelli di "/" — la
-  // localizzazione dei meta arriverà in PR-4 quando popoleremo il DB
-  // SEO con varianti per locale.
+
+  if (!isLocale(locale)) {
+    // Fallback CMS: il segmento è uno slug
+    return cmsPageMetadata({ slug: [locale] });
+  }
+
+  // Per ora i meta della home prefixed riusano quelli di "/" — la
+  // localizzazione dei meta arriverà in PR-4 quando popoleremo SEO per locale.
   return generatePageMetadata("/");
 }
 
@@ -32,7 +42,12 @@ export default async function LocaleHomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  if (!isLocale(locale)) notFound();
+
+  if (!isLocale(locale)) {
+    // Fallback CMS: il segmento è uno slug singolo
+    return <CmsPage slug={[locale]} />;
+  }
+
   setRequestLocale(locale);
 
   const session = await getSession();
