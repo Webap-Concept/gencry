@@ -179,6 +179,7 @@ export async function saveSenderSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     await updateAppSetting(
       "resend_api_key",
@@ -196,9 +197,9 @@ export async function saveSenderSettings(
     // per resend_api_key se il valore e' stato aggiornato.
     await runGenerators();
     getAdminPath("settings-resend");
-    return { success: "Impostazioni Resend salvate.", timestamp: Date.now() };
+    return { success: t("resendSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: t("resendSaveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -206,13 +207,14 @@ export async function testResendConnection(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const apiKey = (
       (formData.get("resend_api_key") as string | null) ?? ""
     ).trim();
     if (!apiKey) {
       return {
-        error: "Inserisci una API key Resend prima di testare.",
+        error: t("resendTestApiKeyRequired"),
         timestamp: Date.now(),
       };
     }
@@ -223,13 +225,13 @@ export async function testResendConnection(
     });
     if (!response.ok) {
       return {
-        error: `Connessione Resend fallita (${response.status}).`,
+        error: t("resendTestFailedStatus", { status: response.status }),
         timestamp: Date.now(),
       };
     }
-    return { success: "Connessione Resend riuscita.", timestamp: Date.now() };
+    return { success: t("resendTestOk"), timestamp: Date.now() };
   } catch {
-    return { error: "Impossibile contattare Resend.", timestamp: Date.now() };
+    return { error: t("resendTestFailed"), timestamp: Date.now() };
   }
 }
 
@@ -630,6 +632,7 @@ export async function saveCloudflareSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const siteKey   = ((formData.get("cf_turnstile_site_key")   as string) ?? "").trim();
     const secretKey = ((formData.get("cf_turnstile_secret_key") as string) ?? "").trim();
@@ -638,9 +641,9 @@ export async function saveCloudflareSettings(
     await updateAppSetting("cf_turnstile_secret_key", secretKey || null);
 
     revalidatePath(getAdminPath("settings-cloudflare"));
-    return { success: "Cloudflare Turnstile credentials saved.", timestamp: Date.now() };
+    return { success: t("cloudflareSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Save failed.", timestamp: Date.now() };
+    return { error: t("cloudflareSaveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -648,11 +651,12 @@ export async function testCloudflareSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const secretKey = ((formData.get("cf_turnstile_secret_key") as string) ?? "").trim();
 
     if (!secretKey) {
-      return { error: "Enter the Secret Key before testing.", timestamp: Date.now() };
+      return { error: t("cloudflareTestSecretRequired"), timestamp: Date.now() };
     }
 
     // Verifica la secret key con un token volutamente invalido.
@@ -671,23 +675,23 @@ export async function testCloudflareSettings(
       | null;
 
     if (!data) {
-      return { error: `Unreadable response from Cloudflare (HTTP ${res.status}).`, timestamp: Date.now() };
+      return { error: t("cloudflareTestUnreadable", { status: res.status }), timestamp: Date.now() };
     }
 
     const errorCodes = data["error-codes"] ?? [];
 
     if (errorCodes.includes("invalid-input-secret")) {
-      return { error: "Secret Key is not valid.", timestamp: Date.now() };
+      return { error: t("cloudflareTestInvalidSecret"), timestamp: Date.now() };
     }
 
     // "invalid-input-response" means the key is recognised but the probe token was rejected.
     if (errorCodes.includes("invalid-input-response") || errorCodes.includes("timeout-or-duplicate")) {
-      return { success: "Secret Key is valid.", timestamp: Date.now() };
+      return { success: t("cloudflareTestOk"), timestamp: Date.now() };
     }
 
-    return { success: "Secret Key is valid.", timestamp: Date.now() };
+    return { success: t("cloudflareTestOk"), timestamp: Date.now() };
   } catch {
-    return { error: "Verification failed. Check your connection.", timestamp: Date.now() };
+    return { error: t("cloudflareTestNetworkFailed"), timestamp: Date.now() };
   }
 }
 

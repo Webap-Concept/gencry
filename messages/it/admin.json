@@ -135,7 +135,20 @@
       "modeSaved": "Impostazioni comportamento salvate.",
       "modeSaveFailed": "Errore durante il salvataggio.",
       "usersSaved": "Impostazioni utenti salvate.",
-      "usersSaveFailed": "Errore durante il salvataggio."
+      "usersSaveFailed": "Errore durante il salvataggio.",
+      "resendSaved": "Impostazioni Resend salvate.",
+      "resendSaveFailed": "Errore durante il salvataggio.",
+      "resendTestApiKeyRequired": "Inserisci una API key Resend prima di testare.",
+      "resendTestFailedStatus": "Connessione Resend fallita ({status}).",
+      "resendTestOk": "Connessione Resend riuscita.",
+      "resendTestFailed": "Impossibile contattare Resend.",
+      "cloudflareSaved": "Credenziali Cloudflare Turnstile salvate.",
+      "cloudflareSaveFailed": "Salvataggio fallito.",
+      "cloudflareTestSecretRequired": "Inserisci la Secret Key prima di testare.",
+      "cloudflareTestUnreadable": "Risposta illeggibile da Cloudflare (HTTP {status}).",
+      "cloudflareTestInvalidSecret": "La Secret Key non è valida.",
+      "cloudflareTestOk": "La Secret Key è valida.",
+      "cloudflareTestNetworkFailed": "Verifica fallita. Controlla la connessione."
     },
     "mode": {
       "cardTitle": "Modalità operativa",
