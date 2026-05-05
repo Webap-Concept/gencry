@@ -206,7 +206,15 @@
       "githubCITestNetworkFailed": "Errore durante la verifica. Controlla la connessione.",
       "cronJobEnabled": "Job abilitato.",
       "cronJobDisabled": "Job disabilitato.",
-      "cronJobToggleFailed": "Toggle fallito."
+      "cronJobToggleFailed": "Toggle fallito.",
+      "notificationsConfigSaved": "Impostazioni notifiche salvate.",
+      "notificationsConfigSaveFailed": "Salvataggio fallito.",
+      "notificationsConfigInvalid": "Configurazione non valida: {issues}",
+      "notificationsRunComplete": "Run completato: rilevati {detected}, inseriti {inserted}, email inviate {emailed}{dryRun, select, true { (dry-run)} other {}}.",
+      "notificationsRunFailed": "Run fallito.",
+      "notificationsTestRecipientRequired": "Aggiungi almeno un destinatario email prima di inviare un digest di test.",
+      "notificationsTestDigestSent": "Digest di test inviato a {count, plural, one {# destinatario} other {# destinatari}}.",
+      "notificationsTestDigestFailed": "Invio del digest di test fallito."
     },
     "mode": {
       "cardTitle": "Modalità operativa",
@@ -326,6 +334,110 @@
       "savingButton": "Salvataggio…",
       "testButton": "Verifica connessione",
       "testingButton": "Verifica in corso…"
+    },
+    "notifications": {
+      "recipientsScheduleTitle": "Destinatari & schedule",
+      "recipientsScheduleSubtitle": "Chi riceve il digest via email, con quale frequenza, e la soglia di severità per pannello/email.",
+      "recipientsLabel": "Email destinatari",
+      "recipientsHint": "Una per riga o separate da virgola.",
+      "scheduleLabel": "Schedule email",
+      "scheduleInstant": "Istantanea — una email per ogni ciclo di detection",
+      "scheduleHourlyDigest": "Digest orario (consigliato)",
+      "scheduleDailyDigest": "Digest giornaliero",
+      "scheduleOff": "Disattivato — solo notifiche nel pannello",
+      "severityThresholdLabel": "Soglia di severità",
+      "severityThresholdOption": "{severity} o superiore",
+      "severityThresholdHint": "Gli alert sotto questa soglia vengono solo loggati per audit.",
+      "severityInfo": "Info",
+      "severityWarning": "Warning",
+      "severityCritical": "Critical",
+      "includeAdminUsersBefore": "Invia email anche a tutti gli utenti con",
+      "dryRunLabel": "Dry-run — solo log degli alert, nessun invio email o notifica",
+      "tabSessions": "Sessioni",
+      "detectionRulesTitle": "Regole di detection",
+      "detectionRulesSubtitle": "13 euristiche, tutte basate solo su dati interni — nessun servizio esterno geo / VPN. Personalizza le soglie per regola.",
+      "severityFieldLabel": "Severity",
+      "rules": {
+        "multiple_ips": {
+          "label": "Multiple IPs",
+          "help": "Stesso utente che fa login da N+ indirizzi IP distinti in una finestra temporale."
+        },
+        "concurrent_devices": {
+          "label": "Dispositivi concorrenti",
+          "help": "L'utente ha N+ sessioni attive aperte contemporaneamente."
+        },
+        "burst_creation": {
+          "label": "Creazione a raffica",
+          "help": "Numero di nuove sessioni anormalmente alto aperte dall'utente in una finestra breve."
+        },
+        "bot_user_agent": {
+          "label": "Bot User-Agent",
+          "help": "Lo User-Agent matcha una regex di bot / scraper / browser headless comuni."
+        },
+        "long_idle_resurrect": {
+          "label": "Risveglio dopo lungo idle",
+          "help": "Sessione vecchia tornata attiva dopo almeno N giorni di inattività. Richiede Redis."
+        },
+        "failed_then_success": {
+          "label": "Falliti → login riuscito",
+          "help": "N+ tentativi di login falliti seguiti da un login riuscito (probabile brute-force riuscito)."
+        },
+        "sensitive_action_new_ip": {
+          "label": "Azione sensibile da nuovo IP",
+          "help": "Azione che impatta l'account (cambio password, eliminazione, …) subito dopo una sessione da un IP mai visto."
+        },
+        "new_subnet": {
+          "label": "Nuova subnet",
+          "help": "Login da un prefisso /16 (IPv4) o /64 (IPv6) mai visto per quell'utente nella finestra di lookback."
+        },
+        "ua_churn": {
+          "label": "User-Agent churn",
+          "help": "Stesso utente con N+ User-Agent diversi in una finestra breve — spesso indica furto di cookie."
+        },
+        "cross_user_campaign": {
+          "label": "Campagna cross-user",
+          "help": "Stesso IP che crea sessioni per N+ utenti diversi in una finestra breve — pattern di credential stuffing."
+        },
+        "off_baseline_hours": {
+          "label": "Ore fuori baseline",
+          "help": "Login a un orario fuori dalla finestra di attività tipica dell'utente (calcolata dallo storico)."
+        },
+        "admin_off_hours": {
+          "label": "Admin fuori orario",
+          "help": "Utente admin che effettua login fuori dalla finestra di lavoro configurata (ore UTC)."
+        },
+        "trusted_device_from_fresh_session": {
+          "label": "Trusted device da sessione fresca",
+          "help": "Un trusted device aggiunto pochi minuti dopo una nuova sessione — un attaccante che persiste l'accesso."
+        }
+      },
+      "fields": {
+        "minDistinctIps": "Min IP distinti",
+        "windowHours": "Finestra (ore)",
+        "minConcurrentSessions": "Min sessioni attive concorrenti",
+        "minSessionsInWindow": "Min sessioni nella finestra",
+        "windowMinutes": "Finestra (minuti)",
+        "uaRegexPattern": "Pattern UA regex (case-insensitive, separato da |)",
+        "idleDaysThreshold": "Soglia giorni di idle",
+        "minFailedAttempts": "Min tentativi falliti",
+        "withinMinutesOfSessionCreation": "Entro N minuti dalla creazione della sessione",
+        "activityTypeValues": "Valori ActivityType da monitorare (uno per riga)",
+        "historyLookbackDays": "Lookback storico (giorni)",
+        "minDistinctUAs": "Min UA distinti",
+        "minDistinctUsers": "Min utenti distinti",
+        "minHistoricalSamples": "Min campioni storici",
+        "deviationToleranceHours": "Tolleranza deviazione (ore)",
+        "lookbackDays": "Lookback (giorni)",
+        "allowedStartHourUtc": "Ora di inizio consentita (UTC)",
+        "allowedEndHourUtc": "Ora di fine consentita (UTC)",
+        "withinMinutesOfSession": "Entro N minuti dalla sessione"
+      },
+      "runDetectionNow": "Esegui detection ora",
+      "runningDetection": "Esecuzione…",
+      "sendTestDigest": "Invia digest di test",
+      "sendingTestDigest": "Invio…",
+      "saveSettings": "Salva impostazioni",
+      "savingSettings": "Salvataggio…"
     },
     "cron": {
       "dbErrorTitle": "Impossibile leggere i cron job dal database.",
