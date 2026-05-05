@@ -12,6 +12,7 @@
  */
 import { getRecentRuns, setCronJobActive, type PgCronRun } from "@/lib/cron/queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 export type CronToggleResult =
@@ -23,15 +24,16 @@ export async function toggleCronJobAction(
   active: boolean,
 ): Promise<CronToggleResult> {
   await requireAdminSectionPage("admin:settings");
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     await setCronJobActive(jobid, active);
     revalidatePath("/admin/settings/cron");
     return {
-      success: `Job ${active ? "enabled" : "disabled"}.`,
+      success: active ? t("cronJobEnabled") : t("cronJobDisabled"),
       timestamp: Date.now(),
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Toggle failed";
+    const message = err instanceof Error ? err.message : t("cronJobToggleFailed");
     return { error: message, timestamp: Date.now() };
   }
 }

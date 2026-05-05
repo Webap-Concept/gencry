@@ -25,6 +25,7 @@ import {
   Power,
   XCircle,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 export type CronRow = {
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export function CronJobsTable({ rows, toggleAction, fetchRunsAction, emptyMessage }: Props) {
+  const t = useTranslations("admin.cron");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   if (rows.length === 0) {
@@ -58,7 +60,7 @@ export function CronJobsTable({ rows, toggleAction, fetchRunsAction, emptyMessag
           border: "1px solid var(--admin-card-border)",
           color: "var(--admin-text-faint)",
         }}>
-        {emptyMessage ?? "No cron jobs registered."}
+        {emptyMessage ?? t("defaultEmpty")}
       </div>
     );
   }
@@ -76,11 +78,11 @@ export function CronJobsTable({ rows, toggleAction, fetchRunsAction, emptyMessag
             <thead>
               <tr style={{ color: "var(--admin-text-faint)", borderBottom: "1px solid var(--admin-input-border)" }}>
                 <th className="text-left font-medium py-3 px-4 w-10"></th>
-                <th className="text-left font-medium py-3 px-4">Job</th>
-                <th className="text-left font-medium py-3 px-4">Schedule</th>
-                <th className="text-left font-medium py-3 px-4">Last run</th>
-                <th className="text-left font-medium py-3 px-4">Status</th>
-                <th className="text-right font-medium py-3 px-4">Active</th>
+                <th className="text-left font-medium py-3 px-4">{t("colJob")}</th>
+                <th className="text-left font-medium py-3 px-4">{t("colSchedule")}</th>
+                <th className="text-left font-medium py-3 px-4">{t("colLastRun")}</th>
+                <th className="text-left font-medium py-3 px-4">{t("colStatus")}</th>
+                <th className="text-right font-medium py-3 px-4">{t("colActive")}</th>
               </tr>
             </thead>
             <tbody>
@@ -113,6 +115,7 @@ function CronRowItem({
   fetchRunsAction: (jobid: number) => Promise<PgCronRun[]>;
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
+  const t = useTranslations("admin.cron");
   const { job, meta } = row;
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState(job.active);
@@ -142,7 +145,7 @@ function CronRowItem({
         const data = await fetchRunsAction(job.jobid);
         setRuns(data);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to load runs";
+        const msg = err instanceof Error ? err.message : t("failedToLoadRuns");
         onToast({ message: msg, type: "error" });
         setRuns([]);
       } finally {
@@ -165,7 +168,7 @@ function CronRowItem({
             onClick={handleExpand}
             className="p-1 rounded hover:bg-black/5 transition-colors"
             style={{ color: "var(--admin-text-muted)" }}
-            aria-label={expanded ? "Collapse" : "Expand"}>
+            aria-label={expanded ? t("collapseAria") : t("expandAria")}>
             {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
         </td>
@@ -182,8 +185,8 @@ function CronRowItem({
                     background: "color-mix(in srgb, var(--admin-text-faint) 12%, transparent)",
                     color: "var(--admin-text-faint)",
                   }}
-                  title="This job is in pg_cron but not in the application registry. Add it to lib/cron/registry.ts or to a module manifest.">
-                  Untracked
+                  title={t("untrackedTooltip")}>
+                  {t("untrackedBadge")}
                 </span>
               )}
             </div>
@@ -229,9 +232,9 @@ function CronRowItem({
                   : "color-mix(in srgb, var(--admin-text-faint) 24%, transparent)"
               }`,
             }}
-            title={active ? "Click to disable" : "Click to enable"}>
+            title={active ? t("clickToDisable") : t("clickToEnable")}>
             {pending ? <Loader2 size={11} className="animate-spin" /> : <Power size={11} />}
-            {active ? "Active" : "Disabled"}
+            {active ? t("statusActive") : t("statusDisabled")}
           </button>
         </td>
       </tr>
@@ -241,7 +244,7 @@ function CronRowItem({
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--admin-text-faint)" }}>
-                  <Info size={12} /> Purpose
+                  <Info size={12} /> {t("purposeTitle")}
                 </h4>
                 {meta ? (
                   <p className="text-sm leading-relaxed" style={{ color: "var(--admin-text)" }}>
@@ -249,12 +252,11 @@ function CronRowItem({
                   </p>
                 ) : (
                   <p className="text-xs italic" style={{ color: "var(--admin-text-faint)" }}>
-                    No metadata. Register this job in lib/cron/registry.ts (core)
-                    or in the matching module manifest to add a description.
+                    {t("noMetadata")}
                   </p>
                 )}
                 <h4 className="text-xs font-semibold uppercase tracking-wide pt-2" style={{ color: "var(--admin-text-faint)" }}>
-                  Command
+                  {t("commandTitle")}
                 </h4>
                 <pre
                   className="text-[11px] font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
@@ -268,17 +270,17 @@ function CronRowItem({
               </div>
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 mb-2" style={{ color: "var(--admin-text-faint)" }}>
-                  <Clock size={12} /> Recent runs
+                  <Clock size={12} /> {t("recentRunsTitle")}
                 </h4>
                 {loadingRuns ? (
                   <div className="flex items-center gap-2 text-xs" style={{ color: "var(--admin-text-faint)" }}>
-                    <Loader2 size={12} className="animate-spin" /> Loading…
+                    <Loader2 size={12} className="animate-spin" /> {t("loading")}
                   </div>
                 ) : runs && runs.length > 0 ? (
                   <RunsList runs={runs} />
                 ) : (
                   <p className="text-xs italic" style={{ color: "var(--admin-text-faint)" }}>
-                    No runs recorded yet.
+                    {t("noRunsRecorded")}
                   </p>
                 )}
               </div>
@@ -291,10 +293,11 @@ function CronRowItem({
 }
 
 function RunStatusBadge({ run, jobActive }: { run: PgCronRun | null; jobActive: boolean }) {
+  const t = useTranslations("admin.cron");
   if (!run) {
     return (
       <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--admin-text-faint)" }}>
-        <CircleSlash size={11} /> No runs
+        <CircleSlash size={11} /> {t("noRunsBadge")}
       </span>
     );
   }
@@ -302,7 +305,7 @@ function RunStatusBadge({ run, jobActive }: { run: PgCronRun | null; jobActive: 
   if (status === "succeeded") {
     return (
       <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--gc-pos, #16a34a)" }}>
-        <CheckCircle2 size={11} /> Succeeded
+        <CheckCircle2 size={11} /> {t("runStatusSucceeded")}
         {run.durationMs != null && <span className="font-mono text-[10px]" style={{ color: "var(--admin-text-faint)" }}>· {run.durationMs}ms</span>}
       </span>
     );
@@ -310,7 +313,7 @@ function RunStatusBadge({ run, jobActive }: { run: PgCronRun | null; jobActive: 
   if (status === "failed") {
     return (
       <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--gc-neg, #dc2626)" }} title={run.returnMessage ?? undefined}>
-        <XCircle size={11} /> Failed
+        <XCircle size={11} /> {t("runStatusFailed")}
       </span>
     );
   }

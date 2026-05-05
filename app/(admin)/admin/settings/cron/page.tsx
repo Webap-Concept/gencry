@@ -23,12 +23,14 @@ import {
 } from "@/lib/cron/registry";
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { fetchCronRunsAction, toggleCronJobAction } from "./actions";
 
 export const metadata: Metadata = { title: "Settings / Cron Jobs" };
 export const dynamic = "force-dynamic";
 
 export default async function SettingsCronPage() {
+  const t = await getTranslations("admin.settings.cron");
   let allJobs: PgCronJobWithLastRun[] = [];
   let dbError: string | null = null;
   try {
@@ -63,35 +65,31 @@ export default async function SettingsCronPage() {
             border: "1px solid color-mix(in srgb, var(--gc-neg, #dc2626) 30%, transparent)",
             color: "var(--gc-neg, #dc2626)",
           }}>
-          <p className="font-semibold mb-1">Cannot read cron jobs from the database.</p>
+          <p className="font-semibold mb-1">{t("dbErrorTitle")}</p>
           <p className="font-mono text-xs">{dbError}</p>
           <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>
-            The pg_cron extension must be enabled and the connection user
-            (POSTGRES_URL) must have access to the <code>cron</code> schema.
-            On Supabase the default <code>postgres</code> role works.
+            {t("dbErrorHintBefore")} <code>{t("dbErrorHintCron")}</code>{" "}
+            {t("dbErrorHintAfter")} <code>{t("dbErrorHintRole")}</code>{" "}
+            {t("dbErrorHintTail")}
           </p>
         </div>
       )}
 
-      <Section
-        title="Core jobs"
-        subtitle="System-level cron jobs owned by the core (not by any module)."
-        emptyMessage="No core cron jobs found in pg_cron. If you expect some, double-check the jobname matches lib/cron/registry.ts.">
+      <Section title={t("coreJobsTitle")} subtitle={t("coreJobsSubtitle")}>
         <CronJobsTable
           rows={coreRows}
           toggleAction={toggleCronJobAction}
           fetchRunsAction={fetchCronRunsAction}
+          emptyMessage={t("coreJobsEmpty")}
         />
       </Section>
 
-      <Section
-        title="Untracked jobs"
-        subtitle="Jobs present in pg_cron that are not registered in any manifest. Add them to lib/cron/registry.ts to give them a description.">
+      <Section title={t("untrackedJobsTitle")} subtitle={t("untrackedJobsSubtitle")}>
         <CronJobsTable
           rows={untrackedRows}
           toggleAction={toggleCronJobAction}
           fetchRunsAction={fetchCronRunsAction}
-          emptyMessage="No untracked jobs. Every cron in pg_cron is mapped to the core or to a module."
+          emptyMessage={t("untrackedJobsEmpty")}
         />
       </Section>
 
@@ -104,12 +102,9 @@ export default async function SettingsCronPage() {
             color: "var(--admin-text-muted)",
           }}>
           <p className="font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
-            Module-owned cron jobs
+            {t("moduleJobsTitle")}
           </p>
-          <p>
-            Jobs that belong to an installed module are managed inside the module itself. Open the
-            module page to see and toggle them:
-          </p>
+          <p>{t("moduleJobsHint")}</p>
           <ul className="mt-2 space-y-1">
             {INSTALLED_MODULES.map((m) => (
               <li key={m.slug}>
@@ -136,7 +131,6 @@ function Section({
 }: {
   title: string;
   subtitle: string;
-  emptyMessage?: string;
   children: React.ReactNode;
 }) {
   return (
