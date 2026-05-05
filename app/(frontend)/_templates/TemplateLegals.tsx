@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import type { TemplateProps } from "./types";
 
@@ -14,11 +15,16 @@ import type { TemplateProps } from "./types";
  * Nessun campo custom: usa solo page.title, page.content, page.updatedAt.
  */
 export async function TemplateLegals({ page }: TemplateProps) {
-  const settings = await getAppSettings();
+  const [settings, locale, t] = await Promise.all([
+    getAppSettings(),
+    getLocale(),
+    getTranslations("public.cms"),
+  ]);
   const logoUrl = settings.app_logo_url ?? settings.app_logo_variant_url;
   const appName = settings.app_name;
 
-  const updatedLabel = new Date(page.updatedAt).toLocaleDateString("it-IT", {
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const updatedLabel = new Date(page.updatedAt).toLocaleDateString(dateLocale, {
     dateStyle: "long",
   });
 
@@ -84,7 +90,7 @@ export async function TemplateLegals({ page }: TemplateProps) {
               color: "#6b7280",
               marginBottom: "0.75rem",
             }}>
-            Informativa
+            {t("legalsEyebrow")}
           </div>
 
           <h1
@@ -103,7 +109,7 @@ export async function TemplateLegals({ page }: TemplateProps) {
               color: "#6b7280",
               marginBottom: "2.5rem",
             }}>
-            Ultimo aggiornamento: {updatedLabel}
+            {t("legalsLastUpdate")} {updatedLabel}
           </p>
 
           <div

@@ -1,3 +1,4 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import type { TemplateProps } from "./types";
 
 /**
@@ -11,7 +12,12 @@ import type { TemplateProps } from "./types";
  *   - readTime   (number)  — minuti di lettura stimati
  *   - intro      (textarea)— testo di introduzione sopra il body
  */
-export function TemplateArticolo({ page, fields }: TemplateProps) {
+export async function TemplateArticolo({ page, fields }: TemplateProps) {
+  const [locale, t] = await Promise.all([
+    getLocale(),
+    getTranslations("public.cms"),
+  ]);
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   return (
     <div
       style={{
@@ -72,12 +78,12 @@ export function TemplateArticolo({ page, fields }: TemplateProps) {
               color: "#6b7280",
               marginBottom: "1.5rem",
             }}>
-            Di <strong>{fields.author}</strong>
+            {t("byAuthor")} <strong>{fields.author}</strong>
             {page.publishedAt && (
               <>
                 {" "}
                 —{" "}
-                {new Date(page.publishedAt).toLocaleDateString("it-IT", {
+                {new Date(page.publishedAt).toLocaleDateString(dateLocale, {
                   dateStyle: "long",
                 })}
               </>

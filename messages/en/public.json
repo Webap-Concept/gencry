@@ -1,0 +1,59 @@
+{
+  "landing": {
+    "comingTag": "Coming · MMXXVI",
+    "comingSoon": "Coming soon",
+    "headline1": "The",
+    "headlineSocial": "social",
+    "headline2": "of the new",
+    "headlineGeneration": "generation",
+    "lede": "We're building the place where Italy's crypto community meets, learns and grows. Drop your email and we'll let you know when we open the doors.",
+    "emailPlaceholder": "your@email.com",
+    "submit": "Join the list",
+    "submitPending": "Please wait…",
+    "metaItem1": "Early access",
+    "metaItem2": "Zero spam",
+    "emailInvalid": "Hmm, check your email and try again."
+  },
+  "onboarding": {
+    "username": {
+      "title": "Welcome!",
+      "subtitle": "Let's start by choosing your public username.",
+      "label": "Username",
+      "placeholder": "e.g. crypto_lover",
+      "hint": "3-50 characters, letters, numbers, dot (.) and underscore (_)",
+      "lengthError": "Username between 3 and 50 characters",
+      "checkFailed": "Unable to verify the username",
+      "submit": "Continue",
+      "submitPending": "Saving…"
+    },
+    "interests": {
+      "title": "What are you interested in?",
+      "subtitleStart": "Choose at least",
+      "subtitleAssets": "assets to follow.",
+      "subtitleSelectedStart": "You've selected",
+      "subtitleSelectedEnd": ".",
+      "back": "Back",
+      "submit": "Continue",
+      "submitPending": "Saving…"
+    },
+    "done": {
+      "title": "All set!",
+      "subtitle": "Your profile is ready. You can now start exploring the app.",
+      "submit": "Get started",
+      "submitPending": "Opening the app…"
+    }
+  },
+  "footer": {
+    "rightsReserved": "All rights reserved.",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "cookiePolicy": "Cookie policy",
+    "cookiePreferences": "Cookie preferences",
+    "ariaLabel": "Footer"
+  },
+  "cms": {
+    "legalsEyebrow": "Information",
+    "legalsLastUpdate": "Last updated:",
+    "byAuthor": "By"
+  }
+}

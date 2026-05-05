@@ -1,0 +1,59 @@
+{
+  "landing": {
+    "comingTag": "In arrivo · MMXXVI",
+    "comingSoon": "Coming soon",
+    "headline1": "Il",
+    "headlineSocial": "social",
+    "headline2": "della nuova",
+    "headlineGeneration": "generazione",
+    "lede": "Stiamo costruendo lo spazio dove la community italiana di cripto si incontra, impara e cresce. Lascia la tua email e ti avviseremo quando apriremo le porte.",
+    "emailPlaceholder": "la-tua@email.it",
+    "submit": "Entra in lista",
+    "submitPending": "Attendi…",
+    "metaItem1": "Accesso anticipato",
+    "metaItem2": "Zero spam",
+    "emailInvalid": "Hmm, controlla l'email e riprova."
+  },
+  "onboarding": {
+    "username": {
+      "title": "Benvenuto!",
+      "subtitle": "Iniziamo scegliendo il tuo username pubblico.",
+      "label": "Username",
+      "placeholder": "es. cripto_lover",
+      "hint": "3-50 caratteri, lettere, numeri, punto (.) e underscore (_)",
+      "lengthError": "Username tra 3 e 50 caratteri",
+      "checkFailed": "Impossibile verificare lo username",
+      "submit": "Continua",
+      "submitPending": "Salvataggio…"
+    },
+    "interests": {
+      "title": "Cosa ti interessa?",
+      "subtitleStart": "Scegli almeno",
+      "subtitleAssets": "asset da seguire.",
+      "subtitleSelectedStart": "Ne hai selezionati",
+      "subtitleSelectedEnd": ".",
+      "back": "Indietro",
+      "submit": "Continua",
+      "submitPending": "Salvataggio…"
+    },
+    "done": {
+      "title": "Tutto pronto!",
+      "subtitle": "Il tuo profilo è impostato. Ora puoi iniziare a esplorare l'app.",
+      "submit": "Inizia",
+      "submitPending": "Apro l'app…"
+    }
+  },
+  "footer": {
+    "rightsReserved": "Tutti i diritti riservati.",
+    "terms": "Termini",
+    "privacy": "Privacy",
+    "cookiePolicy": "Cookie policy",
+    "cookiePreferences": "Preferenze cookie",
+    "ariaLabel": "Footer"
+  },
+  "cms": {
+    "legalsEyebrow": "Informativa",
+    "legalsLastUpdate": "Ultimo aggiornamento:",
+    "byAuthor": "Di"
+  }
+}
