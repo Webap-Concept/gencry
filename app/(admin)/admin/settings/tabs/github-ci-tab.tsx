@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Eye, EyeOff, GitMerge, Loader2, Save, ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveGitHubCISettings,
@@ -11,6 +12,7 @@ import {
 } from "../actions";
 
 export function GitHubCITab({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.githubCI");
   const [showToken, setShowToken] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -72,7 +74,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               htmlFor="github_repo"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Repository
+              {t("repoLabel")}
             </label>
             <input
               ref={repoRef}
@@ -80,7 +82,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               name="github_repo"
               type="text"
               defaultValue={settings.github_repo ?? ""}
-              placeholder="owner/repo (es. webappconcept/librolo)"
+              placeholder={t("repoPlaceholder")}
               autoComplete="off"
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
@@ -93,7 +95,10 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Formato <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>owner/repo</code>
+              {t("repoHintBefore")}{" "}
+              <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>
+                {t("repoHintCode")}
+              </code>
             </p>
           </div>
 
@@ -103,7 +108,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               htmlFor="github_pat"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Personal Access Token
+              {t("patLabel")}
             </label>
             <div className="relative">
               <input
@@ -126,7 +131,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               />
               <button
                 type="button"
-                aria-label={showToken ? "Nascondi token" : "Mostra token"}
+                aria-label={showToken ? t("hideTokenAria") : t("showTokenAria")}
                 onClick={() => setShowToken((v) => !v)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded transition-colors"
                 style={{ color: "var(--admin-text-muted)" }}>
@@ -134,16 +139,16 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Fine-grained PAT con permission{" "}
-              <strong style={{ color: "var(--admin-text)" }}>Contents: Read-only</strong>
-              {" "}sul solo repo selezionato.{" "}
+              {t("patHintBefore")}{" "}
+              <strong style={{ color: "var(--admin-text)" }}>{t("patHintBold")}</strong>
+              {" "}{t("patHintAfter")}{" "}
               <a
                 href="https://github.com/settings/personal-access-tokens/new"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "var(--admin-accent)" }}
                 className="underline underline-offset-2">
-                Crea token
+                {t("patHintLink")}
               </a>
             </p>
           </div>
@@ -154,7 +159,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               htmlFor="github_ci_branch"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              CI branch
+              {t("branchLabel")}
             </label>
             <input
               ref={branchRef}
@@ -162,7 +167,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               name="github_ci_branch"
               type="text"
               defaultValue={settings.github_ci_branch ?? "ci-results"}
-              placeholder="ci-results"
+              placeholder={t("branchPlaceholder")}
               autoComplete="off"
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
@@ -175,9 +180,14 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Branch dove il CI pubblica il file{" "}
-              <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>vitest-results.json</code>.
-              Default: <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>ci-results</code>.
+              {t("branchHintBefore")}{" "}
+              <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>
+                {t("branchHintFile")}
+              </code>.
+              {" "}{t("branchHintDefault")}{" "}
+              <code className="px-1 rounded" style={{ background: "var(--admin-card-border)" }}>
+                {t("branchHintDefaultValue")}
+              </code>.
             </p>
           </div>
 
@@ -195,19 +205,18 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
             />
             <div className="space-y-1.5">
               <p style={{ color: "var(--admin-text-muted)" }}>
-                Il workflow CI ad ogni push su main esegue Vitest e force-pusha
-                il report sul branch{" "}
-                <strong style={{ color: "var(--admin-text)" }}>ci-results</strong>{" "}
-                (orphan, niente storia accumulata).
+                {t("infoBoxLine1Before")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>{t("infoBoxLine1Branch")}</strong>{" "}
+                {t("infoBoxLine1After")}
               </p>
               <p style={{ color: "var(--admin-text-muted)" }}>
-                La dashboard{" "}
+                {t("infoBoxLine2Before")}{" "}
                 <code className="px-1 rounded" style={{ background: "var(--admin-card-border)", color: "var(--admin-text)" }}>
-                  /admin/tests
+                  {t("infoBoxLine2Path")}
                 </code>{" "}
-                legge il file via{" "}
-                <strong style={{ color: "var(--admin-text)" }}>GitHub Contents API</strong>{" "}
-                con cache di 60 secondi.
+                {t("infoBoxLine2Middle")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>{t("infoBoxLine2Bold")}</strong>{" "}
+                {t("infoBoxLine2After")}
               </p>
             </div>
           </div>
@@ -226,7 +235,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
                 (e.currentTarget.style.background = "var(--admin-accent)")
               }>
               {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {isSaving ? "Salvataggio…" : "Salva configurazione"}
+              {isSaving ? t("savingButton") : t("saveButton")}
             </button>
 
             <button
@@ -251,7 +260,7 @@ export function GitHubCITab({ settings }: { settings: AppSettings }) {
               ) : (
                 <ShieldCheck size={15} />
               )}
-              {isTesting ? "Verifica in corso…" : "Verifica connessione"}
+              {isTesting ? t("testingButton") : t("testButton")}
             </button>
           </div>
         </form>

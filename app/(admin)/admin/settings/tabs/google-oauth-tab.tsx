@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Eye, EyeOff, Loader2, Save, ShieldCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveGoogleOAuthSettings,
@@ -11,6 +12,7 @@ import {
 } from "../actions";
 
 export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.googleOAuth");
   const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -72,7 +74,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               htmlFor="google_client_id"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Client ID
+              {t("clientIdLabel")}
             </label>
             <input
               ref={clientIdRef}
@@ -93,16 +95,16 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Trovalo in{" "}
+              {t("clientIdHintBefore")}{" "}
               <a
                 href="https://console.cloud.google.com/apis/credentials"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: "var(--admin-accent)" }}
                 className="underline underline-offset-2">
-                Google Cloud Console
+                {t("clientIdHintLink")}
               </a>{" "}
-              → Credentials → OAuth 2.0 Client IDs
+              {t("clientIdHintAfter")}
             </p>
           </div>
 
@@ -112,7 +114,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               htmlFor="google_client_secret"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Client Secret
+              {t("clientSecretLabel")}
             </label>
             <div className="relative">
               <input
@@ -135,7 +137,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               />
               <button
                 type="button"
-                aria-label={showSecret ? "Nascondi secret" : "Mostra secret"}
+                aria-label={showSecret ? t("hideSecretAria") : t("showSecretAria")}
                 onClick={() => setShowSecret((v) => !v)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded transition-colors"
                 style={{ color: "var(--admin-text-muted)" }}>
@@ -143,7 +145,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Stessa pagina → clicca sul Client ID → copia il Client Secret
+              {t("clientSecretHint")}
             </p>
           </div>
 
@@ -153,7 +155,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               htmlFor="google_redirect_uri"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              Redirect URI
+              {t("redirectUriLabel")}
             </label>
             <input
               ref={redirectUriRef}
@@ -161,7 +163,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               name="google_redirect_uri"
               type="url"
               defaultValue={settings.google_redirect_uri ?? ""}
-              placeholder="https://tuodominio.com/api/auth/callback/google"
+              placeholder={t("redirectUriPlaceholder")}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -173,7 +175,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--admin-card-border)")}
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Deve essere identico a quello registrato in Google Cloud Console → Authorized redirect URIs
+              {t("redirectUriHint")}
             </p>
           </div>
 
@@ -191,9 +193,9 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
             />
             <div className="space-y-1.5">
               <p style={{ color: "var(--admin-text-muted)" }}>
-                Le credenziali sono salvate nel{" "}
-                <strong style={{ color: "var(--admin-text)" }}>database</strong>{" "}
-                e hanno priorità sulle variabili d'ambiente{" "}
+                {t("infoBoxLine1Before")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>{t("infoBoxLine1Db")}</strong>{" "}
+                {t("infoBoxLine1After")}{" "}
                 <code
                   className="px-1 rounded"
                   style={{ background: "var(--admin-card-border)", color: "var(--admin-text)" }}>
@@ -206,9 +208,9 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
                 </code>.
               </p>
               <p style={{ color: "var(--admin-text-muted)" }}>
-                Il flow usa{" "}
-                <strong style={{ color: "var(--admin-text)" }}>OAuth 2.0 + PKCE</strong>{" "}
-                senza dipendenze esterne (NextAuth / Auth.js non richiesti).
+                {t("infoBoxLine2Before")}{" "}
+                <strong style={{ color: "var(--admin-text)" }}>{t("infoBoxLine2Pkce")}</strong>{" "}
+                {t("infoBoxLine2After")}
               </p>
             </div>
           </div>
@@ -227,7 +229,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
                 (e.currentTarget.style.background = "var(--admin-accent)")
               }>
               {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {isSaving ? "Salvataggio…" : "Salva credenziali"}
+              {isSaving ? t("savingButton") : t("saveButton")}
             </button>
 
             <button
@@ -252,7 +254,7 @@ export function GoogleOAuthTab({ settings }: { settings: AppSettings }) {
               ) : (
                 <ShieldCheck size={15} />
               )}
-              {isTesting ? "Verifica in corso…" : "Verifica credenziali"}
+              {isTesting ? t("testingButton") : t("testButton")}
             </button>
           </div>
         </form>

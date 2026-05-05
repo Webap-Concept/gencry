@@ -418,6 +418,7 @@ export async function saveGoogleOAuthSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const clientId     = ((formData.get("google_client_id")     as string) ?? "").trim();
     const clientSecret = ((formData.get("google_client_secret") as string) ?? "").trim();
@@ -431,9 +432,9 @@ export async function saveGoogleOAuthSettings(
     await runGenerators();
 
     revalidatePath(getAdminPath("settings-google"));
-    return { success: "Credenziali Google OAuth salvate.", timestamp: Date.now() };
+    return { success: t("googleOAuthSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: t("googleOAuthSaveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -441,6 +442,7 @@ export async function testGoogleOAuthSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const clientId     = ((formData.get("google_client_id")     as string | null) ?? "").trim();
     const clientSecret = ((formData.get("google_client_secret") as string | null) ?? "").trim();
@@ -448,7 +450,7 @@ export async function testGoogleOAuthSettings(
 
     if (!clientId || !clientSecret || !redirectUri) {
       return {
-        error: "Compila tutti e tre i campi prima di testare.",
+        error: t("googleOAuthTestFieldsRequired"),
         timestamp: Date.now(),
       };
     }
@@ -458,7 +460,7 @@ export async function testGoogleOAuthSettings(
                         redirectUri.startsWith("http://127.0.0.1");
     if (!redirectUri.startsWith("https://") && !isLocalhost) {
       return {
-        error: "Redirect URI deve iniziare con https:// (o http://localhost per dev).",
+        error: t("googleOAuthTestRedirectUriHttps"),
         timestamp: Date.now(),
       };
     }
@@ -466,7 +468,7 @@ export async function testGoogleOAuthSettings(
     // Verifica che il Client ID abbia il formato Google corretto
     if (!clientId.endsWith(".apps.googleusercontent.com")) {
       return {
-        error: "Client ID non valido: deve terminare con .apps.googleusercontent.com",
+        error: t("googleOAuthTestInvalidClientId"),
         timestamp: Date.now(),
       };
     }
@@ -494,7 +496,7 @@ export async function testGoogleOAuthSettings(
 
     if (!data) {
       return {
-        error: `Risposta non leggibile da Google (HTTP ${res.status}).`,
+        error: t("googleOAuthTestUnreadable", { status: res.status }),
         timestamp: Date.now(),
       };
     }
@@ -503,42 +505,44 @@ export async function testGoogleOAuthSettings(
       case "invalid_grant":
         // Credenziali accettate, è stato il code fittizio a essere rigettato.
         return {
-          success: "Credenziali Google valide.",
+          success: t("googleOAuthTestOk"),
           timestamp: Date.now(),
         };
       case "invalid_client":
         return {
-          error: "Client ID o Client Secret non validi.",
+          error: t("googleOAuthTestInvalidClient"),
           timestamp: Date.now(),
         };
       case "redirect_uri_mismatch":
         return {
-          error:
-            "Redirect URI non registrato in Google Cloud Console per questo Client ID.",
+          error: t("googleOAuthTestRedirectUriMismatch"),
           timestamp: Date.now(),
         };
       case "unauthorized_client":
         return {
-          error: "Client non autorizzato al grant authorization_code.",
+          error: t("googleOAuthTestUnauthorizedClient"),
           timestamp: Date.now(),
         };
       case undefined:
         // Nessun errore: improbabile con un code fittizio, ma trattalo come ok.
         return {
-          success: "Credenziali Google valide.",
+          success: t("googleOAuthTestOk"),
           timestamp: Date.now(),
         };
       default:
         return {
-          error: `Errore Google: ${data.error}${
-            data.error_description ? ` — ${data.error_description}` : ""
-          }`,
+          error: data.error_description
+            ? t("googleOAuthTestUnknownErrorWithDescription", {
+                error: data.error,
+                description: data.error_description,
+              })
+            : t("googleOAuthTestUnknownError", { error: data.error }),
           timestamp: Date.now(),
         };
     }
   } catch {
     return {
-      error: "Errore durante la verifica. Controlla la connessione.",
+      error: t("googleOAuthTestNetworkFailed"),
       timestamp: Date.now(),
     };
   }
@@ -552,6 +556,7 @@ export async function saveGitHubCISettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const repo   = ((formData.get("github_repo")      as string) ?? "").trim();
     const pat    = ((formData.get("github_pat")       as string) ?? "").trim();
@@ -560,7 +565,7 @@ export async function saveGitHubCISettings(
     // Validazione formato "owner/repo" se presente
     if (repo && !/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(repo)) {
       return {
-        error: 'Formato repo non valido. Usa "owner/repo" (es. webappconcept/librolo).',
+        error: t("githubCISaveInvalidRepoFormat"),
         timestamp: Date.now(),
       };
     }
@@ -571,9 +576,9 @@ export async function saveGitHubCISettings(
 
     revalidatePath(getAdminPath("settings-github"));
     revalidatePath("/admin/tests");
-    return { success: "Configurazione GitHub CI salvata.", timestamp: Date.now() };
+    return { success: t("githubCISaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Errore durante il salvataggio.", timestamp: Date.now() };
+    return { error: t("githubCISaveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -581,13 +586,14 @@ export async function testGitHubCISettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const repo   = ((formData.get("github_repo")      as string | null) ?? "").trim();
     const pat    = ((formData.get("github_pat")       as string | null) ?? "").trim();
     const branch = (((formData.get("github_ci_branch") as string | null) ?? "").trim() || "ci-results");
 
     if (!repo || !pat) {
-      return { error: "Compila almeno repo e token prima di testare.", timestamp: Date.now() };
+      return { error: t("githubCITestRepoTokenRequired"), timestamp: Date.now() };
     }
 
     // Verifica accesso al file vitest-results.json sul branch
@@ -602,27 +608,27 @@ export async function testGitHubCISettings(
     });
 
     if (res.status === 401) {
-      return { error: "Token non valido o scaduto.", timestamp: Date.now() };
+      return { error: t("githubCITestInvalidToken"), timestamp: Date.now() };
     }
     if (res.status === 403) {
-      return { error: "Token senza permessi sufficienti (serve Contents:Read).", timestamp: Date.now() };
+      return { error: t("githubCITestInsufficientPermissions"), timestamp: Date.now() };
     }
     if (res.status === 404) {
       return {
-        error: `Branch "${branch}" o file vitest-results.json non trovato. Il primo run del CI lo creerà.`,
+        error: t("githubCITestBranchNotFound", { branch }),
         timestamp: Date.now(),
       };
     }
     if (!res.ok) {
-      return { error: `GitHub API ha risposto ${res.status}.`, timestamp: Date.now() };
+      return { error: t("githubCITestApiResponded", { status: res.status }), timestamp: Date.now() };
     }
 
     return {
-      success: `Connessione OK · branch "${branch}" raggiungibile.`,
+      success: t("githubCITestOk", { branch }),
       timestamp: Date.now(),
     };
   } catch {
-    return { error: "Errore durante la verifica. Controlla la connessione.", timestamp: Date.now() };
+    return { error: t("githubCITestNetworkFailed"), timestamp: Date.now() };
   }
 }
 
