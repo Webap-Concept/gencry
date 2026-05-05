@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { Eye, EyeOff, Loader2, Save, Wifi } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveRedisSettings,
@@ -11,6 +12,7 @@ import {
 } from "../actions";
 
 export function RedisTab({ settings }: { settings: AppSettings }) {
+  const t = useTranslations("admin.settings.redis");
   const [showToken, setShowToken] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -72,7 +74,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               htmlFor="upstash_redis_rest_url"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              REST URL
+              {t("urlLabel")}
             </label>
             <input
               ref={urlRef}
@@ -96,7 +98,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               }
             />
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Find it in Upstash Console → Database → REST API → Endpoint
+              {t("urlHint")}
             </p>
           </div>
 
@@ -105,7 +107,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               htmlFor="upstash_redis_rest_token"
               className="text-xs font-medium uppercase tracking-wide"
               style={{ color: "var(--admin-text-muted)" }}>
-              REST Token
+              {t("tokenLabel")}
             </label>
             <div className="relative">
               <input
@@ -132,7 +134,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               />
               <button
                 type="button"
-                aria-label={showToken ? "Hide token" : "Show token"}
+                aria-label={showToken ? t("hideTokenAria") : t("showTokenAria")}
                 onClick={() => setShowToken((v) => !v)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded transition-colors"
                 style={{ color: "var(--admin-text-muted)" }}>
@@ -140,8 +142,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Find it in Upstash Console → Database → REST API → Read/Write
-              Token
+              {t("tokenHint")}
             </p>
           </div>
 
@@ -164,7 +165,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               ) : (
                 <Save size={15} />
               )}
-              {isSaving ? "Saving…" : "Save credentials"}
+              {isSaving ? t("savingButton") : t("saveButton")}
             </button>
 
             <button
@@ -190,7 +191,7 @@ export function RedisTab({ settings }: { settings: AppSettings }) {
               ) : (
                 <Wifi size={15} />
               )}
-              {isTesting ? "Testing..." : "Test connection"}
+              {isTesting ? t("testingButton") : t("testButton")}
             </button>
           </div>
         </form>
