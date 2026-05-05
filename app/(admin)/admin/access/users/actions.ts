@@ -13,10 +13,12 @@ import { sendUserDeletedEmail } from "@/lib/email/templates/user-deleted";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 export async function banUser(userId: string, reason?: string) {
   await requireAdmin();
+  const t = await getTranslations("admin.access.users.actionErrors");
 
   const [target] = await db
     .select({ isAdmin: users.isAdmin, deletedAt: users.deletedAt })
@@ -25,11 +27,11 @@ export async function banUser(userId: string, reason?: string) {
     .limit(1);
 
   if (target?.isAdmin) {
-    throw new Error("You cannot suspend an admin.");
+    throw new Error(t("cannotBanAdmin"));
   }
 
   if (target?.deletedAt) {
-    throw new Error("This user has been deleted and cannot be modified.");
+    throw new Error(t("alreadyDeleted"));
   }
 
   await db
@@ -45,6 +47,7 @@ export async function banUser(userId: string, reason?: string) {
 
 export async function unbanUser(userId: string) {
   await requireAdmin();
+  const t = await getTranslations("admin.access.users.actionErrors");
 
   const [target] = await db
     .select({ deletedAt: users.deletedAt })
@@ -53,7 +56,7 @@ export async function unbanUser(userId: string) {
     .limit(1);
 
   if (target?.deletedAt) {
-    throw new Error("This user has been deleted and cannot be modified.");
+    throw new Error(t("alreadyDeleted"));
   }
 
   await db
@@ -65,9 +68,10 @@ export async function unbanUser(userId: string) {
 
 export async function deleteUser(userId: string) {
   const adminUser = await requireAdmin();
+  const t = await getTranslations("admin.access.users.actionErrors");
 
   const allowed = await can(adminUser, "users:delete");
-  if (!allowed) throw new Error("You do not have the users:delete permission.");
+  if (!allowed) throw new Error(t("missingDeletePermission"));
 
   const rows = await db
     .select({
@@ -83,9 +87,9 @@ export async function deleteUser(userId: string) {
     .limit(1);
 
   const target = rows[0];
-  if (!target) throw new Error("User not found.");
-  if (target.isAdmin) throw new Error("You cannot delete an admin account.");
-  if (target.deletedAt) throw new Error("User already deleted.");
+  if (!target) throw new Error(t("userNotFound"));
+  if (target.isAdmin) throw new Error(t("cannotDeleteAdmin"));
+  if (target.deletedAt) throw new Error(t("userAlreadyDeleted"));
 
   const deletedAt = new Date();
 
@@ -124,10 +128,10 @@ export async function deleteUser(userId: string) {
  */
 export async function cancelUserDeletion(userId: string) {
   const adminUser = await requireAdmin();
+  const t = await getTranslations("admin.access.users.actionErrors");
 
   const allowed = await can(adminUser, "users:delete");
-  if (!allowed)
-    throw new Error("You do not have the users:delete permission.");
+  if (!allowed) throw new Error(t("missingDeletePermission"));
 
   const [target] = await db
     .select({ deletedAt: users.deletedAt })
@@ -135,8 +139,8 @@ export async function cancelUserDeletion(userId: string) {
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (!target) throw new Error("User not found.");
-  if (!target.deletedAt) throw new Error("User is not pending deletion.");
+  if (!target) throw new Error(t("userNotFound"));
+  if (!target.deletedAt) throw new Error(t("userNotPendingDeletion"));
 
   const now = new Date();
 

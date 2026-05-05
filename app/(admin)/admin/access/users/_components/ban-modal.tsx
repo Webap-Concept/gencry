@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldBan, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { banUser } from "../actions";
 
@@ -11,6 +12,7 @@ interface BanModalProps {
 }
 
 export default function BanModal({ userId, userName, onClose }: BanModalProps) {
+  const t = useTranslations("admin.access.users.banModal");
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -39,7 +41,7 @@ export default function BanModal({ userId, userName, onClose }: BanModalProps) {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-800">
-                Suspend account
+                {t("title")}
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">{userName}</p>
             </div>
@@ -55,22 +57,19 @@ export default function BanModal({ userId, userName, onClose }: BanModalProps) {
         <div className="space-y-3">
           <label className="block">
             <span className="text-xs font-medium text-gray-600">
-              Reason for suspension{" "}
-              <span className="text-gray-400 font-normal">(optional)</span>
+              {t("reasonLabel")}{" "}
+              <span className="text-gray-400 font-normal">{t("reasonOptional")}</span>
             </span>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Terms of service violation, spam, etc."
+              placeholder={t("reasonPlaceholder")}
               rows={3}
               className="mt-1.5 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 resize-none"
             />
           </label>
 
-          <p className="text-xs text-gray-400">
-            The user will no longer be able to log in until the account is
-            reactivated.
-          </p>
+          <p className="text-xs text-gray-400">{t("info")}</p>
         </div>
 
         {/* Footer */}
@@ -79,7 +78,7 @@ export default function BanModal({ userId, userName, onClose }: BanModalProps) {
             onClick={onClose}
             disabled={pending}
             className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
-            Cancel
+            {t("cancelButton")}
           </button>
           <button
             onClick={handleConfirm}
@@ -89,7 +88,7 @@ export default function BanModal({ userId, userName, onClose }: BanModalProps) {
               <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <ShieldBan size={14} /> Suspend
+                <ShieldBan size={14} /> {t("confirmButton")}
               </>
             )}
           </button>

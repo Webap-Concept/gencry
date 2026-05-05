@@ -3,6 +3,7 @@ import { type AdminUsersStatus, getAdminUsers } from "@/lib/db/admin-queries";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { Search, Users } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import UsersTable from "./_components/users-table";
 
@@ -35,6 +36,7 @@ async function UsersContent({
   status: AdminUsersStatus;
   page: number;
 }) {
+  const t = await getTranslations("admin.access.users");
   const { users, total } = await getAdminUsers({
     search,
     role,
@@ -60,7 +62,7 @@ async function UsersContent({
   return (
     <>
       <p className="text-sm -mt-4" style={{ color: "var(--admin-text-faint)" }}>
-        {total} users found
+        {t("totalCount", { count: total })}
       </p>
 
       <div
@@ -78,7 +80,7 @@ async function UsersContent({
             <span
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
-              Page {page} of {totalPages}
+              {t("paginationLabel", { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               {page > 1 && (
@@ -89,7 +91,7 @@ async function UsersContent({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  ← Previous
+                  {t("paginationPrev")}
                 </a>
               )}
               {page < totalPages && (
@@ -97,7 +99,7 @@ async function UsersContent({
                   href={buildHref(page + 1)}
                   className="px-3 py-1.5 text-xs text-white rounded-lg transition-colors"
                   style={{ background: "var(--admin-accent)" }}>
-                  Next →
+                  {t("paginationNext")}
                 </a>
               )}
             </div>
@@ -162,6 +164,7 @@ export default async function AdminUsersPage({
     page?: string;
   }>;
 }) {
+  const t = await getTranslations("admin.access.users");
   const params = await searchParams;
   const search = params.q ?? "";
   const role = params.role ?? "";
@@ -196,12 +199,12 @@ export default async function AdminUsersPage({
           <h2
             className="text-xl font-bold"
             style={{ color: "var(--admin-text)" }}>
-            Users
+            {t("pageTitle")}
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            Manage members
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>
@@ -222,7 +225,7 @@ export default async function AdminUsersPage({
             <input
               name="q"
               defaultValue={search}
-              placeholder="Search by name or email..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={{
                 background: "var(--admin-page-bg)",
@@ -241,7 +244,7 @@ export default async function AdminUsersPage({
               border: "1px solid var(--admin-input-border)",
               color: role ? "var(--admin-text)" : "var(--admin-text-muted)",
             }}>
-            <option value="">All roles</option>
+            <option value="">{t("filterRoleAll")}</option>
             {allRoles.map((r) => (
               <option key={r.name} value={r.name}>
                 {r.label}
@@ -258,9 +261,9 @@ export default async function AdminUsersPage({
               border: "1px solid var(--admin-input-border)",
               color: plan ? "var(--admin-text)" : "var(--admin-text-muted)",
             }}>
-            <option value="">All plans</option>
-            <option value="free">Free</option>
-            <option value="premium">Premium</option>
+            <option value="">{t("filterPlanAll")}</option>
+            <option value="free">{t("filterPlanFree")}</option>
+            <option value="premium">{t("filterPlanPremium")}</option>
           </select>
 
           <select
@@ -272,9 +275,9 @@ export default async function AdminUsersPage({
               border: "1px solid var(--admin-input-border)",
               color: verified ? "var(--admin-text)" : "var(--admin-text-muted)",
             }}>
-            <option value="">All (email verification)</option>
-            <option value="true">✓ Verified email</option>
-            <option value="false">✗ Unverified email</option>
+            <option value="">{t("filterVerifiedAll")}</option>
+            <option value="true">{t("filterVerifiedYes")}</option>
+            <option value="false">{t("filterVerifiedNo")}</option>
           </select>
 
           <select
@@ -289,16 +292,18 @@ export default async function AdminUsersPage({
                   ? "var(--admin-text)"
                   : "var(--admin-text-muted)",
             }}>
-            <option value="active">Active accounts</option>
-            <option value="deletion_requested">Deletion requested</option>
-            <option value="all">All (incl. deleted)</option>
+            <option value="active">{t("filterStatusActive")}</option>
+            <option value="deletion_requested">
+              {t("filterStatusDeletionRequested")}
+            </option>
+            <option value="all">{t("filterStatusAll")}</option>
           </select>
 
           <button
             type="submit"
             className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
             style={{ background: "var(--admin-accent)" }}>
-            Filter
+            {t("filterButton")}
           </button>
 
           {hasFilters && (
@@ -309,7 +314,7 @@ export default async function AdminUsersPage({
                 background: "var(--admin-hover-bg)",
                 color: "var(--admin-text-muted)",
               }}>
-              Reset
+              {t("resetButton")}
             </a>
           )}
         </form>

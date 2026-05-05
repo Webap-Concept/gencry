@@ -4,6 +4,7 @@ import { getAdminPath } from "@/lib/admin-nav";
 import type { AdminUsersStatus } from "@/lib/db/admin-queries";
 import type { AdminUser } from "@/lib/db/admin-queries";
 import { ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
@@ -29,6 +30,7 @@ function RoleBadge({ label, color }: { label: string; color: string }) {
 }
 
 function PlanBadge({ status }: { status: string | null }) {
+  const t = useTranslations("admin.access.users.table");
   const isPremium = status === "active";
   return (
     <span
@@ -37,7 +39,7 @@ function PlanBadge({ status }: { status: string | null }) {
           ? "bg-orange-100 text-orange-700"
           : "bg-gray-100 text-gray-500"
       }`}>
-      {isPremium ? "Premium" : "Free"}
+      {isPremium ? t("planPremium") : t("planFree")}
     </span>
   );
 }
@@ -48,6 +50,7 @@ function PlanBadge({ status }: { status: string | null }) {
  * `Expired` quando la grace e' gia' passata (in attesa del cron purge).
  */
 function DaysLeftBadge({ deletedAt }: { deletedAt: Date }) {
+  const t = useTranslations("admin.access.users.table");
   const purgeAt =
     new Date(deletedAt).getTime() + ACCOUNT_DELETION_GRACE_DAYS * DAY_MS;
   const msLeft = purgeAt - Date.now();
@@ -55,7 +58,7 @@ function DaysLeftBadge({ deletedAt }: { deletedAt: Date }) {
   if (msLeft <= 0) {
     return (
       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
-        Expired
+        {t("daysExpired")}
       </span>
     );
   }
@@ -70,7 +73,7 @@ function DaysLeftBadge({ deletedAt }: { deletedAt: Date }) {
 
   return (
     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone}`}>
-      {days}d left
+      {t("daysLeft", { days })}
     </span>
   );
 }
@@ -82,6 +85,9 @@ function UserRow({
   user: AdminUser;
   status: AdminUsersStatus;
 }) {
+  const t = useTranslations("admin.access.users.table");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const [pending, startTransition] = useTransition();
   const [showBanModal, setShowBanModal] = useState(false);
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
@@ -173,7 +179,7 @@ function UserRow({
             style={
               !user.emailVerified ? { color: "var(--admin-text-faint)" } : {}
             }>
-            {user.emailVerified ? "✓ Verified" : "Not verified"}
+            {user.emailVerified ? t("verifiedYes") : t("verifiedNo")}
           </span>
         </td>
       )}
@@ -182,7 +188,7 @@ function UserRow({
       {!showDeletionColumns && (
         <td className="px-4 py-3 hidden lg:table-cell">
           <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-            {new Date(user.createdAt).toLocaleDateString("en-US")}
+            {new Date(user.createdAt).toLocaleDateString(dateLocale)}
           </span>
         </td>
       )}
@@ -195,7 +201,7 @@ function UserRow({
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
               {user.deletedAt
-                ? new Date(user.deletedAt).toLocaleDateString("en-US")
+                ? new Date(user.deletedAt).toLocaleDateString(dateLocale)
                 : "—"}
             </span>
           </td>
@@ -226,7 +232,7 @@ function UserRow({
             disabled={pending}
             onClick={handleCancelDeletion}
             className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
-            <Undo2 size={13} /> Cancel deletion
+            <Undo2 size={13} /> {t("actionCancelDeletion")}
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -242,7 +248,7 @@ function UserRow({
                       <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
                     </div>
                     <span className="text-[11px] font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full cursor-help">
-                      ⚠ reason
+                      {t("bannedReasonBadge")}
                     </span>
                   </div>
                 )}
@@ -250,14 +256,14 @@ function UserRow({
                   disabled={pending}
                   onClick={() => startTransition(() => unbanUser(user.id))}
                   className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
-                  <ShieldCheck size={13} /> Reactivate
+                  <ShieldCheck size={13} /> {t("actionReactivate")}
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setShowBanModal(true)}
                 className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors bg-red-50 text-red-600 hover:bg-red-100">
-                <ShieldBan size={13} /> Ban
+                <ShieldBan size={13} /> {t("actionBan")}
               </button>
             )}
           </div>
@@ -273,15 +279,13 @@ function UserRow({
 
         <ConfirmModal
           open={confirmRestoreOpen}
-          title="Restore account"
-          message={
-            <>
-              Restore <strong>{user.email}</strong>? The user will be able to
-              sign in again.
-            </>
-          }
+          title={t("restoreModalTitle")}
+          message={t.rich("restoreModalMessage", {
+            email: user.email,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
           variant="warning"
-          confirmLabel="Restore"
+          confirmLabel={t("restoreModalConfirm")}
           loading={pending}
           onConfirm={doCancelDeletion}
           onCancel={() => setConfirmRestoreOpen(false)}
@@ -298,33 +302,34 @@ export default function UsersTable({
   users: AdminUser[];
   status?: AdminUsersStatus;
 }) {
+  const t = useTranslations("admin.access.users.table");
   if (users.length === 0) {
     return (
       <div
         className="text-center py-16 text-sm"
         style={{ color: "var(--admin-text-faint)" }}>
         {status === "deletion_requested"
-          ? "No users have requested account deletion."
-          : "No users found."}
+          ? t("emptyDeletionRequested")
+          : t("emptyDefault")}
       </div>
     );
   }
 
   const showDeletionColumns = status === "deletion_requested";
   const headers: { label: string; lgOnly: boolean }[] = [
-    { label: "User", lgOnly: false },
-    { label: "Role", lgOnly: false },
-    { label: "Plan", lgOnly: false },
+    { label: t("headerUser"), lgOnly: false },
+    { label: t("headerRole"), lgOnly: false },
+    { label: t("headerPlan"), lgOnly: false },
     ...(showDeletionColumns
       ? [
-          { label: "Requested at", lgOnly: true },
-          { label: "Time left", lgOnly: true },
+          { label: t("headerRequestedAt"), lgOnly: true },
+          { label: t("headerTimeLeft"), lgOnly: true },
         ]
       : [
-          { label: "Email", lgOnly: true },
-          { label: "Joined on", lgOnly: true },
+          { label: t("headerEmail"), lgOnly: true },
+          { label: t("headerJoinedOn"), lgOnly: true },
         ]),
-    { label: "Actions", lgOnly: false },
+    { label: t("headerActions"), lgOnly: false },
   ];
 
   return (
