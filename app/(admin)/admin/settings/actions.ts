@@ -16,6 +16,7 @@ import {
   type BrandingSlot,
 } from "@/lib/storage/branding";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 // Regex permissiva per il core di un blocked username/pattern.
@@ -57,6 +58,7 @@ export async function saveAppSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const domain = ((formData.get("app_domain") as string) ?? "")
       .trim()
@@ -69,9 +71,9 @@ export async function saveAppSettings(
     );
     await updateAppSetting("app_domain", domain ? `https://${domain}` : "");
     revalidatePath(getAdminPath("settings-general"));
-    return { success: "Settings saved.", timestamp: Date.now() };
+    return { success: t("saved"), timestamp: Date.now() };
   } catch {
-    return { error: "Save failed.", timestamp: Date.now() };
+    return { error: t("saveFailed"), timestamp: Date.now() };
   }
 }
 
@@ -89,15 +91,16 @@ export async function uploadBrandingAssetAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const slot = formData.get("slot");
     const file = formData.get("file");
 
     if (!isBrandingSlot(slot)) {
-      return { error: "Invalid asset slot.", timestamp: Date.now() };
+      return { error: t("invalidSlot"), timestamp: Date.now() };
     }
     if (!(file instanceof File) || file.size === 0) {
-      return { error: "No file selected.", timestamp: Date.now() };
+      return { error: t("noFileSelected"), timestamp: Date.now() };
     }
 
     const key = BRANDING_SLOT_TO_KEY[slot];
@@ -113,9 +116,12 @@ export async function uploadBrandingAssetAction(
     }
 
     revalidatePath(getAdminPath("settings-general"));
-    return { success: "Asset uploaded.", timestamp: Date.now() };
+    return { success: t("assetUploaded"), timestamp: Date.now() };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Upload failed.";
+    // Bubble up infrastructure error message verbatim — di solito è una
+    // descrizione tecnica utile al debug e non vale la pena tradurla qui.
+    const message =
+      err instanceof Error ? err.message : t("saveFailed");
     return { error: message, timestamp: Date.now() };
   }
 }
@@ -124,10 +130,11 @@ export async function removeBrandingAssetAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.settings.actionMessages");
   try {
     const slot = formData.get("slot");
     if (!isBrandingSlot(slot)) {
-      return { error: "Invalid asset slot.", timestamp: Date.now() };
+      return { error: t("invalidSlot"), timestamp: Date.now() };
     }
     const key = BRANDING_SLOT_TO_KEY[slot];
     const settings = await getAppSettings();
@@ -139,9 +146,9 @@ export async function removeBrandingAssetAction(
     }
 
     revalidatePath(getAdminPath("settings-general"));
-    return { success: "Asset removed.", timestamp: Date.now() };
+    return { success: t("assetRemoved"), timestamp: Date.now() };
   } catch {
-    return { error: "Remove failed.", timestamp: Date.now() };
+    return { error: t("removeFailed"), timestamp: Date.now() };
   }
 }
 

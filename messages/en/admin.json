@@ -41,6 +41,99 @@
     "banned": "Your account has been suspended. Contact support.",
     "deleted": "Your account is being deleted. To cancel the request contact support."
   },
+  "settings": {
+    "rootTitle": "Settings",
+    "defaultDescription": "Configurations for the app",
+    "guideAriaPrefix": "Show guide",
+    "guideTitleSuffix": "— operator's guide",
+    "sections": {
+      "general": {
+        "label": "General",
+        "description": "Name, logo, and main information of the application."
+      },
+      "operation-mode": {
+        "label": "Operation Mode",
+        "description": "Manage the platform's behavior settings."
+      },
+      "signup": {
+        "label": "SignUp",
+        "description": "Configure user registration options."
+      },
+      "resend": {
+        "label": "Resend",
+        "description": "Configure credentials and sender for outgoing emails."
+      },
+      "email": {
+        "label": "Email",
+        "description": "Customize email templates sent by the system."
+      },
+      "snippets": {
+        "label": "Snippets",
+        "description": "Manage snippets and textual content of the application."
+      },
+      "redis": {
+        "label": "Redis",
+        "description": "Configure Redis cache connection and options.",
+        "guideTitle": "Redis — operator's guide"
+      },
+      "cloudflare": {
+        "label": "Cloudflare",
+        "description": "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up."
+      },
+      "cron": {
+        "label": "Cron Jobs",
+        "description": "Inspect, monitor, enable or disable Supabase pg_cron jobs."
+      },
+      "languages": {
+        "label": "Languages",
+        "description": "Manage supported locales, sort order, and native labels. Default locale is set via the I18N_DEFAULT_LOCALE env var."
+      }
+    },
+    "general": {
+      "appIdentityTitle": "App identity",
+      "appNameLabel": "App name",
+      "appNameHint": "Used everywhere in the app",
+      "appDescLabel": "Short description, claim",
+      "appDescHint": "Used",
+      "domainLabel": "Domain site",
+      "domainPlaceholder": "example.com",
+      "domainHintBefore": "Just the domain (ex.",
+      "domainHintMiddleOr": "or",
+      "domainHintAfterPrefix": "). Prefix",
+      "domainHintAfterSuffix": "is added automatically.",
+      "save": "Save",
+      "saving": "Saving...",
+      "brandAssetsTitle": "Brand assets",
+      "brandAssetsHint": "Stored on Supabase Storage. Max 1 MB per file.",
+      "slots": {
+        "logo": {
+          "label": "Logo",
+          "hint": "Main logo. Shown in transactional emails and the public site header."
+        },
+        "logo-variant": {
+          "label": "Logo variant",
+          "hint": "Alternate logo (e.g. for dark backgrounds)."
+        },
+        "favicon": {
+          "label": "Favicon",
+          "hint": "Browser tab icon. PNG, SVG or ICO, ideally 32×32 or 64×64."
+        }
+      },
+      "upload": "Upload",
+      "replace": "Replace",
+      "uploading": "Uploading...",
+      "removeTitle": "Remove asset"
+    },
+    "actionMessages": {
+      "saved": "Settings saved.",
+      "saveFailed": "Save failed.",
+      "invalidSlot": "Invalid asset slot.",
+      "noFileSelected": "No file selected.",
+      "assetUploaded": "Asset uploaded.",
+      "assetRemoved": "Asset removed.",
+      "removeFailed": "Remove failed."
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "users-group": "Access",

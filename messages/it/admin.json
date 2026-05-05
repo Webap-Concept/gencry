@@ -41,6 +41,99 @@
     "banned": "Il tuo account è stato sospeso. Contatta il supporto.",
     "deleted": "L'account è in fase di eliminazione. Per annullare la richiesta contatta l'assistenza."
   },
+  "settings": {
+    "rootTitle": "Impostazioni",
+    "defaultDescription": "Configurazioni dell'app",
+    "guideAriaPrefix": "Mostra guida",
+    "guideTitleSuffix": "— guida per l'operatore",
+    "sections": {
+      "general": {
+        "label": "Generale",
+        "description": "Nome, logo e informazioni principali dell'applicazione."
+      },
+      "operation-mode": {
+        "label": "Modalità operativa",
+        "description": "Gestisci le impostazioni di comportamento della piattaforma."
+      },
+      "signup": {
+        "label": "Registrazione",
+        "description": "Configura le opzioni di registrazione utente."
+      },
+      "resend": {
+        "label": "Resend",
+        "description": "Configura credenziali e mittente per le email in uscita."
+      },
+      "email": {
+        "label": "Email",
+        "description": "Personalizza i template email inviati dal sistema."
+      },
+      "snippets": {
+        "label": "Snippet",
+        "description": "Gestisci snippet e contenuti testuali dell'applicazione."
+      },
+      "redis": {
+        "label": "Redis",
+        "description": "Configura connessione e opzioni della cache Redis.",
+        "guideTitle": "Redis — guida per l'operatore"
+      },
+      "cloudflare": {
+        "label": "Cloudflare",
+        "description": "Configura Cloudflare Turnstile per la protezione anti-bot su sign-in e sign-up."
+      },
+      "cron": {
+        "label": "Cron Jobs",
+        "description": "Ispeziona, monitora, abilita o disabilita i job pg_cron di Supabase."
+      },
+      "languages": {
+        "label": "Lingue",
+        "description": "Gestisci i locale supportati, ordine e label native. Il default si imposta tramite la env var I18N_DEFAULT_LOCALE."
+      }
+    },
+    "general": {
+      "appIdentityTitle": "Identità app",
+      "appNameLabel": "Nome app",
+      "appNameHint": "Usato ovunque nell'app",
+      "appDescLabel": "Descrizione breve, claim",
+      "appDescHint": "Usato",
+      "domainLabel": "Dominio sito",
+      "domainPlaceholder": "esempio.com",
+      "domainHintBefore": "Solo il dominio (es.",
+      "domainHintMiddleOr": "o",
+      "domainHintAfterPrefix": "). Il prefisso",
+      "domainHintAfterSuffix": "viene aggiunto automaticamente.",
+      "save": "Salva",
+      "saving": "Salvataggio...",
+      "brandAssetsTitle": "Risorse brand",
+      "brandAssetsHint": "Salvati su Supabase Storage. Max 1 MB per file.",
+      "slots": {
+        "logo": {
+          "label": "Logo",
+          "hint": "Logo principale. Mostrato nelle email transazionali e nell'header del sito pubblico."
+        },
+        "logo-variant": {
+          "label": "Variante logo",
+          "hint": "Logo alternativo (es. per sfondi scuri)."
+        },
+        "favicon": {
+          "label": "Favicon",
+          "hint": "Icona della tab del browser. PNG, SVG o ICO, idealmente 32×32 o 64×64."
+        }
+      },
+      "upload": "Carica",
+      "replace": "Sostituisci",
+      "uploading": "Caricamento...",
+      "removeTitle": "Rimuovi asset"
+    },
+    "actionMessages": {
+      "saved": "Impostazioni salvate.",
+      "saveFailed": "Salvataggio fallito.",
+      "invalidSlot": "Slot risorsa non valido.",
+      "noFileSelected": "Nessun file selezionato.",
+      "assetUploaded": "Risorsa caricata.",
+      "assetRemoved": "Risorsa rimossa.",
+      "removeFailed": "Rimozione fallita."
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "users-group": "Accesso",

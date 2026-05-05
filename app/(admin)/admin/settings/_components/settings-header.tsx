@@ -15,87 +15,62 @@ import {
   Shield,
   SlidersHorizontal,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { RedisAdminGuide } from "../redis/_components/redis-guide";
 
 type SectionMeta = {
-  label: string;
-  description: string;
+  /** Chiave del sotto-percorso (segment finale di /admin/settings/<segment>).
+   *  Le label/description vengono risolte da admin.settings.sections.<key>.* */
   icon: LucideIcon;
-  /** Optional operator's guide rendered inside an AdminSectionInfo modal
-   *  next to the title. Add one per section that has non-obvious
-   *  operational caveats (Redis, Cron, Sessions…). */
+  /** Operator's guide opzionale. Quando presente, un bottone info nel
+   *  titolo apre il modale con questo contenuto e usa
+   *  admin.settings.sections.<key>.guideTitle (se definito). */
   guide?: React.ReactNode;
-  guideTitle?: string;
+  /** true se questa sezione ha una chiave dedicata `guideTitle` nel JSON. */
+  hasGuideTitle?: boolean;
 };
 
 const SECTIONS: Record<string, SectionMeta> = {
-  general: {
-    label: "General",
-    description: "Name, logo, and main information of the application.",
-    icon: Globe,
-  },
-  "operation-mode": {
-    label: "Operation Mode",
-    description: "Manage the platform's behavior settings.",
-    icon: SlidersHorizontal,
-  },
-  signup: {
-    label: "SignUp",
-    description: "Configure user registration options.",
-    icon: LogIn,
-  },
-  resend: {
-    label: "Resend",
-    description: "Configure credentials and sender for outgoing emails.",
-    icon: Send,
-  },
-  email: {
-    label: "Email",
-    description: "Customize email templates sent by the system.",
-    icon: Mail,
-  },
-  snippets: {
-    label: "Snippets",
-    description: "Manage snippets and textual content of the application.",
-    icon: Code2,
-  },
-  redis: {
-    label: "Redis",
-    description: "Configure Redis cache connection and options.",
-    icon: Database,
-    guide: <RedisAdminGuide />,
-    guideTitle: "Redis — operator's guide",
-  },
-  cloudflare: {
-    label: "Cloudflare",
-    description: "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up.",
-    icon: Shield,
-  },
-  cron: {
-    label: "Cron Jobs",
-    description: "Inspect, monitor, enable or disable Supabase pg_cron jobs.",
-    icon: Clock,
-  },
-  languages: {
-    label: "Languages",
-    description:
-      "Manage supported locales, sort order, and native labels. Default locale is set via the I18N_DEFAULT_LOCALE env var.",
-    icon: Languages,
-  },
+  general: { icon: Globe },
+  "operation-mode": { icon: SlidersHorizontal },
+  signup: { icon: LogIn },
+  resend: { icon: Send },
+  email: { icon: Mail },
+  snippets: { icon: Code2 },
+  redis: { icon: Database, guide: <RedisAdminGuide />, hasGuideTitle: true },
+  cloudflare: { icon: Shield },
+  cron: { icon: Clock },
+  languages: { icon: Languages },
 };
 
-const DEFAULT: SectionMeta = {
-  label: "",
-  description: "Configurations for the app",
-  icon: Settings,
-};
+const DEFAULT: SectionMeta = { icon: Settings };
 
 export function SettingsHeader() {
+  const t = useTranslations("admin.settings");
   const pathname = usePathname();
   const segment = pathname.split("/").pop() ?? "";
   const section = SECTIONS[segment] ?? DEFAULT;
   const Icon = section.icon;
+  const isKnown = segment in SECTIONS;
+
+  const sectionLabel = isKnown
+    ? t(`sections.${segment}.label`)
+    : "";
+  const sectionDescription = isKnown
+    ? t(`sections.${segment}.description`)
+    : t("defaultDescription");
+
+  // Il guideTitle vive sotto admin.settings.sections.<key>.guideTitle
+  // SOLO per le sezioni che lo hanno (oggi solo "redis"). Per le altre
+  // costruiamo `<label> — operator's guide` da chiavi i18n.
+  const guideTitle = section.guide
+    ? section.hasGuideTitle
+      ? t(`sections.${segment}.guideTitle`)
+      : `${sectionLabel} ${t("guideTitleSuffix")}`
+    : undefined;
+
+  const guideAriaLabel = `${t("guideAriaPrefix")} ${sectionLabel || segment}`;
 
   return (
     <div className="flex items-center gap-3">
@@ -114,20 +89,22 @@ export function SettingsHeader() {
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            {section.label ? (
+            {sectionLabel ? (
               <>
-                <span style={{ color: "var(--admin-text-muted)" }}>Settings</span>
+                <span style={{ color: "var(--admin-text-muted)" }}>
+                  {t("rootTitle")}
+                </span>
                 <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-                <span>{section.label}</span>
+                <span>{sectionLabel}</span>
               </>
             ) : (
-              "Settings"
+              t("rootTitle")
             )}
           </h2>
-          {section.guide && (
+          {section.guide && guideTitle && (
             <AdminSectionInfo
-              title={section.guideTitle ?? `${section.label} — operator's guide`}
-              ariaLabel={`Show ${section.label || "section"} guide`}>
+              title={guideTitle}
+              ariaLabel={guideAriaLabel}>
               {section.guide}
             </AdminSectionInfo>
           )}
@@ -135,7 +112,7 @@ export function SettingsHeader() {
         <p
           className="text-sm mt-0.5"
           style={{ color: "var(--admin-text-faint)" }}>
-          {section.description}
+          {sectionDescription}
         </p>
       </div>
     </div>
