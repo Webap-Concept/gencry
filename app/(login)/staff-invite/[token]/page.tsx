@@ -3,6 +3,7 @@ import { roles, staffInvitations, userProfiles, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { CheckCircle2, Mail, ShieldCheck, XCircle } from "lucide-react";
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { declineInvitation } from "./actions";
 
@@ -42,6 +43,8 @@ export default async function StaffInvitePage({
 }) {
   const { token } = await params;
   const { declined } = await searchParams;
+  const t = await getTranslations("auth");
+  const locale = await getLocale();
   const invite = await getInviteData(token);
 
   // ── Invalid token ────────────────────────────────────────────────────────
@@ -49,10 +52,10 @@ export default async function StaffInvitePage({
     return (
       <StatusPage
         icon={<XCircle className="h-8 w-8 text-red-400" />}
-        title="Link non valido"
-        message="L'invito non esiste o è stato rimosso."
+        title={t("staffInvite.invalidLinkTitle")}
+        message={t("staffInvite.invalidLinkMessage")}
         linkHref="/"
-        linkLabel="Torna alla home"
+        linkLabel={t("staffInvite.backToHome")}
       />
     );
   }
@@ -62,10 +65,10 @@ export default async function StaffInvitePage({
     return (
       <StatusPage
         icon={<XCircle className="h-8 w-8 text-amber-400" />}
-        title="Invito scaduto"
-        message="Questo invito non è più valido. Chiedi all'amministratore di inviarne uno nuovo."
+        title={t("staffInvite.expiredTitle")}
+        message={t("staffInvite.expiredMessage")}
         linkHref="/"
-        linkLabel="Torna alla home"
+        linkLabel={t("staffInvite.backToHome")}
       />
     );
   }
@@ -75,10 +78,10 @@ export default async function StaffInvitePage({
     return (
       <StatusPage
         icon={<CheckCircle2 className="h-8 w-8 text-emerald-400" />}
-        title="Invito già accettato"
-        message="Hai già completato la registrazione con questo invito. Accedi per entrare nel pannello admin."
+        title={t("staffInvite.acceptedTitle")}
+        message={t("staffInvite.acceptedMessage")}
         linkHref="/admin/sign-in"
-        linkLabel="Vai al login"
+        linkLabel={t("staffInvite.acceptedAction")}
       />
     );
   }
@@ -88,10 +91,10 @@ export default async function StaffInvitePage({
     return (
       <StatusPage
         icon={<XCircle className="h-8 w-8 text-brand-text-muted" />}
-        title="Invito rifiutato"
-        message="Hai rifiutato l'invito. Se hai cambiato idea, contatta l'amministratore."
+        title={t("staffInvite.declinedTitle")}
+        message={t("staffInvite.declinedMessage")}
         linkHref="/"
-        linkLabel="Torna alla home"
+        linkLabel={t("staffInvite.backToHome")}
       />
     );
   }
@@ -100,12 +103,22 @@ export default async function StaffInvitePage({
   const inviterName =
     [invite.inviterFirstName, invite.inviterLastName].filter(Boolean).join(" ") ||
     invite.inviterEmail ||
-    "Un amministratore";
+    t("staffInvite.fallbackInviter");
 
   const roleColor = invite.roleColor ?? "#6b7280";
   const roleLabel = invite.roleLabel ?? invite.role;
 
   const declineAction = declineInvitation.bind(null, token);
+
+  // Locale per la formattazione data: "it" → "it-IT", "en" → "en-US"
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const formattedDate = invite.expiresAt.toLocaleDateString(dateLocale, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="min-h-dvh flex items-center justify-center px-4 py-12 bg-brand-bg">
@@ -118,11 +131,11 @@ export default async function StaffInvitePage({
 
           {/* Heading */}
           <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-            Sei stato invitato
+            {t("staffInvite.title")}
           </h1>
           <p className="text-sm text-brand-text-muted mb-6">
-            <strong className="text-brand-text">{inviterName}</strong> ti ha invitato
-            a entrare nel team staff con il ruolo di{" "}
+            <strong className="text-brand-text">{inviterName}</strong>{" "}
+            {t("staffInvite.invitedByPrefix")}{" "}
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
               style={{
@@ -148,7 +161,7 @@ export default async function StaffInvitePage({
               href={`/staff-invite/${token}/register`}
               className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-semibold text-white rounded-xl bg-brand-primary hover:brightness-90 transition-all"
             >
-              Accetta e registrati
+              {t("staffInvite.accept")}
             </Link>
 
             <form action={declineAction}>
@@ -156,20 +169,13 @@ export default async function StaffInvitePage({
                 type="submit"
                 className="w-full px-4 py-2.5 text-sm font-medium text-brand-text-muted rounded-xl bg-brand-bg border border-brand-border hover:border-brand-primary hover:text-brand-text transition-colors"
               >
-                Rifiuta invito
+                {t("staffInvite.decline")}
               </button>
             </form>
           </div>
 
           <p className="text-xs text-brand-text-light text-center mt-5">
-            Invito valido fino al{" "}
-            {invite.expiresAt.toLocaleDateString("it-IT", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {t("staffInvite.validUntil", { date: formattedDate })}
           </p>
         </div>
       </div>

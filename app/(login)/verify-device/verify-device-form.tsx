@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionState } from "@/lib/auth/middleware";
 import { Loader2, MonitorSmartphone, RotateCcw, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useRef, useState } from "react";
 import { resendDeviceCode, verifyDevice } from "./actions";
 
 export function VerifyDeviceForm() {
+  const t = useTranslations("auth");
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     verifyDevice,
     { error: "" },
@@ -60,27 +62,24 @@ export function VerifyDeviceForm() {
     <div className="min-h-dvh flex items-center justify-center px-4 py-12 bg-brand-bg">
       <div className="w-full max-w-md">
         <div className="rounded-2xl p-8 shadow-sm border border-brand-border bg-brand-surface">
-          {/* Header */}
           <div className="mb-8">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-brand-bg">
               <MonitorSmartphone className="h-6 w-6 text-brand-primary" />
             </div>
             <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-              Nuovo dispositivo rilevato
+              {t("verifyDevice.title")}
             </h1>
             <p className="text-sm text-brand-text-muted">
-              Abbiamo inviato un codice di verifica al tuo indirizzo email.
-              Inseriscilo qui sotto per confermare che sei tu.
+              {t("verifyDevice.subtitle")}
             </p>
           </div>
 
-          {/* Form verifica */}
           <form action={formAction} className="space-y-6">
             <input type="hidden" name="code" value={fullCode} />
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Codice di verifica
+                {t("fields.verificationCode")}
               </Label>
 
               <div className="flex gap-2 justify-between" onPaste={handlePaste}>
@@ -97,7 +96,7 @@ export function VerifyDeviceForm() {
                     onChange={(e) => handleChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     className="w-12 h-14 text-center text-xl font-bold px-0"
-                    aria-label={`Cifra ${index + 1}`}
+                    aria-label={t("fields.digitAriaLabel", { n: index + 1 })}
                   />
                 ))}
               </div>
@@ -116,19 +115,18 @@ export function VerifyDeviceForm() {
               className="w-full">
               {pending ? (
                 <>
-                  <Loader2 className="animate-spin h-4 w-4" /> Verifica in
-                  corso...
+                  <Loader2 className="animate-spin h-4 w-4" />{" "}
+                  {t("verifyDevice.submitPending")}
                 </>
               ) : (
-                "Verifica dispositivo"
+                t("verifyDevice.submit")
               )}
             </Button>
           </form>
 
-          {/* Re-invio */}
           <div className="mt-6 pt-6 border-t border-brand-border">
             <p className="text-sm text-center mb-3 text-brand-text-muted">
-              Non hai ricevuto il codice?
+              {t("verifyDevice.didNotReceive")}
             </p>
             <form action={resendAction}>
               <Button
@@ -138,12 +136,12 @@ export function VerifyDeviceForm() {
                 className="w-full text-brand-primary">
                 {resendPending ? (
                   <>
-                    <Loader2 className="animate-spin h-4 w-4" /> Invio in
-                    corso...
+                    <Loader2 className="animate-spin h-4 w-4" />{" "}
+                    {t("verifyDevice.resendPending")}
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="h-4 w-4" /> Invia di nuovo il codice
+                    <RotateCcw className="h-4 w-4" /> {t("verifyDevice.resend")}
                   </>
                 )}
               </Button>

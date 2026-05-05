@@ -6,32 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionState } from "@/lib/auth/middleware";
 import { Check, KeyRound, Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
 import { resetPassword } from "./actions";
 
-const passwordRules = [
-  {
-    id: "min",
-    label: "Almeno 8 caratteri",
-    test: (p: string) => p.length >= 8,
-  },
-  {
-    id: "upper",
-    label: "Almeno una lettera maiuscola",
-    test: (p: string) => /[A-Z]/.test(p),
-  },
-  {
-    id: "number",
-    label: "Almeno un numero",
-    test: (p: string) => /[0-9]/.test(p),
-  },
-];
-
 export default function ResetPasswordForm() {
+  const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+
+  const passwordRules = [
+    { id: "min", label: t("passwordRulesLong.min"), test: (p: string) => p.length >= 8 },
+    { id: "upper", label: t("passwordRulesLong.upper"), test: (p: string) => /[A-Z]/.test(p) },
+    { id: "number", label: t("passwordRulesLong.number"), test: (p: string) => /[0-9]/.test(p) },
+  ];
 
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     resetPassword,
@@ -47,7 +37,7 @@ export default function ResetPasswordForm() {
       setConfirmError("");
       return;
     }
-    setConfirmError(value === password ? "" : "Le password non coincidono");
+    setConfirmError(value === password ? "" : t("validation.passwordMismatch"));
   };
 
   if (!token) {
@@ -56,12 +46,12 @@ export default function ResetPasswordForm() {
         <div className="w-full max-w-md">
           <div className="rounded-2xl p-8 shadow-sm border border-brand-border bg-brand-surface text-center">
             <p className="text-brand-text-muted text-sm mb-4">
-              Link non valido o mancante.
+              {t("resetPassword.invalidLinkTitle")}
             </p>
             <Link
               href="/forgot-password"
               className="text-sm font-semibold text-brand-primary hover:underline">
-              Richiedi un nuovo link
+              {t("resetPassword.invalidLinkAction")}
             </Link>
           </div>
         </div>
@@ -78,10 +68,10 @@ export default function ResetPasswordForm() {
               <KeyRound className="h-6 w-6 text-brand-primary" />
             </div>
             <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-              Nuova password
+              {t("resetPassword.title")}
             </h1>
             <p className="text-sm text-brand-text-muted">
-              Scegli una nuova password per il tuo account.
+              {t("resetPassword.subtitle")}
             </p>
           </div>
 
@@ -92,7 +82,7 @@ export default function ResetPasswordForm() {
               <Label
                 htmlFor="password"
                 className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Nuova password
+                {t("fields.newPassword")}
               </Label>
               <Input
                 id="password"
@@ -107,7 +97,7 @@ export default function ResetPasswordForm() {
                 required
                 minLength={8}
                 maxLength={30}
-                placeholder="••••••••"
+                placeholder={t("fields.passwordPlaceholder")}
               />
               {password.length > 0 && (
                 <ul className="mt-2 space-y-1">
@@ -134,7 +124,7 @@ export default function ResetPasswordForm() {
               <Label
                 htmlFor="confirmPassword"
                 className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Conferma password
+                {t("fields.confirmPassword")}
               </Label>
               <Input
                 id="confirmPassword"
@@ -149,7 +139,7 @@ export default function ResetPasswordForm() {
                 required
                 minLength={8}
                 maxLength={30}
-                placeholder="••••••••"
+                placeholder={t("fields.passwordPlaceholder")}
                 aria-invalid={!!confirmError}
                 className={
                   confirmPassword && !confirmError ? "border-brand-accent" : ""
@@ -162,7 +152,7 @@ export default function ResetPasswordForm() {
               )}
               {confirmPassword && !confirmError && (
                 <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                  <Check className="h-3 w-3" /> Le password coincidono
+                  <Check className="h-3 w-3" /> {t("validation.passwordMatch")}
                 </p>
               )}
             </div>
@@ -177,10 +167,11 @@ export default function ResetPasswordForm() {
             <Button type="submit" disabled={pending} className="w-full">
               {pending ? (
                 <>
-                  <Loader2 className="animate-spin h-4 w-4" /> Salvataggio...
+                  <Loader2 className="animate-spin h-4 w-4" />{" "}
+                  {t("resetPassword.submitPending")}
                 </>
               ) : (
-                "Salva nuova password"
+                t("resetPassword.submit")
               )}
             </Button>
           </form>

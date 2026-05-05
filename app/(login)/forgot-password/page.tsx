@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionState } from "@/lib/auth/middleware";
 import { Check, KeyRound, Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState } from "react";
 import { forgotPassword } from "./actions";
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("auth");
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     forgotPassword,
     { error: "" },
@@ -20,17 +22,15 @@ export default function ForgotPasswordPage() {
     <div className="min-h-dvh flex items-center justify-center px-4 py-12 bg-brand-bg">
       <div className="w-full max-w-md">
         <div className="rounded-2xl p-8 shadow-sm border border-brand-border bg-brand-surface">
-          {/* Header */}
           <div className="mb-8">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-brand-bg">
               <KeyRound className="h-6 w-6 text-brand-primary" />
             </div>
             <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-              Password dimenticata?
+              {t("forgotPassword.title")}
             </h1>
             <p className="text-sm text-brand-text-muted">
-              Inserisci la tua email e ti invieremo un link per reimpostare la
-              password.
+              {t("forgotPassword.subtitle")}
             </p>
           </div>
 
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
                 <Label
                   htmlFor="email"
                   className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                  Email
+                  {t("fields.email")}
                 </Label>
                 <Input
                   id="email"
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  placeholder="nome@esempio.com"
+                  placeholder={t("fields.emailPlaceholder")}
                 />
               </div>
 
@@ -67,11 +67,11 @@ export default function ForgotPasswordPage() {
               <Button type="submit" disabled={pending} className="w-full">
                 {pending ? (
                   <>
-                    <Loader2 className="animate-spin h-4 w-4" /> Invio in
-                    corso...
+                    <Loader2 className="animate-spin h-4 w-4" />{" "}
+                    {t("forgotPassword.submitPending")}
                   </>
                 ) : (
-                  "Invia link di reset"
+                  t("forgotPassword.submit")
                 )}
               </Button>
             </form>
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
             <Link
               href="/sign-in"
               className="text-sm font-semibold underline-offset-2 hover:underline text-brand-primary">
-              ← Torna al login
+              {t("forgotPassword.backToSignin")}
             </Link>
           </div>
         </div>

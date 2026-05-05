@@ -10,6 +10,8 @@ import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { Analytics } from "@vercel/analytics/next";
 import type { Viewport } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
@@ -135,13 +137,17 @@ export default async function RootLayout({
   const isAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
 
-  // Fetch unico: snippet + settings + cookie consent + system page slugs.
-  // Gli slugs servono per linkare la cookie policy dal banner.
-  const [allSnippets, settings, cookieConsent, systemPageSlugs] = await Promise.all([
+  // Fetch unico: snippet + settings + cookie consent + system page slugs +
+  // i18n messages. I messages sono caricati QUI così sia i Client Components
+  // sotto qualunque route group (auth, admin, frontend, [locale]) trovano il
+  // NextIntlClientProvider già montato. Vedi i18n/request.ts per la fallback
+  // chain locale → DEFAULT_LOCALE.
+  const [allSnippets, settings, cookieConsent, systemPageSlugs, messages] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
     readCookieConsent(),
     getSystemPageSlugs(),
+    getMessages(),
   ]);
 
   const headSnippets = allSnippets.filter((s) => s.position === "head");
@@ -190,13 +196,15 @@ export default async function RootLayout({
         <HeadSnippets snippets={headSnippets} />
       </head>
       <body className="min-h-[100dvh] bg-gray-50">
-        {isMaintenance ? (
-          <MaintenancePage />
-        ) : (
-          <Suspense fallback={null}>
-            <DynamicWrapper>{children}</DynamicWrapper>
-          </Suspense>
-        )}
+        <NextIntlClientProvider locale={lang} messages={messages}>
+          {isMaintenance ? (
+            <MaintenancePage />
+          ) : (
+            <Suspense fallback={null}>
+              <DynamicWrapper>{children}</DynamicWrapper>
+            </Suspense>
+          )}
+        </NextIntlClientProvider>
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
         {showCookieBanner && <CookieBanner policyUrl={cookiePolicyUrl} />}

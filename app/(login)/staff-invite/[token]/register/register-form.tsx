@@ -6,16 +6,10 @@ import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/auth/middleware";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { Check, Loader2, ShieldCheck, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { registerViaInvite } from "./actions";
-
-const passwordRules = [
-  { id: "min", label: "8+ caratteri", test: (p: string) => p.length >= 8 },
-  { id: "upper", label: "Una maiuscola", test: (p: string) => /[A-Z]/.test(p) },
-  { id: "number", label: "Un numero", test: (p: string) => /[0-9]/.test(p) },
-  { id: "special", label: "Un carattere speciale", test: (p: string) => /[^a-zA-Z0-9]/.test(p) },
-];
 
 interface Props {
   token: string;
@@ -34,6 +28,15 @@ export default function StaffRegisterForm({
   termsSlug,
   privacySlug,
 }: Props) {
+  const t = useTranslations("auth");
+
+  const passwordRules = [
+    { id: "min", label: t("passwordRulesStaff.min"), test: (p: string) => p.length >= 8 },
+    { id: "upper", label: t("passwordRulesStaff.upper"), test: (p: string) => /[A-Z]/.test(p) },
+    { id: "number", label: t("passwordRulesStaff.number"), test: (p: string) => /[0-9]/.test(p) },
+    { id: "special", label: t("passwordRulesStaff.special"), test: (p: string) => /[^a-zA-Z0-9]/.test(p) },
+  ];
+
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     registerViaInvite,
     { error: "" },
@@ -56,7 +59,9 @@ export default function StaffRegisterForm({
   }
 
   function validateConfirm(value: string) {
-    setConfirmError(value && value !== password ? "Le password non coincidono" : "");
+    setConfirmError(
+      value && value !== password ? t("validation.passwordMismatch") : "",
+    );
   }
 
   return (
@@ -68,10 +73,10 @@ export default function StaffRegisterForm({
             <ShieldCheck className="h-6 w-6 text-brand-primary" />
           </div>
           <h1 className="text-2xl font-semibold mb-1 text-brand-text">
-            Crea il tuo account Staff
+            {t("staffRegister.title")}
           </h1>
           <p className="text-sm text-brand-text-muted mb-1">
-            Il tuo account verrà creato con il ruolo{" "}
+            {t("staffRegister.withRolePrefix")}{" "}
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
               style={{
@@ -85,7 +90,7 @@ export default function StaffRegisterForm({
             .
           </p>
           <p className="text-xs text-brand-text-light mb-6">
-            Al termine sarai reindirizzato al pannello admin.
+            {t("staffRegister.redirectNote")}
           </p>
 
           <form action={formAction} className="space-y-5">
@@ -94,7 +99,7 @@ export default function StaffRegisterForm({
             {/* Email — read-only */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Email
+                {t("fields.email")}
               </Label>
               <Input
                 value={email}
@@ -110,7 +115,7 @@ export default function StaffRegisterForm({
               <Label
                 htmlFor="username"
                 className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Username
+                {t("fields.username")}
               </Label>
               <Input
                 id="username"
@@ -122,7 +127,7 @@ export default function StaffRegisterForm({
                 required
                 minLength={3}
                 maxLength={50}
-                placeholder="il_tuo_username"
+                placeholder={t("staffRegister.usernamePlaceholder")}
                 aria-invalid={!!usernameError}
                 className={
                   username && !usernameError ? "border-brand-accent" : ""
@@ -135,7 +140,7 @@ export default function StaffRegisterForm({
               )}
               {username.length >= 3 && !usernameError && (
                 <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                  <Check className="h-3 w-3" /> Username valido
+                  <Check className="h-3 w-3" /> {t("validation.usernameValid")}
                 </p>
               )}
             </div>
@@ -145,7 +150,7 @@ export default function StaffRegisterForm({
               <Label
                 htmlFor="password"
                 className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Password
+                {t("fields.password")}
               </Label>
               <Input
                 id="password"
@@ -160,7 +165,7 @@ export default function StaffRegisterForm({
                 required
                 minLength={8}
                 maxLength={30}
-                placeholder="••••••••"
+                placeholder={t("fields.passwordPlaceholder")}
               />
               {password.length > 0 && (
                 <ul className="mt-2 space-y-1">
@@ -184,7 +189,7 @@ export default function StaffRegisterForm({
               <Label
                 htmlFor="confirmPassword"
                 className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                Conferma password
+                {t("fields.confirmPassword")}
               </Label>
               <Input
                 id="confirmPassword"
@@ -199,7 +204,7 @@ export default function StaffRegisterForm({
                 required
                 minLength={8}
                 maxLength={30}
-                placeholder="••••••••"
+                placeholder={t("fields.passwordPlaceholder")}
                 aria-invalid={!!confirmError}
                 className={confirmPassword && !confirmError ? "border-brand-accent" : ""}
               />
@@ -210,7 +215,7 @@ export default function StaffRegisterForm({
               )}
               {confirmPassword && !confirmError && (
                 <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                  <Check className="h-3 w-3" /> Le password coincidono
+                  <Check className="h-3 w-3" /> {t("validation.passwordMatch")}
                 </p>
               )}
             </div>
@@ -225,9 +230,9 @@ export default function StaffRegisterForm({
                   className="mt-0.5 h-4 w-4 rounded border-brand-border accent-brand-primary"
                 />
                 <span className="text-xs text-brand-text-muted leading-relaxed">
-                  Accetto i{" "}
+                  {t("staffRegister.termsLabelPrefix")}{" "}
                   <Link href={`/${termsSlug}`} target="_blank" className="underline text-brand-text hover:text-brand-primary">
-                    Termini di Servizio
+                    {t("staffRegister.termsLink")}
                   </Link>
                 </span>
               </label>
@@ -239,9 +244,9 @@ export default function StaffRegisterForm({
                   className="mt-0.5 h-4 w-4 rounded border-brand-border accent-brand-primary"
                 />
                 <span className="text-xs text-brand-text-muted leading-relaxed">
-                  Accetto la{" "}
+                  {t("staffRegister.privacyLabelPrefix")}{" "}
                   <Link href={`/${privacySlug}`} target="_blank" className="underline text-brand-text hover:text-brand-primary">
-                    Privacy Policy
+                    {t("staffRegister.privacyLink")}
                   </Link>
                 </span>
               </label>
@@ -261,10 +266,11 @@ export default function StaffRegisterForm({
               className="w-full">
               {pending ? (
                 <>
-                  <Loader2 className="animate-spin h-4 w-4" /> Creazione account…
+                  <Loader2 className="animate-spin h-4 w-4" />{" "}
+                  {t("staffRegister.submitPending")}
                 </>
               ) : (
-                "Crea account e accedi"
+                t("staffRegister.submit")
               )}
             </Button>
           </form>
