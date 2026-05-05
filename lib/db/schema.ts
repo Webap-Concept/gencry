@@ -42,6 +42,10 @@ export const users = pgTable("users", {
   // azzerato su cancel/confirm: il limite vale anche dopo annullamento.
   pendingEmail: varchar("pending_email", { length: 255 }),
   pendingEmailRequestedAt: timestamp("pending_email_requested_at"),
+  // Preferenza locale dell'utente (es. "it", "en"). Null = segui detection
+  // chain (cookie / Accept-Language / default app). Sovrascrive il cookie
+  // per le zone non-prefix (admin, settings, profilo, ecc.).
+  locale: varchar("locale", { length: 5 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -367,6 +371,38 @@ export const pageVersions = pgTable(
       table.pageId,
       table.contentVersion,
     ),
+  ],
+);
+
+/**
+ * Sister table per CMS multilocale: la pagina canonica vive in `pages`
+ * (slug + content nel default locale). Le altre lingue sono overlay
+ * (page_id, locale). Lookup join in `getPageWithTemplate(slug, locale)`.
+ *
+ * Il content_version è opzionale qui — viene popolato quando la
+ * traduzione viene editata, e serve a `page_versions` per snapshottare
+ * la versione esatta accettata dall'utente (consensi GDPR multilocale).
+ */
+export const pageTranslations = pgTable(
+  "page_translations",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    pageId: integer("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    locale: varchar("locale", { length: 5 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull().default(""),
+    contentVersion: varchar("content_version", { length: 20 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("page_translations_page_locale_uq").on(
+      table.pageId,
+      table.locale,
+    ),
+    index("idx_page_translations_page").on(table.pageId),
   ],
 );
 
@@ -857,6 +893,48 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ---------------------------------------------------------------------------
+// i18n — locale registry e traduzioni dinamiche
+// ---------------------------------------------------------------------------
+//
+// La fonte canonica del default locale è la env `I18N_DEFAULT_LOCALE` letta
+// da proxy.ts e dal loader next-intl. Il flag `is_default` qui è solo per
+// UI/seed/admin display: l'admin section mostra un warning se env↔DB
+// divergono. Vedi project_i18n_plan.md per il piano completo.
+export const appLocales = pgTable("app_locales", {
+  code: varchar("code", { length: 5 }).primaryKey(),
+  label: varchar("label", { length: 64 }).notNull(),
+  nativeLabel: varchar("native_label", { length: 64 }).notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Traduzioni dinamiche per chiave: contenuti NON UI-statici (email body,
+// legal pages, copy admin-modificabile). Le chiavi UI statiche restano in
+// `messages/{locale}/<ns>.json` per type-safety e versioning.
+export const translations = pgTable(
+  "translations",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    locale: varchar("locale", { length: 5 }).notNull(),
+    namespace: varchar("namespace", { length: 64 }).notNull(),
+    key: varchar("key", { length: 255 }).notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("translations_locale_ns_key_uq").on(
+      table.locale,
+      table.namespace,
+      table.key,
+    ),
+    index("idx_translations_locale_ns").on(table.locale, table.namespace),
+  ],
+);
+
 export const waitingList = pgTable("waiting_list", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -1000,6 +1078,12 @@ export type SeoPage         = typeof seoPages.$inferSelect;
 export type NewSeoPage      = typeof seoPages.$inferInsert;
 export type Page            = typeof pages.$inferSelect;
 export type NewPage         = typeof pages.$inferInsert;
+export type PageTranslation    = typeof pageTranslations.$inferSelect;
+export type NewPageTranslation = typeof pageTranslations.$inferInsert;
+export type AppLocale       = typeof appLocales.$inferSelect;
+export type NewAppLocale    = typeof appLocales.$inferInsert;
+export type Translation     = typeof translations.$inferSelect;
+export type NewTranslation  = typeof translations.$inferInsert;
 export type PageTemplate    = typeof pageTemplates.$inferSelect;
 export type NewPageTemplate = typeof pageTemplates.$inferInsert;
 export type TemplateField   = typeof templateFields.$inferSelect;

@@ -38,6 +38,7 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "admin:tests",        label: "Access Test Suite section",         group: "Admin", isSystem: true },
   { key: "admin:sessions",     label: "Access Sessions section",           group: "Admin", isSystem: true },
   { key: "admin:gdpr",         label: "Access Compliance & GDPR section",  group: "Admin", isSystem: true },
+  { key: "admin:languages",    label: "Manage languages",                  group: "Admin", isSystem: true },
 
   // ── Users ────────────────────────────────────────────────────────────
   { key: "users:read",              label: "View user list",                  group: "Users", isSystem: true },
@@ -92,7 +93,7 @@ export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "admin:access", "admin:settings", "admin:analytics",
     "admin:content", "admin:seo", "admin:users", "admin:staff",
     "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
-    "admin:sessions", "admin:gdpr",
+    "admin:sessions", "admin:gdpr", "admin:languages",
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
     "users:role_assign", "users:permission_assign",
