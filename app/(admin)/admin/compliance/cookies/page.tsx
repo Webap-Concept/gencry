@@ -1,3 +1,4 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   COOKIE_CATEGORIES,
@@ -39,37 +40,19 @@ export default async function CookiesCompliancePage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <Cookie size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{tC("pageTitle")}</span>
-            </h2>
-            <AdminSectionInfo
-              title={tC("guideTitle")}
-              ariaLabel={tC("guideAriaLabel")}>
-              <CookiesAdminGuide />
-            </AdminSectionInfo>
-          </div>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {tC("pageSubtitle")}
-          </p>
-        </div>
-      </header>
+      <AdminSectionHeader
+        icon={Cookie}
+        breadcrumbLabel={t("breadcrumb")}
+        title={tC("pageTitle")}
+        subtitle={tC("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={tC("guideTitle")}
+            ariaLabel={tC("guideAriaLabel")}>
+            <CookiesAdminGuide />
+          </AdminSectionInfo>
+        }
+      />
 
       {/* Section 1 — Master switch */}
       <section>

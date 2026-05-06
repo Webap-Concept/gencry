@@ -1,6 +1,7 @@
 "use client";
 
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import type { NotFoundLogRow } from "@/lib/db/not-found-queries";
 import {
   AlertTriangle,
@@ -158,84 +159,66 @@ export default function NotFoundClient({
         onCancel={() => setClearOpen(false)}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background:
-                "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-              border:
-                "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-            }}>
-            <SearchX size={18} style={{ color: "var(--admin-accent)" }} />
-          </div>
-          <div>
-            <h1
-              className="text-lg font-semibold"
-              style={{ color: "var(--admin-text)" }}>
-              {t("pageHeading")}
-            </h1>
-            <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-              {t("countsLine", {
-                unresolved: counts.unresolved,
-                resolved: counts.resolved,
-              })}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className="flex items-center rounded-lg p-0.5"
-            style={{
-              background: "var(--admin-page-bg)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            <button
-              type="button"
-              onClick={() => setShowAll(false)}
-              className="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+      <AdminSectionHeader
+        icon={SearchX}
+        breadcrumbLabel={t("pageHeading")}
+        subtitle={t("countsLine", {
+          unresolved: counts.unresolved,
+          resolved: counts.resolved,
+        })}
+        actionSlot={
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center rounded-lg p-0.5"
               style={{
-                background: !includeResolved
-                  ? "var(--admin-card-bg)"
-                  : "transparent",
-                color: !includeResolved
-                  ? "var(--admin-text)"
-                  : "var(--admin-text-muted)",
-              }}>
-              {t("filterUnresolved")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-              style={{
-                background: includeResolved
-                  ? "var(--admin-card-bg)"
-                  : "transparent",
-                color: includeResolved
-                  ? "var(--admin-text)"
-                  : "var(--admin-text-muted)",
-              }}>
-              {t("filterAll")}
-            </button>
-          </div>
-          {counts.resolved > 0 && (
-            <button
-              type="button"
-              onClick={() => setClearOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-              style={{
-                color: "var(--admin-text-muted)",
+                background: "var(--admin-page-bg)",
                 border: "1px solid var(--admin-card-border)",
-                background: "var(--admin-card-bg)",
               }}>
-              <Trash2 size={13} /> {t("clearResolvedButton")}
-            </button>
-          )}
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+                style={{
+                  background: !includeResolved
+                    ? "var(--admin-card-bg)"
+                    : "transparent",
+                  color: !includeResolved
+                    ? "var(--admin-text)"
+                    : "var(--admin-text-muted)",
+                }}>
+                {t("filterUnresolved")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+                style={{
+                  background: includeResolved
+                    ? "var(--admin-card-bg)"
+                    : "transparent",
+                  color: includeResolved
+                    ? "var(--admin-text)"
+                    : "var(--admin-text-muted)",
+                }}>
+                {t("filterAll")}
+              </button>
+            </div>
+            {counts.resolved > 0 && (
+              <button
+                type="button"
+                onClick={() => setClearOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                style={{
+                  color: "var(--admin-text-muted)",
+                  border: "1px solid var(--admin-card-border)",
+                  background: "var(--admin-card-bg)",
+                }}>
+                <Trash2 size={13} /> {t("clearResolvedButton")}
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {actionError && (
         <div

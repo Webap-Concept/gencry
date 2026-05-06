@@ -1,3 +1,4 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
@@ -31,41 +32,19 @@ export default async function GdprCompliancePage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <ScrollText size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2
-              className="text-lg font-bold"
-              style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>
-                {t("breadcrumb")}
-              </span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{tG("pageTitle")}</span>
-            </h2>
-            <AdminSectionInfo
-              title={tG("guideTitle")}
-              ariaLabel={tG("guideAriaLabel")}>
-              <GdprLegendGuide />
-            </AdminSectionInfo>
-          </div>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {tG("pageSubtitle")}
-          </p>
-        </div>
-      </header>
+      <AdminSectionHeader
+        icon={ScrollText}
+        breadcrumbLabel={t("breadcrumb")}
+        title={tG("pageTitle")}
+        subtitle={tG("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={tG("guideTitle")}
+            ariaLabel={tG("guideAriaLabel")}>
+            <GdprLegendGuide />
+          </AdminSectionInfo>
+        }
+      />
 
       {/* Section 1 — current consent status */}
       <ConsentStatusDashboard

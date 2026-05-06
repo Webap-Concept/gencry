@@ -1,12 +1,17 @@
 // app/(admin)/admin/_components/section-header.tsx
 //
-// Header standard delle sezioni admin: icona quadrata + h1 con
-// "<breadcrumbLabel> / <title>" + sottotitolo, slot opzionali per il
-// pulsante azione (es. "+ Nuovo") e per la guida (vedi AdminSectionInfo).
+// Componente UNICO per l'header di tutte le pagine admin del CORE.
+// Rispetto al pattern legacy (SettingsHeader/ServicesHeader con dispatch
+// by pathname) ogni page.tsx passa esplicitamente icon/breadcrumb/title:
+// più verboso ma trasparente, niente magia, un colpo d'occhio basta a
+// capire cosa renderizza una page.
 //
-// Estratto da pages/page.tsx + templates/page.tsx per poterlo riusare
-// anche nelle pagine di edit/new e mantenere il "dove sono nell'admin"
-// visibile durante tutta la sessione (prima scompariva entrando in edit).
+// **NON USARE NEI MODULI** (vedi project_modular_architecture.md):
+// ogni modulo deve avere il suo header locale (es. PricesHeader) per
+// preservare l'indipendenza del core white-label.
+//
+// `title` è opzionale: se omesso mostra solo `breadcrumbLabel` (pagina
+// "root" della section, es. /admin/settings → "Settings").
 import type { LucideIcon } from "lucide-react";
 
 export function AdminSectionHeader({
@@ -14,13 +19,17 @@ export function AdminSectionHeader({
   breadcrumbLabel,
   title,
   subtitle,
+  subtitleSlot,
   infoSlot,
   actionSlot,
 }: {
   icon: LucideIcon;
   breadcrumbLabel: string;
-  title: string;
+  title?: string;
+  /** Sottotitolo come stringa semplice. Mutuamente esclusivo con `subtitleSlot`. */
   subtitle?: string;
+  /** Sottotitolo come JSX (per quando serve markup inline tipo `<code>`). */
+  subtitleSlot?: React.ReactNode;
   infoSlot?: React.ReactNode;
   actionSlot?: React.ReactNode;
 }) {
@@ -40,19 +49,25 @@ export function AdminSectionHeader({
             <h1
               className="text-lg font-bold"
               style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>
-                {breadcrumbLabel}
-              </span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{title}</span>
+              {title ? (
+                <>
+                  <span style={{ color: "var(--admin-text-muted)" }}>
+                    {breadcrumbLabel}
+                  </span>
+                  <span style={{ color: "var(--admin-text-faint)" }}> / </span>
+                  <span>{title}</span>
+                </>
+              ) : (
+                breadcrumbLabel
+              )}
             </h1>
             {infoSlot}
           </div>
-          {subtitle && (
+          {(subtitleSlot || subtitle) && (
             <p
               className="text-sm mt-0.5"
               style={{ color: "var(--admin-text-faint)" }}>
-              {subtitle}
+              {subtitleSlot ?? subtitle}
             </p>
           )}
         </div>

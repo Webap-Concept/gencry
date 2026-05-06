@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { UserX } from "lucide-react";
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { db } from "@/lib/db/drizzle";
 import { blockedUsernames } from "@/lib/db/schema";
@@ -29,27 +30,12 @@ export default async function AdminBlockedUsernamesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{
-            background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}
-        >
-          <UserX size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
-            <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>{tBu("pageTitle")}</span>
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
-            {tBu("pageSubtitle")}
-          </p>
-        </div>
-      </div>
+      <AdminSectionHeader
+        icon={UserX}
+        breadcrumbLabel={t("breadcrumb")}
+        title={tBu("pageTitle")}
+        subtitle={tBu("pageSubtitle")}
+      />
 
       <Suspense
         fallback={
