@@ -8,10 +8,14 @@ import {
 import { serializeNotification } from "@/lib/notifications/serializers";
 import { Bell } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { NotificationsList } from "./_components/notifications-list";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.notifications");
+  return { title: t("metaTitle") };
+}
 
 const VALID_STATUSES: NotificationStatus[] = [
   "active",
@@ -41,6 +45,7 @@ export default async function AdminNotificationsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   await requireAdminPage();
+  const t = await getTranslations("admin.notifications");
   const params = await searchParams;
   const requested = params.status as NotificationStatus | undefined;
   const status: NotificationStatus = VALID_STATUSES.includes(
@@ -66,12 +71,12 @@ export default async function AdminNotificationsPage({
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            Notifications
+            {t("pageTitle")}
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Full history of alerts generated for the admin panel.
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>

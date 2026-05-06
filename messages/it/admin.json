@@ -2106,6 +2106,100 @@
       }
     }
   },
+  "logs": {
+    "metaTitle": "Log attività",
+    "pageTitle": "Log attività",
+    "pageSubtitle": "Log delle operazioni eseguite nell'app e nel pannello di amministrazione.",
+    "tabs": {
+      "rbac": "RBAC",
+      "auth": "Autenticazione",
+      "pages": "Contenuti"
+    },
+    "searchPlaceholder": "Cerca azione, email, IP...",
+    "filterResults": "{count, plural, =0 {Nessun risultato} one {# risultato} other {# risultati}} in questa pagina per “{query}”",
+    "filterClear": "Pulisci",
+    "empty": "Nessun log trovato",
+    "paginationRange": "{start}–{end} di {total} {total, plural, one {evento} other {eventi}}",
+    "paginationSingle": "{total} {total, plural, one {evento totale} other {eventi totali}} · ordinati dal più recente",
+    "previousPage": "Pagina precedente",
+    "nextPage": "Pagina successiva"
+  },
+  "notifications": {
+    "metaTitle": "Notifiche",
+    "pageTitle": "Notifiche",
+    "pageSubtitle": "Storico completo degli avvisi generati per il pannello di amministrazione.",
+    "tabs": {
+      "active": "Attive",
+      "snoozed": "Posticipate",
+      "dismissed": "Ignorate",
+      "resolved": "Risolte",
+      "all": "Tutte"
+    },
+    "empty": "Nessuna notifica in questa categoria.",
+    "status": {
+      "dismissed": "Ignorata",
+      "resolved": "Risolta",
+      "snoozed": "Posticipata",
+      "read": "Letta",
+      "unread": "Da leggere"
+    },
+    "snoozedUntil": "· Posticipata fino al {date}",
+    "goToSection": "Vai alla sezione",
+    "actions": {
+      "snoozeSevenDays": "Posticipa 7 giorni",
+      "dismiss": "Ignora"
+    }
+  },
+  "tests": {
+    "metaTitle": "Test e stato del sistema",
+    "pageTitle": "Test e stato del sistema",
+    "checkedAt": "Verificato il {date}",
+    "globalStatus": {
+      "allOk": "Tutti i servizi sono operativi",
+      "error": "Uno o più servizi non funzionano",
+      "degraded": "Uno o più servizi sono degradati"
+    },
+    "statusLabel": {
+      "ok": "Operativo",
+      "degraded": "Degradato",
+      "error": "Errore",
+      "unknown": "Non configurato"
+    },
+    "infrastructureHeading": "Infrastruttura",
+    "ciInfo": "I test vengono eseguiti automaticamente dalla pipeline CI a ogni commit su <c>main</c>. Il branch è protetto: il merge è bloccato se un test fallisce.",
+    "suitesHeading": "Suite di test",
+    "suitesFailed": "{count} falliti",
+    "suitesPassedRatio": "{passed}/{total} superati",
+    "suitesLastRun": "· Ultima esecuzione {date}",
+    "noReportTitle": "Nessun report dei test disponibile.",
+    "noReportSubtitle": "Il report viene generato automaticamente a ogni push su <c>main</c>.",
+    "suite": {
+      "failedCount": "{count} falliti",
+      "passedRatio": "{passed}/{total}"
+    },
+    "service": {
+      "supabase": "Supabase",
+      "redis": "Upstash Redis",
+      "resend": "Resend",
+      "google": "Google OAuth",
+      "cloudflare": "Cloudflare Turnstile"
+    },
+    "serviceDetail": {
+      "redisNotConfigured": "Credenziali non configurate",
+      "redisUnexpected": "Risposta inattesa: {body}",
+      "redisHttp": "HTTP {status}",
+      "resendNotConfigured": "RESEND_API_KEY non impostata",
+      "resendInvalidKey": "API key non valida",
+      "resendHttp": "HTTP {status}",
+      "googleNotConfigured": "Credenziali non configurate nelle impostazioni",
+      "googleReachable": "Endpoint raggiungibile · credenziali presenti",
+      "googleUnexpected": "HTTP {status} inatteso",
+      "cloudflareNotConfigured": "Chiavi non configurate",
+      "cloudflareInvalidSecret": "Secret key non valida",
+      "cloudflareReachable": "Endpoint raggiungibile · chiavi presenti",
+      "cloudflareHttp": "HTTP {status}"
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "users-group": "Accesso",

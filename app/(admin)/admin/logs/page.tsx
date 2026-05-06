@@ -3,10 +3,14 @@ import { getActivityLogs } from "@/lib/db/admin-queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { ClipboardList } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LogsClient } from "./_components/logs-client";
 
-export const metadata: Metadata = { title: "Log attività" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.logs");
+  return { title: t("metaTitle") };
+}
 
 async function LogsContent({ page, tab }: { page: number; tab: string }) {
   const data = await getActivityLogs({ page, perPage: 20, tab });
@@ -19,6 +23,7 @@ export default async function AdminLogsPage({
   searchParams: Promise<{ page?: string; tab?: string }>;
 }) {
   await requireAdminPage();
+  const t = await getTranslations("admin.logs");
 
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? 1));
@@ -41,13 +46,12 @@ export default async function AdminLogsPage({
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            Activity Logs
+            {t("pageTitle")}
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Log of operations performed in the app and in the administration
-            panel.
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>

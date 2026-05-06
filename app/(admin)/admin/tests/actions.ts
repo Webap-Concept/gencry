@@ -19,11 +19,27 @@ import { sql } from "drizzle-orm";
 // ---------------------------------------------------------------------------
 export type HealthStatus = "ok" | "degraded" | "error" | "unknown";
 
+export type ServiceNameKey =
+  | "supabase"
+  | "redis"
+  | "resend"
+  | "google"
+  | "cloudflare";
+
+/**
+ * Detail variant: either a translation key (with optional params) defined under
+ * `admin.tests.serviceDetail.*`, or a raw runtime string (e.g. a thrown
+ * exception message) that we cannot localize.
+ */
+export type ServiceDetail =
+  | { kind: "key"; key: string; params?: Record<string, string | number> }
+  | { kind: "raw"; text: string };
+
 export type ServiceHealth = {
-  name: string;
+  nameKey: ServiceNameKey;
   status: HealthStatus;
   latencyMs: number | null;
-  detail?: string;
+  detail?: ServiceDetail;
 };
 
 export type HealthChecks = {
@@ -66,9 +82,14 @@ async function pingSupabase(): Promise<ServiceHealth> {
   const start = Date.now();
   try {
     await db.execute(sql`SELECT 1`);
-    return { name: "Supabase", status: "ok", latencyMs: Date.now() - start };
+    return { nameKey: "supabase", status: "ok", latencyMs: Date.now() - start };
   } catch (e) {
-    return { name: "Supabase", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+    return {
+      nameKey: "supabase",
+      status: "error",
+      latencyMs: Date.now() - start,
+      detail: { kind: "raw", text: String(e) },
+    };
   }
 }
 
@@ -79,24 +100,46 @@ async function pingRedis(): Promise<ServiceHealth> {
     const url = settings.upstash_redis_rest_url;
     const token = settings.upstash_redis_rest_token;
     if (!url || !token) {
-      return { name: "Upstash Redis", status: "unknown", latencyMs: null, detail: "Credentials not configured" };
+      return {
+        nameKey: "redis",
+        status: "unknown",
+        latencyMs: null,
+        detail: { kind: "key", key: "redisNotConfigured" },
+      };
     }
     const res = await fetch(`${url}/ping`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(4000),
     });
     const latencyMs = Date.now() - start;
-    if (!res.ok) return { name: "Upstash Redis", status: "error", latencyMs, detail: `HTTP ${res.status}` };
-    const body = await res.json() as { result?: string };
+    if (!res.ok)
+      return {
+        nameKey: "redis",
+        status: "error",
+        latencyMs,
+        detail: { kind: "key", key: "redisHttp", params: { status: res.status } },
+      };
+    const body = (await res.json()) as { result?: string };
     const pong = body?.result === "PONG";
     return {
-      name: "Upstash Redis",
+      nameKey: "redis",
       status: pong ? "ok" : "degraded",
       latencyMs,
-      detail: pong ? undefined : `Unexpected response: ${JSON.stringify(body)}`,
+      detail: pong
+        ? undefined
+        : {
+            kind: "key",
+            key: "redisUnexpected",
+            params: { body: JSON.stringify(body) },
+          },
     };
   } catch (e) {
-    return { name: "Upstash Redis", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+    return {
+      nameKey: "redis",
+      status: "error",
+      latencyMs: Date.now() - start,
+      detail: { kind: "raw", text: String(e) },
+    };
   }
 }
 
@@ -105,18 +148,40 @@ async function pingResend(): Promise<ServiceHealth> {
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      return { name: "Resend", status: "unknown", latencyMs: null, detail: "RESEND_API_KEY not set" };
+      return {
+        nameKey: "resend",
+        status: "unknown",
+        latencyMs: null,
+        detail: { kind: "key", key: "resendNotConfigured" },
+      };
     }
     const res = await fetch("https://api.resend.com/domains", {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(4000),
     });
     const latencyMs = Date.now() - start;
-    if (res.status === 200) return { name: "Resend", status: "ok", latencyMs };
-    if (res.status === 401) return { name: "Resend", status: "error", latencyMs, detail: "Invalid API key" };
-    return { name: "Resend", status: "degraded", latencyMs, detail: `HTTP ${res.status}` };
+    if (res.status === 200)
+      return { nameKey: "resend", status: "ok", latencyMs };
+    if (res.status === 401)
+      return {
+        nameKey: "resend",
+        status: "error",
+        latencyMs,
+        detail: { kind: "key", key: "resendInvalidKey" },
+      };
+    return {
+      nameKey: "resend",
+      status: "degraded",
+      latencyMs,
+      detail: { kind: "key", key: "resendHttp", params: { status: res.status } },
+    };
   } catch (e) {
-    return { name: "Resend", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+    return {
+      nameKey: "resend",
+      status: "error",
+      latencyMs: Date.now() - start,
+      detail: { kind: "raw", text: String(e) },
+    };
   }
 }
 
@@ -127,7 +192,12 @@ async function pingGoogle(): Promise<ServiceHealth> {
     const clientId = settings.google_client_id;
     const clientSecret = settings.google_client_secret;
     if (!clientId || !clientSecret) {
-      return { name: "Google OAuth", status: "unknown", latencyMs: null, detail: "Credentials not configured in settings" };
+      return {
+        nameKey: "google",
+        status: "unknown",
+        latencyMs: null,
+        detail: { kind: "key", key: "googleNotConfigured" },
+      };
     }
     // 400 = invalid token (expected — means endpoint is live and reachable)
     const res = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=probe", {
@@ -135,11 +205,30 @@ async function pingGoogle(): Promise<ServiceHealth> {
     });
     const latencyMs = Date.now() - start;
     if (res.status === 400) {
-      return { name: "Google OAuth", status: "ok", latencyMs, detail: "Endpoint reachable · credentials present" };
+      return {
+        nameKey: "google",
+        status: "ok",
+        latencyMs,
+        detail: { kind: "key", key: "googleReachable" },
+      };
     }
-    return { name: "Google OAuth", status: "degraded", latencyMs, detail: `Unexpected HTTP ${res.status}` };
+    return {
+      nameKey: "google",
+      status: "degraded",
+      latencyMs,
+      detail: {
+        kind: "key",
+        key: "googleUnexpected",
+        params: { status: res.status },
+      },
+    };
   } catch (e) {
-    return { name: "Google OAuth", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+    return {
+      nameKey: "google",
+      status: "error",
+      latencyMs: Date.now() - start,
+      detail: { kind: "raw", text: String(e) },
+    };
   }
 }
 
@@ -150,7 +239,12 @@ async function pingCloudflare(): Promise<ServiceHealth> {
     const siteKey   = settings.cf_turnstile_site_key;
     const secretKey = settings.cf_turnstile_secret_key;
     if (!siteKey || !secretKey) {
-      return { name: "Cloudflare Turnstile", status: "unknown", latencyMs: null, detail: "Keys not configured" };
+      return {
+        nameKey: "cloudflare",
+        status: "unknown",
+        latencyMs: null,
+        detail: { kind: "key", key: "cloudflareNotConfigured" },
+      };
     }
     // POST with an invalid token — Turnstile returns 200 + error-codes.
     // If the secret itself is wrong we get error-codes: ["invalid-input-secret"].
@@ -161,15 +255,43 @@ async function pingCloudflare(): Promise<ServiceHealth> {
       signal: AbortSignal.timeout(4000),
     });
     const latencyMs = Date.now() - start;
-    if (!res.ok) return { name: "Cloudflare Turnstile", status: "error", latencyMs, detail: `HTTP ${res.status}` };
-    const body = await res.json() as { success: boolean; "error-codes"?: string[] };
+    if (!res.ok)
+      return {
+        nameKey: "cloudflare",
+        status: "error",
+        latencyMs,
+        detail: {
+          kind: "key",
+          key: "cloudflareHttp",
+          params: { status: res.status },
+        },
+      };
+    const body = (await res.json()) as {
+      success: boolean;
+      "error-codes"?: string[];
+    };
     const errCodes = body["error-codes"] ?? [];
     if (errCodes.includes("invalid-input-secret")) {
-      return { name: "Cloudflare Turnstile", status: "error", latencyMs, detail: "Invalid secret key" };
+      return {
+        nameKey: "cloudflare",
+        status: "error",
+        latencyMs,
+        detail: { kind: "key", key: "cloudflareInvalidSecret" },
+      };
     }
-    return { name: "Cloudflare Turnstile", status: "ok", latencyMs, detail: "Endpoint reachable · keys present" };
+    return {
+      nameKey: "cloudflare",
+      status: "ok",
+      latencyMs,
+      detail: { kind: "key", key: "cloudflareReachable" },
+    };
   } catch (e) {
-    return { name: "Cloudflare Turnstile", status: "error", latencyMs: Date.now() - start, detail: String(e) };
+    return {
+      nameKey: "cloudflare",
+      status: "error",
+      latencyMs: Date.now() - start,
+      detail: { kind: "raw", text: String(e) },
+    };
   }
 }
 
