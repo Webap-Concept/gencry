@@ -1,5 +1,6 @@
 // app/(admin)/admin/security/blocked-usernames/page.tsx
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { UserX } from "lucide-react";
 import { requireAdminPage } from "@/lib/rbac/guards";
@@ -8,9 +9,10 @@ import { blockedUsernames } from "@/lib/db/schema";
 import { asc } from "drizzle-orm";
 import { BlockedUsernamesClient } from "./_components/blocked-usernames-client";
 
-export const metadata: Metadata = {
-  title: "Sicurezza / Username Bloccati",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.security.blockedUsernames");
+  return { title: t("metaTitle") };
+}
 
 async function BlockedUsernamesContent() {
   const rows = await db
@@ -22,6 +24,8 @@ async function BlockedUsernamesContent() {
 
 export default async function AdminBlockedUsernamesPage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.security");
+  const tBu = await getTranslations("admin.security.blockedUsernames");
 
   return (
     <div className="space-y-5">
@@ -37,12 +41,12 @@ export default async function AdminBlockedUsernamesPage() {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Sicurezza</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Username Bloccati</span>
+            <span>{tBu("pageTitle")}</span>
           </h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
-            Gestisci gli username riservati che non possono essere usati in fase di registrazione.
+            {tBu("pageSubtitle")}
           </p>
         </div>
       </div>

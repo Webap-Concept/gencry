@@ -3,6 +3,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import {
   addDisposableDomainAction,
@@ -11,6 +12,7 @@ import {
 } from "@/app/(admin)/admin/settings/actions";
 
 export function BlockedDomainsClient({ initialDomains }: { initialDomains: string[] }) {
+  const t = useTranslations("admin.security.blockedDomains");
   const [domains, setDomains] = useState<string[]>(initialDomains);
   const [search, setSearch] = useState("");
   const [newDomain, setNewDomain] = useState("");
@@ -31,7 +33,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
     const domain = newDomain.trim().toLowerCase();
     if (!domain) return;
     if (domains.includes(domain)) {
-      showToast(`${domain} è già in lista.`, "error");
+      showToast(t("errorAlreadyInList", { domain }), "error");
       return;
     }
     startTransition(async () => {
@@ -64,7 +66,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
       .map((l) => l.trim().toLowerCase())
       .filter((l) => l.length > 0 && !domains.includes(l));
     if (lines.length === 0) {
-      showToast("Nessun nuovo dominio da importare.", "error");
+      showToast(t("errorNoNewDomains"), "error");
       return;
     }
     startBulkTransition(async () => {
@@ -91,7 +93,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
         {/* Aggiunta singola */}
         <div>
           <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--admin-text)" }}>
-            Aggiungi dominio
+            {t("addHeading")}
           </h3>
           <div className="flex gap-2 max-w-md">
             <input
@@ -99,7 +101,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
               value={newDomain}
               onChange={(e) => setNewDomain(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
-              placeholder="es. mailinator.com"
+              placeholder={t("addPlaceholder")}
               className="flex-1 px-3 py-2 text-sm rounded-lg focus:outline-none"
               style={{
                 background: "var(--admin-page-bg)",
@@ -116,7 +118,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
               onMouseEnter={(e) => !isPending && (e.currentTarget.style.background = "var(--admin-accent-hover)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-accent)")}>
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Aggiungi
+              {t("addButton")}
             </button>
           </div>
         </div>
@@ -126,10 +128,10 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
         {/* Import bulk */}
         <div>
           <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
-            Import bulk
+            {t("bulkHeading")}
           </h3>
           <p className="text-[11px] mb-3" style={{ color: "var(--admin-text-faint)" }}>
-            Un dominio per riga. I duplicati vengono ignorati.
+            {t("bulkHelp")}
           </p>
           <textarea
             value={bulk}
@@ -154,10 +156,16 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-accent)")}>
               {isBulkPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               {isBulkPending
-                ? "Importazione..."
-                : `Importa ${
-                    bulk.split("\n").filter((l) => l.trim() && !domains.includes(l.trim().toLowerCase())).length
-                  } domini`}
+                ? t("bulkImporting")
+                : t("bulkImportButton", {
+                    count: bulk
+                      .split("\n")
+                      .filter(
+                        (l) =>
+                          l.trim() &&
+                          !domains.includes(l.trim().toLowerCase()),
+                      ).length,
+                  })}
             </button>
           </div>
         </div>
@@ -168,9 +176,9 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-              Domini bloccati{" "}
+              {t("listHeading")}{" "}
               <span className="font-normal text-xs" style={{ color: "var(--admin-text-muted)" }}>
-                ({domains.length})
+                {t("listCount", { count: domains.length })}
               </span>
             </h3>
             <div className="relative">
@@ -179,7 +187,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cerca..."
+                placeholder={t("searchPlaceholder")}
                 className="pl-7 pr-3 py-1.5 text-xs rounded-lg focus:outline-none"
                 style={{
                   background: "var(--admin-page-bg)",
@@ -193,7 +201,9 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
 
           {filtered.length === 0 ? (
             <p className="text-sm py-4 text-center" style={{ color: "var(--admin-text-faint)" }}>
-              {search ? `Nessun risultato per "${search}"` : "Nessun dominio bloccato."}
+              {search
+                ? t("searchEmptyResult", { query: search })
+                : t("listEmpty")}
             </p>
           ) : (
             <div
@@ -216,7 +226,7 @@ export function BlockedDomainsClient({ initialDomains }: { initialDomains: strin
                       onClick={() => handleRemove(domain)}
                       disabled={isPending}
                       className="p-1 rounded transition-colors disabled:opacity-40"
-                      title="Rimuovi"
+                      title={t("removeTooltip")}
                       style={{ color: "var(--admin-text-faint)" }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--admin-danger, #e53e3e)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--admin-text-faint)")}>

@@ -11,6 +11,7 @@ import {
 import { syncIpBlacklistToRedis } from "@/lib/auth/rate-limit-redis";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -18,7 +19,7 @@ const ipSchema = z
   .string()
   .regex(
     /^(\d{1,3}\.){3}\d{1,3}$|^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/,
-    "IP non valido",
+    "errorInvalidIp",
   );
 
 export async function getBruteforceData() {
@@ -96,7 +97,8 @@ export async function actionUpdateBruteforceConfig(formData: FormData) {
     bf_alert_threshold: formData.get("bf_alert_threshold"),
   });
   if (!parsed.success) {
-    return { ok: false, error: "Valori non validi" };
+    const t = await getTranslations("admin.security.bruteforce");
+    return { ok: false, error: t("errorInvalidValues") };
   }
   await Promise.all([
     updateAppSetting("bf_signin_max",      String(parsed.data.bf_signin_max)),

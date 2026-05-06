@@ -5,12 +5,14 @@ import { requireAdminPage } from "@/lib/rbac/guards";
 import { asc } from "drizzle-orm";
 import { Globe } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { BlockedDomainsClient } from "./_components/blocked-domains-client";
 
-export const metadata: Metadata = {
-  title: "Sicurezza / Domini Bloccati",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.security.blockedDomains");
+  return { title: t("metaTitle") };
+}
 
 async function BlockedDomainsContent() {
   const dbDomains = await db
@@ -24,6 +26,8 @@ async function BlockedDomainsContent() {
 
 export default async function AdminBlockedDomainsPage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.security");
+  const tBd = await getTranslations("admin.security.blockedDomains");
 
   return (
     <div className="space-y-5">
@@ -42,14 +46,16 @@ export default async function AdminBlockedDomainsPage() {
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Sicurezza</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>
+              {t("breadcrumb")}
+            </span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Blocked Domains</span>
+            <span>{tBd("pageTitle")}</span>
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Manage disposable email domains blocked from registration.
+            {tBd("pageSubtitle")}
           </p>
         </div>
       </div>
