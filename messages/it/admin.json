@@ -180,6 +180,9 @@
     "emailTemplates": {
       "customizedBadge": "Personalizzato",
       "templateFile": "File template",
+      "languageTabs": {
+        "defaultBadge": "default"
+      },
       "placeholdersHint": "Placeholder disponibili — clicca per inserire nel campo attivo:",
       "placeholderInsertTitle": "Inserisci {value}",
       "subjectLabel": "Oggetto email",

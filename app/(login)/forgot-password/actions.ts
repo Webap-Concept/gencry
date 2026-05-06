@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/rate-limit";
 import { db } from "@/lib/db/drizzle";
 import { users, userProfiles } from "@/lib/db/schema";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendPasswordResetEmail } from "@/lib/email/templates/password-reset";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
@@ -45,6 +46,7 @@ export const forgotPassword = validatedAction(
         id: users.id,
         email: users.email,
         firstName: userProfiles.firstName,
+        locale: users.locale,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -58,10 +60,12 @@ export const forgotPassword = validatedAction(
     }
 
     const token = await createPasswordResetToken(row.id);
+    const locale = await resolveRecipientLocale(row.locale);
     await sendPasswordResetEmail(
       row.email,
       token,
       row.firstName ?? undefined,
+      locale,
     );
 
     return {

@@ -1,16 +1,20 @@
 // lib/email/templates/waiting-list.ts
 // Email di conferma iscrizione alla waiting list (landing coming-soon).
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   paragraphs,
   renderEmail,
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
-export async function sendWaitingListEmail(to: string) {
-  const settings = await getAppSettings();
+export async function sendWaitingListEmail(
+  to: string,
+  locale: Locale = DEFAULT_LOCALE,
+) {
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 

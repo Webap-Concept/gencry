@@ -25,6 +25,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendEmailChangeVerificationEmail } from "@/lib/email/templates/email-change-verification";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { and, eq } from "drizzle-orm";
 
 const RATE_LIMIT_HOURS = 24;
@@ -56,6 +57,7 @@ export async function requestEmailChange(params: {
   firstName: string | null;
   password: string;
   newEmail: string;
+  locale?: Locale;
 }): Promise<EmailChangeRequestResult> {
   const {
     userId,
@@ -66,6 +68,7 @@ export async function requestEmailChange(params: {
     firstName,
     password,
     newEmail,
+    locale = DEFAULT_LOCALE,
   } = params;
 
   // 1. Re-auth (no password set → solo OAuth → non può cambiare email qui)
@@ -139,7 +142,12 @@ export async function requestEmailChange(params: {
   }
 
   const code = await createVerificationCode(userId, "email_change");
-  await sendEmailChangeVerificationEmail(normalized, code, firstName ?? undefined);
+  await sendEmailChangeVerificationEmail(
+    normalized,
+    code,
+    firstName ?? undefined,
+    locale,
+  );
 
   // L'evento EMAIL_CHANGED viene loggato solo allo swap effettivo
   // (confirmEmailChange), non alla richiesta.

@@ -38,6 +38,7 @@ import {
   userProfiles,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendMfaDisabledEmail } from "@/lib/email/templates/mfa-disabled";
 import { sendMfaEnabledEmail } from "@/lib/email/templates/mfa-enabled";
 
@@ -248,8 +249,11 @@ export const confirmMfaSetupAction = validatedActionWithUser(
 
     // Email di notifica fire-and-forget — non bloccare la risposta se Resend
     // ha problemi (l'attivazione è comunque andata a buon fine).
+    const enableLocale = await resolveRecipientLocale(user.locale);
     void getFirstNameForEmail(user.id)
-      .then((firstName) => sendMfaEnabledEmail(user.email, firstName))
+      .then((firstName) =>
+        sendMfaEnabledEmail(user.email, firstName, enableLocale),
+      )
       .catch((err: unknown) => {
         console.error("[mfa] sendMfaEnabledEmail failed:", err);
       });
@@ -305,8 +309,11 @@ export const disableMfaAction = validatedActionWithUser(
     await disableMfaQuery(user.id);
     await logActivity(user.id, ActivityType.MFA_DISABLED);
 
+    const disableLocale = await resolveRecipientLocale(user.locale);
     void getFirstNameForEmail(user.id)
-      .then((firstName) => sendMfaDisabledEmail(user.email, firstName))
+      .then((firstName) =>
+        sendMfaDisabledEmail(user.email, firstName, disableLocale),
+      )
       .catch((err: unknown) => {
         console.error("[mfa] sendMfaDisabledEmail failed:", err);
       });

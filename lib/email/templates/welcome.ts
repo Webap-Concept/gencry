@@ -1,5 +1,5 @@
 // lib/email/templates/welcome.ts
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   ctaButton,
   paragraphs,
@@ -7,9 +7,14 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
-export async function sendWelcomeEmail(to: string, userName?: string) {
-  const settings = await getAppSettings();
+export async function sendWelcomeEmail(
+  to: string,
+  userName?: string,
+  locale: Locale = DEFAULT_LOCALE,
+) {
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const greeting = userName ? `Ciao ${userName},` : "Ciao,";

@@ -20,6 +20,7 @@ import {
 } from "@/lib/auth/trusted-device";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
@@ -115,7 +116,7 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
   await recordGeneralAttempt(rlKey);
 
   const [row] = await db
-    .select({ email: users.email })
+    .select({ email: users.email, locale: users.locale })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -125,7 +126,8 @@ export const resendDeviceCode = validatedAction(z.object({}), async () => {
   }
 
   const code = await createVerificationCode(userId, "device_verification");
-  await sendDeviceVerificationEmail(row.email, code);
+  const locale = await resolveRecipientLocale(row.locale);
+  await sendDeviceVerificationEmail(row.email, code, undefined, locale);
 
   // Rinnova il cookie pending per altri 10 minuti: l'utente ha una finestra
   // piena per inserire il codice appena ricevuto

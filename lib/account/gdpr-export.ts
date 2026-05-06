@@ -20,6 +20,7 @@ import {
 import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { uploadGdprExport, getGdprExportSignedUrl, deleteGdprExport } from "@/lib/storage/gdpr-exports";
 import { sendGdprExportReadyEmail } from "@/lib/email/templates/gdpr-export-ready";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 
 /** Schema dell'export — bumpare a ogni breaking change del payload. */
 export const GDPR_EXPORT_SCHEMA_VERSION = 1;
@@ -257,10 +258,14 @@ async function processOne(
     // dalla UI delle impostazioni: l'email è una comodità, non l'unico canale.
     let emailSentAt: Date | null = null;
     try {
+      const locale = isLocale(payload.user.locale)
+        ? payload.user.locale
+        : DEFAULT_LOCALE;
       await sendGdprExportReadyEmail({
         toEmail: payload.user.email,
         firstName: payload.profile?.firstName ?? null,
         downloadUrl: signedUrl,
+        locale,
       });
       emailSentAt = new Date();
     } catch (err) {

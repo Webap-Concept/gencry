@@ -11,6 +11,7 @@ import {
   userProfiles,
   users,
 } from "@/lib/db/schema";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendMfaAdminResetEmail } from "@/lib/email/templates/mfa-admin-reset";
 import {
   addUserPermissionOverride,
@@ -177,7 +178,7 @@ export async function adminResetMfa(formData: FormData) {
   if (blocked) return { error: blocked };
 
   const [target] = await db
-    .select({ email: users.email })
+    .select({ email: users.email, locale: users.locale })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -191,6 +192,8 @@ export async function adminResetMfa(formData: FormData) {
     `target=${userId} reason="${reason.replace(/"/g, '\\"')}"`,
   );
 
+  const locale = await resolveRecipientLocale(target.locale);
+
   // Email notification — fire-and-forget, non bloccare la response.
   void (async () => {
     try {
@@ -203,6 +206,7 @@ export async function adminResetMfa(formData: FormData) {
         target.email,
         reason,
         profile?.firstName ?? undefined,
+        locale,
       );
     } catch (err: unknown) {
       console.error("[adminResetMfa] sendMfaAdminResetEmail failed:", err);

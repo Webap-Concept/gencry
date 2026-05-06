@@ -9,6 +9,7 @@ import {
   userProfiles,
   users,
 } from "@/lib/db/schema";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendUserDeletedEmail } from "@/lib/email/templates/user-deleted";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
@@ -80,6 +81,7 @@ export async function deleteUser(userId: string) {
       firstName: userProfiles.firstName,
       isAdmin: users.isAdmin,
       deletedAt: users.deletedAt,
+      locale: users.locale,
     })
     .from(users)
     .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -105,10 +107,12 @@ export async function deleteUser(userId: string) {
   });
 
   try {
+    const locale = await resolveRecipientLocale(target.locale);
     await sendUserDeletedEmail(
       target.email,
       target.firstName ?? null,
       deletedAt,
+      locale,
     );
   } catch (emailError) {
     console.error("[deleteUser] Error sending email:", emailError);

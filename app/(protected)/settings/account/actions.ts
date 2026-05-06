@@ -13,6 +13,7 @@ import {
   requestEmailChange,
 } from "@/lib/account/email-change";
 import { changePassword } from "@/lib/account/password-change";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 
 // ---------------------------------------------------------------------------
 // Cambio email — step 1: richiedi cambio
@@ -36,6 +37,7 @@ export const requestEmailChangeAction = validatedActionWithUser(
       return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
     }
 
+    const locale = await resolveRecipientLocale(fullUser.locale);
     const result = await requestEmailChange({
       userId: user.id,
       currentEmail: fullUser.email,
@@ -45,6 +47,7 @@ export const requestEmailChangeAction = validatedActionWithUser(
       firstName: fullUser.firstName,
       password: data.password,
       newEmail: data.newEmail,
+      locale,
     });
 
     if (!result.ok) {

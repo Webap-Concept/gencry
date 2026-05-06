@@ -3,7 +3,7 @@
 // Email inviata quando l'utente accede da un dispositivo non riconosciuto.
 // Contiene un OTP di 6 cifre da inserire per confermare l'identità.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   otpCard,
   paragraphs,
@@ -11,13 +11,15 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendDeviceVerificationEmail(
   to: string,
   code: string,
   firstName?: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<void> {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

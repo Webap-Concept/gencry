@@ -8,20 +8,22 @@
 // (chiavi `email_mfaadminreset_*`). Il body può contenere `{{reason}}`
 // per interpolare la motivazione testuale dell'admin.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   paragraphs,
   renderEmail,
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendMfaAdminResetEmail(
   to: string,
   reason: string,
   firstName?: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<void> {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

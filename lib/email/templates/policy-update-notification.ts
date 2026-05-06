@@ -14,7 +14,7 @@
 // subject/body/footer da `appSettings` (keys `email_policyupdate_*`).
 
 import type { PolicyNotificationKey } from "@/lib/db/schema";
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   ctaButton,
   paragraphs,
@@ -22,6 +22,7 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 const POLICY_LABELS: Record<PolicyNotificationKey, string> = {
   terms: "Termini di Servizio",
@@ -32,11 +33,12 @@ const POLICY_LABELS: Record<PolicyNotificationKey, string> = {
 export async function sendPolicyUpdateNotificationEmail(params: {
   toEmail: string;
   policyKeys: PolicyNotificationKey[];
+  locale?: Locale;
 }) {
-  const { toEmail, policyKeys } = params;
+  const { toEmail, policyKeys, locale = DEFAULT_LOCALE } = params;
   if (policyKeys.length === 0) return;
 
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const appName = settings.app_name;
   const greeting = "Ciao,";
 
