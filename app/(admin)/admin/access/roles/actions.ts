@@ -6,6 +6,7 @@ import { getAdminRoles } from "@/lib/db/roles-queries";
 import { activityLogs, ActivityType, roles, users } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { and, eq, ne } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -31,11 +32,11 @@ async function logRbacAction(
 const roleSchema = z.object({
   name: z
     .string()
-    .min(2, "Minimum 2 characters")
+    .min(2, "minLength2")
     .max(50)
-    .regex(/^[a-z0-9_-]+$/, "Only lowercase letters, numbers, - and _"),
-  label: z.string().min(2, "Minimum 2 characters").max(100),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid HEX color"),
+    .regex(/^[a-z0-9_-]+$/, "slugFormat"),
+  label: z.string().min(2, "minLength2").max(100),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "invalidColor"),
   description: z.string().max(300).optional(),
   /**
    * isAdmin = true only for the system "admin" role.
@@ -45,8 +46,21 @@ const roleSchema = z.object({
   isAdmin: z.boolean().default(false),
 });
 
+async function translateSchemaError(message: string): Promise<string> {
+  const t = await getTranslations("admin.access.roles.errors");
+  if (
+    message === "minLength2" ||
+    message === "slugFormat" ||
+    message === "invalidColor"
+  ) {
+    return t(message);
+  }
+  return message;
+}
+
 export async function createRole(formData: FormData) {
   const admin = await requireAdmin();
+  const tSuccess = await getTranslations("admin.access.roles.successMessages");
 
   const parsed = roleSchema.safeParse({
     name: formData.get("name"),
@@ -57,7 +71,7 @@ export async function createRole(formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    return { error: await translateSchemaError(parsed.error.issues[0].message) };
   }
 
   const allRoles = await getAdminRoles();
@@ -76,11 +90,13 @@ export async function createRole(formData: FormData) {
   );
 
   revalidatePath(getAdminPath("users-roles"));
-  return { success: "Role created" };
+  return { success: tSuccess("created") };
 }
 
 export async function updateRole(id: number, formData: FormData) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.roles.errors");
+  const tSuccess = await getTranslations("admin.access.roles.successMessages");
 
   const [existing] = await db
     .select({ isSystem: roles.isSystem, name: roles.name })
@@ -88,7 +104,7 @@ export async function updateRole(id: number, formData: FormData) {
     .where(eq(roles.id, id))
     .limit(1);
 
-  if (!existing) return { error: "Role not found" };
+  if (!existing) return { error: tErrors("roleNotFound") };
 
   const parsed = roleSchema.safeParse({
     name: existing.isSystem ? existing.name : formData.get("name"),
@@ -98,7 +114,9 @@ export async function updateRole(id: number, formData: FormData) {
     isAdmin: formData.get("isAdmin") === "true",
   });
 
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    return { error: await translateSchemaError(parsed.error.issues[0].message) };
+  }
 
   await db
     .update(roles)
@@ -122,11 +140,13 @@ export async function updateRole(id: number, formData: FormData) {
 
   revalidatePath(getAdminPath("users-roles"));
   revalidatePath(getAdminPath("users-list"));
-  return { success: "Role updated" };
+  return { success: tSuccess("updated") };
 }
 
 export async function deleteRole(id: number) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.roles.errors");
+  const tSuccess = await getTranslations("admin.access.roles.successMessages");
 
   const [existing] = await db
     .select({ isSystem: roles.isSystem, name: roles.name })
@@ -134,8 +154,8 @@ export async function deleteRole(id: number) {
     .where(eq(roles.id, id))
     .limit(1);
 
-  if (!existing) return { error: "Role not found" };
-  if (existing.isSystem) return { error: "System roles cannot be deleted" };
+  if (!existing) return { error: tErrors("roleNotFound") };
+  if (existing.isSystem) return { error: tErrors("cannotDeleteSystem") };
 
   // Reassign users with this role to 'member'
   await db
@@ -153,11 +173,13 @@ export async function deleteRole(id: number) {
 
   revalidatePath(getAdminPath("users-roles"));
   revalidatePath(getAdminPath("users-list"));
-  return { success: "Role deleted" };
+  return { success: tSuccess("deleted") };
 }
 
 export async function setUserRole(userId: string, roleName: string) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.roles.errors");
+  const tSuccess = await getTranslations("admin.access.roles.successMessages");
 
   const [role] = await db
     .select({ isAdmin: roles.isAdmin })
@@ -165,7 +187,7 @@ export async function setUserRole(userId: string, roleName: string) {
     .where(eq(roles.name, roleName))
     .limit(1);
 
-  if (!role) return { error: "Role not found" };
+  if (!role) return { error: tErrors("roleNotFound") };
 
   const [target] = await db
     .select({ role: users.role, deletedAt: users.deletedAt })
@@ -174,7 +196,7 @@ export async function setUserRole(userId: string, roleName: string) {
     .limit(1);
 
   if (target?.deletedAt) {
-    return { error: "This user has been deleted and cannot be modified." };
+    return { error: tErrors("userDeleted") };
   }
 
   await db
@@ -194,5 +216,5 @@ export async function setUserRole(userId: string, roleName: string) {
 
   revalidatePath(getAdminPath("users-list"));
   revalidatePath(`${getAdminPath("users-list")}/${userId}`);
-  return { success: "Role assigned" };
+  return { success: tSuccess("assigned") };
 }
