@@ -598,6 +598,27 @@ export async function countDescendants(pageId: number): Promise<{ direct: number
   return { direct, total: ids.length };
 }
 
+/**
+ * Aggiorna il `sortOrder` di un set di pagine in batch. Usato dalla
+ * UI admin quando l'utente trascina le righe per riordinarle.
+ * Non valida i parentId — il caller (server action) si occupa di
+ * passare solo aggiornamenti coerenti (siblings dello stesso parent).
+ */
+export async function reorderPages(
+  updates: { id: number; sortOrder: number }[],
+): Promise<void> {
+  if (updates.length === 0) return;
+  const now = new Date();
+  await Promise.all(
+    updates.map((u) =>
+      db
+        .update(pages)
+        .set({ sortOrder: u.sortOrder, updatedAt: now })
+        .where(eq(pages.id, u.id)),
+    ),
+  );
+}
+
 /** Inverte lo status published <-> draft aggiornando publishedAt se necessario */
 export async function togglePageStatus(id: number, currentStatus: string): Promise<void> {
   const newStatus = currentStatus === "published" ? "draft" : "published";

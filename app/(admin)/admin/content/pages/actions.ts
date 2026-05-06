@@ -7,6 +7,7 @@ import {
   getPageBySlug,
   getPageTranslationsForPage,
   invalidateNavigablePagesCache,
+  reorderPages,
   togglePageStatus,
   upsertPage,
   upsertPageTranslation,
@@ -371,6 +372,28 @@ export async function deletePageAction(
 
 export async function getPageForEditAction(slug: string) {
   return getPageBySlug(slug);
+}
+
+/**
+ * Riordina un set di pagine sibling. Il caller (UI admin) garantisce
+ * che gli `id` passati siano siblings dello stesso parent.
+ */
+export async function reorderPagesAction(
+  updates: { id: number; sortOrder: number }[],
+): Promise<{ error?: string; success?: boolean }> {
+  const tErrors = await getTranslations("admin.content.pages.errors");
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return { success: true };
+  }
+  try {
+    await reorderPages(updates);
+    revalidatePath(getAdminPath("content-pages"));
+    invalidateNavigablePagesCache();
+  } catch (err) {
+    console.error("[reorderPagesAction] error:", err);
+    return { error: tErrors("saveError") };
+  }
+  return { success: true };
 }
 
 export async function togglePageStatusAction(

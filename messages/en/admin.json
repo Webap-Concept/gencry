@@ -1440,6 +1440,7 @@
         "tabSystem": "System",
         "searchPlaceholder": "Search page...",
         "newPageButton": "New page",
+        "dragHandleLabel": "Drag to reorder",
         "childSearchPlaceholder": "Search children…",
         "childSearchResults": "{count} results",
         "rowEdit": "Edit page",
