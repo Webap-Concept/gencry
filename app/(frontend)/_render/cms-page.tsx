@@ -67,8 +67,10 @@ export async function cmsPageMetadata({
   // SEO config è chiavata sul pathname canonico (default-locale).
   // Se la pagina è stata trovata, usiamo `page.slug` (sempre nel default
   // locale). Altrimenti fallback al pathname richiesto per il lookup 404.
+  // Passiamo `locale` a getSeoPage: per locale non-default applica
+  // l'overlay da seo_page_translations sui 4 campi testuali.
   const seoPathname = page ? `/${page.slug}` : "/" + segments.join("/");
-  const seo = await getSeoPage(seoPathname);
+  const seo = await getSeoPage(seoPathname, locale);
 
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, settings) : undefined;

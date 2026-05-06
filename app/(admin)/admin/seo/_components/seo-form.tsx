@@ -1,15 +1,12 @@
 "use client";
 
-import type { SeoPage } from "@/lib/db/schema";
-import { Info, X } from "lucide-react";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { useTranslations } from "next-intl";
-import { useActionState, useEffect, useState } from "react";
-import { upsertSeoPageAction } from "../actions";
 import { JSON_LD_TYPES, type JsonLdType } from "./jsonld-types";
 
 export type { JsonLdType };
 
-type RobotsValue = "" | "noindex,nofollow" | "noindex,follow";
+export type RobotsValue = "" | "noindex,nofollow" | "noindex,follow";
 
 type FormT = ReturnType<typeof useTranslations<"admin.seo.form">>;
 
@@ -19,11 +16,7 @@ function getRobotsOptions(t: FormT): {
   hint: string;
 }[] {
   return [
-    {
-      value: "",
-      label: t("robotsDefaultLabel"),
-      hint: t("robotsDefaultHint"),
-    },
+    { value: "", label: t("robotsDefaultLabel"), hint: t("robotsDefaultHint") },
     {
       value: "noindex,nofollow",
       label: t("robotsNoIndexNoFollowLabel"),
@@ -103,19 +96,15 @@ export function Serp({
           <span
             className="text-xs px-2 py-0.5 rounded-full font-medium"
             style={{
-              background:
-                "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
+              background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
               color: "var(--admin-accent)",
-              border:
-                "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
             }}>
             {t("serpNoIndexBadge")}
           </span>
         )}
       </div>
-      <p
-        className="text-base font-medium truncate"
-        style={{ color: "#1a0dab" }}>
+      <p className="text-base font-medium truncate" style={{ color: "#1a0dab" }}>
         {title || (
           <span style={hintStyle}>
             <em>{t("serpTitleEmpty")}</em>
@@ -145,10 +134,7 @@ function AppNameHint({ appName }: { appName: string }) {
       {t("appNameHintBefore")}{" "}
       <code
         className="px-1 py-0.5 rounded font-mono"
-        style={{
-          background: "var(--admin-hover-bg)",
-          color: "var(--admin-text-muted)",
-        }}>
+        style={{ background: "var(--admin-hover-bg)", color: "var(--admin-text-muted)" }}>
         {"{"}appName{"}"}
       </code>{" "}
       {t("appNameHintAfter")}{" "}
@@ -162,24 +148,19 @@ function Toggle({
   hint,
   checked,
   onChange,
-  name,
 }: {
   label: string;
   hint?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
-  name: string;
 }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p style={labelStyle}>{label}</p>
-          {hint && (
-            <p style={{ ...hintStyle, marginTop: "0.125rem" }}>{hint}</p>
-          )}
+          {hint && <p style={{ ...hintStyle, marginTop: "0.125rem" }}>{hint}</p>}
         </div>
-        <input type="hidden" name={name} value={checked ? "true" : "false"} />
         <button
           type="button"
           role="switch"
@@ -187,9 +168,7 @@ function Toggle({
           onClick={() => onChange(!checked)}
           className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
           style={{
-            background: checked
-              ? "var(--admin-accent)"
-              : "var(--admin-input-border)",
+            background: checked ? "var(--admin-accent)" : "var(--admin-input-border)",
           }}>
           <span
             aria-hidden="true"
@@ -205,36 +184,75 @@ function Toggle({
   );
 }
 
-// ─── Shared SeoForm ───────────────────────────────────────────────────────────
+// ─── Inline SEO fields ────────────────────────────────────────────────────────
 /**
+ * Componente fully-controlled per i campi SEO, da inserire inline dentro
+ * il form di una pagina (page-editor.tsx). Niente wrapper `<form>`, niente
+ * action: gli hidden input del form padre catturano i valori controllati.
  *
- * Props aggiuntive rispetto all'originale:
- * - `lockedPathname`: quando passato il campo pathname è bloccato (usato dal contenuto).
- * - `lockedLabel`: label pre-impostato e bloccato.
- * - `hidePathnameField`: nasconde completamente il selettore route (utile quando il pathname
- *   è già noto dal contenuto e non è necessario sceglierlo).
+ * Per il multi-locale: i 4 campi testuali (title, description, ogTitle,
+ * ogDescription) si sovrappongono ai valori base quando `activeLang` è
+ * diverso da DEFAULT_LOCALE. I campi tecnici (robots, JSON-LD, ogImage,
+ * label) sono sempre shared — vengono nascosti nel tab non-default.
  */
-export function SeoForm({
-  page,
+type SeoTrFields = {
+  title: string;
+  description: string;
+  ogTitle: string;
+  ogDescription: string;
+};
+
+export function SeoFields({
+  // Base SEO state (default locale)
+  title,
+  setTitle,
+  description,
+  setDescription,
+  ogTitle,
+  setOgTitle,
+  ogDescription,
+  setOgDescription,
+  ogImage,
+  setOgImage,
+  robots,
+  setRobots,
+  jsonLdEnabled,
+  setJsonLdEnabled,
+  jsonLdType,
+  setJsonLdType,
+  // Translation overlay state (non-default locales)
+  activeLang,
+  trFields,
+  setTrFields,
+  // Context
+  pathname,
   domain,
   appName,
-  unconfiguredRoutes,
-  onClose,
-  lockedPathname,
-  lockedLabel,
-  hidePathnameField = false,
 }: {
-  page?: SeoPage | null;
+  title: string;
+  setTitle: (v: string) => void;
+  description: string;
+  setDescription: (v: string) => void;
+  ogTitle: string;
+  setOgTitle: (v: string) => void;
+  ogDescription: string;
+  setOgDescription: (v: string) => void;
+  ogImage: string;
+  setOgImage: (v: string) => void;
+  robots: RobotsValue;
+  setRobots: (v: RobotsValue) => void;
+  jsonLdEnabled: boolean;
+  setJsonLdEnabled: (v: boolean) => void;
+  jsonLdType: JsonLdType | "";
+  setJsonLdType: (v: JsonLdType | "") => void;
+  activeLang: string;
+  trFields: Record<string, SeoTrFields>;
+  setTrFields: React.Dispatch<React.SetStateAction<Record<string, SeoTrFields>>>;
+  pathname: string;
   domain: string;
   appName: string;
-  unconfiguredRoutes: string[];
-  onClose: () => void;
-  lockedPathname?: string;
-  lockedLabel?: string;
-  hidePathnameField?: boolean;
 }) {
   const t = useTranslations("admin.seo.form");
-  const isEdit = !!page;
   const robotsOptions = getRobotsOptions(t);
   const jsonLdTypeHints: Record<JsonLdType, string> = {
     WebPage: t("jsonLdHint_WebPage"),
@@ -249,26 +267,51 @@ export function SeoForm({
     Event: t("jsonLdHint_Event"),
     VideoObject: t("jsonLdHint_VideoObject"),
   };
-  const [state, action, isPending] = useActionState(upsertSeoPageAction, {});
 
-  const [title, setTitle] = useState(page?.title ?? "");
-  const [description, setDescription] = useState(page?.description ?? "");
-  const [pathname, setPathname] = useState(
-    lockedPathname ?? page?.pathname ?? "",
-  );
-  const [robots, setRobots] = useState<RobotsValue>(
-    (page?.robots as RobotsValue) ?? "",
-  );
-  const [jsonLdEnabled, setJsonLdEnabled] = useState<boolean>(
-    page?.jsonLdEnabled === true,
-  );
-  const [jsonLdType, setJsonLdType] = useState<JsonLdType | "">(
-    (page?.jsonLdType as JsonLdType | null | undefined) ?? "",
-  );
+  const isDefaultLang = activeLang === DEFAULT_LOCALE;
 
-  useEffect(() => {
-    if (state?.success) onClose();
-  }, [state?.success, onClose]);
+  // Quando activeLang è non-default i 4 campi testuali sono visualizzati
+  // dal trFields[activeLang]; in default leggono/scrivono dagli state base.
+  const visibleTitle = isDefaultLang ? title : trFields[activeLang]?.title ?? "";
+  const visibleDescription = isDefaultLang
+    ? description
+    : trFields[activeLang]?.description ?? "";
+  const visibleOgTitle = isDefaultLang ? ogTitle : trFields[activeLang]?.ogTitle ?? "";
+  const visibleOgDescription = isDefaultLang
+    ? ogDescription
+    : trFields[activeLang]?.ogDescription ?? "";
+
+  function updateTrField(key: keyof SeoTrFields, value: string) {
+    setTrFields((prev) => ({
+      ...prev,
+      [activeLang]: {
+        ...(prev[activeLang] ?? {
+          title: "",
+          description: "",
+          ogTitle: "",
+          ogDescription: "",
+        }),
+        [key]: value,
+      },
+    }));
+  }
+
+  function handleTitleChange(v: string) {
+    if (isDefaultLang) setTitle(v);
+    else updateTrField("title", v);
+  }
+  function handleDescriptionChange(v: string) {
+    if (isDefaultLang) setDescription(v);
+    else updateTrField("description", v);
+  }
+  function handleOgTitleChange(v: string) {
+    if (isDefaultLang) setOgTitle(v);
+    else updateTrField("ogTitle", v);
+  }
+  function handleOgDescriptionChange(v: string) {
+    if (isDefaultLang) setOgDescription(v);
+    else updateTrField("ogDescription", v);
+  }
 
   function handleToggleJsonLd(enabled: boolean) {
     setJsonLdEnabled(enabled);
@@ -281,235 +324,135 @@ export function SeoForm({
       : undefined;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.5)" }}>
-      <div
-        className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-        }}>
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 pt-5 pb-4"
-          style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-          <h2 className="font-semibold" style={{ color: "var(--admin-text)" }}>
-            {isEdit ? t("titleEdit") : t("titleNew")}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: "var(--admin-text-faint)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--admin-hover-bg)";
-              e.currentTarget.style.color = "var(--admin-text-muted)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--admin-text-faint)";
+    <div className="space-y-5">
+      {/* SERP preview */}
+      <Serp
+        title={resolvePreview(visibleTitle, appName)}
+        description={resolvePreview(visibleDescription, appName)}
+        pathname={pathname}
+        domain={domain}
+        robots={robots}
+      />
+
+      {/* Meta Title */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label style={labelStyle}>{t("metaTitleLabel")}</label>
+          <span
+            className="text-xs"
+            style={{
+              color:
+                visibleTitle.length === 0
+                  ? "var(--admin-text-faint)"
+                  : visibleTitle.length > 60
+                    ? "var(--admin-error, #ef4444)"
+                    : visibleTitle.length > 54
+                      ? "var(--admin-warning, #d97706)"
+                      : "var(--admin-success, #22c55e)",
             }}>
-            <X size={18} />
-          </button>
+            {visibleTitle.length}/60
+          </span>
         </div>
+        <input
+          value={visibleTitle}
+          onChange={(e) => handleTitleChange(e.target.value)}
+          maxLength={70}
+          placeholder={t("metaTitlePlaceholder")}
+          style={inputStyle}
+        />
+        <AppNameHint appName={appName} />
+      </div>
 
-        <form action={action} className="px-6 py-5 space-y-5">
-          {isEdit && (
-            <input
-              type="hidden"
-              name="originalPathname"
-              value={page!.pathname}
-            />
-          )}
+      {/* Meta Description */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label style={labelStyle}>{t("metaDescriptionLabel")}</label>
+          <span
+            className="text-xs"
+            style={{
+              color:
+                visibleDescription.length === 0
+                  ? "var(--admin-text-faint)"
+                  : visibleDescription.length > 155
+                    ? "var(--admin-error, #ef4444)"
+                    : visibleDescription.length > 139
+                      ? "var(--admin-warning, #d97706)"
+                      : "var(--admin-success, #22c55e)",
+            }}>
+            {visibleDescription.length}/155
+          </span>
+        </div>
+        <textarea
+          value={visibleDescription}
+          onChange={(e) => handleDescriptionChange(e.target.value)}
+          maxLength={160}
+          rows={3}
+          placeholder={t("metaDescriptionPlaceholder")}
+          style={{ ...inputStyle, resize: "none" }}
+        />
+        <AppNameHint appName={appName} />
+      </div>
 
-          {/* Pathname — nascosto se locked */}
-          {lockedPathname ? (
-            <>
-              <input type="hidden" name="pathname" value={lockedPathname} />
-              {!hidePathnameField && (
-                <div className="space-y-1.5">
-                  <label style={labelStyle}>{t("pathnameLabel")}</label>
-                  <div
-                    className="w-full rounded-lg px-3 py-2 text-sm font-mono"
-                    style={{
-                      background: "var(--admin-hover-bg)",
-                      border: "1px solid var(--admin-input-border)",
-                      color: "var(--admin-text-muted)",
-                    }}>
-                    {lockedPathname}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : isEdit ? (
-            <div className="space-y-1.5">
-              <label style={labelStyle}>{t("pathnameLabel")}</label>
-              <input type="hidden" name="pathname" value={page!.pathname} />
-              <div
-                className="w-full rounded-lg px-3 py-2 text-sm font-mono"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  border: "1px solid var(--admin-input-border)",
-                  color: "var(--admin-text-muted)",
-                }}>
-                {page!.pathname}
-              </div>
-              <p style={hintStyle}>{t("pathnameLockedHint")}</p>
-            </div>
-          ) : unconfiguredRoutes.length > 0 ? (
-            <div className="space-y-1.5">
-              <label style={labelStyle}>{t("pathnameLabel")}</label>
-              <select
-                name="pathname"
-                value={pathname}
-                onChange={(e) => setPathname(e.target.value)}
-                style={inputStyle}>
-                <option value="">{t("pathnameSelectPlaceholder")}</option>
-                {unconfiguredRoutes.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <div
-                className="flex items-start gap-2 rounded-lg px-3 py-2.5"
-                style={{
-                  background:
-                    "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-card-bg))",
-                  border:
-                    "1px solid color-mix(in srgb, var(--admin-accent) 20%, transparent)",
-                }}>
-                <Info
-                  size={13}
-                  className="mt-0.5 shrink-0"
-                  style={{ color: "var(--admin-accent)" }}
-                />
-                <p
-                  className="text-xs leading-relaxed"
-                  style={{ color: "var(--admin-text-muted)" }}>
-                  {t.rich("pathnameRoutesInfo", {
-                    c: (chunks) => (
-                      <code
-                        className="font-mono px-1 py-0.5 rounded"
-                        style={{
-                          background: "var(--admin-hover-bg)",
-                          color: "var(--admin-accent)",
-                        }}>
-                        {chunks}
-                      </code>
-                    ),
-                  })}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{
-                background:
-                  "color-mix(in srgb, #22c55e 8%, var(--admin-card-bg))",
-                border:
-                  "1px solid color-mix(in srgb, #22c55e 25%, transparent)",
-              }}>
-              <span style={{ color: "#22c55e" }}>✓</span>
-              <p
-                className="text-xs font-medium"
-                style={{ color: "var(--admin-text-muted)" }}>
-                {t("pathnameAllConfigured")}
-              </p>
-            </div>
-          )}
-
-          {/* Label (uso interno) — nascosto se locked */}
-          {lockedLabel ? (
-            <input type="hidden" name="label" value={lockedLabel} />
-          ) : (
-            <div className="space-y-1.5">
-              <label style={labelStyle}>{t("labelLabel")}</label>
-              <input
-                name="label"
-                defaultValue={page?.label ?? ""}
-                placeholder={t("labelPlaceholder")}
-                style={inputStyle}
-              />
-            </div>
-          )}
-
-          {/* SERP preview */}
-          <Serp
-            title={resolvePreview(title, appName)}
-            description={resolvePreview(description, appName)}
-            pathname={pathname}
-            domain={domain}
-            robots={robots}
-          />
-
-          {/* Meta Title */}
+      {/* Open Graph collapsible */}
+      <details className="group">
+        <summary
+          className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide transition-colors"
+          style={{ color: "var(--admin-text-faint)" }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.color = "var(--admin-text-muted)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--admin-text-faint)")
+          }>
+          {t("openGraphSummary")}
+        </summary>
+        <div className="mt-3 space-y-3">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label style={labelStyle}>{t("metaTitleLabel")}</label>
-              <span
-                className="text-xs"
-                style={{
-                  color:
-                    title.length === 0
-                      ? "var(--admin-text-faint)"
-                      : title.length > 60
-                        ? "var(--admin-error, #ef4444)"
-                        : title.length > 54
-                          ? "var(--admin-warning, #d97706)"
-                          : "var(--admin-success, #22c55e)",
-                }}>
-                {title.length}/60
-              </span>
-            </div>
+            <label style={labelStyle}>{t("ogTitleLabel")}</label>
             <input
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={visibleOgTitle}
+              onChange={(e) => handleOgTitleChange(e.target.value)}
               maxLength={70}
-              placeholder={t("metaTitlePlaceholder")}
+              placeholder={t("ogTitlePlaceholder")}
               style={inputStyle}
             />
             <AppNameHint appName={appName} />
           </div>
-
-          {/* Meta Description */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label style={labelStyle}>{t("metaDescriptionLabel")}</label>
-              <span
-                className="text-xs"
-                style={{
-                  color:
-                    description.length === 0
-                      ? "var(--admin-text-faint)"
-                      : description.length > 155
-                        ? "var(--admin-error, #ef4444)"
-                        : description.length > 139
-                          ? "var(--admin-warning, #d97706)"
-                          : "var(--admin-success, #22c55e)",
-                }}>
-                {description.length}/155
-              </span>
-            </div>
+            <label style={labelStyle}>{t("ogDescriptionLabel")}</label>
             <textarea
-              name="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={160}
-              rows={3}
-              placeholder={t("metaDescriptionPlaceholder")}
+              value={visibleOgDescription}
+              onChange={(e) => handleOgDescriptionChange(e.target.value)}
+              maxLength={200}
+              rows={2}
+              placeholder={t("ogDescriptionPlaceholder")}
               style={{ ...inputStyle, resize: "none" }}
             />
             <AppNameHint appName={appName} />
           </div>
+          {/* og:image è condiviso fra tutte le lingue (asset universale).
+              Mostrato solo nel tab default per non confondere; quando si
+              edita una traduzione gli altri campi shared restano stabili. */}
+          {isDefaultLang && (
+            <div className="space-y-1.5">
+              <label style={labelStyle}>{t("ogImageLabel")}</label>
+              <input
+                value={ogImage}
+                onChange={(e) => setOgImage(e.target.value)}
+                placeholder={t("ogImagePlaceholder")}
+                style={inputStyle}
+              />
+            </div>
+          )}
+        </div>
+      </details>
 
-          {/* Meta Robots */}
+      {/* Robots e JSON-LD: shared, mostrati solo nel tab default. */}
+      {isDefaultLang && (
+        <>
           <div className="space-y-1.5">
             <label style={labelStyle}>{t("robotsLabel")}</label>
             <select
-              name="robots"
               value={robots}
               onChange={(e) => setRobots(e.target.value as RobotsValue)}
               style={inputStyle}>
@@ -524,7 +467,6 @@ export function SeoForm({
             </p>
           </div>
 
-          {/* JSON-LD */}
           <div
             className="rounded-xl p-4 space-y-3"
             style={{
@@ -532,7 +474,6 @@ export function SeoForm({
               border: "1px solid var(--admin-card-border)",
             }}>
             <Toggle
-              name="jsonLdEnabled"
               label={t("jsonLdHeading")}
               hint={t("jsonLdToggleHint")}
               checked={jsonLdEnabled}
@@ -546,9 +487,6 @@ export function SeoForm({
               }}>
               <div className="pt-1 space-y-1.5">
                 <label style={labelStyle}>{t("jsonLdTypeLabel")}</label>
-                {jsonLdEnabled && (
-                  <input type="hidden" name="jsonLdType" value={jsonLdType} />
-                )}
                 <select
                   value={jsonLdType}
                   onChange={(e) => setJsonLdType(e.target.value as JsonLdType)}
@@ -556,9 +494,9 @@ export function SeoForm({
                   <option value="" disabled>
                     {t("jsonLdTypePlaceholder")}
                   </option>
-                  {JSON_LD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {JSON_LD_TYPES.map((tp) => (
+                    <option key={tp} value={tp}>
+                      {tp}
                     </option>
                   ))}
                 </select>
@@ -566,111 +504,8 @@ export function SeoForm({
               </div>
             </div>
           </div>
-
-          {/* Open Graph */}
-          <details className="group">
-            <summary
-              className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide transition-colors"
-              style={{ color: "var(--admin-text-faint)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = "var(--admin-text-muted)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "var(--admin-text-faint)")
-              }>
-              {t("openGraphSummary")}
-            </summary>
-            <div className="mt-3 space-y-3">
-              <div className="space-y-1.5">
-                <label style={labelStyle}>{t("ogTitleLabel")}</label>
-                <input
-                  name="ogTitle"
-                  defaultValue={page?.ogTitle ?? ""}
-                  maxLength={70}
-                  placeholder={t("ogTitlePlaceholder")}
-                  style={inputStyle}
-                />
-                <AppNameHint appName={appName} />
-              </div>
-              <div className="space-y-1.5">
-                <label style={labelStyle}>{t("ogDescriptionLabel")}</label>
-                <textarea
-                  name="ogDescription"
-                  defaultValue={page?.ogDescription ?? ""}
-                  maxLength={200}
-                  rows={2}
-                  placeholder={t("ogDescriptionPlaceholder")}
-                  style={{ ...inputStyle, resize: "none" }}
-                />
-                <AppNameHint appName={appName} />
-              </div>
-              <div className="space-y-1.5">
-                <label style={labelStyle}>{t("ogImageLabel")}</label>
-                <input
-                  name="ogImage"
-                  defaultValue={page?.ogImage ?? ""}
-                  placeholder={t("ogImagePlaceholder")}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </details>
-
-          {state?.error && (
-            <p
-              className="text-sm rounded-lg px-3 py-2"
-              style={{
-                color: "var(--admin-error, #ef4444)",
-                background:
-                  "color-mix(in srgb, #ef4444 10%, var(--admin-card-bg))",
-                border:
-                  "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-              }}>
-              {state.error}
-            </p>
-          )}
-
-          <div
-            className="flex items-center justify-end gap-3 pt-2"
-            style={{ borderTop: "1px solid var(--admin-divider)" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50"
-              style={{
-                border: "1px solid var(--admin-input-border)",
-                color: "var(--admin-text-muted)",
-                background: "transparent",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--admin-hover-bg)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }>
-              {t("cancelButton")}
-            </button>
-            <button
-              type="submit"
-              disabled={
-                isPending ||
-                (!isEdit && !lockedPathname && unconfiguredRoutes.length === 0)
-              }
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white font-medium transition-colors disabled:opacity-60"
-              style={{ background: "var(--admin-accent)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.filter = "brightness(0.9)")
-              }
-              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-              {isPending && (
-                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              )}
-              {isEdit ? t("submitEditButton") : t("submitNewButton")}
-            </button>
-          </div>
-        </form>
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -14,8 +14,14 @@ import {
 import { getUser } from "@/lib/db/queries";
 import { createAutoSlugRedirect } from "@/lib/db/redirects-queries";
 import { ActivityType } from "@/lib/db/schema";
-import { deleteSeoPage, getSeoPage, renameSeoPage } from "@/lib/db/seo-queries";
-import { LOCALES } from "@/lib/i18n/config";
+import {
+  deleteSeoPage,
+  getSeoPage,
+  renameSeoPage,
+  upsertSeoPage,
+  upsertSeoPageTranslation,
+} from "@/lib/db/seo-queries";
+import { DEFAULT_LOCALE, LOCALES } from "@/lib/i18n/config";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -91,6 +97,31 @@ export async function upsertPageAction(
     const slug = (formData.get(`tr_${locale}_slug`) as string) ?? "";
     const content = (formData.get(`tr_${locale}_content`) as string) ?? "";
     trData[locale] = { title, slug, content };
+  }
+
+  // Estrai i campi SEO base + traduzioni SEO per locale non-default
+  const seoBase = {
+    title: (formData.get("seoTitle") as string) ?? "",
+    description: (formData.get("seoDescription") as string) ?? "",
+    ogTitle: (formData.get("seoOgTitle") as string) ?? "",
+    ogDescription: (formData.get("seoOgDescription") as string) ?? "",
+    ogImage: (formData.get("seoOgImage") as string) ?? "",
+    robots: (formData.get("seoRobots") as string) ?? "",
+    jsonLdEnabled: (formData.get("seoJsonLdEnabled") as string) === "true",
+    jsonLdType: (formData.get("seoJsonLdType") as string) ?? "",
+  };
+  const seoTrData: Record<
+    string,
+    { title: string; description: string; ogTitle: string; ogDescription: string }
+  > = {};
+  for (const locale of LOCALES) {
+    if (locale === DEFAULT_LOCALE) continue;
+    seoTrData[locale] = {
+      title: (formData.get(`seo_tr_${locale}_title`) as string) ?? "",
+      description: (formData.get(`seo_tr_${locale}_description`) as string) ?? "",
+      ogTitle: (formData.get(`seo_tr_${locale}_ogTitle`) as string) ?? "",
+      ogDescription: (formData.get(`seo_tr_${locale}_ogDescription`) as string) ?? "",
+    };
   }
 
   const {
@@ -184,7 +215,6 @@ export async function upsertPageAction(
 
     // Salva le traduzioni per ogni locale non-default
     if (!isCreating) {
-      const { DEFAULT_LOCALE } = await import("@/lib/i18n/config");
       const existingTrs = await getPageTranslationsForPage(savedId);
       const existingByLocale = Object.fromEntries(existingTrs.map((t) => [t.locale, t]));
 
@@ -210,6 +240,50 @@ export async function upsertPageAction(
           title: fields.title || null,
           slug: fields.slug || null,
           content: fields.content || null,
+        });
+      }
+    }
+
+    // Save SEO base + traduzioni SEO. Save unificato col resto: l'admin
+    // preme un solo bottone Save e tutto va via insieme. Il SEO viene
+    // upsertato solo se ha dati validi oppure se esisteva già un record
+    // (per non perdere modifiche pre-esistenti dopo un edit pagina senza
+    // toccare il tab SEO).
+    const seoPathname = `/${data.slug}`;
+    const hasSeoBaseData =
+      seoBase.title ||
+      seoBase.description ||
+      seoBase.ogTitle ||
+      seoBase.ogDescription ||
+      seoBase.ogImage ||
+      seoBase.robots ||
+      seoBase.jsonLdEnabled;
+    const existingSeoAfterRename = await getSeoPage(seoPathname);
+    if (hasSeoBaseData || existingSeoAfterRename) {
+      await upsertSeoPage({
+        pathname: seoPathname,
+        label: data.title,
+        title: seoBase.title || null,
+        description: seoBase.description || null,
+        ogTitle: seoBase.ogTitle || null,
+        ogDescription: seoBase.ogDescription || null,
+        ogImage: seoBase.ogImage || null,
+        robots: seoBase.robots || null,
+        jsonLdEnabled: seoBase.jsonLdEnabled,
+        jsonLdType: seoBase.jsonLdType || null,
+        updatedAt: new Date(),
+      });
+
+      // Traduzioni SEO. upsertSeoPageTranslation cancella la riga se
+      // tutti i 4 campi sono vuoti — niente record fantasma.
+      for (const [locale, fields] of Object.entries(seoTrData)) {
+        await upsertSeoPageTranslation({
+          pathname: seoPathname,
+          locale,
+          title: fields.title || null,
+          description: fields.description || null,
+          ogTitle: fields.ogTitle || null,
+          ogDescription: fields.ogDescription || null,
         });
       }
     }
