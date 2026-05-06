@@ -997,6 +997,7 @@ export default function PageEditor({
         {isEdit && (
           <input type="hidden" name="originalSlug" value={originalSlug} />
         )}
+        <input type="hidden" name="title" value={title} />
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="content" ref={contentRef} />
         <input type="hidden" name="status" value={status} />
@@ -1083,7 +1084,6 @@ export default function PageEditor({
                 <div>
                   <label style={labelStyle}>{t("titleLabel")}</label>
                   <input
-                    name="title"
                     value={title}
                     onChange={(e) => handleTitleChange(e.target.value)}
                     placeholder={t("titlePlaceholder")}
