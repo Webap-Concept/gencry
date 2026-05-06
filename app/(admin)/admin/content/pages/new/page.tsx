@@ -1,6 +1,8 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAllPages } from "@/lib/db/pages-queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import PageEditor from "../_components/page-editor";
@@ -30,8 +32,15 @@ export default async function NewPagePage({
   // templateLocked=1 significa che il template è imposto dalla regola del padre e non può essere cambiato
   const templateLocked = params.templateLocked === "1";
 
+  const t = await getTranslations("admin.content.pages");
+
   return (
     <div className="p-6 max-w-4xl">
+      <AdminSectionHeader
+        icon={FileText}
+        breadcrumbLabel={t("breadcrumbContent")}
+        title={t("pageTitle")}
+      />
       <PageEditor
         pages={pages}
         templates={templates}

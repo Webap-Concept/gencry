@@ -870,12 +870,6 @@ export default function PageEditor({
     templates.find((tpl) => tpl.id === templateId) ?? null;
   const slugChanged = isEdit && slug !== originalSlug && slug.trim() !== "";
 
-  const currentLabel = isEdit
-    ? title || page?.title || t("currentLabelEdit")
-    : title
-      ? title
-      : t("currentLabelNew");
-
   return (
     <>
       <style>{`
@@ -951,16 +945,10 @@ export default function PageEditor({
         ))}
 
         <EditorPageHeader
-          breadcrumbs={[
-            {
-              label: t("breadcrumbContent"),
-              href: getAdminPath("content-pages"),
-            },
-            { label: t("breadcrumbPages") },
-          ]}
-          currentLabel={currentLabel}
           backHref={getAdminPath("content-pages")}
+          backLabel={t("backButton")}
           saveLabel={isEdit ? t("saveButton") : t("createButton")}
+          savedAtLabel={(time) => t("savedAtLabel", { time })}
           formId={FORM_ID}
           isPending={isPending}
           savedAt={savedAt}
