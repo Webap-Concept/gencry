@@ -1440,6 +1440,7 @@
         "tabSystem": "Sistema",
         "searchPlaceholder": "Cerca pagina...",
         "newPageButton": "Nuova pagina",
+        "dragHandleLabel": "Trascina per riordinare",
         "childSearchPlaceholder": "Cerca figli…",
         "childSearchResults": "{count} risultati",
         "rowEdit": "Modifica pagina",

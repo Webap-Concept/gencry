@@ -5,6 +5,21 @@ import Tooltip from "@/app/(admin)/admin/_components/tooltip";
 import { getAdminPath } from "@/lib/admin-nav";
 import type { Page, PageTemplate } from "@/lib/db/schema";
 import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -13,6 +28,7 @@ import {
   FileText,
   GitFork,
   Globe,
+  GripVertical,
   Lock,
   PanelTop,
   Pencil,
@@ -25,7 +41,11 @@ import {
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { deletePageAction, togglePageStatusAction } from "../actions";
+import {
+  deletePageAction,
+  reorderPagesAction,
+  togglePageStatusAction,
+} from "../actions";
 
 const PAGE_SIZE = 10;
 
@@ -368,6 +388,20 @@ function PageRow({
   const indent = depth * 20;
   const isSystem = Boolean((page as Page & { isSystem?: boolean }).isSystem);
 
+  // Drag & drop: useSortable identifica il row dal page.id e gli associa
+  // il parentId via `data.current` per filtrare il drop nello stesso scope
+  // (siblings) lato handler.
+  const sortable = useSortable({
+    id: page.id,
+    data: { parentId: page.parentId ?? null },
+  });
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+    opacity: sortable.isDragging ? 0.4 : undefined,
+    zIndex: sortable.isDragging ? 10 : undefined,
+  };
+
   const needsPagination = allChildren.length > PAGE_SIZE;
   const [childPage, setChildPage] = useState(1);
   const [childSearch, setChildSearch] = useState("");
@@ -411,14 +445,17 @@ function PageRow({
   return (
     <>
       <div
+        ref={sortable.setNodeRef}
         onClick={() => { if (hasChildren) toggleExpand(page.id); }}
         className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors group"
         style={{
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
           marginLeft: `${indent}px`,
-          opacity: isPendingToggle ? 0.6 : 1,
-          transition: "opacity 160ms ease, border-color 160ms ease",
+          opacity: dragStyle.opacity ?? (isPendingToggle ? 0.6 : 1),
+          transform: dragStyle.transform,
+          transition: dragStyle.transition ?? "opacity 160ms ease, border-color 160ms ease",
+          zIndex: dragStyle.zIndex,
           cursor: hasChildren ? "pointer" : "default",
         }}
         onMouseEnter={(e) =>
@@ -427,6 +464,31 @@ function PageRow({
         onMouseLeave={(e) =>
           ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--admin-card-border)")
         }>
+        {/* Drag handle: durante search/quando è disabilitato il drag,
+            il bottone resta visibile ma inerte. Stoppa la propagazione
+            del click così non triggera il toggleExpand sulla riga. */}
+        <button
+          type="button"
+          aria-label={t("dragHandleLabel")}
+          {...sortable.attributes}
+          {...sortable.listeners}
+          onClick={stopRow}
+          className="flex items-center justify-center w-5 h-6 rounded shrink-0 transition-colors"
+          style={{
+            color: "var(--admin-text-faint)",
+            cursor: "grab",
+            touchAction: "none",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--admin-text-muted)";
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--admin-hover-bg)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--admin-text-faint)";
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          }}>
+          <GripVertical size={14} />
+        </button>
         <span
           className="flex items-center justify-center w-6 h-6 rounded shrink-0"
           style={{ color: hasChildren ? "var(--admin-text-muted)" : "transparent" }}>
@@ -668,24 +730,28 @@ function PageRow({
       {(isExpanded || searchActive) && (
         <div style={{ marginLeft: `${indent + 20}px` }}>
           <div className="space-y-1.5 mt-1.5">
-            {pagedChildren.map((child) => (
-              <PageRow
-                key={child.id}
-                page={child}
-                allPages={allPages}
-                templates={templates}
-                depth={0}
-                expandedIds={expandedIds}
-                toggleExpand={toggleExpand}
-                onEdit={onEdit}
-                onDeleteRequest={onDeleteRequest}
-                onNewChild={onNewChild}
-                onToggleStatus={onToggleStatus}
-                pendingToggleId={pendingToggleId}
-                searchActive={searchActive}
-                appDomain={appDomain}
-              />
-            ))}
+            <SortableContext
+              items={pagedChildren.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}>
+              {pagedChildren.map((child) => (
+                <PageRow
+                  key={child.id}
+                  page={child}
+                  allPages={allPages}
+                  templates={templates}
+                  depth={0}
+                  expandedIds={expandedIds}
+                  toggleExpand={toggleExpand}
+                  onEdit={onEdit}
+                  onDeleteRequest={onDeleteRequest}
+                  onNewChild={onNewChild}
+                  onToggleStatus={onToggleStatus}
+                  pendingToggleId={pendingToggleId}
+                  searchActive={searchActive}
+                  appDomain={appDomain}
+                />
+              ))}
+            </SortableContext>
           </div>
           {needsPagination && !searchActive && (
             <ChildPaginator
@@ -817,24 +883,28 @@ function PageTreeView({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {rootPages.map((page) => (
-            <PageRow
-              key={page.id}
-              page={page}
-              allPages={visiblePages}
-              templates={templates}
-              depth={0}
-              expandedIds={expandedIds}
-              toggleExpand={toggleExpand}
-              onEdit={onEdit}
-              onDeleteRequest={onDeleteRequest}
-              onNewChild={onNewChild}
-              onToggleStatus={onToggleStatus}
-              pendingToggleId={pendingToggleId}
-              searchActive={searchActive}
-              appDomain={appDomain}
-            />
-          ))}
+          <SortableContext
+            items={rootPages.map((p) => p.id)}
+            strategy={verticalListSortingStrategy}>
+            {rootPages.map((page) => (
+              <PageRow
+                key={page.id}
+                page={page}
+                allPages={visiblePages}
+                templates={templates}
+                depth={0}
+                expandedIds={expandedIds}
+                toggleExpand={toggleExpand}
+                onEdit={onEdit}
+                onDeleteRequest={onDeleteRequest}
+                onNewChild={onNewChild}
+                onToggleStatus={onToggleStatus}
+                pendingToggleId={pendingToggleId}
+                searchActive={searchActive}
+                appDomain={appDomain}
+              />
+            ))}
+          </SortableContext>
         </div>
       )}
     </>
@@ -863,12 +933,64 @@ export default function PageManager({
   const [pickerParent, setPickerParent] = useState<Page | null>(null);
   const [pickerOptions, setPickerOptions] = useState<TemplateWithFields[]>([]);
 
-  // Split pages into the two groups
-  const userPages = initialPages.filter((p) => !p.isSystem);
-  const systemPages = initialPages.filter((p) => p.isSystem);
+  // State controllato delle pagine — necessario per applicare optimistic
+  // update sul drag & drop. Viene rinfrescato dal server tramite
+  // initialPages quando l'action di reorder rivalida la rotta.
+  const [pages, setPages] = useState<Page[]>(initialPages);
+  useEffect(() => {
+    setPages(initialPages);
+  }, [initialPages]);
+
+  // Split pages into the two groups (ordinate per sortOrder, poi slug)
+  function sortPages(arr: Page[]): Page[] {
+    return [...arr].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.slug.localeCompare(b.slug),
+    );
+  }
+  const userPages = sortPages(pages.filter((p) => !p.isSystem));
+  const systemPages = sortPages(pages.filter((p) => p.isSystem));
 
   const userCount = userPages.length;
   const systemCount = systemPages.length;
+
+  // ── Drag & drop handler ─────────────────────────────────────────────────────
+  // Solo siblings dello stesso parent: se l'utente droppa su un item con
+  // parentId diverso, ignoriamo (per ora niente cross-parent move).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const aParent = (active.data.current?.parentId ?? null) as number | null;
+    const oParent = (over.data.current?.parentId ?? null) as number | null;
+    if (aParent !== oParent) return;
+
+    const siblings = pages.filter((p) => (p.parentId ?? null) === aParent);
+    const sorted = sortPages(siblings);
+    const oldIdx = sorted.findIndex((p) => p.id === active.id);
+    const newIdx = sorted.findIndex((p) => p.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(sorted, oldIdx, newIdx);
+
+    // Optimistic update
+    const newOrderById = new Map(reordered.map((p, i) => [p.id, i]));
+    setPages((prev) =>
+      prev.map((p) =>
+        newOrderById.has(p.id) ? { ...p, sortOrder: newOrderById.get(p.id)! } : p,
+      ),
+    );
+
+    // Persisti via server action
+    const updates = reordered.map((p, i) => ({ id: p.id, sortOrder: i }));
+    startTransition(async () => {
+      const res = await reorderPagesAction(updates);
+      if (res.error) {
+        // Rollback: ricarica dal server
+        router.refresh();
+      }
+    });
+  }
 
   function toggleExpand(id: number) {
     setExpandedIds((prev) => {
@@ -897,7 +1019,7 @@ export default function PageManager({
   }
 
   function handleNewChild(parentId: number) {
-    const parent = initialPages.find((p) => p.id === parentId);
+    const parent = pages.find((p) => p.id === parentId);
     if (!parent) {
       router.push(`${getAdminPath("content-pages")}/new?parentId=${parentId}`);
       return;
@@ -1062,44 +1184,51 @@ export default function PageManager({
         </button>
       </div>
 
-      {/* Tab content */}
-      {activeTab === "user" && (
-        <PageTreeView
-          allPagesInTab={userPages}
-          templates={templates}
-          expandedIds={expandedIds}
-          toggleExpand={toggleExpand}
-          pendingToggleId={pendingToggleId}
-          appDomain={appDomain}
-          onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
-          onDeleteRequest={setDeleteTarget}
-          onNewChild={handleNewChild}
-          onToggleStatus={handleToggleStatus}
-          emptyLabel={t("emptyUserLabel")}
-          emptyHint={t("emptyUserHint")}
-          showNewButton={true}
-          onNewPage={() => router.push(`${getAdminPath("content-pages")}/new`)}
-        />
-      )}
+      {/* Tab content — wrappato in DndContext per supportare il drag&drop
+          sull'intero tree (root + children expanded). I SortableContext
+          annidati dentro PageTreeView/PageRow danno gli scope per livello. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}>
+        {activeTab === "user" && (
+          <PageTreeView
+            allPagesInTab={userPages}
+            templates={templates}
+            expandedIds={expandedIds}
+            toggleExpand={toggleExpand}
+            pendingToggleId={pendingToggleId}
+            appDomain={appDomain}
+            onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
+            onDeleteRequest={setDeleteTarget}
+            onNewChild={handleNewChild}
+            onToggleStatus={handleToggleStatus}
+            emptyLabel={t("emptyUserLabel")}
+            emptyHint={t("emptyUserHint")}
+            showNewButton={true}
+            onNewPage={() => router.push(`${getAdminPath("content-pages")}/new`)}
+          />
+        )}
 
-      {activeTab === "system" && (
-        <PageTreeView
-          allPagesInTab={systemPages}
-          templates={templates}
-          expandedIds={expandedIds}
-          toggleExpand={toggleExpand}
-          pendingToggleId={pendingToggleId}
-          appDomain={appDomain}
-          onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
-          onDeleteRequest={setDeleteTarget}
-          onNewChild={handleNewChild}
-          onToggleStatus={handleToggleStatus}
-          emptyLabel={t("emptySystemLabel")}
-          emptyHint={t("emptySystemHint")}
-          showNewButton={false}
-          onNewPage={() => {}}
-        />
-      )}
+        {activeTab === "system" && (
+          <PageTreeView
+            allPagesInTab={systemPages}
+            templates={templates}
+            expandedIds={expandedIds}
+            toggleExpand={toggleExpand}
+            pendingToggleId={pendingToggleId}
+            appDomain={appDomain}
+            onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
+            onDeleteRequest={setDeleteTarget}
+            onNewChild={handleNewChild}
+            onToggleStatus={handleToggleStatus}
+            emptyLabel={t("emptySystemLabel")}
+            emptyHint={t("emptySystemHint")}
+            showNewButton={false}
+            onNewPage={() => {}}
+          />
+        )}
+      </DndContext>
 
       {pickerParent && (
         <ChildTemplatePicker
