@@ -3,8 +3,10 @@
 import { SeoForm } from "@/app/(admin)/admin/seo/_components/seo-form";
 import { getAdminPath } from "@/lib/admin-nav";
 import type {
+  AppLocale,
   Page,
   PageTemplate,
+  PageTranslation,
   SeoPage,
   TemplateField,
 } from "@/lib/db/schema";
@@ -24,6 +26,7 @@ import {
   Eye,
   EyeOff,
   GitBranch,
+  Globe,
   Heading2,
   Heading3,
   Italic,
@@ -39,9 +42,11 @@ import {
   ShieldCheck,
   UnderlineIcon,
 } from "lucide-react";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { Fragment } from "react";
 import { createPortal } from "react-dom";
 import { EditorPageHeader } from "../../../_components/editor-page-header";
 import { upsertPageAction } from "../actions";
@@ -750,6 +755,8 @@ export default function PageEditor({
   pageType = "page",
   contentEditable = true,
   slugEditable = true,
+  locales = [],
+  initialTranslations = [],
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -764,6 +771,8 @@ export default function PageEditor({
   pageType?: string;
   contentEditable?: boolean;
   slugEditable?: boolean;
+  locales?: AppLocale[];
+  initialTranslations?: PageTranslation[];
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
@@ -777,6 +786,31 @@ export default function PageEditor({
   const [activeTab, setActiveTab] = useState<
     "content" | "seo" | "pub" | "struttura"
   >(isMetaOnly ? "seo" : "content");
+
+  // ── Language tabs (ProcessWire style) ──────────────────────────────────────
+  const nonDefaultLocales = locales.filter((l) => l.code !== DEFAULT_LOCALE);
+  const isMultilocale = nonDefaultLocales.length > 0;
+  const [activeLang, setActiveLang] = useState<string>(DEFAULT_LOCALE);
+  const activeLangRef = useRef<string>(DEFAULT_LOCALE);
+  // title + slug per locale (shown in UI when non-default tab active)
+  const [trFields, setTrFields] = useState<Record<string, { title: string; slug: string }>>(() => {
+    const map: Record<string, { title: string; slug: string }> = {};
+    for (const tr of initialTranslations) {
+      map[tr.locale] = { title: tr.title ?? "", slug: tr.slug ?? "" };
+    }
+    return map;
+  });
+  // DOM refs to locale content hidden inputs (updated directly by editor onUpdate)
+  const localeContentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Initial content per locale for editor initialization on tab switch
+  const initialTrContent = useRef<Record<string, string>>(
+    Object.fromEntries(initialTranslations.map((t) => [t.locale, t.content ?? ""])),
+  );
+  // Initial slugs per locale for "slug changed" detection
+  const initialTrSlugs = Object.fromEntries(
+    initialTranslations.map((t) => [t.locale, t.slug ?? ""]),
+  );
+  // ───────────────────────────────────────────────────────────────────────────
 
   const [state, action, isPending] = useActionState(upsertPageAction, {});
   const [title, setTitle] = useState(page?.title ?? "");
@@ -850,7 +884,13 @@ export default function PageEditor({
     immediatelyRender: false,
     editorProps: { attributes: { class: "tiptap-editor" } },
     onUpdate({ editor }) {
-      if (contentRef.current) contentRef.current.value = editor.getHTML();
+      const html = editor.getHTML();
+      if (activeLangRef.current === DEFAULT_LOCALE) {
+        if (contentRef.current) contentRef.current.value = html;
+      } else {
+        const el = localeContentInputRefs.current[activeLangRef.current];
+        if (el) el.value = html;
+      }
     },
   });
   useEffect(() => {
@@ -886,6 +926,35 @@ export default function PageEditor({
   }
   function handleInsertPlaceholder(token: string) {
     editor?.chain().focus().insertContent(token).run();
+  }
+
+  function handleLangTabSwitch(newLocale: string) {
+    if (newLocale === activeLang) return;
+    const currentHtml = editor?.getHTML() ?? "";
+    if (activeLangRef.current === DEFAULT_LOCALE) {
+      if (contentRef.current) contentRef.current.value = currentHtml;
+    } else {
+      const el = localeContentInputRefs.current[activeLangRef.current];
+      if (el) el.value = currentHtml;
+    }
+    let nextContent = "";
+    if (newLocale === DEFAULT_LOCALE) {
+      nextContent = contentRef.current?.value ?? page?.content ?? "";
+    } else {
+      nextContent =
+        localeContentInputRefs.current[newLocale]?.value ??
+        initialTrContent.current[newLocale] ??
+        "";
+    }
+    editor?.commands.setContent(nextContent);
+    activeLangRef.current = newLocale;
+    setActiveLang(newLocale);
+  }
+  function handleLocaleFieldChange(locale: string, field: "title" | "slug", val: string) {
+    setTrFields((prev) => ({
+      ...prev,
+      [locale]: { ...(prev[locale] ?? { title: "", slug: "" }), [field]: val },
+    }));
   }
 
   const selectedTemplate =
@@ -944,6 +1013,19 @@ export default function PageEditor({
         {/* isSystem e pageType: necessari per il versioning automatico */}
         <input type="hidden" name="isSystem" value={isSystem ? "1" : "0"} />
         <input type="hidden" name="pageType" value={pageType} />
+        {/* Traduzioni per locale non-default */}
+        {nonDefaultLocales.map((loc) => (
+          <Fragment key={loc.code}>
+            <input type="hidden" name={`tr_${loc.code}_title`} value={trFields[loc.code]?.title ?? ""} readOnly />
+            <input type="hidden" name={`tr_${loc.code}_slug`} value={trFields[loc.code]?.slug ?? ""} readOnly />
+            <input
+              type="hidden"
+              name={`tr_${loc.code}_content`}
+              defaultValue={initialTrContent.current[loc.code] ?? ""}
+              ref={(el) => { localeContentInputRefs.current[loc.code] = el; }}
+            />
+          </Fragment>
+        ))}
 
         <EditorPageHeader
           breadcrumbs={[
@@ -967,113 +1049,200 @@ export default function PageEditor({
 
         {/* Titolo + Slug */}
         <div
-          className="rounded-xl p-5 mb-5 space-y-4"
+          className="rounded-xl mb-5"
           style={{
             background: "var(--admin-card-bg)",
             border: "1px solid var(--admin-card-border)",
           }}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label style={labelStyle}>{t("titleLabel")}</label>
-              <input
-                name="title"
-                value={title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder={t("titlePlaceholder")}
-                required
-                style={inputStyle}
-              />
+          {/* Language tab strip (ProcessWire style) */}
+          {isMultilocale && (
+            <div
+              className="flex items-center gap-1 px-4 pt-3 pb-0"
+              style={{ borderBottom: "1px solid var(--admin-divider)" }}>
+              <Globe size={12} style={{ color: "var(--admin-text-faint)", marginRight: "4px" }} />
+              {[{ code: DEFAULT_LOCALE, label: DEFAULT_LOCALE.toUpperCase() }, ...nonDefaultLocales.map(l => ({ code: l.code, label: l.code.toUpperCase() }))].map(({ code, label }) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => handleLangTabSwitch(code)}
+                  className="relative px-3 py-2 text-xs font-semibold tracking-wide transition-colors"
+                  style={{
+                    color: activeLang === code ? "var(--admin-accent)" : "var(--admin-text-muted)",
+                    borderBottom: activeLang === code ? "2px solid var(--admin-accent)" : "2px solid transparent",
+                    marginBottom: "-1px",
+                  }}>
+                  {label}
+                </button>
+              ))}
             </div>
-            <div>
-              <label style={{ ...labelStyle, marginBottom: "0.375rem" }}>
-                {t("slugLabel")}
-              </label>
-              <div className="flex">
-                <span
-                  className="px-3 py-2 text-sm rounded-l-lg shrink-0 select-none"
-                  style={{
-                    background: "var(--admin-hover-bg)",
-                    border: "1px solid var(--admin-input-border)",
-                    borderRight: "none",
-                    color: slugPrefix
-                      ? "var(--admin-text-muted)"
-                      : "var(--admin-text-faint)",
-                    fontSize: "0.875rem",
-                    fontFamily: "monospace",
-                    maxWidth: "180px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={`/${slugPrefix}`}>
-                  /{slugPrefix}
-                </span>
-                <input
-                  value={slugLeaf}
-                  onChange={(e) => handleSlugLeafChange(e.target.value)}
-                  placeholder={t("slugLeafPlaceholder")}
-                  disabled={!slugEditable}
-                  style={{
-                    ...inputStyle,
-                    borderRadius: "0 0.5rem 0.5rem 0",
-                    fontFamily: "monospace",
-                    cursor: slugEditable ? undefined : "not-allowed",
-                    opacity: slugEditable ? 1 : 0.7,
-                  }}
-                />
-              </div>
-              {!slugEditable ? (
-                <p
-                  style={{
-                    ...hintStyle,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}>
-                  <Lock size={11} />
-                  {t("slugLockedHint")}
-                </p>
-              ) : slugChanged ? (
-                <div
-                  className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
-                  style={{
-                    background:
-                      "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
-                    border:
-                      "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
-                  }}>
-                  <AlertTriangle
-                    size={13}
-                    className="mt-0.5 shrink-0"
-                    style={{ color: "#f59e0b" }}
+          )}
+          <div className="p-5 space-y-4">
+            {activeLang === DEFAULT_LOCALE ? (
+              /* ── Default locale: same as before ── */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label style={labelStyle}>{t("titleLabel")}</label>
+                  <input
+                    name="title"
+                    value={title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    placeholder={t("titlePlaceholder")}
+                    required
+                    style={inputStyle}
                   />
-                  <p
-                    className="text-xs leading-relaxed"
-                    style={{ color: "var(--admin-text-muted)" }}>
-                    {t("slugChangedNoticeBefore")}{" "}
-                    <code
-                      className="font-mono"
-                      style={{ color: "var(--admin-text)" }}>
-                      /{originalSlug}
-                    </code>{" "}
-                    {t("slugChangedNoticeMiddle")}{" "}
-                    <code
-                      className="font-mono"
-                      style={{ color: "var(--admin-text)" }}>
-                      /{slug}
-                    </code>
-                    {t("slugChangedNoticeAfter")}
-                  </p>
                 </div>
-              ) : (
-                <p style={hintStyle}>
-                  {t("slugUrlHintLabel")}{" "}
-                  <strong style={{ color: "var(--admin-text-muted)" }}>
-                    /{slug || t("slugUrlHintFallback")}
-                  </strong>
-                </p>
-              )}
-            </div>
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: "0.375rem" }}>
+                    {t("slugLabel")}
+                  </label>
+                  <div className="flex">
+                    <span
+                      className="px-3 py-2 text-sm rounded-l-lg shrink-0 select-none"
+                      style={{
+                        background: "var(--admin-hover-bg)",
+                        border: "1px solid var(--admin-input-border)",
+                        borderRight: "none",
+                        color: slugPrefix
+                          ? "var(--admin-text-muted)"
+                          : "var(--admin-text-faint)",
+                        fontSize: "0.875rem",
+                        fontFamily: "monospace",
+                        maxWidth: "180px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={`/${slugPrefix}`}>
+                      /{slugPrefix}
+                    </span>
+                    <input
+                      value={slugLeaf}
+                      onChange={(e) => handleSlugLeafChange(e.target.value)}
+                      placeholder={t("slugLeafPlaceholder")}
+                      disabled={!slugEditable}
+                      style={{
+                        ...inputStyle,
+                        borderRadius: "0 0.5rem 0.5rem 0",
+                        fontFamily: "monospace",
+                        cursor: slugEditable ? undefined : "not-allowed",
+                        opacity: slugEditable ? 1 : 0.7,
+                      }}
+                    />
+                  </div>
+                  {!slugEditable ? (
+                    <p
+                      style={{
+                        ...hintStyle,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}>
+                      <Lock size={11} />
+                      {t("slugLockedHint")}
+                    </p>
+                  ) : slugChanged ? (
+                    <div
+                      className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
+                      style={{
+                        background:
+                          "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+                        border:
+                          "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                      }}>
+                      <AlertTriangle
+                        size={13}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: "#f59e0b" }}
+                      />
+                      <p
+                        className="text-xs leading-relaxed"
+                        style={{ color: "var(--admin-text-muted)" }}>
+                        {t("slugChangedNoticeBefore")}{" "}
+                        <code
+                          className="font-mono"
+                          style={{ color: "var(--admin-text)" }}>
+                          /{originalSlug}
+                        </code>{" "}
+                        {t("slugChangedNoticeMiddle")}{" "}
+                        <code
+                          className="font-mono"
+                          style={{ color: "var(--admin-text)" }}>
+                          /{slug}
+                        </code>
+                        {t("slugChangedNoticeAfter")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={hintStyle}>
+                      {t("slugUrlHintLabel")}{" "}
+                      <strong style={{ color: "var(--admin-text-muted)" }}>
+                        /{slug || t("slugUrlHintFallback")}
+                      </strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* ── Non-default locale: locale title + slug ── */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label style={labelStyle}>{t("langTitleLabel")}</label>
+                  <input
+                    value={trFields[activeLang]?.title ?? ""}
+                    onChange={(e) => handleLocaleFieldChange(activeLang, "title", e.target.value)}
+                    placeholder={t("langTitlePlaceholder")}
+                    style={inputStyle}
+                  />
+                  <p style={hintStyle}>{t("langTitleHint")}</p>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: "0.375rem" }}>
+                    {t("langSlugLabel")}
+                  </label>
+                  <div className="flex">
+                    <span
+                      className="px-3 py-2 text-sm rounded-l-lg shrink-0 select-none"
+                      style={{
+                        background: "var(--admin-hover-bg)",
+                        border: "1px solid var(--admin-input-border)",
+                        borderRight: "none",
+                        color: "var(--admin-text-muted)",
+                        fontSize: "0.875rem",
+                        fontFamily: "monospace",
+                      }}>
+                      /{activeLang}/
+                    </span>
+                    <input
+                      value={trFields[activeLang]?.slug ?? ""}
+                      onChange={(e) => handleLocaleFieldChange(activeLang, "slug", e.target.value)}
+                      placeholder={t("langSlugPlaceholder")}
+                      style={{
+                        ...inputStyle,
+                        borderRadius: "0 0.5rem 0.5rem 0",
+                        fontFamily: "monospace",
+                      }}
+                    />
+                  </div>
+                  {isEdit && trFields[activeLang]?.slug !== initialTrSlugs[activeLang] && (trFields[activeLang]?.slug || initialTrSlugs[activeLang]) ? (
+                    <div
+                      className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
+                      style={{
+                        background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+                        border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                      }}>
+                      <AlertTriangle size={13} className="mt-0.5 shrink-0" style={{ color: "#f59e0b" }} />
+                      <p className="text-xs leading-relaxed" style={{ color: "var(--admin-text-muted)" }}>
+                        {t("langSlugChangedNotice")}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={hintStyle}>
+                      {t("langSlugHint", { locale: activeLang, slug: trFields[activeLang]?.slug || t("slugUrlHintFallback") })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

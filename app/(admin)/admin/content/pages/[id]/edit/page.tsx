@@ -1,4 +1,4 @@
-import { getPageById, getAllPages } from "@/lib/db/pages-queries";
+import { getPageById, getAllPages, getEnabledLocales, getPageTranslationsForPage } from "@/lib/db/pages-queries";
 import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
@@ -35,16 +35,20 @@ export default async function EditPagePage({
   const pageId = Number(id);
   if (isNaN(pageId)) notFound();
 
-  const [page, pages, templates, settings] = await Promise.all([
+  const [page, pages, templates, settings, locales] = await Promise.all([
     getPageById(pageId),
     getAllPages(),
     getAllTemplates(),
     getAppSettings(),
+    getEnabledLocales(),
   ]);
 
   if (!page) notFound();
 
-  const seo = await getSeoPage(`/${page.slug}`);
+  const [seo, translations] = await Promise.all([
+    getSeoPage(`/${page.slug}`),
+    getPageTranslationsForPage(pageId),
+  ]);
 
   // --- Calcola templateLocked server-side ---
   let templateLocked = false;
@@ -78,6 +82,8 @@ export default async function EditPagePage({
           isSystem: page.isSystem ?? false,
           systemKey: page.systemKey ?? null,
         })}
+        locales={locales}
+        initialTranslations={translations}
       />
     </div>
   );

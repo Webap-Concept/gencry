@@ -5,14 +5,17 @@ import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
   getPageBySlug,
+  getPageTranslationsForPage,
   invalidateNavigablePagesCache,
   togglePageStatus,
   upsertPage,
+  upsertPageTranslation,
 } from "@/lib/db/pages-queries";
 import { getUser } from "@/lib/db/queries";
-import { upsertRedirect } from "@/lib/db/redirects-queries";
+import { createAutoSlugRedirect } from "@/lib/db/redirects-queries";
 import { ActivityType } from "@/lib/db/schema";
 import { deleteSeoPage, getSeoPage, renameSeoPage } from "@/lib/db/seo-queries";
+import { LOCALES } from "@/lib/i18n/config";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -79,6 +82,15 @@ export async function upsertPageAction(
       return { error: tErrors(msg) };
     }
     return { error: tErrors("invalidData") };
+  }
+
+  // Estrai i campi di traduzione per locale (tr_<locale>_title, _slug, _content)
+  const trData: Record<string, { title: string; slug: string; content: string }> = {};
+  for (const locale of LOCALES) {
+    const title = (formData.get(`tr_${locale}_title`) as string) ?? "";
+    const slug = (formData.get(`tr_${locale}_slug`) as string) ?? "";
+    const content = (formData.get(`tr_${locale}_content`) as string) ?? "";
+    trData[locale] = { title, slug, content };
   }
 
   const {
@@ -162,11 +174,44 @@ export async function upsertPageAction(
         });
       }
 
-      await upsertRedirect({
+      await createAutoSlugRedirect({
+        pageId: savedId,
+        locale: null,
         fromPath: `/${originalSlug}`,
         toPath: `/${data.slug}`,
-        statusCode: 301,
       });
+    }
+
+    // Salva le traduzioni per ogni locale non-default
+    if (!isCreating) {
+      const { DEFAULT_LOCALE } = await import("@/lib/i18n/config");
+      const existingTrs = await getPageTranslationsForPage(savedId);
+      const existingByLocale = Object.fromEntries(existingTrs.map((t) => [t.locale, t]));
+
+      for (const [locale, fields] of Object.entries(trData)) {
+        if (locale === DEFAULT_LOCALE) continue;
+        const hasInput = fields.title || fields.slug || fields.content;
+        if (!hasInput && !existingByLocale[locale]) continue;
+
+        // Rileva cambio slug locale per auto-redirect
+        const prevSlug = existingByLocale[locale]?.slug ?? null;
+        if (prevSlug && fields.slug && prevSlug !== fields.slug) {
+          await createAutoSlugRedirect({
+            pageId: savedId,
+            locale,
+            fromPath: `/${locale}/${prevSlug}`,
+            toPath: `/${locale}/${fields.slug}`,
+          });
+        }
+
+        await upsertPageTranslation({
+          pageId: savedId,
+          locale,
+          title: fields.title || null,
+          slug: fields.slug || null,
+          content: fields.content || null,
+        });
+      }
     }
 
     revalidatePath(getAdminPath("content-pages"));

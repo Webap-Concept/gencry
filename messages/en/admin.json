@@ -1587,7 +1587,14 @@
         "structureNoTemplatesAfter": "to add custom fields to the page.",
         "structureTemplateHasFields": "The custom fields of this template will appear <strong>above the tabs</strong>, just below the page title.",
         "structureTemplateNoFields": "This template has no custom fields.",
-        "structureTemplateLockedHint": "Template enforced by the parent template rule — not editable."
+        "structureTemplateLockedHint": "Template enforced by the parent template rule — not editable.",
+        "langTitleLabel": "Translated Title",
+        "langTitlePlaceholder": "Translation (leave empty to use default)",
+        "langTitleHint": "Leave empty to fall back to the default language title.",
+        "langSlugLabel": "Locale Slug",
+        "langSlugPlaceholder": "page-name",
+        "langSlugHint": "URL: /{locale}/{slug}",
+        "langSlugChangedNotice": "A redirect will be created automatically from the old URL."
       },
       "errors": {
         "saveError": "Error while saving. Please try again.",
@@ -1763,7 +1770,15 @@
       "errorToMustStartSlash": "Destination path must start with /",
       "errorInvalidData": "Invalid data",
       "errorSaveFailed": "Failed to save.",
-      "errorDeleteFailed": "Failed to delete."
+      "errorDeleteFailed": "Failed to delete.",
+      "tabManual": "Manual",
+      "tabAutomatic": "Automatic",
+      "autoHint": "Automatic redirects are created by the system when a page's slug changes. They can be disabled or deleted, but not edited.",
+      "emptyAutoTitle": "No automatic redirects yet",
+      "emptyAutoHint": "Automatic redirects appear here when you change a page's slug.",
+      "columnLocale": "Locale",
+      "rowDisableTooltip": "Disable",
+      "rowEnableTooltip": "Enable"
     },
     "robots": {
       "metaTitle": "Robots",

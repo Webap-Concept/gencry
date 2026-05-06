@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
-import { deleteRedirect, upsertRedirect } from "@/lib/db/redirects-queries";
+import { deleteRedirect, toggleRedirectActive, upsertRedirect } from "@/lib/db/redirects-queries";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -78,6 +78,21 @@ export async function deleteRedirectAction(
   } catch (err) {
     console.error("[deleteRedirectAction]", err);
     return { error: tErrors("errorDeleteFailed") };
+  }
+  return { success: true };
+}
+
+export async function toggleAutoRedirectAction(
+  id: number,
+  isActive: boolean,
+): Promise<{ error?: string; success?: boolean }> {
+  const tErrors = await getTranslations("admin.seo.redirect");
+  try {
+    await toggleRedirectActive(id, isActive);
+    revalidatePath(getAdminPath("seo-redirects"));
+  } catch (err) {
+    console.error("[toggleAutoRedirectAction]", err);
+    return { error: tErrors("errorSaveFailed") };
   }
   return { success: true };
 }

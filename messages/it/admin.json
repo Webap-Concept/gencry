@@ -1587,7 +1587,14 @@
         "structureNoTemplatesAfter": "per aggiungere campi custom alla pagina.",
         "structureTemplateHasFields": "I campi custom di questo template appariranno <strong>sopra le tab</strong>, subito sotto il titolo della pagina.",
         "structureTemplateNoFields": "Questo template non ha campi custom.",
-        "structureTemplateLockedHint": "Template imposto dalla regola del template padre — non modificabile."
+        "structureTemplateLockedHint": "Template imposto dalla regola del template padre — non modificabile.",
+        "langTitleLabel": "Titolo tradotto",
+        "langTitlePlaceholder": "Traduzione (lascia vuoto per usare il default)",
+        "langTitleHint": "Lascia vuoto per usare il titolo nella lingua predefinita.",
+        "langSlugLabel": "Slug locale",
+        "langSlugPlaceholder": "nome-pagina",
+        "langSlugHint": "URL: /{locale}/{slug}",
+        "langSlugChangedNotice": "Verrà creato automaticamente un redirect dal vecchio URL."
       },
       "errors": {
         "saveError": "Errore durante il salvataggio. Riprova.",
@@ -1763,7 +1770,15 @@
       "errorToMustStartSlash": "Il path destinazione deve iniziare con /",
       "errorInvalidData": "Dati non validi",
       "errorSaveFailed": "Errore nel salvataggio.",
-      "errorDeleteFailed": "Errore nell'eliminazione."
+      "errorDeleteFailed": "Errore nell'eliminazione.",
+      "tabManual": "Manuale",
+      "tabAutomatic": "Automatico",
+      "autoHint": "I redirect automatici vengono creati dal sistema al cambio slug di una pagina. Possono essere disabilitati o eliminati, ma non modificati.",
+      "emptyAutoTitle": "Nessun redirect automatico",
+      "emptyAutoHint": "I redirect automatici appaiono qui quando cambi lo slug di una pagina.",
+      "columnLocale": "Locale",
+      "rowDisableTooltip": "Disabilita",
+      "rowEnableTooltip": "Abilita"
     },
     "robots": {
       "metaTitle": "Robots",

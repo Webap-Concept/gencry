@@ -1,6 +1,9 @@
 import { db } from "@/lib/db/drizzle";
-import { pages, pageTemplates, pageVersions, templateFields, type NewPage, type Page, type PageTemplate, type TemplateField, type SystemPageKey, type RouteVisibility } from "@/lib/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { pages, pageTemplates, pageVersions, pageTranslations, appLocales, templateFields, type NewPage, type Page, type PageTranslation, type AppLocale, type PageTemplate, type TemplateField, type SystemPageKey, type RouteVisibility } from "@/lib/db/schema";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
+
+export type { PageTranslation, AppLocale };
 
 // ---------------------------------------------------------------------------
 // Pages
@@ -50,10 +53,30 @@ export async function getNavigablePages(): Promise<NavigablePage[]> {
     .select({ slug: pages.slug, visibility: pages.visibility })
     .from(pages)
     .where(eq(pages.status, "published"));
+
   const list: NavigablePage[] = rows.map((r) => ({
     pathname: `/${r.slug}`,
     visibility: r.visibility,
   }));
+
+  // Aggiunge gli slug locale-specifici (es. /en/page-name) con la stessa
+  // visibility della pagina madre — necessario per il proxy ACL.
+  const localeRows = await db
+    .select({
+      slug: pageTranslations.slug,
+      locale: pageTranslations.locale,
+      visibility: pages.visibility,
+    })
+    .from(pageTranslations)
+    .innerJoin(pages, and(eq(pages.id, pageTranslations.pageId), eq(pages.status, "published")))
+    .where(isNotNull(pageTranslations.slug));
+
+  for (const r of localeRows) {
+    if (r.slug) {
+      list.push({ pathname: `/${r.locale}/${r.slug}`, visibility: r.visibility });
+    }
+  }
+
   _navCache = list;
   _navCacheAt = Date.now();
   return list;
@@ -111,22 +134,74 @@ export async function getPageById(id: number): Promise<Page | undefined> {
   return row;
 }
 
-/** Carica pagina con template e campi custom — usato dal frontend */
+/** Carica pagina con template e campi custom — usato dal frontend.
+ *
+ * Se `locale` e' diverso dal DEFAULT_LOCALE e la pagina ha una traduzione,
+ * sovrascrive title/content con i valori tradotti (overlay).
+ *
+ * Lookup per non-default locale:
+ *   1. Cerca slug in page_translations WHERE locale=X AND slug=<slug> -> pageId
+ *   2. Fallback: cerca pages.slug = <slug> (slug default funziona anche con prefix)
+ */
 export async function getPageWithTemplate(
   slug: string,
-): Promise<(Page & { template: (PageTemplate & { fields: TemplateField[] }) | null }) | undefined> {
-  const [page] = await db.select().from(pages).where(eq(pages.slug, slug)).limit(1);
+  locale: string = DEFAULT_LOCALE,
+): Promise<(Page & { template: (PageTemplate & { fields: TemplateField[] }) | null; translation?: PageTranslation | null }) | undefined> {
+  let page: Page | undefined;
+  let translation: PageTranslation | null = null;
+
+  if (locale !== DEFAULT_LOCALE) {
+    const [byLocaleSlug] = await db
+      .select()
+      .from(pageTranslations)
+      .where(and(eq(pageTranslations.locale, locale), eq(pageTranslations.slug, slug)))
+      .limit(1);
+
+    if (byLocaleSlug) {
+      const [p] = await db.select().from(pages).where(eq(pages.id, byLocaleSlug.pageId)).limit(1);
+      page = p;
+      translation = byLocaleSlug;
+    }
+  }
+
+  if (!page) {
+    const [p] = await db.select().from(pages).where(eq(pages.slug, slug)).limit(1);
+    page = p;
+
+    if (page && locale !== DEFAULT_LOCALE && !translation) {
+      const [t] = await db
+        .select()
+        .from(pageTranslations)
+        .where(and(eq(pageTranslations.pageId, page.id), eq(pageTranslations.locale, locale)))
+        .limit(1);
+      translation = t ?? null;
+    }
+  }
+
   if (!page) return undefined;
 
-  if (!page.templateId) return { ...page, template: null };
+  const overlaid: Page = translation
+    ? {
+        ...page,
+        title: translation.title ?? page.title,
+        content:
+          translation.content !== null &&
+          translation.content !== undefined &&
+          translation.content.trim() !== ""
+            ? translation.content
+            : page.content,
+      }
+    : page;
+
+  if (!overlaid.templateId) return { ...overlaid, template: null, translation };
 
   const [template] = await db
     .select()
     .from(pageTemplates)
-    .where(eq(pageTemplates.id, page.templateId))
+    .where(eq(pageTemplates.id, overlaid.templateId))
     .limit(1);
 
-  if (!template) return { ...page, template: null };
+  if (!template) return { ...overlaid, template: null, translation };
 
   const fields = await db
     .select()
@@ -134,7 +209,96 @@ export async function getPageWithTemplate(
     .where(eq(templateFields.templateId, template.id))
     .orderBy(asc(templateFields.sortOrder));
 
-  return { ...page, template: { ...template, fields } };
+  return { ...overlaid, template: { ...template, fields }, translation };
+}
+
+/** Restituisce tutti gli URL alternativi di una pagina (per hreflang). */
+export async function getPageLocaleUrls(
+  pageId: number,
+  defaultSlug: string,
+  appDomain: string,
+): Promise<{ locale: string; url: string }[]> {
+  const base = appDomain.startsWith("http")
+    ? appDomain.replace(/\/$/, "")
+    : `https://${appDomain}`;
+
+  const urls: { locale: string; url: string }[] = [
+    { locale: DEFAULT_LOCALE, url: `${base}/${defaultSlug}` },
+  ];
+
+  const rows = await db
+    .select({ locale: pageTranslations.locale, slug: pageTranslations.slug })
+    .from(pageTranslations)
+    .where(and(eq(pageTranslations.pageId, pageId), isNotNull(pageTranslations.slug)));
+
+  for (const r of rows) {
+    if (r.slug) {
+      urls.push({ locale: r.locale, url: `${base}/${r.locale}/${r.slug}` });
+    }
+  }
+
+  return urls;
+}
+
+/** Carica tutte le traduzioni di una pagina per il page editor admin. */
+export async function getPageTranslationsForPage(pageId: number): Promise<PageTranslation[]> {
+  return db
+    .select()
+    .from(pageTranslations)
+    .where(eq(pageTranslations.pageId, pageId))
+    .orderBy(asc(pageTranslations.locale));
+}
+
+/** Upsert o delete di una traduzione pagina per una locale non-default.
+ * Se title/content/slug sono tutti vuoti -> elimina la riga.
+ */
+export async function upsertPageTranslation(data: {
+  pageId: number;
+  locale: string;
+  title: string | null;
+  content: string | null;
+  slug: string | null;
+}): Promise<void> {
+  const hasData =
+    (data.title && data.title.trim()) ||
+    (data.content && data.content.trim()) ||
+    (data.slug && data.slug.trim());
+
+  if (!hasData) {
+    await db
+      .delete(pageTranslations)
+      .where(and(eq(pageTranslations.pageId, data.pageId), eq(pageTranslations.locale, data.locale)));
+    return;
+  }
+
+  await db
+    .insert(pageTranslations)
+    .values({
+      pageId: data.pageId,
+      locale: data.locale,
+      slug: data.slug?.trim() || null,
+      title: data.title?.trim() || null,
+      content: data.content?.trim() || null,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [pageTranslations.pageId, pageTranslations.locale],
+      set: {
+        slug: sql`excluded.slug`,
+        title: sql`excluded.title`,
+        content: sql`excluded.content`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
+}
+
+/** Carica tutte le locale abilitate dal DB (per i tab lingua nel page editor). */
+export async function getEnabledLocales(): Promise<AppLocale[]> {
+  return db
+    .select()
+    .from(appLocales)
+    .where(eq(appLocales.enabled, true))
+    .orderBy(asc(appLocales.sortOrder), asc(appLocales.code));
 }
 
 // ---------------------------------------------------------------------------

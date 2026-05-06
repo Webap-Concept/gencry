@@ -391,8 +391,14 @@ export const pageTranslations = pgTable(
       .notNull()
       .references(() => pages.id, { onDelete: "cascade" }),
     locale: varchar("locale", { length: 5 }).notNull(),
-    title: varchar("title", { length: 255 }).notNull(),
-    content: text("content").notNull().default(""),
+    // Slug locale-specifico (senza il prefix /en/). NULL = usa lo slug della
+    // pagina madre (default locale). Quando valorizzato, l'URL diventa
+    // /<locale>/<slug> e il proxy/CMS lo risolve via JOIN su questa colonna.
+    slug: varchar("slug", { length: 255 }),
+    // title/content nullable: supporta traduzioni parziali (es. solo slug
+    // diverso ma stesso contenuto default).
+    title: varchar("title", { length: 255 }),
+    content: text("content").default(""),
     contentVersion: varchar("content_version", { length: 20 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -401,6 +407,12 @@ export const pageTranslations = pgTable(
     uniqueIndex("page_translations_page_locale_uq").on(
       table.pageId,
       table.locale,
+    ),
+    // Unique per locale sullo slug: due pagine non possono avere lo stesso
+    // slug tradotto nella stessa lingua. Partial index (WHERE slug IS NOT NULL).
+    uniqueIndex("page_translations_locale_slug_uq").on(
+      table.locale,
+      table.slug,
     ),
     index("idx_page_translations_page").on(table.pageId),
   ],
@@ -425,6 +437,13 @@ export const redirects = pgTable("redirects", {
   toPath: varchar("to_path", { length: 500 }).notNull(),
   statusCode: integer("status_code").notNull().default(301),
   isActive: boolean("is_active").notNull().default(true),
+  // 'manual' = creato dall'admin; 'auto_slug' = generato da cambio slug pagina.
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  // Per i redirect auto_slug: pagina di origine (SET NULL se la pagina viene
+  // eliminata — il redirect rimane attivo per preservare le vecchie URL).
+  pageId: integer("page_id").references(() => pages.id, { onDelete: "set null" }),
+  // Locale del redirect auto_slug (NULL = default locale).
+  locale: varchar("locale", { length: 5 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
