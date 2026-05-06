@@ -3,10 +3,32 @@ import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+/**
+ * Se il primo segmento dello slug è un locale conosciuto, lo strippa e
+ * lo ritorna a parte. Esempio:
+ *   ["en", "company"] → { locale: "en", segments: ["company"] }
+ *   ["azienda"]       → { locale: DEFAULT_LOCALE, segments: ["azienda"] }
+ *
+ * Il proxy redirige `/<DEFAULT_LOCALE>/<rest>` a `/<rest>` (308), quindi
+ * in pratica qui vediamo solo locale ≠ default. Manteniamo comunque il
+ * check generico così l'helper resta corretto se il flusso cambia.
+ */
+function detectLocaleFromSlug(slug: string[]): {
+  locale: Locale;
+  segments: string[];
+} {
+  const first = slug[0];
+  if (first && (LOCALES as readonly string[]).includes(first)) {
+    return { locale: first as Locale, segments: slug.slice(1) };
+  }
+  return { locale: DEFAULT_LOCALE, segments: slug };
+}
 
 /**
  * Helper condivisi per il rendering delle pagine CMS dal DB.
@@ -29,13 +51,19 @@ export async function cmsPageMetadata({
 }: {
   slug: string[];
 }): Promise<Metadata> {
-  const pathname = "/" + slug.join("/");
+  const { locale, segments } = detectLocaleFromSlug(slug);
+  const pageSlug = segments.join("/");
 
-  const [seo, page, settings] = await Promise.all([
-    getSeoPage(pathname),
-    getPageWithTemplate(slug.join("/")),
+  const [page, settings] = await Promise.all([
+    getPageWithTemplate(pageSlug, locale),
     getAppSettings(),
   ]);
+
+  // SEO config è chiavata sul pathname canonico (default-locale).
+  // Se la pagina è stata trovata, usiamo `page.slug` (sempre nel default
+  // locale). Altrimenti fallback al pathname richiesto per il lookup 404.
+  const seoPathname = page ? `/${page.slug}` : "/" + slug.join("/");
+  const seo = await getSeoPage(seoPathname);
 
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, settings) : undefined;
@@ -77,9 +105,11 @@ export async function cmsPageMetadata({
 }
 
 export async function CmsPage({ slug }: { slug: string[] }) {
-  const pageSlug = slug.join("/");
+  const { locale, segments } = detectLocaleFromSlug(slug);
+  const pageSlug = segments.join("/");
+  if (!pageSlug) notFound();
   const [pageData, settings] = await Promise.all([
-    getPageWithTemplate(pageSlug),
+    getPageWithTemplate(pageSlug, locale),
     getAppSettings(),
   ]);
 

@@ -7,8 +7,14 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/config";
  *
  * Risolve il locale per ogni request:
  * - Se siamo in `app/[locale]/...` → next-intl passa `requestLocale` da segment param
- * - Altrimenti (zone non-prefix: auth/admin/protected) → leggi header `x-locale`
- *   settato dal proxy.ts. Se mancante o invalido, fallback a DEFAULT_LOCALE.
+ * - Altrimenti (zone non-prefix: auth/admin/protected):
+ *     1. Se l'utente è loggato e ha `users.locale` impostato → usa quello.
+ *        Importante per le server action: non passano per il layout, quindi
+ *        senza questo step userebbero il guess da cookie/Accept-Language e
+ *        i messaggi di errore tornerebbero in una lingua diversa dalla
+ *        pagina renderizzata.
+ *     2. Altrimenti leggi header `x-locale` (settato da proxy.ts da cookie
+ *        / Accept-Language / DEFAULT_LOCALE).
  *
  * Carica i messaggi per namespace con fallback chain "default → richiesto":
  * - Carica `messages/<DEFAULT_LOCALE>/<ns>.json` come base
@@ -76,6 +82,18 @@ async function loadNamespaceMessages(
   return isPlainObject(data) ? data : {};
 }
 
+async function tryGetUserLocale(): Promise<Locale | null> {
+  // Dynamic import: evita di trascinare il grafo db nel bundle quando
+  // questo modulo viene risolto in contesti senza DB (build, test).
+  try {
+    const { getUser } = await import("@/lib/db/queries");
+    const user = await getUser();
+    return user?.locale && isLocale(user.locale) ? user.locale : null;
+  } catch {
+    return null;
+  }
+}
+
 export default getRequestConfig(async ({ requestLocale }) => {
   const fromUrlSegment = await requestLocale;
 
@@ -83,9 +101,18 @@ export default getRequestConfig(async ({ requestLocale }) => {
   if (fromUrlSegment && isLocale(fromUrlSegment)) {
     locale = fromUrlSegment;
   } else {
-    const headerLocale = (await headers()).get("x-locale");
-    if (headerLocale && isLocale(headerLocale)) {
-      locale = headerLocale;
+    // 1) Prova con la preferenza dell'utente loggato (anche per server
+    //    action che non passano per il layout). getUser è cached via
+    //    React cache: una sola query DB per request.
+    const userLocale = await tryGetUserLocale();
+    if (userLocale) {
+      locale = userLocale;
+    } else {
+      // 2) Fallback all'header settato dal proxy
+      const headerLocale = (await headers()).get("x-locale");
+      if (headerLocale && isLocale(headerLocale)) {
+        locale = headerLocale;
+      }
     }
   }
 
