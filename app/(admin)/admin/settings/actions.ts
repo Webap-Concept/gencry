@@ -8,8 +8,8 @@ import { getUser } from "@/lib/db/queries";
 import { db } from "@/lib/db/drizzle";
 import type { SiteSnippet } from "@/lib/db/schema";
 import { blockedUsernames, disposableDomains, siteSnippets } from "@/lib/db/schema";
-import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
-import { upsertEmailTranslation } from "@/lib/email/locale";
+import { batchUpdateAppSettings, getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
+import { batchUpsertEmailTranslations } from "@/lib/email/locale";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { runGenerators } from "@/lib/notifications/dispatcher";
 import {
@@ -251,26 +251,32 @@ export async function saveEmailTemplateSettings(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    // 1. Default locale → app_settings (storico, retrocompatibile).
+    // 1. Default locale → app_settings: batch (2 query invece di 112 sequenziali).
+    const defaultUpdates: Partial<Record<(typeof EMAIL_DEFAULT_KEYS)[number], string | null>> = {};
     for (const key of EMAIL_DEFAULT_KEYS) {
       const val = (formData.get(key) as string | null) ?? "";
-      await updateAppSetting(key, val.trim() || null);
+      defaultUpdates[key] = val.trim() || null;
     }
+    await batchUpdateAppSettings(defaultUpdates);
 
-    // 2. Traduzioni non-default → translations (namespace="email").
-    // Iteriamo l'intero formData: ogni chiave che matcha tr.<locale>.<key>
-    // viene upsertata; se vuota la riga viene rimossa (vedi helper).
+    // 2. Traduzioni non-default → translations: batch per locale (2 query per locale).
+    const byLocale = new Map<Locale, Record<string, string | null>>();
     for (const [name, raw] of formData.entries()) {
       const match = TRANSLATION_FIELD_REGEX.exec(name);
       if (!match) continue;
       const [, localeRaw, settingKey] = match;
       if (!isLocale(localeRaw)) continue;
       if (!EMAIL_DEFAULT_KEY_SET.has(settingKey)) continue;
-      // BCC non è per-locale: lo ignoriamo se l'UI dovesse mai inviarlo qui.
       if (settingKey.endsWith("_bcc")) continue;
-      const value = typeof raw === "string" ? raw : "";
-      await upsertEmailTranslation(localeRaw as Locale, settingKey, value);
+      const locale = localeRaw as Locale;
+      if (!byLocale.has(locale)) byLocale.set(locale, {});
+      byLocale.get(locale)![settingKey] = typeof raw === "string" ? raw : "";
     }
+    await Promise.all(
+      Array.from(byLocale.entries()).map(([locale, entries]) =>
+        batchUpsertEmailTranslations(locale, entries),
+      ),
+    );
 
     // Logo choice è separata: ha valori vincolati (logo|logo-variant|none)
     // e non può essere svuotata (default sempre "logo").
