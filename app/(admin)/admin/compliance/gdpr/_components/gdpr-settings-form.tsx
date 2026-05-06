@@ -2,6 +2,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveGdprSettingsAction, type ActionState } from "../actions";
 import {
@@ -175,6 +176,7 @@ function SelectField({
 }
 
 export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
+  const t = useTranslations("admin.compliance.gdpr.settings");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveGdprSettingsAction,
     {},
@@ -203,43 +205,38 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           <h3
             className="text-sm font-semibold mb-1"
             style={{ color: "var(--admin-text)" }}>
-            Consent logging
+            {t("consentLogHeading")}
           </h3>
           <p
             className="text-[11px] mb-5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Append-only audit trail of every consent event (granted / revoked).
-            Required for GDPR Art. 7(1) — &ldquo;the controller shall be able
-            to demonstrate that the data subject has consented&rdquo;.
+            {t("consentLogIntro")}
           </p>
           <div className="space-y-4 max-w-2xl">
             <Bool
               name="gdpr.consent_log.enabled"
               defaultChecked={initial["gdpr.consent_log.enabled"] === "true"}
-              title="Enable consent ledger (consent_records)"
-              hint="Master switch. When ON, every consent action is written to a dedicated append-only table. Without this you cannot demonstrate consent under Art. 7(1)."
+              title={t("enabledTitle")}
+              hint={t("enabledHint")}
               requirement="required"
             />
             <Bool
               name="gdpr.consent_log.capture_ip"
               defaultChecked={initial["gdpr.consent_log.capture_ip"] === "true"}
-              title="Capture client IP at consent time"
-              hint="Stores the IP from x-forwarded-for at consent time — without it the ledger row lacks a key piece of evidence the supervisory authority expects to see."
+              title={t("captureIpTitle")}
+              hint={t("captureIpHint")}
               requirement="required"
             />
             <SelectField
               name="gdpr.consent_log.ip_strategy"
-              label="IP storage strategy"
+              label={t("ipStrategyLabel")}
               defaultValue={initial["gdpr.consent_log.ip_strategy"]}
               options={[
-                { value: "full", label: "Full (raw IP)" },
-                {
-                  value: "mask_last_octet",
-                  label: "Mask last octet (192.168.1.X)",
-                },
-                { value: "hash_only", label: "SHA-256 hash only (no raw IP)" },
+                { value: "full", label: t("ipStrategyFull") },
+                { value: "mask_last_octet", label: t("ipStrategyMask") },
+                { value: "hash_only", label: t("ipStrategyHash") },
               ]}
-              hint="How the IP is stored. Required by Art. 5(1)(c) data minimisation: full raw IP is acceptable only with a documented justification, otherwise prefer mask or hash."
+              hint={t("ipStrategyHint")}
               requirement="required"
             />
             <Bool
@@ -247,8 +244,8 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               defaultChecked={
                 initial["gdpr.consent_log.capture_user_agent"] === "true"
               }
-              title="Capture browser user-agent"
-              hint="Useful as corroborating evidence; truncated to 512 chars by the consent writer. Not strictly required."
+              title={t("uaTitle")}
+              hint={t("uaHint")}
               requirement="optional"
             />
             <Bool
@@ -256,20 +253,20 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               defaultChecked={
                 initial["gdpr.consent_log.hash_policy_text"] === "true"
               }
-              title="Hash policy text at acceptance"
-              hint="Stores SHA-256 of the exact policy text the user saw. Strongly advised: protects against later tampering of pages.content / page_versions.content."
+              title={t("hashPolicyTitle")}
+              hint={t("hashPolicyHint")}
               requirement="recommended"
             />
             <NumberField
               name="gdpr.consent_log.retention_after_deletion_days"
-              label="Retention after account deletion"
+              label={t("retentionLabel")}
               defaultValue={
                 initial["gdpr.consent_log.retention_after_deletion_days"]
               }
               min={0}
               max={3650}
-              suffix="days"
-              hint="No-op in the current schema: consent_records.user_id has ON DELETE CASCADE, so records are wiped together with the user. Kept here for backwards compatibility."
+              suffix={t("daysSuffix")}
+              hint={t("retentionHint")}
               requirement="unused"
             />
           </div>
@@ -280,39 +277,31 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           <h3
             className="text-sm font-semibold mb-1"
             style={{ color: "var(--admin-text)" }}>
-            Backup assurance
+            {t("backupHeading")}
           </h3>
           <p
             className="text-[11px] mb-5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Declare the backup tier protecting consent records. The dashboard
-            shows a warning when consent logging is enabled but no backup tier
-            is declared.
+            {t("backupIntro")}
           </p>
           <div className="space-y-4 max-w-2xl">
             <SelectField
               name="gdpr.backup.tier"
-              label="Backup tier"
+              label={t("backupTierLabel")}
               defaultValue={initial["gdpr.backup.tier"]}
               options={[
-                { value: "none", label: "None — application defaults only" },
-                {
-                  value: "supabase_pitr",
-                  label: "Supabase PITR (Pro plan, 7-day point-in-time)",
-                },
-                {
-                  value: "external",
-                  label: "External backup (custom cron / S3 dump)",
-                },
+                { value: "none", label: t("backupTierNone") },
+                { value: "supabase_pitr", label: t("backupTierPitr") },
+                { value: "external", label: t("backupTierExternal") },
               ]}
-              hint="Declares the operational backup tier. Art. 32 expects you to document the technical/organisational measures protecting the consent ledger."
+              hint={t("backupTierHint")}
               requirement="recommended"
             />
             <div>
               <label
                 className="flex items-center gap-2 text-xs font-medium mb-1.5"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Backup setup notes
+                {t("backupNotesLabel")}
                 <RequirementBadge level="optional" />
               </label>
               <textarea
@@ -320,15 +309,14 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
                 rows={3}
                 maxLength={2000}
                 defaultValue={initial["gdpr.backup.notes"] ?? ""}
-                placeholder="e.g. Supabase Pro PITR 7d + nightly pg_dump to s3://gencry-backup/"
+                placeholder={t("backupNotesPlaceholder")}
                 className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                 style={inputStyle}
               />
               <p
                 className="text-[11px] mt-1"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Free-text description of the backup setup. Visible to auditors
-                in the export ledger CSV header.
+                {t("backupNotesHint")}
               </p>
             </div>
           </div>
@@ -339,33 +327,32 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           <h3
             className="text-sm font-semibold mb-1"
             style={{ color: "var(--admin-text)" }}>
-            Lifecycle &amp; retention
+            {t("lifecycleHeading")}
           </h3>
           <p
             className="text-[11px] mb-5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Timing for account deletion grace period and data export
-            cooldown.
+            {t("lifecycleIntro")}
           </p>
           <div className="space-y-4 max-w-2xl">
             <NumberField
               name="gdpr.deletion.grace_days"
-              label="Account deletion — grace period"
+              label={t("deletionGraceLabel")}
               defaultValue={initial["gdpr.deletion.grace_days"]}
               min={0}
               max={365}
-              suffix="days"
-              hint="Days between soft-delete (user requests deletion) and physical purge. Art. 17 requires you to honour erasure requests; the specific number of days is a policy choice. Persisted now; the deletion code reads a 30-day default until wired in a follow-up PR."
+              suffix={t("daysSuffix")}
+              hint={t("deletionGraceHint")}
               requirement="required"
             />
             <NumberField
               name="gdpr.export.rate_limit_days"
-              label="GDPR export — rate limit"
+              label={t("exportRateLabel")}
               defaultValue={initial["gdpr.export.rate_limit_days"]}
               min={0}
               max={365}
-              suffix="days"
-              hint="Anti-abuse cooldown between two export requests for the same user. Persisted now; export code reads a 7-day default until wired in a follow-up PR."
+              suffix={t("daysSuffix")}
+              hint={t("exportRateHint")}
               requirement="optional"
             />
           </div>
@@ -376,13 +363,12 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           <h3
             className="text-sm font-semibold mb-1"
             style={{ color: "var(--admin-text)" }}>
-            Policy enforcement
+            {t("policyHeading")}
           </h3>
           <p
             className="text-[11px] mb-5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Behavior when policies (Terms / Privacy) are bumped to a new
-            version. Cookie banner has its own dedicated section.
+            {t("policyIntro")}
           </p>
           <div className="space-y-4 max-w-2xl">
             <Bool
@@ -390,28 +376,28 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               defaultChecked={
                 initial["gdpr.policy.force_reconsent_on_change"] === "true"
               }
-              title="Force re-consent on policy change"
-              hint="When ON, bumping a system page (terms / privacy / marketing) enqueues an email notification and a sign-in banner asking the user to re-accept the new version. EDPB guidance recommends re-consent for material policy changes."
+              title={t("forceReconsentTitle")}
+              hint={t("forceReconsentHint")}
               requirement="recommended"
             />
             <NumberField
               name="gdpr.policy.reconsent_grace_days"
-              label="Re-consent grace period"
+              label={t("reconsentGraceLabel")}
               defaultValue={initial["gdpr.policy.reconsent_grace_days"]}
               min={0}
               max={365}
-              suffix="days"
-              hint="How long the soft banner shows before turning into a blocking modal. Counts from the moment the bump is enqueued, not from the user's first login."
+              suffix={t("daysSuffix")}
+              hint={t("reconsentGraceHint")}
               requirement="optional"
             />
             <NumberField
               name="gdpr.policy.notifications_cron_minutes"
-              label="Notifications cron interval"
+              label={t("cronMinutesLabel")}
               defaultValue={initial["gdpr.policy.notifications_cron_minutes"]}
               min={1}
               max={1440}
-              suffix="minutes"
-              hint="How often the policy-change-notifications cron worker dispatches pending email batches. Set the matching schedule in pg_cron — this value is informational unless your scheduler reads from settings."
+              suffix={t("minutesSuffix")}
+              hint={t("cronMinutesHint")}
               requirement="optional"
             />
           </div>
@@ -427,7 +413,7 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           ) : (
             <Save size={15} />
           )}
-          {isPending ? "Saving..." : "Save GDPR settings"}
+          {isPending ? t("savingButton") : t("saveButton")}
         </button>
       </form>
 

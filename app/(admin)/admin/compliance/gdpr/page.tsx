@@ -6,16 +6,23 @@ import {
 } from "@/lib/account/gdpr-stats";
 import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ConsentStatusDashboard } from "./_components/consent-status-dashboard";
 import { GdprLegendGuide } from "./_components/gdpr-legend-guide";
 import { GdprSettingsForm } from "./_components/gdpr-settings-form";
 
-export const metadata: Metadata = { title: "Compliance / GDPR" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.compliance.gdpr");
+  return { title: t("metaTitle") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function GdprCompliancePage() {
+  const t = await getTranslations("admin.compliance");
+  const tG = await getTranslations("admin.compliance.gdpr");
+  const tTools = await getTranslations("admin.compliance.gdpr.tools");
   const [settings, stats, health] = await Promise.all([
     getAppSettings(),
     getGdprDashboardStats(),
@@ -41,22 +48,21 @@ export default async function GdprCompliancePage() {
               className="text-lg font-bold"
               style={{ color: "var(--admin-text)" }}>
               <span style={{ color: "var(--admin-text-muted)" }}>
-                Compliance
+                {t("breadcrumb")}
               </span>
               <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>GDPR &amp; Consents</span>
+              <span>{tG("pageTitle")}</span>
             </h2>
             <AdminSectionInfo
-              title="GDPR settings — operator's guide"
-              ariaLabel="Show GDPR settings guide">
+              title={tG("guideTitle")}
+              ariaLabel={tG("guideAriaLabel")}>
               <GdprLegendGuide />
             </AdminSectionInfo>
           </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Compliance dashboard and runtime configuration for consent
-            management, data retention and right-to-be-forgotten flows.
+            {tG("pageSubtitle")}
           </p>
         </div>
       </header>
@@ -75,7 +81,7 @@ export default async function GdprCompliancePage() {
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Settings
+          {tG("sectionSettings")}
         </h2>
         <GdprSettingsForm
           initial={{
@@ -110,7 +116,7 @@ export default async function GdprCompliancePage() {
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Tools
+          {tG("sectionTools")}
         </h2>
         <div
           className="rounded-xl shadow-sm p-6 space-y-3"
@@ -119,29 +125,29 @@ export default async function GdprCompliancePage() {
             border: "1px solid var(--admin-card-border)",
           }}>
           <ToolRow
-            title="Edit policy texts"
-            description="Open the CMS editor for Terms, Privacy and Marketing pages. Saving a new content version automatically snapshots the previous one in page_versions."
+            title={tTools("editPolicyTitle")}
+            description={tTools("editPolicyDesc")}
             href="/admin/content/pages"
-            cta="Open Pages →"
+            cta={tTools("editPolicyCta")}
           />
           <ToolRow
-            title="Export consent ledger (CSV)"
-            description="Download every row of consent_records as a UTF-8 CSV (BOM-prefixed for Excel) for offline audit. Includes user email when still available."
+            title={tTools("exportCsvTitle")}
+            description={tTools("exportCsvDesc")}
             href="/admin/compliance/gdpr/export"
-            cta="Download CSV →"
+            cta={tTools("exportCsvCta")}
             download
           />
           <ToolRow
-            title="View activity logs"
-            description="Sign-in / sign-up / delete-account events with IP and timestamps."
+            title={tTools("activityLogsTitle")}
+            description={tTools("activityLogsDesc")}
             href="/admin/logs"
-            cta="Open Activity Logs →"
+            cta={tTools("activityLogsCta")}
           />
           <ToolRow
-            title="Cookie banner & services"
-            description="Manage the public cookie banner master switch, the cookie policy page link, and the registry of services bound to each consent category."
+            title={tTools("cookieSettingsTitle")}
+            description={tTools("cookieSettingsDesc")}
             href="/admin/compliance/cookies"
-            cta="Open Cookies →"
+            cta={tTools("cookieSettingsCta")}
           />
         </div>
       </section>

@@ -4,6 +4,7 @@ import { getAdminPath } from "@/lib/admin-nav";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { can } from "@/lib/rbac/can";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 export type ActionState =
@@ -42,10 +43,11 @@ export async function saveGdprSettingsAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const t = await getTranslations("admin.compliance.gdpr.settings");
   try {
     const user = await requireAdmin();
     if (!user.isAdmin && !(await can(user, "admin:gdpr"))) {
-      return { error: "Not authorized.", timestamp: Date.now() };
+      return { error: t("errorNotAuthorized"), timestamp: Date.now() };
     }
 
     // Consent logging
@@ -122,8 +124,8 @@ export async function saveGdprSettingsAction(
     );
 
     revalidatePath(getAdminPath("compliance-gdpr"));
-    return { success: "GDPR settings saved.", timestamp: Date.now() };
+    return { success: t("feedbackSaved"), timestamp: Date.now() };
   } catch {
-    return { error: "Save failed.", timestamp: Date.now() };
+    return { error: t("feedbackError"), timestamp: Date.now() };
   }
 }

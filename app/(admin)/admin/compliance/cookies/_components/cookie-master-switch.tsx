@@ -2,6 +2,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import {
   saveCookieSettingsAction,
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function CookieMasterSwitch({ enabled }: Props) {
+  const t = useTranslations("admin.compliance.cookies.masterSwitch");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveCookieSettingsAction,
     {},
@@ -43,15 +45,12 @@ export function CookieMasterSwitch({ enabled }: Props) {
         <h3
           className="text-sm font-semibold mb-1"
           style={{ color: "var(--admin-text)" }}>
-          Master switch
+          {t("heading")}
         </h3>
         <p
           className="text-[11px] mb-5"
           style={{ color: "var(--admin-text-faint)" }}>
-          When ON, the public cookie banner appears for visitors who haven't
-          decided yet, and Vercel Analytics mounts only after explicit
-          opt-in. When OFF, the banner is hidden and ALL non-essential
-          cookies stay disabled — no tracking without a legal basis.
+          {t("intro")}
         </p>
         <label className="flex items-start gap-3 cursor-pointer select-none mb-5">
           <input
@@ -66,13 +65,12 @@ export function CookieMasterSwitch({ enabled }: Props) {
             <span
               className="text-sm font-medium"
               style={{ color: "var(--admin-text)" }}>
-              Cookie banner enabled
+              {t("checkboxLabel")}
             </span>
             <span
               className="block text-[11px] mt-0.5"
               style={{ color: "var(--admin-text-faint)" }}>
-              Required by ePrivacy + GDPR for any non-essential cookie on EU
-              traffic. Keep OFF until the cookie policy page is filled in.
+              {t("checkboxHint")}
             </span>
           </span>
         </label>
@@ -87,7 +85,7 @@ export function CookieMasterSwitch({ enabled }: Props) {
           ) : (
             <Save size={15} />
           )}
-          {isPending ? "Saving..." : "Save"}
+          {isPending ? t("savingButton") : t("saveButton")}
         </button>
       </form>
 
