@@ -15,14 +15,20 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { CookieMasterSwitch } from "./_components/cookie-master-switch";
 import { CookiesAdminGuide } from "./_components/cookies-admin-guide";
 
-export const metadata: Metadata = { title: "Compliance / Cookies" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.compliance.cookies");
+  return { title: t("metaTitle") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function CookiesCompliancePage() {
+  const t = await getTranslations("admin.compliance");
+  const tC = await getTranslations("admin.compliance.cookies");
   const [settings, slugs] = await Promise.all([
     getAppSettings(),
     getSystemPageSlugs(),
@@ -47,21 +53,20 @@ export default async function CookiesCompliancePage() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>Compliance</span>
+              <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
               <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>Cookies</span>
+              <span>{tC("pageTitle")}</span>
             </h2>
             <AdminSectionInfo
-              title="Cookies — operator's guide"
-              ariaLabel="Show cookies guide">
+              title={tC("guideTitle")}
+              ariaLabel={tC("guideAriaLabel")}>
               <CookiesAdminGuide />
             </AdminSectionInfo>
           </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Public cookie banner toggle, cookie policy link, and registry of
-            services bound to each consent category.
+            {tC("pageSubtitle")}
           </p>
         </div>
       </header>
@@ -71,7 +76,7 @@ export default async function CookiesCompliancePage() {
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Banner
+          {tC("sectionBanner")}
         </h2>
         <CookieMasterSwitch enabled={enabled} />
       </section>
@@ -81,7 +86,7 @@ export default async function CookiesCompliancePage() {
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Cookie policy page
+          {tC("sectionPolicy")}
         </h2>
         <CookiePolicyCard slug={cookiePolicySlug} />
       </section>
@@ -91,14 +96,14 @@ export default async function CookiesCompliancePage() {
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Services by category
+          {tC("sectionServices")}
         </h2>
         <p
           className="text-[12px] mb-4"
           style={{ color: "var(--admin-text-faint)" }}>
-          Read-only view of which services are bound to each cookie category.
-          The registry lives in <code>lib/cookie-consent/services.ts</code> —
-          add a service there and it will appear here automatically.
+          {tC.rich("servicesIntro", {
+            c: (chunks) => <code>{chunks}</code>,
+          })}
         </p>
         <div className="space-y-4">
           {COOKIE_CATEGORIES.map((cat) => (
@@ -107,6 +112,7 @@ export default async function CookiesCompliancePage() {
               category={cat}
               services={servicesByCategory(cat.id)}
               bannerEnabled={enabled}
+              t={tC}
             />
           ))}
         </div>
@@ -119,7 +125,8 @@ export default async function CookiesCompliancePage() {
 // Cookie policy card
 // ---------------------------------------------------------------------------
 
-function CookiePolicyCard({ slug }: { slug: string | null }) {
+async function CookiePolicyCard({ slug }: { slug: string | null }) {
+  const t = await getTranslations("admin.compliance.cookies.policyCard");
   const hasPage = slug !== null;
 
   return (
@@ -135,24 +142,22 @@ function CookiePolicyCard({ slug }: { slug: string | null }) {
             <h3
               className="text-sm font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              Cookie Policy
+              {t("title")}
             </h3>
             {hasPage ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
-                <CheckCircle2 size={11} /> System page found
+                <CheckCircle2 size={11} /> {t("statusFound")}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
-                <AlertTriangle size={11} /> Missing
+                <AlertTriangle size={11} /> {t("statusMissing")}
               </span>
             )}
           </div>
           <p
             className="text-[12px] mt-1"
             style={{ color: "var(--admin-text-faint)" }}>
-            {hasPage
-              ? "This is the page shown when visitors click \"Cookie policy\" in the banner or the public footer. Edit its content from the Pages section."
-              : "No system page with system_key=\"cookie\" found. Run migration 0029 or create a system page manually before enabling the banner."}
+            {hasPage ? t("descFound") : t("descMissing")}
           </p>
           {hasPage && (
             <p
@@ -172,7 +177,7 @@ function CookiePolicyCard({ slug }: { slug: string | null }) {
               color: "var(--admin-text-muted)",
               border: "1px solid var(--admin-input-border)",
             }}>
-            Edit in Pages →
+            {t("editButton")}
           </Link>
           {hasPage && (
             <a
@@ -185,7 +190,7 @@ function CookiePolicyCard({ slug }: { slug: string | null }) {
                 color: "var(--admin-text-muted)",
                 border: "1px solid var(--admin-input-border)",
               }}>
-              Preview
+              {t("previewButton")}
               <ExternalLink size={11} />
             </a>
           )}
@@ -203,9 +208,15 @@ type CategoryCardProps = {
   category: (typeof COOKIE_CATEGORIES)[number];
   services: ReturnType<typeof servicesByCategory>;
   bannerEnabled: boolean;
+  t: Awaited<ReturnType<typeof getTranslations<"admin.compliance.cookies">>>;
 };
 
-function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) {
+function CategoryCard({
+  category,
+  services,
+  bannerEnabled,
+  t,
+}: CategoryCardProps) {
   // Stato pratico della categoria:
   //   - alwaysOn → sempre attiva
   //   - banner OFF → categoria non-essenziale è SPENTA per tutti i visitatori
@@ -220,20 +231,20 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
     if (status === "always_on") {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10.5px] font-medium text-slate-800">
-          Always on
+          {t("categoryCard.badgeAlwaysOn")}
         </span>
       );
     }
     if (status === "blocked") {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-medium text-rose-800">
-          Blocked (banner OFF)
+          {t("categoryCard.badgeBlocked")}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
-        User opt-in
+        {t("categoryCard.badgeUserChoice")}
       </span>
     );
   })();
@@ -265,7 +276,7 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
           <p
             className="text-[10.5px] mt-1 font-mono"
             style={{ color: "var(--admin-text-muted)" }}>
-            consent_type = {category.id}
+            {t("categoryCard.consentTypeLabel", { id: category.id })}
           </p>
         </div>
       </div>
@@ -274,7 +285,7 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
         <div
           className="px-5 py-4 text-[12px]"
           style={{ color: "var(--admin-text-faint)" }}>
-          No services registered in this category yet.
+          {t("categoryCard.noServices")}
         </div>
       ) : (
         <ul>
@@ -296,11 +307,11 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
                   </span>
                   {s.firstParty ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-                      <Building2 size={10} /> First-party
+                      <Building2 size={10} /> {t("categoryCard.firstParty")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">
-                      <Globe size={10} /> Third-party
+                      <Globe size={10} /> {t("categoryCard.thirdParty")}
                     </span>
                   )}
                 </div>
@@ -313,7 +324,7 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
                   <p
                     className="text-[10.5px] mt-1"
                     style={{ color: "var(--admin-text-muted)" }}>
-                    Provider: {s.provider}
+                    {t("categoryCard.providerLabel")} {s.provider}
                     {s.providerPolicyUrl && (
                       <>
                         {" — "}
@@ -322,7 +333,7 @@ function CategoryCard({ category, services, bannerEnabled }: CategoryCardProps) 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-0.5 underline">
-                          Privacy policy
+                          {t("categoryCard.providerPolicyLink")}
                           <ExternalLink size={9} />
                         </a>
                       </>

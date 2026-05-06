@@ -10,7 +10,12 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
+
+type DashboardT = Awaited<
+  ReturnType<typeof getTranslations<"admin.compliance.gdpr.dashboard">>
+>;
 
 const cardStyle: React.CSSProperties = {
   background: "var(--admin-card-bg)",
@@ -100,16 +105,16 @@ function StatTile({
   );
 }
 
-function fmtDate(d: Date | null): string {
+function fmtDate(d: Date | null, dateLocale: string): string {
   if (!d) return "—";
-  return d.toLocaleDateString("en-GB", {
+  return d.toLocaleDateString(dateLocale, {
     year: "numeric",
     month: "short",
     day: "2-digit",
   });
 }
 
-export function ConsentStatusDashboard({
+export async function ConsentStatusDashboard({
   stats,
   health,
   consentLogEnabled,
@@ -122,11 +127,15 @@ export function ConsentStatusDashboard({
   backupTier: string;
   pagesAdminPath: string;
 }) {
+  const t = await getTranslations("admin.compliance.gdpr.dashboard");
+  const locale = await getLocale();
+  const dateLocale = locale === "en" ? "en-GB" : "it-IT";
+
   // Health computation
   const tableStatus: Status = health.consentRecordsTableExists ? "ok" : "off";
   const tableDetail = health.consentRecordsTableExists
-    ? "Table consent_records exists in DB"
-    : "Table consent_records not yet created (delivered in PR-1)";
+    ? t("healthTableExists")
+    : t("healthTableMissing");
 
   const triggerStatus: Status = health.consentRecordsImmutable
     ? "ok"
@@ -134,19 +143,19 @@ export function ConsentStatusDashboard({
       ? "warn"
       : "off";
   const triggerDetail = health.consentRecordsImmutable
-    ? "Trigger DENY UPDATE/DELETE active"
+    ? t("healthTriggerActive")
     : health.consentRecordsTableExists
-      ? "Table exists but no immutability trigger detected"
-      : "Pending — depends on table creation";
+      ? t("healthTriggerWarn")
+      : t("healthTriggerOff");
 
   const backupStatus: Status =
     backupTier === "none" ? "warn" : "ok";
   const backupLabel =
     backupTier === "supabase_pitr"
-      ? "Supabase PITR"
+      ? t("healthBackupTierPitr")
       : backupTier === "external"
-        ? "External"
-        : "None declared";
+        ? t("healthBackupTierExternal")
+        : t("healthBackupTierNone");
 
   const logStatus: Status = consentLogEnabled
     ? health.consentRecordsTableExists
@@ -155,9 +164,9 @@ export function ConsentStatusDashboard({
     : "off";
   const logDetail = consentLogEnabled
     ? health.consentRecordsTableExists
-      ? "Consent events are being written"
-      : "Enabled but table missing — no events written"
-    : "Off — consent changes are not logged";
+      ? t("healthLogActive")
+      : t("healthLogEnabledMissingTable")
+    : t("healthLogOff");
 
   const showWarningBanner = consentLogEnabled && !health.consentRecordsTableExists;
   const showLegacyBanner = !consentLogEnabled;
@@ -174,10 +183,10 @@ export function ConsentStatusDashboard({
           }}>
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <div>
-            <strong>Consent logging enabled but table missing.</strong> Apply
-            the migration creating the <code>consent_records</code> table
-            (PR-1) before this setting takes effect. Until then, consent events
-            are silently dropped.
+            {t.rich("warningBanner", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              c: (chunks) => <code>{chunks}</code>,
+            })}
           </div>
         </div>
       )}
@@ -193,10 +202,10 @@ export function ConsentStatusDashboard({
           }}>
           <ShieldAlert size={14} className="shrink-0 mt-0.5" />
           <div>
-            <strong>Legacy mode.</strong> Consent timestamps and version IDs
-            are stored on the <code>users</code> row and can be overwritten
-            without an audit trail. Demonstrability under GDPR Art. 7(1) is
-            limited. Enable consent logging to fix this.
+            {t.rich("legacyBanner", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              c: (chunks) => <code>{chunks}</code>,
+            })}
           </div>
         </div>
       )}
@@ -206,34 +215,34 @@ export function ConsentStatusDashboard({
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Compliance health
+          {t("healthHeading")}
         </h2>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <StatusBadge
             status={tableStatus}
-            label="consent_records table"
+            label={t("healthTableLabel")}
             detail={tableDetail}
             Icon={Database}
           />
           <StatusBadge
             status={triggerStatus}
-            label="Immutability trigger"
+            label={t("healthTriggerLabel")}
             detail={triggerDetail}
             Icon={FileLock2}
           />
           <StatusBadge
             status={backupStatus}
-            label={`Backup: ${backupLabel}`}
+            label={t("healthBackupLabel", { tier: backupLabel })}
             detail={
               backupStatus === "warn"
-                ? "Set a backup tier in Settings to suppress this warning"
-                : "Declared in GDPR settings"
+                ? t("healthBackupWarnDetail")
+                : t("healthBackupOkDetail")
             }
             Icon={ShieldCheck}
           />
           <StatusBadge
             status={logStatus}
-            label="Consent ledger"
+            label={t("healthLogLabel")}
             detail={logDetail}
             Icon={CheckCircle2}
           />
@@ -245,23 +254,29 @@ export function ConsentStatusDashboard({
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          Current policy versions
+          {t("policyVersionsHeading")}
         </h2>
         <div className="grid gap-3 md:grid-cols-3">
           <StatTile
-            label="Terms"
+            label={t("policyTermsLabel")}
             value={stats.currentVersions.terms ?? "—"}
-            hint={`Updated ${fmtDate(stats.policyUpdatedAt.terms)}`}
+            hint={t("policyUpdatedHint", {
+              date: fmtDate(stats.policyUpdatedAt.terms, dateLocale),
+            })}
           />
           <StatTile
-            label="Privacy"
+            label={t("policyPrivacyLabel")}
             value={stats.currentVersions.privacy ?? "—"}
-            hint={`Updated ${fmtDate(stats.policyUpdatedAt.privacy)}`}
+            hint={t("policyUpdatedHint", {
+              date: fmtDate(stats.policyUpdatedAt.privacy, dateLocale),
+            })}
           />
           <StatTile
-            label="Marketing"
+            label={t("policyMarketingLabel")}
             value={stats.currentVersions.marketing ?? "—"}
-            hint={`Updated ${fmtDate(stats.policyUpdatedAt.marketing)}`}
+            hint={t("policyUpdatedHint", {
+              date: fmtDate(stats.policyUpdatedAt.marketing, dateLocale),
+            })}
           />
         </div>
         <div className="mt-2 text-[11px]">
@@ -269,7 +284,7 @@ export function ConsentStatusDashboard({
             href={pagesAdminPath}
             className="underline"
             style={{ color: "var(--admin-text-muted)" }}>
-            Manage policy texts in Content → Pages →
+            {t("policyManageLink")}
           </Link>
         </div>
       </section>
@@ -279,62 +294,70 @@ export function ConsentStatusDashboard({
         <h2
           className="text-sm font-semibold mb-3"
           style={{ color: "var(--admin-text)" }}>
-          User consents (active accounts)
+          {t("consentsHeading")}
         </h2>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <StatTile label="Total active users" value={stats.totalUsers} />
+          <StatTile label={t("tileTotalUsers")} value={stats.totalUsers} />
           <StatTile
-            label="Terms accepted"
+            label={t("tileTermsAccepted")}
             value={stats.usersWithTermsAccepted}
             hint={
               stats.totalUsers > 0
-                ? `${Math.round(
-                    (stats.usersWithTermsAccepted / stats.totalUsers) * 100,
-                  )}% of active users`
+                ? t("tilePctHint", {
+                    pct: Math.round(
+                      (stats.usersWithTermsAccepted / stats.totalUsers) * 100,
+                    ),
+                  })
                 : undefined
             }
           />
           <StatTile
-            label="Privacy accepted"
+            label={t("tilePrivacyAccepted")}
             value={stats.usersWithPrivacyAccepted}
             hint={
               stats.totalUsers > 0
-                ? `${Math.round(
-                    (stats.usersWithPrivacyAccepted / stats.totalUsers) * 100,
-                  )}% of active users`
+                ? t("tilePctHint", {
+                    pct: Math.round(
+                      (stats.usersWithPrivacyAccepted / stats.totalUsers) *
+                        100,
+                    ),
+                  })
                 : undefined
             }
           />
           <StatTile
-            label="Marketing opt-in"
+            label={t("tileMarketingActive")}
             value={stats.usersWithMarketingActive}
             hint={
               stats.totalUsers > 0
-                ? `${Math.round(
-                    (stats.usersWithMarketingActive / stats.totalUsers) * 100,
-                  )}% of active users`
+                ? t("tilePctHint", {
+                    pct: Math.round(
+                      (stats.usersWithMarketingActive / stats.totalUsers) *
+                        100,
+                    ),
+                  })
                 : undefined
             }
           />
           <StatTile
-            label="Stale terms"
+            label={t("tileStaleTerms")}
             value={stats.usersWithStaleTerms}
             warning={stats.usersWithStaleTerms > 0}
-            hint="Users on a previous terms version"
+            hint={t("tileStaleTermsHint")}
           />
           <StatTile
-            label="Stale privacy"
+            label={t("tileStalePrivacy")}
             value={stats.usersWithStalePrivacy}
             warning={stats.usersWithStalePrivacy > 0}
-            hint="Users on a previous privacy version"
+            hint={t("tileStalePrivacyHint")}
           />
           <StatTile
-            label="In deletion grace"
+            label={t("tileInDeletionGrace")}
             value={stats.usersInDeletionGrace}
-            hint="Soft-deleted, awaiting purge"
+            hint={t("tileDeletionGraceHint")}
           />
           <StatTile
-            label="Export jobs (30d)"
+            label={t("tileExportJobs")}
             value={
               stats.exportJobsRecent.pending +
               stats.exportJobsRecent.processing +
@@ -342,7 +365,10 @@ export function ConsentStatusDashboard({
               stats.exportJobsRecent.failed +
               stats.exportJobsRecent.expired
             }
-            hint={`${stats.exportJobsRecent.ready} ready, ${stats.exportJobsRecent.failed} failed`}
+            hint={t("tileExportJobsHint", {
+              ready: stats.exportJobsRecent.ready,
+              failed: stats.exportJobsRecent.failed,
+            })}
           />
         </div>
       </section>

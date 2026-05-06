@@ -4,6 +4,7 @@
 // references that justify each label.
 
 import { ScrollText, Sparkles, BookOpen } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { RequirementBadge } from "./requirement-badge";
 
 const sectionStyle: React.CSSProperties = { marginTop: 18 };
@@ -70,86 +71,36 @@ function Row({
   );
 }
 
-export function GdprLegendGuide() {
+export async function GdprLegendGuide() {
+  const t = await getTranslations("admin.compliance.gdpr.legendGuide");
+  const richTags = {
+    b: (chunks: React.ReactNode) => <b>{chunks}</b>,
+  };
   return (
     <div>
-      <p style={{ margin: 0 }}>
-        Each setting below is tagged with one of four markers so it&apos;s
-        clear at a glance what the law actually demands and what is just an
-        operational preference. The mapping is conservative — if a setting
-        could be argued either way, we lean toward the stricter label.
-      </p>
+      <p style={{ margin: 0 }}>{t("intro")}</p>
 
       <section style={sectionStyle}>
-        <H icon={ScrollText}>What the markers mean</H>
+        <H icon={ScrollText}>{t("markersHeading")}</H>
         <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          <Row
-            level="required"
-            description={
-              <>
-                Mandatory for GDPR compliance. Disabling or misconfiguring
-                puts you in a breach posture — you would not be able to meet a
-                request from the data subject or the supervisory authority.
-              </>
-            }
-          />
-          <Row
-            level="recommended"
-            description={
-              <>
-                Strong best practice from EDPB / Garante guidance. Not strict
-                law text, but if you deviate you should be able to justify
-                why during an audit.
-              </>
-            }
-          />
-          <Row
-            level="optional"
-            description={
-              <>
-                Operational preference. Switching it does not affect GDPR
-                compliance — it only changes the user experience or the
-                operational bookkeeping.
-              </>
-            }
-          />
-          <Row
-            level="unused"
-            description={
-              <>
-                Setting is persisted for backward compatibility but no code
-                path reads it any more. Will be removed in a future cleanup.
-              </>
-            }
-          />
+          <Row level="required" description={t("requiredDesc")} />
+          <Row level="recommended" description={t("recommendedDesc")} />
+          <Row level="optional" description={t("optionalDesc")} />
+          <Row level="unused" description={t("unusedDesc")} />
         </ul>
       </section>
 
       <section style={sectionStyle}>
-        <H icon={BookOpen}>Article references behind &ldquo;Required&rdquo;</H>
+        <H icon={BookOpen}>{t("articleHeading")}</H>
         <ul style={{ margin: 0, paddingLeft: 18 }}>
-          <li>
-            <b>Art. 7(1)</b> — &ldquo;the controller shall be able to
-            demonstrate that the data subject has consented&rdquo;. This is
-            why the consent ledger itself (and the metadata that make a
-            record probative — IP, IP strategy) are Required.
-          </li>
-          <li>
-            <b>Art. 17</b> — Right to erasure. A working deletion grace
-            period and the ability to wipe consent records on request are
-            Required; the specific number of days is operational.
-          </li>
-          <li>
-            <b>ePrivacy Directive (2002/58/EC) + GDPR</b> — non-technical
-            cookies require prior, opt-in consent collected through a banner.
-            That makes the cookie banner master switch Required as soon as
-            you ship to EU traffic.
-          </li>
+          <li>{t.rich("art7", richTags)}</li>
+          <li>{t.rich("art17", richTags)}</li>
+          <li>{t.rich("eprivacy", richTags)}</li>
         </ul>
       </section>
 
       <section style={sectionStyle}>
-        <H icon={Sparkles}>Caveat</H>
+        <H icon={Sparkles}>{t("caveatHeading")}</H>
         <div style={calloutStyle}>
           <ScrollText
             size={14}
@@ -160,9 +111,7 @@ export function GdprLegendGuide() {
             }}
           />
           <span style={{ fontSize: 12.5, lineHeight: 1.55 }}>
-            These markers are a pragmatic shortcut, not legal advice. For a
-            GDPR audit, ground-truth is the regulation text and your DPO /
-            legal counsel — the labels here help you focus their attention.
+            {t("caveatBody")}
           </span>
         </div>
       </section>
