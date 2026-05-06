@@ -3,14 +3,19 @@ import { getAdminPath } from "@/lib/admin-nav";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
 import { AlertTriangle, Copy, PanelTop, Plus } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import DeleteTemplateButton from "./_components/delete-template-button";
 import { duplicateTemplateAction } from "./actions";
 
-export const metadata: Metadata = { title: "Content / Templates" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.content.templates");
+  return { title: t("metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function TemplatePage() {
+  const t = await getTranslations("admin.content.templates");
   const templates = await getAllTemplatesWithPageCount();
 
   return (
@@ -31,14 +36,16 @@ export default async function TemplatePage() {
             <h1
               className="text-lg font-bold"
               style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>Content</span>
+              <span style={{ color: "var(--admin-text-muted)" }}>
+                {t("breadcrumbContent")}
+              </span>
               <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>Templates</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <p
               className="text-sm mt-0.5"
               style={{ color: "var(--admin-text-faint)" }}>
-              Define layout and custom fields for each Page
+              {t("pageSubtitle")}
             </p>
           </div>
         </div>
@@ -47,8 +54,8 @@ export default async function TemplatePage() {
           className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white shrink-0"
           style={{ background: "var(--admin-accent)" }}>
           <Plus size={16} />
-          <span className="hidden sm:inline">New template</span>
-          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">{t("newButtonFull")}</span>
+          <span className="sm:hidden">{t("newButtonShort")}</span>
         </Link>
       </div>
 
@@ -65,18 +72,18 @@ export default async function TemplatePage() {
             className="mb-4"
           />
           <p className="font-semibold" style={{ color: "var(--admin-text)" }}>
-            no templates
+            {t("emptyTitle")}
           </p>
           <p
             className="text-sm mt-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Create your first Template for your Pages
+            {t("emptySubtitle")}
           </p>
           <Link
             href={`${getAdminPath("content-templates")}/new`}
             className="mt-6 px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "var(--admin-accent)" }}>
-            Create Template
+            {t("emptyCreateButton")}
           </Link>
         </div>
       ) : (
@@ -103,12 +110,12 @@ export default async function TemplatePage() {
                             background: "var(--admin-accent-light)",
                             color: "var(--admin-accent)",
                           }}>
-                          sistema
+                          {t("cardSystemBadge")}
                         </span>
                       )}
                       {!isTemplateSlugRegistered(tpl.slug) && (
                         <span
-                          title="Nessun componente React Template{Slug}.tsx trovato: le pagine che usano questo template cadranno sul TemplateDefault."
+                          title={t("cardFallbackTooltip")}
                           className="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
                           style={{
                             background:
@@ -116,7 +123,7 @@ export default async function TemplatePage() {
                             color: "#b45309",
                           }}>
                           <AlertTriangle size={10} />
-                          fallback
+                          {t("cardFallbackBadge")}
                         </span>
                       )}
                     </p>
@@ -124,8 +131,7 @@ export default async function TemplatePage() {
                       <p
                         className="text-xs"
                         style={{ color: "var(--admin-text-muted)" }}>
-                        {tpl.fields.length}{" "}
-                        {tpl.fields.length === 1 ? "campo" : "campi"}
+                        {t("cardFieldsCount", { count: tpl.fields.length })}
                       </p>
                       {tpl.pageCount > 0 && (
                         <>
@@ -139,8 +145,7 @@ export default async function TemplatePage() {
                           <p
                             className="text-xs"
                             style={{ color: "var(--admin-text-muted)" }}>
-                            {tpl.pageCount}{" "}
-                            {tpl.pageCount === 1 ? "page" : "pages"}
+                            {t("cardPagesCount", { count: tpl.pageCount })}
                           </p>
                         </>
                       )}
@@ -165,14 +170,14 @@ export default async function TemplatePage() {
                       color: "var(--admin-text)",
                       border: "1px solid var(--admin-input-border)",
                     }}>
-                    Edit
+                    {t("cardEditButton")}
                   </Link>
 
                   <form action={duplicateTemplateAction}>
                     <input type="hidden" name="id" value={tpl.id} />
                     <button
                       type="submit"
-                      title="Duplicate Template"
+                      title={t("cardDuplicateTooltip")}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{
                         color: "var(--admin-text-muted)",

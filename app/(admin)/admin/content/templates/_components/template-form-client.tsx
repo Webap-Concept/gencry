@@ -14,23 +14,33 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { useEffect, useRef, useState } from "react";
 import { EditorPageHeader } from "../../../_components/editor-page-header";
 
 const FORM_ID = "template-editor-form";
 
-const FIELD_TYPES = [
-  { value: "text", label: "Short text" },
-  { value: "textarea", label: "Long text" },
-  { value: "richtext", label: "Rich text" },
-  { value: "image", label: "Image (URL)" },
-  { value: "url", label: "URL" },
-  { value: "date", label: "Date" },
-  { value: "select", label: "Select" },
-  { value: "toggle", label: "Toggle" },
-  { value: "number", label: "Number" },
-];
+type FormT = ReturnType<typeof useTranslations<"admin.content.templates.form">>;
+
+const FIELD_TYPE_VALUES = [
+  "text",
+  "textarea",
+  "richtext",
+  "image",
+  "url",
+  "date",
+  "select",
+  "toggle",
+  "number",
+] as const;
+
+function getFieldTypes(t: FormT) {
+  return FIELD_TYPE_VALUES.map((value) => ({
+    value,
+    label: t(`fieldType_${value}` as const),
+  }));
+}
 
 interface FieldDraft {
   _id: string;
@@ -90,10 +100,13 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 function ImplementationGuide({
   slug,
   fields,
+  fieldTypes,
 }: {
   slug: string;
   fields: FieldDraft[];
+  fieldTypes: { value: string; label: string }[];
 }) {
+  const t = useTranslations("admin.content.templates.form");
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
 
   const componentName = slug
@@ -113,10 +126,10 @@ function ImplementationGuide({
                 ? "boolean"
                 : "string";
             const optional = !f.required ? "?" : "";
-            return `  ${f.fieldKey}${optional}: ${tsType}; // ${FIELD_TYPES.find((t) => t.value === f.fieldType)?.label ?? f.fieldType}`;
+            return `  ${f.fieldKey}${optional}: ${tsType}; // ${fieldTypes.find((ft) => ft.value === f.fieldType)?.label ?? f.fieldType}`;
           })
           .join("\n")
-      : "  // no custom fields defined";
+      : `  ${t("implCommentNoFields")}`;
 
   const fieldsUsageLines =
     fields.length > 0
@@ -133,7 +146,7 @@ function ImplementationGuide({
             }
           })
           .join("\n")
-      : "        {/* no custom fields — use only page.title and page.content */}";
+      : `        ${t("implCommentNoFieldsUsage")}`;
 
   const componentCode = `import type { TemplateProps } from "./types";
 
@@ -246,12 +259,10 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
       <h2
         className="text-sm font-semibold mb-1"
         style={{ color: "var(--admin-text)" }}>
-        Implementation Guide
+        {t("implHeading")}
       </h2>
       <p className="text-xs mb-5" style={{ color: "var(--admin-text-muted)" }}>
-        Follow these steps to connect this template to the React code of the
-        app. The code updates in real time based on the custom fields configured
-        in the General tab.
+        {t("implSubtitle")}
       </p>
 
       {!slug && (
@@ -265,9 +276,11 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
             }}
           />
           <span>
-            Enter a <strong style={{ color: "var(--admin-text)" }}>Name</strong>{" "}
-            in the General tab to automatically generate the slug and view the
-            component path.
+            {t.rich("implSlugRequired", {
+              strong: (chunks) => (
+                <strong style={{ color: "var(--admin-text)" }}>{chunks}</strong>
+              ),
+            })}
           </span>
         </div>
       )}
@@ -276,7 +289,7 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
       <div className="mb-6">
         <p style={sectionTitle}>
           <span style={stepBadge}>1</span>
-          Create the component file
+          {t("implStepLabel")}
         </p>
         <div style={pathPill}>
           <FileCode2 size={13} />
@@ -286,7 +299,7 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
           <div style={codeBlockStyle}>{componentCode}</div>
           <button
             type="button"
-            title="Copy code"
+            title={t("implCopyTooltip")}
             onClick={() => copyToClipboard(componentCode, "component")}
             style={{
               position: "absolute",
@@ -328,17 +341,17 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
           className="text-xs leading-relaxed"
           style={{ color: "var(--admin-text-muted)" }}>
           <strong style={{ color: "var(--admin-text)" }}>
-            No registry to update.
+            {t("implNoRegistryTitle")}
           </strong>{" "}
-          The system automatically loads{" "}
-          <code style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
-            {componentName}.tsx
-          </code>{" "}
-          based on the slug{" "}
-          <code style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
-            &#34;{slugLabel}&#34;
-          </code>
-          . Just create the file with the correct name.
+          {t.rich("implNoRegistryBody", {
+            component: componentName,
+            slug: slugLabel,
+            c: (chunks) => (
+              <code style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+                {chunks}
+              </code>
+            ),
+          })}
         </p>
       </div>
 
@@ -355,7 +368,7 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
           <p
             className="text-xs font-semibold mb-2"
             style={{ color: "var(--admin-text)" }}>
-            Custom fields in this template
+            {t("implFieldsTitle")}
           </p>
           <div className="space-y-1">
             {fields.map((f) => (
@@ -382,14 +395,14 @@ export default function ${componentName}({ page, fields: rawFields }: TemplatePr
                     color: "var(--admin-text-faint)",
                     border: "1px solid var(--admin-border)",
                   }}>
-                  {FIELD_TYPES.find((t) => t.value === f.fieldType)?.label ??
+                  {fieldTypes.find((ft) => ft.value === f.fieldType)?.label ??
                     f.fieldType}
                 </span>
                 {f.required && (
                   <span
                     className="text-xs px-1 py-0.5 rounded"
                     style={{ color: "#f59e0b", fontSize: "0.65rem" }}>
-                    required
+                    {t("implFieldRequired")}
                   </span>
                 )}
               </div>
@@ -408,6 +421,8 @@ export default function TemplateFormClient({
   registeredSlugs = [],
   saveAction,
 }: TemplateFormClientProps) {
+  const t = useTranslations("admin.content.templates.form");
+  const fieldTypes = getFieldTypes(t);
   const isEdit = !!template;
   const registeredSlugSet = new Set(registeredSlugs);
   const [activeTab, setActiveTab] = useState<
@@ -532,7 +547,7 @@ export default function TemplateFormClient({
     } catch (err) {
       if (isRedirectError(err)) throw err;
       console.error(err);
-      setError("Error while saving. Please try again.");
+      setError(t("saveError"));
     } finally {
       setSaving(false);
     }
@@ -562,10 +577,10 @@ export default function TemplateFormClient({
   const availableTemplates = allTemplates.filter((t) => t.id !== template?.id);
 
   const currentLabel = isEdit
-    ? name || template?.name || "Edit template"
+    ? name || template?.name || t("currentLabelEdit")
     : name
       ? name
-      : "New template";
+      : t("currentLabelNew");
 
   const componentName = slug ? "Template" + slugToPascalCase(slug) : null;
   const componentMissing =
@@ -577,12 +592,15 @@ export default function TemplateFormClient({
 
       <EditorPageHeader
         breadcrumbs={[
-          { label: "Pages", href: getAdminPath("content-pages") },
-          { label: "Templates", href: getAdminPath("content-templates") },
+          { label: t("breadcrumbPages"), href: getAdminPath("content-pages") },
+          {
+            label: t("breadcrumbTemplates"),
+            href: getAdminPath("content-templates"),
+          },
         ]}
         currentLabel={currentLabel}
         backHref={getAdminPath("content-templates")}
-        saveLabel={isEdit ? "Save" : "Create Template"}
+        saveLabel={isEdit ? t("saveButton") : t("createButton")}
         formId={FORM_ID}
         isPending={saving}
         savedAt={savedAt}
@@ -607,14 +625,14 @@ export default function TemplateFormClient({
             style={tabStyle(activeTab === "general")}
             onClick={() => setActiveTab("general")}>
             <Settings size={14} />
-            General
+            {t("tabGeneral")}
           </button>
           <button
             type="button"
             style={tabStyle(activeTab === "rules")}
             onClick={() => setActiveTab("rules")}>
             <ShieldCheck size={14} />
-            Rules
+            {t("tabRules")}
             {allowedChildIds.length > 0 && (
               <span
                 className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-semibold"
@@ -634,7 +652,7 @@ export default function TemplateFormClient({
             style={tabStyle(activeTab === "implementation")}
             onClick={() => setActiveTab("implementation")}>
             <Code2 size={14} />
-            Implementation
+            {t("tabImplementation")}
             {isEdit && (
               <span
                 className="ml-1 px-1.5 py-0.5 rounded-full"
@@ -647,7 +665,7 @@ export default function TemplateFormClient({
                   lineHeight: 1,
                   padding: "2px 5px",
                 }}>
-                DEV
+                {t("devBadge")}
               </span>
             )}
           </button>
@@ -664,7 +682,7 @@ export default function TemplateFormClient({
           }}>
           <span style={{ color: "#b45309", marginTop: 1 }}>⚠</span>
           <div className="text-sm" style={{ color: "var(--admin-text)" }}>
-            <strong>Componente React mancante.</strong> Lo slug{" "}
+            <strong>{t("componentMissingTitle")}</strong> {t("componentMissingBefore")}{" "}
             <code
               style={{
                 background: "var(--admin-input-bg)",
@@ -674,7 +692,7 @@ export default function TemplateFormClient({
               }}>
               {slug}
             </code>{" "}
-            non ha un file{" "}
+            {t("componentMissingMiddle")}{" "}
             <code
               style={{
                 background: "var(--admin-input-bg)",
@@ -684,11 +702,12 @@ export default function TemplateFormClient({
               }}>
               {componentName}.tsx
             </code>{" "}
-            in <code>app/(frontend)/_templates/</code>. Le pagine che usano
-            questo template verranno renderizzate col fallback{" "}
-            <strong>TemplateDefault</strong> (nessuno style config né campo
-            custom). Vai nella tab <strong>Implementation</strong> per
-            generare il componente.
+            {t("componentMissingPath")}{" "}
+            <code>app/(frontend)/_templates/</code>. {t("componentMissingFallback")}{" "}
+            <strong>{t("componentMissingFallbackName")}</strong>{" "}
+            {t("componentMissingFallbackSuffix")}{" "}
+            <strong>{t("componentMissingTabName")}</strong>{" "}
+            {t("componentMissingTabSuffix")}
           </div>
         </div>
       )}
@@ -705,14 +724,14 @@ export default function TemplateFormClient({
             <h2
               className="text-sm font-semibold mb-4"
               style={{ color: "var(--admin-text)" }}>
-              Basic information
+              {t("basicHeading")}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label
                   className={labelCls}
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Name *
+                  {t("nameLabel")}
                 </label>
                 <input
                   name="name"
@@ -721,26 +740,26 @@ export default function TemplateFormClient({
                   onChange={(e) => setName(e.target.value)}
                   className={inputCls}
                   style={inputStyle}
-                  placeholder="e.g. Blog Article"
+                  placeholder={t("namePlaceholder")}
                 />
               </div>
               <div>
                 <label
                   className={labelCls}
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Slug
+                  {t("slugLabel")}
                   {!isEdit && (
                     <span
                       className="ml-1.5 text-xs font-normal"
                       style={{ color: "var(--admin-text-faint)" }}>
-                      — automatically generated from the name
+                      {t("slugAutoHint")}
                     </span>
                   )}
                   {isEdit && (
                     <span
                       className="ml-1.5 text-xs font-normal"
                       style={{ color: "var(--admin-text-faint)" }}>
-                      — cannot be changed after creation
+                      {t("slugLockedHint")}
                     </span>
                   )}
                 </label>
@@ -750,13 +769,13 @@ export default function TemplateFormClient({
                   readOnly
                   className={inputCls}
                   style={inputReadonlyStyle}
-                  placeholder="generated from the name…"
+                  placeholder={t("slugPlaceholder")}
                 />
                 {componentName && (
                   <p
                     className="mt-1 text-xs"
                     style={{ color: "var(--admin-text-faint)" }}>
-                    File:{" "}
+                    {t("slugFileLabel")}{" "}
                     <code style={{ fontFamily: "monospace" }}>
                       {componentName}.tsx
                     </code>
@@ -767,7 +786,7 @@ export default function TemplateFormClient({
                 <label
                   className={labelCls}
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Description
+                  {t("descriptionLabel")}
                 </label>
                 <textarea
                   name="description"
@@ -776,7 +795,7 @@ export default function TemplateFormClient({
                   rows={2}
                   className={inputCls}
                   style={inputStyle}
-                  placeholder="Brief description of how the template is used…"
+                  placeholder={t("descriptionPlaceholder")}
                 />
               </div>
             </div>
@@ -793,14 +812,14 @@ export default function TemplateFormClient({
               <h2
                 className="text-sm font-semibold"
                 style={{ color: "var(--admin-text)" }}>
-                Custom fields ({fields.length})
+                {t("fieldsHeading", { count: fields.length })}
               </h2>
               <button
                 type="button"
                 onClick={addField}
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
                 style={{ background: "var(--admin-accent)", color: "#fff" }}>
-                <Plus size={13} /> Add field
+                <Plus size={13} /> {t("addFieldButton")}
               </button>
             </div>
 
@@ -808,7 +827,7 @@ export default function TemplateFormClient({
               <p
                 className="text-sm text-center py-6"
                 style={{ color: "var(--admin-text-muted)" }}>
-                No fields — the template uses only the main content
+                {t("fieldsEmpty")}
               </p>
             )}
 
@@ -829,13 +848,14 @@ export default function TemplateFormClient({
                     <span
                       className="text-xs font-semibold"
                       style={{ color: "var(--admin-text)" }}>
-                      Field
+                      {t("fieldTitle")}
                     </span>
                     <button
                       type="button"
                       onClick={() => removeField(field._id)}
                       className="ml-auto p-1 rounded"
-                      style={{ color: "var(--admin-error, #dc2626)" }}>
+                      style={{ color: "var(--admin-error, #dc2626)" }}
+                      title={t("fieldRemoveTooltip")}>
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -844,14 +864,14 @@ export default function TemplateFormClient({
                       <label
                         className={labelCls}
                         style={{ color: "var(--admin-text-muted)" }}>
-                        Key *
+                        {t("fieldKeyLabel")}
                       </label>
                       <input
                         value={field.fieldKey}
                         onChange={(e) =>
                           updateField(field._id, "fieldKey", e.target.value)
                         }
-                        placeholder="e.g. coverImage"
+                        placeholder={t("fieldKeyPlaceholder")}
                         className={inputCls}
                         style={fieldInputStyle}
                         required
@@ -861,14 +881,14 @@ export default function TemplateFormClient({
                       <label
                         className={labelCls}
                         style={{ color: "var(--admin-text-muted)" }}>
-                        Label *
+                        {t("fieldLabelLabel")}
                       </label>
                       <input
                         value={field.label}
                         onChange={(e) =>
                           updateField(field._id, "label", e.target.value)
                         }
-                        placeholder="e.g. Cover Image"
+                        placeholder={t("fieldLabelPlaceholder")}
                         className={inputCls}
                         style={fieldInputStyle}
                         required
@@ -878,7 +898,7 @@ export default function TemplateFormClient({
                       <label
                         className={labelCls}
                         style={{ color: "var(--admin-text-muted)" }}>
-                        Type
+                        {t("fieldTypeLabel")}
                       </label>
                       <select
                         value={field.fieldType}
@@ -887,7 +907,7 @@ export default function TemplateFormClient({
                         }
                         className={inputCls}
                         style={fieldInputStyle}>
-                        {FIELD_TYPES.map((ft) => (
+                        {fieldTypes.map((ft) => (
                           <option key={ft.value} value={ft.value}>
                             {ft.label}
                           </option>
@@ -898,14 +918,14 @@ export default function TemplateFormClient({
                       <label
                         className={labelCls}
                         style={{ color: "var(--admin-text-muted)" }}>
-                        Placeholder
+                        {t("fieldPlaceholderLabel")}
                       </label>
                       <input
                         value={field.placeholder}
                         onChange={(e) =>
                           updateField(field._id, "placeholder", e.target.value)
                         }
-                        placeholder="Hint text"
+                        placeholder={t("fieldPlaceholderPlaceholder")}
                         className={inputCls}
                         style={fieldInputStyle}
                       />
@@ -914,14 +934,14 @@ export default function TemplateFormClient({
                       <label
                         className={labelCls}
                         style={{ color: "var(--admin-text-muted)" }}>
-                        Default value
+                        {t("fieldDefaultLabel")}
                       </label>
                       <input
                         value={field.defaultValue}
                         onChange={(e) =>
                           updateField(field._id, "defaultValue", e.target.value)
                         }
-                        placeholder="Leave empty if none"
+                        placeholder={t("fieldDefaultPlaceholder")}
                         className={inputCls}
                         style={fieldInputStyle}
                       />
@@ -939,7 +959,7 @@ export default function TemplateFormClient({
                         <span
                           className="text-xs font-medium"
                           style={{ color: "var(--admin-text-muted)" }}>
-                          Required
+                          {t("fieldRequiredLabel")}
                         </span>
                       </label>
                     </div>
@@ -962,17 +982,12 @@ export default function TemplateFormClient({
             <h2
               className="text-sm font-semibold mb-1"
               style={{ color: "var(--admin-text)" }}>
-              Allowed child templates
+              {t("rulesHeading")}
             </h2>
             <p
               className="text-xs leading-relaxed"
               style={{ color: "var(--admin-text-muted)" }}>
-              Select which templates can be used by the child pages of a page
-              with this template. If you select a single template, it will be
-              automatically assigned to the new child page without prompting for
-              a choice. If you select more than one, a selector will be shown
-              before creating the page. If you select none, any template can be
-              used.
+              {t("rulesDescription")}
             </p>
           </div>
 
@@ -985,18 +1000,16 @@ export default function TemplateFormClient({
               <p
                 className="text-sm"
                 style={{ color: "var(--admin-text-muted)" }}>
-                {isEdit
-                  ? "There are no other templates in the system."
-                  : "Save the template first, then you can configure the rules."}
+                {isEdit ? t("rulesEmptyEdit") : t("rulesEmptyNew")}
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {availableTemplates.map((t) => {
-                const checked = allowedChildIds.includes(t.id);
+              {availableTemplates.map((tpl) => {
+                const checked = allowedChildIds.includes(tpl.id);
                 return (
                   <label
-                    key={t.id}
+                    key={tpl.id}
                     className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer transition-colors"
                     style={{
                       background: checked
@@ -1009,7 +1022,7 @@ export default function TemplateFormClient({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleAllowedChild(t.id)}
+                      onChange={() => toggleAllowedChild(tpl.id)}
                       className="w-4 h-4 rounded shrink-0"
                       style={{ accentColor: "var(--admin-accent)" }}
                     />
@@ -1017,12 +1030,12 @@ export default function TemplateFormClient({
                       <p
                         className="text-sm font-medium"
                         style={{ color: "var(--admin-text)" }}>
-                        {t.name}
+                        {tpl.name}
                       </p>
                       <p
                         className="text-xs font-mono"
                         style={{ color: "var(--admin-text-faint)" }}>
-                        {t.slug}
+                        {tpl.slug}
                       </p>
                     </div>
                     {checked && (
@@ -1033,7 +1046,7 @@ export default function TemplateFormClient({
                             "color-mix(in srgb, var(--admin-accent) 15%, var(--admin-card-bg))",
                           color: "var(--admin-accent)",
                         }}>
-                        Allowed
+                        {t("rulesAllowedBadge")}
                       </span>
                     )}
                   </label>
@@ -1059,28 +1072,27 @@ export default function TemplateFormClient({
               <p
                 className="text-xs leading-relaxed"
                 style={{ color: "var(--admin-text-muted)" }}>
-                {allowedChildIds.length === 1 ? (
-                  <>
-                    The template{" "}
-                    <strong style={{ color: "var(--admin-text)" }}>
-                      {
+                {allowedChildIds.length === 1
+                  ? t.rich("rulesSummarySingle", {
+                      name:
                         availableTemplates.find(
-                          (t) => t.id === allowedChildIds[0],
-                        )?.name
-                      }
-                    </strong>{" "}
-                    will be assigned <strong>automatically</strong> to the new
-                    child page — no choice required.
-                  </>
-                ) : (
-                  <>
-                    When creating a child page, a selector will be shown with{" "}
-                    <strong style={{ color: "var(--admin-text)" }}>
-                      {allowedChildIds.length} templates
-                    </strong>{" "}
-                    to choose from.
-                  </>
-                )}
+                          (av) => av.id === allowedChildIds[0],
+                        )?.name ?? "",
+                      strong: (chunks) => (
+                        <strong style={{ color: "var(--admin-text)" }}>
+                          {chunks}
+                        </strong>
+                      ),
+                      auto: (chunks) => <strong>{chunks}</strong>,
+                    })
+                  : t.rich("rulesSummaryMultiple", {
+                      count: allowedChildIds.length,
+                      strong: (chunks) => (
+                        <strong style={{ color: "var(--admin-text)" }}>
+                          {chunks}
+                        </strong>
+                      ),
+                    })}
               </p>
             </div>
           )}
@@ -1088,7 +1100,11 @@ export default function TemplateFormClient({
       )}
 
       {activeTab === "implementation" && (
-        <ImplementationGuide slug={slug} fields={fields} />
+        <ImplementationGuide
+          slug={slug}
+          fields={fields}
+          fieldTypes={fieldTypes}
+        />
       )}
     </form>
   );
