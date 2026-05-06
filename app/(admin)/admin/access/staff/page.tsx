@@ -1,4 +1,5 @@
 // app/(admin)/admin/staff/page.tsx
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getStaffUsers } from "@/lib/db/admin-queries";
 import { getStaffAssignableRoles } from "@/lib/db/roles-queries";
 import { Search, UserCog } from "lucide-react";
@@ -141,35 +142,13 @@ export default async function AdminStaffPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <UserCog size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div className="flex-1">
-          <h2
-            className="text-lg font-bold"
-            style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>
-              {t("breadcrumbUsers")}
-            </span>
-            <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>{t("pageTitle")}</span>
-          </h2>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {t("pageSubtitle")}
-          </p>
-        </div>
-        <AddStaffButton adminRoles={adminRoles} />
-      </div>
+      <AdminSectionHeader
+        icon={UserCog}
+        breadcrumbLabel={t("breadcrumbUsers")}
+        title={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
+        actionSlot={<AddStaffButton adminRoles={adminRoles} />}
+      />
 
       <div
         className="rounded-xl shadow-sm p-4"

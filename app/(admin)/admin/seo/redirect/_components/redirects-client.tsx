@@ -1,6 +1,7 @@
 "use client";
 
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import type { Redirect } from "@/lib/db/schema";
 import {
   AlertTriangle,
@@ -205,38 +206,24 @@ export default function RedirectsClient({
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-              border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-            }}>
-            <GitMerge size={18} style={{ color: "var(--admin-accent)" }} />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold" style={{ color: "var(--admin-text)" }}>
-              {t("pageHeading")}
-            </h1>
-            <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-              {t("totalCount", { count: totalManual + totalAutomatic })}
-            </p>
-          </div>
-        </div>
-        {mode === null && activeTab === "manual" && (
-          <button
-            type="button"
-            onClick={() => setMode({ type: "new" })}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-white transition-colors"
-            style={{ background: "var(--admin-accent)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.9)")}
-            onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-            <Plus size={15} /> {t("addButton")}
-          </button>
-        )}
-      </div>
+      <AdminSectionHeader
+        icon={GitMerge}
+        breadcrumbLabel={t("pageHeading")}
+        subtitle={t("totalCount", { count: totalManual + totalAutomatic })}
+        actionSlot={
+          mode === null && activeTab === "manual" ? (
+            <button
+              type="button"
+              onClick={() => setMode({ type: "new" })}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-white transition-colors"
+              style={{ background: "var(--admin-accent)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.9)")}
+              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
+              <Plus size={15} /> {t("addButton")}
+            </button>
+          ) : null
+        }
+      />
 
       {/* Tabs */}
       <div

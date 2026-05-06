@@ -1,4 +1,5 @@
 // app/(admin)/admin/security/blocked-domains/page.tsx
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { db } from "@/lib/db/drizzle";
 import { disposableDomains } from "@/lib/db/schema";
 import { requireAdminPage } from "@/lib/rbac/guards";
@@ -31,34 +32,12 @@ export default async function AdminBlockedDomainsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <Globe size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <h2
-            className="text-lg font-bold"
-            style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>
-              {t("breadcrumb")}
-            </span>
-            <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>{tBd("pageTitle")}</span>
-          </h2>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {tBd("pageSubtitle")}
-          </p>
-        </div>
-      </div>
+      <AdminSectionHeader
+        icon={Globe}
+        breadcrumbLabel={t("breadcrumb")}
+        title={tBd("pageTitle")}
+        subtitle={tBd("pageSubtitle")}
+      />
 
       <Suspense
         fallback={

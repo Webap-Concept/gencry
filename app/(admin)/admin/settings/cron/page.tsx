@@ -15,6 +15,7 @@ import {
   CronJobsTable,
   type CronRow,
 } from "@/app/(admin)/admin/_components/cron-jobs-table";
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { listCronJobsWithLastRun, type PgCronJobWithLastRun } from "@/lib/cron/queries";
 import {
   getAllRegisteredJobnames,
@@ -22,6 +23,7 @@ import {
   getCronJobMeta,
 } from "@/lib/cron/registry";
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
+import { Clock } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { fetchCronRunsAction, toggleCronJobAction } from "./actions";
@@ -30,7 +32,10 @@ export const metadata: Metadata = { title: "Settings / Cron Jobs" };
 export const dynamic = "force-dynamic";
 
 export default async function SettingsCronPage() {
-  const t = await getTranslations("admin.settings.cron");
+  const [t, tHeader] = await Promise.all([
+    getTranslations("admin.settings.cron"),
+    getTranslations("admin.settings"),
+  ]);
   let allJobs: PgCronJobWithLastRun[] = [];
   let dbError: string | null = null;
   try {
@@ -57,6 +62,12 @@ export default async function SettingsCronPage() {
 
   return (
     <div className="space-y-5">
+      <AdminSectionHeader
+        icon={Clock}
+        breadcrumbLabel={tHeader("rootTitle")}
+        title={tHeader("sections.cron.label")}
+        subtitle={tHeader("sections.cron.description")}
+      />
       {dbError && (
         <div
           className="rounded-xl p-4 text-sm"

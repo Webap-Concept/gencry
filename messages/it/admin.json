@@ -100,6 +100,10 @@
       "languages": {
         "label": "Lingue",
         "description": "Gestisci i locale supportati, ordine e label native. Il default si imposta tramite la env var I18N_DEFAULT_LOCALE."
+      },
+      "notifications": {
+        "label": "Notifiche",
+        "description": "Allerte sessioni sospette, impostazioni di invio e notifiche per regola."
       }
     },
     "general": {
@@ -2177,6 +2181,7 @@
   "tests": {
     "metaTitle": "Test e stato del sistema",
     "pageTitle": "Test e stato del sistema",
+    "pageSubtitle": "Health check di sistema e risultati Vitest.",
     "checkedAt": "Verificato il {date}",
     "globalStatus": {
       "allOk": "Tutti i servizi sono operativi",

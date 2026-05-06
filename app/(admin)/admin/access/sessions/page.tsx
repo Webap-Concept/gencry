@@ -14,6 +14,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { AlertsTable } from "./_components/alerts-table";
 import { SessionsAdminGuide } from "./_components/sessions-guide";
@@ -397,37 +398,18 @@ export default async function AdminSessionsPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <Activity size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2
-              className="text-xl font-bold"
-              style={{ color: "var(--admin-text)" }}>
-              {t("pageTitle")}
-            </h2>
-            <AdminSectionInfo
-              title={t("guideTitle")}
-              ariaLabel={t("guideAriaLabel")}>
-              <SessionsAdminGuide />
-            </AdminSectionInfo>
-          </div>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-muted)" }}>
-            {t("pageSubtitle")}
-          </p>
-        </div>
-      </div>
+      <AdminSectionHeader
+        icon={Activity}
+        breadcrumbLabel={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={t("guideTitle")}
+            ariaLabel={t("guideAriaLabel")}>
+            <SessionsAdminGuide />
+          </AdminSectionInfo>
+        }
+      />
 
       <Suspense fallback={<KpisSkeleton />}>
         <KpisRow />

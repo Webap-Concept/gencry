@@ -1,3 +1,4 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { Globe } from "lucide-react";
 import type { Metadata } from "next";
@@ -32,21 +33,11 @@ export default async function RobotsPage() {
   const t = await getTranslations("admin.seo.robots");
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{
-            background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}
-        >
-          <Globe size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold" style={{ color: "var(--admin-text)" }}>
-            {t("pageHeading")}
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-muted)" }}>
+      <AdminSectionHeader
+        icon={Globe}
+        breadcrumbLabel={t("pageHeading")}
+        subtitleSlot={
+          <>
             {t("pageSubtitleBefore")}{" "}
             <code
               className="font-mono text-xs px-1 py-0.5 rounded"
@@ -60,9 +51,9 @@ export default async function RobotsPage() {
               humans.txt
             </code>{" "}
             {t("pageSubtitleAfter")}
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <Suspense
         fallback={
