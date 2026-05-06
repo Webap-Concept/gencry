@@ -13,6 +13,7 @@ import { getUser } from "@/lib/db/queries";
 import { upsertRedirect } from "@/lib/db/redirects-queries";
 import { ActivityType } from "@/lib/db/schema";
 import { deleteSeoPage, getSeoPage, renameSeoPage } from "@/lib/db/seo-queries";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -21,13 +22,10 @@ const schema = z.object({
   originalSlug: z.string().optional(),
   slug: z
     .string()
-    .min(1, "Slug is required")
+    .min(1, "slugRequired")
     .max(255)
-    .regex(/^[a-z0-9]+(?:[/-][a-z0-9]+)*$/, {
-      message:
-        "Invalid slug: use only lowercase letters, numbers, dashes and slashes",
-    }),
-  title: z.string().min(1, "Title is required").max(255),
+    .regex(/^[a-z0-9]+(?:[/-][a-z0-9]+)*$/, { message: "slugInvalid" }),
+  title: z.string().min(1, "titleRequired").max(255),
   content: z.string().default(""),
   status: z.enum(["draft", "published"]).default("draft"),
   visibility: z.enum(["public", "private"]).default("public"),
@@ -69,9 +67,18 @@ export async function upsertPageAction(
     isSystem: formData.get("isSystem") || undefined,
   };
 
+  const tErrors = await getTranslations("admin.content.pages.errors");
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+    const msg = parsed.error.issues[0]?.message ?? "invalidData";
+    if (
+      msg === "slugRequired" ||
+      msg === "slugInvalid" ||
+      msg === "titleRequired"
+    ) {
+      return { error: tErrors(msg) };
+    }
+    return { error: tErrors("invalidData") };
   }
 
   const {
@@ -124,10 +131,7 @@ export async function upsertPageAction(
         systemKey: existing.systemKey ?? null,
       });
       if (!editable) {
-        return {
-          error:
-            "This page's URL is bound to a hardcoded route handler and cannot be renamed.",
-        };
+        return { error: tErrors("slugBound") };
       }
     }
   }
@@ -201,14 +205,15 @@ export async function upsertPageAction(
     };
   } catch (err) {
     console.error("[upsertPageAction] error:", err);
-    return { error: "Error while saving. Please try again." };
+    return { error: tErrors("saveError") };
   }
 }
 
 export async function deletePageAction(
   slug: string,
 ): Promise<{ error?: string; success?: boolean; deleted?: number }> {
-  if (!slug) return { error: "Missing slug" };
+  const tErrors = await getTranslations("admin.content.pages.errors");
+  if (!slug) return { error: tErrors("missingSlug") };
   try {
     const deleted = await deletePageCascade(slug);
     await deleteSeoPage(`/${slug}`);
@@ -229,10 +234,10 @@ export async function deletePageAction(
   } catch (err) {
     // Guard: pagina di sistema non eliminabile
     if (err instanceof Error && err.message === "SYSTEM_PAGE_PROTECTED") {
-      return { error: "System pages cannot be deleted." };
+      return { error: tErrors("systemPagesProtected") };
     }
     console.error("[deletePageAction] error:", err);
-    return { error: "Error during deletion. Please try again." };
+    return { error: tErrors("deleteError") };
   }
 }
 
@@ -244,6 +249,7 @@ export async function togglePageStatusAction(
   id: number,
   currentStatus: string,
 ): Promise<{ error?: string; success?: boolean }> {
+  const tErrors = await getTranslations("admin.content.pages.errors");
   try {
     await togglePageStatus(id, currentStatus);
     revalidatePath(getAdminPath("content-pages"));
@@ -262,7 +268,7 @@ export async function togglePageStatusAction(
     );
   } catch (err) {
     console.error("[togglePageStatusAction] error:", err);
-    return { error: "Error while changing status. Please try again." };
+    return { error: tErrors("statusToggleError") };
   }
   return { success: true };
 }

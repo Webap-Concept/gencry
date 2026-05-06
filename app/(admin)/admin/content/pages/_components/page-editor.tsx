@@ -39,6 +39,7 @@ import {
   ShieldCheck,
   UnderlineIcon,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -174,6 +175,7 @@ function CustomFieldsBlock({
   customFields: Record<string, string>;
   setCustomFields: (v: Record<string, string>) => void;
 }) {
+  const t = useTranslations("admin.content.pages.editor");
   if (template.fields.length === 0) return null;
   function handleField(key: string, value: string) {
     setCustomFields({ ...customFields, [key]: value });
@@ -188,7 +190,7 @@ function CustomFieldsBlock({
       <p
         className="text-xs font-semibold uppercase tracking-wide mb-4"
         style={{ color: "var(--admin-text-faint)" }}>
-        Campi custom — Template: {template.name}
+        {t("customFieldsHeading", { name: template.name })}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[...template.fields]
@@ -282,24 +284,25 @@ function SeoTab({
   pageTitle: string;
   onSeoSaved?: () => void;
 }) {
+  const t = useTranslations("admin.content.pages.editor");
   const [showModal, setShowModal] = useState(false);
   const rows = seo
     ? [
-        { label: "Meta Title", value: seo.title, hint: "Max 60 caratteri" },
+        { label: t("seoMetaTitle"), value: seo.title, hint: t("seoMetaTitleHint") },
         {
-          label: "Meta Description",
+          label: t("seoMetaDescription"),
           value: seo.description,
-          hint: "Max 155 caratteri",
+          hint: t("seoMetaDescriptionHint"),
         },
-        { label: "OG Title", value: seo.ogTitle },
-        { label: "OG Description", value: seo.ogDescription },
-        { label: "OG Image", value: seo.ogImage },
-        { label: "Robots", value: seo.robots },
+        { label: t("seoOgTitle"), value: seo.ogTitle },
+        { label: t("seoOgDescription"), value: seo.ogDescription },
+        { label: t("seoOgImage"), value: seo.ogImage },
+        { label: t("seoRobots"), value: seo.robots },
         {
-          label: "JSON-LD",
+          label: t("seoJsonLd"),
           value: seo.jsonLdEnabled
-            ? `Abilitato (${seo.jsonLdType ?? "WebPage"})`
-            : "Disabilitato",
+            ? t("seoJsonLdEnabled", { type: seo.jsonLdType ?? "WebPage" })
+            : t("seoJsonLdDisabled"),
         },
       ]
     : [];
@@ -309,7 +312,7 @@ function SeoTab({
         <p
           className="text-xs font-semibold uppercase tracking-wide"
           style={{ color: "var(--admin-text-faint)" }}>
-          {seo ? "SEO meta configured" : "No SEO meta"}
+          {seo ? t("seoConfigured") : t("seoNotConfigured")}
         </p>
         <button
           type="button"
@@ -329,7 +332,7 @@ function SeoTab({
           }
           onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
           {seo ? <Pencil size={12} /> : <Search size={12} />}
-          {seo ? "Edit SEO" : "Configure SEO"}
+          {seo ? t("seoEdit") : t("seoConfigure")}
         </button>
       </div>
       {!seo ? (
@@ -339,13 +342,14 @@ function SeoTab({
             <p
               className="text-sm font-medium"
               style={{ color: "var(--admin-text-muted)" }}>
-              No SEO meta configured.
+              {t("seoEmptyTitle")}
             </p>
             <p
               className="text-xs mt-1"
               style={{ color: "var(--admin-text-faint)" }}>
-              Click <strong>Configure SEO</strong> to add title,
-              description and Open Graph.
+              {t.rich("seoEmptyHint", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
           </div>
         </div>
@@ -372,7 +376,7 @@ function SeoTab({
                 <p
                   className="text-sm italic"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  Non impostato
+                  {t("seoNotSet")}
                 </p>
               )}
               {row.hint && <p style={hintStyle}>{row.hint}</p>}
@@ -422,6 +426,9 @@ function PubTab({
   visibility: "public" | "private";
   setVisibility: (v: "public" | "private") => void;
 }) {
+  const t = useTranslations("admin.content.pages.editor");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   return (
     <div className="space-y-5">
       <div
@@ -430,7 +437,7 @@ function PubTab({
           background: "var(--admin-page-bg)",
           border: "1px solid var(--admin-input-border)",
         }}>
-        <p style={labelStyle}>Visibility</p>
+        <p style={labelStyle}>{t("pubVisibilityLabel")}</p>
         <div className="flex gap-3">
           {(["public", "private"] as const).map((v) => (
             <button
@@ -452,14 +459,16 @@ function PubTab({
                     ? "1px solid color-mix(in srgb, var(--admin-accent) 30%, transparent)"
                     : "1px solid var(--admin-card-border)",
               }}>
-              {v === "public" ? "Public" : "Private (login required)"}
+              {v === "public"
+                ? t("pubVisibilityPublic")
+                : t("pubVisibilityPrivate")}
             </button>
           ))}
         </div>
         <p style={hintStyle}>
           {visibility === "public"
-            ? "Accessible to anyone visiting the URL."
-            : "Unauthenticated users are redirected to /sign-in."}
+            ? t("pubVisibilityHintPublic")
+            : t("pubVisibilityHintPrivate")}
         </p>
       </div>
       <div
@@ -468,7 +477,7 @@ function PubTab({
           background: "var(--admin-page-bg)",
           border: "1px solid var(--admin-input-border)",
         }}>
-        <p style={labelStyle}>Publication status</p>
+        <p style={labelStyle}>{t("pubStatusLabel")}</p>
         <div className="flex gap-3">
           {(["draft", "published"] as const).map((s) => (
             <button
@@ -497,39 +506,37 @@ function PubTab({
                     : "1px solid var(--admin-card-border)",
               }}>
               {s === "published" ? <Eye size={15} /> : <EyeOff size={15} />}
-              {s === "published" ? "Published" : "Draft"}
+              {s === "published"
+                ? t("pubStatusPublished")
+                : t("pubStatusDraft")}
             </button>
           ))}
         </div>
         <p style={hintStyle}>
           {status === "published"
-            ? `Page is publicly visible at /${slug}`
-            : "Page is not publicly visible"}
+            ? t("pubStatusHintPublished", { slug })
+            : t("pubStatusHintDraft")}
         </p>
       </div>
       <div className="space-y-1.5">
-        <label style={labelStyle}>Publication date</label>
+        <label style={labelStyle}>{t("pubPublishedAtLabel")}</label>
         <input
           type="datetime-local"
           value={publishedAt}
           onChange={(e) => setPublishedAt(e.target.value)}
           style={inputStyle}
         />
-        <p style={hintStyle}>
-          If empty and status is "Published", the current date and time will be used.
-        </p>
+        <p style={hintStyle}>{t("pubPublishedAtHint")}</p>
       </div>
       <div className="space-y-1.5">
-        <label style={labelStyle}>Expiry date (optional)</label>
+        <label style={labelStyle}>{t("pubExpiresAtLabel")}</label>
         <input
           type="datetime-local"
           value={expiresAt}
           onChange={(e) => setExpiresAt(e.target.value)}
           style={inputStyle}
         />
-        <p style={hintStyle}>
-          After this date the page automatically reverts to draft.
-        </p>
+        <p style={hintStyle}>{t("pubExpiresAtHint")}</p>
       </div>
       {expiresAt && (
         <div
@@ -546,8 +553,9 @@ function PubTab({
           <p
             className="text-xs leading-relaxed"
             style={{ color: "var(--admin-text-muted)" }}>
-            Temporary content: expires{" "}
-            <strong>{new Date(expiresAt).toLocaleString("en-US")}</strong>.
+            {t("pubExpiryWarningBefore")}{" "}
+            <strong>{new Date(expiresAt).toLocaleString(dateLocale)}</strong>
+            {t("pubExpiryWarningSuffix")}
           </p>
         </div>
       )}
@@ -576,18 +584,20 @@ function StrutturaTab({
   currentPageId?: number;
   templateLocked?: boolean;
 }) {
-  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
+  const t = useTranslations("admin.content.pages.editor");
+  const selectedTemplate =
+    templates.find((tpl) => tpl.id === templateId) ?? null;
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <label style={labelStyle}>Parent page (optional)</label>
+        <label style={labelStyle}>{t("structureParentLabel")}</label>
         <select
           value={parentId ?? ""}
           onChange={(e) =>
             onParentChange(e.target.value ? Number(e.target.value) : null)
           }
           style={inputStyle}>
-          <option value="">— None (root page) —</option>
+          <option value="">{t("structureParentNone")}</option>
           {pages
             .filter(
               (p) =>
@@ -605,14 +615,11 @@ function StrutturaTab({
               </option>
             ))}
         </select>
-        <p style={hintStyle}>
-          Assigning a parent page builds the site hierarchy (e.g.
-          /services/consulting).
-        </p>
+        <p style={hintStyle}>{t("structureParentHint")}</p>
       </div>
 
       <div className="space-y-1.5">
-        <label style={labelStyle}>Template (optional)</label>
+        <label style={labelStyle}>{t("structureTemplateLabel")}</label>
         {templateLocked && selectedTemplate ? (
           <div
             className="rounded-lg px-4 py-3 flex items-center gap-3"
@@ -651,10 +658,10 @@ function StrutturaTab({
               setCustomFields({});
             }}
             style={inputStyle}>
-            <option value="">— Nessun template —</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t("structureTemplateNoneLocked")}</option>
+            {templates.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>
+                {tpl.name}
               </option>
             ))}
           </select>
@@ -666,14 +673,14 @@ function StrutturaTab({
               border: "1px solid var(--admin-input-border)",
               color: "var(--admin-text-faint)",
             }}>
-            No template created.{" "}
+            {t("structureNoTemplatesBefore")}{" "}
             <a
               href={getAdminPath("content-templates")}
               className="underline"
               style={{ color: "var(--admin-accent)" }}>
-              Create a template
+              {t("structureNoTemplatesLink")}
             </a>{" "}
-            to add custom fields to the page.
+            {t("structureNoTemplatesAfter")}
           </div>
         ) : (
           <>
@@ -685,23 +692,20 @@ function StrutturaTab({
                 setCustomFields({});
               }}
               style={inputStyle}>
-              <option value="">— No template —</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              <option value="">{t("structureTemplateNone")}</option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
                 </option>
               ))}
             </select>
             {selectedTemplate && (
               <p style={hintStyle}>
-                {selectedTemplate.fields.length > 0 ? (
-                  <>
-                    The custom fields of this template will appear{" "}
-                    <strong>above the tabs</strong>, just below the page title.
-                  </>
-                ) : (
-                  "This template has no custom fields."
-                )}
+                {selectedTemplate.fields.length > 0
+                  ? t.rich("structureTemplateHasFields", {
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })
+                  : t("structureTemplateNoFields")}
               </p>
             )}
           </>
@@ -715,7 +719,7 @@ function StrutturaTab({
               gap: "4px",
             }}>
             <Lock size={11} />
-            Template enforced by the parent template rule — not editable.
+            {t("structureTemplateLockedHint")}
           </p>
         )}
       </div>
@@ -761,6 +765,7 @@ export default function PageEditor({
   contentEditable?: boolean;
   slugEditable?: boolean;
 }) {
+  const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
   const isEdit = !!page;
   const originalSlug = page?.slug ?? "";
@@ -874,7 +879,7 @@ export default function PageEditor({
     }
   }
   function handleLinkInsert() {
-    const url = window.prompt("URL del link:");
+    const url = window.prompt(t("linkPrompt"));
     if (url === null) return;
     if (url === "") editor?.chain().focus().unsetLink().run();
     else editor?.chain().focus().setLink({ href: url }).run();
@@ -883,14 +888,15 @@ export default function PageEditor({
     editor?.chain().focus().insertContent(token).run();
   }
 
-  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
+  const selectedTemplate =
+    templates.find((tpl) => tpl.id === templateId) ?? null;
   const slugChanged = isEdit && slug !== originalSlug && slug.trim() !== "";
 
   const currentLabel = isEdit
-    ? title || page?.title || "Edit page"
+    ? title || page?.title || t("currentLabelEdit")
     : title
       ? title
-      : "New page";
+      : t("currentLabelNew");
 
   return (
     <>
@@ -941,12 +947,15 @@ export default function PageEditor({
 
         <EditorPageHeader
           breadcrumbs={[
-            { label: "Contenuti", href: getAdminPath("content-pages") },
-            { label: "Pagine" },
+            {
+              label: t("breadcrumbContent"),
+              href: getAdminPath("content-pages"),
+            },
+            { label: t("breadcrumbPages") },
           ]}
           currentLabel={currentLabel}
           backHref={getAdminPath("content-pages")}
-          saveLabel={isEdit ? "Save" : "Create page"}
+          saveLabel={isEdit ? t("saveButton") : t("createButton")}
           formId={FORM_ID}
           isPending={isPending}
           savedAt={savedAt}
@@ -965,19 +974,19 @@ export default function PageEditor({
           }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label style={labelStyle}>Page title</label>
+              <label style={labelStyle}>{t("titleLabel")}</label>
               <input
                 name="title"
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="e.g. About us"
+                placeholder={t("titlePlaceholder")}
                 required
                 style={inputStyle}
               />
             </div>
             <div>
               <label style={{ ...labelStyle, marginBottom: "0.375rem" }}>
-                Slug (URL)
+                {t("slugLabel")}
               </label>
               <div className="flex">
                 <span
@@ -1002,7 +1011,7 @@ export default function PageEditor({
                 <input
                   value={slugLeaf}
                   onChange={(e) => handleSlugLeafChange(e.target.value)}
-                  placeholder="page-name"
+                  placeholder={t("slugLeafPlaceholder")}
                   disabled={!slugEditable}
                   style={{
                     ...inputStyle,
@@ -1022,7 +1031,7 @@ export default function PageEditor({
                     gap: "4px",
                   }}>
                   <Lock size={11} />
-                  This URL is bound to a hardcoded route handler — not editable.
+                  {t("slugLockedHint")}
                 </p>
               ) : slugChanged ? (
                 <div
@@ -1041,26 +1050,26 @@ export default function PageEditor({
                   <p
                     className="text-xs leading-relaxed"
                     style={{ color: "var(--admin-text-muted)" }}>
-                    A 301 redirect will be created automatically from{" "}
+                    {t("slugChangedNoticeBefore")}{" "}
                     <code
                       className="font-mono"
                       style={{ color: "var(--admin-text)" }}>
                       /{originalSlug}
                     </code>{" "}
-                    to{" "}
+                    {t("slugChangedNoticeMiddle")}{" "}
                     <code
                       className="font-mono"
                       style={{ color: "var(--admin-text)" }}>
                       /{slug}
                     </code>
-                    .
+                    {t("slugChangedNoticeAfter")}
                   </p>
                 </div>
               ) : (
                 <p style={hintStyle}>
-                  URL:{" "}
+                  {t("slugUrlHintLabel")}{" "}
                   <strong style={{ color: "var(--admin-text-muted)" }}>
-                    /{slug || "page-slug"}
+                    /{slug || t("slugUrlHintFallback")}
                   </strong>
                 </p>
               )}
@@ -1106,13 +1115,13 @@ export default function PageEditor({
                     <line x1="16" y1="17" x2="8" y2="17" />
                     <polyline points="10,9 9,9 8,9" />
                   </svg>
-                  Content
+                  {t("tabContent")}
                 </TabBtn>
                 <TabBtn
                   active={activeTab === "struttura"}
                   onClick={() => setActiveTab("struttura")}>
                   <GitBranch size={14} />
-                  Structure
+                  {t("tabStructure")}
                   {(parentId || templateId) && (
                     <span
                       className="w-1.5 h-1.5 rounded-full ml-0.5"
@@ -1126,7 +1135,7 @@ export default function PageEditor({
               active={activeTab === "seo"}
               onClick={() => setActiveTab("seo")}>
               <Search size={14} />
-              SEO
+              {t("tabSeo")}
               {!seo && (
                 <span
                   className="w-1.5 h-1.5 rounded-full ml-0.5"
@@ -1139,8 +1148,10 @@ export default function PageEditor({
                 active={activeTab === "pub"}
                 onClick={() => setActiveTab("pub")}>
                 <Calendar size={14} />
-                <span className="hidden sm:inline">Publishing</span>
-                <span className="sm:hidden">Pub.</span>
+                <span className="hidden sm:inline">
+                  {t("tabPublishing")}
+                </span>
+                <span className="sm:hidden">{t("tabPubShort")}</span>
               </TabBtn>
             )}
           </div>
@@ -1155,13 +1166,13 @@ export default function PageEditor({
                 }}>
                 <TBtn
                   onClick={() => editor?.chain().focus().undo().run()}
-                  title="Annulla"
+                  title={t("toolbarUndo")}
                   disabled={!editor?.can().undo()}>
                   <RotateCcw size={15} />
                 </TBtn>
                 <TBtn
                   onClick={() => editor?.chain().focus().redo().run()}
-                  title="Ripeti"
+                  title={t("toolbarRedo")}
                   disabled={!editor?.can().redo()}>
                   <RotateCw size={15} />
                 </TBtn>
@@ -1171,7 +1182,7 @@ export default function PageEditor({
                     editor?.chain().focus().toggleHeading({ level: 2 }).run()
                   }
                   active={editor?.isActive("heading", { level: 2 })}
-                  title="H2">
+                  title={t("toolbarH2")}>
                   <Heading2 size={15} />
                 </TBtn>
                 <TBtn
@@ -1179,20 +1190,20 @@ export default function PageEditor({
                     editor?.chain().focus().toggleHeading({ level: 3 }).run()
                   }
                   active={editor?.isActive("heading", { level: 3 })}
-                  title="H3">
+                  title={t("toolbarH3")}>
                   <Heading3 size={15} />
                 </TBtn>
                 <TDivider />
                 <TBtn
                   onClick={() => editor?.chain().focus().toggleBold().run()}
                   active={editor?.isActive("bold")}
-                  title="Grassetto">
+                  title={t("toolbarBold")}>
                   <Bold size={15} />
                 </TBtn>
                 <TBtn
                   onClick={() => editor?.chain().focus().toggleItalic().run()}
                   active={editor?.isActive("italic")}
-                  title="Corsivo">
+                  title={t("toolbarItalic")}>
                   <Italic size={15} />
                 </TBtn>
                 <TBtn
@@ -1200,13 +1211,13 @@ export default function PageEditor({
                     editor?.chain().focus().toggleUnderline().run()
                   }
                   active={editor?.isActive("underline")}
-                  title="Sottolineato">
+                  title={t("toolbarUnderline")}>
                   <UnderlineIcon size={15} />
                 </TBtn>
                 <TBtn
                   onClick={() => editor?.chain().focus().toggleCode().run()}
                   active={editor?.isActive("code")}
-                  title="Codice">
+                  title={t("toolbarCode")}>
                   <Code size={15} />
                 </TBtn>
                 <TDivider />
@@ -1215,7 +1226,7 @@ export default function PageEditor({
                     editor?.chain().focus().toggleBulletList().run()
                   }
                   active={editor?.isActive("bulletList")}
-                  title="Lista puntata">
+                  title={t("toolbarBulletList")}>
                   <List size={15} />
                 </TBtn>
                 <TBtn
@@ -1223,7 +1234,7 @@ export default function PageEditor({
                     editor?.chain().focus().toggleOrderedList().run()
                   }
                   active={editor?.isActive("orderedList")}
-                  title="Lista numerata">
+                  title={t("toolbarOrderedList")}>
                   <ListOrdered size={15} />
                 </TBtn>
                 <TDivider />
@@ -1232,7 +1243,7 @@ export default function PageEditor({
                     editor?.chain().focus().setTextAlign("left").run()
                   }
                   active={editor?.isActive({ textAlign: "left" })}
-                  title="Sinistra">
+                  title={t("toolbarAlignLeft")}>
                   <AlignLeft size={15} />
                 </TBtn>
                 <TBtn
@@ -1240,7 +1251,7 @@ export default function PageEditor({
                     editor?.chain().focus().setTextAlign("center").run()
                   }
                   active={editor?.isActive({ textAlign: "center" })}
-                  title="Centra">
+                  title={t("toolbarAlignCenter")}>
                   <AlignCenter size={15} />
                 </TBtn>
                 <TBtn
@@ -1248,21 +1259,21 @@ export default function PageEditor({
                     editor?.chain().focus().setTextAlign("right").run()
                   }
                   active={editor?.isActive({ textAlign: "right" })}
-                  title="Destra">
+                  title={t("toolbarAlignRight")}>
                   <AlignRight size={15} />
                 </TBtn>
                 <TDivider />
                 <TBtn
                   onClick={handleLinkInsert}
                   active={editor?.isActive("link")}
-                  title="Link">
+                  title={t("toolbarLink")}>
                   <Link2 size={15} />
                 </TBtn>
                 <TBtn
                   onClick={() =>
                     editor?.chain().focus().setHorizontalRule().run()
                   }
-                  title="Separatore">
+                  title={t("toolbarSeparator")}>
                   <Minus size={15} />
                 </TBtn>
               </div>

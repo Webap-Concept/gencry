@@ -3,11 +3,16 @@ import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import PageEditor from "../../_components/page-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Modifica pagina" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.content.pages");
+  return { title: t("metaTitleEdit") };
+}
 
 /** Legge allowedChildTemplateIds dal JSON `rules` del template padre */
 function getAllowedChildTemplateIds(rules: string | null | undefined): number[] {
