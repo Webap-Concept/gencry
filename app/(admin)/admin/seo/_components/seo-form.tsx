@@ -2,6 +2,7 @@
 
 import type { SeoPage } from "@/lib/db/schema";
 import { Info, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useState } from "react";
 import { upsertSeoPageAction } from "../actions";
 import { JSON_LD_TYPES, type JsonLdType } from "./jsonld-types";
@@ -10,44 +11,31 @@ export type { JsonLdType };
 
 type RobotsValue = "" | "noindex,nofollow" | "noindex,follow";
 
-const ROBOTS_OPTIONS: { value: RobotsValue; label: string; hint: string }[] = [
-  {
-    value: "",
-    label: "Default (index, follow)",
-    hint: "La pagina viene indicizzata normalmente",
-  },
-  {
-    value: "noindex,nofollow",
-    label: "noindex, nofollow",
-    hint: "Non indicizzare, non seguire i link",
-  },
-  {
-    value: "noindex,follow",
-    label: "noindex, follow",
-    hint: "Non indicizzare, ma segui i link",
-  },
-];
+type FormT = ReturnType<typeof useTranslations<"admin.seo.form">>;
 
-const JSON_LD_TOGGLE_HINT =
-  'Inietta un blocco <script type="application/ld+json"> nella pagina per i rich result di Google.';
-
-const JSON_LD_TYPE_HINTS: Record<JsonLdType, string> = {
-  WebPage: "Pagina web generica — ideale per homepage e pagine istituzionali",
-  Article:
-    "Articolo o notizia — migliora l'aspetto nei risultati di Google News",
-  BlogPosting:
-    "Post di blog — simile ad Article, ottimizzato per contenuti blog",
-  Product: "Scheda prodotto — mostra prezzo e disponibilità nei risultati",
-  FAQPage: "Pagina FAQ — abilita i rich result con domande e risposte espansi",
-  BreadcrumbList:
-    "Breadcrumb — mostra il percorso di navigazione nei risultati",
-  Organization: "Organizzazione — dati aziendali (nome, logo, contatti)",
-  LocalBusiness:
-    "Attività locale — indirizzo, orari e valutazioni su Google Maps",
-  Person: "Persona — profilo autore o collaboratore",
-  Event: "Evento — data, luogo e biglietti nei risultati di ricerca",
-  VideoObject: "Video — miniatura e durata nei rich result di YouTube/Google",
-};
+function getRobotsOptions(t: FormT): {
+  value: RobotsValue;
+  label: string;
+  hint: string;
+}[] {
+  return [
+    {
+      value: "",
+      label: t("robotsDefaultLabel"),
+      hint: t("robotsDefaultHint"),
+    },
+    {
+      value: "noindex,nofollow",
+      label: t("robotsNoIndexNoFollowLabel"),
+      hint: t("robotsNoIndexNoFollowHint"),
+    },
+    {
+      value: "noindex,follow",
+      label: t("robotsNoIndexFollowLabel"),
+      hint: t("robotsNoIndexFollowHint"),
+    },
+  ];
+}
 
 export function resolvePreview(text: string, appName: string): string {
   if (!appName || !text) return text;
@@ -92,6 +80,7 @@ export function Serp({
   domain: string;
   robots: RobotsValue;
 }) {
+  const t = useTranslations("admin.seo.form");
   const displayDomain = domain || "https://il-tuo-dominio.it";
   const isNoIndex = robots.startsWith("noindex");
   return (
@@ -108,7 +97,7 @@ export function Serp({
             textTransform: "uppercase",
             letterSpacing: "0.06em",
           }}>
-          Anteprima Google
+          {t("serpHeading")}
         </p>
         {isNoIndex && (
           <span
@@ -120,7 +109,7 @@ export function Serp({
               border:
                 "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
             }}>
-            noindex &mdash; non verrà indicizzata
+            {t("serpNoIndexBadge")}
           </span>
         )}
       </div>
@@ -129,7 +118,7 @@ export function Serp({
         style={{ color: "#1a0dab" }}>
         {title || (
           <span style={hintStyle}>
-            <em>Titolo non impostato</em>
+            <em>{t("serpTitleEmpty")}</em>
           </span>
         )}
       </p>
@@ -140,7 +129,7 @@ export function Serp({
       <p className="text-sm mt-0.5 line-clamp-2" style={{ color: "#545454" }}>
         {description || (
           <span style={hintStyle}>
-            <em>Descrizione non impostata</em>
+            <em>{t("serpDescriptionEmpty")}</em>
           </span>
         )}
       </p>
@@ -149,10 +138,11 @@ export function Serp({
 }
 
 function AppNameHint({ appName }: { appName: string }) {
+  const t = useTranslations("admin.seo.form");
   if (!appName) return null;
   return (
     <p style={hintStyle}>
-      Usa{" "}
+      {t("appNameHintBefore")}{" "}
       <code
         className="px-1 py-0.5 rounded font-mono"
         style={{
@@ -161,7 +151,7 @@ function AppNameHint({ appName }: { appName: string }) {
         }}>
         {"{"}appName{"}"}
       </code>{" "}
-      per inserire automaticamente il nome dell&apos;app:{" "}
+      {t("appNameHintAfter")}{" "}
       <strong style={{ color: "var(--admin-text-muted)" }}>{appName}</strong>.
     </p>
   );
@@ -243,7 +233,22 @@ export function SeoForm({
   lockedLabel?: string;
   hidePathnameField?: boolean;
 }) {
+  const t = useTranslations("admin.seo.form");
   const isEdit = !!page;
+  const robotsOptions = getRobotsOptions(t);
+  const jsonLdTypeHints: Record<JsonLdType, string> = {
+    WebPage: t("jsonLdHint_WebPage"),
+    Article: t("jsonLdHint_Article"),
+    BlogPosting: t("jsonLdHint_BlogPosting"),
+    Product: t("jsonLdHint_Product"),
+    FAQPage: t("jsonLdHint_FAQPage"),
+    BreadcrumbList: t("jsonLdHint_BreadcrumbList"),
+    Organization: t("jsonLdHint_Organization"),
+    LocalBusiness: t("jsonLdHint_LocalBusiness"),
+    Person: t("jsonLdHint_Person"),
+    Event: t("jsonLdHint_Event"),
+    VideoObject: t("jsonLdHint_VideoObject"),
+  };
   const [state, action, isPending] = useActionState(upsertSeoPageAction, {});
 
   const [title, setTitle] = useState(page?.title ?? "");
@@ -271,8 +276,8 @@ export function SeoForm({
   }
 
   const currentHint =
-    jsonLdType && jsonLdType in JSON_LD_TYPE_HINTS
-      ? JSON_LD_TYPE_HINTS[jsonLdType as JsonLdType]
+    jsonLdType && jsonLdType in jsonLdTypeHints
+      ? jsonLdTypeHints[jsonLdType as JsonLdType]
       : undefined;
 
   return (
@@ -290,7 +295,7 @@ export function SeoForm({
           className="flex items-center justify-between px-6 pt-5 pb-4"
           style={{ borderBottom: "1px solid var(--admin-divider)" }}>
           <h2 className="font-semibold" style={{ color: "var(--admin-text)" }}>
-            {isEdit ? "Modifica meta SEO" : "Configura meta SEO"}
+            {isEdit ? t("titleEdit") : t("titleNew")}
           </h2>
           <button
             onClick={onClose}
@@ -323,7 +328,7 @@ export function SeoForm({
               <input type="hidden" name="pathname" value={lockedPathname} />
               {!hidePathnameField && (
                 <div className="space-y-1.5">
-                  <label style={labelStyle}>Pagina</label>
+                  <label style={labelStyle}>{t("pathnameLabel")}</label>
                   <div
                     className="w-full rounded-lg px-3 py-2 text-sm font-mono"
                     style={{
@@ -338,7 +343,7 @@ export function SeoForm({
             </>
           ) : isEdit ? (
             <div className="space-y-1.5">
-              <label style={labelStyle}>Pagina</label>
+              <label style={labelStyle}>{t("pathnameLabel")}</label>
               <input type="hidden" name="pathname" value={page!.pathname} />
               <div
                 className="w-full rounded-lg px-3 py-2 text-sm font-mono"
@@ -349,19 +354,17 @@ export function SeoForm({
                 }}>
                 {page!.pathname}
               </div>
-              <p style={hintStyle}>
-                Il percorso URL non può essere modificato.
-              </p>
+              <p style={hintStyle}>{t("pathnameLockedHint")}</p>
             </div>
           ) : unconfiguredRoutes.length > 0 ? (
             <div className="space-y-1.5">
-              <label style={labelStyle}>Pagina</label>
+              <label style={labelStyle}>{t("pathnameLabel")}</label>
               <select
                 name="pathname"
                 value={pathname}
                 onChange={(e) => setPathname(e.target.value)}
                 style={inputStyle}>
-                <option value="">Seleziona una pagina...</option>
+                <option value="">{t("pathnameSelectPlaceholder")}</option>
                 {unconfiguredRoutes.map((r) => (
                   <option key={r} value={r}>
                     {r}
@@ -384,16 +387,18 @@ export function SeoForm({
                 <p
                   className="text-xs leading-relaxed"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  La lista dei percorsi è definita in{" "}
-                  <code
-                    className="font-mono px-1 py-0.5 rounded"
-                    style={{
-                      background: "var(--admin-hover-bg)",
-                      color: "var(--admin-accent)",
-                    }}>
-                    lib/routes.ts
-                  </code>
-                  . Se una pagina non compare, aggiungila prima a quel file.
+                  {t.rich("pathnameRoutesInfo", {
+                    c: (chunks) => (
+                      <code
+                        className="font-mono px-1 py-0.5 rounded"
+                        style={{
+                          background: "var(--admin-hover-bg)",
+                          color: "var(--admin-accent)",
+                        }}>
+                        {chunks}
+                      </code>
+                    ),
+                  })}
                 </p>
               </div>
             </div>
@@ -410,7 +415,7 @@ export function SeoForm({
               <p
                 className="text-xs font-medium"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Tutte le pagine dell&apos;app sono già configurate.
+                {t("pathnameAllConfigured")}
               </p>
             </div>
           )}
@@ -420,11 +425,11 @@ export function SeoForm({
             <input type="hidden" name="label" value={lockedLabel} />
           ) : (
             <div className="space-y-1.5">
-              <label style={labelStyle}>Nome (uso interno)</label>
+              <label style={labelStyle}>{t("labelLabel")}</label>
               <input
                 name="label"
                 defaultValue={page?.label ?? ""}
-                placeholder="Es: Pagina Esplora"
+                placeholder={t("labelPlaceholder")}
                 style={inputStyle}
               />
             </div>
@@ -442,7 +447,7 @@ export function SeoForm({
           {/* Meta Title */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label style={labelStyle}>Meta Title</label>
+              <label style={labelStyle}>{t("metaTitleLabel")}</label>
               <span
                 className="text-xs"
                 style={{
@@ -463,7 +468,7 @@ export function SeoForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={70}
-              placeholder="Titolo della pagina"
+              placeholder={t("metaTitlePlaceholder")}
               style={inputStyle}
             />
             <AppNameHint appName={appName} />
@@ -472,7 +477,7 @@ export function SeoForm({
           {/* Meta Description */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label style={labelStyle}>Meta Description</label>
+              <label style={labelStyle}>{t("metaDescriptionLabel")}</label>
               <span
                 className="text-xs"
                 style={{
@@ -494,7 +499,7 @@ export function SeoForm({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={160}
               rows={3}
-              placeholder="Descrizione della pagina"
+              placeholder={t("metaDescriptionPlaceholder")}
               style={{ ...inputStyle, resize: "none" }}
             />
             <AppNameHint appName={appName} />
@@ -502,20 +507,20 @@ export function SeoForm({
 
           {/* Meta Robots */}
           <div className="space-y-1.5">
-            <label style={labelStyle}>Meta Robots</label>
+            <label style={labelStyle}>{t("robotsLabel")}</label>
             <select
               name="robots"
               value={robots}
               onChange={(e) => setRobots(e.target.value as RobotsValue)}
               style={inputStyle}>
-              {ROBOTS_OPTIONS.map((opt) => (
+              {robotsOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
             </select>
             <p style={hintStyle}>
-              {ROBOTS_OPTIONS.find((o) => o.value === robots)?.hint}
+              {robotsOptions.find((o) => o.value === robots)?.hint}
             </p>
           </div>
 
@@ -528,8 +533,8 @@ export function SeoForm({
             }}>
             <Toggle
               name="jsonLdEnabled"
-              label="JSON-LD Structured Data"
-              hint={JSON_LD_TOGGLE_HINT}
+              label={t("jsonLdHeading")}
+              hint={t("jsonLdToggleHint")}
               checked={jsonLdEnabled}
               onChange={handleToggleJsonLd}
             />
@@ -540,7 +545,7 @@ export function SeoForm({
                 opacity: jsonLdEnabled ? 1 : 0,
               }}>
               <div className="pt-1 space-y-1.5">
-                <label style={labelStyle}>Tipo di schema</label>
+                <label style={labelStyle}>{t("jsonLdTypeLabel")}</label>
                 {jsonLdEnabled && (
                   <input type="hidden" name="jsonLdType" value={jsonLdType} />
                 )}
@@ -549,7 +554,7 @@ export function SeoForm({
                   onChange={(e) => setJsonLdType(e.target.value as JsonLdType)}
                   style={inputStyle}>
                   <option value="" disabled>
-                    Seleziona un tipo...
+                    {t("jsonLdTypePlaceholder")}
                   </option>
                   {JSON_LD_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -573,38 +578,38 @@ export function SeoForm({
               onMouseLeave={(e) =>
                 (e.currentTarget.style.color = "var(--admin-text-faint)")
               }>
-              Open Graph (opzionale)
+              {t("openGraphSummary")}
             </summary>
             <div className="mt-3 space-y-3">
               <div className="space-y-1.5">
-                <label style={labelStyle}>OG Title</label>
+                <label style={labelStyle}>{t("ogTitleLabel")}</label>
                 <input
                   name="ogTitle"
                   defaultValue={page?.ogTitle ?? ""}
                   maxLength={70}
-                  placeholder="Default: uguale al Meta Title"
+                  placeholder={t("ogTitlePlaceholder")}
                   style={inputStyle}
                 />
                 <AppNameHint appName={appName} />
               </div>
               <div className="space-y-1.5">
-                <label style={labelStyle}>OG Description</label>
+                <label style={labelStyle}>{t("ogDescriptionLabel")}</label>
                 <textarea
                   name="ogDescription"
                   defaultValue={page?.ogDescription ?? ""}
                   maxLength={200}
                   rows={2}
-                  placeholder="Default: uguale alla Meta Description"
+                  placeholder={t("ogDescriptionPlaceholder")}
                   style={{ ...inputStyle, resize: "none" }}
                 />
                 <AppNameHint appName={appName} />
               </div>
               <div className="space-y-1.5">
-                <label style={labelStyle}>OG Image URL</label>
+                <label style={labelStyle}>{t("ogImageLabel")}</label>
                 <input
                   name="ogImage"
                   defaultValue={page?.ogImage ?? ""}
-                  placeholder="https://..."
+                  placeholder={t("ogImagePlaceholder")}
                   style={inputStyle}
                 />
               </div>
@@ -644,7 +649,7 @@ export function SeoForm({
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "transparent")
               }>
-              Annulla
+              {t("cancelButton")}
             </button>
             <button
               type="submit"
@@ -661,7 +666,7 @@ export function SeoForm({
               {isPending && (
                 <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               )}
-              {isEdit ? "Salva modifiche" : "Configura SEO"}
+              {isEdit ? t("submitEditButton") : t("submitNewButton")}
             </button>
           </div>
         </form>

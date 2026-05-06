@@ -1,6 +1,8 @@
 import { Map } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
-export default function SitemapPage() {
+export default async function SitemapPage() {
+  const t = await getTranslations("admin.seo.sitemap");
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -17,12 +19,14 @@ export default function SitemapPage() {
           <h2
             className="text-xl font-bold"
             style={{ color: "var(--admin-text)" }}>
-            Sitemap
+            {t("pageHeading")}
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            Generazione automatica del file <code className="font-mono text-xs px-1 py-0.5 rounded" style={{ background: "var(--admin-hover-bg)" }}>sitemap.xml</code>.
+            {t("pageSubtitleBefore")}{" "}
+            <code className="font-mono text-xs px-1 py-0.5 rounded" style={{ background: "var(--admin-hover-bg)" }}>sitemap.xml</code>
+            {t("pageSubtitleAfter")}
           </p>
         </div>
       </div>
@@ -39,11 +43,10 @@ export default function SitemapPage() {
           <Map size={28} style={{ color: "var(--admin-text-faint)" }} />
         </div>
         <p className="font-semibold text-sm mb-1" style={{ color: "var(--admin-text)" }}>
-          In arrivo
+          {t("placeholderTitle")}
         </p>
         <p className="text-sm max-w-sm" style={{ color: "var(--admin-text-muted)" }}>
-          La generazione automatica della sitemap XML verrà implementata in una prossima versione.
-          Potrai configurare le priorità, le frequenze di aggiornamento e le pagine da escludere.
+          {t("placeholderBody")}
         </p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 // app/(admin)/admin/seo/not-found/page.tsx
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import {
   countNotFoundLogs,
   listNotFoundLogs,
@@ -12,7 +13,10 @@ import {
 } from "./actions";
 import NotFoundClient from "./_components/not-found-client";
 
-export const metadata: Metadata = { title: "404 Monitor" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.seo.notFound");
+  return { title: t("metaTitle") };
+}
 
 type SearchParams = Promise<{ show?: string }>;
 

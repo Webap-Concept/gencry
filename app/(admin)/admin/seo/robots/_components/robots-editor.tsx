@@ -2,6 +2,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { ExternalLink, Info, Loader2, Save } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveRobotsAction, type RobotsActionState } from "../actions";
 
@@ -83,6 +84,9 @@ export default function RobotsEditor({
   initialHumans: string;
   domain: string;
 }) {
+  const t = useTranslations("admin.seo.robots");
+  const locale = useLocale();
+  const numberLocale = locale === "en" ? "en-US" : "it-IT";
   const [state, action, isPending] = useActionState<RobotsActionState, FormData>(
     saveRobotsAction,
     {},
@@ -114,9 +118,9 @@ export default function RobotsEditor({
           }}>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <p style={labelStyle}>robots.txt</p>
+              <p style={labelStyle}>{t("robotsLabel")}</p>
               <p style={hintStyle}>
-                Servito automaticamente su{" "}
+                {t("robotsServedAtBefore")}{" "}
                 <code className="font-mono">/robots.txt</code>
               </p>
             </div>
@@ -126,14 +130,14 @@ export default function RobotsEditor({
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
               style={{ color: "var(--admin-accent)" }}>
-              Visualizza live <ExternalLink size={11} />
+              {t("viewLiveLink")} <ExternalLink size={11} />
             </a>
           </div>
 
           <InfoBox>
-            Controlla quali pagine i crawler possono scansionare. Usa{" "}
-            <code className="font-mono">Disallow: /percorso/</code> per bloccare una sezione e{" "}
-            <code className="font-mono">Allow: /percorso/</code> per consentirla esplicitamente.
+            {t.rich("robotsInfo", {
+              c: (chunks) => <code className="font-mono">{chunks}</code>,
+            })}
           </InfoBox>
 
           <textarea
@@ -144,7 +148,9 @@ export default function RobotsEditor({
             spellCheck={false}
             style={textareaStyle}
           />
-          <p style={hintStyle}>{robots.length.toLocaleString("it")} caratteri</p>
+          <p style={hintStyle}>
+            {t("charsCount", { count: robots.length.toLocaleString(numberLocale) })}
+          </p>
         </div>
 
         {/* humans.txt */}
@@ -156,9 +162,9 @@ export default function RobotsEditor({
           }}>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <p style={labelStyle}>humans.txt</p>
+              <p style={labelStyle}>{t("humansLabel")}</p>
               <p style={hintStyle}>
-                Servito automaticamente su{" "}
+                {t("humansServedAtBefore")}{" "}
                 <code className="font-mono">/humans.txt</code>
               </p>
             </div>
@@ -168,20 +174,22 @@ export default function RobotsEditor({
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
               style={{ color: "var(--admin-accent)" }}>
-              Visualizza live <ExternalLink size={11} />
+              {t("viewLiveLink")} <ExternalLink size={11} />
             </a>
           </div>
 
           <InfoBox>
-            File informativo opzionale che descrive il team e le tecnologie usate.{" "}
-            Vedi lo standard su{" "}
-            <a
-              href="https://humanstxt.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "var(--admin-accent)", textDecoration: "underline" }}>
-              humanstxt.org
-            </a>.
+            {t.rich("humansInfo", {
+              link: (chunks) => (
+                <a
+                  href="https://humanstxt.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--admin-accent)", textDecoration: "underline" }}>
+                  {chunks}
+                </a>
+              ),
+            })}
           </InfoBox>
 
           <textarea
@@ -192,7 +200,9 @@ export default function RobotsEditor({
             spellCheck={false}
             style={textareaStyle}
           />
-          <p style={hintStyle}>{humans.length.toLocaleString("it")} caratteri</p>
+          <p style={hintStyle}>
+            {t("charsCount", { count: humans.length.toLocaleString(numberLocale) })}
+          </p>
         </div>
 
         {/* Salva */}
@@ -214,7 +224,7 @@ export default function RobotsEditor({
             ) : (
               <Save size={15} />
             )}
-            {isPending ? "Salvataggio..." : "Salva"}
+            {isPending ? t("savingButton") : t("saveButton")}
           </button>
         </div>
       </form>
