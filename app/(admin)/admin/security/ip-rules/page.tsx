@@ -1,14 +1,20 @@
 // app/(admin)/admin/security/ip-rules/page.tsx
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { ListFilter } from "lucide-react";
 import { Suspense } from "react";
 import { IpRulesClient } from "./_components/ip-rules-client";
 
-export const metadata: Metadata = { title: "Sicurezza / Regole IP" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.security.ipRules");
+  return { title: t("metaTitle") };
+}
 
 export default async function AdminIpRulesPage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.security");
+  const tIp = await getTranslations("admin.security.ipRules");
 
   return (
     <div className="space-y-5">
@@ -24,12 +30,12 @@ export default async function AdminIpRulesPage() {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Sicurezza</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Regole IP</span>
+            <span>{tIp("pageTitle")}</span>
           </h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
-            Gestisci whitelist e blacklist degli indirizzi IP
+            {tIp("pageSubtitle")}
           </p>
         </div>
       </div>

@@ -3,8 +3,10 @@
 "use client";
 
 import { ListFilter } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function IpRulesClient() {
+  const t = useTranslations("admin.security.ipRules");
   return (
     <div
       className="rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center"
@@ -24,11 +26,10 @@ export function IpRulesClient() {
         <ListFilter size={22} style={{ color: "var(--admin-accent)" }} />
       </div>
       <p className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-        Regole IP
+        {t("placeholderTitle")}
       </p>
       <p className="text-sm max-w-sm" style={{ color: "var(--admin-text-faint)" }}>
-        Qui comparirà la gestione di whitelist (IP sempre ammessi) e blacklist
-        (IP sempre bloccati), indipendentemente dalle soglie bruteforce.
+        {t("placeholderBody")}
       </p>
     </div>
   );

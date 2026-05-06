@@ -3,6 +3,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import {
   addBlockedUsernameAction,
@@ -17,6 +18,7 @@ export function BlockedUsernamesClient({
 }: {
   initialEntries: Entry[];
 }) {
+  const t = useTranslations("admin.security.blockedUsernames");
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [search, setSearch] = useState("");
   const [newUsername, setNewUsername] = useState("");
@@ -50,7 +52,7 @@ export function BlockedUsernamesClient({
     const username = buildEntry(newUsername);
     if (!username || username === "*" || username === "**") return;
     if (usernames.includes(username)) {
-      showToast(`"${username}" è già in lista.`, "error");
+      showToast(t("errorAlreadyInList", { username }), "error");
       return;
     }
     startTransition(async () => {
@@ -84,7 +86,7 @@ export function BlockedUsernamesClient({
       .map((l) => l.trim().toLowerCase())
       .filter((l) => l.length > 0 && !usernames.includes(l));
     if (lines.length === 0) {
-      showToast("Nessun nuovo username da importare.", "error");
+      showToast(t("errorNoNewUsernames"), "error");
       return;
     }
     startBulkTransition(async () => {
@@ -120,7 +122,7 @@ export function BlockedUsernamesClient({
         {/* Aggiunta singola */}
         <div>
           <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--admin-text)" }}>
-            Aggiungi username
+            {t("addHeading")}
           </h3>
 
           {/* Toggle modalità pattern */}
@@ -141,7 +143,7 @@ export function BlockedUsernamesClient({
               />
             </button>
             <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Modalità pattern
+              {t("patternToggle")}
             </span>
             {patternMode && (
               <span
@@ -152,14 +154,16 @@ export function BlockedUsernamesClient({
                   border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
                 }}
               >
-                *parola* aggiunto automaticamente
+                {t("patternBadge")}
               </span>
             )}
           </div>
 
           {patternMode && (
             <p className="text-[11px] mb-2" style={{ color: "var(--admin-text-faint)" }}>
-              Sintassi: <code>*parola*</code> (contiene) · <code>parola*</code> (inizia con) · <code>*parola</code> (finisce con)
+              {t.rich("patternHelp", {
+                c: (chunks) => <code>{chunks}</code>,
+              })}
             </p>
           )}
 
@@ -169,7 +173,7 @@ export function BlockedUsernamesClient({
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
-              placeholder={patternMode ? "es. admin (diventerà *admin*)" : "es. amministratore"}
+              placeholder={patternMode ? t("placeholderPattern") : t("placeholderPlain")}
               className="flex-1 px-3 py-2 text-sm rounded-lg focus:outline-none"
               style={{
                 background: "var(--admin-page-bg)",
@@ -191,7 +195,7 @@ export function BlockedUsernamesClient({
               }
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Aggiungi
+              {t("addButton")}
             </button>
           </div>
         </div>
@@ -201,10 +205,12 @@ export function BlockedUsernamesClient({
         {/* Import bulk */}
         <div>
           <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
-            Import bulk
+            {t("bulkHeading")}
           </h3>
           <p className="text-[11px] mb-3" style={{ color: "var(--admin-text-faint)" }}>
-            Un username per riga. Usa <code>*parola*</code> per i pattern. I duplicati vengono ignorati.
+            {t.rich("bulkHelp", {
+              c: (chunks) => <code>{chunks}</code>,
+            })}
           </p>
           <textarea
             value={bulk}
@@ -237,7 +243,9 @@ export function BlockedUsernamesClient({
               ) : (
                 <Upload size={14} />
               )}
-              {isBulkPending ? "Importazione..." : `Importa ${bulkNewCount} username`}
+              {isBulkPending
+                ? t("bulkImporting")
+                : t("bulkImportButton", { count: bulkNewCount })}
             </button>
           </div>
         </div>
@@ -248,9 +256,9 @@ export function BlockedUsernamesClient({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-              Username bloccati{" "}
+              {t("listHeading")}{" "}
               <span className="font-normal text-xs" style={{ color: "var(--admin-text-muted)" }}>
-                ({entries.length})
+                {t("listCount", { count: entries.length })}
               </span>
             </h3>
             <div className="relative">
@@ -263,7 +271,7 @@ export function BlockedUsernamesClient({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cerca..."
+                placeholder={t("searchPlaceholder")}
                 className="pl-7 pr-3 py-1.5 text-xs rounded-lg focus:outline-none"
                 style={{
                   background: "var(--admin-page-bg)",
@@ -278,8 +286,8 @@ export function BlockedUsernamesClient({
           {filtered.length === 0 ? (
             <p className="text-sm py-4 text-center" style={{ color: "var(--admin-text-faint)" }}>
               {search
-                ? `Nessun risultato per "${search}"`
-                : "Nessun username bloccato."}
+                ? t("searchEmptyResult", { query: search })
+                : t("listEmpty")}
             </p>
           ) : (
             <div
@@ -318,7 +326,7 @@ export function BlockedUsernamesClient({
                             border: "1px solid color-mix(in srgb, var(--admin-accent) 20%, transparent)",
                           }}
                         >
-                          pattern
+                          {t("patternBadgeRow")}
                         </span>
                       )}
                     </div>
@@ -327,7 +335,7 @@ export function BlockedUsernamesClient({
                       onClick={() => handleRemove(entry.username)}
                       disabled={isPending}
                       className="p-1 rounded transition-colors disabled:opacity-40"
-                      title="Rimuovi"
+                      title={t("removeTooltip")}
                       style={{ color: "var(--admin-text-faint)" }}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.color = "var(--admin-danger, #e53e3e)")

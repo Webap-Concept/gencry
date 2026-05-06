@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ShieldAlert } from "lucide-react";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { getBruteforceData } from "./actions";
 import { BruteforceClient } from "./_components/bruteforce-client";
 
-export const metadata: Metadata = {
-  title: "Sicurezza / Bruteforce",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.security.bruteforce");
+  return { title: t("metaTitle") };
+}
 
 async function BruteforceContent() {
   const data = await getBruteforceData();
@@ -16,6 +18,8 @@ async function BruteforceContent() {
 
 export default async function AdminBruteforcePage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.security");
+  const tBf = await getTranslations("admin.security.bruteforce");
 
   return (
     <div className="space-y-5">
@@ -31,12 +35,12 @@ export default async function AdminBruteforcePage() {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Sicurezza</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>{t("breadcrumb")}</span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Bruteforce</span>
+            <span>{tBf("pageTitle")}</span>
           </h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
-            Monitora i tentativi di accesso sospetti e gestisci le regole di blocco.
+            {tBf("pageSubtitle")}
           </p>
         </div>
       </div>
