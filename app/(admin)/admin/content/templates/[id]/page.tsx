@@ -1,12 +1,12 @@
-import { notFound } from "next/navigation";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(frontend)/_templates/registered-slugs";
-import { getTemplateById, getAllTemplates } from "@/lib/db/template-queries";
+import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { PanelTop } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { saveTemplateAction } from "../actions";
+import { notFound } from "next/navigation";
 import TemplateFormClient from "../_components/template-form-client";
+import { saveTemplateAction } from "../actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.content.templates");
@@ -36,7 +36,7 @@ export default async function EditTemplatePage({
   const t = await getTranslations("admin.content.templates");
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="max-w-4xl">
       <AdminSectionHeader
         icon={PanelTop}
         breadcrumbLabel={t("breadcrumbContent")}
@@ -52,7 +52,11 @@ export default async function EditTemplatePage({
           fields: template.fields,
           isSystem: template.isSystem,
         }}
-        allTemplates={allTemplates.map((t) => ({ id: t.id, name: t.name, slug: t.slug }))}
+        allTemplates={allTemplates.map((t) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+        }))}
         registeredSlugs={Array.from(REGISTERED_TEMPLATE_SLUGS)}
         saveAction={saveTemplateAction}
       />
