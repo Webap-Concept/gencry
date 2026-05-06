@@ -1594,7 +1594,8 @@
         "langSlugLabel": "Locale Slug",
         "langSlugPlaceholder": "page-name",
         "langSlugHint": "URL: /{locale}/{slug}",
-        "langSlugChangedNotice": "A redirect will be created automatically from the old URL."
+        "langSlugChangedNotice": "A redirect will be created automatically from the old URL.",
+        "langSlugLockedHint": "Locked slug — system pages route on the default-locale path even in other languages."
       },
       "errors": {
         "saveError": "Error while saving. Please try again.",

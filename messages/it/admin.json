@@ -1594,7 +1594,8 @@
         "langSlugLabel": "Slug locale",
         "langSlugPlaceholder": "nome-pagina",
         "langSlugHint": "URL: /{locale}/{slug}",
-        "langSlugChangedNotice": "Verrà creato automaticamente un redirect dal vecchio URL."
+        "langSlugChangedNotice": "Verrà creato automaticamente un redirect dal vecchio URL.",
+        "langSlugLockedHint": "Slug bloccato — le pagine di sistema usano il path del locale default anche nelle altre lingue."
       },
       "errors": {
         "saveError": "Errore durante il salvataggio. Riprova.",

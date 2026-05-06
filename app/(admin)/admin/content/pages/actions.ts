@@ -161,22 +161,25 @@ export async function upsertPageAction(
 
   // Server-side guard: il flag UI può essere bypassato. Se la pagina
   // esistente è una system page con slug "locked" (whitelist in
-  // schema.ts), rifiutiamo qualunque cambio slug — verrebbe servita
-  // dal page handler hardcoded comunque, e il record resterebbe
-  // disallineato rispetto alla rotta vera.
-  if (slugChanged && id) {
+  // schema.ts):
+  //   - rifiutiamo cambio slug default
+  //   - ignoriamo gli slug delle traduzioni (anche le altre lingue
+  //     devono usare il pathname canonico, perché il page handler
+  //     hardcoded della rotta non sa di /en/<altro> per /sign-up & co.)
+  let slugLocked = false;
+  if (id) {
     const { getPageById } = await import("@/lib/db/pages-queries");
     const { isSystemSlugEditable } = await import("@/lib/db/schema");
     const existing = await getPageById(Number(id));
     if (existing) {
-      const editable = isSystemSlugEditable({
+      slugLocked = !isSystemSlugEditable({
         isSystem: existing.isSystem ?? false,
         systemKey: existing.systemKey ?? null,
       });
-      if (!editable) {
-        return { error: tErrors("slugBound") };
-      }
     }
+  }
+  if (slugChanged && slugLocked) {
+    return { error: tErrors("slugBound") };
   }
 
   try {
@@ -220,25 +223,31 @@ export async function upsertPageAction(
 
       for (const [locale, fields] of Object.entries(trData)) {
         if (locale === DEFAULT_LOCALE) continue;
-        const hasInput = fields.title || fields.slug || fields.content;
+        // Per system pages slug-locked azzeriamo lo slug locale anche se il
+        // client (o un bypass DOM) lo invia popolato — l'unica rotta servita
+        // resta quella canonica del default locale.
+        const effectiveSlug = slugLocked ? null : fields.slug || null;
+        const hasInput = fields.title || effectiveSlug || fields.content;
         if (!hasInput && !existingByLocale[locale]) continue;
 
-        // Rileva cambio slug locale per auto-redirect
-        const prevSlug = existingByLocale[locale]?.slug ?? null;
-        if (prevSlug && fields.slug && prevSlug !== fields.slug) {
-          await createAutoSlugRedirect({
-            pageId: savedId,
-            locale,
-            fromPath: `/${locale}/${prevSlug}`,
-            toPath: `/${locale}/${fields.slug}`,
-          });
+        // Rileva cambio slug locale per auto-redirect (skip se locked)
+        if (!slugLocked) {
+          const prevSlug = existingByLocale[locale]?.slug ?? null;
+          if (prevSlug && fields.slug && prevSlug !== fields.slug) {
+            await createAutoSlugRedirect({
+              pageId: savedId,
+              locale,
+              fromPath: `/${locale}/${prevSlug}`,
+              toPath: `/${locale}/${fields.slug}`,
+            });
+          }
         }
 
         await upsertPageTranslation({
           pageId: savedId,
           locale,
           title: fields.title || null,
-          slug: fields.slug || null,
+          slug: effectiveSlug,
           content: fields.content || null,
         });
       }
