@@ -4,7 +4,7 @@ import { db } from "@/lib/db/drizzle";
 import { translations } from "@/lib/db/schema";
 import { getAppSettings, type AppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 /**
  * Namespace per le traduzioni dei template email salvate in `translations`.
@@ -72,6 +72,62 @@ export async function getEmailTranslationsForLocale(
     if (row.value !== null) out[row.key] = row.value;
   }
   return out;
+}
+
+/**
+ * Batch upsert/delete di più chiavi email per una locale non-default.
+ * Valore vuoto dopo trim → DELETE della riga (fallback al default).
+ * Totale: al massimo 2 query (1 DELETE batch + 1 INSERT batch) invece di N.
+ */
+export async function batchUpsertEmailTranslations(
+  locale: Locale,
+  entries: Record<string, string | null>,
+): Promise<void> {
+  if (locale === DEFAULT_LOCALE) {
+    throw new Error(
+      "batchUpsertEmailTranslations: default locale must be saved via batchUpdateAppSettings",
+    );
+  }
+
+  const toDelete: string[] = [];
+  const toUpsert: { locale: string; namespace: string; key: string; value: string }[] = [];
+
+  for (const [key, value] of Object.entries(entries)) {
+    const trimmed = value?.trim() ?? "";
+    if (trimmed.length === 0) {
+      toDelete.push(key);
+    } else {
+      toUpsert.push({ locale, namespace: EMAIL_TRANSLATIONS_NAMESPACE, key, value: trimmed });
+    }
+  }
+
+  const ops: Promise<unknown>[] = [];
+
+  if (toDelete.length > 0) {
+    ops.push(
+      db.delete(translations).where(
+        and(
+          eq(translations.locale, locale),
+          eq(translations.namespace, EMAIL_TRANSLATIONS_NAMESPACE),
+          inArray(translations.key, toDelete),
+        ),
+      ),
+    );
+  }
+
+  if (toUpsert.length > 0) {
+    ops.push(
+      db
+        .insert(translations)
+        .values(toUpsert)
+        .onConflictDoUpdate({
+          target: [translations.locale, translations.namespace, translations.key],
+          set: { value: sql`excluded.value`, updatedAt: new Date() },
+        }),
+    );
+  }
+
+  await Promise.all(ops);
 }
 
 /**

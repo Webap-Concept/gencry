@@ -1,7 +1,7 @@
 // lib/db/settings-queries.ts
 import { db } from '@/lib/db/drizzle'
 import { appSettings } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { cache } from 'react'
 
 export type SettingKey =
@@ -436,6 +436,36 @@ async function fetchAppSettings(): Promise<AppSettings> {
 }
 
 export const getAppSettings = cache(fetchAppSettings)
+
+/**
+ * Batch update: 2 query totali invece di 2×N. Aggiorna updatedAt solo sulle
+ * righe che cambiano davvero, preservando il comportamento di updateAppSetting.
+ */
+export async function batchUpdateAppSettings(
+  updates: Partial<Record<SettingKey, string | null>>,
+): Promise<void> {
+  const entries = Object.entries(updates) as [SettingKey, string | null][];
+  if (entries.length === 0) return;
+
+  const keys = entries.map(([k]) => k) as string[];
+  const existing = await db
+    .select({ key: appSettings.key, value: appSettings.value })
+    .from(appSettings)
+    .where(inArray(appSettings.key, keys));
+
+  const existingMap = new Map(existing.map((r) => [r.key, r.value]));
+  const changed = entries.filter(([key, value]) => existingMap.get(key) !== value);
+  if (changed.length === 0) return;
+
+  const now = new Date();
+  await db
+    .insert(appSettings)
+    .values(changed.map(([key, value]) => ({ key, value, updatedAt: now })))
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
+    });
+}
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {
   // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
