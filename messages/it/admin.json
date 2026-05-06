@@ -974,6 +974,56 @@
         "deleted": "Ruolo eliminato",
         "assigned": "Ruolo assegnato"
       }
+    },
+    "staff": {
+      "metaTitle": "Utenti / Gestione staff",
+      "breadcrumbUsers": "Utenti",
+      "pageTitle": "Gestione staff",
+      "pageSubtitle": "Gestione degli utenti amministrativi",
+      "totalCount": "{count, plural, one {# amministratore} other {# amministratori}}",
+      "searchPlaceholder": "Cerca per nome o email...",
+      "filterRoleAll": "Tutti i ruoli",
+      "filterButton": "Filtra",
+      "resetButton": "Reset",
+      "paginationLabel": "Pagina {page} di {total}",
+      "paginationPrev": "← Precedente",
+      "paginationNext": "Successivo →",
+      "addStaffButton": "Aggiungi membro Staff",
+      "table": {
+        "headerMember": "Membro",
+        "headerRole": "Ruolo",
+        "headerEmail": "Email",
+        "headerAddedOn": "Aggiunto il",
+        "verifiedYes": "✓ Verificata",
+        "verifiedNo": "Non verificata",
+        "empty": "Nessun membro staff trovato."
+      },
+      "modal": {
+        "title": "Aggiungi membro Staff",
+        "closeAria": "Chiudi",
+        "tabPromote": "Promuovi utente",
+        "tabInvite": "Invita per email",
+        "promoteSearchLabel": "Cerca utente",
+        "promoteSearchPlaceholder": "Cerca per nome o email...",
+        "promoteSearching": "Ricerca…",
+        "promoteUserLabel": "Utente",
+        "promoteChangeUserAria": "Cambia utente",
+        "promoteRoleLabel": "Ruolo",
+        "promoteConfirmButton": "Aggiungi allo Staff",
+        "promoteGenericError": "Si è verificato un errore.",
+        "inviteEmailLabel": "Email da invitare",
+        "inviteEmailPlaceholder": "es. mario.rossi@esempio.it",
+        "inviteEmailHint": "Riceverà un'email con il link per creare l'account Staff.",
+        "inviteRoleLabel": "Ruolo",
+        "inviteConfirmButton": "Invia invito",
+        "inviteSentTitle": "Invito inviato",
+        "inviteSentSubtitle": "L'email con il link di invito è stata inviata a <strong>{email}</strong>."
+      },
+      "errors": {
+        "invalidEmail": "Email non valida.",
+        "emailAlreadyRegistered": "Questa email appartiene già a un utente registrato. Usa 'Promuovi utente'.",
+        "roleNotAssignable": "Ruolo non trovato o non assegnabile allo staff."
+      }
     }
   },
   "nav": {

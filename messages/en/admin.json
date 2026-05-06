@@ -974,6 +974,56 @@
         "deleted": "Role deleted",
         "assigned": "Role assigned"
       }
+    },
+    "staff": {
+      "metaTitle": "Users / Staff Management",
+      "breadcrumbUsers": "Users",
+      "pageTitle": "Staff Management",
+      "pageSubtitle": "Admin user management",
+      "totalCount": "{count, plural, one {# administrator} other {# administrators}}",
+      "searchPlaceholder": "Search by name or email...",
+      "filterRoleAll": "All roles",
+      "filterButton": "Filter",
+      "resetButton": "Reset",
+      "paginationLabel": "Page {page} of {total}",
+      "paginationPrev": "← Previous",
+      "paginationNext": "Next →",
+      "addStaffButton": "Add Staff Member",
+      "table": {
+        "headerMember": "Member",
+        "headerRole": "Role",
+        "headerEmail": "Email",
+        "headerAddedOn": "Added on",
+        "verifiedYes": "✓ Verified",
+        "verifiedNo": "Not verified",
+        "empty": "No staff members found."
+      },
+      "modal": {
+        "title": "Add Staff Member",
+        "closeAria": "Close",
+        "tabPromote": "Promote user",
+        "tabInvite": "Invite by email",
+        "promoteSearchLabel": "Search user",
+        "promoteSearchPlaceholder": "Search by name or email...",
+        "promoteSearching": "Searching…",
+        "promoteUserLabel": "User",
+        "promoteChangeUserAria": "Change user",
+        "promoteRoleLabel": "Role",
+        "promoteConfirmButton": "Add to Staff",
+        "promoteGenericError": "An error occurred.",
+        "inviteEmailLabel": "Email to invite",
+        "inviteEmailPlaceholder": "e.g. john.doe@example.com",
+        "inviteEmailHint": "They will receive an email with the link to create the Staff account.",
+        "inviteRoleLabel": "Role",
+        "inviteConfirmButton": "Send invite",
+        "inviteSentTitle": "Invite sent",
+        "inviteSentSubtitle": "The email with the invite link has been sent to <strong>{email}</strong>."
+      },
+      "errors": {
+        "invalidEmail": "Invalid email.",
+        "emailAlreadyRegistered": "This email already belongs to a registered user. Use 'Promote user' instead.",
+        "roleNotAssignable": "Role not found or not assignable to staff."
+      }
     }
   },
   "nav": {
