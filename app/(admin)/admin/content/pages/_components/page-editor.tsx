@@ -1138,14 +1138,28 @@ export default function PageEditor({
                       value={trFields[activeLang]?.slug ?? ""}
                       onChange={(e) => handleLocaleFieldChange(activeLang, "slug", e.target.value)}
                       placeholder={t("langSlugPlaceholder")}
+                      disabled={!slugEditable}
                       style={{
                         ...inputStyle,
                         borderRadius: "0 0.5rem 0.5rem 0",
                         fontFamily: "monospace",
+                        cursor: slugEditable ? undefined : "not-allowed",
+                        opacity: slugEditable ? 1 : 0.7,
                       }}
                     />
                   </div>
-                  {isEdit && trFields[activeLang]?.slug !== initialTrSlugs[activeLang] && (trFields[activeLang]?.slug || initialTrSlugs[activeLang]) ? (
+                  {!slugEditable ? (
+                    <p
+                      style={{
+                        ...hintStyle,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}>
+                      <Lock size={11} />
+                      {t("langSlugLockedHint")}
+                    </p>
+                  ) : isEdit && trFields[activeLang]?.slug !== initialTrSlugs[activeLang] && (trFields[activeLang]?.slug || initialTrSlugs[activeLang]) ? (
                     <div
                       className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
                       style={{
