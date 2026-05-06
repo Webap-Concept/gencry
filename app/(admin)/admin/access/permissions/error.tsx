@@ -2,6 +2,7 @@
 "use client";
 
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 export default function PermissionsError({
@@ -11,6 +12,8 @@ export default function PermissionsError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("admin.access.permissions");
+
   useEffect(() => {
     console.error("[admin/permissions] error:", error);
   }, [error]);
@@ -32,14 +35,14 @@ export default function PermissionsError({
         <h2
           className="text-base font-semibold"
           style={{ color: "var(--admin-text)" }}>
-          Error loading permissions
+          {t("errorLoadingTitle")}
         </h2>
         <p
           className="text-sm max-w-sm"
           style={{ color: "var(--admin-text-muted)" }}>
           {isMissingTable
-            ? "RBAC tables do not exist in the database yet. Please run SQL migration 0013 on Supabase."
-            : error.message || "An unexpected error occurred."}
+            ? t("errorMissingTables")
+            : error.message || t("errorFallback")}
         </p>
       </div>
 
@@ -53,7 +56,7 @@ export default function PermissionsError({
           <p
             className="text-xs font-semibold mb-2"
             style={{ color: "var(--admin-text-muted)" }}>
-            SQL to run on Supabase → SQL Editor:
+            {t("errorSqlSection")}
           </p>
           <pre
             className="text-[11px] overflow-x-auto"
@@ -103,7 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON "user_permissions"("user
         className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
         style={{ background: "var(--admin-accent)" }}>
         <RefreshCw size={14} />
-        Try again
+        {t("errorTryAgain")}
       </button>
     </div>
   );

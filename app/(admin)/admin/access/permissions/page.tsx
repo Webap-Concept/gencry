@@ -9,11 +9,15 @@ import {
 import { SYSTEM_PERMISSIONS } from "@/lib/rbac/system-permissions";
 import { KeyRound } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { PermissionsInfoCard } from "./_components/permissions-info-card";
 import { PermissionsManager } from "./_components/permissions-manager";
 
-export const metadata: Metadata = { title: "Users / Permissions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.access.permissions");
+  return { title: t("metaTitle") };
+}
 
 async function PermissionsContent() {
   const [allPermissions, roles, matrix, drift] = await Promise.all([
@@ -47,6 +51,7 @@ async function PermissionsContent() {
 
 export default async function AdminPermissionsPage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.access.permissions");
 
   return (
     <div className="space-y-5">
@@ -65,14 +70,16 @@ export default async function AdminPermissionsPage() {
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Users</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>
+              {t("breadcrumbUsers")}
+            </span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Permissions</span>
+            <span>{t("pageTitle")}</span>
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Manage the permission catalog and the role → permission matrix.
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>

@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -68,6 +69,7 @@ function EditPermissionForm({
   onSuccess: (updated: Partial<Permission>) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("admin.access.permissions.editForm");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -108,18 +110,18 @@ function EditPermissionForm({
       <p
         className="text-[11px] font-semibold uppercase tracking-widest"
         style={{ color: "var(--admin-text-faint)" }}>
-        Edit permission
+        {t("heading")}
       </p>
 
       <div>
         <label
           className="block text-xs font-medium mb-1"
           style={{ color: "var(--admin-text-muted)" }}>
-          Key{" "}
+          {t("keyLabel")}{" "}
           <span
             className="font-normal text-[11px]"
             style={{ color: "var(--admin-text-faint)" }}>
-            (not editable)
+            {t("keyNotEditable")}
           </span>
         </label>
         <div
@@ -139,14 +141,14 @@ function EditPermissionForm({
               background: "var(--admin-card-border)",
               color: "var(--admin-text-faint)",
             }}>
-            {perm.isSystem ? "system" : "custom"}
+            {perm.isSystem ? t("keyBadgeSystem") : t("keyBadgeCustom")}
           </span>
         </div>
         <p
           className="text-[11px] mt-1 flex items-center gap-1"
           style={{ color: "var(--admin-text-faint)" }}>
           <AlertTriangle size={10} />
-          Changing key could break access check in source code
+          {t("keyChangeWarning")}
         </p>
       </div>
 
@@ -155,13 +157,13 @@ function EditPermissionForm({
           <label
             className="block text-xs font-medium mb-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Label *
+            {t("labelLabel")}
           </label>
           <input
             name="label"
             required
             defaultValue={perm.label}
-            placeholder="Ex. Publish articles"
+            placeholder={t("labelPlaceholder")}
             className={inputCls}
             style={inputStyle}
           />
@@ -170,13 +172,13 @@ function EditPermissionForm({
           <label
             className="block text-xs font-medium mb-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Group *
+            {t("groupLabel")}
           </label>
           <input
             name="group"
             required
             defaultValue={perm.group}
-            placeholder="Es. Content"
+            placeholder={t("groupPlaceholder")}
             className={inputCls}
             style={inputStyle}
           />
@@ -185,12 +187,12 @@ function EditPermissionForm({
           <label
             className="block text-xs font-medium mb-1"
             style={{ color: "var(--admin-text-muted)" }}>
-            Description
+            {t("descriptionLabel")}
           </label>
           <input
             name="description"
             defaultValue={perm.description ?? ""}
-            placeholder="Optional"
+            placeholder={t("descriptionPlaceholder")}
             className={inputCls}
             style={inputStyle}
           />
@@ -214,7 +216,7 @@ function EditPermissionForm({
             background: "var(--admin-hover-bg)",
             color: "var(--admin-text-muted)",
           }}>
-          Cancel
+          {t("cancelButton")}
         </button>
         <button
           type="submit"
@@ -223,10 +225,10 @@ function EditPermissionForm({
           style={{ background: "var(--admin-accent)", color: "#fff" }}>
           {pending ? (
             <>
-              <Loader2 size={12} className="animate-spin" /> Saving...
+              <Loader2 size={12} className="animate-spin" /> {t("savingButton")}
             </>
           ) : (
-            "Save changes"
+            t("saveButton")
           )}
         </button>
       </div>
@@ -246,6 +248,7 @@ function PermissionCatalog({
   onDelete: (id: number) => Promise<void>;
   onUpdate: (id: number, patch: Partial<Permission>) => void;
 }) {
+  const t = useTranslations("admin.access.permissions.catalog");
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -310,7 +313,7 @@ function PermissionCatalog({
           />
           <input
             type="text"
-            placeholder="Filter permissions..."
+            placeholder={t("filterPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-4 py-2 text-sm rounded-lg outline-none"
@@ -326,7 +329,7 @@ function PermissionCatalog({
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg text-white whitespace-nowrap"
             style={{ background: "var(--admin-accent)" }}>
-            <Plus size={13} /> New
+            <Plus size={13} /> {t("newButton")}
           </button>
         )}
       </div>
@@ -342,7 +345,7 @@ function PermissionCatalog({
           <p
             className="text-[11px] font-semibold uppercase tracking-widest"
             style={{ color: "var(--admin-text-faint)" }}>
-            New permission
+            {t("newPermissionHeading")}
           </p>
           <datalist id={datalistId}>
             {systemKeys.map((k) => (
@@ -354,13 +357,13 @@ function PermissionCatalog({
               <label
                 className="block text-xs font-medium mb-1"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Key *
+                {t("fieldKeyLabel")}
               </label>
               <input
                 name="key"
                 list={datalistId}
                 required
-                placeholder="resource:action"
+                placeholder={t("fieldKeyPlaceholder")}
                 className={inputCls}
                 style={inputStyle}
                 value={keyValue}
@@ -371,12 +374,12 @@ function PermissionCatalog({
               <label
                 className="block text-xs font-medium mb-1"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Label *
+                {t("fieldLabelLabel")}
               </label>
               <input
                 name="label"
                 required
-                placeholder="Ex. Publish article"
+                placeholder={t("fieldLabelPlaceholder")}
                 className={inputCls}
                 style={inputStyle}
                 defaultValue={suggested?.description ?? ""}
@@ -387,30 +390,28 @@ function PermissionCatalog({
               <label
                 className="block text-xs font-medium mb-1"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Group *
+                {t("fieldGroupLabel")}
               </label>
               <input
                 name="group"
                 required
-                placeholder="Ex. content"
+                placeholder={t("fieldGroupPlaceholder")}
                 className={inputCls}
                 style={inputStyle}
                 defaultValue={suggested?.group ?? ""}
                 key={(suggested?.key ?? "custom") + "-group"}
               />
-              <p className="text-[11px] mt-1">
-                Prefer to keep the suggested group
-              </p>
+              <p className="text-[11px] mt-1">{t("fieldGroupHint")}</p>
             </div>
             <div>
               <label
                 className="block text-xs font-medium mb-1"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Description
+                {t("fieldDescriptionLabel")}
               </label>
               <input
                 name="description"
-                placeholder="Optional"
+                placeholder={t("fieldDescriptionPlaceholder")}
                 className={inputCls}
                 style={inputStyle}
               />
@@ -435,14 +436,14 @@ function PermissionCatalog({
                 background: "var(--admin-hover-bg)",
                 color: "var(--admin-text-muted)",
               }}>
-              Cancel
+              {t("cancelButton")}
             </button>
             <button
               type="submit"
               disabled={pending}
               className="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
               style={{ background: "var(--admin-accent)", color: "#fff" }}>
-              {pending ? "Saving..." : "Save"}
+              {pending ? t("savingButton") : t("saveButton")}
             </button>
           </div>
         </form>
@@ -463,7 +464,7 @@ function PermissionCatalog({
           className="py-10 text-center"
           style={{ color: "var(--admin-text-faint)" }}>
           <Shield size={28} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No permission found</p>
+          <p className="text-sm">{t("empty")}</p>
         </div>
       )}
     </div>
@@ -482,6 +483,7 @@ function GroupSection({
   onDelete: (id: number) => Promise<void>;
   onUpdate: (id: number, patch: Partial<Permission>) => void;
 }) {
+  const t = useTranslations("admin.access.permissions.catalog");
   const [open, setOpen] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -515,7 +517,7 @@ function GroupSection({
               background: "var(--admin-card-border)",
               color: "var(--admin-text-faint)",
             }}>
-            {perms.length} {perms.length === 1 ? "key" : "keys"}
+            {t("groupKeysCount", { count: perms.length })}
           </span>
           {open ? (
             <ChevronDown
@@ -583,8 +585,8 @@ function GroupSection({
                       onMouseLeave={(e) =>
                         (e.currentTarget.style.background = "transparent")
                       }
-                      title={`Edit "${perm.label}"`}
-                      aria-label={`Edit permission ${perm.label}`}>
+                      title={t("editAriaTitle", { label: perm.label })}
+                      aria-label={t("editAriaLabel", { label: perm.label })}>
                       <Pencil size={13} />
                     </button>
                   )}
@@ -593,14 +595,14 @@ function GroupSection({
                       <button
                         onClick={() => handleDelete(perm.id)}
                         className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        title="Confirm deletion">
+                        title={t("confirmDeleteTitle")}>
                         <Check size={13} />
                       </button>
                       <button
                         onClick={() => setDeletingId(null)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: "var(--admin-text-muted)" }}
-                        title="Cancel">
+                        title={t("cancelDeleteTitle")}>
                         <X size={13} />
                       </button>
                     </div>
@@ -622,13 +624,13 @@ function GroupSection({
                       }
                       title={
                         perm.isSystem
-                          ? "System permissions can't be deleted"
-                          : `Delete "${perm.label}"`
+                          ? t("deleteDisabledTitle")
+                          : t("deleteAriaTitle", { label: perm.label })
                       }
                       aria-label={
                         perm.isSystem
-                          ? "System permissions can't be deleted"
-                          : `Delete permission ${perm.label}`
+                          ? t("deleteDisabledTitle")
+                          : t("deleteAriaLabel", { label: perm.label })
                       }>
                       <Trash2 size={13} />
                     </button>
@@ -637,7 +639,7 @@ function GroupSection({
                       onClick={() => setEditingId(null)}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: "var(--admin-text-muted)" }}
-                      title="Cancel">
+                      title={t("cancelDeleteTitle")}>
                       <X size={13} />
                     </button>
                   )}
@@ -682,6 +684,7 @@ function PresetGroupHeader({
   hasPermission: (roleId: number, permId: number) => boolean;
   onPreset: (roleId: number, permIds: number[], grant: boolean) => void;
 }) {
+  const t = useTranslations("admin.access.permissions.matrix");
   const allGranted = perms.every((p) => hasPermission(roleId, p.id));
   const noneGranted = perms.every((p) => !hasPermission(roleId, p.id));
   const partial = !allGranted && !noneGranted;
@@ -726,8 +729,10 @@ function PresetGroupHeader({
             background: "var(--admin-card-border)",
             color: "var(--admin-text-faint)",
           }}>
-          {perms.filter((p) => hasPermission(roleId, p.id)).length}/
-          {perms.length}
+          {t("groupCount", {
+            granted: perms.filter((p) => hasPermission(roleId, p.id)).length,
+            total: perms.length,
+          })}
         </span>
       </div>
 
@@ -750,9 +755,9 @@ function PresetGroupHeader({
               border:
                 "1px solid color-mix(in oklch, var(--admin-accent) 25%, transparent)",
             }}
-            title={`Assign all permissions in the group "${group}" to this role`}>
+            title={t("groupGrantAllTitle", { group })}>
             <CheckSquare size={10} />
-            Grant all
+            {t("groupGrantAll")}
           </button>
         )}
         {/* Revoca tutto il gruppo */}
@@ -771,9 +776,9 @@ function PresetGroupHeader({
               color: "#dc2626",
               border: "1px solid #fecaca",
             }}
-            title={`Revoke all permissions in the group "${group}" from this role`}>
+            title={t("groupRevokeAllTitle", { group })}>
             <X size={10} />
-            Revoke all
+            {t("groupRevokeAll")}
           </button>
         )}
       </div>
@@ -791,6 +796,7 @@ function RoleMatrix({
   roles: RoleRow[];
   initialRolePermissions: RolePermission[];
 }) {
+  const t = useTranslations("admin.access.permissions.matrix");
   const [optimisticRPs, applyOptimistic] = useOptimistic(
     initialRolePermissions,
     (
@@ -923,7 +929,7 @@ function RoleMatrix({
         className="py-12 text-center"
         style={{ color: "var(--admin-text-faint)" }}>
         <Shield size={28} className="mx-auto mb-2 opacity-30" />
-        <p className="text-sm">No role found</p>
+        <p className="text-sm">{t("emptyRoles")}</p>
       </div>
     );
   }
@@ -945,7 +951,7 @@ function RoleMatrix({
             borderBottom: "1px solid var(--admin-card-border)",
             color: "var(--admin-text-faint)",
           }}>
-          Roles
+          {t("rolesHeading")}
         </div>
         {roles.map((r) => {
           const count = optimisticRPs.filter((rp) => rp.roleId === r.id).length;
@@ -988,7 +994,7 @@ function RoleMatrix({
                       ? "var(--admin-text-muted)"
                       : "var(--admin-text-faint)",
                   }}>
-                  {count} permissions
+                  {t("rolePermissionsCount", { count })}
                 </span>
               </div>
             </button>
@@ -1024,15 +1030,15 @@ function RoleMatrix({
                       background: "var(--admin-hover-bg)",
                       color: "var(--admin-text-faint)",
                     }}>
-                    Admin — all permissions by default
+                    {t("adminBadge")}
                   </span>
                 )}
                 {presetLoading && (
                   <span
                     className="flex items-center gap-1 text-[10px]"
                     style={{ color: "var(--admin-accent)" }}>
-                    <Loader2 size={10} className="animate-spin" /> Applying
-                    preset...
+                    <Loader2 size={10} className="animate-spin" />{" "}
+                    {t("applyingPreset")}
                   </span>
                 )}
               </div>
@@ -1056,8 +1062,8 @@ function RoleMatrix({
                         border:
                           "1px solid color-mix(in oklch, var(--admin-accent) 25%, transparent)",
                       }}
-                      title="Grant ALL permissions to this Role">
-                      <CheckSquare size={10} /> All
+                      title={t("presetGrantAllTitle")}>
+                      <CheckSquare size={10} /> {t("presetGrantAll")}
                     </button>
                     <button
                       onClick={() =>
@@ -1073,8 +1079,8 @@ function RoleMatrix({
                         color: "#dc2626",
                         border: "1px solid #fecaca",
                       }}
-                      title="Revole ALL permissions to this Role">
-                      <X size={10} /> None
+                      title={t("presetRevokeAllTitle")}>
+                      <X size={10} /> {t("presetRevokeAll")}
                     </button>
                   </div>
                 )}
@@ -1086,7 +1092,7 @@ function RoleMatrix({
                   />
                   <input
                     type="text"
-                    placeholder="Filter..."
+                    placeholder={t("filterPlaceholder")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-7 pr-3 py-1.5 text-xs rounded-lg outline-none border"
@@ -1150,17 +1156,17 @@ function RoleMatrix({
                           className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                           title={
                             role.isAdmin
-                              ? "Admin has all permissions"
+                              ? t("toggleAdminTitle")
                               : has
-                                ? `Revoke "${perm.label}"`
-                                : `Grant "${perm.label}"`
+                                ? t("toggleRevokeTitle", { label: perm.label })
+                                : t("toggleGrantTitle", { label: perm.label })
                           }
                           aria-label={
                             role.isAdmin
-                              ? "Admin has all permissions"
+                              ? t("toggleAdminAria")
                               : has
-                                ? `Revoke permission ${perm.label}`
-                                : `Grant permission ${perm.label}`
+                                ? t("toggleRevokeAria", { label: perm.label })
+                                : t("toggleGrantAria", { label: perm.label })
                           }
                           style={{
                             background: has
@@ -1191,7 +1197,7 @@ function RoleMatrix({
                 <div
                   className="py-10 text-center"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  <p className="text-sm">No permission found</p>
+                  <p className="text-sm">{t("emptyPermissions")}</p>
                 </div>
               )}
             </div>
@@ -1204,6 +1210,7 @@ function RoleMatrix({
 
 // ─── SystemKeysPanel ──────────────────────────────────────────────────
 function SystemKeysPanel({ keys }: { keys: Props["systemKeys"] }) {
+  const t = useTranslations("admin.access.permissions.systemKeys");
   const [open, setOpen] = useState(false);
   const grouped = keys.reduce<Record<string, typeof keys>>((acc, k) => {
     (acc[k.group] ??= []).push(k);
@@ -1232,7 +1239,7 @@ function SystemKeysPanel({ keys }: { keys: Props["systemKeys"] }) {
           <span
             className="text-sm font-medium"
             style={{ color: "var(--admin-text)" }}>
-            System keys available
+            {t("triggerLabel")}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -1242,7 +1249,7 @@ function SystemKeysPanel({ keys }: { keys: Props["systemKeys"] }) {
               background: "var(--admin-card-border)",
               color: "var(--admin-text-faint)",
             }}>
-            {keys.length} keys
+            {t("keysCount", { count: keys.length })}
           </span>
           <ChevronRight
             size={13}
@@ -1301,6 +1308,7 @@ function SystemKeysPanel({ keys }: { keys: Props["systemKeys"] }) {
 // Shows when the in-code system catalog is ahead of the DB. One click on
 // "Sync now" runs the same upsert the seed script does — idempotent.
 function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
+  const t = useTranslations("admin.access.permissions.sync");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<
@@ -1339,7 +1347,7 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
       } catch (e) {
         setResult({
           ok: false,
-          error: e instanceof Error ? e.message : "Sync failed",
+          error: e instanceof Error ? e.message : t("syncFailed"),
         });
       }
     });
@@ -1361,8 +1369,11 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
           style={{ color: "var(--admin-accent)", flexShrink: 0 }}
         />
         <p className="text-sm" style={{ color: "var(--admin-text)" }}>
-          Synced — {result.inserted} added, {result.refreshed} refreshed,{" "}
-          {result.granted} granted to admin role.
+          {t("syncedBanner", {
+            inserted: result.inserted,
+            refreshed: result.refreshed,
+            granted: result.granted,
+          })}
         </p>
       </div>
     );
@@ -1372,10 +1383,10 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
 
   const headline =
     missingCount > 0 && divergentCount > 0
-      ? `${missingCount} system permission${missingCount === 1 ? "" : "s"} missing from DB · ${divergentCount} drifted`
+      ? t("headlineMixed", { missing: missingCount, drifted: divergentCount })
       : missingCount > 0
-        ? `${missingCount} system permission${missingCount === 1 ? "" : "s"} defined in code but missing from the DB`
-        : `${divergentCount} system permission${divergentCount === 1 ? "" : "s"} have drifted from the code definition`;
+        ? t("headlineMissing", { count: missingCount })
+        : t("headlineDrifted", { count: divergentCount });
 
   return (
     <div
@@ -1398,9 +1409,7 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
           <p
             className="text-[12px] mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            The matrix and catalog read from the DB — until you sync, these
-            keys won&apos;t be assignable. Click below to upsert them
-            (idempotent, safe to re-run).
+            {t("body")}
           </p>
 
           {missingCount > 0 && (
@@ -1424,7 +1433,7 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
                 <span
                   className="text-[11px]"
                   style={{ color: "var(--admin-text-faint)" }}>
-                  +{missingCount - 8} more
+                  {t("moreCount", { count: missingCount - 8 })}
                 </span>
               )}
             </div>
@@ -1448,12 +1457,12 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
           {pending ? (
             <>
               <Loader2 size={12} className="animate-spin" />
-              Syncing…
+              {t("syncing")}
             </>
           ) : (
             <>
               <RefreshCw size={12} />
-              Sync now
+              {t("syncNow")}
             </>
           )}
         </button>
@@ -1464,8 +1473,8 @@ function DriftBanner({ drift }: { drift: SystemPermissionsDrift }) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────
 const TABS = [
-  { id: "matrix", label: "Set Permissions to Roles", icon: ShieldCheck },
-  { id: "catalog", label: "Permission Catalog", icon: Shield },
+  { id: "matrix", icon: ShieldCheck },
+  { id: "catalog", icon: Shield },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -1477,6 +1486,7 @@ export function PermissionsManager({
   systemKeys,
   drift,
 }: Props) {
+  const t = useTranslations("admin.access.permissions.tabs");
   const [activeTab, setActiveTab] = useState<TabId>("matrix");
   const [optimisticPerms, applyOptimistic] = useOptimistic(
     initialPermissions,
@@ -1534,7 +1544,7 @@ export function PermissionsManager({
                 boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
               }}>
               <Icon size={13} />
-              {tab.label}
+              {t(tab.id)}
             </button>
           );
         })}
