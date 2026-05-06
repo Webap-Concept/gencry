@@ -4,19 +4,16 @@
 import { ArrowLeft, Check, ExternalLink, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export interface BreadcrumbSegment {
-  label: string;
-  href?: string;
-}
-
 interface EditorPageHeaderProps {
-  breadcrumbs: BreadcrumbSegment[];
-  currentLabel: string;
+  /** Dove tornare quando si clicca "Back". */
   backHref: string;
+  /** Label localizzata per il pulsante Back (default = "Back"). */
+  backLabel?: string;
   saveLabel?: string;
   formId: string;
   isPending?: boolean;
   savedAt?: string | null;
+  savedAtLabel?: (time: string) => string;
   error?: string | null;
   /**
    * ID numerico della pagina (solo in modifica).
@@ -35,21 +32,26 @@ interface EditorPageHeaderProps {
   previewUrl?: string | null;
 }
 
+/**
+ * Header compatto del form di edit: solo link Back + feedback "Saved at"
+ * + bottoni view/preview + Save. Niente breadcrumb né label corrente —
+ * il contesto della sezione è dato dal nuovo `AdminSectionHeader` che
+ * vive sopra il form (vedi `_components/section-header.tsx`).
+ */
 export function EditorPageHeader({
-  breadcrumbs,
-  currentLabel,
   backHref,
+  backLabel = "Back",
   saveLabel = "Salva modifiche",
   formId,
   isPending = false,
   savedAt,
+  savedAtLabel,
   error,
   pageId,
   pageStatus,
   previewUrl,
 }: EditorPageHeaderProps) {
   const router = useRouter();
-  const lastIdx = breadcrumbs.length - 1;
 
   const isPublished = pageStatus === "published";
   const showOnlineBtn = isPublished && !!previewUrl;
@@ -70,58 +72,10 @@ export function EditorPageHeader({
             (e.currentTarget.style.color = "var(--admin-text-muted)")
           }>
           <ArrowLeft size={15} />
-          <span className="hidden sm:inline">Back</span>
+          <span className="hidden sm:inline">{backLabel}</span>
         </button>
 
-        <div
-          className="w-px h-4 shrink-0"
-          style={{ background: "var(--admin-divider)" }}
-        />
-
-        {/* Breadcrumb */}
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-          {breadcrumbs.map((seg, i) => {
-            const hiddenOnMobile = i < lastIdx;
-            return (
-              <span
-                key={i}
-                className={`flex items-center gap-1 shrink-0 ${
-                  hiddenOnMobile ? "hidden sm:flex" : "flex"
-                }`}>
-                {seg.href ? (
-                  <a
-                    href={seg.href}
-                    className="text-xs transition-colors hover:underline"
-                    style={{ color: "var(--admin-text-muted)" }}>
-                    {seg.label}
-                  </a>
-                ) : (
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--admin-text-muted)" }}>
-                    {seg.label}
-                  </span>
-                )}
-                <span
-                  className="text-xs select-none"
-                  style={{ color: "var(--admin-text-faint)" }}
-                  aria-hidden>
-                  /
-                </span>
-              </span>
-            );
-          })}
-
-          {/* Segmento corrente */}
-          <span
-            className="text-xs font-medium truncate"
-            style={{ color: "var(--admin-text)" }}
-            title={currentLabel}>
-            {currentLabel}
-          </span>
-        </nav>
+        <div className="flex-1" />
 
         {/* Destra: feedback + bottone view/preview + bottone Salva */}
         <div className="flex items-center gap-2 shrink-0">
@@ -137,7 +91,9 @@ export function EditorPageHeader({
                     "1px solid color-mix(in srgb, #22c55e 25%, transparent)",
                 }}>
                 <Check size={12} />
-                <span>Salvato alle {savedAt}</span>
+                <span>
+                  {savedAtLabel ? savedAtLabel(savedAt) : `Salvato alle ${savedAt}`}
+                </span>
               </span>
               <span
                 className="sm:hidden flex items-center justify-center w-7 h-7 rounded-lg"

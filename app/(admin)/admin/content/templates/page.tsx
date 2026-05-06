@@ -1,3 +1,4 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { isTemplateSlugRegistered } from "@/app/(frontend)/_templates/registered-slugs";
 import { getAdminPath } from "@/lib/admin-nav";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
@@ -20,44 +21,22 @@ export default async function TemplatePage() {
 
   return (
     <div className="">
-      <div className="flex items-start justify-between gap-3 mb-6">
-        <div className="flex items-start gap-3 min-w-0">
-          <div
-            className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center"
-            style={{
-              background:
-                "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-              border:
-                "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-            }}>
-            <PanelTop size={18} style={{ color: "var(--admin-accent)" }} />
-          </div>
-          <div className="min-w-0">
-            <h1
-              className="text-lg font-bold"
-              style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>
-                {t("breadcrumbContent")}
-              </span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{t("pageTitle")}</span>
-            </h1>
-            <p
-              className="text-sm mt-0.5"
-              style={{ color: "var(--admin-text-faint)" }}>
-              {t("pageSubtitle")}
-            </p>
-          </div>
-        </div>
-        <Link
-          href={`${getAdminPath("content-templates")}/new`}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white shrink-0"
-          style={{ background: "var(--admin-accent)" }}>
-          <Plus size={16} />
-          <span className="hidden sm:inline">{t("newButtonFull")}</span>
-          <span className="sm:hidden">{t("newButtonShort")}</span>
-        </Link>
-      </div>
+      <AdminSectionHeader
+        icon={PanelTop}
+        breadcrumbLabel={t("breadcrumbContent")}
+        title={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
+        actionSlot={
+          <Link
+            href={`${getAdminPath("content-templates")}/new`}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: "var(--admin-accent)" }}>
+            <Plus size={16} />
+            <span className="hidden sm:inline">{t("newButtonFull")}</span>
+            <span className="sm:hidden">{t("newButtonShort")}</span>
+          </Link>
+        }
+      />
 
       {templates.length === 0 ? (
         <div

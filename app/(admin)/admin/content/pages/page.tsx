@@ -1,3 +1,4 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { getAllPages } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -41,41 +42,19 @@ export default async function ContentPage() {
   const t = await getTranslations("admin.content.pages");
   return (
     <div className="space-y-5">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-            border:
-              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}>
-          <FileText size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2
-              className="text-lg font-bold"
-              style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>
-                {t("breadcrumbContent")}
-              </span>
-              <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>{t("pageTitle")}</span>
-            </h2>
-            <AdminSectionInfo
-              title={t("guideTitle")}
-              ariaLabel={t("guideAriaLabel")}>
-              <PagesAdminGuide />
-            </AdminSectionInfo>
-          </div>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {t("pageSubtitle")}
-          </p>
-        </div>
-      </div>
+      <AdminSectionHeader
+        icon={FileText}
+        breadcrumbLabel={t("breadcrumbContent")}
+        title={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={t("guideTitle")}
+            ariaLabel={t("guideAriaLabel")}>
+            <PagesAdminGuide />
+          </AdminSectionInfo>
+        }
+      />
 
       <div
         className="rounded-xl shadow-sm p-5"

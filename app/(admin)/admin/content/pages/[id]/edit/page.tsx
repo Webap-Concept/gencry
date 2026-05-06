@@ -1,8 +1,10 @@
+import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getPageById, getAllPages, getEnabledLocales, getPageTranslationsForPage } from "@/lib/db/pages-queries";
 import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { getSeoPage, getSeoPageTranslations } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -66,8 +68,15 @@ export default async function EditPagePage({
     }
   }
 
+  const t = await getTranslations("admin.content.pages");
+
   return (
     <div className="p-6 max-w-4xl">
+      <AdminSectionHeader
+        icon={FileText}
+        breadcrumbLabel={t("breadcrumbContent")}
+        title={t("pageTitle")}
+      />
       <PageEditor
         page={page}
         seo={seo}

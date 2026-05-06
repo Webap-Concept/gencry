@@ -1354,6 +1354,8 @@
       "form": {
         "saveButton": "Salva",
         "createButton": "Crea template",
+        "backButton": "Indietro",
+        "savedAtLabel": "Salvato alle {time}",
         "saveError": "Errore durante il salvataggio. Riprova.",
         "breadcrumbPages": "Pagine",
         "breadcrumbTemplates": "Template",
@@ -1505,6 +1507,8 @@
       "editor": {
         "saveButton": "Salva",
         "createButton": "Crea pagina",
+        "backButton": "Indietro",
+        "savedAtLabel": "Salvato alle {time}",
         "breadcrumbContent": "Contenuti",
         "breadcrumbPages": "Pagine",
         "currentLabelEdit": "Modifica pagina",

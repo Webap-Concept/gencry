@@ -576,12 +576,6 @@ export default function TemplateFormClient({
 
   const availableTemplates = allTemplates.filter((t) => t.id !== template?.id);
 
-  const currentLabel = isEdit
-    ? name || template?.name || t("currentLabelEdit")
-    : name
-      ? name
-      : t("currentLabelNew");
-
   const componentName = slug ? "Template" + slugToPascalCase(slug) : null;
   const componentMissing =
     !!slug && registeredSlugs.length > 0 && !registeredSlugSet.has(slug);
@@ -591,16 +585,10 @@ export default function TemplateFormClient({
       {template?.id && <input type="hidden" name="id" value={template.id} />}
 
       <EditorPageHeader
-        breadcrumbs={[
-          { label: t("breadcrumbPages"), href: getAdminPath("content-pages") },
-          {
-            label: t("breadcrumbTemplates"),
-            href: getAdminPath("content-templates"),
-          },
-        ]}
-        currentLabel={currentLabel}
         backHref={getAdminPath("content-templates")}
+        backLabel={t("backButton")}
         saveLabel={isEdit ? t("saveButton") : t("createButton")}
+        savedAtLabel={(time) => t("savedAtLabel", { time })}
         formId={FORM_ID}
         isPending={saving}
         savedAt={savedAt}
