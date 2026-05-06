@@ -1,5 +1,5 @@
 import { CmsPage, cmsPageMetadata } from "@/app/(frontend)/_render/cms-page";
-import { isLocale } from "@/lib/i18n/config";
+import { isLocale, type Locale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
 
@@ -25,8 +25,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, slug } = await params;
 
-  const fullSlug = isLocale(locale) ? slug : [locale, ...slug];
-  return cmsPageMetadata({ slug: fullSlug });
+  if (isLocale(locale)) {
+    // Locale valido: lo slug è già senza prefix, passiamo il locale esplicito
+    return cmsPageMetadata({ slug, locale: locale as Locale });
+  }
+  // Fallback: il primo segmento non è un locale, è parte dello slug CMS
+  return cmsPageMetadata({ slug: [locale, ...slug] });
 }
 
 export default async function LocaleFrontendPage({
@@ -42,5 +46,5 @@ export default async function LocaleFrontendPage({
   }
 
   setRequestLocale(locale);
-  return <CmsPage slug={slug} />;
+  return <CmsPage slug={slug} locale={locale as Locale} />;
 }

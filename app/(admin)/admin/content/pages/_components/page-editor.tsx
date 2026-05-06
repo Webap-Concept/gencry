@@ -800,12 +800,17 @@ export default function PageEditor({
     }
     return map;
   });
-  // DOM refs to locale content hidden inputs (updated directly by editor onUpdate)
-  const localeContentInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  // Initial content per locale for editor initialization on tab switch
-  const initialTrContent = useRef<Record<string, string>>(
+  // Content per locale: controlled state. Storato qui (non in trFields) perché
+  // l'aggiornamento avviene via TipTap onUpdate, separato dalle handler di
+  // title/slug. Pattern uniforme con title/slug: hidden input value={...}.
+  // (Il pattern precedente con defaultValue + callback ref aveva un bug:
+  // in React 19 le callback ref inline sono ri-eseguite ad ogni render,
+  // creando finestre in cui il ref è null e il DOM value non persisteva.)
+  const [trContent, setTrContent] = useState<Record<string, string>>(() =>
     Object.fromEntries(initialTranslations.map((t) => [t.locale, t.content ?? ""])),
   );
+  // Snapshot iniziale per ripristinare il contenuto al tab switch senza
+  // perdere le modifiche correnti (sincronizzato dal flusso onUpdate).
   // Initial slugs per locale for "slug changed" detection
   const initialTrSlugs = Object.fromEntries(
     initialTranslations.map((t) => [t.locale, t.slug ?? ""]),
@@ -885,11 +890,14 @@ export default function PageEditor({
     editorProps: { attributes: { class: "tiptap-editor" } },
     onUpdate({ editor }) {
       const html = editor.getHTML();
-      if (activeLangRef.current === DEFAULT_LOCALE) {
+      const cur = activeLangRef.current;
+      if (cur === DEFAULT_LOCALE) {
         if (contentRef.current) contentRef.current.value = html;
       } else {
-        const el = localeContentInputRefs.current[activeLangRef.current];
-        if (el) el.value = html;
+        // Controlled state: aggiornamento via setter, hidden input legge
+        // dal trContent[locale]. setState ad ogni keystroke è ok — TipTap
+        // mantiene la propria istanza ProseMirror (no perdita caret).
+        setTrContent((prev) => (prev[cur] === html ? prev : { ...prev, [cur]: html }));
       }
     },
   });
@@ -931,22 +939,24 @@ export default function PageEditor({
   function handleLangTabSwitch(newLocale: string) {
     if (newLocale === activeLang) return;
     const currentHtml = editor?.getHTML() ?? "";
-    if (activeLangRef.current === DEFAULT_LOCALE) {
+    const prevLocale = activeLangRef.current;
+
+    // Salva il contenuto del tab corrente prima di cambiarlo
+    if (prevLocale === DEFAULT_LOCALE) {
       if (contentRef.current) contentRef.current.value = currentHtml;
     } else {
-      const el = localeContentInputRefs.current[activeLangRef.current];
-      if (el) el.value = currentHtml;
+      setTrContent((prev) => (prev[prevLocale] === currentHtml ? prev : { ...prev, [prevLocale]: currentHtml }));
     }
+
+    // Carica il contenuto del nuovo tab nell'editor
     let nextContent = "";
     if (newLocale === DEFAULT_LOCALE) {
       nextContent = contentRef.current?.value ?? page?.content ?? "";
     } else {
-      nextContent =
-        localeContentInputRefs.current[newLocale]?.value ??
-        initialTrContent.current[newLocale] ??
-        "";
+      nextContent = trContent[newLocale] ?? "";
     }
     editor?.commands.setContent(nextContent);
+
     activeLangRef.current = newLocale;
     setActiveLang(newLocale);
   }
@@ -1014,17 +1024,12 @@ export default function PageEditor({
         {/* isSystem e pageType: necessari per il versioning automatico */}
         <input type="hidden" name="isSystem" value={isSystem ? "1" : "0"} />
         <input type="hidden" name="pageType" value={pageType} />
-        {/* Traduzioni per locale non-default */}
+        {/* Traduzioni per locale non-default — tutti hidden input controlled */}
         {nonDefaultLocales.map((loc) => (
           <Fragment key={loc.code}>
             <input type="hidden" name={`tr_${loc.code}_title`} value={trFields[loc.code]?.title ?? ""} readOnly />
             <input type="hidden" name={`tr_${loc.code}_slug`} value={trFields[loc.code]?.slug ?? ""} readOnly />
-            <input
-              type="hidden"
-              name={`tr_${loc.code}_content`}
-              defaultValue={initialTrContent.current[loc.code] ?? ""}
-              ref={(el) => { localeContentInputRefs.current[loc.code] = el; }}
-            />
+            <input type="hidden" name={`tr_${loc.code}_content`} value={trContent[loc.code] ?? ""} readOnly />
           </Fragment>
         ))}
 
