@@ -2,10 +2,14 @@ import { getAdminRoles } from "@/lib/db/roles-queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { RolesManager } from "./_components/roles-manager";
 
-export const metadata: Metadata = { title: "Users / Role Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.access.roles");
+  return { title: t("metaTitle") };
+}
 
 async function RolesContent() {
   const roles = await getAdminRoles();
@@ -14,6 +18,7 @@ async function RolesContent() {
 
 export default async function AdminRolesPage() {
   await requireAdminPage();
+  const t = await getTranslations("admin.access.roles");
 
   return (
     <div className="space-y-5">
@@ -32,14 +37,16 @@ export default async function AdminRolesPage() {
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Users</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>
+              {t("breadcrumbUsers")}
+            </span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Role Management</span>
+            <span>{t("pageTitle")}</span>
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Create and manage application roles. System roles cannot be deleted.
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>

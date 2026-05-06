@@ -915,6 +915,65 @@
         "actionUserNotFound": "Utente non trovato.",
         "actionReasonRequired": "Il motivo è obbligatorio"
       }
+    },
+    "roles": {
+      "metaTitle": "Utenti / Gestione ruoli",
+      "breadcrumbUsers": "Utenti",
+      "pageTitle": "Gestione ruoli",
+      "pageSubtitle": "Crea e gestisci i ruoli dell'applicazione. I ruoli di sistema non possono essere eliminati.",
+      "systemSection": "Ruoli di sistema ({count})",
+      "customSection": "Ruoli personalizzati ({count})",
+      "newRoleHeading": "Nuovo ruolo",
+      "editRoleHeading": "Modifica ruolo —",
+      "newRoleButton": "Nuovo ruolo",
+      "createFirstButton": "Crea il primo",
+      "emptyTitle": "Nessun ruolo personalizzato trovato",
+      "emptyHint": "Crea ruoli personalizzati e assegna permessi granulari dalla matrice RBAC.",
+      "form": {
+        "labelLabel": "Etichetta visibile",
+        "labelPlaceholder": "es. Editor contenuti",
+        "slugLabel": "Slug (identificatore interno)",
+        "slugPlaceholder": "es. content-editor",
+        "slugSystemNote": "Lo slug dei ruoli di sistema non può essere modificato.",
+        "slugHintBefore": "Solo",
+        "slugHintAfter": "— spazi e caratteri speciali vengono rimossi automaticamente.",
+        "descriptionLabel": "Descrizione (opzionale)",
+        "descriptionPlaceholder": "Cosa può fare questo ruolo...",
+        "colorLabel": "Colore badge",
+        "colorCustomTitle": "Colore personalizzato",
+        "advancedHeading": "Impostazioni avanzate",
+        "advancedActiveBadge": "super admin attivo",
+        "advancedWarning": "Queste impostazioni sono riservate a casi estremi. Per gestire i diritti di accesso usa la <strong>matrice permessi RBAC</strong> — usa questa opzione solo per il ruolo super admin di sistema.",
+        "superAdminLabel": "Super Amministratore",
+        "superAdminHintBefore": "Accesso totale e senza restrizioni al pannello admin. Bypassa completamente il sistema RBAC — incluso il permesso",
+        "superAdminHintAfter": ".",
+        "cancelButton": "Annulla",
+        "createButton": "Crea ruolo",
+        "saveButton": "Salva modifiche"
+      },
+      "card": {
+        "badgeSystem": "sistema",
+        "badgeSuperAdmin": "super admin",
+        "slugLabel": "slug: {slug}",
+        "editTitle": "Modifica",
+        "deleteTitle": "Elimina",
+        "confirmDeleteTitle": "Conferma eliminazione",
+        "cancelDeleteTitle": "Annulla"
+      },
+      "errors": {
+        "minLength2": "Minimo 2 caratteri",
+        "slugFormat": "Solo lettere minuscole, numeri, - e _",
+        "invalidColor": "Colore HEX non valido",
+        "roleNotFound": "Ruolo non trovato",
+        "cannotDeleteSystem": "I ruoli di sistema non possono essere eliminati",
+        "userDeleted": "Questo utente è stato eliminato e non può essere modificato."
+      },
+      "successMessages": {
+        "created": "Ruolo creato",
+        "updated": "Ruolo aggiornato",
+        "deleted": "Ruolo eliminato",
+        "assigned": "Ruolo assegnato"
+      }
     }
   },
   "nav": {

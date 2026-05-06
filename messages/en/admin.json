@@ -915,6 +915,65 @@
         "actionUserNotFound": "User not found.",
         "actionReasonRequired": "Reason is required"
       }
+    },
+    "roles": {
+      "metaTitle": "Users / Role Management",
+      "breadcrumbUsers": "Users",
+      "pageTitle": "Role Management",
+      "pageSubtitle": "Create and manage application roles. System roles cannot be deleted.",
+      "systemSection": "System Roles ({count})",
+      "customSection": "Custom Roles ({count})",
+      "newRoleHeading": "New Role",
+      "editRoleHeading": "Edit Role —",
+      "newRoleButton": "New Role",
+      "createFirstButton": "Create the first one",
+      "emptyTitle": "No custom roles found",
+      "emptyHint": "Create custom roles and assign granular permissions from the RBAC matrix.",
+      "form": {
+        "labelLabel": "Display Label",
+        "labelPlaceholder": "e.g. Content Editor",
+        "slugLabel": "Slug (internal identifier)",
+        "slugPlaceholder": "e.g. content-editor",
+        "slugSystemNote": "System role slugs cannot be modified.",
+        "slugHintBefore": "Only",
+        "slugHintAfter": "— spaces and special characters are removed automatically.",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "What can this role do...",
+        "colorLabel": "Badge Color",
+        "colorCustomTitle": "Custom color",
+        "advancedHeading": "Advanced Settings",
+        "advancedActiveBadge": "super admin active",
+        "advancedWarning": "These settings are reserved for extreme cases. To manage access rights, please use the <strong>RBAC permissions matrix</strong> — only use this option for the system super admin role.",
+        "superAdminLabel": "Super Administrator",
+        "superAdminHintBefore": "Full and unrestricted access to the admin panel. Completely bypasses the RBAC system — including the",
+        "superAdminHintAfter": "permission.",
+        "cancelButton": "Cancel",
+        "createButton": "Create role",
+        "saveButton": "Save changes"
+      },
+      "card": {
+        "badgeSystem": "system",
+        "badgeSuperAdmin": "super admin",
+        "slugLabel": "slug: {slug}",
+        "editTitle": "Edit",
+        "deleteTitle": "Delete",
+        "confirmDeleteTitle": "Confirm deletion",
+        "cancelDeleteTitle": "Cancel"
+      },
+      "errors": {
+        "minLength2": "Minimum 2 characters",
+        "slugFormat": "Only lowercase letters, numbers, - and _",
+        "invalidColor": "Invalid HEX color",
+        "roleNotFound": "Role not found",
+        "cannotDeleteSystem": "System roles cannot be deleted",
+        "userDeleted": "This user has been deleted and cannot be modified."
+      },
+      "successMessages": {
+        "created": "Role created",
+        "updated": "Role updated",
+        "deleted": "Role deleted",
+        "assigned": "Role assigned"
+      }
     }
   },
   "nav": {
