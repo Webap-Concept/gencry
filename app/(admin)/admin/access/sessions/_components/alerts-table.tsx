@@ -10,6 +10,7 @@ import {
   Mail,
   ShieldAlert,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -18,45 +19,52 @@ import {
   acknowledgeAlertsBulkAdmin,
 } from "../actions";
 
-const REASON_LABELS: Record<string, string> = {
-  multiple_ips: "Multiple IPs",
-  concurrent_devices: "Concurrent devices",
-  burst_creation: "Burst creation",
-  bot_user_agent: "Bot User-Agent",
-  long_idle_resurrect: "Long idle resurrect",
-  failed_then_success: "Failed → success login",
-  sensitive_action_new_ip: "Sensitive action on new IP",
-  new_subnet: "New subnet",
-  ua_churn: "UA churn",
-  cross_user_campaign: "Cross-user campaign",
-  off_baseline_hours: "Off-baseline hours",
-  admin_off_hours: "Admin off-hours",
-  trusted_device_from_fresh_session: "Trusted device from fresh session",
+type AlertsT = ReturnType<
+  typeof useTranslations<"admin.access.sessions.alertsTable">
+>;
+
+const REASON_KEYS: Record<string, string> = {
+  multiple_ips: "reasonMultipleIps",
+  concurrent_devices: "reasonConcurrentDevices",
+  burst_creation: "reasonBurstCreation",
+  bot_user_agent: "reasonBotUserAgent",
+  long_idle_resurrect: "reasonLongIdleResurrect",
+  failed_then_success: "reasonFailedThenSuccess",
+  sensitive_action_new_ip: "reasonSensitiveActionNewIp",
+  new_subnet: "reasonNewSubnet",
+  ua_churn: "reasonUaChurn",
+  cross_user_campaign: "reasonCrossUserCampaign",
+  off_baseline_hours: "reasonOffBaselineHours",
+  admin_off_hours: "reasonAdminOffHours",
+  trusted_device_from_fresh_session: "reasonTrustedDeviceFromFreshSession",
 };
 
-const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function relativeTime(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH}h ago`;
-  const diffD = Math.floor(diffH / 24);
-  return `${diffD}d ago`;
+function makeRelativeTime(t: AlertsT) {
+  return (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60_000);
+    if (diffMin < 1) return t("relativeJustNow");
+    if (diffMin < 60) return t("relativeMinutes", { m: diffMin });
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return t("relativeHours", { h: diffH });
+    const diffD = Math.floor(diffH / 24);
+    return t("relativeDays", { d: diffD });
+  };
 }
 
-function SeverityPill({ severity }: { severity: string }) {
+function SeverityPill({ severity, t }: { severity: string; t: AlertsT }) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
-    critical: { bg: "bg-red-100", fg: "text-red-800", label: "Critical" },
-    warning: { bg: "bg-amber-100", fg: "text-amber-800", label: "Warning" },
-    info: { bg: "bg-blue-100", fg: "text-blue-800", label: "Info" },
+    critical: {
+      bg: "bg-red-100",
+      fg: "text-red-800",
+      label: t("severityCritical"),
+    },
+    warning: {
+      bg: "bg-amber-100",
+      fg: "text-amber-800",
+      label: t("severityWarning"),
+    },
+    info: { bg: "bg-blue-100", fg: "text-blue-800", label: t("severityInfo") },
   };
   const c = map[severity] ?? {
     bg: "bg-gray-100",
@@ -79,9 +87,9 @@ function userInitials(row: AdminAlertRow): string {
   return fromName || row.email?.[0]?.toUpperCase() || "?";
 }
 
-function userLabel(row: AdminAlertRow): string {
+function userLabel(row: AdminAlertRow, fallback: string): string {
   const full = [row.firstName, row.lastName].filter(Boolean).join(" ").trim();
-  return full || row.username || row.email || "(no user)";
+  return full || row.username || row.email || fallback;
 }
 
 function detailsSummary(details: Record<string, unknown>): string {
@@ -113,6 +121,17 @@ function AlertRow({
   row: AdminAlertRow;
   onChanged: () => void;
 }) {
+  const t = useTranslations("admin.access.sessions.alertsTable");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const dateTimeFmt = new Intl.DateTimeFormat(dateLocale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const relativeTime = makeRelativeTime(t);
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const isAck = row.acknowledgedAt !== null;
@@ -124,15 +143,21 @@ function AlertRow({
         await acknowledgeAlertAdmin(row.id);
         onChanged();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Acknowledge failed");
+        setError(e instanceof Error ? e.message : t("ackFailed"));
       }
     });
   }
 
+  const reasonKey = REASON_KEYS[row.reason];
+  const reasonLabel = reasonKey
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (t as any)(reasonKey)
+    : row.reason;
+
   return (
     <tr style={{ borderTop: "1px solid var(--admin-divider)" }}>
       <td className="px-4 py-3">
-        <SeverityPill severity={row.severity} />
+        <SeverityPill severity={row.severity} t={t} />
       </td>
 
       <td className="px-4 py-3">
@@ -141,7 +166,7 @@ function AlertRow({
           <span
             className="text-sm font-medium"
             style={{ color: "var(--admin-text)" }}>
-            {REASON_LABELS[row.reason] ?? row.reason}
+            {reasonLabel}
           </span>
         </div>
         <p
@@ -174,7 +199,7 @@ function AlertRow({
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-sm truncate">{userLabel(row)}</p>
+              <p className="text-sm truncate">{userLabel(row, t("noUser"))}</p>
               <p
                 className="text-[11px] truncate"
                 style={{ color: "var(--admin-text-faint)" }}>
@@ -186,7 +211,7 @@ function AlertRow({
           <span
             className="text-sm italic"
             style={{ color: "var(--admin-text-muted)" }}>
-            (no specific user)
+            {t("noUser")}
           </span>
         )}
       </td>
@@ -205,13 +230,13 @@ function AlertRow({
           <span
             className="inline-flex items-center gap-1 text-[11px]"
             style={{ color: "var(--admin-text-faint)" }}>
-            <Mail size={11} /> sent
+            <Mail size={11} /> {t("emailSent")}
           </span>
         ) : (
           <span
             className="text-[11px]"
             style={{ color: "var(--admin-text-faint)" }}>
-            queued
+            {t("emailQueued")}
           </span>
         )}
       </td>
@@ -226,7 +251,7 @@ function AlertRow({
                   : "/admin/access/sessions"
               }
               className="p-1.5 rounded-md transition-colors hover:bg-[var(--admin-hover-bg)]"
-              title="View session"
+              title={t("actionViewSession")}
               style={{ color: "var(--admin-text-muted)" }}>
               <ExternalLink size={14} />
             </Link>
@@ -244,7 +269,7 @@ function AlertRow({
               ) : (
                 <Check size={11} />
               )}
-              Ack
+              {t("actionAck")}
             </button>
           ) : (
             <span
@@ -253,7 +278,7 @@ function AlertRow({
                 background: "var(--admin-hover-bg)",
                 color: "var(--admin-text-muted)",
               }}>
-              <CheckCheck size={11} /> Acked
+              <CheckCheck size={11} /> {t("actionAcked")}
             </span>
           )}
         </div>
@@ -273,6 +298,8 @@ function AlertRow({
 // ---------------------------------------------------------------------------
 
 export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
+  const t = useTranslations("admin.access.sessions.alertsTable");
+  const tParent = useTranslations("admin.access.sessions");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -291,7 +318,7 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
         setConfirmAll(false);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Bulk ack failed");
+        setError(e instanceof Error ? e.message : t("bulkAckFailed"));
       }
     });
   }
@@ -300,7 +327,7 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
     return (
       <div className="px-6 py-12 text-center">
         <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-          No alerts match these filters.
+          {tParent("emptyAlerts")}
         </p>
       </div>
     );
@@ -315,7 +342,7 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
           <span
             className="text-[12px]"
             style={{ color: "var(--admin-text-muted)" }}>
-            {openIds.length} open on this page
+            {t("bulkOpenLabel", { count: openIds.length })}
           </span>
           {!confirmAll ? (
             <button
@@ -329,14 +356,14 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
                 border: "1px solid var(--admin-card-border)",
               }}>
               <CheckCheck size={13} />
-              Acknowledge all on page
+              {t("bulkAckButton")}
             </button>
           ) : (
             <span className="inline-flex items-center gap-2">
               <span
                 className="text-[12px]"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Acknowledge {openIds.length} alerts?
+                {t("bulkAckPrompt", { count: openIds.length })}
               </span>
               <button
                 type="button"
@@ -344,7 +371,7 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
                 disabled={pending}
                 className="px-3 py-1 text-xs font-semibold rounded-md text-white"
                 style={{ background: "var(--admin-accent)" }}>
-                {pending ? "Working…" : "Confirm"}
+                {pending ? t("bulkWorking") : t("bulkConfirm")}
               </button>
               <button
                 type="button"
@@ -355,7 +382,7 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
                   background: "var(--admin-hover-bg)",
                   color: "var(--admin-text-muted)",
                 }}>
-                Cancel
+                {t("bulkCancel")}
               </button>
             </span>
           )}
@@ -371,12 +398,24 @@ export function AlertsTable({ items }: { items: AdminAlertRow[] }) {
             <tr
               className="text-[11px] uppercase tracking-wider"
               style={{ color: "var(--admin-text-faint)" }}>
-              <th className="px-4 py-2.5 text-left font-medium">Severity</th>
-              <th className="px-4 py-2.5 text-left font-medium">Reason · Details</th>
-              <th className="px-4 py-2.5 text-left font-medium">User</th>
-              <th className="px-4 py-2.5 text-left font-medium">Detected</th>
-              <th className="px-4 py-2.5 text-left font-medium">Email</th>
-              <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+              <th className="px-4 py-2.5 text-left font-medium">
+                {t("headerSeverity")}
+              </th>
+              <th className="px-4 py-2.5 text-left font-medium">
+                {t("headerReason")}
+              </th>
+              <th className="px-4 py-2.5 text-left font-medium">
+                {t("headerUser")}
+              </th>
+              <th className="px-4 py-2.5 text-left font-medium">
+                {t("headerDetected")}
+              </th>
+              <th className="px-4 py-2.5 text-left font-medium">
+                {t("headerEmail")}
+              </th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                {t("headerActions")}
+              </th>
             </tr>
           </thead>
           <tbody>

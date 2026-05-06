@@ -12,13 +12,17 @@ import { countUnacknowledgedAlerts } from "@/lib/notifications/generators/suspic
 import { Activity, Search, ShieldAlert, Wifi } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { AlertsTable } from "./_components/alerts-table";
 import { SessionsAdminGuide } from "./_components/sessions-guide";
 import { SessionsTable } from "./_components/sessions-table";
 
-export const metadata: Metadata = { title: "Sessions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.access.sessions");
+  return { title: t("metaTitle") };
+}
 
 const PER_PAGE = 25;
 
@@ -27,11 +31,13 @@ function KpiCard({
   value,
   hint,
   accent,
+  locale,
 }: {
   label: string;
   value: number;
   hint?: string;
   accent?: boolean;
+  locale: string;
 }) {
   return (
     <div
@@ -50,7 +56,7 @@ function KpiCard({
         style={{
           color: accent ? "var(--admin-accent)" : "var(--admin-text)",
         }}>
-        {value.toLocaleString("en-US")}
+        {value.toLocaleString(locale === "en" ? "en-US" : "it-IT")}
       </p>
       {hint && (
         <p
@@ -64,37 +70,54 @@ function KpiCard({
 }
 
 async function KpisRow() {
+  const t = await getTranslations("admin.access.sessions");
+  const locale = await getLocale();
   const [kpis, alertCounts] = await Promise.all([
     getAdminSessionsKpis(),
     countUnacknowledgedAlerts(),
   ]);
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <KpiCard label="Active now" value={kpis.activeNow} accent />
       <KpiCard
-        label="Users online"
+        label={t("kpiActiveNow")}
+        value={kpis.activeNow}
+        accent
+        locale={locale}
+      />
+      <KpiCard
+        label={t("kpiUsersOnline")}
         value={kpis.uniqueUsersOnline}
-        hint="Distinct users with an active session"
+        hint={t("kpiUsersOnlineHint")}
+        locale={locale}
       />
       <KpiCard
-        label="New (24h)"
+        label={t("kpiNew24h")}
         value={kpis.createdLast24h}
-        hint="Sessions opened in the last 24h"
+        hint={t("kpiNew24hHint")}
+        locale={locale}
       />
       <KpiCard
-        label="Revoked (24h)"
+        label={t("kpiRevoked24h")}
         value={kpis.revokedLast24h}
-        hint="Manually revoked or kicked"
+        hint={t("kpiRevoked24hHint")}
+        locale={locale}
       />
       <KpiCard
-        label="Open alerts"
+        label={t("kpiOpenAlerts")}
         value={alertCounts.total}
         hint={
           alertCounts.critical > 0
-            ? `${alertCounts.critical} critical · ${alertCounts.warning} warning`
-            : `${alertCounts.warning} warning · ${alertCounts.info} info`
+            ? t("kpiAlertsHintCritical", {
+                critical: alertCounts.critical,
+                warning: alertCounts.warning,
+              })
+            : t("kpiAlertsHintNoCritical", {
+                warning: alertCounts.warning,
+                info: alertCounts.info,
+              })
         }
         accent={alertCounts.critical > 0}
+        locale={locale}
       />
     </div>
   );
@@ -128,6 +151,7 @@ async function SessionsContent({
   status: AdminSessionStatus;
   page: number;
 }) {
+  const t = await getTranslations("admin.access.sessions");
   const { items, total } = await listAdminSessions({
     search,
     ip,
@@ -150,7 +174,7 @@ async function SessionsContent({
   return (
     <>
       <p className="text-sm -mt-1" style={{ color: "var(--admin-text-faint)" }}>
-        {total.toLocaleString("en-US")} sessions match these filters
+        {t("totalSessions", { count: total })}
       </p>
 
       <div
@@ -168,7 +192,7 @@ async function SessionsContent({
             <span
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
-              Page {page} of {totalPages}
+              {t("paginationLabel", { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               {page > 1 && (
@@ -179,7 +203,7 @@ async function SessionsContent({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  ← Previous
+                  {t("paginationPrev")}
                 </a>
               )}
               {page < totalPages && (
@@ -187,7 +211,7 @@ async function SessionsContent({
                   href={buildHref(page + 1)}
                   className="px-3 py-1.5 text-xs text-white rounded-lg transition-colors"
                   style={{ background: "var(--admin-accent)" }}>
-                  Next →
+                  {t("paginationNext")}
                 </a>
               )}
             </div>
@@ -270,6 +294,7 @@ async function AlertsContent({
   severity: AlertSeverityFilter;
   page: number;
 }) {
+  const t = await getTranslations("admin.access.sessions");
   const { items, total } = await listAdminAlerts({
     status,
     severity,
@@ -290,7 +315,7 @@ async function AlertsContent({
   return (
     <>
       <p className="text-sm -mt-1" style={{ color: "var(--admin-text-faint)" }}>
-        {total.toLocaleString("en-US")} alerts match these filters
+        {t("totalAlerts", { count: total })}
       </p>
 
       <div
@@ -308,7 +333,7 @@ async function AlertsContent({
             <span
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
-              Page {page} of {totalPages}
+              {t("paginationLabel", { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               {page > 1 && (
@@ -319,7 +344,7 @@ async function AlertsContent({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  ← Previous
+                  {t("paginationPrev")}
                 </a>
               )}
               {page < totalPages && (
@@ -327,7 +352,7 @@ async function AlertsContent({
                   href={buildHref(page + 1)}
                   className="px-3 py-1.5 text-xs text-white rounded-lg transition-colors"
                   style={{ background: "var(--admin-accent)" }}>
-                  Next →
+                  {t("paginationNext")}
                 </a>
               )}
             </div>
@@ -355,6 +380,7 @@ export default async function AdminSessionsPage({
     page?: string;
   }>;
 }) {
+  const t = await getTranslations("admin.access.sessions");
   const params = await searchParams;
   const tab: "sessions" | "alerts" = params.tab === "alerts" ? "alerts" : "sessions";
   const search = params.q ?? "";
@@ -387,18 +413,18 @@ export default async function AdminSessionsPage({
             <h2
               className="text-xl font-bold"
               style={{ color: "var(--admin-text)" }}>
-              Sessions
+              {t("pageTitle")}
             </h2>
             <AdminSectionInfo
-              title="Sessions — operator's guide"
-              ariaLabel="Show sessions section guide">
+              title={t("guideTitle")}
+              ariaLabel={t("guideAriaLabel")}>
               <SessionsAdminGuide />
             </AdminSectionInfo>
           </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-muted)" }}>
-            Monitor active sessions, review suspicious-session alerts, force-logout devices
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>
@@ -419,7 +445,7 @@ export default async function AdminSessionsPage({
             color: tab === "sessions" ? "#fff" : "var(--admin-text-muted)",
           }}>
           <Activity size={13} />
-          Sessions
+          {t("tabSessions")}
         </Link>
         <Link
           href={alertsHref}
@@ -429,7 +455,7 @@ export default async function AdminSessionsPage({
             color: tab === "alerts" ? "#fff" : "var(--admin-text-muted)",
           }}>
           <ShieldAlert size={13} />
-          Alerts
+          {t("tabAlerts")}
         </Link>
       </div>
 
@@ -452,7 +478,7 @@ export default async function AdminSessionsPage({
                 <input
                   name="q"
                   defaultValue={search}
-                  placeholder="Search by name, email or username..."
+                  placeholder={t("filterSearchPlaceholder")}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                   style={{
                     background: "var(--admin-page-bg)",
@@ -471,7 +497,7 @@ export default async function AdminSessionsPage({
                 <input
                   name="ip"
                   defaultValue={ip}
-                  placeholder="IP address..."
+                  placeholder={t("filterIpPlaceholder")}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                   style={{
                     background: "var(--admin-page-bg)",
@@ -490,17 +516,17 @@ export default async function AdminSessionsPage({
                   border: "1px solid var(--admin-input-border)",
                   color: status ? "var(--admin-text)" : "var(--admin-text-muted)",
                 }}>
-                <option value="active">Active</option>
-                <option value="revoked">Revoked</option>
-                <option value="expired">Expired</option>
-                <option value="all">All</option>
+                <option value="active">{t("filterStatusActive")}</option>
+                <option value="revoked">{t("filterStatusRevoked")}</option>
+                <option value="expired">{t("filterStatusExpired")}</option>
+                <option value="all">{t("filterStatusAll")}</option>
               </select>
 
               <button
                 type="submit"
                 className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
                 style={{ background: "var(--admin-accent)" }}>
-                Filter
+                {t("filterButton")}
               </button>
 
               {hasSessionFilters && (
@@ -511,7 +537,7 @@ export default async function AdminSessionsPage({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  Reset
+                  {t("resetButton")}
                 </a>
               )}
             </form>
@@ -543,7 +569,7 @@ export default async function AdminSessionsPage({
                 <label
                   className="text-[11px] uppercase tracking-wide font-medium"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Status
+                  {t("alertStatusLabel")}
                 </label>
                 <select
                   name="alertStatus"
@@ -554,9 +580,11 @@ export default async function AdminSessionsPage({
                     border: "1px solid var(--admin-input-border)",
                     color: "var(--admin-text)",
                   }}>
-                  <option value="open">Open (unacknowledged)</option>
-                  <option value="acknowledged">Acknowledged</option>
-                  <option value="all">All</option>
+                  <option value="open">{t("alertStatusOpen")}</option>
+                  <option value="acknowledged">
+                    {t("alertStatusAcknowledged")}
+                  </option>
+                  <option value="all">{t("alertStatusAll")}</option>
                 </select>
               </div>
 
@@ -564,7 +592,7 @@ export default async function AdminSessionsPage({
                 <label
                   className="text-[11px] uppercase tracking-wide font-medium"
                   style={{ color: "var(--admin-text-muted)" }}>
-                  Severity
+                  {t("severityLabel")}
                 </label>
                 <select
                   name="severity"
@@ -575,10 +603,10 @@ export default async function AdminSessionsPage({
                     border: "1px solid var(--admin-input-border)",
                     color: "var(--admin-text)",
                   }}>
-                  <option value="all">All severities</option>
-                  <option value="critical">Critical</option>
-                  <option value="warning">Warning</option>
-                  <option value="info">Info</option>
+                  <option value="all">{t("severityAll")}</option>
+                  <option value="critical">{t("severityCritical")}</option>
+                  <option value="warning">{t("severityWarning")}</option>
+                  <option value="info">{t("severityInfo")}</option>
                 </select>
               </div>
 
@@ -586,7 +614,7 @@ export default async function AdminSessionsPage({
                 type="submit"
                 className="px-4 py-2 text-white text-sm font-medium rounded-lg"
                 style={{ background: "var(--admin-accent)" }}>
-                Filter
+                {t("filterButton")}
               </button>
 
               {hasAlertFilters && (
@@ -597,19 +625,19 @@ export default async function AdminSessionsPage({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  Reset
+                  {t("resetButton")}
                 </a>
               )}
 
               <span
                 className="ml-auto text-[12px]"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Detection runs every 15 min via cron · Tune rules in{" "}
+                {t("detectionInfoBefore")}{" "}
                 <a
                   href="/admin/settings/notifications"
                   className="underline"
                   style={{ color: "var(--admin-accent)" }}>
-                  Settings → Notifications
+                  {t("detectionInfoLink")}
                 </a>
               </span>
             </form>
