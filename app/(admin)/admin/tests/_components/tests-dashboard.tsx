@@ -6,8 +6,11 @@ import {
   Clock, ChevronDown, ChevronRight,
   SkipForward, CircleDot, ShieldCheck,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import type { HealthChecks, HealthStatus, ServiceHealth, VitestReport, VitestSuite } from "../actions";
+
+type TFn = ReturnType<typeof useTranslations<"admin.tests">>;
 
 function statusIcon(status: HealthStatus, size = 16) {
   switch (status) {
@@ -19,12 +22,12 @@ function statusIcon(status: HealthStatus, size = 16) {
   }
 }
 
-function statusLabel(status: HealthStatus) {
+function statusLabel(status: HealthStatus, t: TFn) {
   switch (status) {
-    case "ok":       return "Operational";
-    case "degraded": return "Degraded";
-    case "error":    return "Error";
-    default:         return "Not configured";
+    case "ok":       return t("statusLabel.ok");
+    case "degraded": return t("statusLabel.degraded");
+    case "error":    return t("statusLabel.error");
+    default:         return t("statusLabel.unknown");
   }
 }
 
@@ -48,24 +51,25 @@ function statusBorder(status: HealthStatus) {
   }
 }
 
-function serviceIcon(name: string) {
-  const n = name.toLowerCase();
-  if (n.includes("redis"))      return <Zap      size={15} style={{ color: "var(--admin-accent)" }} />;
-  if (n.includes("resend"))     return <Mail     size={15} style={{ color: "var(--admin-accent)" }} />;
-  if (n.includes("google"))     return <Globe    size={15} style={{ color: "var(--admin-accent)" }} />;
-  if (n.includes("cloudflare")) return <Shield   size={15} style={{ color: "var(--admin-accent)" }} />;
+function serviceIcon(nameKey: ServiceHealth["nameKey"]) {
+  if (nameKey === "redis")      return <Zap      size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (nameKey === "resend")     return <Mail     size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (nameKey === "google")     return <Globe    size={15} style={{ color: "var(--admin-accent)" }} />;
+  if (nameKey === "cloudflare") return <Shield   size={15} style={{ color: "var(--admin-accent)" }} />;
   return                                <Database size={15} style={{ color: "var(--admin-accent)" }} />;
 }
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString("en-GB", {
+function fmt(iso: string, locale: string) {
+  const dl = locale === "en" ? "en-GB" : "it-IT";
+  return new Date(iso).toLocaleString(dl, {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 }
 
-function fmtEpoch(ms: number) {
-  return new Date(ms).toLocaleString("en-GB", {
+function fmtEpoch(ms: number, locale: string) {
+  const dl = locale === "en" ? "en-GB" : "it-IT";
+  return new Date(ms).toLocaleString(dl, {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -76,7 +80,15 @@ function fmtDuration(ms: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function ServiceCard({ service }: { service: ServiceHealth }) {
+function ServiceCard({ service, t }: { service: ServiceHealth; t: TFn }) {
+  const detailText =
+    service.detail?.kind === "key"
+      ? t(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          `serviceDetail.${service.detail.key}` as any,
+          service.detail.params,
+        )
+      : service.detail?.text;
   return (
     <div style={{
       background: statusBg(service.status),
@@ -86,13 +98,15 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          {serviceIcon(service.name)}
-          <span style={{ fontWeight: 600, fontSize: 13, color: "var(--admin-text)" }}>{service.name}</span>
+          {serviceIcon(service.nameKey)}
+          <span style={{ fontWeight: 600, fontSize: 13, color: "var(--admin-text)" }}>
+            {t(`service.${service.nameKey}`)}
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {statusIcon(service.status, 14)}
           <span style={{ fontSize: 12, fontWeight: 500, color: "var(--admin-text-muted)" }}>
-            {statusLabel(service.status)}
+            {statusLabel(service.status, t)}
           </span>
         </div>
       </div>
@@ -104,7 +118,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
           </span>
         </div>
       )}
-      {service.detail && (
+      {detailText && (
         <p style={{
           fontSize: 11, margin: 0, lineHeight: 1.5, wordBreak: "break-word",
           color: service.status === "error"
@@ -113,7 +127,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
             ? "var(--admin-warning, #fb923c)"
             : "var(--admin-text-muted)",
         }}>
-          {service.detail}
+          {detailText}
         </p>
       )}
     </div>
@@ -127,10 +141,10 @@ function TestDot({ status }: { status: VitestSuite["tests"][number]["status"] })
   return                            <CircleDot    size={12} style={{ color: "var(--admin-text-faint)", flexShrink: 0 }} />;
 }
 
-function SuiteRow({ suite }: { suite: VitestSuite }) {
+function SuiteRow({ suite, t }: { suite: VitestSuite; t: TFn }) {
   const [open, setOpen] = useState(false);
-  const passed = suite.tests.filter(t => t.status === "passed").length;
-  const failed = suite.tests.filter(t => t.status === "failed").length;
+  const passed = suite.tests.filter((x) => x.status === "passed").length;
+  const failed = suite.tests.filter((x) => x.status === "failed").length;
   const total  = suite.tests.length;
   const suiteStatus: HealthStatus = failed > 0 ? "error" : suite.status === "passed" ? "ok" : "degraded";
   const displayName = suite.name.replace(/^tests\//, "");
@@ -163,11 +177,11 @@ function SuiteRow({ suite }: { suite: VitestSuite }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {failed > 0 && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "var(--admin-danger, #f87171)", fontVariantNumeric: "tabular-nums" }}>
-              {failed} failed
+              {t("suite.failedCount", { count: failed })}
             </span>
           )}
           <span style={{ fontSize: 11, color: "var(--admin-text-faint)", fontVariantNumeric: "tabular-nums" }}>
-            {passed}/{total}
+            {t("suite.passedRatio", { passed, total })}
           </span>
           {suite.duration > 0 && (
             <span style={{ fontSize: 11, color: "var(--admin-text-faint)", fontVariantNumeric: "tabular-nums" }}>
@@ -228,6 +242,8 @@ export function TestsDashboard({
   health: HealthChecks;
   vitestReport: VitestReport | null;
 }) {
+  const t = useTranslations("admin.tests");
+  const locale = useLocale();
   const services: ServiceHealth[] = [
     health.supabase,
     health.redis,
@@ -255,10 +271,10 @@ export function TestsDashboard({
         </div>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--admin-text)", margin: 0 }}>
-            Tests &amp; System Status
+            {t("pageTitle")}
           </h2>
           <p style={{ fontSize: 12, color: "var(--admin-text-faint)", margin: "2px 0 0" }}>
-            Checked at {fmt(health.checkedAt)}
+            {t("checkedAt", { date: fmt(health.checkedAt, locale) })}
           </p>
         </div>
       </div>
@@ -273,10 +289,10 @@ export function TestsDashboard({
         {statusIcon(globalStatus)}
         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--admin-text)" }}>
           {globalStatus === "ok"
-            ? "All services operational"
+            ? t("globalStatus.allOk")
             : globalStatus === "error"
-            ? "One or more services are failing"
-            : "One or more services degraded"}
+            ? t("globalStatus.error")
+            : t("globalStatus.degraded")}
         </span>
       </div>
 
@@ -287,14 +303,14 @@ export function TestsDashboard({
           textTransform: "uppercase", color: "var(--admin-text-faint)",
           margin: "0 0 10px",
         }}>
-          Infrastructure
+          {t("infrastructureHeading")}
         </h3>
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))",
           gap: 10,
         }}>
-          {services.map(s => <ServiceCard key={s.name} service={s} />)}
+          {services.map(s => <ServiceCard key={s.nameKey} service={s} t={t} />)}
         </div>
       </section>
 
@@ -309,9 +325,13 @@ export function TestsDashboard({
         }}>
           <ShieldCheck size={14} style={{ color: "var(--admin-accent)", flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12, color: "var(--admin-text-muted)", margin: 0, lineHeight: 1.6 }}>
-            Tests run automatically by the CI pipeline on every commit to{" "}
-            <code style={{ fontFamily: "monospace", fontSize: 11 }}>main</code>.
-            {" "}The branch is protected — merges are blocked if any test fails.
+            {t.rich("ciInfo", {
+              c: (chunks) => (
+                <code style={{ fontFamily: "monospace", fontSize: 11 }}>
+                  {chunks}
+                </code>
+              ),
+            })}
           </p>
         </div>
 
@@ -320,20 +340,25 @@ export function TestsDashboard({
             fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
             textTransform: "uppercase", color: "var(--admin-text-faint)", margin: 0,
           }}>
-            Test Suites
+            {t("suitesHeading")}
           </h3>
           {vitestReport && (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {vitestReport.numFailedTests > 0 && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--admin-danger, #f87171)", fontVariantNumeric: "tabular-nums" }}>
-                  {vitestReport.numFailedTests} failed
+                  {t("suitesFailed", { count: vitestReport.numFailedTests })}
                 </span>
               )}
               <span style={{ fontSize: 12, color: "var(--admin-text-faint)", fontVariantNumeric: "tabular-nums" }}>
-                {vitestReport.numPassedTests}/{vitestReport.numTotalTests} passed
+                {t("suitesPassedRatio", {
+                  passed: vitestReport.numPassedTests,
+                  total: vitestReport.numTotalTests,
+                })}
               </span>
               <span style={{ fontSize: 12, color: "var(--admin-text-faint)" }}>
-                · Last run {fmtEpoch(vitestReport.startTime)}
+                {t("suitesLastRun", {
+                  date: fmtEpoch(vitestReport.startTime, locale),
+                })}
               </span>
             </div>
           )}
@@ -347,17 +372,22 @@ export function TestsDashboard({
           }}>
             <FlaskConical size={28} style={{ color: "var(--admin-text-faint)", margin: "0 auto 10px" }} />
             <p style={{ fontSize: 13, color: "var(--admin-text-muted)", margin: 0 }}>
-              No test report available yet.
+              {t("noReportTitle")}
             </p>
             <p style={{ fontSize: 12, color: "var(--admin-text-faint)", margin: "4px 0 0" }}>
-              The report is generated automatically on every push to{" "}
-              <code style={{ fontFamily: "monospace", fontSize: 11 }}>main</code>.
+              {t.rich("noReportSubtitle", {
+                c: (chunks) => (
+                  <code style={{ fontFamily: "monospace", fontSize: 11 }}>
+                    {chunks}
+                  </code>
+                ),
+              })}
             </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {vitestReport.suites.map((suite, i) => (
-              <SuiteRow key={i} suite={suite} />
+              <SuiteRow key={i} suite={suite} t={t} />
             ))}
           </div>
         )}

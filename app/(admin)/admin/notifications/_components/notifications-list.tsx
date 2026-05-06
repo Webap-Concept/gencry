@@ -15,17 +15,12 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-const TABS: Array<{ key: string; label: string }> = [
-  { key: "active", label: "Active" },
-  { key: "snoozed", label: "Snoozed" },
-  { key: "dismissed", label: "Dismissed" },
-  { key: "resolved", label: "Resolved" },
-  { key: "all", label: "All" },
-];
+const TAB_KEYS = ["active", "snoozed", "dismissed", "resolved", "all"] as const;
 
 function severityColor(s: ClientNotification["severity"]): string {
   switch (s) {
@@ -88,8 +83,9 @@ function ActionButton({
   );
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
+function formatDate(iso: string, locale: string): string {
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  return new Date(iso).toLocaleString(dateLocale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -98,17 +94,19 @@ function formatDate(iso: string): string {
   });
 }
 
-function statusBadge(n: ClientNotification): {
-  label: string;
+type StatusKey = "dismissed" | "resolved" | "snoozed" | "read" | "unread";
+
+function statusBadgeKey(n: ClientNotification): {
+  key: StatusKey;
   color: string;
 } {
-  if (n.dismissedAt) return { label: "Dismissed", color: "#94a3b8" };
-  if (n.resolvedAt) return { label: "Resolved", color: "#22c55e" };
+  if (n.dismissedAt) return { key: "dismissed", color: "#94a3b8" };
+  if (n.resolvedAt) return { key: "resolved", color: "#22c55e" };
   if (n.snoozedUntil && new Date(n.snoozedUntil).getTime() > Date.now()) {
-    return { label: "Snoozed", color: "#f59e0b" };
+    return { key: "snoozed", color: "#f59e0b" };
   }
-  if (n.readAt) return { label: "Read", color: "var(--admin-text-faint)" };
-  return { label: "Unread", color: "var(--admin-accent)" };
+  if (n.readAt) return { key: "read", color: "var(--admin-text-faint)" };
+  return { key: "unread", color: "var(--admin-accent)" };
 }
 
 export function NotificationsList({
@@ -120,6 +118,8 @@ export function NotificationsList({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("admin.notifications");
+  const locale = useLocale();
   // Chiave dell'azione in volo: "snooze:<id>" o "dismiss:<id>". Una sola
   // alla volta — vedi commento analogo in NotificationBell.
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -157,18 +157,18 @@ export function NotificationsList({
       <div
         className="flex items-center gap-1 p-1 rounded-lg w-fit"
         style={{ background: "var(--admin-card-bg)", border: "1px solid var(--admin-card-border)" }}>
-        {TABS.map((t) => {
-          const active = t.key === currentStatus;
+        {TAB_KEYS.map((key) => {
+          const active = key === currentStatus;
           return (
             <Link
-              key={t.key}
-              href={buildHref(t.key)}
+              key={key}
+              href={buildHref(key)}
               className="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
               style={{
                 background: active ? "var(--admin-accent)" : "transparent",
                 color: active ? "white" : "var(--admin-text-muted)",
               }}>
-              {t.label}
+              {t(`tabs.${key}`)}
             </Link>
           );
         })}
@@ -188,7 +188,7 @@ export function NotificationsList({
             style={{ color: "var(--admin-text-faint)" }}
           />
           <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>
-            No notifications in this category.
+            {t("empty")}
           </p>
         </div>
       )}
@@ -202,7 +202,7 @@ export function NotificationsList({
             border: "1px solid var(--admin-card-border)",
           }}>
           {notifications.map((n) => {
-            const badge = statusBadge(n);
+            const badge = statusBadgeKey(n);
             const isActive = !n.dismissedAt && !n.resolvedAt;
             return (
               <div
@@ -226,7 +226,7 @@ export function NotificationsList({
                         color: badge.color,
                         border: `1px solid ${badge.color}`,
                       }}>
-                      {badge.label}
+                      {t(`status.${badge.key}`)}
                     </span>
                   </div>
                   {n.body && (
@@ -239,16 +239,20 @@ export function NotificationsList({
                   <div
                     className="flex items-center gap-3 mt-2 text-[11px]"
                     style={{ color: "var(--admin-text-faint)" }}>
-                    <span>{formatDate(n.createdAt)}</span>
+                    <span>{formatDate(n.createdAt, locale)}</span>
                     {n.snoozedUntil && (
-                      <span>· Snoozed until {formatDate(n.snoozedUntil)}</span>
+                      <span>
+                        {t("snoozedUntil", {
+                          date: formatDate(n.snoozedUntil, locale),
+                        })}
+                      </span>
                     )}
                     {n.link && (
                       <Link
                         href={n.link}
                         className="underline underline-offset-2"
                         style={{ color: "var(--admin-accent)" }}>
-                        Go to section
+                        {t("goToSection")}
                       </Link>
                     )}
                   </div>
@@ -259,14 +263,14 @@ export function NotificationsList({
                         disabled={busyKey !== null}
                         onClick={() => handleSnooze(n.id)}
                         icon={<Clock size={11} />}
-                        label="Snooze 7 days"
+                        label={t("actions.snoozeSevenDays")}
                       />
                       <ActionButton
                         busy={busyKey === `dismiss:${n.id}`}
                         disabled={busyKey !== null}
                         onClick={() => handleDismiss(n.id)}
                         icon={<X size={11} />}
-                        label="Dismiss"
+                        label={t("actions.dismiss")}
                       />
                     </div>
                   )}

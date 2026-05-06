@@ -24,6 +24,7 @@ import {
   Trash2,
   UserCog,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -32,9 +33,9 @@ import { useState } from "react";
 type Props = { data: PaginatedLogs };
 
 const TABS = [
-  { id: "rbac", label: "RBAC", icon: KeyRound },
-  { id: "auth", label: "Authentication", icon: LogIn },
-  { id: "pages", label: "Content", icon: FileText },
+  { id: "rbac", icon: KeyRound },
+  { id: "auth", icon: LogIn },
+  { id: "pages", icon: FileText },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -192,6 +193,9 @@ export function LogsClient({ data }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const t = useTranslations("admin.logs");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
 
   const activeTab = (searchParams.get("tab") ?? "rbac") as TabId;
   const [search, setSearch] = useState("");
@@ -238,7 +242,7 @@ export function LogsClient({ data }: Props) {
                     : "none",
                 }}>
                 <Icon size={13} />
-                {tab.label}
+                {t(`tabs.${tab.id}`)}
               </button>
             );
           })}
@@ -253,7 +257,7 @@ export function LogsClient({ data }: Props) {
           />
           <input
             type="text"
-            placeholder="Search action, email, IP..."
+            placeholder={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 pr-4 py-2 text-sm rounded-lg outline-none border w-64"
@@ -273,14 +277,13 @@ export function LogsClient({ data }: Props) {
           <span
             className="text-xs"
             style={{ color: "var(--admin-text-faint)" }}>
-            {filtered.length} results on this page for &ldquo;{search}
-            &rdquo;
+            {t("filterResults", { count: filtered.length, query: search })}
           </span>
           <button
             onClick={() => setSearch("")}
             className="text-xs underline"
             style={{ color: "var(--admin-accent)" }}>
-            Clear
+            {t("filterClear")}
           </button>
         </div>
       )}
@@ -298,7 +301,7 @@ export function LogsClient({ data }: Props) {
               style={{ opacity: 0.2, color: "var(--admin-text)" }}
             />
             <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-              No logs found
+              {t("empty")}
             </p>
           </div>
         ) : (
@@ -354,7 +357,7 @@ export function LogsClient({ data }: Props) {
                     className="text-[11px] shrink-0 tabular-nums"
                     style={{ color: "var(--admin-text-faint)" }}
                     title={new Date(log.timestamp).toISOString()}>
-                    {new Date(log.timestamp).toLocaleString("it-IT", {
+                    {new Date(log.timestamp).toLocaleString(dateLocale, {
                       day: "2-digit",
                       month: "2-digit",
                       hour: "2-digit",
@@ -374,7 +377,7 @@ export function LogsClient({ data }: Props) {
           <span
             className="text-xs tabular-nums"
             style={{ color: "var(--admin-text-faint)" }}>
-            {start}–{end} of {total} events
+            {t("paginationRange", { start, end, total })}
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -394,7 +397,7 @@ export function LogsClient({ data }: Props) {
                 (e.currentTarget as HTMLButtonElement).style.background =
                   "transparent";
               }}
-              aria-label="Previous page">
+              aria-label={t("previousPage")}>
               <ChevronLeft size={15} />
             </button>
 
@@ -464,7 +467,7 @@ export function LogsClient({ data }: Props) {
                 (e.currentTarget as HTMLButtonElement).style.background =
                   "transparent";
               }}
-              aria-label="Next page">
+              aria-label={t("nextPage")}>
               <ChevronRight size={15} />
             </button>
           </div>
@@ -475,7 +478,7 @@ export function LogsClient({ data }: Props) {
         <p
           className="text-xs text-right"
           style={{ color: "var(--admin-text-faint)" }}>
-          {total} total events • sorted by most recent
+          {t("paginationSingle", { total })}
         </p>
       )}
     </div>
