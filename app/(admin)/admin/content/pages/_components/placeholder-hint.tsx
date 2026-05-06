@@ -2,6 +2,7 @@
 
 import { PLACEHOLDER_MAP } from "@/lib/utils/content-placeholders";
 import { ChevronDown, HelpCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 /**
@@ -14,6 +15,7 @@ export default function PlaceholderHint({
   /** Chiamata quando l'utente vuole inserire un token nell'editor */
   onInsert?: (token: string) => void;
 }) {
+  const t = useTranslations("admin.content.pages.editor");
   const [open, setOpen] = useState(false);
   const tokens = Object.entries(PLACEHOLDER_MAP);
 
@@ -38,7 +40,7 @@ export default function PlaceholderHint({
         }>
         <span className="flex items-center gap-1.5">
           <HelpCircle size={13} />
-          Available Placeholders
+          {t("placeholdersTrigger")}
         </span>
         <ChevronDown
           size={13}
@@ -58,7 +60,7 @@ export default function PlaceholderHint({
             <button
               key={key}
               type="button"
-              title={`Click for insert into the text\n${meta.description}`}
+              title={`${t("placeholderTooltip")}\n${meta.description}`}
               onClick={() => onInsert?.(`{${key}}`)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition-colors"
               style={{

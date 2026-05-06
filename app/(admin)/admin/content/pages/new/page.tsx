@@ -1,10 +1,15 @@
 import { getAllPages } from "@/lib/db/pages-queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import PageEditor from "../_components/page-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Nuova pagina" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.content.pages");
+  return { title: t("metaTitleNew") };
+}
 
 export default async function NewPagePage({
   searchParams,

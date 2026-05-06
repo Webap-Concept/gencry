@@ -4,11 +4,15 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import PageManager from "./_components/page-manager";
 import { PagesAdminGuide } from "./_components/pages-admin-guide";
 
-export const metadata: Metadata = { title: "Content / Pages" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.content.pages");
+  return { title: t("metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 async function ContentContent() {
@@ -33,7 +37,8 @@ async function ContentContent() {
   );
 }
 
-export default function ContentPage() {
+export default async function ContentPage() {
+  const t = await getTranslations("admin.content.pages");
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3">
@@ -52,20 +57,22 @@ export default function ContentPage() {
             <h2
               className="text-lg font-bold"
               style={{ color: "var(--admin-text)" }}>
-              <span style={{ color: "var(--admin-text-muted)" }}>Content</span>
+              <span style={{ color: "var(--admin-text-muted)" }}>
+                {t("breadcrumbContent")}
+              </span>
               <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-              <span>Pages</span>
+              <span>{t("pageTitle")}</span>
             </h2>
             <AdminSectionInfo
-              title="Pages — operator's guide"
-              ariaLabel="Show pages guide">
+              title={t("guideTitle")}
+              ariaLabel={t("guideAriaLabel")}>
               <PagesAdminGuide />
             </AdminSectionInfo>
           </div>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Manage the static content of the App
+            {t("pageSubtitle")}
           </p>
         </div>
       </div>

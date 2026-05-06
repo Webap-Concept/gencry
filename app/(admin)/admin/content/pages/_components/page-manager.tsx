@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { deletePageAction, togglePageStatusAction } from "../actions";
@@ -81,6 +82,7 @@ function ChildPaginator({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const t = useTranslations("admin.content.pages.manager");
   const inputRef = useRef<HTMLInputElement>(null);
   const isSearching = search.trim().length > 0;
 
@@ -114,7 +116,7 @@ function ChildPaginator({
           ref={inputRef}
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search children…"
+          placeholder={t("childSearchPlaceholder")}
           style={{
             width: "100%",
             paddingLeft: "22px",
@@ -174,7 +176,7 @@ function ChildPaginator({
             whiteSpace: "nowrap",
             flexShrink: 0,
           }}>
-          {searchResults ?? 0} results
+          {t("childSearchResults", { count: searchResults ?? 0 })}
         </span>
       ) : (
         <div
@@ -252,6 +254,7 @@ function ChildTemplatePicker({
   onSelect: (templateId: number) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("admin.content.pages.manager");
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -268,13 +271,13 @@ function ChildTemplatePicker({
         <div className="flex items-center gap-2 mb-1">
           <ShieldCheck size={15} style={{ color: "var(--admin-accent)" }} />
           <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-            Choose template
+            {t("pickerTitle")}
           </h3>
         </div>
         <p className="text-xs mb-5" style={{ color: "var(--admin-text-muted)" }}>
-          New child page of{" "}
-          <strong style={{ color: "var(--admin-text)" }}>{parentTitle}</strong>.
-          Select the template to use:
+          {t("pickerSubtitleBefore")}{" "}
+          <strong style={{ color: "var(--admin-text)" }}>{parentTitle}</strong>
+          {t("pickerSubtitleAfter")}
         </p>
         <div className="space-y-2 mb-5">
           {options.map((t) => (
@@ -318,7 +321,7 @@ function ChildTemplatePicker({
           }}
           onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--admin-input-border)")}
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--admin-border)")}>
-          Cancel
+          {t("pickerCancel")}
         </button>
       </div>
     </div>
@@ -355,6 +358,7 @@ function PageRow({
   searchActive: boolean;
   appDomain: string;
 }) {
+  const t = useTranslations("admin.content.pages.manager");
   const allChildren = allPages.filter((p) => p.parentId === page.id);
   const hasChildren = allChildren.length > 0;
   const isExpanded = expandedIds.has(page.id);
@@ -498,12 +502,18 @@ function PageRow({
                 ? "1px solid color-mix(in srgb, #22c55e 25%, transparent)"
                 : "1px solid color-mix(in srgb, var(--admin-text-faint) 25%, transparent)",
             }}>
-            {isPublished ? (<><Globe size={10} /> Published</>) : (<>Draft</>)}
+            {isPublished ? (
+              <>
+                <Globe size={10} /> {t("statusPublished")}
+              </>
+            ) : (
+              <>{t("statusDraft")}</>
+            )}
           </span>
         )}
 
         <div className="flex items-center gap-0.5 shrink-0" onClick={stopRow}>
-          <Tooltip label="Edit page" side="top">
+          <Tooltip label={t("rowEdit")} side="top">
             <button
               onClick={() => onEdit(page.id)}
               className="p-1.5 rounded-lg transition-colors"
@@ -521,7 +531,7 @@ function PageRow({
           </Tooltip>
 
           {isPublished && frontUrl && (
-            <Tooltip label="View live" side="top">
+            <Tooltip label={t("rowViewLive")} side="top">
               <a
                 href={frontUrl}
                 target="_blank"
@@ -541,7 +551,7 @@ function PageRow({
           )}
 
           {!isPublished && (
-            <Tooltip label="Preview draft" side="top">
+            <Tooltip label={t("rowPreviewDraft")} side="top">
               <a
                 href={previewUrl}
                 target="_blank"
@@ -564,7 +574,7 @@ function PageRow({
 
           {/* New child — only for non-system pages */}
           {!isSystem && (
-            <Tooltip label="New child page" side="top">
+            <Tooltip label={t("rowNewChild")} side="top">
               <button
                 onClick={() => onNewChild(page.id)}
                 className="p-1.5 rounded-lg transition-colors"
@@ -587,7 +597,9 @@ function PageRow({
               sono sempre published per definizione (servono i meta a
               runtime ai page handler dedicati). */}
           {!isSystem && (
-            <Tooltip label={isPublished ? "Unpublish" : "Publish"} side="top">
+            <Tooltip
+              label={isPublished ? t("rowUnpublish") : t("rowPublish")}
+              side="top">
               <button
                 onClick={() => onToggleStatus(page.id, page.status)}
                 disabled={isPendingToggle}
@@ -626,7 +638,7 @@ function PageRow({
           )}
 
           {!isSystem && (
-            <Tooltip label="Delete page" side="top">
+            <Tooltip label={t("rowDelete")} side="top">
               <button
                 onClick={() =>
                   onDeleteRequest({
@@ -726,6 +738,7 @@ function PageTreeView({
   showNewButton: boolean;
   onNewPage: () => void;
 }) {
+  const t = useTranslations("admin.content.pages.manager");
   const [search, setSearch] = useState("");
   const searchActive = search.trim().length > 0;
 
@@ -768,7 +781,7 @@ function PageTreeView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search page..."
+            placeholder={t("searchPlaceholder")}
             className="w-full pl-8 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
             style={{
               background: "var(--admin-page-bg)",
@@ -784,7 +797,7 @@ function PageTreeView({
             style={{ background: "var(--admin-accent)" }}
             onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.9)")}
             onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-            <Plus size={15} /> New page
+            <Plus size={15} /> {t("newPageButton")}
           </button>
         )}
       </div>
@@ -794,7 +807,7 @@ function PageTreeView({
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <FileText size={36} className="mb-3" style={{ color: "var(--admin-text-faint)" }} />
           <p className="text-sm font-medium" style={{ color: "var(--admin-text-muted)" }}>
-            {searchActive ? "No pages found" : emptyLabel}
+            {searchActive ? t("searchEmptyLabel") : emptyLabel}
           </p>
           {!searchActive && emptyHint && (
             <p className="text-xs mt-1" style={{ color: "var(--admin-text-faint)" }}>
@@ -838,6 +851,7 @@ export default function PageManager({
   templates: TemplateWithFields[];
   appDomain: string;
 }) {
+  const t = useTranslations("admin.content.pages.manager");
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<PagesTab>("user");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -918,12 +932,17 @@ export default function PageManager({
   function buildDeleteMessage(target: DeleteTarget): React.ReactNode {
     return (
       <span>
-        You're about to delete page{" "}
-        <strong style={{ color: "var(--admin-text, #cdccca)" }}>{target.title}</strong>{" "}
-        (<code style={{ fontSize: "12px" }}>/{target.slug}</code>).
+        {t("deleteIntroBefore")}{" "}
+        <strong style={{ color: "var(--admin-text, #cdccca)" }}>
+          {target.title}
+        </strong>{" "}
+        {t("deleteIntroSlugWrap")}
+        <code style={{ fontSize: "12px" }}>/{target.slug}</code>
+        {t("deleteIntroSlugClose")}
         {target.descendants > 0 && (
           <>
-            <br /><br />
+            <br />
+            <br />
             <span
               style={{
                 display: "inline-flex",
@@ -936,14 +955,16 @@ export default function PageManager({
                 fontSize: "13px",
                 fontWeight: 500,
               }}>
-              ⚠️ <strong>{target.descendants}</strong>{" "}
-              {target.descendants === 1 ? "child page" : "child pages"} will also be deleted.
+              ⚠️ {t("deleteCascadeWarning", { count: target.descendants })}
             </span>
           </>
         )}
-        <br /><br />
+        <br />
+        <br />
         <span style={{ fontSize: "13px" }}>
-          This action is <strong>irreversible</strong>.
+          {t("deleteIrreversibleBefore")}{" "}
+          <strong>{t("deleteIrreversibleStrong")}</strong>
+          {t("deleteIrreversibleAfter")}
         </span>
       </span>
     );
@@ -991,7 +1012,7 @@ export default function PageManager({
           onMouseEnter={(e) => { if (activeTab !== "user") e.currentTarget.style.color = "var(--admin-text)"; }}
           onMouseLeave={(e) => { if (activeTab !== "user") e.currentTarget.style.color = "var(--admin-text-muted)"; }}>
           <FileText size={13} />
-          Pages
+          {t("tabUser")}
           <span
             style={{
               display: "inline-flex",
@@ -1019,7 +1040,7 @@ export default function PageManager({
           onMouseEnter={(e) => { if (activeTab !== "system") e.currentTarget.style.color = "var(--admin-text)"; }}
           onMouseLeave={(e) => { if (activeTab !== "system") e.currentTarget.style.color = "var(--admin-text-muted)"; }}>
           <Lock size={13} />
-          System
+          {t("tabSystem")}
           <span
             style={{
               display: "inline-flex",
@@ -1054,8 +1075,8 @@ export default function PageManager({
           onDeleteRequest={setDeleteTarget}
           onNewChild={handleNewChild}
           onToggleStatus={handleToggleStatus}
-          emptyLabel="No pages created"
-          emptyHint='Click "New page" to begin.'
+          emptyLabel={t("emptyUserLabel")}
+          emptyHint={t("emptyUserHint")}
           showNewButton={true}
           onNewPage={() => router.push(`${getAdminPath("content-pages")}/new`)}
         />
@@ -1073,8 +1094,8 @@ export default function PageManager({
           onDeleteRequest={setDeleteTarget}
           onNewChild={handleNewChild}
           onToggleStatus={handleToggleStatus}
-          emptyLabel="No system pages"
-          emptyHint="System pages are created automatically by setup."
+          emptyLabel={t("emptySystemLabel")}
+          emptyHint={t("emptySystemHint")}
           showNewButton={false}
           onNewPage={() => {}}
         />
@@ -1092,10 +1113,10 @@ export default function PageManager({
       {deleteTarget && (
         <ConfirmModal
           open={!!deleteTarget}
-          title="Delete page"
+          title={t("deleteTitle")}
           message={buildDeleteMessage(deleteTarget)}
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          confirmLabel={t("deleteConfirm")}
+          cancelLabel={t("deleteCancel")}
           variant="danger"
           loading={deleteLoading}
           onConfirm={handleConfirmDelete}
