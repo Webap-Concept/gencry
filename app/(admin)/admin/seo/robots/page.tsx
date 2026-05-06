@@ -1,7 +1,14 @@
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { Globe } from "lucide-react";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import RobotsEditor from "./_components/robots-editor";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.seo.robots");
+  return { title: t("metaTitle") };
+}
 
 async function RobotsContent() {
   const settings = await getAppSettings();
@@ -21,7 +28,8 @@ async function RobotsContent() {
   );
 }
 
-export default function RobotsPage() {
+export default async function RobotsPage() {
+  const t = await getTranslations("admin.seo.robots");
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -36,22 +44,22 @@ export default function RobotsPage() {
         </div>
         <div>
           <h2 className="text-xl font-bold" style={{ color: "var(--admin-text)" }}>
-            Robots
+            {t("pageHeading")}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-muted)" }}>
-            Gestisci i file{" "}
+            {t("pageSubtitleBefore")}{" "}
             <code
               className="font-mono text-xs px-1 py-0.5 rounded"
               style={{ background: "var(--admin-hover-bg)" }}>
               robots.txt
             </code>{" "}
-            e{" "}
+            {t("pageSubtitleMiddle")}{" "}
             <code
               className="font-mono text-xs px-1 py-0.5 rounded"
               style={{ background: "var(--admin-hover-bg)" }}>
               humans.txt
             </code>{" "}
-            serviti dall&apos;app.
+            {t("pageSubtitleAfter")}
           </p>
         </div>
       </div>

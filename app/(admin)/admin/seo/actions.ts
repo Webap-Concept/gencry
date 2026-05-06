@@ -2,6 +2,7 @@
 
 import { deleteSeoPage, renameSeoPage, upsertSeoPage } from "@/lib/db/seo-queries";
 import { JSON_LD_TYPES, type JsonLdType } from "./_components/jsonld-types";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -10,15 +11,15 @@ const ROBOTS_VALUES = ["", "noindex,nofollow", "noindex,follow"] as const;
 const schema = z.object({
   pathname: z
     .string()
-    .min(1)
-    .regex(/^\//, { message: "Il pathname deve iniziare con /" }),
+    .min(1, "errorPathnameRequired")
+    .regex(/^\//, { message: "errorPathnameInvalid" }),
   originalPathname: z.string().optional(),
-  label: z.string().min(1, "Il nome è obbligatorio").max(100),
+  label: z.string().min(1, "errorLabelRequired").max(100),
   title: z.string().max(70).optional(),
   description: z.string().max(160).optional(),
   ogTitle: z.string().max(70).optional(),
   ogDescription: z.string().max(200).optional(),
-  ogImage: z.string().url().optional().or(z.literal("")),
+  ogImage: z.string().url("errorOgImageInvalid").optional().or(z.literal("")),
   robots: z
     .enum(ROBOTS_VALUES)
     .optional()
@@ -26,6 +27,13 @@ const schema = z.object({
   jsonLdEnabled: z.boolean().default(false),
   jsonLdType: z.string().optional().nullable(),
 });
+
+const SEO_FORM_ERROR_KEYS = new Set([
+  "errorPathnameRequired",
+  "errorPathnameInvalid",
+  "errorLabelRequired",
+  "errorOgImageInvalid",
+]);
 
 export async function upsertSeoPageAction(
   _: unknown,
@@ -51,9 +59,14 @@ export async function upsertSeoPageAction(
     jsonLdType: jsonLdTypeValue,
   };
 
+  const tErrors = await getTranslations("admin.seo.form");
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+    const msg = parsed.error.issues[0]?.message ?? "errorInvalidData";
+    if (SEO_FORM_ERROR_KEYS.has(msg)) {
+      return { error: tErrors(msg as Parameters<typeof tErrors>[0]) };
+    }
+    return { error: tErrors("errorInvalidData") };
   }
 
   const { originalPathname, ...data } = parsed.data;
@@ -80,7 +93,7 @@ export async function upsertSeoPageAction(
     }
   } catch (err) {
     console.error("[upsertSeoPageAction] error:", err);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: tErrors("errorSaveFailed") };
   }
 
   return { success: true };
@@ -89,14 +102,15 @@ export async function upsertSeoPageAction(
 export async function deleteSeoPageAction(
   pathname: string,
 ): Promise<{ error?: string; success?: boolean }> {
-  if (!pathname) return { error: "Pathname mancante" };
+  const tErrors = await getTranslations("admin.seo.form");
+  if (!pathname) return { error: tErrors("errorPathnameMissing") };
   try {
     await deleteSeoPage(pathname);
     revalidatePath("/admin/seo");
     revalidatePath(pathname);
   } catch (err) {
     console.error("[deleteSeoPageAction] error:", err);
-    return { error: "Errore nell'eliminazione. Riprova." };
+    return { error: tErrors("errorDeleteFailed") };
   }
   return { success: true };
 }

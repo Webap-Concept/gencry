@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
@@ -97,6 +98,7 @@ export default function RedirectsClient({
   upsertAction,
   deleteAction,
 }: Props) {
+  const t = useTranslations("admin.seo.redirect");
   const [rows, setRows] = useState<RedirectRow[]>(initialRows);
 
   useEffect(() => {
@@ -152,10 +154,10 @@ export default function RedirectsClient({
     <div className="space-y-6">
       <ConfirmModal
         open={deleteTarget !== null}
-        title="Delete redirect"
+        title={t("deleteModalTitle")}
         message={
           <>
-            Yu are about to delete the redirect from{" "}
+            {t("deleteModalIntroBefore")}{" "}
             <code
               style={{
                 fontFamily: "monospace",
@@ -167,15 +169,16 @@ export default function RedirectsClient({
               }}>
               {deleteTarget?.fromPath}
             </code>
-            .<br />
+            {t("deleteModalIntroAfter")}
+            <br />
             <span style={{ marginTop: "6px", display: "block" }}>
-              This operation is irreversible.
+              {t("deleteModalIrreversible")}
             </span>
           </>
         }
         variant="danger"
-        confirmLabel="Delete redirect"
-        cancelLabel="Cancel"
+        confirmLabel={t("deleteModalConfirm")}
+        cancelLabel={t("deleteModalCancel")}
         loading={deletingId !== null}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -198,10 +201,10 @@ export default function RedirectsClient({
             <h1
               className="text-lg font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              Redirect
+              {t("pageHeading")}
             </h1>
             <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-              {rows.length} configured redirect
+              {t("totalCount", { count: rows.length })}
             </p>
           </div>
         </div>
@@ -215,7 +218,7 @@ export default function RedirectsClient({
               (e.currentTarget.style.filter = "brightness(0.9)")
             }
             onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-            <Plus size={15} /> Add redirect
+            <Plus size={15} /> {t("addButton")}
           </button>
         )}
       </div>
@@ -232,7 +235,7 @@ export default function RedirectsClient({
             <p
               className="text-sm font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              {mode.type === "new" ? "Nuovo redirect" : "Modifica redirect"}
+              {mode.type === "new" ? t("formNewTitle") : t("formEditTitle")}
             </p>
             <button type="button" onClick={() => setMode(null)}>
               <X size={16} style={{ color: "var(--admin-text-muted)" }} />
@@ -243,14 +246,14 @@ export default function RedirectsClient({
             <input type="hidden" name="isActive" value="true" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label style={labelStyle}>Source path (from)</label>
+                <label style={labelStyle}>{t("fromLabel")}</label>
                 <input
                   name="fromPath"
                   defaultValue={
                     editRow?.fromPath ??
                     (mode.type === "new" && prefillFrom ? prefillFrom : "")
                   }
-                  placeholder="/old-url"
+                  placeholder={t("fromPlaceholder")}
                   required
                   style={inputStyle}
                 />
@@ -260,15 +263,15 @@ export default function RedirectsClient({
                     color: "var(--admin-text-faint)",
                     marginTop: "0.25rem",
                   }}>
-                  Must start with /
+                  {t("fromHint")}
                 </p>
               </div>
               <div>
-                <label style={labelStyle}>Destination path (to)</label>
+                <label style={labelStyle}>{t("toLabel")}</label>
                 <input
                   name="toPath"
                   defaultValue={editRow?.toPath ?? ""}
-                  placeholder="/new-url"
+                  placeholder={t("toPlaceholder")}
                   required
                   style={inputStyle}
                 />
@@ -278,20 +281,20 @@ export default function RedirectsClient({
                     color: "var(--admin-text-faint)",
                     marginTop: "0.25rem",
                   }}>
-                  Must start with /
+                  {t("toHint")}
                 </p>
               </div>
             </div>
             <div className="max-w-xs">
-              <label style={labelStyle}>HTTP Code</label>
+              <label style={labelStyle}>{t("statusCodeLabel")}</label>
               <select
                 name="statusCode"
                 defaultValue={String(editRow?.statusCode ?? "301")}
                 style={{ ...inputStyle, fontFamily: "inherit" }}>
-                <option value="301">301 — Permanent (SEO safe)</option>
-                <option value="302">302 — Temporary</option>
-                <option value="307">307 — Temporary (preserve method)</option>
-                <option value="308">308 — Permanent (preserve method)</option>
+                <option value="301">{t("statusCode301")}</option>
+                <option value="302">{t("statusCode302")}</option>
+                <option value="307">{t("statusCode307")}</option>
+                <option value="308">{t("statusCode308")}</option>
               </select>
             </div>
             {(formState as { error?: string })?.error && (
@@ -316,7 +319,7 @@ export default function RedirectsClient({
                   color: "var(--admin-text-muted)",
                   border: "1px solid var(--admin-card-border)",
                 }}>
-                Cancel
+                {t("cancelButton")}
               </button>
               <button
                 type="submit"
@@ -330,7 +333,7 @@ export default function RedirectsClient({
                 {isPending && (
                   <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 )}
-                {mode.type === "new" ? "Crea redirect" : "Salva"}
+                {mode.type === "new" ? t("createButton") : t("saveButton")}
               </button>
             </div>
           </form>
@@ -367,12 +370,12 @@ export default function RedirectsClient({
           <p
             className="text-sm font-medium"
             style={{ color: "var(--admin-text-muted)" }}>
-            No redirect configured
+            {t("emptyTitle")}
           </p>
           <p
             className="text-xs mt-1"
             style={{ color: "var(--admin-text-faint)" }}>
-            Automatic 301 redirects are created when you change a page’s slug.
+            {t("emptyHint")}
           </p>
         </div>
       ) : (
@@ -390,10 +393,10 @@ export default function RedirectsClient({
               borderBottom: "1px solid var(--admin-divider)",
               background: "var(--admin-page-bg)",
             }}>
-            <span>From</span>
+            <span>{t("columnFrom")}</span>
             <span />
-            <span>To</span>
-            <span>Code</span>
+            <span>{t("columnTo")}</span>
+            <span>{t("columnCode")}</span>
             <span />
           </div>
 
@@ -436,7 +439,7 @@ export default function RedirectsClient({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  title="Modifica"
+                  title={t("rowEditTooltip")}
                   onClick={() => setMode({ type: "edit", row })}
                   className="p-1.5 rounded transition-colors"
                   style={{ color: "var(--admin-text-muted)" }}
@@ -450,7 +453,7 @@ export default function RedirectsClient({
                 </button>
                 <button
                   type="button"
-                  title="Delete"
+                  title={t("rowDeleteTooltip")}
                   disabled={deletingId === row.id}
                   onClick={() =>
                     setDeleteTarget({ id: row.id, fromPath: row.fromPath })

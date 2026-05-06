@@ -1,6 +1,7 @@
 "use server";
 
 import { updateAppSetting } from "@/lib/db/settings-queries";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -23,9 +24,13 @@ export async function saveRobotsAction(
     humans_txt: formData.get("humans_txt") ?? "",
   };
 
+  const t = await getTranslations("admin.seo.robots");
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    return { timestamp: Date.now(), error: parsed.error.issues[0]?.message ?? "Dati non validi" };
+    return {
+      timestamp: Date.now(),
+      error: parsed.error.issues[0]?.message ?? t("errorInvalidData"),
+    };
   }
 
   try {
@@ -38,8 +43,8 @@ export async function saveRobotsAction(
     revalidatePath("/admin/seo/robots");
   } catch (err) {
     console.error("[saveRobotsAction] error:", err);
-    return { timestamp: Date.now(), error: "Errore nel salvataggio. Riprova." };
+    return { timestamp: Date.now(), error: t("errorSaveFailed") };
   }
 
-  return { timestamp: Date.now(), success: "File salvati con successo" };
+  return { timestamp: Date.now(), success: t("feedbackSaved") };
 }

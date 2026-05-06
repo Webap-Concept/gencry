@@ -12,9 +12,12 @@ import {
   SearchX,
   Trash2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+
+type NotFoundT = ReturnType<typeof useTranslations<"admin.seo.notFound">>;
 
 type Props = {
   rows: NotFoundLogRow[];
@@ -38,18 +41,20 @@ type Props = {
 
 type DeleteTarget = { id: number; path: string };
 
-function formatRelative(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  const diffMs = Date.now() - d.getTime();
-  const sec = Math.round(diffMs / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  return d.toLocaleDateString();
+function makeFormatRelative(t: NotFoundT) {
+  return (date: Date | string): string => {
+    const d = typeof date === "string" ? new Date(date) : date;
+    const diffMs = Date.now() - d.getTime();
+    const sec = Math.round(diffMs / 1000);
+    if (sec < 60) return t("relativeSec", { sec });
+    const min = Math.round(sec / 60);
+    if (min < 60) return t("relativeMin", { min });
+    const hr = Math.round(min / 60);
+    if (hr < 24) return t("relativeHr", { hr });
+    const day = Math.round(hr / 24);
+    if (day < 30) return t("relativeDay", { day });
+    return d.toLocaleDateString();
+  };
 }
 
 export default function NotFoundClient({
@@ -61,6 +66,8 @@ export default function NotFoundClient({
   deleteAction,
   clearResolvedAction,
 }: Props) {
+  const t = useTranslations("admin.seo.notFound");
+  const formatRelative = makeFormatRelative(t);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -107,10 +114,10 @@ export default function NotFoundClient({
     <div className="space-y-6">
       <ConfirmModal
         open={deleteTarget !== null}
-        title="Delete entry"
+        title={t("deleteModalTitle")}
         message={
           <>
-            You are about to delete the 404 entry for{" "}
+            {t("deleteModalIntroBefore")}{" "}
             <code
               style={{
                 fontFamily: "monospace",
@@ -122,16 +129,16 @@ export default function NotFoundClient({
               }}>
               {deleteTarget?.path}
             </code>
-            .<br />
+            {t("deleteModalIntroAfter")}
+            <br />
             <span style={{ marginTop: "6px", display: "block" }}>
-              The hit history for this path will be lost. Future hits will
-              create a new entry.
+              {t("deleteModalCascade")}
             </span>
           </>
         }
         variant="danger"
-        confirmLabel="Delete entry"
-        cancelLabel="Cancel"
+        confirmLabel={t("deleteModalConfirm")}
+        cancelLabel={t("deleteModalCancel")}
         loading={pendingId === deleteTarget?.id}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -139,16 +146,14 @@ export default function NotFoundClient({
 
       <ConfirmModal
         open={clearOpen}
-        title="Clear resolved entries"
-        message={
-          <>
-            All entries currently marked as <strong>resolved</strong> (
-            {counts.resolved}) will be permanently deleted.
-          </>
-        }
+        title={t("clearModalTitle")}
+        message={t.rich("clearModalBody", {
+          count: counts.resolved,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
         variant="warning"
-        confirmLabel="Clear resolved"
-        cancelLabel="Cancel"
+        confirmLabel={t("clearModalConfirm")}
+        cancelLabel={t("clearModalCancel")}
         onConfirm={confirmClearResolved}
         onCancel={() => setClearOpen(false)}
       />
@@ -170,10 +175,13 @@ export default function NotFoundClient({
             <h1
               className="text-lg font-semibold"
               style={{ color: "var(--admin-text)" }}>
-              404 Monitor
+              {t("pageHeading")}
             </h1>
             <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-              {counts.unresolved} unresolved · {counts.resolved} resolved
+              {t("countsLine", {
+                unresolved: counts.unresolved,
+                resolved: counts.resolved,
+              })}
             </p>
           </div>
         </div>
@@ -196,7 +204,7 @@ export default function NotFoundClient({
                   ? "var(--admin-text)"
                   : "var(--admin-text-muted)",
               }}>
-              Unresolved
+              {t("filterUnresolved")}
             </button>
             <button
               type="button"
@@ -210,7 +218,7 @@ export default function NotFoundClient({
                   ? "var(--admin-text)"
                   : "var(--admin-text-muted)",
               }}>
-              All
+              {t("filterAll")}
             </button>
           </div>
           {counts.resolved > 0 && (
@@ -223,7 +231,7 @@ export default function NotFoundClient({
                 border: "1px solid var(--admin-card-border)",
                 background: "var(--admin-card-bg)",
               }}>
-              <Trash2 size={13} /> Clear resolved
+              <Trash2 size={13} /> {t("clearResolvedButton")}
             </button>
           )}
         </div>
@@ -261,13 +269,12 @@ export default function NotFoundClient({
           <p
             className="text-sm font-medium"
             style={{ color: "var(--admin-text-muted)" }}>
-            No 404 hits recorded
+            {t("emptyTitle")}
           </p>
           <p
             className="text-xs mt-1 max-w-sm"
             style={{ color: "var(--admin-text-faint)" }}>
-            Each time a public URL returns 404, it&apos;s aggregated here.
-            Static assets, API routes, and bot traffic are filtered out.
+            {t("emptyHint")}
           </p>
         </div>
       ) : (
@@ -284,9 +291,9 @@ export default function NotFoundClient({
               borderBottom: "1px solid var(--admin-divider)",
               background: "var(--admin-page-bg)",
             }}>
-            <span>Path</span>
-            <span>Hits</span>
-            <span>Last hit</span>
+            <span>{t("columnPath")}</span>
+            <span>{t("columnHits")}</span>
+            <span>{t("columnLastHit")}</span>
             <span />
           </div>
 
@@ -323,7 +330,7 @@ export default function NotFoundClient({
                       href={row.path}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Open in new tab"
+                      title={t("openInNewTabTooltip")}
                       className="flex-shrink-0 p-0.5 rounded transition-colors"
                       style={{ color: "var(--admin-text-faint)" }}
                       onMouseEnter={(e) =>
@@ -340,8 +347,8 @@ export default function NotFoundClient({
                     <p
                       className="text-[0.65rem] truncate"
                       style={{ color: "var(--admin-text-faint)" }}
-                      title={`Last referrer: ${row.lastReferrer}`}>
-                      from {row.lastReferrer}
+                      title={t("referrerPrefix", { ref: row.lastReferrer })}>
+                      {t("referrerPrefix", { ref: row.lastReferrer })}
                     </p>
                   )}
                 </div>
@@ -368,7 +375,7 @@ export default function NotFoundClient({
                 <div className="flex items-center gap-1">
                   <Link
                     href={`/admin/seo/redirect?from=${encodeURIComponent(row.path)}`}
-                    title="Create redirect for this path"
+                    title={t("redirectActionTooltip")}
                     className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
                     style={{
                       color: "var(--admin-accent)",
@@ -378,14 +385,14 @@ export default function NotFoundClient({
                         "color-mix(in srgb, var(--admin-accent) 8%, transparent)",
                     }}>
                     <GitMerge size={12} />
-                    Redirect
+                    {t("redirectActionLabel")}
                     <ArrowUpRight size={11} />
                   </Link>
 
                   {resolved ? (
                     <button
                       type="button"
-                      title="Reopen"
+                      title={t("reopenTooltip")}
                       disabled={busy}
                       onClick={() => runAction(row.id, reopenAction)}
                       className="p-1.5 rounded transition-colors disabled:opacity-40"
@@ -406,7 +413,7 @@ export default function NotFoundClient({
                   ) : (
                     <button
                       type="button"
-                      title="Mark as resolved"
+                      title={t("resolveTooltip")}
                       disabled={busy}
                       onClick={() => runAction(row.id, resolveAction)}
                       className="p-1.5 rounded transition-colors disabled:opacity-40"
@@ -428,7 +435,7 @@ export default function NotFoundClient({
 
                   <button
                     type="button"
-                    title="Delete"
+                    title={t("deleteTooltip")}
                     disabled={busy}
                     onClick={() =>
                       setDeleteTarget({ id: row.id, path: row.path })
