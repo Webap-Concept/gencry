@@ -1,10 +1,15 @@
 import { notFound } from "next/navigation";
 import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(frontend)/_templates/registered-slugs";
 import { getTemplateById, getAllTemplates } from "@/lib/db/template-queries";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { saveTemplateAction } from "../actions";
 import TemplateFormClient from "../_components/template-form-client";
 
-export const metadata = { title: "Modifica template" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.content.templates");
+  return { title: t("metaTitleEdit") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function EditTemplatePage({

@@ -2,6 +2,7 @@
 
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import { Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { deleteTemplateAction } from "../actions";
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function DeleteTemplateButton({ id, name, pageCount }: Props) {
+  const t = useTranslations("admin.content.templates.delete");
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -26,25 +28,26 @@ export default function DeleteTemplateButton({ id, name, pageCount }: Props) {
 
   const inUse = pageCount > 0;
 
+  const strongStyle = { color: "var(--admin-text)" };
+
   const message = inUse ? (
     <>
-      Il template{" "}
-      <strong style={{ color: "var(--admin-text)" }}>"{name}"</strong> è usato
-      da{" "}
-      <strong style={{ color: "var(--admin-text)" }}>
-        {pageCount} {pageCount === 1 ? "pagina" : "pagine"}
+      {t("bodyInUseBefore")}{" "}
+      <strong style={strongStyle}>&quot;{name}&quot;</strong>{" "}
+      {t("bodyInUseMiddle")}{" "}
+      <strong style={strongStyle}>
+        {t("pageCountInline", { count: pageCount })}
       </strong>
       .
       <br />
       <br />
-      Removing it will leave those pages without an assigned template, and they
-      will use the default layout. This action is irreversible.
+      {t("bodyInUseAfter")}
     </>
   ) : (
     <>
-      Delete the Template{" "}
-      <strong style={{ color: "var(--admin-text)" }}>"{name}"</strong>? This
-      action is irreversible.
+      {t("bodyCleanBefore")}{" "}
+      <strong style={strongStyle}>&quot;{name}&quot;</strong>
+      {t("bodyCleanAfter")}
     </>
   );
 
@@ -52,7 +55,7 @@ export default function DeleteTemplateButton({ id, name, pageCount }: Props) {
     <>
       <button
         type="button"
-        title="Delete Template"
+        title={t("buttonTooltip")}
         onClick={() => setOpen(true)}
         className="p-1.5 rounded-lg transition-colors"
         style={{
@@ -64,12 +67,10 @@ export default function DeleteTemplateButton({ id, name, pageCount }: Props) {
 
       <ConfirmModal
         open={open}
-        title={
-          inUse ? `Template is in use — deleting anyway?` : `Delete Template`
-        }
+        title={inUse ? t("titleInUse") : t("titleClean")}
         message={message}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        confirmLabel={t("confirmLabel")}
+        cancelLabel={t("cancelLabel")}
         variant={inUse ? "warning" : "danger"}
         loading={isPending}
         onConfirm={handleConfirm}
