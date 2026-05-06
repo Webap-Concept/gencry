@@ -1,5 +1,5 @@
 // lib/email/templates/gdpr-export-ready.ts
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   ctaButton,
   paragraphs,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
 import { emailTheme as t } from "@/lib/email/theme";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 /**
  * Email "I tuoi dati sono pronti per il download" — inviata al termine
@@ -24,9 +25,10 @@ export async function sendGdprExportReadyEmail(params: {
   toEmail: string;
   firstName: string | null;
   downloadUrl: string;
+  locale?: Locale;
 }) {
-  const { toEmail, firstName, downloadUrl } = params;
-  const settings = await getAppSettings();
+  const { toEmail, firstName, downloadUrl, locale = DEFAULT_LOCALE } = params;
+  const settings = await getLocalizedEmailSettings(locale);
   const appName = settings.app_name;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

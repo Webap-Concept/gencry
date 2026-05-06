@@ -19,6 +19,7 @@ import { comparePasswords } from "@/lib/auth/session";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import { sendAccountDeletionRequestedEmail } from "@/lib/email/templates/account-deletion-requested";
 import { sendAccountDeletionOtpEmail } from "@/lib/email/templates/account-deletion-otp";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { eq } from "drizzle-orm";
 
 /** Giorni di grace tra richiesta utente e purge fisico. */
@@ -48,9 +49,16 @@ export async function requestAccountDeletion(params: {
   firstName: string | null;
   currentPasswordHash: string | null;
   currentPassword: string;
+  locale?: Locale;
 }): Promise<DeletionResult> {
-  const { userId, email, firstName, currentPasswordHash, currentPassword } =
-    params;
+  const {
+    userId,
+    email,
+    firstName,
+    currentPasswordHash,
+    currentPassword,
+    locale = DEFAULT_LOCALE,
+  } = params;
 
   if (currentPasswordHash === null) {
     return {
@@ -65,7 +73,7 @@ export async function requestAccountDeletion(params: {
     return { ok: false, error: "La password non è corretta." };
   }
 
-  await performDeletion({ userId, email, firstName });
+  await performDeletion({ userId, email, firstName, locale });
   return { ok: true };
 }
 
@@ -82,12 +90,18 @@ export async function sendAccountDeletionOtp(params: {
   userId: string;
   email: string;
   firstName: string | null;
+  locale?: Locale;
 }): Promise<DeletionResult> {
-  const { userId, email, firstName } = params;
+  const { userId, email, firstName, locale = DEFAULT_LOCALE } = params;
 
   const code = await createVerificationCode(userId, "account_deletion");
   try {
-    await sendAccountDeletionOtpEmail({ toEmail: email, firstName, code });
+    await sendAccountDeletionOtpEmail({
+      toEmail: email,
+      firstName,
+      code,
+      locale,
+    });
   } catch (err) {
     console.error("[account/deletion] OTP email send failed:", err);
     return {
@@ -109,8 +123,9 @@ export async function requestAccountDeletionViaOtp(params: {
   email: string;
   firstName: string | null;
   code: string;
+  locale?: Locale;
 }): Promise<DeletionResult> {
-  const { userId, email, firstName, code } = params;
+  const { userId, email, firstName, code, locale = DEFAULT_LOCALE } = params;
 
   const result = await verifyOtpCode(userId, code, "account_deletion");
   if (!result.success) {
@@ -120,7 +135,7 @@ export async function requestAccountDeletionViaOtp(params: {
     };
   }
 
-  await performDeletion({ userId, email, firstName });
+  await performDeletion({ userId, email, firstName, locale });
   return { ok: true };
 }
 
@@ -132,8 +147,9 @@ async function performDeletion(params: {
   userId: string;
   email: string;
   firstName: string | null;
+  locale: Locale;
 }): Promise<void> {
-  const { userId, email, firstName } = params;
+  const { userId, email, firstName, locale } = params;
   const now = new Date();
 
   await Promise.all([
@@ -156,6 +172,7 @@ async function performDeletion(params: {
       toEmail: email,
       firstName,
       purgeDate,
+      locale,
     });
   } catch (err) {
     console.error("[account/deletion] confirmation email failed:", err);

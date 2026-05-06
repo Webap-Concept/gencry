@@ -6,6 +6,7 @@ import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import { setSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
 import { users, userProfiles } from "@/lib/db/schema";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendSignupVerificationEmail } from "@/lib/email/templates/signup-verification";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
@@ -72,6 +73,7 @@ export const resendVerificationEmail = validatedAction(
       .select({
         email: users.email,
         firstName: userProfiles.firstName,
+        locale: users.locale,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -83,10 +85,12 @@ export const resendVerificationEmail = validatedAction(
     }
 
     const code = await createVerificationCode(userId);
+    const locale = await resolveRecipientLocale(row.locale);
     await sendSignupVerificationEmail(
       row.email,
       code,
       row.firstName ?? undefined,
+      locale,
     );
 
     return { success: t("actionErrors.verifyEmail.codeSent") };

@@ -3,10 +3,17 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { ChevronDown, FileCode2, ImageIcon, Loader2, Save } from "lucide-react";
+import type { Locale } from "@/lib/i18n/config";
+import {
+  ChevronDown,
+  FileCode2,
+  ImageIcon,
+  Loader2,
+  Save,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { saveEmailTemplateSettings, type ActionState } from "../actions";
 
 // ---------------------------------------------------------------------------
@@ -115,6 +122,7 @@ const TEMPLATE_IDS = [
 ] as const;
 
 type TemplateId = (typeof TEMPLATE_IDS)[number];
+type LocaleField = "subject" | "body" | "footer";
 
 const TEMPLATE_PREFIX: Record<TemplateId, string> = {
   welcome: "email_welcome",
@@ -149,6 +157,20 @@ const TEMPLATE_FILE: Record<TemplateId, string> = {
   mfadisabled: "lib/email/templates/mfa-disabled.ts",
   mfaadminreset: "lib/email/templates/mfa-admin-reset.ts",
 };
+
+// ---------------------------------------------------------------------------
+// Types — props
+// ---------------------------------------------------------------------------
+export type EmailLocaleOption = {
+  code: Locale;
+  nativeLabel: string;
+  isDefault: boolean;
+};
+
+type Overlays = Record<string, Record<string, string>>;
+type LocaleValues = Partial<Record<LocaleField, string>>;
+// Mappa: localeCode -> templateId -> { subject, body, footer }
+type ValuesByLocale = Record<string, Record<TemplateId, LocaleValues>>;
 
 // ---------------------------------------------------------------------------
 // Chip placeholder
@@ -186,9 +208,21 @@ function PlaceholderChip({
 function TemplatePanel({
   id,
   settings,
+  activeLocale,
+  defaultLocaleCode,
+  values,
+  bccValue,
+  onFieldChange,
+  onBccChange,
 }: {
   id: TemplateId;
   settings: AppSettings;
+  activeLocale: Locale;
+  defaultLocaleCode: Locale;
+  values: LocaleValues;
+  bccValue: string;
+  onFieldChange: (field: LocaleField, value: string) => void;
+  onBccChange: (value: string) => void;
 }) {
   const t = useTranslations("admin.settings.emailTemplates");
   const tTpl = useTranslations(`admin.settings.emailTemplates.templates.${id}`);
@@ -200,12 +234,11 @@ function TemplatePanel({
 
   const prefix = TEMPLATE_PREFIX[id];
   const file = TEMPLATE_FILE[id];
+  const isDefault = activeLocale === defaultLocaleCode;
 
-  const s = settings as Record<string, string | null>;
-  const currentSubject = s[`${prefix}_subject`] ?? "";
-  const currentBcc = s[`${prefix}_bcc`] ?? "";
-  const currentBody = s[`${prefix}_body`] ?? "";
-  const currentFooter = s[`${prefix}_footer`] ?? "";
+  const subject = values.subject ?? "";
+  const body = values.body ?? "";
+  const footer = values.footer ?? "";
 
   function insertPlaceholder(
     ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
@@ -217,7 +250,9 @@ function TemplatePanel({
     const end = el.selectionEnd ?? el.value.length;
     const newVal = el.value.slice(0, start) + value + el.value.slice(end);
     const nativeSetter = Object.getOwnPropertyDescriptor(
-      el.nodeName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+      el.nodeName === "TEXTAREA"
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype,
       "value",
     )?.set;
     nativeSetter?.call(el, newVal);
@@ -236,6 +271,11 @@ function TemplatePanel({
 
   const chips = PLACEHOLDERS[id] ?? [];
 
+  // Header badge: "customizzato" se ALMENO UNA locale ha subject o body.
+  const settingsRecord = settings as Record<string, string | null>;
+  const hasAnyContent =
+    !!(settingsRecord[`${prefix}_subject`] || settingsRecord[`${prefix}_body`]);
+
   return (
     <div
       className="rounded-xl overflow-hidden"
@@ -248,7 +288,7 @@ function TemplatePanel({
         style={{ background: "var(--admin-card-bg)", color: "var(--admin-text)" }}>
         <span className="text-sm font-semibold">{tTpl("label")}</span>
         <div className="flex items-center gap-2">
-          {(currentSubject || currentBody) && (
+          {hasAnyContent && (
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
@@ -269,7 +309,7 @@ function TemplatePanel({
         </div>
       </button>
 
-      {/* Body — sfondo --admin-page-bg così le input bianche spiccano */}
+      {/* Body */}
       {open && (
         <div
           className="px-5 py-5 space-y-5"
@@ -315,24 +355,38 @@ function TemplatePanel({
                   key={chip.value}
                   label={chip.label}
                   value={chip.value}
-                  insertTitle={t("placeholderInsertTitle", { value: chip.value })}
+                  insertTitle={t("placeholderInsertTitle", {
+                    value: chip.value,
+                  })}
                   onInsert={(v) => {
                     const active = document.activeElement;
                     if (active === subjectRef.current)
-                      insertPlaceholder(subjectRef as React.RefObject<HTMLInputElement>, v);
+                      insertPlaceholder(
+                        subjectRef as React.RefObject<HTMLInputElement>,
+                        v,
+                      );
                     else if (active === bccRef.current)
-                      insertPlaceholder(bccRef as React.RefObject<HTMLInputElement>, v);
+                      insertPlaceholder(
+                        bccRef as React.RefObject<HTMLInputElement>,
+                        v,
+                      );
                     else if (active === footerRef.current)
-                      insertPlaceholder(footerRef as React.RefObject<HTMLTextAreaElement>, v);
+                      insertPlaceholder(
+                        footerRef as React.RefObject<HTMLTextAreaElement>,
+                        v,
+                      );
                     else
-                      insertPlaceholder(bodyRef as React.RefObject<HTMLTextAreaElement>, v);
+                      insertPlaceholder(
+                        bodyRef as React.RefObject<HTMLTextAreaElement>,
+                        v,
+                      );
                   }}
                 />
               ))}
             </div>
           </div>
 
-          {/* Subject */}
+          {/* Subject (per-locale) */}
           <div>
             <label
               className="block text-xs font-medium mb-1.5"
@@ -341,36 +395,41 @@ function TemplatePanel({
             </label>
             <input
               ref={subjectRef}
-              name={`${prefix}_subject`}
-              defaultValue={currentSubject}
+              value={subject}
+              onChange={(e) => onFieldChange("subject", e.target.value)}
               placeholder={tTpl("defaultSubject")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={inputStyle}
             />
-            <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
+            <p
+              className="text-[11px] mt-1"
+              style={{ color: "var(--admin-text-faint)" }}>
               {t("subjectHint")}
             </p>
           </div>
 
-          {/* BCC */}
-          <div>
-            <label
-              className="block text-xs font-medium mb-1.5"
-              style={{ color: "var(--admin-text-muted)" }}>
-              {t("bccLabel")}
-            </label>
-            <input
-              ref={bccRef}
-              name={`${prefix}_bcc`}
-              type="email"
-              defaultValue={currentBcc}
-              placeholder={t("bccPlaceholder")}
-              className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
-              style={inputStyle}
-            />
-          </div>
+          {/* BCC (NON per-locale: visibile solo nella tab default per evitare
+              confusione, ma il valore unico viene salvato con `${prefix}_bcc`) */}
+          {isDefault && (
+            <div>
+              <label
+                className="block text-xs font-medium mb-1.5"
+                style={{ color: "var(--admin-text-muted)" }}>
+                {t("bccLabel")}
+              </label>
+              <input
+                ref={bccRef}
+                type="email"
+                value={bccValue}
+                onChange={(e) => onBccChange(e.target.value)}
+                placeholder={t("bccPlaceholder")}
+                className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
+                style={inputStyle}
+              />
+            </div>
+          )}
 
-          {/* Body */}
+          {/* Body (per-locale) */}
           <div>
             <label
               className="block text-xs font-medium mb-1.5"
@@ -379,19 +438,21 @@ function TemplatePanel({
             </label>
             <textarea
               ref={bodyRef}
-              name={`${prefix}_body`}
               rows={6}
-              defaultValue={currentBody}
+              value={body}
+              onChange={(e) => onFieldChange("body", e.target.value)}
               placeholder={tTpl("defaultBody")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-y font-mono"
               style={{ ...inputStyle, lineHeight: "1.6" }}
             />
-            <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
+            <p
+              className="text-[11px] mt-1"
+              style={{ color: "var(--admin-text-faint)" }}>
               {t("bodyHint")}
             </p>
           </div>
 
-          {/* Footer */}
+          {/* Footer (per-locale) */}
           <div>
             <label
               className="block text-xs font-medium mb-1.5"
@@ -400,9 +461,9 @@ function TemplatePanel({
             </label>
             <textarea
               ref={footerRef}
-              name={`${prefix}_footer`}
               rows={2}
-              defaultValue={currentFooter}
+              value={footer}
+              onChange={(e) => onFieldChange("footer", e.target.value)}
               placeholder={tTpl("defaultFooter")}
               className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors resize-y"
               style={{ ...inputStyle, lineHeight: "1.6" }}
@@ -415,7 +476,7 @@ function TemplatePanel({
 }
 
 // ---------------------------------------------------------------------------
-// Email logo selector
+// Email logo selector (immutato)
 // ---------------------------------------------------------------------------
 function EmailLogoCard({ settings }: { settings: AppSettings }) {
   const t = useTranslations("admin.settings.emailTemplates.emailLogo");
@@ -435,8 +496,7 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
         ? (settings.app_logo_variant_url ?? settings.app_logo_url)
         : settings.app_logo_url;
 
-  const missingForChoice =
-    choice !== "none" && !previewUrl;
+  const missingForChoice = choice !== "none" && !previewUrl;
 
   return (
     <div
@@ -467,7 +527,6 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
       </p>
 
       <div className="flex items-center gap-4">
-        {/* Preview */}
         <div
           className="w-24 h-24 rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-2"
           style={{
@@ -492,7 +551,6 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
           )}
         </div>
 
-        {/* Selector */}
         <div className="flex-1 min-w-0">
           <label
             className="block text-xs font-medium mb-1.5"
@@ -529,14 +587,87 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
 }
 
 // ---------------------------------------------------------------------------
-// Main component
+// Language tab strip
 // ---------------------------------------------------------------------------
-export function EmailTemplatesTab({ settings }: { settings: AppSettings }) {
-  const pathname = usePathname();
-  return <EmailTemplatesTabInner key={pathname} settings={settings} />;
+function LanguageTabs({
+  locales,
+  active,
+  onSwitch,
+}: {
+  locales: EmailLocaleOption[];
+  active: Locale;
+  onSwitch: (code: Locale) => void;
+}) {
+  const t = useTranslations("admin.settings.emailTemplates.languageTabs");
+  if (locales.length <= 1) return null;
+  return (
+    <div
+      className="flex items-center gap-1 p-1 rounded-xl w-fit"
+      style={{ background: "var(--admin-hover-bg)" }}>
+      {locales.map((l) => {
+        const isActive = l.code === active;
+        return (
+          <button
+            key={l.code}
+            type="button"
+            onClick={() => onSwitch(l.code)}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
+            style={{
+              background: isActive ? "var(--admin-accent)" : "transparent",
+              color: isActive ? "#fff" : "var(--admin-text-muted)",
+              boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
+            }}
+            aria-pressed={isActive}>
+            {l.nativeLabel}
+            {l.isDefault && (
+              <span
+                className="text-[10px] uppercase tracking-wide"
+                style={{
+                  opacity: 0.8,
+                  fontWeight: 600,
+                }}>
+                · {t("defaultBadge")}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
-function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+export function EmailTemplatesTab({
+  settings,
+  locales,
+  overlays,
+}: {
+  settings: AppSettings;
+  locales: EmailLocaleOption[];
+  overlays: Overlays;
+}) {
+  const pathname = usePathname();
+  return (
+    <EmailTemplatesTabInner
+      key={pathname}
+      settings={settings}
+      locales={locales}
+      overlays={overlays}
+    />
+  );
+}
+
+function EmailTemplatesTabInner({
+  settings,
+  locales,
+  overlays,
+}: {
+  settings: AppSettings;
+  locales: EmailLocaleOption[];
+  overlays: Overlays;
+}) {
   const t = useTranslations("admin.settings.emailTemplates");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveEmailTemplateSettings,
@@ -558,13 +689,144 @@ function EmailTemplatesTabInner({ settings }: { settings: AppSettings }) {
       setToast({ message: state.error, type: "error" });
   }, [state]);
 
+  const defaultLocale = locales.find((l) => l.isDefault) ?? locales[0];
+  const defaultLocaleCode = defaultLocale.code;
+  const [activeLocale, setActiveLocale] = useState<Locale>(defaultLocaleCode);
+
+  // Stato controllato per ogni (locale, templateId, field). Inizializzato da
+  // settings (default) e overlays (non-default).
+  const initialValues = useMemo<ValuesByLocale>(() => {
+    const out: ValuesByLocale = {};
+    const settingsRecord = settings as Record<string, string | null>;
+    for (const loc of locales) {
+      const perTemplate = {} as Record<TemplateId, LocaleValues>;
+      for (const id of TEMPLATE_IDS) {
+        const prefix = TEMPLATE_PREFIX[id];
+        if (loc.isDefault) {
+          perTemplate[id] = {
+            subject: settingsRecord[`${prefix}_subject`] ?? "",
+            body: settingsRecord[`${prefix}_body`] ?? "",
+            footer: settingsRecord[`${prefix}_footer`] ?? "",
+          };
+        } else {
+          const map = overlays[loc.code] ?? {};
+          perTemplate[id] = {
+            subject: map[`${prefix}_subject`] ?? "",
+            body: map[`${prefix}_body`] ?? "",
+            footer: map[`${prefix}_footer`] ?? "",
+          };
+        }
+      }
+      out[loc.code] = perTemplate;
+    }
+    return out;
+  }, [settings, locales, overlays]);
+
+  const initialBcc = useMemo(() => {
+    const settingsRecord = settings as Record<string, string | null>;
+    const out = {} as Record<TemplateId, string>;
+    for (const id of TEMPLATE_IDS) {
+      out[id] = settingsRecord[`${TEMPLATE_PREFIX[id]}_bcc`] ?? "";
+    }
+    return out;
+  }, [settings]);
+
+  const [valuesByLocale, setValuesByLocale] =
+    useState<ValuesByLocale>(initialValues);
+  const [bccValues, setBccValues] = useState<Record<TemplateId, string>>(
+    initialBcc,
+  );
+
+  function updateField(
+    loc: Locale,
+    id: TemplateId,
+    field: LocaleField,
+    value: string,
+  ) {
+    setValuesByLocale((prev) => ({
+      ...prev,
+      [loc]: {
+        ...prev[loc],
+        [id]: { ...prev[loc][id], [field]: value },
+      },
+    }));
+  }
+
+  function updateBcc(id: TemplateId, value: string) {
+    setBccValues((prev) => ({ ...prev, [id]: value }));
+  }
+
   return (
     <>
       <form action={formAction} className="space-y-3">
+        {/* Hidden carrier dei valori per TUTTE le locale: l'admin vede solo la
+            locale attiva, ma il save scrive ogni variante. Convenzioni nomi:
+              - default: `${prefix}_subject|body|footer|bcc` (chiavi storiche)
+              - non-default: `tr.<locale>.${prefix}_subject|body|footer`
+            La server action sa che `tr.<locale>.*` va in `translations`. */}
+        {locales.map((loc) =>
+          TEMPLATE_IDS.map((id) => {
+            const prefix = TEMPLATE_PREFIX[id];
+            const v = valuesByLocale[loc.code][id];
+            const namePrefix = loc.isDefault ? prefix : `tr.${loc.code}.${prefix}`;
+            return (
+              <div key={`${loc.code}-${id}`} hidden>
+                <input
+                  type="hidden"
+                  name={`${namePrefix}_subject`}
+                  value={v.subject ?? ""}
+                />
+                <input
+                  type="hidden"
+                  name={`${namePrefix}_body`}
+                  value={v.body ?? ""}
+                />
+                <input
+                  type="hidden"
+                  name={`${namePrefix}_footer`}
+                  value={v.footer ?? ""}
+                />
+              </div>
+            );
+          }),
+        )}
+        {/* BCC unico per template (default-only) */}
+        {TEMPLATE_IDS.map((id) => (
+          <input
+            key={`bcc-${id}`}
+            type="hidden"
+            name={`${TEMPLATE_PREFIX[id]}_bcc`}
+            value={bccValues[id]}
+          />
+        ))}
+
         <EmailLogoCard settings={settings} />
 
+        {/* Language tabs */}
+        {locales.length > 1 && (
+          <div className="pt-2 pb-1">
+            <LanguageTabs
+              locales={locales}
+              active={activeLocale}
+              onSwitch={setActiveLocale}
+            />
+          </div>
+        )}
+
         {TEMPLATE_IDS.map((id) => (
-          <TemplatePanel key={id} id={id} settings={settings} />
+          <TemplatePanel
+            key={`${id}-${activeLocale}`}
+            id={id}
+            settings={settings}
+            activeLocale={activeLocale}
+            defaultLocaleCode={defaultLocaleCode}
+            values={valuesByLocale[activeLocale][id]}
+            bccValue={bccValues[id]}
+            onFieldChange={(field, value) =>
+              updateField(activeLocale, id, field, value)
+            }
+            onBccChange={(value) => updateBcc(id, value)}
+          />
         ))}
 
         <div className="pt-2">

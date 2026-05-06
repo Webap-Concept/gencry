@@ -21,6 +21,7 @@ import {
   requestGdprExport,
 } from "@/lib/account/gdpr-export";
 import { getUser } from "@/lib/db/queries";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 
 // "1" = on, qualsiasi altra cosa = off (coerente col comportamento dei
 // checkbox HTML quando non sono presenti nel FormData).
@@ -89,12 +90,14 @@ export const requestAccountDeletionAction = validatedActionWithUser(
       } satisfies ActionState;
     }
 
+    const locale = await resolveRecipientLocale(fullUser.locale);
     const result = await requestAccountDeletion({
       userId: user.id,
       email: fullUser.email,
       firstName: fullUser.firstName,
       currentPasswordHash: fullUser.passwordHash,
       currentPassword: data.password,
+      locale,
     });
 
     if (!result.ok) {
@@ -126,10 +129,12 @@ export const sendAccountDeletionOtpAction = validatedActionWithUser(
       } satisfies ActionState;
     }
 
+    const locale = await resolveRecipientLocale(fullUser.locale);
     const result = await sendAccountDeletionOtp({
       userId: user.id,
       email: fullUser.email,
       firstName: fullUser.firstName,
+      locale,
     });
 
     if (!result.ok) {
@@ -163,11 +168,13 @@ export const confirmAccountDeletionViaOtpAction = validatedActionWithUser(
       } satisfies ActionState;
     }
 
+    const locale = await resolveRecipientLocale(fullUser.locale);
     const result = await requestAccountDeletionViaOtp({
       userId: user.id,
       email: fullUser.email,
       firstName: fullUser.firstName,
       code: data.code,
+      locale,
     });
 
     if (!result.ok) {

@@ -4,7 +4,7 @@
 // dalla sezione /settings/account. Contiene un OTP di 6 cifre da inserire
 // per confermare la titolarità dell'indirizzo prima dello switch.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   otpCard,
   paragraphs,
@@ -12,13 +12,15 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendEmailChangeVerificationEmail(
   to: string,
   code: string,
   firstName?: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<void> {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

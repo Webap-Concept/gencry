@@ -8,19 +8,21 @@
 // /admin/settings/email (chiavi `email_mfaenabled_*`). Se vuoti, usa
 // i fallback hardcoded definiti qui sotto.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   paragraphs,
   renderEmail,
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendMfaEnabledEmail(
   to: string,
   firstName?: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<void> {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

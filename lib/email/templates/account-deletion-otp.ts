@@ -4,7 +4,7 @@
 // l'utente non ha password locale (OAuth-only). È il "second factor"
 // del flusso di re-auth alternativo via email.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   otpCard,
   paragraphs,
@@ -12,14 +12,16 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendAccountDeletionOtpEmail(params: {
   toEmail: string;
   firstName: string | null;
   code: string;
+  locale?: Locale;
 }): Promise<void> {
-  const { toEmail, firstName, code } = params;
-  const settings = await getAppSettings();
+  const { toEmail, firstName, code, locale = DEFAULT_LOCALE } = params;
+  const settings = await getLocalizedEmailSettings(locale);
   const appName = settings.app_name;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 

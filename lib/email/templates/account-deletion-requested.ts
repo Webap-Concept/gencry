@@ -1,5 +1,5 @@
 // lib/email/templates/account-deletion-requested.ts
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   paragraphs,
   renderEmail,
@@ -7,6 +7,7 @@ import {
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
 import { emailTheme as t } from "@/lib/email/theme";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 /**
  * Email "Hai richiesto l'eliminazione del tuo account" — inviata subito
@@ -23,13 +24,15 @@ export async function sendAccountDeletionRequestedEmail(params: {
   firstName: string | null;
   /** Data del purge fisico (deletedAt + 30 giorni). */
   purgeDate: Date;
+  locale?: Locale;
 }) {
-  const { toEmail, firstName, purgeDate } = params;
-  const settings = await getAppSettings();
+  const { toEmail, firstName, purgeDate, locale = DEFAULT_LOCALE } = params;
+  const settings = await getLocalizedEmailSettings(locale);
   const appName = settings.app_name;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
 
-  const purgeDateLabel = purgeDate.toLocaleDateString("it-IT", {
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const purgeDateLabel = purgeDate.toLocaleDateString(dateLocale, {
     day: "numeric",
     month: "long",
     year: "numeric",

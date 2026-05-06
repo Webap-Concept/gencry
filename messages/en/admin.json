@@ -180,6 +180,9 @@
     "emailTemplates": {
       "customizedBadge": "Customized",
       "templateFile": "Template file",
+      "languageTabs": {
+        "defaultBadge": "default"
+      },
       "placeholdersHint": "Available placeholders — click to insert into the active field:",
       "placeholderInsertTitle": "Insert {value}",
       "subjectLabel": "Email subject",

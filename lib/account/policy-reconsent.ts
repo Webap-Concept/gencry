@@ -431,7 +431,11 @@ export async function runPolicyChangeNotificationsCron(): Promise<CronRunResult>
     if (pendingRows.length === 0) continue;
 
     const [u] = await db
-      .select({ email: users.email, deletedAt: users.deletedAt })
+      .select({
+        email: users.email,
+        deletedAt: users.deletedAt,
+        locale: users.locale,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -454,9 +458,12 @@ export async function runPolicyChangeNotificationsCron(): Promise<CronRunResult>
     const policyKeys = Array.from(new Set(pendingRows.map((p) => p.policyKey)));
 
     try {
+      const { isLocale, DEFAULT_LOCALE } = await import("@/lib/i18n/config");
+      const locale = isLocale(u.locale) ? u.locale : DEFAULT_LOCALE;
       await sendPolicyUpdateNotificationEmail({
         toEmail: u.email,
         policyKeys,
+        locale,
       });
       await db
         .update(policyChangeNotifications)

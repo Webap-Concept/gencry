@@ -3,7 +3,7 @@
 // Email inviata quando un admin invita un utente a far parte dello staff.
 // Contiene un link cliccabile (CTA) all'invito, valido 48h.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   ctaButton,
   paragraphs,
@@ -12,14 +12,16 @@ import {
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
 import { emailTheme as t } from "@/lib/email/theme";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendStaffInvitationEmail(
   to: string,
   token: string,
   roleLabel: string,
   inviterName: string,
+  locale: Locale = DEFAULT_LOCALE,
 ) {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/staff-invite/${token}`;
   const greeting = "Ciao,";

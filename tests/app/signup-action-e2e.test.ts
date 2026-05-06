@@ -321,12 +321,15 @@ describe("signUpAction — flusso end-to-end", () => {
 
     // firstName non è più raccolto in fase di registrazione:
     // sendSignupVerificationEmail riceve undefined come terzo argomento.
+    // Quarto argomento: locale risolta dal cookie/Accept-Language o default
+    // ("it" in test, dove non settiamo cookie locale né users.locale).
     it("invia email di verifica con email, OTP e firstName=undefined", async () => {
       await callSignUp();
       expect(mockSendSignupVerificationEmail).toHaveBeenCalledWith(
         "mario@example.com",
         "123456",
         undefined,
+        "it",
       );
     });
 

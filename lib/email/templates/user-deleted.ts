@@ -1,5 +1,5 @@
 // lib/email/templates/user-deleted.ts
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getLocalizedEmailSettings } from "@/lib/email/locale";
 import {
   infoBox,
   paragraphs,
@@ -7,16 +7,19 @@ import {
   resolveEmailLogoUrl,
 } from "@/lib/email/layout";
 import { sendEmail } from "@/lib/email/resend";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export async function sendUserDeletedEmail(
   to: string,
   firstName: string | null,
   deletedAt: Date,
+  locale: Locale = DEFAULT_LOCALE,
 ) {
-  const settings = await getAppSettings();
+  const settings = await getLocalizedEmailSettings(locale);
   const { app_name } = settings;
   const greeting = firstName ? `Ciao ${firstName},` : "Ciao,";
-  const formattedDate = deletedAt.toLocaleDateString("it-IT", {
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const formattedDate = deletedAt.toLocaleDateString(dateLocale, {
     day: "2-digit",
     month: "long",
     year: "numeric",

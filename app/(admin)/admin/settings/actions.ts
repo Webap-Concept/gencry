@@ -9,6 +9,8 @@ import { db } from "@/lib/db/drizzle";
 import type { SiteSnippet } from "@/lib/db/schema";
 import { blockedUsernames, disposableDomains, siteSnippets } from "@/lib/db/schema";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
+import { upsertEmailTranslation } from "@/lib/email/locale";
+import { isLocale, type Locale } from "@/lib/i18n/config";
 import { runGenerators } from "@/lib/notifications/dispatcher";
 import {
   deleteBrandingAsset,
@@ -175,77 +177,105 @@ export async function saveModeSettings(
   }
 }
 
+// Chiavi storiche email per la locale di default (vivono in app_settings).
+// L'ordine è welcome → signup → ... in linea con TEMPLATE_IDS lato UI.
+const EMAIL_DEFAULT_KEYS = [
+  "email_welcome_subject",
+  "email_welcome_bcc",
+  "email_welcome_body",
+  "email_welcome_footer",
+  "email_signup_subject",
+  "email_signup_bcc",
+  "email_signup_body",
+  "email_signup_footer",
+  "email_reset_subject",
+  "email_reset_bcc",
+  "email_reset_body",
+  "email_reset_footer",
+  "email_deleted_subject",
+  "email_deleted_bcc",
+  "email_deleted_body",
+  "email_deleted_footer",
+  "email_waitinglist_subject",
+  "email_waitinglist_bcc",
+  "email_waitinglist_body",
+  "email_waitinglist_footer",
+  "email_emailchange_subject",
+  "email_emailchange_bcc",
+  "email_emailchange_body",
+  "email_emailchange_footer",
+  "email_device_subject",
+  "email_device_bcc",
+  "email_device_body",
+  "email_device_footer",
+  "email_staffinvite_subject",
+  "email_staffinvite_bcc",
+  "email_staffinvite_body",
+  "email_staffinvite_footer",
+  "email_gdprexport_subject",
+  "email_gdprexport_bcc",
+  "email_gdprexport_body",
+  "email_gdprexport_footer",
+  "email_accountdeletion_subject",
+  "email_accountdeletion_bcc",
+  "email_accountdeletion_body",
+  "email_accountdeletion_footer",
+  "email_accountdeletionotp_subject",
+  "email_accountdeletionotp_bcc",
+  "email_accountdeletionotp_body",
+  "email_accountdeletionotp_footer",
+  "email_mfaenabled_subject",
+  "email_mfaenabled_bcc",
+  "email_mfaenabled_body",
+  "email_mfaenabled_footer",
+  "email_mfadisabled_subject",
+  "email_mfadisabled_bcc",
+  "email_mfadisabled_body",
+  "email_mfadisabled_footer",
+  "email_mfaadminreset_subject",
+  "email_mfaadminreset_bcc",
+  "email_mfaadminreset_body",
+  "email_mfaadminreset_footer",
+] as const;
+
+const EMAIL_DEFAULT_KEY_SET = new Set<string>(EMAIL_DEFAULT_KEYS);
+
+// Pattern dei field name per le traduzioni non-default: tr.<locale>.<setting_key>
+// La <locale> può essere validata via isLocale(); <setting_key> deve essere un
+// email_*_(subject|body|footer) noto per evitare scritture arbitrarie.
+const TRANSLATION_FIELD_REGEX =
+  /^tr\.([a-z]{2,5})\.(email_[a-z]+_(?:subject|body|footer))$/;
+
 export async function saveEmailTemplateSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    const keys = [
-      "email_welcome_subject",
-      "email_welcome_bcc",
-      "email_welcome_body",
-      "email_welcome_footer",
-      "email_signup_subject",
-      "email_signup_bcc",
-      "email_signup_body",
-      "email_signup_footer",
-      "email_reset_subject",
-      "email_reset_bcc",
-      "email_reset_body",
-      "email_reset_footer",
-      "email_deleted_subject",
-      "email_deleted_bcc",
-      "email_deleted_body",
-      "email_deleted_footer",
-      "email_waitinglist_subject",
-      "email_waitinglist_bcc",
-      "email_waitinglist_body",
-      "email_waitinglist_footer",
-      "email_emailchange_subject",
-      "email_emailchange_bcc",
-      "email_emailchange_body",
-      "email_emailchange_footer",
-      "email_device_subject",
-      "email_device_bcc",
-      "email_device_body",
-      "email_device_footer",
-      "email_staffinvite_subject",
-      "email_staffinvite_bcc",
-      "email_staffinvite_body",
-      "email_staffinvite_footer",
-      "email_gdprexport_subject",
-      "email_gdprexport_bcc",
-      "email_gdprexport_body",
-      "email_gdprexport_footer",
-      "email_accountdeletion_subject",
-      "email_accountdeletion_bcc",
-      "email_accountdeletion_body",
-      "email_accountdeletion_footer",
-      "email_accountdeletionotp_subject",
-      "email_accountdeletionotp_bcc",
-      "email_accountdeletionotp_body",
-      "email_accountdeletionotp_footer",
-      "email_mfaenabled_subject",
-      "email_mfaenabled_bcc",
-      "email_mfaenabled_body",
-      "email_mfaenabled_footer",
-      "email_mfadisabled_subject",
-      "email_mfadisabled_bcc",
-      "email_mfadisabled_body",
-      "email_mfadisabled_footer",
-      "email_mfaadminreset_subject",
-      "email_mfaadminreset_bcc",
-      "email_mfaadminreset_body",
-      "email_mfaadminreset_footer",
-    ] as const;
-    for (const key of keys) {
+    // 1. Default locale → app_settings (storico, retrocompatibile).
+    for (const key of EMAIL_DEFAULT_KEYS) {
       const val = (formData.get(key) as string | null) ?? "";
       await updateAppSetting(key, val.trim() || null);
     }
 
+    // 2. Traduzioni non-default → translations (namespace="email").
+    // Iteriamo l'intero formData: ogni chiave che matcha tr.<locale>.<key>
+    // viene upsertata; se vuota la riga viene rimossa (vedi helper).
+    for (const [name, raw] of formData.entries()) {
+      const match = TRANSLATION_FIELD_REGEX.exec(name);
+      if (!match) continue;
+      const [, localeRaw, settingKey] = match;
+      if (!isLocale(localeRaw)) continue;
+      if (!EMAIL_DEFAULT_KEY_SET.has(settingKey)) continue;
+      // BCC non è per-locale: lo ignoriamo se l'UI dovesse mai inviarlo qui.
+      if (settingKey.endsWith("_bcc")) continue;
+      const value = typeof raw === "string" ? raw : "";
+      await upsertEmailTranslation(localeRaw as Locale, settingKey, value);
+    }
+
     // Logo choice è separata: ha valori vincolati (logo|logo-variant|none)
     // e non può essere svuotata (default sempre "logo").
-    const logoChoiceRaw = (formData.get("email_logo_choice") as string | null) ?? "logo";
+    const logoChoiceRaw =
+      (formData.get("email_logo_choice") as string | null) ?? "logo";
     const logoChoice =
       logoChoiceRaw === "logo-variant" || logoChoiceRaw === "none"
         ? logoChoiceRaw

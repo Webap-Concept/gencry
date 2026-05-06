@@ -16,6 +16,7 @@ import {
   checkGeneralRateLimit,
   recordGeneralAttempt,
 } from "@/lib/auth/rate-limit";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendWaitingListEmail } from "@/lib/email/templates/waiting-list";
 import { headers } from "next/headers";
 
@@ -92,7 +93,8 @@ export async function joinWaitingListAction(
   // 5. Email di conferma SOLO al primo inserimento.
   if (!alreadySubscribed) {
     try {
-      await sendWaitingListEmail(email);
+      const locale = await resolveRecipientLocale(null);
+      await sendWaitingListEmail(email, locale);
     } catch (e) {
       // Non blocchiamo l'utente: l'iscrizione e' salva, l'email e' best-effort.
       console.warn("[waitingList] email send failed:", e);

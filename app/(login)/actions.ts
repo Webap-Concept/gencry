@@ -22,6 +22,7 @@ import {
   setPendingAuthCookie,
   setDeviceTokenCookie,
 } from "@/lib/auth/trusted-device";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
 import {
   isUniqueConstraintError,
@@ -229,7 +230,8 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
   // Dispositivo non riconosciuto: OTP via email, sessione sospesa
   const code = await createVerificationCode(foundUser.id, "device_verification");
   try {
-    await sendDeviceVerificationEmail(foundUser.email, code);
+    const locale = await resolveRecipientLocale(foundUser.locale);
+    await sendDeviceVerificationEmail(foundUser.email, code, undefined, locale);
   } catch (err) {
     console.error("[signIn] sendDeviceVerificationEmail failed:", err);
   }
@@ -435,7 +437,13 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   try {
     // firstName non disponibile in questa fase: passiamo undefined,
     // il template email userà un saluto generico.
-    await sendSignupVerificationEmail(createdUser.email, code, undefined);
+    const locale = await resolveRecipientLocale(null);
+    await sendSignupVerificationEmail(
+      createdUser.email,
+      code,
+      undefined,
+      locale,
+    );
   } catch (emailErr) {
     console.error("[signUp] sendSignupVerificationEmail failed:", emailErr);
   }
