@@ -21,6 +21,7 @@ import {
   GitMerge,
   Globe,
   KeyRound,
+  Languages,
   Layers,
   LayoutDashboard,
   LineChart,
@@ -43,6 +44,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   UserCog,
+  UserX,
   Users,
   X,
 } from "lucide-react";
@@ -90,6 +92,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Bell,
   Scale,
   ScrollText,
+  UserX,
+  Languages,
 };
 
 interface AdminSidebarProps {
