@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -71,7 +72,13 @@ function Pill({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------------
 
 export function PermissionsInfoCard() {
+  const t = useTranslations("admin.access.permissions.info");
   const [open, setOpen] = useState(false);
+
+  const richTags = {
+    strong: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
+    c: (chunks: React.ReactNode) => <Pill>{chunks}</Pill>,
+  };
 
   return (
     <div
@@ -99,12 +106,12 @@ export function PermissionsInfoCard() {
           <span
             className="text-sm font-medium"
             style={{ color: "var(--admin-text)" }}>
-            How does the permission system work?
+            {t("triggerTitle")}
           </span>
           <span
             className="block text-xs"
             style={{ color: "var(--admin-text-faint)" }}>
-            Quick guide, configuration, and code usage examples
+            {t("triggerSubtitle")}
           </span>
         </div>
         <ChevronDown
@@ -126,29 +133,28 @@ export function PermissionsInfoCard() {
           style={{ borderTop: "1px solid var(--admin-card-border)" }}>
           {/* How it works */}
           <div className="pt-4">
-            <SectionTitle icon={BookOpen}>How it works</SectionTitle>
+            <SectionTitle icon={BookOpen}>{t("howItWorksHeading")}</SectionTitle>
             <p
               className="text-sm leading-relaxed"
               style={{ color: "var(--admin-text-muted)" }}>
-              The RBAC (Role-Based Access Control) system is based on three
-              overlapping layers:
+              {t("howItWorksIntro")}
             </p>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
                 {
                   icon: Layers,
-                  title: "Permissions",
-                  desc: "Atomic app actions. Use the resource:action pattern, e.g., posts:publish, users:ban.",
+                  title: t("layerPermissionsTitle"),
+                  desc: t("layerPermissionsDesc"),
                 },
                 {
                   icon: ShieldCheck,
-                  title: "Roles",
-                  desc: "Sets of permissions. Assign a set of permissions to each role in Role Management.",
+                  title: t("layerRolesTitle"),
+                  desc: t("layerRolesDesc"),
                 },
                 {
                   icon: User,
-                  title: "User Overrides",
-                  desc: "Grant or revoke a specific permission for a single user, including expiration dates.",
+                  title: t("layerOverridesTitle"),
+                  desc: t("layerOverridesDesc"),
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div
@@ -178,47 +184,28 @@ export function PermissionsInfoCard() {
 
           {/* Setup */}
           <div>
-            <SectionTitle icon={CheckCircle2}>Initial Setup</SectionTitle>
+            <SectionTitle icon={CheckCircle2}>{t("setupHeading")}</SectionTitle>
             <ol className="space-y-2.5">
-              <Step n={1}>
-                Go to the <strong>Permission Catalog</strong> (next tab) and
-                create the permissions you need. Use names in the format{" "}
-                <Pill>resource:action</Pill>, for example{" "}
-                <Pill>posts:publish</Pill>, <Pill>users:ban</Pill>,{" "}
-                <Pill>admin:access</Pill>.
-              </Step>
-              <Step n={2}>
-                Go to the <strong>Role Matrix</strong> and use the toggles to
-                assign permissions to roles. Each cell is a toggle: green =
-                permission granted.
-              </Step>
-              <Step n={3}>
-                For individual exceptions, open a user's details in{" "}
-                <strong>Users</strong> → <strong>Access</strong> tab → Overrides
-                section. You can grant or revoke a permission with an optional
-                expiration date.
-              </Step>
-              <Step n={4}>
-                In your app's code, use the <Pill>can()</Pill> function to
-                verify if the current user has a specific permission (see
-                example below).
-              </Step>
+              <Step n={1}>{t.rich("setupStep1", richTags)}</Step>
+              <Step n={2}>{t.rich("setupStep2", richTags)}</Step>
+              <Step n={3}>{t.rich("setupStep3", richTags)}</Step>
+              <Step n={4}>{t.rich("setupStep4", richTags)}</Step>
             </ol>
           </div>
 
           {/* Key Conventions */}
           <div>
-            <SectionTitle icon={Layers}>Key Conventions</SectionTitle>
+            <SectionTitle icon={Layers}>{t("conventionsHeading")}</SectionTitle>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {[
-                { key: "admin:access", desc: "Access to admin panel" },
-                { key: "users:view", desc: "View user list" },
-                { key: "users:ban", desc: "Ban/unban a user" },
-                { key: "users:delete", desc: "Delete user account" },
-                { key: "posts:create", desc: "Create new content" },
-                { key: "posts:publish", desc: "Publish/unpublish content" },
-                { key: "posts:delete", desc: "Delete others' content" },
-                { key: "comments:delete", desc: "Delete comments" },
+                { key: "admin:access", desc: t("conv_admin_access") },
+                { key: "users:view", desc: t("conv_users_view") },
+                { key: "users:ban", desc: t("conv_users_ban") },
+                { key: "users:delete", desc: t("conv_users_delete") },
+                { key: "posts:create", desc: t("conv_posts_create") },
+                { key: "posts:publish", desc: t("conv_posts_publish") },
+                { key: "posts:delete", desc: t("conv_posts_delete") },
+                { key: "comments:delete", desc: t("conv_comments_delete") },
               ].map(({ key, desc }) => (
                 <div key={key} className="flex items-center gap-2">
                   <Pill>{key}</Pill>
@@ -234,7 +221,7 @@ export function PermissionsInfoCard() {
 
           {/* Code Example */}
           <div>
-            <SectionTitle icon={Code2}>Code Usage Example</SectionTitle>
+            <SectionTitle icon={Code2}>{t("codeHeading")}</SectionTitle>
             <div
               className="rounded-lg overflow-x-auto"
               style={{
@@ -274,9 +261,7 @@ export async function publishPost(postId: number) {
             <p
               className="text-[12px] mt-2"
               style={{ color: "var(--admin-text-faint)" }}>
-              The <Pill>can(userId, key)</Pill> function automatically resolves
-              roles + individual overrides (grant/revoke) and respects
-              expiration dates.
+              {t.rich("codeFootnote", richTags)}
             </p>
           </div>
         </div>

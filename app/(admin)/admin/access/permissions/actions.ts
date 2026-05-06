@@ -20,6 +20,7 @@ import {
   removePermissionFromRole,
 } from "@/lib/rbac/permissions-queries";
 import { eq, inArray } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -149,9 +150,7 @@ const CreatePermissionSchema = z.object({
   key: z
     .string()
     .min(3)
-    .regex(/^[a-z0-9_]+:[a-z0-9_]+$/, {
-      message: 'Required format: resource:action (e.g. "posts:publish")',
-    }),
+    .regex(/^[a-z0-9_]+:[a-z0-9_]+$/, { message: "keyFormat" }),
   label: z.string().min(2).max(150),
   description: z.string().max(500).optional(),
   group: z.string().min(1).max(100),
@@ -159,10 +158,12 @@ const CreatePermissionSchema = z.object({
 
 export async function createPermission(formData: FormData) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.permissions.actionErrors");
 
   const parsed = CreatePermissionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const msg = parsed.error.issues[0].message;
+    return { error: msg === "keyFormat" ? tErrors("keyFormat") : msg };
   }
   const { key, label, description, group } = parsed.data;
 
@@ -173,7 +174,7 @@ export async function createPermission(formData: FormData) {
     .limit(1);
 
   if (existing.length > 0) {
-    return { error: `Permission "${key}" already exists.` };
+    return { error: tErrors("alreadyExists", { key }) };
   }
 
   const [insertedPerm] = await db
@@ -220,6 +221,7 @@ export async function updatePermission(
   formData: FormData,
 ) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.permissions.actionErrors");
 
   const parsed = UpdatePermissionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -233,7 +235,7 @@ export async function updatePermission(
     .limit(1);
 
   if (!existing) {
-    return { error: "Permission not found." };
+    return { error: tErrors("notFound") };
   }
 
   const { label, description, group } = parsed.data;
@@ -259,6 +261,7 @@ export async function updatePermission(
  */
 export async function getPermissionImpact(permissionId: number) {
   await requireAdmin();
+  const tErrors = await getTranslations("admin.access.permissions.actionErrors");
 
   const perm = await db
     .select({
@@ -270,9 +273,8 @@ export async function getPermissionImpact(permissionId: number) {
     .where(eq(permissions.id, permissionId))
     .limit(1);
 
-  if (!perm[0]) return { error: "Permission not found." };
-  if (perm[0].isSystem)
-    return { error: "System permissions cannot be deleted." };
+  if (!perm[0]) return { error: tErrors("notFound") };
+  if (perm[0].isSystem) return { error: tErrors("systemCannotDelete") };
 
   const roleCount = await db
     .select({ id: rolePermissions.roleId })
@@ -298,6 +300,7 @@ export async function getPermissionImpact(permissionId: number) {
  */
 export async function deletePermission(permissionId: number) {
   const admin = await requireAdmin();
+  const tErrors = await getTranslations("admin.access.permissions.actionErrors");
 
   const [perm] = await db
     .select({ isSystem: permissions.isSystem, key: permissions.key })
@@ -306,7 +309,7 @@ export async function deletePermission(permissionId: number) {
     .limit(1);
 
   if (!perm || perm.isSystem) {
-    return { error: "System permissions cannot be deleted." };
+    return { error: tErrors("systemCannotDelete") };
   }
 
   // Cascade: remove role assignments
