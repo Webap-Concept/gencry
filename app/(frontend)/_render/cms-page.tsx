@@ -48,10 +48,15 @@ function detectLocaleFromSlug(slug: string[]): {
 
 export async function cmsPageMetadata({
   slug,
+  locale: explicitLocale,
 }: {
   slug: string[];
+  locale?: Locale;
 }): Promise<Metadata> {
-  const { locale, segments } = detectLocaleFromSlug(slug);
+  const resolved = explicitLocale
+    ? { locale: explicitLocale, segments: slug }
+    : detectLocaleFromSlug(slug);
+  const { locale, segments } = resolved;
   const pageSlug = segments.join("/");
 
   const [page, settings] = await Promise.all([
@@ -62,7 +67,7 @@ export async function cmsPageMetadata({
   // SEO config è chiavata sul pathname canonico (default-locale).
   // Se la pagina è stata trovata, usiamo `page.slug` (sempre nel default
   // locale). Altrimenti fallback al pathname richiesto per il lookup 404.
-  const seoPathname = page ? `/${page.slug}` : "/" + slug.join("/");
+  const seoPathname = page ? `/${page.slug}` : "/" + segments.join("/");
   const seo = await getSeoPage(seoPathname);
 
   const resolve = (text?: string | null) =>
@@ -104,8 +109,24 @@ export async function cmsPageMetadata({
   };
 }
 
-export async function CmsPage({ slug }: { slug: string[] }) {
-  const { locale, segments } = detectLocaleFromSlug(slug);
+export async function CmsPage({
+  slug,
+  locale: explicitLocale,
+}: {
+  slug: string[];
+  /**
+   * Locale già risolto dal caller (es. da `app/[locale]/[...slug]/page.tsx`,
+   * dove il prefix locale è catturato dal segment param e quindi NON
+   * compare in `slug`). Se non passato, si tenta di detectarlo dal
+   * primo segmento dello slug — utile per `(frontend)/[...slug]/page.tsx`
+   * quando Next.js matcha multi-segment senza route group locale.
+   */
+  locale?: Locale;
+}) {
+  const resolved = explicitLocale
+    ? { locale: explicitLocale, segments: slug }
+    : detectLocaleFromSlug(slug);
+  const { locale, segments } = resolved;
   const pageSlug = segments.join("/");
   if (!pageSlug) notFound();
   const [pageData, settings] = await Promise.all([
