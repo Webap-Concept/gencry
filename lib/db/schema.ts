@@ -1012,6 +1012,39 @@ export const seoPages = pgTable("seo_pages", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+/**
+ * Overlay per locale dei meta SEO testuali. Solo i 4 campi che hanno
+ * senso tradurre (title, description, og_title, og_description) — og_image
+ * resta condiviso da seo_pages, robots/json_ld sono direttive tecniche.
+ *
+ * FK su seo_pages.pathname con ON UPDATE CASCADE: se l'admin rinomina il
+ * pathname della pagina SEO base, il rename si propaga alle traduzioni.
+ * ON DELETE CASCADE: quando l'utente elimina la riga seo_pages, le
+ * relative traduzioni vanno via insieme.
+ *
+ * Lookup: getSeoPage(pathname, locale) merge base + overlay.
+ */
+export const seoPageTranslations = pgTable(
+  "seo_page_translations",
+  {
+    pathname: varchar("pathname", { length: 255 })
+      .notNull()
+      .references(() => seoPages.pathname, {
+        onUpdate: "cascade",
+        onDelete: "cascade",
+      }),
+    locale: varchar("locale", { length: 5 }).notNull(),
+    title: varchar("title", { length: 70 }),
+    description: varchar("description", { length: 160 }),
+    ogTitle: varchar("og_title", { length: 70 }),
+    ogDescription: varchar("og_description", { length: 200 }),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pathname, table.locale] }),
+  ],
+);
+
 export const routeVisibility = ["public", "private"] as const;
 export type RouteVisibility = (typeof routeVisibility)[number];
 
@@ -1095,6 +1128,8 @@ export type MfaRecoveryCode    = typeof mfaRecoveryCodes.$inferSelect;
 export type NewMfaRecoveryCode = typeof mfaRecoveryCodes.$inferInsert;
 export type SeoPage         = typeof seoPages.$inferSelect;
 export type NewSeoPage      = typeof seoPages.$inferInsert;
+export type SeoPageTranslation    = typeof seoPageTranslations.$inferSelect;
+export type NewSeoPageTranslation = typeof seoPageTranslations.$inferInsert;
 export type Page            = typeof pages.$inferSelect;
 export type NewPage         = typeof pages.$inferInsert;
 export type PageTranslation    = typeof pageTranslations.$inferSelect;

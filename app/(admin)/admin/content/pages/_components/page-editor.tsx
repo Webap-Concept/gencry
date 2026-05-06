@@ -1,6 +1,6 @@
 "use client";
 
-import { SeoForm } from "@/app/(admin)/admin/seo/_components/seo-form";
+import { SeoFields, type JsonLdType, type RobotsValue } from "@/app/(admin)/admin/seo/_components/seo-form";
 import { getAdminPath } from "@/lib/admin-nav";
 import type {
   AppLocale,
@@ -8,6 +8,7 @@ import type {
   PageTemplate,
   PageTranslation,
   SeoPage,
+  SeoPageTranslation,
   TemplateField,
 } from "@/lib/db/schema";
 import Link from "@tiptap/extension-link";
@@ -35,7 +36,6 @@ import {
   ListOrdered,
   Lock,
   Minus,
-  Pencil,
   RotateCcw,
   RotateCw,
   Search,
@@ -47,7 +47,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Fragment } from "react";
-import { createPortal } from "react-dom";
 import { EditorPageHeader } from "../../../_components/editor-page-header";
 import { upsertPageAction } from "../actions";
 import PlaceholderHint from "./placeholder-hint";
@@ -274,141 +273,10 @@ function CustomFieldsBlock({
   );
 }
 
-function SeoTab({
-  seo,
-  slug,
-  domain,
-  appName,
-  pageTitle,
-  onSeoSaved,
-}: {
-  seo?: SeoPage | null;
-  slug: string;
-  domain: string;
-  appName: string;
-  pageTitle: string;
-  onSeoSaved?: () => void;
-}) {
-  const t = useTranslations("admin.content.pages.editor");
-  const [showModal, setShowModal] = useState(false);
-  const rows = seo
-    ? [
-        { label: t("seoMetaTitle"), value: seo.title, hint: t("seoMetaTitleHint") },
-        {
-          label: t("seoMetaDescription"),
-          value: seo.description,
-          hint: t("seoMetaDescriptionHint"),
-        },
-        { label: t("seoOgTitle"), value: seo.ogTitle },
-        { label: t("seoOgDescription"), value: seo.ogDescription },
-        { label: t("seoOgImage"), value: seo.ogImage },
-        { label: t("seoRobots"), value: seo.robots },
-        {
-          label: t("seoJsonLd"),
-          value: seo.jsonLdEnabled
-            ? t("seoJsonLdEnabled", { type: seo.jsonLdType ?? "WebPage" })
-            : t("seoJsonLdDisabled"),
-        },
-      ]
-    : [];
-  return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <p
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: "var(--admin-text-faint)" }}>
-          {seo ? t("seoConfigured") : t("seoNotConfigured")}
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-          style={{
-            background: seo
-              ? "color-mix(in srgb, var(--admin-accent) 10%, var(--admin-card-bg))"
-              : "var(--admin-accent)",
-            color: seo ? "var(--admin-accent)" : "#fff",
-            border: seo
-              ? "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)"
-              : "none",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.filter = "brightness(0.9)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-          {seo ? <Pencil size={12} /> : <Search size={12} />}
-          {seo ? t("seoEdit") : t("seoConfigure")}
-        </button>
-      </div>
-      {!seo ? (
-        <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
-          <Search size={28} style={{ color: "var(--admin-text-faint)" }} />
-          <div>
-            <p
-              className="text-sm font-medium"
-              style={{ color: "var(--admin-text-muted)" }}>
-              {t("seoEmptyTitle")}
-            </p>
-            <p
-              className="text-xs mt-1"
-              style={{ color: "var(--admin-text-faint)" }}>
-              {t.rich("seoEmptyHint", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((row) => (
-            <div
-              key={row.label}
-              className="rounded-lg px-4 py-3"
-              style={{
-                background: "var(--admin-page-bg)",
-                border: "1px solid var(--admin-input-border)",
-              }}>
-              <p style={{ ...labelStyle, marginBottom: "0.25rem" }}>
-                {row.label}
-              </p>
-              {row.value ? (
-                <p
-                  className="text-sm break-all"
-                  style={{ color: "var(--admin-text)" }}>
-                  {row.value}
-                </p>
-              ) : (
-                <p
-                  className="text-sm italic"
-                  style={{ color: "var(--admin-text-faint)" }}>
-                  {t("seoNotSet")}
-                </p>
-              )}
-              {row.hint && <p style={hintStyle}>{row.hint}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-      {showModal &&
-        createPortal(
-          <SeoForm
-            page={seo ?? null}
-            domain={domain}
-            appName={appName}
-            unconfiguredRoutes={[]}
-            lockedPathname={`/${slug}`}
-            lockedLabel={pageTitle || slug}
-            hidePathnameField={false}
-            onClose={() => {
-              setShowModal(false);
-              onSeoSaved?.();
-            }}
-          />,
-          document.body,
-        )}
-    </>
-  );
-}
+// Il vecchio `SeoTab` (read-only summary + modal "Edit") è stato rimosso.
+// Ora il tab SEO mostra direttamente i campi editabili inline tramite
+// `SeoFields` (vedi seo-form.tsx) — il save avviene insieme alla pagina,
+// con un solo bottone Save nell'header dell'editor.
 
 function PubTab({
   status,
@@ -757,6 +625,7 @@ export default function PageEditor({
   slugEditable = true,
   locales = [],
   initialTranslations = [],
+  initialSeoTranslations = [],
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -773,6 +642,7 @@ export default function PageEditor({
   slugEditable?: boolean;
   locales?: AppLocale[];
   initialTranslations?: PageTranslation[];
+  initialSeoTranslations?: SeoPageTranslation[];
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
@@ -849,6 +719,35 @@ export default function PageEditor({
   );
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const contentRef = useRef<HTMLInputElement>(null);
+
+  // ── SEO state (controlled, salvato nello stesso form della pagina) ─────────
+  // Tutti i campi SEO sono nel main form come hidden input. Niente più modal:
+  // il tab SEO mostra i campi inline e il save dell'header li salva insieme
+  // a tutto il resto della pagina.
+  const [seoTitle, setSeoTitle] = useState(seo?.title ?? "");
+  const [seoDescription, setSeoDescription] = useState(seo?.description ?? "");
+  const [seoOgTitle, setSeoOgTitle] = useState(seo?.ogTitle ?? "");
+  const [seoOgDescription, setSeoOgDescription] = useState(seo?.ogDescription ?? "");
+  const [seoOgImage, setSeoOgImage] = useState(seo?.ogImage ?? "");
+  const [seoRobots, setSeoRobots] = useState<RobotsValue>((seo?.robots as RobotsValue) ?? "");
+  const [seoJsonLdEnabled, setSeoJsonLdEnabled] = useState<boolean>(seo?.jsonLdEnabled === true);
+  const [seoJsonLdType, setSeoJsonLdType] = useState<JsonLdType | "">(
+    (seo?.jsonLdType as JsonLdType | null | undefined) ?? "",
+  );
+  // Overlay per locale dei 4 campi testuali. Stesso pattern di trFields/trContent.
+  type SeoTrFields = { title: string; description: string; ogTitle: string; ogDescription: string };
+  const [seoTrFields, setSeoTrFields] = useState<Record<string, SeoTrFields>>(() => {
+    const map: Record<string, SeoTrFields> = {};
+    for (const tr of initialSeoTranslations) {
+      map[tr.locale] = {
+        title: tr.title ?? "",
+        description: tr.description ?? "",
+        ogTitle: tr.ogTitle ?? "",
+        ogDescription: tr.ogDescription ?? "",
+      };
+    }
+    return map;
+  });
 
   const parentPage = pages.find((p) => p.id === parentId) ?? null;
   const slugPrefix = parentPage ? `${parentPage.slug}/` : "";
@@ -1030,6 +929,24 @@ export default function PageEditor({
             <input type="hidden" name={`tr_${loc.code}_title`} value={trFields[loc.code]?.title ?? ""} readOnly />
             <input type="hidden" name={`tr_${loc.code}_slug`} value={trFields[loc.code]?.slug ?? ""} readOnly />
             <input type="hidden" name={`tr_${loc.code}_content`} value={trContent[loc.code] ?? ""} readOnly />
+          </Fragment>
+        ))}
+        {/* SEO base (default locale) */}
+        <input type="hidden" name="seoTitle" value={seoTitle} readOnly />
+        <input type="hidden" name="seoDescription" value={seoDescription} readOnly />
+        <input type="hidden" name="seoOgTitle" value={seoOgTitle} readOnly />
+        <input type="hidden" name="seoOgDescription" value={seoOgDescription} readOnly />
+        <input type="hidden" name="seoOgImage" value={seoOgImage} readOnly />
+        <input type="hidden" name="seoRobots" value={seoRobots} readOnly />
+        <input type="hidden" name="seoJsonLdEnabled" value={seoJsonLdEnabled ? "true" : "false"} readOnly />
+        <input type="hidden" name="seoJsonLdType" value={seoJsonLdType} readOnly />
+        {/* Traduzioni SEO per locale non-default */}
+        {nonDefaultLocales.map((loc) => (
+          <Fragment key={`seo-tr-${loc.code}`}>
+            <input type="hidden" name={`seo_tr_${loc.code}_title`} value={seoTrFields[loc.code]?.title ?? ""} readOnly />
+            <input type="hidden" name={`seo_tr_${loc.code}_description`} value={seoTrFields[loc.code]?.description ?? ""} readOnly />
+            <input type="hidden" name={`seo_tr_${loc.code}_ogTitle`} value={seoTrFields[loc.code]?.ogTitle ?? ""} readOnly />
+            <input type="hidden" name={`seo_tr_${loc.code}_ogDescription`} value={seoTrFields[loc.code]?.ogDescription ?? ""} readOnly />
           </Fragment>
         ))}
 
@@ -1474,13 +1391,29 @@ export default function PageEditor({
           )}
           {activeTab === "seo" && (
             <div className="p-5">
-              <SeoTab
-                seo={seo}
-                slug={slug}
+              <SeoFields
+                title={seoTitle}
+                setTitle={setSeoTitle}
+                description={seoDescription}
+                setDescription={setSeoDescription}
+                ogTitle={seoOgTitle}
+                setOgTitle={setSeoOgTitle}
+                ogDescription={seoOgDescription}
+                setOgDescription={setSeoOgDescription}
+                ogImage={seoOgImage}
+                setOgImage={setSeoOgImage}
+                robots={seoRobots}
+                setRobots={setSeoRobots}
+                jsonLdEnabled={seoJsonLdEnabled}
+                setJsonLdEnabled={setSeoJsonLdEnabled}
+                jsonLdType={seoJsonLdType}
+                setJsonLdType={setSeoJsonLdType}
+                activeLang={activeLang}
+                trFields={seoTrFields}
+                setTrFields={setSeoTrFields}
+                pathname={`/${slug}`}
                 domain={domain}
                 appName={appName}
-                pageTitle={title}
-                onSeoSaved={() => router.refresh()}
               />
             </div>
           )}
