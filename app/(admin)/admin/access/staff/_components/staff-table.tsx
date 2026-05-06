@@ -2,6 +2,7 @@
 
 import { getAdminPath } from "@/lib/admin-nav";
 import type { AdminUser } from "@/lib/db/admin-queries";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 
 function RoleBadge({ label, color }: { label: string; color: string }) {
@@ -19,6 +20,9 @@ function RoleBadge({ label, color }: { label: string; color: string }) {
 }
 
 function StaffRow({ user }: { user: AdminUser }) {
+  const t = useTranslations("admin.access.staff.table");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const initials =
     [user.firstName, user.lastName]
       .filter(Boolean)
@@ -87,14 +91,14 @@ function StaffRow({ user }: { user: AdminUser }) {
           style={
             !user.emailVerified ? { color: "var(--admin-text-faint)" } : {}
           }>
-          {user.emailVerified ? "✓ Verified" : "Not verified"}
+          {user.emailVerified ? t("verifiedYes") : t("verifiedNo")}
         </span>
       </td>
 
       {/* Date Added */}
       <td className="px-4 py-3 hidden lg:table-cell">
         <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-          {new Date(user.createdAt).toLocaleDateString("en-US")}
+          {new Date(user.createdAt).toLocaleDateString(dateLocale)}
         </span>
       </td>
     </tr>
@@ -102,29 +106,38 @@ function StaffRow({ user }: { user: AdminUser }) {
 }
 
 export default function StaffTable({ users }: { users: AdminUser[] }) {
+  const t = useTranslations("admin.access.staff.table");
+
   if (users.length === 0) {
     return (
       <div
         className="text-center py-16 text-sm"
         style={{ color: "var(--admin-text-faint)" }}>
-        No staff members found.
+        {t("empty")}
       </div>
     );
   }
+
+  const headers = [
+    { key: "headerMember", lgOnly: false },
+    { key: "headerRole", lgOnly: false },
+    { key: "headerEmail", lgOnly: true },
+    { key: "headerAddedOn", lgOnly: true },
+  ] as const;
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[500px]">
         <thead>
           <tr style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-            {["Member", "Role", "Email", "Added on"].map((h, i) => (
+            {headers.map((h) => (
               <th
-                key={h}
+                key={h.key}
                 className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide ${
-                  i >= 2 ? "hidden lg:table-cell" : ""
+                  h.lgOnly ? "hidden lg:table-cell" : ""
                 }`}
                 style={{ color: "var(--admin-text-faint)" }}>
-                {h}
+                {t(h.key)}
               </th>
             ))}
           </tr>

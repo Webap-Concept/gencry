@@ -3,11 +3,15 @@ import { getStaffUsers } from "@/lib/db/admin-queries";
 import { getStaffAssignableRoles } from "@/lib/db/roles-queries";
 import { Search, UserCog } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import AddStaffButton from "./_components/add-staff-button";
 import StaffTable from "./_components/staff-table";
 
-export const metadata: Metadata = { title: "Users / Staff Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.access.staff");
+  return { title: t("metaTitle") };
+}
 
 async function StaffContent({
   search,
@@ -18,6 +22,7 @@ async function StaffContent({
   role: string;
   page: number;
 }) {
+  const t = await getTranslations("admin.access.staff");
   const { users, total } = await getStaffUsers({ search, role, page });
   const totalPages = Math.ceil(total / 20);
 
@@ -33,7 +38,7 @@ async function StaffContent({
   return (
     <>
       <p className="text-sm -mt-4" style={{ color: "var(--admin-text-faint)" }}>
-        {total} administrators
+        {t("totalCount", { count: total })}
       </p>
 
       <div
@@ -51,7 +56,7 @@ async function StaffContent({
             <span
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
-              Page {page} of {totalPages}
+              {t("paginationLabel", { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               {page > 1 && (
@@ -62,7 +67,7 @@ async function StaffContent({
                     background: "var(--admin-hover-bg)",
                     color: "var(--admin-text-muted)",
                   }}>
-                  ← Previous
+                  {t("paginationPrev")}
                 </a>
               )}
               {page < totalPages && (
@@ -70,7 +75,7 @@ async function StaffContent({
                   href={buildHref(page + 1)}
                   className="px-3 py-1.5 text-xs text-white rounded-lg transition-colors"
                   style={{ background: "var(--admin-accent)" }}>
-                  Next →
+                  {t("paginationNext")}
                 </a>
               )}
             </div>
@@ -124,6 +129,7 @@ export default async function AdminStaffPage({
 }: {
   searchParams: Promise<{ q?: string; role?: string; page?: string }>;
 }) {
+  const t = await getTranslations("admin.access.staff");
   const params = await searchParams;
   const search = params.q ?? "";
   const role = params.role ?? "";
@@ -150,14 +156,16 @@ export default async function AdminStaffPage({
           <h2
             className="text-lg font-bold"
             style={{ color: "var(--admin-text)" }}>
-            <span style={{ color: "var(--admin-text-muted)" }}>Users</span>
+            <span style={{ color: "var(--admin-text-muted)" }}>
+              {t("breadcrumbUsers")}
+            </span>
             <span style={{ color: "var(--admin-text-faint)" }}> / </span>
-            <span>Staff Management</span>
+            <span>{t("pageTitle")}</span>
           </h2>
           <p
             className="text-sm mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Admin user management
+            {t("pageSubtitle")}
           </p>
         </div>
         <AddStaffButton adminRoles={adminRoles} />
@@ -179,7 +187,7 @@ export default async function AdminStaffPage({
             <input
               name="q"
               defaultValue={search}
-              placeholder="Search by name or email..."
+              placeholder={t("searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
               style={{
                 background: "var(--admin-page-bg)",
@@ -198,7 +206,7 @@ export default async function AdminStaffPage({
               border: "1px solid var(--admin-input-border)",
               color: role ? "var(--admin-text)" : "var(--admin-text-muted)",
             }}>
-            <option value="">All roles</option>
+            <option value="">{t("filterRoleAll")}</option>
             {adminRoles.map((r) => (
               <option key={r.name} value={r.name}>
                 {r.label}
@@ -210,7 +218,7 @@ export default async function AdminStaffPage({
             type="submit"
             className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
             style={{ background: "var(--admin-accent)" }}>
-            Filter
+            {t("filterButton")}
           </button>
 
           {hasFilters && (
@@ -221,7 +229,7 @@ export default async function AdminStaffPage({
                 background: "var(--admin-hover-bg)",
                 color: "var(--admin-text-muted)",
               }}>
-              Reset
+              {t("resetButton")}
             </a>
           )}
         </form>

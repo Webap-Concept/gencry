@@ -2,6 +2,7 @@
 
 import type { RoleRow } from "@/lib/db/roles-queries";
 import { Mail, Search, UserPlus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
@@ -29,6 +30,7 @@ function PromoteTab({
   adminRoles: RoleRow[];
   onSuccess: () => void;
 }) {
+  const t = useTranslations("admin.access.staff.modal");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [selected, setSelected] = useState<UserSearchResult | null>(null);
@@ -70,7 +72,7 @@ function PromoteTab({
         await addUserToStaff(selected.id, roleName);
         onSuccess();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Si è verificato un errore.");
+        setError(e instanceof Error ? e.message : t("promoteGenericError"));
       }
     });
   }
@@ -86,7 +88,7 @@ function PromoteTab({
       {/* User search / selected chip */}
       {!selected ? (
         <div>
-          <label style={labelStyle}>Cerca utente</label>
+          <label style={labelStyle}>{t("promoteSearchLabel")}</label>
           <div style={{ position: "relative" }}>
             <Search
               size={14}
@@ -103,7 +105,7 @@ function PromoteTab({
               ref={inputRef}
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Cerca per nome o email..."
+              placeholder={t("promoteSearchPlaceholder")}
               style={inputStyle({ paddingLeft: 30 })}
             />
           </div>
@@ -118,7 +120,7 @@ function PromoteTab({
         </div>
       ) : (
         <div>
-          <label style={labelStyle}>Utente</label>
+          <label style={labelStyle}>{t("promoteUserLabel")}</label>
           <SelectedChip user={selected} onClear={() => setSelected(null)} initials={initials} />
         </div>
       )}
@@ -133,7 +135,7 @@ function PromoteTab({
           disabled={!selected || saving}
           loading={saving}
           onClick={handleConfirm}
-          label="Aggiungi allo Staff"
+          label={t("promoteConfirmButton")}
           icon={<UserPlus size={13} />}
         />
       </div>
@@ -151,6 +153,7 @@ function InviteTab({
   adminRoles: RoleRow[];
   onSuccess: () => void;
 }) {
+  const t = useTranslations("admin.access.staff.modal");
   const [email, setEmail] = useState("");
   const [roleName, setRoleName] = useState(adminRoles[0]?.name ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -198,10 +201,13 @@ function InviteTab({
           <Mail size={22} style={{ color: "var(--admin-accent)" }} />
         </div>
         <p style={{ fontSize: 14, fontWeight: 600, color: "var(--admin-text)", margin: "0 0 4px" }}>
-          Invito inviato
+          {t("inviteSentTitle")}
         </p>
         <p style={{ fontSize: 13, color: "var(--admin-text-faint)", margin: 0 }}>
-          L&apos;email con il link di invito è stata inviata a <strong>{email}</strong>.
+          {t.rich("inviteSentSubtitle", {
+            email,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
       </div>
     );
@@ -210,17 +216,17 @@ function InviteTab({
   return (
     <div style={{ padding: "16px 20px" }}>
       <div>
-        <label style={labelStyle}>Email da invitare</label>
+        <label style={labelStyle}>{t("inviteEmailLabel")}</label>
         <input
           ref={inputRef}
           type="email"
           value={email}
           onChange={(e) => { setEmail(e.target.value); setError(null); }}
-          placeholder="es. mario.rossi@esempio.it"
+          placeholder={t("inviteEmailPlaceholder")}
           style={inputStyle({})}
         />
         <p style={{ fontSize: 11, color: "var(--admin-text-faint)", marginTop: 5 }}>
-          Riceverà un&apos;email con il link per creare l&apos;account Staff.
+          {t("inviteEmailHint")}
         </p>
       </div>
 
@@ -233,7 +239,7 @@ function InviteTab({
           disabled={!email.trim() || saving}
           loading={saving}
           onClick={handleConfirm}
-          label="Invia invito"
+          label={t("inviteConfirmButton")}
           icon={<Mail size={13} />}
         />
       </div>
@@ -254,9 +260,10 @@ function RoleSelect({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useTranslations("admin.access.staff.modal");
   return (
     <div style={{ marginTop: 14 }}>
-      <label style={labelStyle}>Ruolo</label>
+      <label style={labelStyle}>{t("promoteRoleLabel")}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -283,6 +290,7 @@ function ResultsList({
   onSelect: (u: UserSearchResult) => void;
   initials: (u: UserSearchResult) => string;
 }) {
+  const t = useTranslations("admin.access.staff.modal");
   return (
     <div
       style={{
@@ -295,7 +303,7 @@ function ResultsList({
     >
       {searching ? (
         <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--admin-text-faint)" }}>
-          Ricerca…
+          {t("promoteSearching")}
         </div>
       ) : (
         results.map((u) => (
@@ -344,6 +352,7 @@ function SelectedChip({
   onClear: () => void;
   initials: (u: UserSearchResult) => string;
 }) {
+  const t = useTranslations("admin.access.staff.modal");
   return (
     <div
       style={{
@@ -372,7 +381,7 @@ function SelectedChip({
         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 5, background: "transparent", border: "none", cursor: "pointer", color: "var(--admin-text-faint)" }}
         onMouseEnter={(e) => { e.currentTarget.style.background = "var(--admin-hover-bg)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-        aria-label="Cambia utente"
+        aria-label={t("promoteChangeUserAria")}
       >
         <X size={13} />
       </button>
@@ -505,6 +514,7 @@ function inputStyle(extra: React.CSSProperties): React.CSSProperties {
 // ---------------------------------------------------------------------------
 
 export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProps) {
+  const t = useTranslations("admin.access.staff.modal");
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("promote");
 
@@ -520,8 +530,8 @@ export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProp
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "promote", label: "Promuovi utente", icon: <UserPlus size={14} /> },
-    { id: "invite", label: "Invita per email", icon: <Mail size={14} /> },
+    { id: "promote", label: t("tabPromote"), icon: <UserPlus size={14} /> },
+    { id: "invite", label: t("tabInvite"), icon: <Mail size={14} /> },
   ];
 
   return createPortal(
@@ -545,14 +555,14 @@ export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProp
               <UserPlus size={17} />
             </span>
             <h2 style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "var(--admin-text)", margin: 0 }}>
-              Aggiungi membro Staff
+              {t("title")}
             </h2>
             <button
               onClick={onClose}
               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, background: "transparent", border: "none", cursor: "pointer", color: "var(--admin-text-faint)" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--admin-hover-bg)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-              aria-label="Chiudi"
+              aria-label={t("closeAria")}
             >
               <X size={15} />
             </button>

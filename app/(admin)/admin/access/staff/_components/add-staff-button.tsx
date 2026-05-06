@@ -2,6 +2,7 @@
 
 import type { RoleRow } from "@/lib/db/roles-queries";
 import { UserPlus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
@@ -14,6 +15,7 @@ export default function AddStaffButton({
 }: {
   adminRoles: RoleRow[];
 }) {
+  const t = useTranslations("admin.access.staff");
   const [open, setOpen] = useState(false);
 
   return (
@@ -30,7 +32,7 @@ export default function AddStaffButton({
         }}
       >
         <UserPlus size={15} />
-        Add Staff Member
+        {t("addStaffButton")}
       </button>
 
       {open && (

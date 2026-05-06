@@ -6,6 +6,7 @@ import { permissions, rolePermissions, roles, staffInvitations, userProfiles, us
 import { sendStaffInvitationEmail } from "@/lib/email/templates/staff-invitation";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -40,9 +41,10 @@ async function getStaffRole(roleName: string): Promise<StaffRole> {
 
 export async function changeStaffRole(userId: string, roleName: string) {
   await requireAdmin();
+  const t = await getTranslations("admin.access.staff.errors");
 
   const role = await getStaffRole(roleName);
-  if (!role) throw new Error("Role not found or not assignable to staff.");
+  if (!role) throw new Error(t("roleNotAssignable"));
 
   await db
     .update(users)
@@ -94,9 +96,10 @@ export async function searchNonAdminUsers(
 
 export async function addUserToStaff(userId: string, roleName: string) {
   await requireAdmin();
+  const t = await getTranslations("admin.access.staff.errors");
 
   const role = await getStaffRole(roleName);
-  if (!role) throw new Error("Role not found or not assignable to staff.");
+  if (!role) throw new Error(t("roleNotAssignable"));
 
   await db
     .update(users)
@@ -111,9 +114,10 @@ export async function inviteStaffMember(
   roleName: string,
 ): Promise<{ error?: string }> {
   const admin = await requireAdmin();
+  const t = await getTranslations("admin.access.staff.errors");
 
   const emailParsed = z.string().email().safeParse(email.trim().toLowerCase());
-  if (!emailParsed.success) return { error: "Email non valida." };
+  if (!emailParsed.success) return { error: t("invalidEmail") };
   const normalizedEmail = emailParsed.data;
 
   const [existingUser] = await db
@@ -123,14 +127,11 @@ export async function inviteStaffMember(
     .limit(1);
 
   if (existingUser) {
-    return {
-      error:
-        "Questa email appartiene già a un utente registrato. Usa 'Promuovi utente'.",
-    };
+    return { error: t("emailAlreadyRegistered") };
   }
 
   const role = await getStaffRole(roleName);
-  if (!role) return { error: "Ruolo non trovato o non assegnabile allo staff." };
+  if (!role) return { error: t("roleNotAssignable") };
 
   const { randomBytes } = await import("crypto");
   const token = randomBytes(32).toString("hex");
