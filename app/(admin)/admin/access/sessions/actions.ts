@@ -11,6 +11,7 @@ import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { runSuspiciousDetection } from "@/lib/sessions/suspicious/runner";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 async function requireSessionsPermission() {
@@ -18,7 +19,8 @@ async function requireSessionsPermission() {
   if (!adminUser.isAdmin) {
     const allowed = await can(adminUser, "admin:sessions");
     if (!allowed) {
-      throw new Error("You do not have the admin:sessions permission.");
+      const t = await getTranslations("admin.access.sessions.errors");
+      throw new Error(t("permissionRequired"));
     }
   }
   return adminUser;

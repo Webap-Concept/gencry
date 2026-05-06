@@ -13,6 +13,7 @@ import {
   Tablet,
   X,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,24 +23,31 @@ import {
   revokeUserSessionAdmin,
 } from "../actions";
 
-const dateFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
+type TableT = ReturnType<typeof useTranslations<"admin.access.sessions.table">>;
 
-const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function StatusBadge({ status }: { status: AdminSessionRow["status"] }) {
+function StatusBadge({
+  status,
+  t,
+}: {
+  status: AdminSessionRow["status"];
+  t: TableT;
+}) {
   const map = {
-    active: { label: "Active", bg: "bg-emerald-100", fg: "text-emerald-700" },
-    revoked: { label: "Revoked", bg: "bg-red-100", fg: "text-red-700" },
-    expired: { label: "Expired", bg: "bg-gray-200", fg: "text-gray-600" },
+    active: {
+      label: t("statusActive"),
+      bg: "bg-emerald-100",
+      fg: "text-emerald-700",
+    },
+    revoked: {
+      label: t("statusRevoked"),
+      bg: "bg-red-100",
+      fg: "text-red-700",
+    },
+    expired: {
+      label: t("statusExpired"),
+      bg: "bg-gray-200",
+      fg: "text-gray-600",
+    },
   } as const;
   const cfg = map[status];
   return (
@@ -69,27 +77,32 @@ function DeviceIcon({ ua }: { ua: string | null }) {
   );
 }
 
-/** Builds an English label from the parser output (which is IT). */
-function deviceLabel(ua: string | null): string {
-  const parsed = parseUserAgent(ua);
-  if (parsed.deviceType === "unknown") return "Unknown device";
-  // The parser ships "Browser sconosciuto" / "Sistema sconosciuto" as
-  // fallback fields; surface them as "Unknown" in the admin UI.
-  const browser = parsed.browser.startsWith("Browser ") ? "Unknown" : parsed.browser;
-  const os = parsed.os.startsWith("Sistema ") ? "Unknown OS" : parsed.os;
-  return `${browser} on ${os}`;
+function makeDeviceLabel(t: TableT) {
+  return (ua: string | null): string => {
+    const parsed = parseUserAgent(ua);
+    if (parsed.deviceType === "unknown") return t("deviceUnknown");
+    const browser = parsed.browser.startsWith("Browser ")
+      ? t("deviceUnknownBrowser")
+      : parsed.browser;
+    const os = parsed.os.startsWith("Sistema ")
+      ? t("deviceUnknownOs")
+      : parsed.os;
+    return t("deviceFormat", { browser, os });
+  };
 }
 
-function relativeTime(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH}h ago`;
-  const diffD = Math.floor(diffH / 24);
-  if (diffD < 30) return `${diffD}d ago`;
-  return dateFmt.format(date);
+function makeRelativeTime(t: TableT, dateFmt: Intl.DateTimeFormat) {
+  return (date: Date): string => {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60_000);
+    if (diffMin < 1) return t("relativeJustNow");
+    if (diffMin < 60) return t("relativeMinutes", { m: diffMin });
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return t("relativeHours", { h: diffH });
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 30) return t("relativeDays", { d: diffD });
+    return dateFmt.format(date);
+  };
 }
 
 function userInitials(row: AdminSessionRow): string {
@@ -110,6 +123,23 @@ function userDisplayName(row: AdminSessionRow): string {
 // ---------------------------------------------------------------------------
 
 function SessionRow({ row }: { row: AdminSessionRow }) {
+  const t = useTranslations("admin.access.sessions.table");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "it-IT";
+  const dateFmt = new Intl.DateTimeFormat(dateLocale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const dateTimeFmt = new Intl.DateTimeFormat(dateLocale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const deviceLabel = makeDeviceLabel(t);
+  const relativeTime = makeRelativeTime(t, dateFmt);
+
   const router = useRouter();
   // Plain useState (not useTransition) so the button spinner clears as soon
   // as the action returns. Otherwise a slow / failing router.refresh() keeps
@@ -126,7 +156,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
       await revokeUserSessionAdmin(row.id);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Revoke failed");
+      setError(e instanceof Error ? e.message : t("revokeFailed"));
     } finally {
       setPending(false);
     }
@@ -138,13 +168,13 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
     try {
       const { revokedCount } = await revokeAllSessionsForUserAdmin(row.userId);
       if (revokedCount === 0) {
-        setError("No active sessions to revoke for this user.");
+        setError(t("noActiveSessionsForUser"));
       } else {
         router.refresh();
       }
       setConfirmAll(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Revoke failed");
+      setError(e instanceof Error ? e.message : t("revokeFailed"));
     } finally {
       setPending(false);
     }
@@ -210,12 +240,12 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
           {relativeTime(row.lastSeenAt)}
         </div>
         <div className="text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-          opened {dateFmt.format(row.createdAt)}
+          {t("rowOpened", { date: dateFmt.format(row.createdAt) })}
         </div>
       </td>
 
       <td className="px-4 py-3">
-        <StatusBadge status={row.status} />
+        <StatusBadge status={row.status} t={t} />
       </td>
 
       <td className="px-4 py-3 whitespace-nowrap text-right">
@@ -223,7 +253,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
           <Link
             href={`/admin/access/users/${row.userId}`}
             className="p-1.5 rounded-md transition-colors hover:bg-[var(--admin-hover-bg)]"
-            title="View user"
+            title={t("actionViewUser")}
             style={{ color: "var(--admin-text-muted)" }}>
             <ExternalLink size={14} />
           </Link>
@@ -233,7 +263,9 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
             onClick={() => setConfirmRevokeOpen(true)}
             disabled={!canRevoke || pending}
             className="p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-red-50"
-            title={canRevoke ? "Revoke this session" : "Already inactive"}
+            title={
+              canRevoke ? t("actionRevoke") : t("actionAlreadyInactive")
+            }
             style={{ color: canRevoke ? "#dc2626" : "var(--admin-text-faint)" }}>
             {pending ? (
               <Loader2 size={14} className="animate-spin" />
@@ -244,10 +276,10 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
 
           <ConfirmModal
             open={confirmRevokeOpen}
-            title="Revoke session"
-            message="The device will be signed out immediately. The user will need to sign in again."
+            title={t("revokeModalTitle")}
+            message={t("revokeModalMessage")}
             variant="danger"
-            confirmLabel="Revoke"
+            confirmLabel={t("revokeModalConfirm")}
             loading={pending}
             onConfirm={async () => {
               setConfirmRevokeOpen(false);
@@ -262,7 +294,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
               onClick={() => setConfirmAll(true)}
               disabled={pending}
               className="p-1.5 rounded-md transition-colors hover:bg-red-50 disabled:opacity-40"
-              title="Revoke ALL sessions of this user"
+              title={t("actionRevokeAll")}
               style={{ color: "#b91c1c" }}>
               <ShieldOff size={14} />
             </button>
@@ -271,7 +303,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
               <span
                 className="text-[11px]"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Revoke all?
+                {t("revokeAllPrompt")}
               </span>
               <button
                 type="button"
@@ -279,7 +311,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
                 disabled={pending}
                 className="px-2 py-0.5 text-[11px] font-semibold rounded-md text-white"
                 style={{ background: "#dc2626" }}>
-                {pending ? "…" : "Yes"}
+                {pending ? t("revokeWorking") : t("revokeAllYes")}
               </button>
               <button
                 type="button"
@@ -290,7 +322,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
                   background: "var(--admin-hover-bg)",
                   color: "var(--admin-text-muted)",
                 }}>
-                No
+                {t("revokeAllNo")}
               </button>
             </span>
           )}
@@ -311,11 +343,14 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
 // ---------------------------------------------------------------------------
 
 export function SessionsTable({ items }: { items: AdminSessionRow[] }) {
+  const t = useTranslations("admin.access.sessions");
+  const tt = useTranslations("admin.access.sessions.table");
+
   if (items.length === 0) {
     return (
       <div className="px-6 py-12 text-center">
         <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
-          No sessions match these filters.
+          {t("emptySessions")}
         </p>
       </div>
     );
@@ -328,11 +363,21 @@ export function SessionsTable({ items }: { items: AdminSessionRow[] }) {
           <tr
             className="text-[11px] uppercase tracking-wider"
             style={{ color: "var(--admin-text-faint)" }}>
-            <th className="px-4 py-2.5 text-left font-medium">User</th>
-            <th className="px-4 py-2.5 text-left font-medium">Device · IP</th>
-            <th className="px-4 py-2.5 text-left font-medium">Last seen</th>
-            <th className="px-4 py-2.5 text-left font-medium">Status</th>
-            <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {tt("headerUser")}
+            </th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {tt("headerDevice")}
+            </th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {tt("headerLastSeen")}
+            </th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {tt("headerStatus")}
+            </th>
+            <th className="px-4 py-2.5 text-right font-medium">
+              {tt("headerActions")}
+            </th>
           </tr>
         </thead>
         <tbody>
