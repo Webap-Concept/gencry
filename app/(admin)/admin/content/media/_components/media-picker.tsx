@@ -472,6 +472,42 @@ function UploadTab({
           {error}
         </p>
       )}
+
+      {uploading && <PickerUploadOverlay />}
+    </div>
+  );
+}
+
+function PickerUploadOverlay() {
+  const t = useTranslations("admin.content.media.uploader");
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      role="alert"
+      aria-busy="true">
+      <div
+        className="rounded-xl px-6 py-5 shadow-xl flex items-center gap-4 min-w-[280px]"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+        }}>
+        <Loader2
+          className="w-6 h-6 animate-spin flex-shrink-0"
+          style={{ color: "var(--admin-accent)" }}
+        />
+        <div>
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--admin-text)" }}>
+            {t("overlayUploading")}
+          </p>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--admin-text-muted)" }}>
+            {t("overlayHint")}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

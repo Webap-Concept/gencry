@@ -139,6 +139,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
       {dialog?.kind === "delete" && (
         <DeleteFolderDialog
           folder={dialog.folder}
+          currentFolderId={currentFolderId}
           onClose={() => setDialog(null)}
           onSuccess={(msg) => {
             setToast({ message: msg, type: "success" });
@@ -471,11 +472,13 @@ function CreateOrRenameDialog(
 
 function DeleteFolderDialog({
   folder,
+  currentFolderId,
   onClose,
   onSuccess,
   onError,
 }: {
   folder: MediaFolder;
+  currentFolderId: number | null;
   onClose: () => void;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
@@ -517,6 +520,11 @@ function DeleteFolderDialog({
 
         <form action={formAction} className="flex justify-end gap-2">
           <input type="hidden" name="id" value={folder.id} />
+          <input
+            type="hidden"
+            name="currentFolderId"
+            value={currentFolderId ?? ""}
+          />
           <button
             type="button"
             onClick={onClose}

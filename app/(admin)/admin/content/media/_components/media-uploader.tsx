@@ -33,6 +33,7 @@ export function MediaUploader({
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [uploadingCount, setUploadingCount] = useState(0);
 
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     uploadMediaAssets,
@@ -43,8 +44,10 @@ export function MediaUploader({
     if ("success" in state) {
       setToast({ message: state.success, type: "success" });
       formRef.current?.reset();
+      setUploadingCount(0);
     } else if ("error" in state) {
       setToast({ message: state.error, type: "error" });
+      setUploadingCount(0);
     }
   }, [state]);
 
@@ -92,7 +95,9 @@ export function MediaUploader({
               className="hidden"
               disabled={isPending}
               onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                  setUploadingCount(files.length);
                   formRef.current?.requestSubmit();
                 }
               }}
@@ -100,6 +105,8 @@ export function MediaUploader({
           </label>
         </div>
       </form>
+
+      {isPending && <UploadOverlay count={uploadingCount} />}
 
       {toast && (
         <AdminToast
@@ -109,5 +116,47 @@ export function MediaUploader({
         />
       )}
     </>
+  );
+}
+
+/**
+ * Overlay fisso a tutto schermo durante l'upload. Le server actions non
+ * espongono il progress in byte (a differenza di XHR), quindi il feedback
+ * è "in corso" + count file. Blocca l'interazione finché l'azione non
+ * conclude — evita che l'admin pensi che sia bloccata.
+ */
+function UploadOverlay({ count }: { count: number }) {
+  const t = useTranslations("admin.content.media.uploader");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      role="alert"
+      aria-busy="true">
+      <div
+        className="rounded-xl px-6 py-5 shadow-xl flex items-center gap-4 min-w-[280px]"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+        }}>
+        <Loader2
+          className="w-6 h-6 animate-spin flex-shrink-0"
+          style={{ color: "var(--admin-accent)" }}
+        />
+        <div>
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--admin-text)" }}>
+            {count > 1
+              ? t("overlayUploadingMany", { count })
+              : t("overlayUploading")}
+          </p>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--admin-text-muted)" }}>
+            {t("overlayHint")}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

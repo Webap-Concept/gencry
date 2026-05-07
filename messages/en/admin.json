@@ -1743,7 +1743,10 @@
         "title": "Upload assets",
         "hint": "Up to {maxMb} MB per file. Allowed: {mimes}.",
         "button": "Upload files",
-        "uploading": "Uploading…"
+        "uploading": "Uploading…",
+        "overlayUploading": "Uploading file…",
+        "overlayUploadingMany": "Uploading {count} files…",
+        "overlayHint": "Don't close this tab until the upload completes."
       },
       "grid": {
         "empty": "No assets yet — upload your first file to get started.",
