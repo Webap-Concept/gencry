@@ -148,7 +148,7 @@ async function fetchJobsWithRuns(jobnames: string[]): Promise<CronJobRow[]> {
       ORDER BY start_time DESC NULLS LAST
       LIMIT 10
     ) r ON TRUE
-    WHERE j.jobname = ANY(${jobnames})
+    WHERE j.jobname = ANY(${jobnames}::text[])
     ORDER BY j.jobname, r.start_time DESC NULLS LAST
   `);
 
