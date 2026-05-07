@@ -28,6 +28,7 @@ import {
 import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export type ActionState =
   | Record<string, never>
@@ -307,6 +308,16 @@ export async function deleteMediaFolder(
   await deleteFolderById(id);
 
   revalidatePath(getAdminPath("content-media"));
+
+  // Se il client stava navigando proprio dentro questa cartella, l'URL è
+  // `?folder=<id>` con id appena cancellato. Senza redirect la pagina
+  // rifarebbe `getFolderById(id)` → null → notFound() → 404 nel browser.
+  // Redirige a root dove il toast di success arriverà sul refresh successivo.
+  const currentFolderId = parseFolderId(formData.get("currentFolderId"));
+  if (currentFolderId === id) {
+    redirect(getAdminPath("content-media"));
+  }
+
   return { success: t("folderDeleted"), timestamp: Date.now() };
 }
 

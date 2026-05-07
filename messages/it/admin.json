@@ -1743,7 +1743,10 @@
         "title": "Carica file",
         "hint": "Fino a {maxMb} MB per file. Formati ammessi: {mimes}.",
         "button": "Carica file",
-        "uploading": "Caricamento…"
+        "uploading": "Caricamento…",
+        "overlayUploading": "Caricamento del file in corso…",
+        "overlayUploadingMany": "Caricamento di {count} file in corso…",
+        "overlayHint": "Non chiudere questa scheda fino al termine."
       },
       "grid": {
         "empty": "Nessun file caricato — carica il primo per iniziare.",
