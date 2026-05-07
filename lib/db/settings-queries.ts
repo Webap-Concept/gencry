@@ -177,6 +177,11 @@ export type SettingKey =
   | 'modules.prices.retention_days'    // retention coin_prices in giorni
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
+  // MFA policy (vedi /admin/security/mfa)
+  | 'mfa.enabled'             // 'true'|'false' — master switch della feature MFA
+  | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
+  | 'mfa.grace_period_days'   // giorni di tolleranza per account esistenti quando mode è required-*
+  | 'mfa.issuer_label'        // label mostrata nelle authenticator app; vuoto = fallback ad app_name
 
 export type AppSettings = {
   app_name: string
@@ -317,6 +322,11 @@ export type AppSettings = {
   // Suspicious sessions / admin alerts
   'notifications.alerts_config': string | null
   'notifications.alerts_last_digest_at': string | null
+  // MFA policy
+  'mfa.enabled': string
+  'mfa.mode': string
+  'mfa.grace_period_days': string
+  'mfa.issuer_label': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -458,6 +468,12 @@ const DEFAULTS: AppSettings = {
   // configurazione dalla UI; il loader applica i defaults Zod-side.
   'notifications.alerts_config': null,
   'notifications.alerts_last_digest_at': null,
+  // MFA defaults: feature on, modalità opzionale (utente decide), grace 7 gg.
+  // issuer_label vuoto = il prompt nell'authenticator usa app_name.
+  'mfa.enabled': 'true',
+  'mfa.mode': 'optional',
+  'mfa.grace_period_days': '7',
+  'mfa.issuer_label': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
