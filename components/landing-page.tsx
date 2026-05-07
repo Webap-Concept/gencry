@@ -1,6 +1,7 @@
 "use client";
 
 import { joinWaitingListAction } from "@/lib/waiting-list/actions";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
@@ -491,8 +492,13 @@ export default function GenerazioneCrypto() {
               <span className="gc-tick gc-t3">v 0.1</span>
               <span className="gc-tick gc-t4">IT</span>
 
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/gc_logo.svg" alt="Generazione Crypto" />
+              <Image
+                src="/gc_logo.svg"
+                alt="Generazione Crypto"
+                width={256}
+                height={256}
+                priority
+              />
             </section>
           </main>
         </div>

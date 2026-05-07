@@ -13,7 +13,7 @@ import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
-import PageEditor from "../../_components/page-editor";
+import PageEditor from "../../_components/page-editor-loader";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
