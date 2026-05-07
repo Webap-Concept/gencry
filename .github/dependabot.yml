@@ -13,6 +13,10 @@
 #   pointless. The React/Next family is grouped together too — those
 #   versions move in lockstep and splitting them creates noisy
 #   integration mismatches.
+# - **Major bumps are excluded from groups** (`update-types: minor+patch`).
+#   Mixing a major into a grouped PR turns the whole PR red and blocks
+#   the safe minor/patch bumps that share the group. Each major opens
+#   its own dedicated PR so it can be reviewed and scheduled separately.
 # - Security updates are unaffected by the weekly schedule: GitHub
 #   opens those automatically as soon as an advisory is published.
 #
@@ -40,10 +44,12 @@ updates:
     groups:
       types:
         applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "@types/*"
       lint:
         applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "eslint*"
           - "@typescript-eslint/*"
@@ -51,6 +57,7 @@ updates:
           - "prettier-*"
       react-next:
         applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "next"
           - "@next/*"
@@ -60,10 +67,12 @@ updates:
           - "@types/react-dom"
       drizzle:
         applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "drizzle-*"
       tailwind:
         applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "tailwindcss"
           - "@tailwindcss/*"
