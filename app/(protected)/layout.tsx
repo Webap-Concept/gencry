@@ -57,22 +57,37 @@ export default async function Layout({
   // l'MFA per l'utente e la deadline del grace period è passata senza che
   // l'utente lo abbia attivato, redirige a /settings/security. La pagina
   // mostrerà il banner blocking con il setup wizard.
-  const user = await getUser();
-  if (user && !user.bannedAt) {
-    const [policy, mfaState] = await Promise.all([
-      getMfaPolicy(),
-      getMfaState(user.id),
-    ]);
-    const enforcement = mfaEnforcement(user, policy, mfaState);
-    if (enforcement.kind === "blocking") {
-      const pathname = (await headers()).get("x-pathname") ?? "";
-      const bypass = MFA_BLOCK_BYPASS_PREFIXES.some((p) =>
-        pathname.startsWith(p),
-      );
-      if (!bypass) {
-        redirect(`${MFA_SECURITY_PATH}?reason=mfa-required`);
+  //
+  // Wrappato in try/catch: un errore qui (DB transitorio, settings stale,
+  // ecc.) non deve bloccare l'intera area loggata. Se il calcolo fallisce,
+  // l'utente continua come se MFA fosse optional — il banner della pagina
+  // /settings/security copre comunque il caso in modo non bloccante.
+  // Il redirect viene calcolato dentro il try ma chiamato FUORI, perché
+  // `redirect()` lancia un'eccezione Next-interna che non va catturata.
+  let mfaRedirectTo: string | null = null;
+  try {
+    const user = await getUser();
+    if (user && !user.bannedAt) {
+      const [policy, mfaState] = await Promise.all([
+        getMfaPolicy(),
+        getMfaState(user.id),
+      ]);
+      const enforcement = mfaEnforcement(user, policy, mfaState);
+      if (enforcement.kind === "blocking") {
+        const pathname = (await headers()).get("x-pathname") ?? "";
+        const bypass = MFA_BLOCK_BYPASS_PREFIXES.some((p) =>
+          pathname.startsWith(p),
+        );
+        if (!bypass) {
+          mfaRedirectTo = `${MFA_SECURITY_PATH}?reason=mfa-required`;
+        }
       }
     }
+  } catch (err) {
+    console.error("[layout/protected] MFA enforcement check failed:", err);
+  }
+  if (mfaRedirectTo) {
+    redirect(mfaRedirectTo);
   }
 
   // Re-consent banner: appare se l'utente ha policy obsolete e l'admin ha
