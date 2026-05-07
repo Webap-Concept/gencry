@@ -74,13 +74,29 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     ? new Set<string>(["__superadmin__"])
     : await getUserPermissions(user);
 
-  // Throttled (max 1/h): garantisce che le notifiche derivate
-  // siano in stato corrente senza un cron esterno.
-  await runGeneratorsThrottled();
-  const [bell, navOrder] = await Promise.all([
-    getInitialBellData(userPermissions),
-    getNavOrderOverrides(),
-  ]);
+  // Build-time short-circuit: durante `next build` Next esegue il layout
+  // per ogni page admin nella fase "Generating static pages" anche se
+  // tutte le route admin sono dynamic (ƒ). Non c'è una sessione reale,
+  // quindi `runGeneratorsThrottled` + `getInitialBellData` +
+  // `getNavOrderOverrides` farebbero query DB inutili (≈60s in totale
+  // su un build con DB Supabase EU). Le pagine reali ricevono comunque
+  // i dati freschi al primo render in produzione.
+  const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+
+  if (!isBuild) {
+    await runGeneratorsThrottled();
+  }
+  const [bell, navOrder] = isBuild
+    ? [
+        { notifications: [], unreadCount: 0 } as Awaited<
+          ReturnType<typeof getInitialBellData>
+        >,
+        {} as Awaited<ReturnType<typeof getNavOrderOverrides>>,
+      ]
+    : await Promise.all([
+        getInitialBellData(userPermissions),
+        getNavOrderOverrides(),
+      ]);
 
   return (
     <NextIntlClientProvider locale={userLocale} messages={messages}>
