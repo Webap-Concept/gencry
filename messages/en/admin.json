@@ -577,6 +577,11 @@
       "resend": {
         "label": "Resend",
         "description": "Configure credentials and sender for outgoing emails."
+      },
+      "dependencies": {
+        "label": "Dependencies",
+        "description": "Read-only inventory of npm dependencies with version drift, breaking-change hints and Dependabot PR status.",
+        "guideTitle": "Dependencies — operator's guide"
       }
     },
     "actionMessages": {
@@ -725,6 +730,69 @@
       "savingButton": "Saving…",
       "testButton": "Verify connection",
       "testingButton": "Verifying…"
+    },
+    "dependencies": {
+      "stats": {
+        "production": "Prod outdated",
+        "development": "Dev outdated",
+        "vulnerable": "Vulnerable",
+        "lastRun": "Last computed"
+      },
+      "toolbar": {
+        "onlyOutdated": "Show only outdated",
+        "refresh": "Refresh",
+        "refreshing": "Refreshing…"
+      },
+      "sections": {
+        "production": "Production dependencies",
+        "development": "Development dependencies"
+      },
+      "empty": {
+        "allCurrent": "All dependencies up to date."
+      },
+      "row": {
+        "usage": "{count, plural, one {# file uses this} other {# files use this}}",
+        "usageTooltip": "Number of source files importing this package (proxy of upgrade blast radius).",
+        "breakingDetected": "Breaking changes detected",
+        "noBreaking": "No breaking changes found",
+        "dependabotPr": "PR #{number}",
+        "changelog": "Changelog"
+      },
+      "risk": {
+        "current": "Current",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "vulnerable": "Vulnerable"
+      },
+      "bump": {
+        "patch": "Patch",
+        "minor": "Minor",
+        "major": "Major",
+        "prerelease": "Pre-release",
+        "unknown": "Unknown",
+        "current": "Current"
+      },
+      "groupedPrs": {
+        "title": "Grouped Dependabot PRs",
+        "description": "These PRs bundle multiple packages (e.g. all @types/* together). They are listed separately from the per-package rows.",
+        "securityBadge": "Security"
+      },
+      "guide": {
+        "intro": "This dashboard cross-references the local <c>package.json</c> + <c>pnpm-lock.yaml</c> with the npm registry, GitHub Releases / changelogs, and any Dependabot PRs already open against this repo. The goal is not just to show what's outdated but to <b>quantify the risk</b> of each upgrade so you can decide which ones to merge today and which to schedule.",
+        "riskHeading": "Risk levels",
+        "riskCurrent": "<b>Current</b> — installed version equals npm latest. Nothing to do.",
+        "riskLow": "<b>Low</b> — patch or minor bump, no breaking changes flagged, Dependabot CI green (when a PR exists). Usually safe to merge.",
+        "riskMedium": "<b>Medium</b> — minor with breaking flags, or any bump where the Dependabot CI is failing. Read the changelog before merging.",
+        "riskHigh": "<b>High</b> — major bump. Likely requires code changes; schedule it.",
+        "riskVulnerable": "<b>Vulnerable</b> — Dependabot opened a security PR for this package. Merge as soon as CI is green, regardless of the bump type.",
+        "dependabotHeading": "How Dependabot fits in",
+        "dependabotBody": "Dependabot opens PRs every Monday morning (config in <c>.github/dependabot.yml</c>). When a PR exists for a package, this dashboard surfaces its number, its CI status, and a direct link. Use the per-package <c>PR #N</c> link to jump in and merge.",
+        "breakingHeading": "Breaking changes detection",
+        "breakingBody": "We fetch the package's CHANGELOG from GitHub (<c>main</c> or <c>master</c>) and grep the slice between the installed and the new version for keywords like <c>BREAKING CHANGE</c>, <c>removed</c>, <c>deprecated</c>. It's a heuristic — always click through to the changelog before merging a major bump. The detection is skipped for patches (rarely contain breaking changes by semver convention).",
+        "securityHeading": "Security advisories",
+        "securityBody": "Security PRs from GitHub bypass the weekly Dependabot schedule and appear here labelled <c>vulnerable</c>. The dashboard does not actively poll the GitHub Advisory Database — we rely on Dependabot to surface CVEs as PRs."
+      }
     }
   },
   "access": {

@@ -390,6 +390,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "Shield",
         permission: "admin:settings",
       },
+      {
+        key: "services-dependencies",
+        href: "/admin/services/dependencies",
+        label: "Dependencies",
+        icon: "Package",
+        permission: "admin:settings",
+      },
     ],
   },
   // ── Modules ──────────────────────────────────────────────────────────

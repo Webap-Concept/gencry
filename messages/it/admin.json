@@ -577,6 +577,11 @@
       "resend": {
         "label": "Resend",
         "description": "Configura credenziali e mittente per le email in uscita."
+      },
+      "dependencies": {
+        "label": "Dipendenze",
+        "description": "Inventario read-only delle dipendenze npm con drift di versione, breaking change e stato delle PR Dependabot.",
+        "guideTitle": "Dipendenze — guida operatore"
       }
     },
     "actionMessages": {
@@ -725,6 +730,69 @@
       "savingButton": "Salvataggio…",
       "testButton": "Verifica connessione",
       "testingButton": "Verifica in corso…"
+    },
+    "dependencies": {
+      "stats": {
+        "production": "Prod da aggiornare",
+        "development": "Dev da aggiornare",
+        "vulnerable": "Vulnerabili",
+        "lastRun": "Ultimo calcolo"
+      },
+      "toolbar": {
+        "onlyOutdated": "Mostra solo da aggiornare",
+        "refresh": "Ricarica",
+        "refreshing": "Ricaricamento…"
+      },
+      "sections": {
+        "production": "Dipendenze di produzione",
+        "development": "Dipendenze di sviluppo"
+      },
+      "empty": {
+        "allCurrent": "Tutte le dipendenze sono aggiornate."
+      },
+      "row": {
+        "usage": "{count, plural, one {# file la usa} other {# file la usano}}",
+        "usageTooltip": "Numero di file source che importano questo pacchetto (proxy del blast radius dell'upgrade).",
+        "breakingDetected": "Breaking changes rilevati",
+        "noBreaking": "Nessun breaking change trovato",
+        "dependabotPr": "PR #{number}",
+        "changelog": "Changelog"
+      },
+      "risk": {
+        "current": "Attuale",
+        "low": "Basso",
+        "medium": "Medio",
+        "high": "Alto",
+        "vulnerable": "Vulnerabile"
+      },
+      "bump": {
+        "patch": "Patch",
+        "minor": "Minor",
+        "major": "Major",
+        "prerelease": "Pre-release",
+        "unknown": "Sconosciuto",
+        "current": "Attuale"
+      },
+      "groupedPrs": {
+        "title": "PR Dependabot raggruppate",
+        "description": "Queste PR aggregano più pacchetti (es. tutti i @types/* insieme). Sono elencate qui separatamente dalle righe per-pacchetto.",
+        "securityBadge": "Security"
+      },
+      "guide": {
+        "intro": "Questa dashboard incrocia il <c>package.json</c> + <c>pnpm-lock.yaml</c> locali con il registry npm, le release/changelog GitHub e le eventuali PR Dependabot già aperte sul repo. L'obiettivo non è solo mostrare cosa è da aggiornare ma <b>quantificare il rischio</b> di ogni upgrade per decidere quali mergare oggi e quali rimandare.",
+        "riskHeading": "Livelli di rischio",
+        "riskCurrent": "<b>Attuale</b> — versione installata == latest npm. Niente da fare.",
+        "riskLow": "<b>Basso</b> — bump patch o minor, nessun breaking flaggato, CI Dependabot verde (se la PR esiste). Di solito safe da mergiare.",
+        "riskMedium": "<b>Medio</b> — minor con breaking flag, oppure qualsiasi bump con CI Dependabot rossa. Leggere il changelog prima di mergiare.",
+        "riskHigh": "<b>Alto</b> — bump major. Probabili modifiche al codice; pianificare.",
+        "riskVulnerable": "<b>Vulnerabile</b> — Dependabot ha aperto una security PR per questo pacchetto. Mergiare appena la CI passa, indipendentemente dal tipo di bump.",
+        "dependabotHeading": "Come si integra Dependabot",
+        "dependabotBody": "Dependabot apre PR ogni lunedì mattina (config in <c>.github/dependabot.yml</c>). Quando esiste una PR per un pacchetto, la dashboard mostra il numero, lo stato CI e un link diretto. Usa il link <c>PR #N</c> per saltarci dentro e mergiare.",
+        "breakingHeading": "Rilevamento breaking changes",
+        "breakingBody": "Recuperiamo il CHANGELOG del pacchetto da GitHub (<c>main</c> o <c>master</c>) e cerchiamo nello slice fra la versione installata e quella nuova parole chiave come <c>BREAKING CHANGE</c>, <c>removed</c>, <c>deprecated</c>. È un'euristica — clicca sempre sul changelog prima di mergiare un bump major. Skippato per i patch (per convenzione semver raramente contengono breaking).",
+        "securityHeading": "Security advisory",
+        "securityBody": "Le PR security di GitHub bypassano la schedule weekly di Dependabot e appaiono qui con il badge <c>vulnerabile</c>. La dashboard non interroga attivamente il GitHub Advisory Database — ci affidiamo a Dependabot per emergere i CVE come PR."
+      }
     }
   },
   "access": {
