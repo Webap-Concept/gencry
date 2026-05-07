@@ -18,6 +18,7 @@ import { db } from "@/lib/db/drizzle";
 import { permissions, rolePermissions, userPermissions, roles } from "@/lib/db/schema";
 import { and, eq, gt, isNull, or, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { getUser } from "@/lib/db/queries";
 import "server-only";
 
@@ -76,8 +77,17 @@ export async function can(user: UserLike, permissionKey: string): Promise<boolea
  * @example
  * const perms = await getUserPermissions(user);
  * perms.has("posts:publish"); // → boolean
+ *
+ * Wrappata in React `cache()` per deduplicare le call entro la stessa
+ * request: i layout admin (root + protected) e il loro contenuto
+ * arrivano qui in cascata con lo stesso `user` object (a sua volta
+ * cached da `getUser()` in lib/db/queries), quindi la cache scatta su
+ * argument identity e fa girare le 2 query DB una sola volta per page.
+ * Niente cache cross-request: ogni nuova request riparte fresca.
  */
-export async function getUserPermissions(user: UserLike): Promise<Set<string>> {
+export const getUserPermissions = cache(async function getUserPermissions(
+  user: UserLike,
+): Promise<Set<string>> {
   const now = new Date();
 
   const rolePerms = await db
@@ -111,7 +121,7 @@ export async function getUserPermissions(user: UserLike): Promise<Set<string>> {
   }
 
   return set;
-}
+});
 
 // ---------------------------------------------------------------------------
 // Composizione — canAny / canAll
