@@ -46,77 +46,92 @@ export async function uploadMediaAssets(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  try {
+    const user = await getUser();
+    if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
 
-  const folderId = parseFolderId(formData.get("folderId"));
-  if (folderId !== null && !(await getFolderById(folderId))) {
-    return { error: t("folderNotFound"), timestamp: Date.now() };
-  }
-
-  const files = formData.getAll("files").filter((v): v is File => v instanceof File && v.size > 0);
-  if (files.length === 0) {
-    return { error: t("noFiles"), timestamp: Date.now() };
-  }
-
-  const errors: string[] = [];
-  let uploaded = 0;
-
-  for (const file of files) {
-    if (!isAllowedMime(file.type)) {
-      errors.push(t("mimeNotAllowed", { name: file.name }));
-      continue;
-    }
-    if (file.size > MEDIA_MAX_BYTES) {
-      errors.push(t("fileTooLarge", { name: file.name }));
-      continue;
+    const folderId = parseFolderId(formData.get("folderId"));
+    if (folderId !== null && !(await getFolderById(folderId))) {
+      return { error: t("folderNotFound"), timestamp: Date.now() };
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadMediaFile({
-      buffer,
-      mime: file.type,
-      originalFilename: file.name,
-      folderId,
-    });
-
-    if (!result.ok) {
-      errors.push(t("uploadFailed", { name: file.name }));
-      continue;
+    const files = formData
+      .getAll("files")
+      .filter((v): v is File => v instanceof File && v.size > 0);
+    if (files.length === 0) {
+      return { error: t("noFiles"), timestamp: Date.now() };
     }
 
-    await createAsset({
-      folderId,
-      filename: result.data.filename,
-      mime: result.data.mime,
-      sizeBytes: result.data.sizeBytes,
-      storagePath: result.data.storagePath,
-      publicUrl: result.data.publicUrl,
-      uploadedBy: user.id,
-    });
-    uploaded += 1;
-  }
+    const errors: string[] = [];
+    let uploaded = 0;
 
-  revalidatePath(getAdminPath("content-media"));
+    for (const file of files) {
+      if (!isAllowedMime(file.type)) {
+        errors.push(t("mimeNotAllowed", { name: file.name }));
+        continue;
+      }
+      if (file.size > MEDIA_MAX_BYTES) {
+        errors.push(t("fileTooLarge", { name: file.name }));
+        continue;
+      }
 
-  if (uploaded === 0) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const result = await uploadMediaFile({
+        buffer,
+        mime: file.type,
+        originalFilename: file.name,
+        folderId,
+      });
+
+      if (!result.ok) {
+        errors.push(t("uploadFailed", { name: file.name }));
+        continue;
+      }
+
+      await createAsset({
+        folderId,
+        filename: result.data.filename,
+        mime: result.data.mime,
+        sizeBytes: result.data.sizeBytes,
+        storagePath: result.data.storagePath,
+        publicUrl: result.data.publicUrl,
+        uploadedBy: user.id,
+      });
+      uploaded += 1;
+    }
+
+    revalidatePath(getAdminPath("content-media"));
+
+    if (uploaded === 0) {
+      return {
+        error: errors[0] ?? t("uploadFailedGeneric"),
+        timestamp: Date.now(),
+      };
+    }
+
+    if (errors.length > 0) {
+      return {
+        success: t("uploadedPartial", { ok: uploaded, failed: errors.length }),
+        timestamp: Date.now(),
+      };
+    }
+
     return {
-      error: errors[0] ?? t("uploadFailedGeneric"),
+      success: t("uploaded", { count: uploaded }),
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    // Catch-all per evitare che il client veda errori generici "An error
+    // occurred…" senza contesto. Il caso più frequente in passato era il
+    // body limit di 1MB delle server actions Next: ora portato a 15MB
+    // tramite next.config experimental.serverActions.bodySizeLimit, ma
+    // teniamo il safety net.
+    console.error("[media] uploadMediaAssets failed:", err);
+    return {
+      error: t("uploadFailedGeneric"),
       timestamp: Date.now(),
     };
   }
-
-  if (errors.length > 0) {
-    return {
-      success: t("uploadedPartial", { ok: uploaded, failed: errors.length }),
-      timestamp: Date.now(),
-    };
-  }
-
-  return {
-    success: t("uploaded", { count: uploaded }),
-    timestamp: Date.now(),
-  };
 }
 
 /**
