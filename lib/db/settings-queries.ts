@@ -115,6 +115,15 @@ export type SettingKey =
   // nella sezione GDPR backup)
   | 'supabase_pat'        // Personal Access Token (PAT) supabase.com/dashboard/account/tokens
   | 'supabase_project_ref' // ref del progetto (es. "abcdefghij" da app.supabase.com URL)
+  // S3-compatible storage (AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO…)
+  // — usato come "monitoring only" della pipeline backup. Vedi
+  // /admin/services/storage/s3 e l'integrazione nel BackupConfig.
+  | 's3.endpoint'         // URL es. "https://s3.amazonaws.com" o R2 / B2 / etc.
+  | 's3.region'           // es. "us-east-1", "eu-central-1", "auto" (R2)
+  | 's3.bucket'           // nome del bucket
+  | 's3.access_key_id'    // AKIA… (visibile)
+  | 's3.secret_access_key' // segreto
+  | 's3.backup_prefix'    // prefix dei file di backup (es. "backup/" per filtrare LIST)
   // Cloudflare Turnstile
   | 'cf_turnstile_site_key'
   | 'cf_turnstile_secret_key'
@@ -141,7 +150,10 @@ export type SettingKey =
   | 'gdpr.consent_log.capture_user_agent'            // salva UA browser all'accept
   | 'gdpr.consent_log.hash_policy_text'              // SHA-256 del testo policy all'accept
   | 'gdpr.consent_log.retention_after_deletion_days' // max age (days) per consent_records; oltre vengono purgati dal cron consent-records-cleanup
-  | 'gdpr.backup.tier'                               // 'none' | 'supabase_pitr' | 'external'
+  | 'gdpr.backup.tier'                               // 'none' | 'supabase_pitr' | 's3' | 'external'
+  // Verifica live S3 (popolato dall'azione verifyS3Action).
+  | 'gdpr.backup.s3.last_verified_at'                // ISO timestamp ultima verifica
+  | 'gdpr.backup.s3.last_verified_status'            // 'ok' | 'forbidden' | 'not_found' | 'invalid_credentials' | 'network_error' | 'unknown'
   | 'gdpr.backup.notes'                              // free-text per documentare il setup di backup
   // Verifica live del piano Supabase per PITR (popolato dall'azione
   // verifyPitrAction quando l'admin clicca "Verify PITR now").
@@ -272,6 +284,13 @@ export type AppSettings = {
   // Supabase Management API
   supabase_pat: string | null
   supabase_project_ref: string | null
+  // S3-compatible storage (monitoring only)
+  's3.endpoint': string | null
+  's3.region': string | null
+  's3.bucket': string | null
+  's3.access_key_id': string | null
+  's3.secret_access_key': string | null
+  's3.backup_prefix': string | null
   // Cloudflare Turnstile
   cf_turnstile_site_key: string | null
   cf_turnstile_secret_key: string | null
@@ -286,6 +305,8 @@ export type AppSettings = {
   'gdpr.backup.notes': string | null
   'gdpr.backup.pitr.last_verified_at': string | null
   'gdpr.backup.pitr.last_verified_tier': string | null
+  'gdpr.backup.s3.last_verified_at': string | null
+  'gdpr.backup.s3.last_verified_status': string | null
   'gdpr.backup.external.provider': string | null
   'gdpr.backup.external.frequency': string | null
   'gdpr.backup.external.retention_days': string | null
@@ -409,6 +430,12 @@ const DEFAULTS: AppSettings = {
   github_ci_branch: 'ci-results',
   supabase_pat: null,
   supabase_project_ref: null,
+  's3.endpoint': null,
+  's3.region': null,
+  's3.bucket': null,
+  's3.access_key_id': null,
+  's3.secret_access_key': null,
+  's3.backup_prefix': 'backup/',
   cf_turnstile_site_key: null,
   cf_turnstile_secret_key: null,
   // GDPR / Compliance — defaults conservativi.
@@ -425,6 +452,8 @@ const DEFAULTS: AppSettings = {
   'gdpr.backup.notes': null,
   'gdpr.backup.pitr.last_verified_at': null,
   'gdpr.backup.pitr.last_verified_tier': null,
+  'gdpr.backup.s3.last_verified_at': null,
+  'gdpr.backup.s3.last_verified_status': null,
   'gdpr.backup.external.provider': null,
   'gdpr.backup.external.frequency': null,
   'gdpr.backup.external.retention_days': null,

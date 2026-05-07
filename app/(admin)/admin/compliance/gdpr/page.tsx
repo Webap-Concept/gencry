@@ -81,6 +81,10 @@ export default async function GdprCompliancePage() {
               settings["gdpr.backup.pitr.last_verified_at"],
             "gdpr.backup.pitr.last_verified_tier":
               settings["gdpr.backup.pitr.last_verified_tier"],
+            "gdpr.backup.s3.last_verified_at":
+              settings["gdpr.backup.s3.last_verified_at"],
+            "gdpr.backup.s3.last_verified_status":
+              settings["gdpr.backup.s3.last_verified_status"],
             "gdpr.backup.external.provider":
               settings["gdpr.backup.external.provider"],
             "gdpr.backup.external.frequency":
@@ -103,10 +107,16 @@ export default async function GdprCompliancePage() {
             "gdpr.policy.notifications_cron_minutes":
               settings["gdpr.policy.notifications_cron_minutes"],
           }}
-          supabaseService={{
-            configured:
+          backupServices={{
+            supabaseConfigured:
               !!settings.supabase_pat?.trim() &&
               !!settings.supabase_project_ref?.trim(),
+            s3Configured:
+              !!settings["s3.endpoint"]?.trim() &&
+              !!settings["s3.region"]?.trim() &&
+              !!settings["s3.bucket"]?.trim() &&
+              !!settings["s3.access_key_id"]?.trim() &&
+              !!settings["s3.secret_access_key"]?.trim(),
           }}
         />
       </section>

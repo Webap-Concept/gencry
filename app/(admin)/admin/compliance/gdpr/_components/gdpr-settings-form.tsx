@@ -15,6 +15,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import {
   saveGdprSettingsAction,
   verifyPitrAction,
+  verifyS3Action,
   type ActionState,
 } from "../actions";
 import {
@@ -33,6 +34,8 @@ export type GdprSettingsValues = {
   "gdpr.backup.notes": string | null;
   "gdpr.backup.pitr.last_verified_at": string | null;
   "gdpr.backup.pitr.last_verified_tier": string | null;
+  "gdpr.backup.s3.last_verified_at": string | null;
+  "gdpr.backup.s3.last_verified_status": string | null;
   "gdpr.backup.external.provider": string | null;
   "gdpr.backup.external.frequency": string | null;
   "gdpr.backup.external.retention_days": string | null;
@@ -47,12 +50,15 @@ export type GdprSettingsValues = {
 };
 
 /**
- * Indica se il servizio Supabase è configurato (PAT + project_ref).
- * Calcolato server-side e passato come prop perché il form non
- * dovrebbe leggere da getAppSettings via fetch client.
+ * Stato dei servizi a cui i tier backup possono agganciarsi. Calcolato
+ * server-side e passato come prop perché il form non dovrebbe leggere
+ * da getAppSettings via fetch client.
  */
-export type SupabaseServiceStatus = {
-  configured: boolean;
+export type BackupServiceStatus = {
+  /** PAT + project_ref configurati per il servizio Supabase. */
+  supabaseConfigured: boolean;
+  /** Endpoint + region + bucket + access key + secret per S3-compatible. */
+  s3Configured: boolean;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -230,10 +236,12 @@ function buildBackupLabels(
   return {
     sectionTitle: t("backupHeading"),
     sectionIntro: t("backupIntro"),
+    monitoringOnlyBanner: t("backupMonitoringOnlyBanner"),
     tierLabel: t("backupTierLabel"),
     tierHint: t("backupTierHint"),
     tierNone: t("backupTierNone"),
     tierPitr: t("backupTierPitr"),
+    tierS3: t("backupTierS3"),
     tierExternal: t("backupTierExternal"),
     noneWarningTitle: t("backupNoneWarningTitle"),
     noneWarningBody: t("backupNoneWarningBody"),
@@ -249,6 +257,21 @@ function buildBackupLabels(
     pitrSupportedBadge: t("backupPitrSupportedBadge"),
     pitrUnsupportedBadge: t("backupPitrUnsupportedBadge"),
     pitrUnknownBadge: t("backupPitrUnknownBadge"),
+    s3PaneTitle: t("backupS3PaneTitle"),
+    s3PaneIntro: t("backupS3PaneIntro"),
+    s3ServiceUnconfiguredTitle: t("backupS3ServiceUnconfiguredTitle"),
+    s3ServiceUnconfiguredBody: t("backupS3ServiceUnconfiguredBody"),
+    s3ServiceConfigureCta: t("backupS3ServiceConfigureCta"),
+    s3VerifyButton: t("backupS3VerifyButton"),
+    s3VerifyingButton: t("backupS3VerifyingButton"),
+    s3LastCheckLabel: t("backupS3LastCheckLabel"),
+    s3NeverChecked: t("backupS3NeverChecked"),
+    s3StatusOk: t("backupS3StatusOk"),
+    s3StatusForbidden: t("backupS3StatusForbidden"),
+    s3StatusNotFound: t("backupS3StatusNotFound"),
+    s3StatusInvalidCredentials: t("backupS3StatusInvalidCredentials"),
+    s3StatusNetworkError: t("backupS3StatusNetworkError"),
+    s3StatusUnknown: t("backupS3StatusUnknown"),
     externalPaneTitle: t("backupExternalPaneTitle"),
     externalPaneIntro: t("backupExternalPaneIntro"),
     externalProviderLabel: t("backupExternalProviderLabel"),
@@ -277,10 +300,10 @@ function buildBackupLabels(
 
 export function GdprSettingsForm({
   initial,
-  supabaseService,
+  backupServices,
 }: {
   initial: GdprSettingsValues;
-  supabaseService: SupabaseServiceStatus;
+  backupServices: BackupServiceStatus;
 }) {
   const t = useTranslations("admin.compliance.gdpr.settings");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
@@ -385,6 +408,8 @@ export function GdprSettingsForm({
             notes: initial["gdpr.backup.notes"],
             pitrLastVerifiedAt: initial["gdpr.backup.pitr.last_verified_at"],
             pitrLastVerifiedTier: initial["gdpr.backup.pitr.last_verified_tier"],
+            s3LastVerifiedAt: initial["gdpr.backup.s3.last_verified_at"],
+            s3LastVerifiedStatus: initial["gdpr.backup.s3.last_verified_status"],
             externalProvider: initial["gdpr.backup.external.provider"],
             externalFrequency:
               (initial["gdpr.backup.external.frequency"] as BackupFrequency | null) ?? null,
@@ -396,10 +421,18 @@ export function GdprSettingsForm({
           } satisfies BackupConfigInitial}
           fieldNames={GDPR_BACKUP_FIELD_NAMES}
           labels={buildBackupLabels(t)}
-          pitrServiceConfigured={supabaseService.configured}
+          pitrServiceConfigured={backupServices.supabaseConfigured}
           pitrServiceConfigureHref="/admin/services/supabase"
           onVerifyPitr={async () => {
             const res = await verifyPitrAction();
+            if ("success" in res) return { ok: true, message: res.success };
+            if ("error" in res) return { ok: false, message: res.error };
+            return { ok: false };
+          }}
+          s3ServiceConfigured={backupServices.s3Configured}
+          s3ServiceConfigureHref="/admin/services/storage/s3"
+          onVerifyS3={async () => {
+            const res = await verifyS3Action();
             if ("success" in res) return { ok: true, message: res.success };
             if ("error" in res) return { ok: false, message: res.error };
             return { ok: false };

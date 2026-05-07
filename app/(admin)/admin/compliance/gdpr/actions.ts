@@ -1,6 +1,7 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
+import { checkS3Bucket } from "@/lib/admin/storage/s3-client";
 import {
   checkSupabaseConnection,
   type SupabaseError,
@@ -17,7 +18,7 @@ export type ActionState =
   | { error: string; timestamp: number };
 
 const IP_STRATEGIES = new Set(["full", "mask_last_octet", "hash_only"]);
-const BACKUP_TIERS = new Set(["none", "supabase_pitr", "external"]);
+const BACKUP_TIERS = new Set(["none", "supabase_pitr", "s3", "external"]);
 const BACKUP_FREQUENCIES = new Set([
   "hourly",
   "daily",
@@ -126,6 +127,8 @@ export async function saveGdprSettingsAction(
         "none",
       ),
       "gdpr.backup.notes": notes.length > 0 ? notes : null,
+      // S3 last-verified state non viene toccato dal save (lo aggiorna
+      // solo verifyS3Action). Stessa cosa per pitr.last_verified_*.
       // External structured fields (sopravvivono al cambio tier)
       "gdpr.backup.external.provider": extProvider || null,
       "gdpr.backup.external.frequency": extFrequency,
@@ -231,5 +234,56 @@ export async function verifyPitrAction(): Promise<ActionState> {
     };
   } catch {
     return { error: t("pitrErrorNetworkFailed"), timestamp: Date.now() };
+  }
+}
+
+// ─── S3 verification ────────────────────────────────────────────────────────
+//
+// Specchio di verifyPitrAction ma per il tier S3-compatible. HEAD del
+// bucket via SigV4 (vedi lib/admin/storage/s3-client.ts), salva timestamp
+// + status osservato in `gdpr.backup.s3.last_verified_*`.
+
+export async function verifyS3Action(): Promise<ActionState> {
+  const t = await getTranslations("admin.compliance.gdpr.settings");
+  try {
+    const user = await requireAdmin();
+    if (!user.isAdmin && !(await can(user, "admin:gdpr"))) {
+      return { error: t("errorNotAuthorized"), timestamp: Date.now() };
+    }
+
+    const result = await checkS3Bucket();
+
+    await batchUpdateAppSettings({
+      "gdpr.backup.s3.last_verified_at": new Date().toISOString(),
+      "gdpr.backup.s3.last_verified_status": result.status,
+    });
+
+    revalidatePath(getAdminPath("compliance-gdpr"));
+
+    if (result.status === "ok") {
+      return {
+        success: t("s3VerifiedOk"),
+        timestamp: Date.now(),
+      };
+    }
+
+    const errorKeys: Record<string, string> = {
+      credentials_missing: "s3ErrorCredentialsMissing",
+      invalid_credentials: "s3ErrorInvalidCredentials",
+      forbidden: "s3ErrorForbidden",
+      not_found: "s3ErrorBucketNotFound",
+      endpoint_invalid: "s3ErrorEndpointInvalid",
+      network_error: "s3ErrorNetworkFailed",
+      unknown: "s3ErrorUnknown",
+    };
+    const key = errorKeys[result.status] ?? "s3ErrorUnknown";
+    return {
+      error: t(key as Parameters<typeof t>[0], {
+        status: result.httpStatus ?? 0,
+      }),
+      timestamp: Date.now(),
+    };
+  } catch {
+    return { error: t("s3ErrorNetworkFailed"), timestamp: Date.now() };
   }
 }

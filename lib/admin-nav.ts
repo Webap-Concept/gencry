@@ -398,6 +398,13 @@ export const ADMIN_NAV: NavItem[] = [
         permission: "admin:settings",
       },
       {
+        key: "services-storage-s3",
+        href: "/admin/services/storage/s3",
+        label: "S3 Storage",
+        icon: "HardDrive",
+        permission: "admin:settings",
+      },
+      {
         key: "services-dependencies",
         href: "/admin/services/dependencies",
         label: "Dependencies",
