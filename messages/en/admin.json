@@ -484,6 +484,7 @@
         "willCreate": "{count, plural, one {1 snippet will be created} other {# snippets will be created}}:",
         "backButton": "Back",
         "confirmButton": "Add snippets",
+        "cookieServiceMissingForCategory": "No cookie service exists yet for the suggested category. Either pick another, leave \"None\" for always-on, or first declare the service in /admin/compliance/cookies.",
         "list": {
           "ga4": {
             "label": "Google Analytics 4",

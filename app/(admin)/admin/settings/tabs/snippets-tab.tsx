@@ -103,6 +103,13 @@ type Preset = {
   /** Icona testuale / emoji */
   icon: string;
   steps: PresetStep[];
+  /**
+   * Categoria cookie suggerita per questo tracker. Usata dal wizard per
+   * pre-selezionare il primo servizio disponibile della stessa categoria
+   * nel dropdown di gating del consenso. L'admin può sempre cambiare.
+   * `null` = preset che non fa tracking (es. Search Console verification).
+   */
+  suggestedCategoryId: string | null;
 };
 
 const PRESETS: Preset[] = [
@@ -111,6 +118,7 @@ const PRESETS: Preset[] = [
     tKey: "ga4",
     paramPlaceholder: "G-XXXXXXXXXX",
     icon: "📊",
+    suggestedCategoryId: "cookie_analytics",
     steps: [
       {
         nameKey: "step1Name",
@@ -132,6 +140,10 @@ const PRESETS: Preset[] = [
     tKey: "gtm",
     paramPlaceholder: "GTM-XXXXXXX",
     icon: "🏷️",
+    // GTM è ambiguo (analytics + marketing): suggeriamo marketing che è la
+    // categoria più conservativa (richiede opt-in esplicito) e copre il
+    // caso più frequente (remarketing tags). L'admin può sempre cambiare.
+    suggestedCategoryId: "cookie_marketing",
     steps: [
       {
         nameKey: "step1Name",
@@ -154,6 +166,7 @@ const PRESETS: Preset[] = [
     tKey: "metaPixel",
     paramPlaceholder: "1234567890123456",
     icon: "🎯",
+    suggestedCategoryId: "cookie_marketing",
     steps: [
       {
         nameKey: "step1Name",
@@ -176,6 +189,9 @@ const PRESETS: Preset[] = [
     tKey: "searchConsole",
     paramPlaceholder: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     icon: "🔍",
+    // Solo un meta tag di verifica: niente cookie, niente tracking →
+    // sempre attivo, nessun gating consenso.
+    suggestedCategoryId: null,
     steps: [
       {
         nameKey: "step1Name",
@@ -190,6 +206,7 @@ const PRESETS: Preset[] = [
     tKey: "hotjar",
     paramPlaceholder: "1234567",
     icon: "🔥",
+    suggestedCategoryId: "cookie_analytics",
     steps: [
       {
         nameKey: "step1Name",
@@ -206,10 +223,17 @@ const PRESETS: Preset[] = [
 // Modale scelta modello
 // ---------------------------------------------------------------------------
 function PresetPicker({
+  cookieServices,
   onPick,
   onCancel,
 }: {
-  onPick: (preset: Preset, paramValue: string, resolvedSteps: { name: string; type: SnippetType; position: SnippetPosition; content: string }[]) => void;
+  cookieServices: CookieServiceOption[];
+  onPick: (
+    preset: Preset,
+    paramValue: string,
+    resolvedSteps: { name: string; type: SnippetType; position: SnippetPosition; content: string }[],
+    cookieServiceId: string | null,
+  ) => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("admin.settings.snippets");
@@ -217,8 +241,27 @@ function PresetPicker({
   const tPosition = useTranslations("admin.settings.snippets.positions");
   const tPreset = useTranslations("admin.settings.snippets.preset");
   const tList = useTranslations("admin.settings.snippets.preset.list");
+  const tForm = useTranslations("admin.settings.snippets.form");
   const [selected, setSelected] = useState<Preset | null>(null);
   const [paramValue, setParamValue] = useState("");
+  const [cookieServiceId, setCookieServiceId] = useState<string>("");
+
+  // Quando l'utente sceglie un preset, pre-seleziona il primo servizio
+  // disponibile della categoria suggerita (es. ga4 → primo servizio della
+  // categoria cookie_analytics). Se non c'è nulla in quella categoria
+  // resta vuoto ("Always on") — l'admin sa che deve crearsi il servizio
+  // corrispondente in /admin/compliance/cookies.
+  function handlePresetSelect(preset: Preset) {
+    setSelected(preset);
+    if (preset.suggestedCategoryId) {
+      const match = cookieServices.find(
+        (s) => s.categoryId === preset.suggestedCategoryId,
+      );
+      setCookieServiceId(match?.id ?? "");
+    } else {
+      setCookieServiceId("");
+    }
+  }
 
   const fieldStyle = {
     width: "100%",
@@ -284,7 +327,7 @@ function PresetPicker({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setSelected(p)}
+                onClick={() => handlePresetSelect(p)}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors"
                 style={{ background: "transparent" }}
                 onMouseEnter={(e) =>
@@ -384,12 +427,47 @@ function PresetPicker({
               />
             </div>
 
+            {/* Cookie service link — gating consent-aware nel wizard */}
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  marginBottom: "4px",
+                  color: "var(--admin-text-muted)",
+                }}>
+                {tForm("cookieServiceLabel")}
+              </label>
+              <select
+                value={cookieServiceId}
+                onChange={(e) => setCookieServiceId(e.target.value)}
+                style={fieldStyle}>
+                <option value="">{tForm("cookieServiceNone")}</option>
+                {cookieServices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.id})
+                  </option>
+                ))}
+              </select>
+              <p
+                className="text-[11px] mt-1"
+                style={{ color: "var(--admin-text-faint)" }}>
+                {cookieServiceId
+                  ? tForm("cookieServiceHintLinked")
+                  : selected.suggestedCategoryId
+                    ? tPreset("cookieServiceMissingForCategory")
+                    : tForm("cookieServiceHintNone")}
+              </p>
+            </div>
+
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
                   setSelected(null);
                   setParamValue("");
+                  setCookieServiceId("");
                 }}
                 className="px-4 py-2 text-sm rounded-lg"
                 style={{
@@ -409,7 +487,12 @@ function PresetPicker({
                     position: s.position,
                     content: s.content,
                   }));
-                  onPick(selected, paramValue.trim(), resolvedSteps);
+                  onPick(
+                    selected,
+                    paramValue.trim(),
+                    resolvedSteps,
+                    cookieServiceId || null,
+                  );
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
                 style={{
@@ -976,9 +1059,13 @@ export function SnippetsTab({
     preset: Preset,
     paramValue: string,
     resolvedSteps: { name: string; type: SnippetType; position: SnippetPosition; content: string }[],
+    cookieServiceId: string | null,
   ) {
     setShowPresets(false);
     setFormLoading(true);
+    // Tutti gli snippet del preset condividono lo stesso cookieServiceId:
+    // di solito un tracker (es. GA4) ha 2 snippet che lavorano insieme,
+    // quindi devono caricare/non-caricare insieme col consenso.
     for (const step of resolvedSteps) {
       const content = step.content.replaceAll("${ID}", paramValue);
       await createSnippetAction({
@@ -988,7 +1075,7 @@ export function SnippetsTab({
         content,
         isActive: true,
         sortOrder: 0,
-        cookieServiceId: null,
+        cookieServiceId,
       });
     }
     setFormLoading(false);
@@ -1208,6 +1295,7 @@ export function SnippetsTab({
 
       {showPresets && (
         <PresetPicker
+          cookieServices={cookieServices}
           onPick={handlePresetPick}
           onCancel={() => setShowPresets(false)}
         />
