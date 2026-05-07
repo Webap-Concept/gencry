@@ -583,6 +583,10 @@
         "label": "Dependencies",
         "description": "Read-only inventory of npm dependencies with version drift, breaking-change hints and Dependabot PR status.",
         "guideTitle": "Dependencies — operator's guide"
+      },
+      "supabase": {
+        "label": "Supabase",
+        "description": "Personal Access Token + project ref for the Supabase Management API. Powers PITR verification, backup health checks and project diagnostics."
       }
     },
     "actionMessages": {
@@ -627,7 +631,17 @@
       "githubCITestBranchNotFound": "Branch \"{branch}\" or file vitest-results.json not found. The first CI run will create it.",
       "githubCITestApiResponded": "GitHub API responded {status}.",
       "githubCITestOk": "Connection OK · branch \"{branch}\" reachable.",
-      "githubCITestNetworkFailed": "Verification failed. Check your connection."
+      "githubCITestNetworkFailed": "Verification failed. Check your connection.",
+      "supabaseSaved": "Supabase credentials saved.",
+      "supabaseSaveFailed": "Save failed.",
+      "supabaseSaveInvalidProjectRef": "Invalid project ref. Should be the alphanumeric ID from your Supabase dashboard URL.",
+      "supabaseTestCredentialsRequired": "Fill in both PAT and project ref before testing.",
+      "supabaseTestInvalidToken": "Token is not valid or has expired.",
+      "supabaseTestForbidden": "Token does not have access to this project.",
+      "supabaseTestProjectNotFound": "Project not found. Check the project ref.",
+      "supabaseTestUnexpectedResponse": "Unexpected response from Supabase API.",
+      "supabaseTestNetworkFailed": "Verification failed. Check your connection.",
+      "supabaseTestOk": "Connection OK · {name} ({tier}, {region})"
     },
     "resend": {
       "cardTitle": "Resend",
@@ -794,6 +808,23 @@
         "securityHeading": "Security advisories",
         "securityBody": "Security PRs from GitHub bypass the weekly Dependabot schedule and appear here labelled <c>vulnerable</c>. The dashboard does not actively poll the GitHub Advisory Database — we rely on Dependabot to surface CVEs as PRs."
       }
+    },
+    "supabase": {
+      "projectRefLabel": "Project Ref",
+      "projectRefPlaceholder": "abcdefghij…",
+      "projectRefHint": "Alphanumeric identifier of your Supabase project. You can read it from the project URL on app.supabase.com.",
+      "patLabel": "Personal Access Token",
+      "patHintBefore": "Generate a PAT from",
+      "patHintLink": "supabase.com/dashboard/account/tokens",
+      "patHintAfter": "Stored encrypted. Never exposed to the frontend.",
+      "showTokenAria": "Show token",
+      "hideTokenAria": "Hide token",
+      "infoBoxLine1": "Required to verify Supabase plan tier and PITR status from /admin/compliance/gdpr → Backup section.",
+      "infoBoxLine2": "Also used by the daily backup-health-check cron to detect drift (PITR disabled, missing backups).",
+      "saveButton": "Save",
+      "savingButton": "Saving…",
+      "testButton": "Verify connection",
+      "testingButton": "Verifying…"
     }
   },
   "access": {

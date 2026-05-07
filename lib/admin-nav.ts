@@ -391,6 +391,13 @@ export const ADMIN_NAV: NavItem[] = [
         permission: "admin:settings",
       },
       {
+        key: "services-supabase",
+        href: "/admin/services/supabase",
+        label: "Supabase",
+        icon: "Database",
+        permission: "admin:settings",
+      },
+      {
         key: "services-dependencies",
         href: "/admin/services/dependencies",
         label: "Dependencies",
