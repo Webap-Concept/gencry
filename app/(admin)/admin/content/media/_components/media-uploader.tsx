@@ -21,7 +21,11 @@ const ACCEPT = [
   "video/webm",
 ].join(",");
 
-export function MediaUploader() {
+export function MediaUploader({
+  currentFolderId,
+}: {
+  currentFolderId: number | null;
+}) {
   const t = useTranslations("admin.content.media.uploader");
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -47,6 +51,7 @@ export function MediaUploader() {
   return (
     <>
       <form ref={formRef} action={formAction}>
+        <input type="hidden" name="folderId" value={currentFolderId ?? ""} />
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h3

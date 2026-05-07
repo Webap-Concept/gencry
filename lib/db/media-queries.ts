@@ -9,7 +9,7 @@ import {
   type NewMediaAsset,
   type NewMediaFolder,
 } from "@/lib/db/schema";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { asc, count, desc, eq, isNull } from "drizzle-orm";
 
 export type { MediaAsset, MediaFolder };
 
@@ -34,6 +34,94 @@ export async function getFolderById(id: number): Promise<MediaFolder | null> {
 export async function createFolder(data: NewMediaFolder): Promise<MediaFolder> {
   const [row] = await db.insert(mediaFolders).values(data).returning();
   return row;
+}
+
+export async function updateFolderName(
+  id: number,
+  name: string,
+  slug: string,
+): Promise<MediaFolder | null> {
+  const [row] = await db
+    .update(mediaFolders)
+    .set({ name, slug })
+    .where(eq(mediaFolders.id, id))
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteFolderById(id: number): Promise<MediaFolder | null> {
+  const [row] = await db
+    .delete(mediaFolders)
+    .where(eq(mediaFolders.id, id))
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Conta gli asset diretti in un folder (null = root). Non ricorsivo.
+ */
+export async function countAssetsInFolder(
+  folderId: number | null,
+): Promise<number> {
+  const where =
+    folderId === null
+      ? isNull(mediaAssets.folderId)
+      : eq(mediaAssets.folderId, folderId);
+  const [row] = await db
+    .select({ n: count() })
+    .from(mediaAssets)
+    .where(where);
+  return row?.n ?? 0;
+}
+
+/**
+ * Conta i sotto-folder diretti di un folder (null = root). Non ricorsivo.
+ */
+export async function countSubfolders(
+  parentId: number | null,
+): Promise<number> {
+  const where =
+    parentId === null
+      ? isNull(mediaFolders.parentId)
+      : eq(mediaFolders.parentId, parentId);
+  const [row] = await db
+    .select({ n: count() })
+    .from(mediaFolders)
+    .where(where);
+  return row?.n ?? 0;
+}
+
+/**
+ * Ritorna la catena dei folder dall'antenato fino al folder dato, in ordine
+ * Root → … → folder. Per il breadcrumb. Restituisce array vuoto se folderId
+ * è null (siamo già in root).
+ */
+export async function getFolderPath(folderId: number): Promise<MediaFolder[]> {
+  const all = await getAllFolders();
+  const byId = new Map(all.map((f) => [f.id, f]));
+  const chain: MediaFolder[] = [];
+  let current = byId.get(folderId);
+  // Guard contro cicli: massimo 32 livelli
+  let safety = 32;
+  while (current && safety-- > 0) {
+    chain.unshift(current);
+    if (current.parentId === null) break;
+    current = byId.get(current.parentId);
+  }
+  return chain;
+}
+
+/**
+ * Verifica che `candidateAncestorId` sia effettivamente un antenato (o sé
+ * stesso) di `folderId`. Serve per impedire move che creerebbero cicli.
+ */
+export async function isAncestor(
+  candidateAncestorId: number,
+  folderId: number,
+): Promise<boolean> {
+  if (candidateAncestorId === folderId) return true;
+  const path = await getFolderPath(folderId);
+  return path.some((f) => f.id === candidateAncestorId);
 }
 
 // ─── Assets ─────────────────────────────────────────────────────────────────
@@ -75,6 +163,18 @@ export async function createAsset(data: NewMediaAsset): Promise<MediaAsset> {
 export async function deleteAssetById(id: number): Promise<MediaAsset | null> {
   const [row] = await db
     .delete(mediaAssets)
+    .where(eq(mediaAssets.id, id))
+    .returning();
+  return row ?? null;
+}
+
+export async function updateAssetFolder(
+  id: number,
+  folderId: number | null,
+): Promise<MediaAsset | null> {
+  const [row] = await db
+    .update(mediaAssets)
+    .set({ folderId })
     .where(eq(mediaAssets.id, id))
     .returning();
   return row ?? null;
