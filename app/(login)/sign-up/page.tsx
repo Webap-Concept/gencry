@@ -13,6 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SignUpPage() {
+  // Opt-in dynamic del rendering — vedi commento in sign-in/page.tsx
+  // SignInContent. Il connection() in generateMetadata da solo non basta.
+  await connection();
   const [systemPageSlugs, settings] = await Promise.all([
     getSystemPageSlugs(),
     getAppSettings(),
