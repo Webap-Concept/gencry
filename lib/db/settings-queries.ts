@@ -143,6 +143,17 @@ export type SettingKey =
   | 'gdpr.consent_log.retention_after_deletion_days' // max age (days) per consent_records; oltre vengono purgati dal cron consent-records-cleanup
   | 'gdpr.backup.tier'                               // 'none' | 'supabase_pitr' | 'external'
   | 'gdpr.backup.notes'                              // free-text per documentare il setup di backup
+  // Verifica live del piano Supabase per PITR (popolato dall'azione
+  // verifyPitrAction quando l'admin clicca "Verify PITR now").
+  | 'gdpr.backup.pitr.last_verified_at'              // ISO timestamp ultima verifica
+  | 'gdpr.backup.pitr.last_verified_tier'            // 'free' | 'pro' | 'team' | 'enterprise' | 'unknown'
+  // External backup — campi strutturati per audit GDPR Art. 32.
+  | 'gdpr.backup.external.provider'                  // free-text (es. "AWS S3", "Backblaze B2")
+  | 'gdpr.backup.external.frequency'                 // 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
+  | 'gdpr.backup.external.retention_days'            // intero >= 0
+  | 'gdpr.backup.external.last_verified_at'          // ISO date dell'ultima recovery test
+  | 'gdpr.backup.external.last_verified_by'          // nome admin che ha confermato
+  | 'gdpr.backup.external.recovery_test_notes'       // free-text (frequenza, esiti, RPO/RTO)
   | 'gdpr.deletion.grace_days'                       // grace period soft-delete prima del purge fisico
   | 'gdpr.export.rate_limit_days'                    // intervallo minimo fra due export per utente
   | 'gdpr.policy.force_reconsent_on_change'          // forza modal riconsenso al login dopo bump versione
@@ -273,6 +284,14 @@ export type AppSettings = {
   'gdpr.consent_log.retention_after_deletion_days': string
   'gdpr.backup.tier': string
   'gdpr.backup.notes': string | null
+  'gdpr.backup.pitr.last_verified_at': string | null
+  'gdpr.backup.pitr.last_verified_tier': string | null
+  'gdpr.backup.external.provider': string | null
+  'gdpr.backup.external.frequency': string | null
+  'gdpr.backup.external.retention_days': string | null
+  'gdpr.backup.external.last_verified_at': string | null
+  'gdpr.backup.external.last_verified_by': string | null
+  'gdpr.backup.external.recovery_test_notes': string | null
   'gdpr.deletion.grace_days': string
   'gdpr.export.rate_limit_days': string
   'gdpr.policy.force_reconsent_on_change': string
@@ -404,6 +423,14 @@ const DEFAULTS: AppSettings = {
   'gdpr.consent_log.retention_after_deletion_days': '1825', // 5 anni
   'gdpr.backup.tier': 'none',
   'gdpr.backup.notes': null,
+  'gdpr.backup.pitr.last_verified_at': null,
+  'gdpr.backup.pitr.last_verified_tier': null,
+  'gdpr.backup.external.provider': null,
+  'gdpr.backup.external.frequency': null,
+  'gdpr.backup.external.retention_days': null,
+  'gdpr.backup.external.last_verified_at': null,
+  'gdpr.backup.external.last_verified_by': null,
+  'gdpr.backup.external.recovery_test_notes': null,
   'gdpr.deletion.grace_days': '30',
   'gdpr.export.rate_limit_days': '7',
   'gdpr.policy.force_reconsent_on_change': 'false',

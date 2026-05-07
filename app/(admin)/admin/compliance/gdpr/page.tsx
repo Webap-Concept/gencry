@@ -77,6 +77,22 @@ export default async function GdprCompliancePage() {
               settings["gdpr.consent_log.retention_after_deletion_days"],
             "gdpr.backup.tier": settings["gdpr.backup.tier"],
             "gdpr.backup.notes": settings["gdpr.backup.notes"],
+            "gdpr.backup.pitr.last_verified_at":
+              settings["gdpr.backup.pitr.last_verified_at"],
+            "gdpr.backup.pitr.last_verified_tier":
+              settings["gdpr.backup.pitr.last_verified_tier"],
+            "gdpr.backup.external.provider":
+              settings["gdpr.backup.external.provider"],
+            "gdpr.backup.external.frequency":
+              settings["gdpr.backup.external.frequency"],
+            "gdpr.backup.external.retention_days":
+              settings["gdpr.backup.external.retention_days"],
+            "gdpr.backup.external.last_verified_at":
+              settings["gdpr.backup.external.last_verified_at"],
+            "gdpr.backup.external.last_verified_by":
+              settings["gdpr.backup.external.last_verified_by"],
+            "gdpr.backup.external.recovery_test_notes":
+              settings["gdpr.backup.external.recovery_test_notes"],
             "gdpr.deletion.grace_days": settings["gdpr.deletion.grace_days"],
             "gdpr.export.rate_limit_days":
               settings["gdpr.export.rate_limit_days"],
@@ -86,6 +102,11 @@ export default async function GdprCompliancePage() {
               settings["gdpr.policy.reconsent_grace_days"],
             "gdpr.policy.notifications_cron_minutes":
               settings["gdpr.policy.notifications_cron_minutes"],
+          }}
+          supabaseService={{
+            configured:
+              !!settings.supabase_pat?.trim() &&
+              !!settings.supabase_project_ref?.trim(),
           }}
         />
       </section>

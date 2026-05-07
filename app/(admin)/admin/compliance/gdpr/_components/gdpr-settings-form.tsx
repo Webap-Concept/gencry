@@ -1,10 +1,22 @@
 "use client";
 
+import {
+  BackupConfig,
+  type BackupConfigFieldNames,
+  type BackupConfigInitial,
+  type BackupConfigLabels,
+  type BackupTier,
+  type BackupFrequency,
+} from "@/app/(admin)/admin/_components/backup-config";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { saveGdprSettingsAction, type ActionState } from "../actions";
+import {
+  saveGdprSettingsAction,
+  verifyPitrAction,
+  type ActionState,
+} from "../actions";
 import {
   RequirementBadge,
   type RequirementLevel,
@@ -19,11 +31,28 @@ export type GdprSettingsValues = {
   "gdpr.consent_log.retention_after_deletion_days": string;
   "gdpr.backup.tier": string;
   "gdpr.backup.notes": string | null;
+  "gdpr.backup.pitr.last_verified_at": string | null;
+  "gdpr.backup.pitr.last_verified_tier": string | null;
+  "gdpr.backup.external.provider": string | null;
+  "gdpr.backup.external.frequency": string | null;
+  "gdpr.backup.external.retention_days": string | null;
+  "gdpr.backup.external.last_verified_at": string | null;
+  "gdpr.backup.external.last_verified_by": string | null;
+  "gdpr.backup.external.recovery_test_notes": string | null;
   "gdpr.deletion.grace_days": string;
   "gdpr.export.rate_limit_days": string;
   "gdpr.policy.force_reconsent_on_change": string;
   "gdpr.policy.reconsent_grace_days": string;
   "gdpr.policy.notifications_cron_minutes": string;
+};
+
+/**
+ * Indica se il servizio Supabase è configurato (PAT + project_ref).
+ * Calcolato server-side e passato come prop perché il form non
+ * dovrebbe leggere da getAppSettings via fetch client.
+ */
+export type SupabaseServiceStatus = {
+  configured: boolean;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -175,7 +204,84 @@ function SelectField({
   );
 }
 
-export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
+// Mappa fissa dei `name` HTML per la sezione backup GDPR. Il componente
+// `BackupConfig` accetta `fieldNames` come prop così la stessa UI può
+// agganciarsi a setting keys diverse in altre sezioni admin (es. una
+// futura "Application backup" generale).
+const GDPR_BACKUP_FIELD_NAMES = {
+  tier: "gdpr.backup.tier",
+  notes: "gdpr.backup.notes",
+  externalProvider: "gdpr.backup.external.provider",
+  externalFrequency: "gdpr.backup.external.frequency",
+  externalRetentionDays: "gdpr.backup.external.retention_days",
+  externalLastVerifiedAt: "gdpr.backup.external.last_verified_at",
+  externalLastVerifiedBy: "gdpr.backup.external.last_verified_by",
+  externalRecoveryTestNotes: "gdpr.backup.external.recovery_test_notes",
+} as const satisfies BackupConfigFieldNames;
+
+/**
+ * Costruisce l'object labels per `BackupConfig` dal namespace i18n
+ * GDPR. Estratta come funzione pura così l'host non duplica le chiavi
+ * inline nel JSX.
+ */
+function buildBackupLabels(
+  t: ReturnType<typeof useTranslations>,
+): BackupConfigLabels {
+  return {
+    sectionTitle: t("backupHeading"),
+    sectionIntro: t("backupIntro"),
+    tierLabel: t("backupTierLabel"),
+    tierHint: t("backupTierHint"),
+    tierNone: t("backupTierNone"),
+    tierPitr: t("backupTierPitr"),
+    tierExternal: t("backupTierExternal"),
+    noneWarningTitle: t("backupNoneWarningTitle"),
+    noneWarningBody: t("backupNoneWarningBody"),
+    pitrPaneTitle: t("backupPitrPaneTitle"),
+    pitrPaneIntro: t("backupPitrPaneIntro"),
+    pitrServiceUnconfiguredTitle: t("backupPitrServiceUnconfiguredTitle"),
+    pitrServiceUnconfiguredBody: t("backupPitrServiceUnconfiguredBody"),
+    pitrServiceConfigureCta: t("backupPitrServiceConfigureCta"),
+    pitrVerifyButton: t("backupPitrVerifyButton"),
+    pitrVerifyingButton: t("backupPitrVerifyingButton"),
+    pitrLastCheckLabel: t("backupPitrLastCheckLabel"),
+    pitrNeverChecked: t("backupPitrNeverChecked"),
+    pitrSupportedBadge: t("backupPitrSupportedBadge"),
+    pitrUnsupportedBadge: t("backupPitrUnsupportedBadge"),
+    pitrUnknownBadge: t("backupPitrUnknownBadge"),
+    externalPaneTitle: t("backupExternalPaneTitle"),
+    externalPaneIntro: t("backupExternalPaneIntro"),
+    externalProviderLabel: t("backupExternalProviderLabel"),
+    externalProviderPlaceholder: t("backupExternalProviderPlaceholder"),
+    externalFrequencyLabel: t("backupExternalFrequencyLabel"),
+    externalFrequencyOptions: {
+      hourly: t("backupExternalFreqHourly"),
+      daily: t("backupExternalFreqDaily"),
+      weekly: t("backupExternalFreqWeekly"),
+      monthly: t("backupExternalFreqMonthly"),
+      custom: t("backupExternalFreqCustom"),
+    },
+    externalRetentionLabel: t("backupExternalRetentionLabel"),
+    externalRetentionHint: t("backupExternalRetentionHint"),
+    externalLastVerifiedLabel: t("backupExternalLastVerifiedLabel"),
+    externalLastVerifiedHint: t("backupExternalLastVerifiedHint"),
+    externalLastVerifiedByLabel: t("backupExternalLastVerifiedByLabel"),
+    externalLastVerifiedByPlaceholder: t("backupExternalLastVerifiedByPlaceholder"),
+    externalRecoveryNotesLabel: t("backupExternalRecoveryNotesLabel"),
+    externalRecoveryNotesPlaceholder: t("backupExternalRecoveryNotesPlaceholder"),
+    notesLabel: t("backupNotesLabel"),
+    notesPlaceholder: t("backupNotesPlaceholder"),
+    notesHint: t("backupNotesHint"),
+  };
+}
+
+export function GdprSettingsForm({
+  initial,
+  supabaseService,
+}: {
+  initial: GdprSettingsValues;
+  supabaseService: SupabaseServiceStatus;
+}) {
   const t = useTranslations("admin.compliance.gdpr.settings");
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     saveGdprSettingsAction,
@@ -272,55 +378,35 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
           </div>
         </div>
 
-        {/* Backup assurance */}
-        <div className="rounded-xl shadow-sm p-6" style={cardStyle}>
-          <h3
-            className="text-sm font-semibold mb-1"
-            style={{ color: "var(--admin-text)" }}>
-            {t("backupHeading")}
-          </h3>
-          <p
-            className="text-[11px] mb-5"
-            style={{ color: "var(--admin-text-faint)" }}>
-            {t("backupIntro")}
-          </p>
-          <div className="space-y-4 max-w-2xl">
-            <SelectField
-              name="gdpr.backup.tier"
-              label={t("backupTierLabel")}
-              defaultValue={initial["gdpr.backup.tier"]}
-              options={[
-                { value: "none", label: t("backupTierNone") },
-                { value: "supabase_pitr", label: t("backupTierPitr") },
-                { value: "external", label: t("backupTierExternal") },
-              ]}
-              hint={t("backupTierHint")}
-              requirement="recommended"
-            />
-            <div>
-              <label
-                className="flex items-center gap-2 text-xs font-medium mb-1.5"
-                style={{ color: "var(--admin-text-muted)" }}>
-                {t("backupNotesLabel")}
-                <RequirementBadge level="optional" />
-              </label>
-              <textarea
-                name="gdpr.backup.notes"
-                rows={3}
-                maxLength={2000}
-                defaultValue={initial["gdpr.backup.notes"] ?? ""}
-                placeholder={t("backupNotesPlaceholder")}
-                className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
-                style={inputStyle}
-              />
-              <p
-                className="text-[11px] mt-1"
-                style={{ color: "var(--admin-text-faint)" }}>
-                {t("backupNotesHint")}
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Backup assurance — componente riusabile */}
+        <BackupConfig
+          initial={{
+            tier: initial["gdpr.backup.tier"] as BackupTier,
+            notes: initial["gdpr.backup.notes"],
+            pitrLastVerifiedAt: initial["gdpr.backup.pitr.last_verified_at"],
+            pitrLastVerifiedTier: initial["gdpr.backup.pitr.last_verified_tier"],
+            externalProvider: initial["gdpr.backup.external.provider"],
+            externalFrequency:
+              (initial["gdpr.backup.external.frequency"] as BackupFrequency | null) ?? null,
+            externalRetentionDays: initial["gdpr.backup.external.retention_days"],
+            externalLastVerifiedAt: initial["gdpr.backup.external.last_verified_at"],
+            externalLastVerifiedBy: initial["gdpr.backup.external.last_verified_by"],
+            externalRecoveryTestNotes:
+              initial["gdpr.backup.external.recovery_test_notes"],
+          } satisfies BackupConfigInitial}
+          fieldNames={GDPR_BACKUP_FIELD_NAMES}
+          labels={buildBackupLabels(t)}
+          pitrServiceConfigured={supabaseService.configured}
+          pitrServiceConfigureHref="/admin/services/supabase"
+          onVerifyPitr={async () => {
+            const res = await verifyPitrAction();
+            if ("success" in res) return { ok: true, message: res.success };
+            if ("error" in res) return { ok: false, message: res.error };
+            return { ok: false };
+          }}
+          cardStyle={cardStyle}
+          inputStyle={inputStyle}
+        />
 
         {/* Lifecycle */}
         <div className="rounded-xl shadow-sm p-6" style={cardStyle}>
