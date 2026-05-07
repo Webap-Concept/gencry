@@ -8,7 +8,15 @@ import {
   userMfaTotp,
   users,
 } from "@/lib/db/schema";
-import { and, count, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  countDistinct,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+} from "drizzle-orm";
 
 export interface MfaAdminStats {
   /** Utenti con MFA attivo (enabledAt non nullo). */
@@ -41,7 +49,7 @@ export async function getMfaAdminStats(): Promise<MfaAdminStats> {
     staffEnrolledRow,
     staffTotalRow,
     recoveryUsedRow,
-    avgRecoveryRow,
+    unusedCodesRow,
   ] = await Promise.all([
     db
       .select({ n: count() })
@@ -69,18 +77,24 @@ export async function getMfaAdminStats(): Promise<MfaAdminStats> {
           gte(activityLogs.timestamp, thirtyDaysAgo),
         ),
       ),
+    // Codici non usati in totale + utenti distinti che ne hanno almeno uno.
+    // Media = totalUnused / distinctUsers. Approssimazione accettabile per
+    // una stat indicativa: utenti enrolled con 0 codici rimasti non sono
+    // conteggiati (l'admin lo vede comunque dal pendingSetups e dal pannello
+    // per-utente).
     db
       .select({
-        avg: sql<number>`coalesce(avg(remaining), 0)::float`,
+        totalUnused: count(),
+        distinctUsers: countDistinct(mfaRecoveryCodes.userId),
       })
-      .from(
-        sql`(
-          select count(*) filter (where used_at is null)::int as remaining
-          from mfa_recovery_codes
-          group by user_id
-        ) sub`,
-      ),
+      .from(mfaRecoveryCodes)
+      .where(isNull(mfaRecoveryCodes.usedAt)),
   ]);
+
+  const totalUnused = unusedCodesRow[0]?.totalUnused ?? 0;
+  const distinctUsers = unusedCodesRow[0]?.distinctUsers ?? 0;
+  const avgRecoveryCodesRemaining =
+    distinctUsers > 0 ? totalUnused / distinctUsers : 0;
 
   return {
     enrolledUsers: enrolledRow[0]?.n ?? 0,
@@ -89,8 +103,6 @@ export async function getMfaAdminStats(): Promise<MfaAdminStats> {
     staffEnrolled: staffEnrolledRow[0]?.n ?? 0,
     staffTotal: staffTotalRow[0]?.n ?? 0,
     recoveryCodesUsedLast30Days: recoveryUsedRow[0]?.n ?? 0,
-    avgRecoveryCodesRemaining: Number(
-      (avgRecoveryRow[0]?.avg ?? 0).toFixed(1),
-    ),
+    avgRecoveryCodesRemaining: Number(avgRecoveryCodesRemaining.toFixed(1)),
   };
 }
