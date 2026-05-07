@@ -13,6 +13,8 @@ type AdminShellClientProps = {
   userPermissions: string[];
   /** true se l'utente è super admin (isAdmin flag) — bypassa tutti i filtri */
   isSuperAdmin: boolean;
+  /** Override globale dell'ordinamento top-level (vedi admin_nav_order) */
+  navOrder: Record<string, number>;
 };
 
 export default function AdminShellClient({
@@ -21,6 +23,7 @@ export default function AdminShellClient({
   appName,
   userPermissions,
   isSuperAdmin,
+  navOrder,
 }: AdminShellClientProps) {
   const t = useTranslations("admin.shell");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,6 +39,7 @@ export default function AdminShellClient({
         onClose={() => setSidebarOpen(false)}
         userPermissions={permissionsSet}
         isSuperAdmin={isSuperAdmin}
+        navOrder={navOrder}
       />
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">

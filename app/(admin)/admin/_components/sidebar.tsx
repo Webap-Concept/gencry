@@ -1,14 +1,31 @@
 "use client";
 
 import { ADMIN_NAV, type NavChild, type NavItem } from "@/lib/admin-nav";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useTranslations } from "next-intl";
 import {
   Activity,
   ArrowRight,
+  ArrowUpDown,
   BarChart2,
   Bell,
   BookOpen,
   Boxes,
+  Check,
   ChevronDown,
   ClipboardList,
   Clock,
@@ -20,6 +37,7 @@ import {
   FlaskConical,
   GitMerge,
   Globe,
+  GripVertical,
   KeyRound,
   Languages,
   Layers,
@@ -32,6 +50,7 @@ import {
   Map,
   PanelTop,
   Plug,
+  RotateCcw,
   Scale,
   ScrollText,
   Search,
@@ -50,7 +69,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  resetNavOrderAction,
+  saveNavOrderAction,
+} from "./nav-order-actions";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard,
@@ -102,6 +125,28 @@ interface AdminSidebarProps {
   onClose?: () => void;
   userPermissions: Set<string>;
   isSuperAdmin: boolean;
+  /** Override globale dell'ordinamento top-level (mappa key → sortOrder) */
+  navOrder: Record<string, number>;
+}
+
+/**
+ * Applica l'override DB sopra ADMIN_NAV. Le voci con override (sortOrder
+ * ∈ navOrder) vengono ordinate per sortOrder; le voci senza override
+ * restano dopo, nell'ordine del codice. Risultato deterministico, stabile
+ * sui tie.
+ */
+function applyOrder(
+  items: NavItem[],
+  order: Record<string, number>,
+): NavItem[] {
+  return [...items].sort((a, b) => {
+    const oa = order[a.key];
+    const ob = order[b.key];
+    if (oa !== undefined && ob !== undefined) return oa - ob;
+    if (oa !== undefined) return -1; // a ha override → prima
+    if (ob !== undefined) return 1;  // b ha override → prima
+    return 0; // entrambi senza override → ordine codice (stable sort)
+  });
 }
 
 export default function AdminSidebar({
@@ -110,9 +155,11 @@ export default function AdminSidebar({
   onClose,
   userPermissions,
   isSuperAdmin,
+  navOrder,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const tNav = useTranslations("admin.nav");
+  const tShell = useTranslations("admin.shell");
 
   /**
    * Resolve label per nav item:
@@ -149,7 +196,56 @@ export default function AdminSidebar({
     return true;
   }
 
-  const visibleNav: NavItem[] = ADMIN_NAV.filter(isItemVisible);
+  // Filtra per permission, applica override DB, e tieni in stato locale
+  // (per l'optimistic update durante drag&drop in edit mode).
+  const initialVisible = applyOrder(ADMIN_NAV.filter(isItemVisible), navOrder);
+  const [visibleNav, setVisibleNav] = useState<NavItem[]>(initialVisible);
+  // Re-sync se cambia il prop navOrder (es. dopo router.refresh post-save)
+  useEffect(() => {
+    setVisibleNav(applyOrder(ADMIN_NAV.filter(isItemVisible), navOrder));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navOrder]);
+
+  // ── Edit-mode (drag & drop ordinamento top-level) ────────────────────────
+  const [editMode, setEditMode] = useState(false);
+  const [, startTransition] = useTransition();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function enterEditMode() {
+    setEditMode(true);
+    setOpenGroupKey(null); // chiudi tutti i gruppi aperti per pulizia
+  }
+  function exitEditMode() {
+    setEditMode(false);
+  }
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = visibleNav.findIndex((i) => i.key === active.id);
+    const newIdx = visibleNav.findIndex((i) => i.key === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(visibleNav, oldIdx, newIdx);
+    setVisibleNav(reordered); // optimistic
+    const updates = reordered.map((item, i) => ({
+      itemKey: item.key,
+      sortOrder: i,
+    }));
+    startTransition(async () => {
+      const res = await saveNavOrderAction(updates);
+      if (res.error) {
+        // rollback al precedente: ricarica dal navOrder iniziale
+        setVisibleNav(applyOrder(ADMIN_NAV.filter(isItemVisible), navOrder));
+      }
+    });
+  }
+  function handleReset() {
+    startTransition(async () => {
+      await resetNavOrderAction();
+      setVisibleNav(applyOrder(ADMIN_NAV.filter(isItemVisible), {}));
+    });
+  }
 
   // Helper: dato un NavChild, trova ricorsivamente tutti gli href delle sue
   // foglie. Serve per decidere se un sotto-gruppo è "active" (path matchato).
@@ -417,6 +513,64 @@ export default function AdminSidebar({
     );
   }
 
+  // In edit mode, ogni top-level è wrappato con drag handle a sinistra +
+  // useSortable. Mostra il contenuto del nav originale sotto (ExpandableGroup
+  // o NavLink), ma collassato (i sub-livelli sono già stati chiusi
+  // entrando in edit mode).
+  function SortableTopItem({ item }: { item: NavItem }) {
+    const sortable = useSortable({ id: item.key });
+    const dragStyle: React.CSSProperties = {
+      transform: CSS.Transform.toString(sortable.transform),
+      transition: sortable.transition,
+      opacity: sortable.isDragging ? 0.4 : undefined,
+      zIndex: sortable.isDragging ? 10 : undefined,
+    };
+    return (
+      <div
+        ref={sortable.setNodeRef}
+        style={dragStyle}
+        className="flex items-stretch gap-1">
+        <button
+          type="button"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          aria-label={tShell("navDragHandle")}
+          className="flex items-center justify-center w-5 shrink-0 rounded transition-colors"
+          style={{
+            color: "var(--admin-sidebar-text-faint)",
+            cursor: "grab",
+            touchAction: "none",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "var(--admin-sidebar-text-active)";
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "var(--admin-sidebar-item-hover-bg)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "var(--admin-sidebar-text-faint)";
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "transparent";
+          }}>
+          <GripVertical size={14} />
+        </button>
+        <div className="flex-1 min-w-0">
+          {item.children ? (
+            <ExpandableGroup item={item} />
+          ) : (
+            <NavLink
+              href={item.href!}
+              label={navLabel(item.key, item.label)}
+              icon={item.icon}
+              exact={item.exact}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const content = (
     <aside
       className="w-[var(--admin-sidebar-width)] h-full flex flex-col"
@@ -460,30 +614,100 @@ export default function AdminSidebar({
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {visibleNav.map((item) =>
-          item.children ? (
-            <ExpandableGroup key={item.key} item={item} />
-          ) : (
-            <NavLink
-              key={item.key}
-              href={item.href!}
-              label={navLabel(item.key, item.label)}
-              icon={item.icon}
-              exact={item.exact}
-            />
-          ),
+        {editMode ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={visibleNav.map((i) => i.key)}
+              strategy={verticalListSortingStrategy}>
+              {visibleNav.map((item) => (
+                <SortableTopItem key={item.key} item={item} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          visibleNav.map((item) =>
+            item.children ? (
+              <ExpandableGroup key={item.key} item={item} />
+            ) : (
+              <NavLink
+                key={item.key}
+                href={item.href!}
+                label={navLabel(item.key, item.label)}
+                icon={item.icon}
+                exact={item.exact}
+              />
+            ),
+          )
         )}
       </nav>
 
       <div
-        className="px-5 py-4"
+        className="px-5 py-3 flex items-center justify-between gap-2"
         style={{ borderTop: "1px solid var(--admin-sidebar-border)" }}>
-        <Link
-          href="/"
-          className="text-xs transition-colors"
-          style={{ color: "var(--admin-sidebar-text-faint)" }}>
-          ← Back to the App
-        </Link>
+        {editMode ? (
+          <>
+            <button
+              type="button"
+              onClick={handleReset}
+              title={tShell("navResetTooltip")}
+              className="flex items-center gap-1.5 text-[11px] transition-colors"
+              style={{ color: "var(--admin-sidebar-text-faint)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "var(--admin-sidebar-text-active)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--admin-sidebar-text-faint)")
+              }>
+              <RotateCcw size={11} />
+              {tShell("navReset")}
+            </button>
+            <button
+              type="button"
+              onClick={exitEditMode}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors"
+              style={{
+                background: "var(--admin-accent)",
+                color: "#fff",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.filter = "brightness(0.9)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
+              <Check size={12} />
+              {tShell("navEditDone")}
+            </button>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/"
+              className="text-xs transition-colors"
+              style={{ color: "var(--admin-sidebar-text-faint)" }}>
+              ← Back to the App
+            </Link>
+            <button
+              type="button"
+              onClick={enterEditMode}
+              title={tShell("navEditEnter")}
+              aria-label={tShell("navEditEnter")}
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: "var(--admin-sidebar-text-faint)" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
+                e.currentTarget.style.background =
+                  "var(--admin-sidebar-item-hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "var(--admin-sidebar-text-faint)";
+                e.currentTarget.style.background = "transparent";
+              }}>
+              <ArrowUpDown size={13} />
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

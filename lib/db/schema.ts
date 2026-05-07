@@ -912,6 +912,20 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+/**
+ * Override globale dell'ordinamento delle voci top-level della sidebar
+ * admin. Solo le voci elencate qui hanno un ordinamento custom; le altre
+ * mantengono l'ordine del codice (`lib/admin-nav.ts`). Una row per
+ * `item_key` (es. "access-group", "settings-group", "module-prices").
+ *
+ * NB: copre solo i top-level (gruppi). Le children NON sono qui.
+ */
+export const adminNavOrder = pgTable("admin_nav_order", {
+  itemKey: varchar("item_key", { length: 64 }).primaryKey(),
+  sortOrder: integer("sort_order").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ---------------------------------------------------------------------------
 // i18n — locale registry e traduzioni dinamiche
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 // Layout RBAC per tutte le pagine admin protette.
 // Wrappa solo le route dentro (protected)/, NON /admin/sign-in.
 import { requireAdminPage } from "@/lib/rbac/guards";
+import { getNavOrderOverrides } from "@/lib/db/admin-nav-order-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getUserPermissions } from "@/lib/rbac/can";
 import { runGeneratorsThrottled } from "@/lib/notifications/dispatcher";
@@ -23,13 +24,17 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     : await getUserPermissions(user);
 
   await runGeneratorsThrottled();
-  const bell = await getInitialBellData(userPermissions);
+  const [bell, navOrder] = await Promise.all([
+    getInitialBellData(userPermissions),
+    getNavOrderOverrides(),
+  ]);
 
   return (
     <AdminShellClient
       appName={appName}
       userPermissions={[...userPermissions]}
       isSuperAdmin={user.isAdmin === true}
+      navOrder={navOrder}
       header={
         <AdminHeaderRight
           user={user}
