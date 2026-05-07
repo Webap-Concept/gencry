@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteMediaAsset,
@@ -61,6 +62,7 @@ function flattenFolders(folders: MediaFolder[]): FolderOption[] {
 
 export function MediaGrid({ assets, folders }: MediaGridProps) {
   const t = useTranslations("admin.content.media.grid");
+  const router = useRouter();
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [moveAssetId, setMoveAssetId] = useState<number | null>(null);
   const [toast, setToast] = useState<{
@@ -81,19 +83,21 @@ export function MediaGrid({ assets, folders }: MediaGridProps) {
     if ("success" in delState) {
       setToast({ message: delState.success, type: "success" });
       setConfirmId(null);
+      router.refresh();
     } else if ("error" in delState) {
       setToast({ message: delState.error, type: "error" });
     }
-  }, [delState]);
+  }, [delState, router]);
 
   useEffect(() => {
     if ("success" in moveState) {
       setToast({ message: moveState.success, type: "success" });
       setMoveAssetId(null);
+      router.refresh();
     } else if ("error" in moveState) {
       setToast({ message: moveState.error, type: "error" });
     }
-  }, [moveState]);
+  }, [moveState, router]);
 
   const folderOptions = useMemo(() => flattenFolders(folders), [folders]);
 

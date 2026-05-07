@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createMediaFolder,
@@ -53,6 +54,7 @@ function buildTree(folders: MediaFolder[]): FolderNode[] {
 
 export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
   const t = useTranslations("admin.content.media.tree");
+  const router = useRouter();
   const tree = useMemo(() => buildTree(folders), [folders]);
 
   const [toast, setToast] = useState<{
@@ -120,6 +122,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
           onSuccess={(msg) => {
             setToast({ message: msg, type: "success" });
             setDialog(null);
+            router.refresh();
           }}
           onError={(msg) => setToast({ message: msg, type: "error" })}
         />
@@ -132,6 +135,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
           onSuccess={(msg) => {
             setToast({ message: msg, type: "success" });
             setDialog(null);
+            router.refresh();
           }}
           onError={(msg) => setToast({ message: msg, type: "error" })}
         />
@@ -144,6 +148,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
           onSuccess={(msg) => {
             setToast({ message: msg, type: "success" });
             setDialog(null);
+            router.refresh();
           }}
           onError={(msg) => setToast({ message: msg, type: "error" })}
         />
