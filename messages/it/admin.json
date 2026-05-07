@@ -443,6 +443,11 @@
       "rowDeactivateTitle": "Disattiva",
       "rowEditTitle": "Modifica",
       "rowDeleteTitle": "Elimina",
+      "rowAlwaysOnBadge": "Sempre attivo",
+      "rowAlwaysOnTooltip": "Non collegato a nessun servizio cookie — viene caricato in ogni pagina indipendentemente dal consenso.",
+      "rowConsentBadgeTooltip": "Collegato a {service} ({category}) — viene caricato solo dopo che l'utente accetta questa categoria.",
+      "rowConsentOrphanBadge": "Collegamento orfano",
+      "rowConsentOrphanTooltip": "Questo snippet è collegato a un servizio cookie che non esiste più. Ricollegalo o rimuovi il collegamento per tornare a sempre-attivo.",
       "types": {
         "linkCss": "CSS esterno (link)",
         "style": "CSS inline (style)",
@@ -465,6 +470,10 @@
         "contentLabel": "Codice",
         "activeOn": "Attivo — verrà iniettato nel frontend",
         "activeOff": "Inattivo — salvato ma non iniettato",
+        "cookieServiceLabel": "Servizio cookie (gating consenso)",
+        "cookieServiceNone": "— Nessuno (sempre attivo) —",
+        "cookieServiceHintNone": "Questo snippet viene caricato in ogni pagina, indipendentemente dal consenso cookie. Usalo solo per script tecnici (senza tracciamento).",
+        "cookieServiceHintLinked": "Questo snippet verrà caricato solo dopo che l'utente accetta la categoria del servizio collegato.",
         "cancelButton": "Annulla",
         "saveButton": "Salva",
         "savingButton": "Salvataggio…"
@@ -475,6 +484,7 @@
         "willCreate": "Verranno creati {count, plural, one {1 snippet} other {# snippet}}:",
         "backButton": "Indietro",
         "confirmButton": "Aggiungi snippet",
+        "cookieServiceMissingForCategory": "Nessun servizio cookie esiste ancora per la categoria suggerita. Scegline un altro, lascia \"Nessuno\" per sempre-attivo, oppure dichiara prima il servizio in /admin/compliance/cookies.",
         "list": {
           "ga4": {
             "label": "Google Analytics 4",
@@ -1992,11 +2002,19 @@
         "fieldSortOrder": "Ordine",
         "fieldEnabled": "Attivo",
         "fieldFirstParty": "First-party (gestito da noi)",
+        "fieldRequiresSnippet": "Richiede snippet",
+        "fieldRequiresSnippetHint": "Attiva se questo servizio ha bisogno di uno script in /admin/settings/snippets per essere caricato. Disattiva per cookie tecnici e script hardcoded (es. Vercel Analytics).",
         "fieldProvider": "Provider",
         "fieldProviderPolicyUrl": "URL privacy policy del provider",
         "fieldName": "Nome",
         "fieldDescription": "Descrizione",
         "fieldDescriptionPlaceholder": "Descrizione breve mostrata nel banner cookie."
+      },
+      "snippetStatus": {
+        "configuredBadge": "Snippet ✓ ({count})",
+        "configuredTooltip": "{count} snippet collegati a questo servizio in /admin/settings/snippets — lo script viene caricato quando l'utente accetta questa categoria.",
+        "missingBadge": "Snippet mancante",
+        "missingTooltip": "Questo servizio è dichiarato ma nessuno snippet in /admin/settings/snippets è collegato — il cookie è documentato nel banner ma nessuno script viene effettivamente caricato. Clicca per sistemare."
       },
       "servicesErrors": {
         "errorIdRequired": "L'ID del servizio è obbligatorio",
