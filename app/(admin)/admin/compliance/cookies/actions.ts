@@ -103,6 +103,7 @@ const serviceFormSchema = z.object({
   categoryId: z.string().min(1, "errorCategoryRequired"),
   enabled: z.string().optional(), // "true" | "false"
   firstParty: z.string().optional(),
+  requiresSnippet: z.string().optional(),
   provider: z.string().trim().max(200).optional().default(""),
   providerPolicyUrl: z
     .string()
@@ -174,6 +175,7 @@ export async function saveCookieServiceAction(
     categoryId: formData.get("categoryId")?.toString() || "",
     enabled: readBool(formData.get("enabled")),
     firstParty: readBool(formData.get("firstParty")),
+    requiresSnippet: readBool(formData.get("requiresSnippet")),
     provider: formData.get("provider")?.toString() || "",
     providerPolicyUrl: formData.get("providerPolicyUrl")?.toString() || "",
     sortOrder: formData.get("sortOrder")?.toString() || "0",
@@ -210,6 +212,7 @@ export async function saveCookieServiceAction(
     const sortOrder = Number(parsed.data.sortOrder) || 0;
     const enabled = parsed.data.enabled === "true";
     const firstParty = parsed.data.firstParty === "true";
+    const requiresSnippet = parsed.data.requiresSnippet === "true";
 
     if (isCreate) {
       if (await cookieServiceIdExists(targetId)) {
@@ -220,6 +223,7 @@ export async function saveCookieServiceAction(
         categoryId: parsed.data.categoryId,
         enabled,
         firstParty,
+        requiresSnippet,
         provider,
         providerPolicyUrl,
         sortOrder,
@@ -229,6 +233,7 @@ export async function saveCookieServiceAction(
         categoryId: parsed.data.categoryId,
         enabled,
         firstParty,
+        requiresSnippet,
         provider,
         providerPolicyUrl,
         sortOrder,
