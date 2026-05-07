@@ -1,8 +1,7 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import type { MfaAdminStats } from "@/lib/auth/mfa/admin-stats";
-import { AlertTriangle, Loader2, Save } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
@@ -17,10 +16,9 @@ interface MfaFormProps {
     issuerLabel: string;
     appName: string;
   };
-  stats: MfaAdminStats;
 }
 
-export function MfaForm({ initial, stats }: MfaFormProps) {
+export function MfaForm({ initial }: MfaFormProps) {
   const t = useTranslations("admin.security.mfa.form");
   const router = useRouter();
 
@@ -49,8 +47,6 @@ export function MfaForm({ initial, stats }: MfaFormProps) {
   }, [state, router]);
 
   const isRequired = mode !== "optional";
-  const wantsDisableWithEnrolled =
-    !enabled && stats.enrolledUsers > 0;
 
   return (
     <>
@@ -90,19 +86,10 @@ export function MfaForm({ initial, stats }: MfaFormProps) {
           />
         </div>
 
-        {wantsDisableWithEnrolled && (
-          <div
-            className="flex items-start gap-2 text-xs p-3 rounded-md"
-            style={{
-              background: "rgba(220, 38, 38, 0.08)",
-              color: "#dc2626",
-            }}>
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p>
-              {t("disableBlocked", { count: stats.enrolledUsers })}
-            </p>
-          </div>
-        )}
+        {/* Nota: il warning "cannot disable while users enrolled" è ora
+            solo lato server (toast dopo il dispatch). Lato client non
+            chiediamo più la count enrolled, perché blocca il page render
+            quando il DB stats si impalla — vedi suspense in page.tsx. */}
 
         {/* Mode */}
         <div
@@ -213,7 +200,7 @@ export function MfaForm({ initial, stats }: MfaFormProps) {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isPending || wantsDisableWithEnrolled}
+            disabled={isPending}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
             style={{ background: "var(--admin-accent)" }}>
             {isPending ? (

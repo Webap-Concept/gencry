@@ -5,8 +5,9 @@ import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import { MfaForm } from "./_components/mfa-form";
-import { MfaStatsCard } from "./_components/mfa-stats-card";
+import { MfaStatsCard, MfaStatsSkeleton } from "./_components/mfa-stats-card";
 import type { MfaMode } from "./_components/mfa-modes";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,6 +17,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const dynamic = "force-dynamic";
+// Estende il timeout della function oltre il default (15s su Pro). Le stats
+// possono essere lente con DB sotto carico; non vogliamo un 504 mentre il
+// form di policy è già renderizzato.
+export const maxDuration = 30;
 
 function asMode(v: string | undefined | null): MfaMode {
   return v === "required-for-staff" || v === "required-for-all"
@@ -24,9 +29,11 @@ function asMode(v: string | undefined | null): MfaMode {
 }
 
 export default async function MfaPage() {
-  const [settings, stats, t] = await Promise.all([
+  // Settings + i18n in parallelo (entrambi veloci). La stats card è dentro
+  // Suspense con un proprio fetch — così se il calcolo stats si impalla,
+  // l'admin vede comunque il form e può salvare la policy.
+  const [settings, t] = await Promise.all([
     getAppSettings(),
-    getMfaAdminStats(),
     getTranslations("admin.security"),
   ]);
 
@@ -47,8 +54,16 @@ export default async function MfaPage() {
         subtitle={t("mfa.pageSubtitle")}
       />
 
-      <MfaStatsCard stats={stats} />
-      <MfaForm initial={initial} stats={stats} />
+      <Suspense fallback={<MfaStatsSkeleton />}>
+        <StatsCardLoader />
+      </Suspense>
+
+      <MfaForm initial={initial} />
     </div>
   );
+}
+
+async function StatsCardLoader() {
+  const stats = await getMfaAdminStats();
+  return <MfaStatsCard stats={stats} />;
 }

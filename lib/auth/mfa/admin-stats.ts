@@ -47,16 +47,31 @@ const ZERO_STATS: MfaAdminStats = {
 
 /**
  * Aggrega stats MFA per la pagina admin /admin/security/mfa.
- * Tutte le query in parallelo dove possibile.
  *
- * In caso di errore (es. tabella non ancora creata, driver issue) ritorna
- * zero stats invece di throware — la pagina deve restare apribile per
- * permettere all'admin di configurare le policy anche se le metriche
- * non sono disponibili. Errore loggato server-side per debug.
+ * In caso di errore o di lentezza ritorna zero stats invece di throware
+ * o hangare. Vercel Functions hanno un timeout (15s su Pro) e abbiamo
+ * visto la pagina andare in 504 quando il pool di connessioni Supabase
+ * era saturo. Con Promise.race + zero fallback la pagina si carica
+ * sempre, eventualmente con stats vuote — il form è quello che conta.
  */
+const STATS_TIMEOUT_MS = 8000;
+
 export async function getMfaAdminStats(): Promise<MfaAdminStats> {
   try {
-    return await fetchStats();
+    const result = await Promise.race([
+      fetchStats(),
+      new Promise<MfaAdminStats>((resolve) =>
+        setTimeout(() => {
+          console.warn(
+            "[admin/security/mfa] stats query timed out after",
+            STATS_TIMEOUT_MS,
+            "ms — returning zero stats",
+          );
+          resolve(ZERO_STATS);
+        }, STATS_TIMEOUT_MS),
+      ),
+    ]);
+    return result;
   } catch (err) {
     console.error("[admin/security/mfa] stats query failed:", err);
     return ZERO_STATS;

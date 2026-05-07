@@ -77,6 +77,42 @@ export async function MfaStatsCard({ stats }: MfaStatsCardProps) {
   );
 }
 
+export function MfaStatsSkeleton() {
+  return (
+    <div
+      className="rounded-xl shadow-sm p-5"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <div
+        className="h-4 w-32 rounded mb-4 animate-pulse"
+        style={{ background: "var(--admin-card-border)" }}
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-lg p-3 animate-pulse"
+            style={{
+              background: "var(--admin-page-bg, var(--admin-card-bg))",
+              border: "1px solid var(--admin-card-border)",
+            }}>
+            <div
+              className="h-3 w-20 rounded mb-2"
+              style={{ background: "var(--admin-card-border)" }}
+            />
+            <div
+              className="h-6 w-16 rounded"
+              style={{ background: "var(--admin-card-border)" }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatTile({
   icon: Icon,
   label,
