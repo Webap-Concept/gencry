@@ -5,6 +5,7 @@
 import "@/app/(admin)/admin.css";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { requireAdminPage } from "@/lib/rbac/guards";
+import { getNavOrderOverrides } from "@/lib/db/admin-nav-order-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getUserPermissions } from "@/lib/rbac/can";
 import { runGeneratorsThrottled } from "@/lib/notifications/dispatcher";
@@ -76,7 +77,10 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   // Throttled (max 1/h): garantisce che le notifiche derivate
   // siano in stato corrente senza un cron esterno.
   await runGeneratorsThrottled();
-  const bell = await getInitialBellData(userPermissions);
+  const [bell, navOrder] = await Promise.all([
+    getInitialBellData(userPermissions),
+    getNavOrderOverrides(),
+  ]);
 
   return (
     <NextIntlClientProvider locale={userLocale} messages={messages}>
@@ -84,6 +88,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
         appName={appName}
         userPermissions={[...userPermissions]}
         isSuperAdmin={user.isAdmin === true}
+        navOrder={navOrder}
         header={
           <AdminHeaderRight
             user={user}

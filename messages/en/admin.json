@@ -16,7 +16,12 @@
     "dashboardTitleShort": "Admin",
     "themeToggleAria": "Toggle theme",
     "logout": "Logout",
-    "openMenuAria": "Open menu"
+    "openMenuAria": "Open menu",
+    "navEditEnter": "Reorder sidebar",
+    "navEditDone": "Done",
+    "navReset": "Reset",
+    "navResetTooltip": "Restore default order",
+    "navDragHandle": "Drag to reorder"
   },
   "confirmModal": {
     "defaultConfirm": "Confirm",
