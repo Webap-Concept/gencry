@@ -4,7 +4,6 @@ import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { MfaAdminStats } from "@/lib/auth/mfa/admin-stats";
 import { AlertTriangle, Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { saveMfaSettings, type ActionState } from "../actions";
 import { MFA_MODES, type MfaMode } from "./mfa-modes";
@@ -22,7 +21,6 @@ interface MfaFormProps {
 
 export function MfaForm({ initial, stats }: MfaFormProps) {
   const t = useTranslations("admin.security.mfa.form");
-  const router = useRouter();
 
   const [enabled, setEnabled] = useState(initial.enabled);
   const [mode, setMode] = useState<MfaMode>(initial.mode);
@@ -39,14 +37,18 @@ export function MfaForm({ initial, stats }: MfaFormProps) {
     {},
   );
 
+  // No router.refresh() qui: le stats non dipendono dai settings appena
+  // salvati, e router.refresh ri-invocava page.tsx → re-eseguiva il
+  // Promise.all di getMfaAdminStats (7 query parallele). Multipli save
+  // ravvicinati saturavano il connection pool Supabase e bloccavano il
+  // refresh successivo del browser.
   useEffect(() => {
     if ("success" in state) {
       setToast({ message: state.success, type: "success" });
-      router.refresh();
     } else if ("error" in state) {
       setToast({ message: state.error, type: "error" });
     }
-  }, [state, router]);
+  }, [state]);
 
   const isRequired = mode !== "optional";
   const wantsDisableWithEnrolled =
