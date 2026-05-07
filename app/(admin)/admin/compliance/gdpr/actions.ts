@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
-import { updateAppSetting } from "@/lib/db/settings-queries";
+import { batchUpdateAppSettings, type AppSettings } from "@/lib/db/settings-queries";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { can } from "@/lib/rbac/can";
 import { getTranslations } from "next-intl/server";
@@ -50,78 +50,77 @@ export async function saveGdprSettingsAction(
       return { error: t("errorNotAuthorized"), timestamp: Date.now() };
     }
 
-    // Consent logging
-    await updateAppSetting(
-      "gdpr.consent_log.enabled",
-      readBool(formData.get("gdpr.consent_log.enabled")),
-    );
-    await updateAppSetting(
-      "gdpr.consent_log.capture_ip",
-      readBool(formData.get("gdpr.consent_log.capture_ip")),
-    );
-    await updateAppSetting(
-      "gdpr.consent_log.ip_strategy",
-      readEnum(
+    // Le 13 chiavi GDPR vanno in un unico batch upsert: 2 query totali
+    // (1 SELECT + 1 INSERT … ON CONFLICT) invece di 13 × 2 = 26 query
+    // sequenziali. Su Supabase EU bastano per saturare il pool e far
+    // percepire all'utente la pagina come "bloccata".
+    const notesRaw = (formData.get("gdpr.backup.notes") as string | null) ?? "";
+    const notes = notesRaw.trim().slice(0, 2000);
+
+    const updates: Partial<Record<keyof AppSettings, string | null>> = {
+      // Consent logging
+      "gdpr.consent_log.enabled": readBool(
+        formData.get("gdpr.consent_log.enabled"),
+      ),
+      "gdpr.consent_log.capture_ip": readBool(
+        formData.get("gdpr.consent_log.capture_ip"),
+      ),
+      "gdpr.consent_log.ip_strategy": readEnum(
         formData.get("gdpr.consent_log.ip_strategy"),
         IP_STRATEGIES,
         "full",
       ),
-    );
-    await updateAppSetting(
-      "gdpr.consent_log.capture_user_agent",
-      readBool(formData.get("gdpr.consent_log.capture_user_agent")),
-    );
-    await updateAppSetting(
-      "gdpr.consent_log.hash_policy_text",
-      readBool(formData.get("gdpr.consent_log.hash_policy_text")),
-    );
-    await updateAppSetting(
-      "gdpr.consent_log.retention_after_deletion_days",
-      clampInt(
+      "gdpr.consent_log.capture_user_agent": readBool(
+        formData.get("gdpr.consent_log.capture_user_agent"),
+      ),
+      "gdpr.consent_log.hash_policy_text": readBool(
+        formData.get("gdpr.consent_log.hash_policy_text"),
+      ),
+      "gdpr.consent_log.retention_after_deletion_days": clampInt(
         formData.get("gdpr.consent_log.retention_after_deletion_days"),
         0,
         3650,
         1825,
       ),
-    );
-
-    // Backup
-    await updateAppSetting(
-      "gdpr.backup.tier",
-      readEnum(formData.get("gdpr.backup.tier"), BACKUP_TIERS, "none"),
-    );
-    const notesRaw = (formData.get("gdpr.backup.notes") as string | null) ?? "";
-    const notes = notesRaw.trim().slice(0, 2000);
-    await updateAppSetting("gdpr.backup.notes", notes.length > 0 ? notes : null);
-
-    // Lifecycle
-    await updateAppSetting(
-      "gdpr.deletion.grace_days",
-      clampInt(formData.get("gdpr.deletion.grace_days"), 0, 365, 30),
-    );
-    await updateAppSetting(
-      "gdpr.export.rate_limit_days",
-      clampInt(formData.get("gdpr.export.rate_limit_days"), 0, 365, 7),
-    );
-
-    // Policy enforcement
-    await updateAppSetting(
-      "gdpr.policy.force_reconsent_on_change",
-      readBool(formData.get("gdpr.policy.force_reconsent_on_change")),
-    );
-    await updateAppSetting(
-      "gdpr.policy.reconsent_grace_days",
-      clampInt(formData.get("gdpr.policy.reconsent_grace_days"), 0, 365, 14),
-    );
-    await updateAppSetting(
-      "gdpr.policy.notifications_cron_minutes",
-      clampInt(
+      // Backup
+      "gdpr.backup.tier": readEnum(
+        formData.get("gdpr.backup.tier"),
+        BACKUP_TIERS,
+        "none",
+      ),
+      "gdpr.backup.notes": notes.length > 0 ? notes : null,
+      // Lifecycle
+      "gdpr.deletion.grace_days": clampInt(
+        formData.get("gdpr.deletion.grace_days"),
+        0,
+        365,
+        30,
+      ),
+      "gdpr.export.rate_limit_days": clampInt(
+        formData.get("gdpr.export.rate_limit_days"),
+        0,
+        365,
+        7,
+      ),
+      // Policy enforcement
+      "gdpr.policy.force_reconsent_on_change": readBool(
+        formData.get("gdpr.policy.force_reconsent_on_change"),
+      ),
+      "gdpr.policy.reconsent_grace_days": clampInt(
+        formData.get("gdpr.policy.reconsent_grace_days"),
+        0,
+        365,
+        14,
+      ),
+      "gdpr.policy.notifications_cron_minutes": clampInt(
         formData.get("gdpr.policy.notifications_cron_minutes"),
         1,
         1440,
         60,
       ),
-    );
+    };
+
+    await batchUpdateAppSettings(updates);
 
     revalidatePath(getAdminPath("compliance-gdpr"));
     return { success: t("feedbackSaved"), timestamp: Date.now() };
