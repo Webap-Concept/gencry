@@ -1748,6 +1748,7 @@
       "grid": {
         "empty": "No assets yet — upload your first file to get started.",
         "deleteAria": "Delete asset",
+        "moveAria": "Move to folder",
         "typeVideo": "video",
         "delete": {
           "title": "Delete asset",
@@ -1755,6 +1756,36 @@
           "warning": "The file will be removed from storage. This action cannot be undone.",
           "cancel": "Cancel",
           "confirm": "Delete"
+        },
+        "move": {
+          "title": "Move asset",
+          "body": "Pick a destination folder for \"{name}\".",
+          "root": "Root",
+          "cancel": "Cancel",
+          "confirm": "Move"
+        }
+      },
+      "tree": {
+        "title": "Folders",
+        "root": "Root",
+        "emptyTree": "No folders yet.",
+        "newRoot": "New folder",
+        "newSubfolder": "New subfolder",
+        "rename": "Rename",
+        "delete": "Delete",
+        "folderActions": "Folder actions",
+        "collapse": "Collapse",
+        "expand": "Expand",
+        "dialog": {
+          "createTitle": "New folder",
+          "renameTitle": "Rename folder",
+          "deleteTitle": "Delete folder",
+          "deleteBody": "Delete the folder \"{name}\"?",
+          "deleteWarning": "Only empty folders can be deleted. Move or delete its contents first.",
+          "deleteConfirm": "Delete",
+          "nameLabel": "Folder name",
+          "cancel": "Cancel",
+          "confirm": "Save"
         }
       },
       "actionMessages": {
@@ -1768,7 +1799,20 @@
         "uploadedPartial": "{ok} uploaded, {failed} failed.",
         "deleteInvalidId": "Invalid asset.",
         "deleteNotFound": "Asset not found.",
-        "deleted": "Asset deleted."
+        "deleted": "Asset deleted.",
+        "assetMoved": "Asset moved.",
+        "folderCreated": "Folder created.",
+        "folderRenamed": "Folder renamed.",
+        "folderDeleted": "Folder deleted.",
+        "folderNotEmpty": "Folder is not empty ({assets} files, {subfolders} subfolders). Empty it first.",
+        "folderNameRequired": "Folder name is required.",
+        "folderNameTooLong": "Folder name is too long.",
+        "folderNameInvalid": "Invalid folder name.",
+        "folderInvalidId": "Invalid folder.",
+        "folderNotFound": "Folder not found.",
+        "folderSlugConflict": "A folder with the same name already exists here.",
+        "folderCreateFailed": "Could not create the folder. Please try again.",
+        "folderRenameFailed": "Could not rename the folder. Please try again."
       }
     }
   },

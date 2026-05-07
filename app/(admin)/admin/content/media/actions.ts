@@ -2,9 +2,16 @@
 
 import { getAdminPath } from "@/lib/admin-nav";
 import {
+  countAssetsInFolder,
+  countSubfolders,
   createAsset,
+  createFolder,
   deleteAssetById,
+  deleteFolderById,
   getAssetById,
+  getFolderById,
+  updateAssetFolder,
+  updateFolderName,
 } from "@/lib/db/media-queries";
 import { getUser } from "@/lib/db/queries";
 import {
@@ -13,6 +20,7 @@ import {
   MEDIA_MAX_BYTES,
   uploadMediaFile,
 } from "@/lib/storage/media";
+import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
@@ -26,8 +34,7 @@ export type ActionState =
  * li valida (mime + size), sanitizza eventuali SVG, carica nel bucket
  * Supabase "media" e crea le righe `media_assets`.
  *
- * In v1 il folderId è sempre null (root) — la gestione folder arriva nella
- * PR successiva.
+ * Accetta un folder corrente via FormData "folderId" (vuoto/non valido = root).
  */
 export async function uploadMediaAssets(
   _prev: ActionState,
@@ -36,6 +43,11 @@ export async function uploadMediaAssets(
   const t = await getTranslations("admin.content.media.actionMessages");
   const user = await getUser();
   if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+
+  const folderId = parseFolderId(formData.get("folderId"));
+  if (folderId !== null && !(await getFolderById(folderId))) {
+    return { error: t("folderNotFound"), timestamp: Date.now() };
+  }
 
   const files = formData.getAll("files").filter((v): v is File => v instanceof File && v.size > 0);
   if (files.length === 0) {
@@ -60,7 +72,7 @@ export async function uploadMediaAssets(
       buffer,
       mime: file.type,
       originalFilename: file.name,
-      folderId: null,
+      folderId,
     });
 
     if (!result.ok) {
@@ -69,7 +81,7 @@ export async function uploadMediaAssets(
     }
 
     await createAsset({
-      folderId: null,
+      folderId,
       filename: result.data.filename,
       mime: result.data.mime,
       sizeBytes: result.data.sizeBytes,
@@ -133,4 +145,172 @@ export async function deleteMediaAsset(
 
   revalidatePath(getAdminPath("content-media"));
   return { success: t("deleted"), timestamp: Date.now() };
+}
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+const FOLDER_NAME_MAX = 100;
+const FOLDER_NAME_MIN = 1;
+
+function parseFolderId(raw: FormDataEntryValue | null): number | null {
+  if (raw === null) return null;
+  const s = String(raw).trim();
+  if (s === "" || s === "root") return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function validateFolderName(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length < FOLDER_NAME_MIN) return "folderNameRequired";
+  if (trimmed.length > FOLDER_NAME_MAX) return "folderNameTooLong";
+  const slug = slugify(trimmed);
+  if (!slug) return "folderNameInvalid";
+  return null;
+}
+
+export async function createMediaFolder(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  const user = await getUser();
+  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const parentId = parseFolderId(formData.get("parentId"));
+
+  const validation = validateFolderName(name);
+  if (validation) return { error: t(validation), timestamp: Date.now() };
+
+  if (parentId !== null && !(await getFolderById(parentId))) {
+    return { error: t("folderNotFound"), timestamp: Date.now() };
+  }
+
+  const slug = slugify(name);
+
+  try {
+    await createFolder({
+      name,
+      slug,
+      parentId,
+      createdBy: user.id,
+    });
+  } catch (err) {
+    // Unique constraint (parent_id, slug)
+    if (err instanceof Error && err.message.includes("uq_media_folders_parent_slug")) {
+      return { error: t("folderSlugConflict"), timestamp: Date.now() };
+    }
+    console.error("[media] createFolder failed:", err);
+    return { error: t("folderCreateFailed"), timestamp: Date.now() };
+  }
+
+  revalidatePath(getAdminPath("content-media"));
+  return { success: t("folderCreated"), timestamp: Date.now() };
+}
+
+export async function renameMediaFolder(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  const user = await getUser();
+  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+
+  const id = parseFolderId(formData.get("id"));
+  if (id === null) return { error: t("folderInvalidId"), timestamp: Date.now() };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const validation = validateFolderName(name);
+  if (validation) return { error: t(validation), timestamp: Date.now() };
+
+  const folder = await getFolderById(id);
+  if (!folder) return { error: t("folderNotFound"), timestamp: Date.now() };
+
+  const slug = slugify(name);
+
+  try {
+    await updateFolderName(id, name, slug);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("uq_media_folders_parent_slug")) {
+      return { error: t("folderSlugConflict"), timestamp: Date.now() };
+    }
+    console.error("[media] renameFolder failed:", err);
+    return { error: t("folderRenameFailed"), timestamp: Date.now() };
+  }
+
+  revalidatePath(getAdminPath("content-media"));
+  return { success: t("folderRenamed"), timestamp: Date.now() };
+}
+
+/**
+ * Cancella un folder. Block se contiene asset diretti o sub-folder.
+ * L'utente deve prima svuotare/spostare il contenuto. Decisione safe: niente
+ * cascade automatico, troppi rischi di perdita dati.
+ */
+export async function deleteMediaFolder(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  const user = await getUser();
+  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+
+  const id = parseFolderId(formData.get("id"));
+  if (id === null) return { error: t("folderInvalidId"), timestamp: Date.now() };
+
+  const folder = await getFolderById(id);
+  if (!folder) return { error: t("folderNotFound"), timestamp: Date.now() };
+
+  const [assetCount, subCount] = await Promise.all([
+    countAssetsInFolder(id),
+    countSubfolders(id),
+  ]);
+  if (assetCount > 0 || subCount > 0) {
+    return {
+      error: t("folderNotEmpty", { assets: assetCount, subfolders: subCount }),
+      timestamp: Date.now(),
+    };
+  }
+
+  await deleteFolderById(id);
+
+  revalidatePath(getAdminPath("content-media"));
+  return { success: t("folderDeleted"), timestamp: Date.now() };
+}
+
+/**
+ * Sposta un asset in un altro folder (o root). Non muove il file fisico nel
+ * bucket — il `storage_path` resta invariato. La struttura folder è solo un
+ * metadato logico per l'UI; il path nel bucket è solo un layout interno.
+ */
+export async function moveMediaAsset(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  const user = await getUser();
+  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+
+  const assetId = Number(formData.get("assetId"));
+  if (!Number.isFinite(assetId) || assetId <= 0) {
+    return { error: t("deleteInvalidId"), timestamp: Date.now() };
+  }
+
+  const folderId = parseFolderId(formData.get("folderId"));
+
+  const asset = await getAssetById(assetId);
+  if (!asset) return { error: t("deleteNotFound"), timestamp: Date.now() };
+
+  if (folderId !== null && !(await getFolderById(folderId))) {
+    return { error: t("folderNotFound"), timestamp: Date.now() };
+  }
+
+  if (asset.folderId === folderId) {
+    return { success: t("assetMoved"), timestamp: Date.now() };
+  }
+
+  await updateAssetFolder(assetId, folderId);
+  revalidatePath(getAdminPath("content-media"));
+  return { success: t("assetMoved"), timestamp: Date.now() };
 }
