@@ -27,7 +27,7 @@ export async function GET() {
 
   try {
     const rows = await db
-      .select()
+      .select({ value: appSettings.value })
       .from(appSettings)
       .where(eq(appSettings.key, "humans_txt"))
       .limit(1);

@@ -1,4 +1,3 @@
-"use client";
 // Barra di stato anteprima — fissa in cima alla preview.
 // Mostra: stato pagina, titolo, link all'editor, link alla pagina pubblica (se published).
 import Link from "next/link";

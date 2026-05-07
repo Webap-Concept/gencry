@@ -24,7 +24,7 @@ export async function GET() {
 
   try {
     const rows = await db
-      .select()
+      .select({ value: appSettings.value })
       .from(appSettings)
       .where(eq(appSettings.key, "robots_txt"))
       .limit(1);

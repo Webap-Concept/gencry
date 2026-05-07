@@ -5,7 +5,7 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import PageEditor from "../_components/page-editor";
+import PageEditor from "../_components/page-editor-loader";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
