@@ -724,6 +724,72 @@ export const policyChangeNotifications = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Cookie registry — gestione DB-driven del catalogo cookie/tracker
+// ---------------------------------------------------------------------------
+//
+// Sostituisce il file statico `lib/cookie-consent/services.ts`. L'admin può
+// aggiungere/rimuovere/disabilitare i servizi senza redeploy via
+// `/admin/compliance/cookies`. Le 4 categorie ePrivacy sono fisse (seed
+// `is_system=true`) — solo i servizi sono pienamente CRUD.
+//
+// **Performance:** il banner pubblico riceve i servizi `enabled=true` come
+// prop dal RootLayout (server) con cache module-level 10min. Zero query DB
+// dal client banner. Vedi `lib/db/cookie-services-queries.ts`.
+
+export const cookieCategories = pgTable("cookie_categories", {
+  /** ID = ConsentType (es. "cookie_necessary"). Usato come FK e come chiave i18n. */
+  id: varchar("id", { length: 50 }).primaryKey(),
+  /** True per "cookie_necessary": utente non può togliere consenso. */
+  alwaysOn: boolean("always_on").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  /** Le 4 categorie ePrivacy seed sono `is_system=true` → non eliminabili. */
+  isSystem: boolean("is_system").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cookieServices = pgTable("cookie_services", {
+  id: varchar("id", { length: 100 }).primaryKey(),
+  categoryId: varchar("category_id", { length: 50 })
+    .notNull()
+    .references(() => cookieCategories.id, { onDelete: "restrict" }),
+  /** Toggle on/off senza eliminare la riga (sospendi un tracker temporaneamente). */
+  enabled: boolean("enabled").notNull().default(true),
+  /** True se gestito da noi (session, csrf...). False per third-party. */
+  firstParty: boolean("first_party").notNull().default(false),
+  /** Provider (es. "Vercel Inc.", "Google LLC"). Vuoto per first-party. */
+  provider: varchar("provider", { length: 200 }),
+  providerPolicyUrl: text("provider_policy_url"),
+  /** I servizi seed di sistema (session/csrf/cookie_consent/vercel_analytics)
+   *  sono `is_system=true` → non eliminabili dall'admin (toggle sì). */
+  isSystem: boolean("is_system").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * Traduzioni nome+description per ogni servizio + locale. Il default
+ * locale (es. "it" per Gencry) può vivere come "default" qui o come
+ * fallback nella query helper. Pattern analogo a `pageTranslations` /
+ * `seoPageTranslations`.
+ */
+export const cookieServiceTranslations = pgTable(
+  "cookie_service_translations",
+  {
+    serviceId: varchar("service_id", { length: 100 })
+      .notNull()
+      .references(() => cookieServices.id, { onDelete: "cascade" }),
+    locale: varchar("locale", { length: 5 }).notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    description: text("description").notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.serviceId, table.locale] }),
+  ],
+);
+
 /**
  * Sessions server-side. Il cookie `session` contiene un JWT firmato che
  * imbusta solo `{ sid }` (sessionId opaco): la validazione passa per la
@@ -1103,6 +1169,13 @@ export type NewOauthAccount = typeof oauthAccounts.$inferInsert;
 
 export type DisposableDomain = typeof disposableDomains.$inferSelect;
 export type BlockedUsername  = typeof blockedUsernames.$inferSelect;
+
+export type CookieCategory             = typeof cookieCategories.$inferSelect;
+export type NewCookieCategory          = typeof cookieCategories.$inferInsert;
+export type CookieService              = typeof cookieServices.$inferSelect;
+export type NewCookieService           = typeof cookieServices.$inferInsert;
+export type CookieServiceTranslation   = typeof cookieServiceTranslations.$inferSelect;
+export type NewCookieServiceTranslation = typeof cookieServiceTranslations.$inferInsert;
 
 export type User                = typeof users.$inferSelect;
 export type NewUser             = typeof users.$inferInsert;

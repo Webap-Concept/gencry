@@ -3,6 +3,7 @@ import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getServicesForBanner } from "@/lib/db/cookie-services-queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getActiveSnippets } from "@/lib/db/snippets-queries";
@@ -142,12 +143,22 @@ export default async function RootLayout({
   // sotto qualunque route group (auth, admin, frontend, [locale]) trovano il
   // NextIntlClientProvider già montato. Vedi i18n/request.ts per la fallback
   // chain locale → DEFAULT_LOCALE.
-  const [allSnippets, settings, cookieConsent, systemPageSlugs, messages] = await Promise.all([
+  const [
+    allSnippets,
+    settings,
+    cookieConsent,
+    systemPageSlugs,
+    messages,
+    cookieServices,
+  ] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
     readCookieConsent(),
     getSystemPageSlugs(),
     getMessages(),
+    // Cache 10min module-level (vedi cookie-services-queries): 1 query per
+    // istanza Vercel ogni 10min anche con migliaia di visitatori al minuto.
+    getServicesForBanner(lang),
   ]);
 
   const headSnippets = allSnippets.filter((s) => s.position === "head");
@@ -205,7 +216,12 @@ export default async function RootLayout({
             </Suspense>
           )}
           {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
-          {showCookieBanner && <CookieBanner policyUrl={cookiePolicyUrl} />}
+          {showCookieBanner && (
+            <CookieBanner
+              policyUrl={cookiePolicyUrl}
+              services={cookieServices}
+            />
+          )}
         </NextIntlClientProvider>
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />

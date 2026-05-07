@@ -1,5 +1,6 @@
 "use client";
 
+import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries";
 import { Cookie } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ import {
 type Props = {
   initialPrefs?: CustomizeInitialPrefs;
   policyUrl?: string | null;
+  /** Servizi attivi raggruppati per categoria, prefetched server-side. */
+  services?: BannerServicesByCategory;
   variant?: "link" | "button";
   label?: string;
   className?: string;
@@ -36,6 +39,7 @@ type Props = {
 export function CookiePreferencesTrigger({
   initialPrefs,
   policyUrl,
+  services,
   variant = "link",
   label = "Preferenze cookie",
   className,
@@ -59,6 +63,7 @@ export function CookiePreferencesTrigger({
           <CookieCustomizeModal
             initialPrefs={initialPrefs}
             policyUrl={policyUrl}
+            services={services}
             onClose={() => setOpen(false)}
           />
         )}
@@ -83,6 +88,7 @@ export function CookiePreferencesTrigger({
         <CookieCustomizeModal
           initialPrefs={initialPrefs}
           policyUrl={policyUrl}
+          services={services}
           onClose={() => setOpen(false)}
         />
       )}
