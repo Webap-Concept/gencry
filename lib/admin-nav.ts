@@ -102,7 +102,7 @@ export const ADMIN_NAV: NavItem[] = [
     label: "Content",
     icon: "Layers",
     permission: "admin:content",
-    childrenMaxHeight: "120px",
+    childrenMaxHeight: "160px",
     children: [
       {
         key: "content-pages",
@@ -116,6 +116,13 @@ export const ADMIN_NAV: NavItem[] = [
         href: "/admin/content/templates",
         label: "Templates",
         icon: "PanelTop",
+        permission: "admin:content",
+      },
+      {
+        key: "content-media",
+        href: "/admin/content/media",
+        label: "Media",
+        icon: "Image",
         permission: "admin:content",
       },
     ],

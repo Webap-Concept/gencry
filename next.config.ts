@@ -9,15 +9,17 @@ const nextConfig: NextConfig = {
   // Aggiungi qui i domini da cui carichi immagini esterne (es. Tiptap, CDN, ecc.)
   // Documentazione: https://nextjs.org/docs/app/api-reference/components/image#remotepatterns
   // ---------------------------------------------------------------------------
-  // images: {
-  //   remotePatterns: [
-  //     {
-  //       protocol: "https",
-  //       hostname: "esempio.com",
-  //       pathname: "/uploads/**",
-  //     },
-  //   ],
-  // },
+  images: {
+    remotePatterns: [
+      // Supabase Storage (bucket "media", "branding", "avatars" ecc.)
+      // Wildcard sull'host: copre qualunque project-ref.supabase.co
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
 
   // ---------------------------------------------------------------------------
   // Experimental (Next.js 16 — aggiorna man mano che le feature stabilizzano)

@@ -39,6 +39,7 @@ import {
   GitMerge,
   Globe,
   GripVertical,
+  Image as ImageIcon,
   KeyRound,
   Languages,
   Layers,
@@ -120,6 +121,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   ScrollText,
   UserX,
   Languages,
+  Image: ImageIcon,
 };
 
 interface AdminSidebarProps {
