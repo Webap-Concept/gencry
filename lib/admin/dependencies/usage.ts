@@ -92,7 +92,16 @@ async function scanDir(
   }
 }
 
-const IMPORT_RE = /(?:from|require\()\s*['"]([^'"]+)['"]/g;
+// Tre forme di import che ci interessano:
+//   import x from "name";       → matcha "from"
+//   const x = require("name");  → matcha "require("
+//   import "name";              → side-effect import, NIENTE "from"
+//                                  (es. `import "server-only";`)
+// Senza il terzo pattern le dep usate solo per side-effect risultano
+// "0 file la usano" — falso negativo. Ancoriamo `import` a inizio riga
+// (multiline) per non matchare la parola "import" dentro stringhe/commenti.
+const IMPORT_RE =
+  /(?:from|require\()\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm;
 
 async function scanFile(
   file: string,
@@ -112,7 +121,10 @@ async function scanFile(
 
   let m: RegExpExecArray | null;
   while ((m = IMPORT_RE.exec(content)) !== null) {
-    const spec = m[1];
+    // Capture 1 = ramo "from"/"require(", capture 2 = ramo side-effect.
+    // Solo uno dei due è valorizzato per match.
+    const spec = m[1] ?? m[2];
+    if (!spec) continue;
     // Skip relative + alias TS path che cominciano con @/
     if (spec.startsWith(".") || spec.startsWith("@/")) continue;
     // Risolvi il package name: per scoped (@scope/name/sub) prendi i
