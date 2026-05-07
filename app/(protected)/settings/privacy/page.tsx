@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getUser } from "@/lib/db/queries";
-import { getAcceptedConsent, type ConsentSnapshot } from "@/lib/account/consents";
+import { getAcceptedConsents, type ConsentSnapshot } from "@/lib/account/consents";
 import { listMyExportJobs } from "@/lib/account/gdpr-export";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import { getServicesForBanner } from "@/lib/db/cookie-services-queries";
@@ -27,34 +27,31 @@ export default async function PrivacySettingsPage() {
         ? localeHeader
         : DEFAULT_LOCALE;
 
+  // Le 3 policy (terms/privacy/marketing) vengono risolte in una singola
+  // call batch: max 2 query DB invece di 6 (era 2 query x 3 policy).
   const [
-    terms,
-    privacy,
-    marketing,
+    consents,
     exportJobs,
     cookieConsent,
     settings,
     slugs,
     cookieServices,
   ] = await Promise.all([
-    getAcceptedConsent({
-      systemKey: "terms",
-      acceptedVersion: user.acceptedTermsVersion,
-    }),
-    getAcceptedConsent({
-      systemKey: "privacy",
-      acceptedVersion: user.acceptedPrivacyVersion,
-    }),
-    getAcceptedConsent({
-      systemKey: "marketing",
-      acceptedVersion: user.acceptedMarketingVersion,
-    }),
+    getAcceptedConsents([
+      { systemKey: "terms", acceptedVersion: user.acceptedTermsVersion },
+      { systemKey: "privacy", acceptedVersion: user.acceptedPrivacyVersion },
+      { systemKey: "marketing", acceptedVersion: user.acceptedMarketingVersion },
+    ]),
     listMyExportJobs(user.id, 5),
     readCookieConsent(),
     getAppSettings(),
     getSystemPageSlugs(),
     getServicesForBanner(userLocale),
   ]);
+
+  const terms = consents.terms;
+  const privacy = consents.privacy;
+  const marketing = consents.marketing;
 
   const exportJobsVM: ExportJobVM[] = exportJobs.map((j) => ({
     id: j.id,
