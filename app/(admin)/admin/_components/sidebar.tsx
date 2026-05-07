@@ -27,6 +27,7 @@ import {
   Boxes,
   Check,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Clock,
   Code2,
@@ -275,6 +276,13 @@ export default function AdminSidebar({
     setOpenGroupKey((prev) => (prev === key ? null : key));
   }
 
+  // Chiudi automaticamente il drawer quando l'utente naviga (click su una
+  // sotto-voce o navigazione esterna). pathname cambia → drawer via.
+  useEffect(() => {
+    setOpenGroupKey(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
@@ -344,93 +352,69 @@ export default function AdminSidebar({
     );
   }
 
-  // Sotto-componente per i gruppi top-level espandibili.
-  // Children possono essere foglie (NavLink) o sotto-gruppi (SubExpandableGroup)
-  // se il NavChild ha figli a sua volta — abilita il 3° livello.
-  function ExpandableGroup({ item }: { item: NavItem }) {
+  // Trigger top-level: bottone che apre il drawer overlay con il riepilogo
+  // della sezione (titolo + descrizione + sotto-voci). Niente expand
+  // in-place: il drawer è renderizzato UNA VOLTA al top del componente
+  // sulla base di `openGroupKey`. Il body delle sotto-voci (incluso il
+  // 3° livello) sta tutto lì dentro.
+  function DrawerTrigger({ item }: { item: NavItem }) {
     const Icon = ICON_MAP[item.icon] ?? Settings;
     const visibleChildren = (item.children ?? []).filter(isChildVisible);
     const isGroupActive = visibleChildren.some(isPathInChild);
     const isOpen = openGroupKey === item.key;
 
     return (
-      <div>
-        <button
-          onClick={() => toggleGroup(item.key)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background:
-              isGroupActive && !isOpen
+      <button
+        onClick={() => toggleGroup(item.key)}
+        aria-expanded={isOpen}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+        style={{
+          background:
+            isOpen
+              ? "var(--admin-sidebar-item-hover-bg)"
+              : isGroupActive
                 ? "var(--admin-sidebar-item-active-bg)"
                 : "transparent",
-            color: isGroupActive
-              ? "var(--admin-sidebar-text-active)"
-              : "var(--admin-sidebar-text)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background =
-              "var(--admin-sidebar-item-hover-bg)";
-            e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background =
-              isGroupActive && !isOpen
+          color: isGroupActive || isOpen
+            ? "var(--admin-sidebar-text-active)"
+            : "var(--admin-sidebar-text)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background =
+            "var(--admin-sidebar-item-hover-bg)";
+          e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background =
+            isOpen
+              ? "var(--admin-sidebar-item-hover-bg)"
+              : isGroupActive
                 ? "var(--admin-sidebar-item-active-bg)"
                 : "transparent";
-            e.currentTarget.style.color = isGroupActive
-              ? "var(--admin-sidebar-text-active)"
-              : "var(--admin-sidebar-text)";
-          }}>
-          <Icon
-            size={18}
-            style={{
-              color: isGroupActive
-                ? "var(--admin-accent)"
-                : "var(--admin-sidebar-icon-inactive)",
-            }}
-          />
-          <span className="flex-1 text-left">{navLabel(item.key, item.label)}</span>
-          <ChevronDown
-            size={15}
-            className="transition-transform duration-200"
-            style={{
-              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-              color: "var(--admin-sidebar-icon-inactive)",
-            }}
-          />
-        </button>
-
-        <div
-          className="grid transition-[grid-template-rows] duration-200"
+          e.currentTarget.style.color = isGroupActive || isOpen
+            ? "var(--admin-sidebar-text-active)"
+            : "var(--admin-sidebar-text)";
+        }}>
+        <Icon
+          size={18}
           style={{
-            gridTemplateRows: isOpen ? "1fr" : "0fr",
-            opacity: isOpen ? 1 : 0,
-          }}>
-          <div className="overflow-hidden min-h-0">
-            <div
-              className="mt-0.5 mb-0.5 mx-1 rounded-lg py-1 space-y-0.5"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--admin-sidebar-bg) 70%, #000 30%)",
-              }}>
-              {visibleChildren.map((child) =>
-                child.children && child.children.length > 0 ? (
-                  <SubExpandableGroup key={child.key} item={child} />
-                ) : (
-                  <NavLink
-                    key={child.key}
-                    href={child.href!}
-                    label={navLabel(child.key, child.label)}
-                    icon={child.icon}
-                    exact={child.exact}
-                    sub
-                  />
-                ),
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+            color: isGroupActive
+              ? "var(--admin-accent)"
+              : "var(--admin-sidebar-icon-inactive)",
+          }}
+        />
+        <span className="flex-1 text-left">{navLabel(item.key, item.label)}</span>
+        <ChevronRight
+          size={15}
+          className="transition-transform duration-150"
+          style={{
+            // Quando il drawer è aperto, il chevron diventa "indietro" per
+            // suggerire che un secondo click lo chiude.
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+            color: "var(--admin-sidebar-icon-inactive)",
+          }}
+        />
+      </button>
     );
   }
 
@@ -515,10 +499,123 @@ export default function AdminSidebar({
     );
   }
 
+  // Drawer overlay che mostra il riepilogo della sezione cliccata: titolo
+  // + descrizione + lista sotto-voci. Renderizzato una volta al top del
+  // componente sulla base di `openGroupKey`. Click outside / Escape /
+  // click su una sotto-voce → chiude.
+  function SidebarDrawer({ item, onCloseDrawer }: {
+    item: NavItem;
+    onCloseDrawer: () => void;
+  }) {
+    const Icon = ICON_MAP[item.icon] ?? Settings;
+    const visibleChildren = (item.children ?? []).filter(isChildVisible);
+    const description = tNav.has(`descriptions.${item.key}`)
+      ? tNav(`descriptions.${item.key}`)
+      : null;
+    const label = navLabel(item.key, item.label);
+
+    useEffect(() => {
+      function onEsc(e: KeyboardEvent) {
+        if (e.key === "Escape") onCloseDrawer();
+      }
+      window.addEventListener("keydown", onEsc);
+      return () => window.removeEventListener("keydown", onEsc);
+    }, [onCloseDrawer]);
+
+    return (
+      <>
+        {/* Overlay scrim — copre solo il content area, non la sidebar (che
+            resta cliccabile per chiudere/cambiare drawer). */}
+        <div
+          className="fixed inset-0 z-30 lg:left-[var(--admin-sidebar-width)]"
+          style={{ background: "color-mix(in srgb, #000 32%, transparent)" }}
+          onClick={onCloseDrawer}
+        />
+        {/* Panel laterale — desktop: incollato a destra della sidebar.
+            Mobile: full-width sotto la sidebar mobile (gestita altrove). */}
+        <div
+          role="dialog"
+          aria-label={label}
+          className="fixed top-0 bottom-0 z-40 flex flex-col w-72"
+          style={{
+            left: "var(--admin-sidebar-width)",
+            background:
+              "color-mix(in srgb, var(--admin-sidebar-bg) 92%, #fff 8%)",
+            borderRight: "1px solid var(--admin-sidebar-border)",
+            boxShadow: "8px 0 24px -8px rgba(0,0,0,0.35)",
+            animation: "drawer-slide-in 150ms ease-out",
+          }}
+          onClick={(e) => e.stopPropagation()}>
+          <div
+            className="px-5 py-4"
+            style={{ borderBottom: "1px solid var(--admin-sidebar-border)" }}>
+            <div className="flex items-start gap-3">
+              <div
+                className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--admin-accent) 18%, transparent)",
+                }}>
+                <Icon size={18} style={{ color: "var(--admin-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3
+                  className="text-sm font-semibold truncate"
+                  style={{ color: "var(--admin-sidebar-text-active)" }}>
+                  {label}
+                </h3>
+                {description && (
+                  <p
+                    className="text-[11.5px] mt-0.5 leading-snug"
+                    style={{ color: "var(--admin-sidebar-text-faint)" }}>
+                    {description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onCloseDrawer}
+                aria-label={tShell("navDrawerClose")}
+                className="p-1 rounded transition-colors"
+                style={{ color: "var(--admin-sidebar-text-faint)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color =
+                    "var(--admin-sidebar-text-active)";
+                  e.currentTarget.style.background =
+                    "var(--admin-sidebar-item-hover-bg)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color =
+                    "var(--admin-sidebar-text-faint)";
+                  e.currentTarget.style.background = "transparent";
+                }}>
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+          <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+            {visibleChildren.map((child) =>
+              child.children && child.children.length > 0 ? (
+                <SubExpandableGroup key={child.key} item={child} />
+              ) : (
+                <NavLink
+                  key={child.key}
+                  href={child.href!}
+                  label={navLabel(child.key, child.label)}
+                  icon={child.icon}
+                  exact={child.exact}
+                />
+              ),
+            )}
+          </nav>
+        </div>
+      </>
+    );
+  }
+
   // In edit mode, ogni top-level è wrappato con drag handle a sinistra +
-  // useSortable. Mostra il contenuto del nav originale sotto (ExpandableGroup
-  // o NavLink), ma collassato (i sub-livelli sono già stati chiusi
-  // entrando in edit mode).
+  // useSortable. Mostra solo il bottone top-level senza drawer/expand:
+  // l'utente sta riordinando, non navigando.
   function SortableTopItem({ item }: { item: NavItem }) {
     const sortable = useSortable({ id: item.key });
     const dragStyle: React.CSSProperties = {
@@ -559,7 +656,27 @@ export default function AdminSidebar({
         </button>
         <div className="flex-1 min-w-0">
           {item.children ? (
-            <ExpandableGroup item={item} />
+            // In edit mode, mostriamo SOLO il bottone (con icona + label)
+            // senza drawer e senza expand: l'utente sta riordinando.
+            <div
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium"
+              style={{
+                background: "transparent",
+                color: "var(--admin-sidebar-text)",
+              }}>
+              {(() => {
+                const Icon = ICON_MAP[item.icon] ?? Settings;
+                return (
+                  <Icon
+                    size={18}
+                    style={{ color: "var(--admin-sidebar-icon-inactive)" }}
+                  />
+                );
+              })()}
+              <span className="flex-1 text-left">
+                {navLabel(item.key, item.label)}
+              </span>
+            </div>
           ) : (
             <NavLink
               href={item.href!}
@@ -632,7 +749,7 @@ export default function AdminSidebar({
         ) : (
           visibleNav.map((item) =>
             item.children ? (
-              <ExpandableGroup key={item.key} item={item} />
+              <DrawerTrigger key={item.key} item={item} />
             ) : (
               <NavLink
                 key={item.key}
@@ -714,6 +831,15 @@ export default function AdminSidebar({
     </aside>
   );
 
+  // Il drawer overlay viene renderizzato solo in modalità non-edit e solo
+  // se c'è un gruppo aperto. È hosted al top del componente per stare al
+  // fianco della sidebar (non dentro il `<aside>` per non venire clippato
+  // da overflow-y-auto del nav).
+  const activeGroup =
+    !editMode && openGroupKey
+      ? visibleNav.find((i) => i.key === openGroupKey && i.children)
+      : null;
+
   return (
     <>
       <div className="hidden lg:flex shrink-0 h-full">{content}</div>
@@ -727,6 +853,12 @@ export default function AdminSidebar({
             {content}
           </div>
         </>
+      )}
+      {activeGroup && (
+        <SidebarDrawer
+          item={activeGroup}
+          onCloseDrawer={() => setOpenGroupKey(null)}
+        />
       )}
     </>
   );
