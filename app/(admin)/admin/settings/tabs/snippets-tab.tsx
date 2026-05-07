@@ -435,12 +435,14 @@ function SnippetForm({
   onSave,
   onCancel,
   loading,
+  error,
 }: {
   initial?: Partial<SiteSnippet>;
   cookieServices: CookieServiceOption[];
   onSave: (data: Omit<SiteSnippet, "id" | "createdAt" | "updatedAt">) => void;
   onCancel: () => void;
   loading: boolean;
+  error?: string | null;
 }) {
   const t = useTranslations("admin.settings.snippets.form");
   const tType = useTranslations("admin.settings.snippets.types");
@@ -652,6 +654,18 @@ function SnippetForm({
             {cookieServiceId ? t("cookieServiceHintLinked") : t("cookieServiceHintNone")}
           </p>
         </div>
+
+        {error && (
+          <p
+            className="text-xs rounded-lg px-3 py-2"
+            style={{
+              color: "#ef4444",
+              background: "color-mix(in srgb, #ef4444 10%, var(--admin-card-bg))",
+              border: "1px solid color-mix(in srgb, #ef4444 22%, transparent)",
+            }}>
+            {error}
+          </p>
+        )}
 
         {/* Bottoni */}
         <div className="flex justify-end gap-2 pt-1">
@@ -926,6 +940,7 @@ export function SnippetsTab({
   const [showForm, setShowForm] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{
     id: number;
@@ -937,15 +952,24 @@ export function SnippetsTab({
     data: Omit<SiteSnippet, "id" | "createdAt" | "updatedAt">,
   ) {
     setFormLoading(true);
-    if (editTarget) {
-      await updateSnippetAction(editTarget.id, data);
-    } else {
-      await createSnippetAction(data);
+    setFormError(null);
+    try {
+      if (editTarget) {
+        await updateSnippetAction(editTarget.id, data);
+      } else {
+        await createSnippetAction(data);
+      }
+      setShowForm(false);
+      setEditTarget(null);
+      startTransition(() => router.refresh());
+    } catch (err) {
+      // Causa più frequente in dev: la migration 0042 non è stata ancora
+      // applicata e la colonna cookie_service_id non esiste. Mostriamo
+      // l'errore inline invece di lasciare il modal in spinner infinito.
+      setFormError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setFormLoading(false);
     }
-    setFormLoading(false);
-    setShowForm(false);
-    setEditTarget(null);
-    startTransition(() => router.refresh());
   }
 
   async function handlePresetPick(
@@ -1175,8 +1199,10 @@ export function SnippetsTab({
           onCancel={() => {
             setShowForm(false);
             setEditTarget(null);
+            setFormError(null);
           }}
           loading={formLoading}
+          error={formError}
         />
       )}
 

@@ -44,9 +44,14 @@ async function requireGdprAdmin(): Promise<{ ok: true } | { error: string }> {
 
 function revalidateCookiesAdmin() {
   revalidatePath(getAdminPath("compliance-cookies"));
-  // Il banner pubblico riceve la lista servizi via prop dal RootLayout:
-  // invalidare il layout root forza il refetch al prossimo render.
-  revalidatePath("/", "layout");
+  // Il banner pubblico riceve la lista servizi via prop dal RootLayout.
+  // La cache module-level (`getCookieRegistry`) è già stata invalidata
+  // dalle CRUD helper qui sopra, ma il render del RootLayout non rilegge
+  // finché non invalidiamo il path. Qui invalidiamo solo la home pubblica
+  // — basta a triggerare il refetch al prossimo navigate da quella route.
+  // NB: invalidare "/", "layout" sarebbe troppo aggressivo (rebuild di
+  // tutto l'admin in dev mode → percepito come freeze del browser).
+  revalidatePath("/");
 }
 
 export async function saveCookieSettingsAction(
