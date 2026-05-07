@@ -23,11 +23,22 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     ? new Set<string>(["__superadmin__"])
     : await getUserPermissions(user);
 
-  await runGeneratorsThrottled();
-  const [bell, navOrder] = await Promise.all([
-    getInitialBellData(userPermissions),
-    getNavOrderOverrides(),
-  ]);
+  // Build-time short-circuit (vedi commento equivalente in admin/layout.tsx)
+  const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+  if (!isBuild) {
+    await runGeneratorsThrottled();
+  }
+  const [bell, navOrder] = isBuild
+    ? [
+        { notifications: [], unreadCount: 0 } as Awaited<
+          ReturnType<typeof getInitialBellData>
+        >,
+        {} as Awaited<ReturnType<typeof getNavOrderOverrides>>,
+      ]
+    : await Promise.all([
+        getInitialBellData(userPermissions),
+        getNavOrderOverrides(),
+      ]);
 
   return (
     <AdminShellClient
