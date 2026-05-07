@@ -3,10 +3,17 @@ import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
-import { getServicesForBanner } from "@/lib/db/cookie-services-queries";
+import {
+  buildServiceCategoryMap,
+  getCookieRegistry,
+  getServicesForBanner,
+} from "@/lib/db/cookie-services-queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { getActiveSnippets } from "@/lib/db/snippets-queries";
+import {
+  filterSnippetsByConsent,
+  getActiveSnippets,
+} from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { Analytics } from "@vercel/analytics/next";
@@ -150,6 +157,7 @@ export default async function RootLayout({
     systemPageSlugs,
     messages,
     cookieServices,
+    cookieRegistry,
   ] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
@@ -159,10 +167,27 @@ export default async function RootLayout({
     // Cache 10min module-level (vedi cookie-services-queries): 1 query per
     // istanza Vercel ogni 10min anche con migliaia di visitatori al minuto.
     getServicesForBanner(lang),
+    // Stessa cache 10min: serve solo per la mappa serviceId → categoryId
+    // usata sotto per filtrare gli snippet in base al consenso.
+    getCookieRegistry(),
   ]);
 
-  const headSnippets = allSnippets.filter((s) => s.position === "head");
-  const bodySnippets = allSnippets.filter((s) => s.position === "body_end");
+  const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
+
+  // Filtro consent-aware: gli snippet con `cookieServiceId` valorizzato
+  // vengono caricati solo se l'utente ha acconsentito alla categoria
+  // del servizio collegato. Gli snippet senza link cookie restano
+  // always-on (comportamento legacy preservato).
+  const serviceCategoryMap = buildServiceCategoryMap(cookieRegistry);
+  const consentedSnippets = filterSnippetsByConsent(
+    allSnippets,
+    cookieConsent.prefs,
+    serviceCategoryMap,
+    cookieBannerEnabled,
+  );
+
+  const headSnippets = consentedSnippets.filter((s) => s.position === "head");
+  const bodySnippets = consentedSnippets.filter((s) => s.position === "body_end");
 
   const isMaintenance =
     settings.maintenance_mode === "true" && !isAdminRoute;
@@ -173,7 +198,6 @@ export default async function RootLayout({
   // e di conseguenza i cookie non-tecnici (analytics inclusi) restano OFF
   // perché manca un consenso esplicito. Decisione consapevole: meglio
   // non tracciare che tracciare senza base legale.
-  const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
   const showCookieBanner =
     !isAdminRoute && !isMaintenance && cookieBannerEnabled && !cookieConsent.hasDecision;
   const analyticsAllowed = cookieBannerEnabled && cookieConsent.prefs.analytics;

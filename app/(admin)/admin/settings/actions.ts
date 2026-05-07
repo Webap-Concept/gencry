@@ -4,6 +4,7 @@ import { getAdminPath } from "@/lib/admin-nav";
 import { invalidateBlockedUsernamesCache } from "@/lib/auth/blocked-usernames";
 import { invalidateDisposableDomainsCache } from "@/lib/auth/disposable-domains";
 import { addUsernameToBloom } from "@/lib/bloom/bloom-filter";
+import { invalidateSnippetCountCache } from "@/lib/db/cookie-services-queries";
 import { getUser } from "@/lib/db/queries";
 import { db } from "@/lib/db/drizzle";
 import type { SiteSnippet } from "@/lib/db/schema";
@@ -497,7 +498,13 @@ export const saveModeSettingsAction = saveModeSettings;
 export const saveUsersSettingsAction = saveUsersSettings;
 
 function invalidateSnippets() {
+  // Invalidare il root layout: forza il refetch di getActiveSnippets al
+  // prossimo render (sia in admin che nel frontend pubblico).
   revalidatePath("/", "layout");
+  // Il count "snippet collegati per servizio" mostrato in
+  // /admin/compliance/cookies è cached 60s in memoria → invalida ora
+  // così il badge si aggiorna immediatamente alla prossima visita admin.
+  invalidateSnippetCountCache();
 }
 
 export async function createSnippetAction(
@@ -505,6 +512,7 @@ export async function createSnippetAction(
 ) {
   await db.insert(siteSnippets).values({
     ...data,
+    cookieServiceId: data.cookieServiceId || null,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -517,7 +525,11 @@ export async function updateSnippetAction(
 ) {
   await db
     .update(siteSnippets)
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+      ...data,
+      cookieServiceId: data.cookieServiceId || null,
+      updatedAt: new Date(),
+    })
     .where(eq(siteSnippets.id, id));
   invalidateSnippets();
 }

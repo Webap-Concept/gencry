@@ -3,12 +3,13 @@ import {
   cookieCategories,
   cookieServices,
   cookieServiceTranslations,
+  siteSnippets,
   type CookieCategory,
   type CookieService,
   type CookieServiceTranslation,
 } from "@/lib/db/schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 /**
  * Vista pubblica del registry: servizio con nome+description già risolti
@@ -113,6 +114,7 @@ export type UpsertCookieServiceData = {
   providerPolicyUrl?: string | null;
   sortOrder?: number;
   enabled?: boolean;
+  requiresSnippet?: boolean;
 };
 
 export async function insertCookieService(
@@ -125,6 +127,7 @@ export async function insertCookieService(
     firstParty: data.firstParty ?? false,
     provider: data.provider ?? null,
     providerPolicyUrl: data.providerPolicyUrl ?? null,
+    requiresSnippet: data.requiresSnippet ?? true,
     sortOrder: data.sortOrder ?? 0,
     isSystem: false,
   });
@@ -146,6 +149,9 @@ export async function updateCookieService(
       }),
       ...(patch.sortOrder !== undefined && { sortOrder: patch.sortOrder }),
       ...(patch.enabled !== undefined && { enabled: patch.enabled }),
+      ...(patch.requiresSnippet !== undefined && {
+        requiresSnippet: patch.requiresSnippet,
+      }),
       updatedAt: new Date(),
     })
     .where(eq(cookieServices.id, id));
@@ -284,4 +290,62 @@ export async function getServicesForBanner(
     out[shortKey] = services.map(toServiceForBanner);
   }
   return out;
+}
+
+// ── Snippet ↔ Service link ────────────────────────────────────────────────
+//
+// Il count viene usato dall'admin /admin/compliance/cookies per mostrare
+// se un servizio "richiede snippet" ha effettivamente uno (o più) snippet
+// collegati. Conta SIA attivi che inattivi: un admin che ha lo snippet
+// disattivato sa che esiste e può riattivarlo, non vogliamo dirgli "manca".
+//
+// Cache breve (60s) — il dato cambia solo quando l'admin tocca snippets
+// o cookies, e in quei casi le action invalidano `revalidatePath("/", "layout")`
+// che invalida l'intera UI admin al prossimo navigate.
+
+let _snippetCountCache: Record<string, number> | null = null;
+let _snippetCountAt = 0;
+const SNIPPET_COUNT_TTL_MS = 60_000;
+
+export function invalidateSnippetCountCache(): void {
+  _snippetCountCache = null;
+  _snippetCountAt = 0;
+}
+
+/**
+ * Mappa serviceId → numero di snippet collegati (qualsiasi stato).
+ * I servizi senza snippet collegati semplicemente non compaiono nel record.
+ */
+export async function getSnippetCountByService(): Promise<Record<string, number>> {
+  if (_snippetCountCache && Date.now() - _snippetCountAt < SNIPPET_COUNT_TTL_MS) {
+    return _snippetCountCache;
+  }
+  const rows = await db
+    .select({
+      serviceId: siteSnippets.cookieServiceId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(siteSnippets)
+    .where(isNotNull(siteSnippets.cookieServiceId))
+    .groupBy(siteSnippets.cookieServiceId);
+
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.serviceId) out[r.serviceId] = Number(r.count) || 0;
+  }
+  _snippetCountCache = out;
+  _snippetCountAt = Date.now();
+  return out;
+}
+
+/**
+ * Mappa serviceId → categoryId, derivata dal registry. Usata dal layout
+ * runtime per filtrare snippet in base al consenso senza una seconda query.
+ */
+export function buildServiceCategoryMap(
+  registry: CookieRegistry,
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const s of registry.services) m.set(s.id, s.categoryId);
+  return m;
 }

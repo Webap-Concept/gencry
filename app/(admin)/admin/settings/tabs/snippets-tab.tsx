@@ -9,6 +9,7 @@ import type {
 import {
   ChevronRight,
   Code2,
+  Cookie,
   ExternalLink,
   FileCode2,
   Globe,
@@ -16,11 +17,13 @@ import {
   Pencil,
   Plus,
   Save,
+  ShieldCheck,
   Trash2,
   Wand2,
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import {
@@ -29,6 +32,22 @@ import {
   toggleSnippetAction,
   updateSnippetAction,
 } from "../actions";
+
+export type CookieServiceOption = {
+  id: string;
+  name: string;
+  categoryId: string;
+};
+
+const CATEGORY_SHORT_KEYS: Record<
+  string,
+  "necessary" | "preferences" | "analytics" | "marketing"
+> = {
+  cookie_necessary: "necessary",
+  cookie_preferences: "preferences",
+  cookie_analytics: "analytics",
+  cookie_marketing: "marketing",
+};
 
 // ---------------------------------------------------------------------------
 // Costanti UI (puramente strutturali — i label sono i18n)
@@ -412,11 +431,13 @@ function PresetPicker({
 // ---------------------------------------------------------------------------
 function SnippetForm({
   initial,
+  cookieServices,
   onSave,
   onCancel,
   loading,
 }: {
   initial?: Partial<SiteSnippet>;
+  cookieServices: CookieServiceOption[];
   onSave: (data: Omit<SiteSnippet, "id" | "createdAt" | "updatedAt">) => void;
   onCancel: () => void;
   loading: boolean;
@@ -432,6 +453,9 @@ function SnippetForm({
   );
   const [content, setContent] = useState(initial?.content ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+  const [cookieServiceId, setCookieServiceId] = useState<string>(
+    initial?.cookieServiceId ?? "",
+  );
 
   const isUrl = type === "link_css" || type === "script_src";
 
@@ -445,6 +469,7 @@ function SnippetForm({
       content,
       isActive,
       sortOrder: initial?.sortOrder ?? 0,
+      cookieServiceId: cookieServiceId || null,
     });
   }
 
@@ -607,6 +632,27 @@ function SnippetForm({
           </span>
         </div>
 
+        {/* Cookie service link — gating consent-aware */}
+        <div>
+          <label style={labelStyle}>{t("cookieServiceLabel")}</label>
+          <select
+            value={cookieServiceId}
+            onChange={(e) => setCookieServiceId(e.target.value)}
+            style={fieldStyle}>
+            <option value="">{t("cookieServiceNone")}</option>
+            {cookieServices.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.id})
+              </option>
+            ))}
+          </select>
+          <p
+            className="text-[11px] mt-1"
+            style={{ color: "var(--admin-text-faint)" }}>
+            {cookieServiceId ? t("cookieServiceHintLinked") : t("cookieServiceHintNone")}
+          </p>
+        </div>
+
         {/* Bottoni */}
         <div className="flex justify-end gap-2 pt-1">
           <button
@@ -642,12 +688,14 @@ function SnippetForm({
 // ---------------------------------------------------------------------------
 function SnippetRow({
   snippet,
+  cookieServices,
   onEdit,
   onDelete,
   onToggle,
   pendingId,
 }: {
   snippet: SiteSnippet;
+  cookieServices: CookieServiceOption[];
   onEdit: (s: SiteSnippet) => void;
   onDelete: (id: number) => void;
   onToggle: (id: number, current: boolean) => void;
@@ -656,6 +704,7 @@ function SnippetRow({
   const t = useTranslations("admin.settings.snippets");
   const tType = useTranslations("admin.settings.snippets.types");
   const tPosition = useTranslations("admin.settings.snippets.positions");
+  const tCat = useTranslations("public.cookieModal");
   const isPending = pendingId === snippet.id;
   const type = snippet.type as SnippetType;
   const position = snippet.position as SnippetPosition;
@@ -663,6 +712,20 @@ function SnippetRow({
     snippet.content.length > 60
       ? snippet.content.slice(0, 60) + "…"
       : snippet.content;
+
+  // Risolvi il cookie service collegato (se c'è) per mostrare il badge consenso.
+  const linkedService = snippet.cookieServiceId
+    ? cookieServices.find((s) => s.id === snippet.cookieServiceId)
+    : null;
+  // Snippet linkato a un servizio cancellato (FK SET NULL non scatta finché
+  // il record esiste; ma se l'admin ha cancellato il servizio l'option non
+  // c'è più nella lista). Mostra warning per dare visibilità all'orfano.
+  const linkOrphan =
+    snippet.cookieServiceId !== null && snippet.cookieServiceId !== undefined && !linkedService;
+  const categoryShort = linkedService
+    ? CATEGORY_SHORT_KEYS[linkedService.categoryId]
+    : null;
+  const categoryLabel = categoryShort ? tCat(`categories.${categoryShort}.label`) : null;
 
   return (
     <div
@@ -718,6 +781,49 @@ function SnippetRow({
               className="text-xs"
               style={{ color: "var(--admin-text-faint)" }}>
               {t("rowInactiveBadge")}
+            </span>
+          )}
+          {linkedService && categoryLabel && (
+            <Link
+              href="/admin/compliance/cookies"
+              title={t("rowConsentBadgeTooltip", {
+                service: linkedService.name,
+                category: categoryLabel,
+              })}
+              className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full hover:underline"
+              style={{
+                background: "color-mix(in srgb, #10b981 12%, var(--admin-card-bg))",
+                color: "#10b981",
+                border: "1px solid color-mix(in srgb, #10b981 25%, transparent)",
+              }}>
+              <ShieldCheck size={11} />
+              {categoryLabel}
+            </Link>
+          )}
+          {linkOrphan && (
+            <Link
+              href="/admin/compliance/cookies"
+              title={t("rowConsentOrphanTooltip")}
+              className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full hover:underline"
+              style={{
+                background: "color-mix(in srgb, #f59e0b 12%, var(--admin-card-bg))",
+                color: "#f59e0b",
+                border: "1px solid color-mix(in srgb, #f59e0b 25%, transparent)",
+              }}>
+              <Cookie size={11} />
+              {t("rowConsentOrphanBadge")}
+            </Link>
+          )}
+          {!snippet.cookieServiceId && (
+            <span
+              title={t("rowAlwaysOnTooltip")}
+              className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full"
+              style={{
+                background: "color-mix(in srgb, var(--admin-text-faint) 10%, var(--admin-card-bg))",
+                color: "var(--admin-text-muted)",
+                border: "1px solid color-mix(in srgb, var(--admin-text-faint) 18%, transparent)",
+              }}>
+              {t("rowAlwaysOnBadge")}
             </span>
           )}
         </div>
@@ -807,8 +913,10 @@ function SnippetRow({
 // ---------------------------------------------------------------------------
 export function SnippetsTab({
   initialSnippets,
+  cookieServices,
 }: {
   initialSnippets: SiteSnippet[];
+  cookieServices: CookieServiceOption[];
 }) {
   const t = useTranslations("admin.settings.snippets");
   const router = useRouter();
@@ -856,6 +964,7 @@ export function SnippetsTab({
         content,
         isActive: true,
         sortOrder: 0,
+        cookieServiceId: null,
       });
     }
     setFormLoading(false);
@@ -975,6 +1084,7 @@ export function SnippetsTab({
               <SnippetRow
                 key={s.id}
                 snippet={s}
+                cookieServices={cookieServices}
                 onEdit={(s) => {
                   setEditTarget(s);
                   setShowForm(true);
@@ -997,6 +1107,7 @@ export function SnippetsTab({
               <SnippetRow
                 key={s.id}
                 snippet={s}
+                cookieServices={cookieServices}
                 onEdit={(s) => {
                   setEditTarget(s);
                   setShowForm(true);
@@ -1059,6 +1170,7 @@ export function SnippetsTab({
       {showForm && (
         <SnippetForm
           initial={editTarget ?? undefined}
+          cookieServices={cookieServices}
           onSave={handleSave}
           onCancel={() => {
             setShowForm(false);

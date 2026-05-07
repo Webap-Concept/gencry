@@ -443,6 +443,11 @@
       "rowDeactivateTitle": "Deactivate",
       "rowEditTitle": "Edit",
       "rowDeleteTitle": "Delete",
+      "rowAlwaysOnBadge": "Always on",
+      "rowAlwaysOnTooltip": "Not linked to a cookie service — loads on every page regardless of consent.",
+      "rowConsentBadgeTooltip": "Linked to {service} ({category}) — loads only when the user accepts this category.",
+      "rowConsentOrphanBadge": "Orphan link",
+      "rowConsentOrphanTooltip": "This snippet is linked to a cookie service that no longer exists. Re-link it or remove the link to fall back to always-on.",
       "types": {
         "linkCss": "External CSS (link)",
         "style": "Inline CSS (style)",
@@ -465,6 +470,10 @@
         "contentLabel": "Code",
         "activeOn": "Active — will be injected on the frontend",
         "activeOff": "Inactive — saved but not injected",
+        "cookieServiceLabel": "Cookie service (consent gating)",
+        "cookieServiceNone": "— None (always on) —",
+        "cookieServiceHintNone": "This snippet loads on every page, regardless of cookie consent. Use this only for technical scripts (no tracking).",
+        "cookieServiceHintLinked": "This snippet will load only after the user accepts the category of the linked service.",
         "cancelButton": "Cancel",
         "saveButton": "Save",
         "savingButton": "Saving…"
@@ -1992,11 +2001,19 @@
         "fieldSortOrder": "Sort order",
         "fieldEnabled": "Enabled",
         "fieldFirstParty": "First-party (set by us)",
+        "fieldRequiresSnippet": "Requires snippet",
+        "fieldRequiresSnippetHint": "Turn ON if this service needs a script in /admin/settings/snippets to actually load. Turn OFF for technical cookies and hardcoded scripts (Vercel Analytics).",
         "fieldProvider": "Provider",
         "fieldProviderPolicyUrl": "Provider privacy policy URL",
         "fieldName": "Name",
         "fieldDescription": "Description",
         "fieldDescriptionPlaceholder": "Short user-facing description shown in the cookie banner."
+      },
+      "snippetStatus": {
+        "configuredBadge": "Snippet ✓ ({count})",
+        "configuredTooltip": "{count} snippet(s) linked to this service in /admin/settings/snippets — the script loads when the user accepts this category.",
+        "missingBadge": "Snippet missing",
+        "missingTooltip": "This service is declared but no snippet in /admin/settings/snippets is linked to it — the cookie is documented in the banner but no script is actually loaded. Click to fix."
       },
       "servicesErrors": {
         "errorIdRequired": "Service ID is required",

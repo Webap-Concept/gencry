@@ -482,6 +482,13 @@ export const siteSnippets = pgTable("site_snippets", {
   content: text("content").notNull().default(""),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  // FK opzionale al servizio cookie. Se valorizzato, lo snippet viene
+  // caricato in pagina solo quando l'utente ha acconsentito alla categoria
+  // del servizio collegato. Se NULL → snippet "always-on" (es. consent
+  // banner script, cookie tecnici, snippet senza cookie).
+  // ON DELETE SET NULL: cancellando il servizio lo snippet diventa
+  // always-on senza spegnersi (ce ne accorgiamo dal badge admin).
+  cookieServiceId: varchar("cookie_service_id", { length: 100 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -760,6 +767,16 @@ export const cookieServices = pgTable("cookie_services", {
   /** Provider (es. "Vercel Inc.", "Google LLC"). Vuoto per first-party. */
   provider: varchar("provider", { length: 200 }),
   providerPolicyUrl: text("provider_policy_url"),
+  /**
+   * Vero se il servizio richiede uno snippet user-managed in
+   * /admin/settings/snippets per caricare effettivamente lo script.
+   * False per cookie tecnici (session, csrf...) e per script
+   * hardcoded nel codice (Vercel Analytics gated direttamente in
+   * app/layout.tsx). Quando true, l'admin /admin/compliance/cookies
+   * mostra un badge che indica se uno snippet collegato esiste già
+   * o no — così non serve ricordarsi di fare i due step.
+   */
+  requiresSnippet: boolean("requires_snippet").notNull().default(true),
   /** I servizi seed di sistema (session/csrf/cookie_consent/vercel_analytics)
    *  sono `is_system=true` → non eliminabili dall'admin (toggle sì). */
   isSystem: boolean("is_system").notNull().default(false),

@@ -8,8 +8,10 @@ import type {
 } from "@/lib/db/schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import {
+  AlertTriangle,
   Building2,
   Check,
+  CheckCircle2,
   ExternalLink,
   Globe,
   Lock,
@@ -19,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { Fragment, useActionState, useEffect, useState, useTransition } from "react";
 import {
   deleteCookieServiceAction,
@@ -55,10 +58,13 @@ export function CookieServicesManager({
   registry,
   locales,
   bannerEnabled,
+  snippetCounts,
 }: {
   registry: Registry;
   locales: LocaleOption[];
   bannerEnabled: boolean;
+  /** serviceId → numero di snippet collegati (qualsiasi stato). */
+  snippetCounts: Record<string, number>;
 }) {
   const t = useTranslations("admin.compliance.cookies");
   const tCat = useTranslations("public.cookieModal");
@@ -162,6 +168,7 @@ export function CookieServicesManager({
               description={categoryDescription(cat.id)}
               tr={tr}
               togglingId={togglingId}
+              snippetCounts={snippetCounts}
               onToggle={handleToggle}
               onAddService={() => setModalMode({ kind: "add", categoryId: cat.id })}
               onEditService={(s) => setModalMode({ kind: "edit", service: s })}
@@ -194,6 +201,7 @@ function CategoryCard({
   description,
   tr,
   togglingId,
+  snippetCounts,
   onToggle,
   onAddService,
   onEditService,
@@ -206,6 +214,7 @@ function CategoryCard({
   description: string;
   tr: (serviceId: string, locale: string) => CookieServiceTranslation | undefined;
   togglingId: string | null;
+  snippetCounts: Record<string, number>;
   onToggle: (s: CookieService, next: boolean) => void;
   onAddService: () => void;
   onEditService: (s: CookieService) => void;
@@ -319,6 +328,10 @@ function CategoryCard({
                         <Lock size={10} /> {t("services.systemBadge")}
                       </span>
                     )}
+                    <SnippetStatusBadge
+                      requiresSnippet={s.requiresSnippet}
+                      count={snippetCounts[s.id] ?? 0}
+                    />
                   </div>
                   {displayDesc && (
                     <p className="text-[11.5px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
@@ -387,6 +400,47 @@ function CategoryCard({
         </ul>
       )}
     </div>
+  );
+}
+
+// ─── SnippetStatusBadge ──────────────────────────────────────────────────────
+//
+// Sintetizza in un badge il legame fra il servizio cookie e gli eventuali
+// snippet configurati in /admin/settings/snippets:
+//   - requiresSnippet=false → "N/A": il servizio non ha bisogno di uno
+//     snippet (es. cookie tecnici, script hardcoded come Vercel Analytics).
+//     Niente badge per non rumoreggiare l'UI.
+//   - requiresSnippet=true && count===0 → giallo "Snippet missing":
+//     l'admin ha dichiarato il cookie ma nessun script lo carica davvero.
+//   - requiresSnippet=true && count>0 → verde "Snippet configured (N)":
+//     pronto, lo snippet è collegato e verrà caricato col consenso.
+
+function SnippetStatusBadge({
+  requiresSnippet,
+  count,
+}: {
+  requiresSnippet: boolean;
+  count: number;
+}) {
+  const t = useTranslations("admin.compliance.cookies.snippetStatus");
+  if (!requiresSnippet) return null;
+  if (count === 0) {
+    return (
+      <Link
+        href="/admin/settings/snippets"
+        title={t("missingTooltip")}
+        className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:underline">
+        <AlertTriangle size={10} /> {t("missingBadge")}
+      </Link>
+    );
+  }
+  return (
+    <Link
+      href="/admin/settings/snippets"
+      title={t("configuredTooltip", { count })}
+      className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 hover:underline">
+      <CheckCircle2 size={10} /> {t("configuredBadge", { count })}
+    </Link>
   );
 }
 
@@ -466,6 +520,11 @@ function ServiceModal({
   const [providerPolicyUrl, setProviderPolicyUrl] = useState(
     isEdit ? editing!.providerPolicyUrl ?? "" : "",
   );
+  // Default true: il caso comune è "ho aggiunto un tracker third-party,
+  // mi serve uno snippet per caricarlo". Solo i system/hardcoded sono false.
+  const [requiresSnippet, setRequiresSnippet] = useState(
+    isEdit ? editing!.requiresSnippet : true,
+  );
   const [sortOrder, setSortOrder] = useState(String(isEdit ? editing!.sortOrder : 0));
   const [idNew, setIdNew] = useState("");
 
@@ -521,6 +580,11 @@ function ServiceModal({
           {isEdit && <input type="hidden" name="id" value={editing!.id} />}
           <input type="hidden" name="enabled" value={enabled ? "true" : "false"} />
           <input type="hidden" name="firstParty" value={firstParty ? "true" : "false"} />
+          <input
+            type="hidden"
+            name="requiresSnippet"
+            value={requiresSnippet ? "true" : "false"}
+          />
           {/* Hidden inputs traduzioni — pattern uguale a page-editor */}
           {locales.map((loc) => (
             <Fragment key={loc.code}>
@@ -638,6 +702,17 @@ function ServiceModal({
                 ariaLabel={t("services.fieldFirstParty")}
               />
               {t("services.fieldFirstParty")}
+            </label>
+            <label
+              className="inline-flex items-center gap-2 text-sm"
+              style={{ color: "var(--admin-text)" }}
+              title={t("services.fieldRequiresSnippetHint")}>
+              <ToggleSwitch
+                checked={requiresSnippet}
+                onChange={setRequiresSnippet}
+                ariaLabel={t("services.fieldRequiresSnippet")}
+              />
+              {t("services.fieldRequiresSnippet")}
             </label>
           </div>
 

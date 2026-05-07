@@ -1,6 +1,9 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
-import { getCookieRegistry } from "@/lib/db/cookie-services-queries";
+import {
+  getCookieRegistry,
+  getSnippetCountByService,
+} from "@/lib/db/cookie-services-queries";
 import { getEnabledLocales, getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
@@ -26,11 +29,12 @@ export const dynamic = "force-dynamic";
 export default async function CookiesCompliancePage() {
   const t = await getTranslations("admin.compliance");
   const tC = await getTranslations("admin.compliance.cookies");
-  const [settings, slugs, registry, locales] = await Promise.all([
+  const [settings, slugs, registry, locales, snippetCounts] = await Promise.all([
     getAppSettings(),
     getSystemPageSlugs(),
     getCookieRegistry(),
     getEnabledLocales(),
+    getSnippetCountByService(),
   ]);
 
   const enabled = settings["gdpr.cookie_banner.enabled"] === "true";
@@ -90,6 +94,7 @@ export default async function CookiesCompliancePage() {
           registry={registry}
           locales={locales.map((l) => ({ code: l.code, nativeLabel: l.nativeLabel }))}
           bannerEnabled={enabled}
+          snippetCounts={snippetCounts}
         />
       </section>
     </div>
