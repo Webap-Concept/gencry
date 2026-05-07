@@ -3,9 +3,12 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { generatePageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { Login } from "../login";
 
 export async function generateMetadata(): Promise<Metadata> {
+  // Opt-in dynamic — vedi commento equivalente in sign-in/page.tsx.
+  await connection();
   return generatePageMetadata("/sign-up");
 }
 
