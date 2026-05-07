@@ -1,6 +1,10 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
+import {
+  checkSupabaseConnection,
+  type SupabaseError,
+} from "@/lib/admin/supabase/management";
 import { batchUpdateAppSettings, type AppSettings } from "@/lib/db/settings-queries";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { can } from "@/lib/rbac/can";
@@ -14,6 +18,13 @@ export type ActionState =
 
 const IP_STRATEGIES = new Set(["full", "mask_last_octet", "hash_only"]);
 const BACKUP_TIERS = new Set(["none", "supabase_pitr", "external"]);
+const BACKUP_FREQUENCIES = new Set([
+  "hourly",
+  "daily",
+  "weekly",
+  "monthly",
+  "custom",
+]);
 
 function clampInt(
   raw: FormDataEntryValue | null,
@@ -57,6 +68,32 @@ export async function saveGdprSettingsAction(
     const notesRaw = (formData.get("gdpr.backup.notes") as string | null) ?? "";
     const notes = notesRaw.trim().slice(0, 2000);
 
+    // External backup — campi strutturati. Salvati anche se l'admin
+    // ha un tier diverso, così switching back/forth non perde i dati.
+    const extProvider = ((formData.get("gdpr.backup.external.provider") as string | null) ?? "").trim().slice(0, 200);
+    const extFrequency = readEnum(
+      formData.get("gdpr.backup.external.frequency"),
+      BACKUP_FREQUENCIES,
+      "daily",
+    );
+    const extRetention = clampInt(
+      formData.get("gdpr.backup.external.retention_days"),
+      0,
+      36500,
+      30,
+    );
+    const extLastVerifiedAtRaw =
+      ((formData.get("gdpr.backup.external.last_verified_at") as string | null) ?? "").trim();
+    // Accetta solo formato YYYY-MM-DD (input type="date") per evitare schifezze
+    const extLastVerifiedAt = /^\d{4}-\d{2}-\d{2}$/.test(extLastVerifiedAtRaw)
+      ? extLastVerifiedAtRaw
+      : null;
+    const extLastVerifiedBy =
+      ((formData.get("gdpr.backup.external.last_verified_by") as string | null) ?? "").trim().slice(0, 200);
+    const extRecoveryNotesRaw =
+      ((formData.get("gdpr.backup.external.recovery_test_notes") as string | null) ?? "").trim();
+    const extRecoveryNotes = extRecoveryNotesRaw.slice(0, 2000);
+
     const updates: Partial<Record<keyof AppSettings, string | null>> = {
       // Consent logging
       "gdpr.consent_log.enabled": readBool(
@@ -89,6 +126,13 @@ export async function saveGdprSettingsAction(
         "none",
       ),
       "gdpr.backup.notes": notes.length > 0 ? notes : null,
+      // External structured fields (sopravvivono al cambio tier)
+      "gdpr.backup.external.provider": extProvider || null,
+      "gdpr.backup.external.frequency": extFrequency,
+      "gdpr.backup.external.retention_days": extRetention,
+      "gdpr.backup.external.last_verified_at": extLastVerifiedAt,
+      "gdpr.backup.external.last_verified_by": extLastVerifiedBy || null,
+      "gdpr.backup.external.recovery_test_notes": extRecoveryNotes || null,
       // Lifecycle
       "gdpr.deletion.grace_days": clampInt(
         formData.get("gdpr.deletion.grace_days"),
@@ -126,5 +170,66 @@ export async function saveGdprSettingsAction(
     return { success: t("feedbackSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("feedbackError"), timestamp: Date.now() };
+  }
+}
+
+// ─── PITR verification ──────────────────────────────────────────────────────
+//
+// Chiamata on-demand dal bottone "Verify PITR now" nella sezione Backup.
+// Hits the Supabase Management API → ottiene il tier corrente del progetto
+// e lo persiste in `gdpr.backup.pitr.last_verified_*` per audit.
+// Niente automatic polling: l'admin sceglie quando rinfrescare il check.
+
+const PITR_TIERS = new Set(["pro", "team", "enterprise"]);
+
+export async function verifyPitrAction(): Promise<ActionState> {
+  const t = await getTranslations("admin.compliance.gdpr.settings");
+  try {
+    const user = await requireAdmin();
+    if (!user.isAdmin && !(await can(user, "admin:gdpr"))) {
+      return { error: t("errorNotAuthorized"), timestamp: Date.now() };
+    }
+
+    const result = await checkSupabaseConnection();
+    if (!result.ok) {
+      const map: Record<SupabaseError, string> = {
+        credentials_missing: "pitrErrorCredentialsMissing",
+        invalid_token: "pitrErrorInvalidToken",
+        forbidden: "pitrErrorForbidden",
+        project_not_found: "pitrErrorProjectNotFound",
+        network_error: "pitrErrorNetworkFailed",
+        unexpected_response: "pitrErrorUnexpectedResponse",
+      };
+      return {
+        error: t(map[result.error] as Parameters<typeof t>[0]),
+        timestamp: Date.now(),
+      };
+    }
+
+    // Persistiamo il timestamp E il tier osservato — anche `free` o
+    // `unknown`. La UI decide se è verde o rosso in base al tier.
+    await batchUpdateAppSettings({
+      "gdpr.backup.pitr.last_verified_at": new Date().toISOString(),
+      "gdpr.backup.pitr.last_verified_tier": result.project.tier,
+    });
+
+    revalidatePath(getAdminPath("compliance-gdpr"));
+
+    if (PITR_TIERS.has(result.project.tier)) {
+      return {
+        success: t("pitrVerifiedSupported", {
+          tier: result.project.tier.toUpperCase(),
+        }),
+        timestamp: Date.now(),
+      };
+    }
+    return {
+      error: t("pitrVerifiedUnsupported", {
+        tier: result.project.tier.toUpperCase(),
+      }),
+      timestamp: Date.now(),
+    };
+  } catch {
+    return { error: t("pitrErrorNetworkFailed"), timestamp: Date.now() };
   }
 }
