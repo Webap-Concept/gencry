@@ -6,12 +6,8 @@ import { AlertTriangle, Loader2, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
-import {
-  MFA_MODES,
-  saveMfaSettings,
-  type ActionState,
-  type MfaMode,
-} from "../actions";
+import { saveMfaSettings, type ActionState } from "../actions";
+import { MFA_MODES, type MfaMode } from "./mfa-modes";
 
 interface MfaFormProps {
   initial: {

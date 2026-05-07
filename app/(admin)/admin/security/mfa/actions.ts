@@ -5,25 +5,20 @@ import { db } from "@/lib/db/drizzle";
 import { userMfaTotp } from "@/lib/db/schema";
 import { count, isNotNull } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
+import { isMfaMode } from "./_components/mfa-modes";
+
+// File con `"use server"`: tutti gli export devono essere async functions.
+// Costanti / type / arrays vivono in `_components/mfa-modes.ts`.
+//
+// `ActionState` è un type (zero runtime cost), va bene esportarlo qui.
 
 export type ActionState =
   | Record<string, never>
   | { success: string; timestamp: number }
   | { error: string; timestamp: number };
 
-export const MFA_MODES = [
-  "optional",
-  "required-for-staff",
-  "required-for-all",
-] as const;
-export type MfaMode = (typeof MFA_MODES)[number];
-
 const GRACE_MIN = 0;
 const GRACE_MAX = 90;
-
-function isMfaMode(v: string): v is MfaMode {
-  return (MFA_MODES as readonly string[]).includes(v);
-}
 
 export async function saveMfaSettings(
   _prev: ActionState,

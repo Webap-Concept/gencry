@@ -7,7 +7,7 @@ import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { MfaForm } from "./_components/mfa-form";
 import { MfaStatsCard } from "./_components/mfa-stats-card";
-import type { MfaMode } from "./actions";
+import type { MfaMode } from "./_components/mfa-modes";
 
 export async function generateMetadata(): Promise<Metadata> {
   await connection();
