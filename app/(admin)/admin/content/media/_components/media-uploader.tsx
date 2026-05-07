@@ -3,6 +3,7 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { Loader2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { uploadMediaAssets, type ActionState } from "../actions";
 import {
@@ -27,6 +28,7 @@ export function MediaUploader({
   currentFolderId: number | null;
 }) {
   const t = useTranslations("admin.content.media.uploader");
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [toast, setToast] = useState<{
@@ -45,11 +47,12 @@ export function MediaUploader({
       setToast({ message: state.success, type: "success" });
       formRef.current?.reset();
       setUploadingCount(0);
+      router.refresh();
     } else if ("error" in state) {
       setToast({ message: state.error, type: "error" });
       setUploadingCount(0);
     }
-  }, [state]);
+  }, [state, router]);
 
   return (
     <>

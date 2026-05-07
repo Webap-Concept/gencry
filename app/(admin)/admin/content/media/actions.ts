@@ -27,8 +27,19 @@ import {
 } from "@/lib/storage/media";
 import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+// NOTE on revalidatePath:
+// In Next 16 dev mode, calling revalidatePath() inside a server action
+// triggers a full route recompile that can hang the response for many
+// seconds (or appear stuck). The client never sees the response and the
+// upload looks frozen. We dropped revalidatePath here entirely; client
+// components call router.refresh() after a successful dispatch, which is
+// instant in dev and equivalent semantics in prod.
+//
+// The one place we still need server-side cache invalidation is the
+// folder delete that redirects when the deleted folder is the active
+// one — there `redirect()` itself causes a re-render of the destination.
 
 export type ActionState =
   | Record<string, never>
@@ -100,8 +111,6 @@ export async function uploadMediaAssets(
       });
       uploaded += 1;
     }
-
-    revalidatePath(getAdminPath("content-media"));
 
     if (uploaded === 0) {
       return {
@@ -175,7 +184,6 @@ export async function deleteMediaAsset(
   await deleteMediaFile(asset.storagePath);
   await deleteAssetById(id);
 
-  revalidatePath(getAdminPath("content-media"));
   return { success: t("deleted"), timestamp: Date.now() };
 }
 
@@ -237,7 +245,6 @@ export async function createMediaFolder(
     return { error: t("folderCreateFailed"), timestamp: Date.now() };
   }
 
-  revalidatePath(getAdminPath("content-media"));
   return { success: t("folderCreated"), timestamp: Date.now() };
 }
 
@@ -271,7 +278,6 @@ export async function renameMediaFolder(
     return { error: t("folderRenameFailed"), timestamp: Date.now() };
   }
 
-  revalidatePath(getAdminPath("content-media"));
   return { success: t("folderRenamed"), timestamp: Date.now() };
 }
 
@@ -307,12 +313,9 @@ export async function deleteMediaFolder(
 
   await deleteFolderById(id);
 
-  revalidatePath(getAdminPath("content-media"));
-
   // Se il client stava navigando proprio dentro questa cartella, l'URL è
   // `?folder=<id>` con id appena cancellato. Senza redirect la pagina
   // rifarebbe `getFolderById(id)` → null → notFound() → 404 nel browser.
-  // Redirige a root dove il toast di success arriverà sul refresh successivo.
   const currentFolderId = parseFolderId(formData.get("currentFolderId"));
   if (currentFolderId === id) {
     redirect(getAdminPath("content-media"));
@@ -353,7 +356,6 @@ export async function moveMediaAsset(
   }
 
   await updateAssetFolder(assetId, folderId);
-  revalidatePath(getAdminPath("content-media"));
   return { success: t("assetMoved"), timestamp: Date.now() };
 }
 
@@ -421,7 +423,6 @@ export async function uploadAndPickAsset(
     uploadedBy: user.id,
   });
 
-  revalidatePath(getAdminPath("content-media"));
   return {
     ok: true,
     asset: {
