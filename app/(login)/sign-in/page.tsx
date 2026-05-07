@@ -18,6 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function SignInContent() {
+  // Opt-in dynamic del rendering. Il connection() in generateMetadata
+  // protegge solo la fase metadata; senza questa qui Next durante
+  // "Generating static pages" prova a risolvere anche il body del
+  // <Suspense> per generare il fallback prerendered, entra in
+  // getAppSettings() e su Vercel timeouta >60s. Vedi build log
+  // 13:25:50 "Failed to build /sign-in/page (attempt 1 of 3)".
+  await connection();
   const settings = await getAppSettings();
   const isMaintenance = settings.maintenance_mode === "true";
   return (
