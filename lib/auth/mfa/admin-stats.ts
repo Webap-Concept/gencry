@@ -17,6 +17,12 @@ import {
   isNotNull,
   isNull,
 } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+
+/** Tag per `revalidateTag()` quando si vuole forzare il ricalcolo delle stats
+ * (es. dopo enroll/disenroll lato admin). Senza revalidate la cache scade
+ * comunque ogni 60s. */
+export const MFA_ADMIN_STATS_TAG = "mfa-admin-stats";
 
 export interface MfaAdminStats {
   /** Utenti con MFA attivo (enabledAt non nullo). */
@@ -47,16 +53,30 @@ const ZERO_STATS: MfaAdminStats = {
 
 /**
  * Aggrega stats MFA per la pagina admin /admin/security/mfa.
- * Tutte le query in parallelo dove possibile.
  *
- * In caso di errore (es. tabella non ancora creata, driver issue) ritorna
- * zero stats invece di throware — la pagina deve restare apribile per
- * permettere all'admin di configurare le policy anche se le metriche
- * non sono disponibili. Errore loggato server-side per debug.
+ * Wrappato con `unstable_cache` (TTL 60s, tag MFA_ADMIN_STATS_TAG):
+ * - 7 count() in parallelo su userMfaTotp/users/activityLogs/mfaRecoveryCodes
+ *   sono lente abbastanza da saturare il connection pool quando l'admin
+ *   ricarica la pagina più volte in pochi secondi (es. cambio lingua,
+ *   click di navigazione consecutivi). Cache 60s = una sola esecuzione
+ *   reale al minuto, le navigazioni successive leggono dal data cache di
+ *   Next senza toccare il DB.
+ * - 60s di staleness sono accettabili per metriche di adoption MFA.
+ *   Per forzare il refresh (es. post-enroll lato admin) chiamare
+ *   `revalidateTag(MFA_ADMIN_STATS_TAG)`.
+ *
+ * In caso di errore (tabella mancante, driver issue) ritorna zero stats
+ * invece di throware — la pagina deve restare apribile per permettere
+ * all'admin di configurare le policy anche se le metriche non ci sono.
  */
+const fetchStatsCached = unstable_cache(fetchStats, ["mfa-admin-stats"], {
+  revalidate: 60,
+  tags: [MFA_ADMIN_STATS_TAG],
+});
+
 export async function getMfaAdminStats(): Promise<MfaAdminStats> {
   try {
-    return await fetchStats();
+    return await fetchStatsCached();
   } catch (err) {
     console.error("[admin/security/mfa] stats query failed:", err);
     return ZERO_STATS;
