@@ -9,7 +9,8 @@ import {
   type NewMediaAsset,
   type NewMediaFolder,
 } from "@/lib/db/schema";
-import { asc, count, desc, eq, isNull } from "drizzle-orm";
+import { pages } from "@/lib/db/schema";
+import { asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 
 export type { MediaAsset, MediaFolder };
 
@@ -183,4 +184,58 @@ export async function updateAssetFolder(
 export async function countAssets(): Promise<number> {
   const rows = await db.select({ id: mediaAssets.id }).from(mediaAssets);
   return rows.length;
+}
+
+/**
+ * Bulk fetch di asset per id. Usato dal CMS resolver per convertire
+ * `media_asset_id` (salvati nei custom fields delle pagine) in URL pubblici
+ * prima di passarli ai template. Mantiene il contratto attuale dei template
+ * `Record<string, string>` con URL.
+ *
+ * Ritorna una mappa assetId → MediaAsset; gli id non trovati sono assenti.
+ */
+export async function getAssetsByIds(
+  ids: number[],
+): Promise<Map<number, MediaAsset>> {
+  const map = new Map<number, MediaAsset>();
+  if (ids.length === 0) return map;
+  const rows = await db
+    .select()
+    .from(mediaAssets)
+    .where(inArray(mediaAssets.id, ids));
+  for (const r of rows) map.set(r.id, r);
+  return map;
+}
+
+/**
+ * Best-effort: scan di tutti i `pages.customFields` (JSON) cercando il valore
+ * `String(assetId)` come value di un qualunque field. Usato dal delete per
+ * bloccare la rimozione di asset referenziati. Niente JSON path queries: i
+ * customFields stanno in `text` e il volume è basso, scan in JS è sufficiente.
+ *
+ * False positive possibili (un text field che contiene la stessa stringa).
+ * Acceptable per warning admin: se il count è > 0 blocchiamo, l'admin
+ * verifica manualmente.
+ */
+export async function countAssetReferences(assetId: number): Promise<number> {
+  const target = String(assetId);
+  const rows = await db
+    .select({ customFields: pages.customFields })
+    .from(pages);
+  let n = 0;
+  for (const row of rows) {
+    if (!row.customFields) continue;
+    try {
+      const parsed = JSON.parse(row.customFields) as Record<string, unknown>;
+      for (const v of Object.values(parsed)) {
+        if (v === target || v === assetId) {
+          n += 1;
+          break; // count una pagina come 1 ref, non N
+        }
+      }
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+  return n;
 }

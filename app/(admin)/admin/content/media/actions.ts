@@ -2,16 +2,21 @@
 
 import { getAdminPath } from "@/lib/admin-nav";
 import {
+  countAssetReferences,
   countAssetsInFolder,
   countSubfolders,
   createAsset,
   createFolder,
   deleteAssetById,
   deleteFolderById,
+  getAllFolders,
   getAssetById,
+  getAssets,
   getFolderById,
   updateAssetFolder,
   updateFolderName,
+  type MediaAsset,
+  type MediaFolder,
 } from "@/lib/db/media-queries";
 import { getUser } from "@/lib/db/queries";
 import {
@@ -138,6 +143,17 @@ export async function deleteMediaAsset(
   const asset = await getAssetById(id);
   if (!asset) {
     return { error: t("deleteNotFound"), timestamp: Date.now() };
+  }
+
+  // Block delete se l'asset è referenziato in qualche page.customFields.
+  // Best-effort scan (vedi countAssetReferences). False positive accettabile:
+  // l'admin verifica e rimuove manualmente prima di ritentare.
+  const refs = await countAssetReferences(id);
+  if (refs > 0) {
+    return {
+      error: t("deleteAssetInUse", { count: refs }),
+      timestamp: Date.now(),
+    };
   }
 
   await deleteMediaFile(asset.storagePath);
@@ -313,4 +329,119 @@ export async function moveMediaAsset(
   await updateAssetFolder(assetId, folderId);
   revalidatePath(getAdminPath("content-media"));
   return { success: t("assetMoved"), timestamp: Date.now() };
+}
+
+// ─── Picker single-file upload ──────────────────────────────────────────────
+//
+// Ritorna direttamente i dati dell'asset creato. Lo usa MediaPicker per
+// permettere "Upload & select" senza rerouting via page reload. Non usa
+// `useActionState`: il client lo chiama come una funzione async normale.
+
+export type PickerUploadResult =
+  | {
+      ok: true;
+      asset: {
+        id: number;
+        publicUrl: string;
+        filename: string;
+        mime: string;
+        sizeBytes: number;
+      };
+    }
+  | { ok: false; error: string };
+
+export async function uploadAndPickAsset(
+  formData: FormData,
+): Promise<PickerUploadResult> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  const user = await getUser();
+  if (!user) return { ok: false, error: t("notAuthenticated") };
+
+  const folderId = parseFolderId(formData.get("folderId"));
+  if (folderId !== null && !(await getFolderById(folderId))) {
+    return { ok: false, error: t("folderNotFound") };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: t("noFiles") };
+  }
+
+  if (!isAllowedMime(file.type)) {
+    return { ok: false, error: t("mimeNotAllowed", { name: file.name }) };
+  }
+  if (file.size > MEDIA_MAX_BYTES) {
+    return { ok: false, error: t("fileTooLarge", { name: file.name }) };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const result = await uploadMediaFile({
+    buffer,
+    mime: file.type,
+    originalFilename: file.name,
+    folderId,
+  });
+  if (!result.ok) {
+    return { ok: false, error: t("uploadFailed", { name: file.name }) };
+  }
+
+  const created = await createAsset({
+    folderId,
+    filename: result.data.filename,
+    mime: result.data.mime,
+    sizeBytes: result.data.sizeBytes,
+    storagePath: result.data.storagePath,
+    publicUrl: result.data.publicUrl,
+    uploadedBy: user.id,
+  });
+
+  revalidatePath(getAdminPath("content-media"));
+  return {
+    ok: true,
+    asset: {
+      id: created.id,
+      publicUrl: created.publicUrl,
+      filename: created.filename,
+      mime: created.mime,
+      sizeBytes: created.sizeBytes,
+    },
+  };
+}
+
+/**
+ * Carica folders + assets per il MediaPicker. Chiamata al dialog open e ad
+ * ogni cambio di folder. Filtra per `imageOnly` quando il picker è di un
+ * fieldType=image (non vogliamo mostrare PDF/MP4 quando l'admin sta scegliendo
+ * un'immagine).
+ */
+export async function getMediaPickerData(
+  folderId: number | null,
+  opts: { imageOnly?: boolean } = {},
+): Promise<{ folders: MediaFolder[]; assets: MediaAsset[] }> {
+  const [folders, allAssets] = await Promise.all([
+    getAllFolders(),
+    getAssets({ folderId }),
+  ]);
+  const assets = opts.imageOnly
+    ? allAssets.filter((a) => a.mime.startsWith("image/"))
+    : allAssets;
+  return { folders, assets };
+}
+
+/**
+ * Lookup leggero per ottenere la preview di un asset già selezionato (nel
+ * MediaPickerField). Ritorna null se l'asset è stato eliminato.
+ */
+export async function getMediaAssetPreview(
+  id: number,
+): Promise<{ id: number; publicUrl: string; filename: string; mime: string } | null> {
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const asset = await getAssetById(id);
+  if (!asset) return null;
+  return {
+    id: asset.id,
+    publicUrl: asset.publicUrl,
+    filename: asset.filename,
+    mime: asset.mime,
+  };
 }
