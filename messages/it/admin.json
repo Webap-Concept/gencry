@@ -1733,6 +1733,43 @@
         "invalidData": "Dati non validi",
         "slugBound": "L'URL di questa pagina è legato a un route handler hardcoded e non può essere rinominato."
       }
+    },
+    "media": {
+      "metaTitle": "Content / Media",
+      "breadcrumbContent": "Content",
+      "pageTitle": "Media library",
+      "pageSubtitle": "Upload and manage images, videos and documents reusable across pages and templates",
+      "uploader": {
+        "title": "Upload assets",
+        "hint": "Up to {maxMb} MB per file. Allowed: {mimes}.",
+        "button": "Upload files",
+        "uploading": "Uploading…"
+      },
+      "grid": {
+        "empty": "No assets yet — upload your first file to get started.",
+        "deleteAria": "Delete asset",
+        "typeVideo": "video",
+        "delete": {
+          "title": "Delete asset",
+          "body": "Delete \"{name}\"?",
+          "warning": "The file will be removed from storage. This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirm": "Delete"
+        }
+      },
+      "actionMessages": {
+        "notAuthenticated": "Not authenticated.",
+        "noFiles": "No file selected.",
+        "mimeNotAllowed": "{name}: file type not allowed.",
+        "fileTooLarge": "{name}: file is larger than 10 MB.",
+        "uploadFailed": "{name}: upload failed.",
+        "uploadFailedGeneric": "Upload failed. Please try again.",
+        "uploaded": "{count, plural, one {# asset uploaded} other {# assets uploaded}}.",
+        "uploadedPartial": "{ok} uploaded, {failed} failed.",
+        "deleteInvalidId": "Invalid asset.",
+        "deleteNotFound": "Asset not found.",
+        "deleted": "Asset deleted."
+      }
     }
   },
   "security": {
@@ -2438,6 +2475,7 @@
     "content-group": "Contenuti",
     "content-pages": "Pagine",
     "content-templates": "Template",
+    "content-media": "Media",
     "analytics": "Analytics",
     "moderation": "Moderazione",
     "security-group": "Sicurezza",

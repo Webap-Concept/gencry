@@ -1414,3 +1414,58 @@ export type FieldType =
   | "select"
   | "toggle"
   | "number";
+
+// ─── Media Library ──────────────────────────────────────────────────────────
+// Repository globale di asset (immagini, video, pdf) gestito da
+// /admin/content/media. Storage fisico nel bucket Supabase "media", path
+// {folder_id ?? "root"}/{uuid}.{ext}. Nel DB tracciamo solo i metadati.
+
+export const mediaFolders = pgTable(
+  "media_folders",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    parentId: integer("parent_id"),
+    name: varchar("name", { length: 100 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_media_folders_parent").on(t.parentId),
+    uniqueIndex("uq_media_folders_parent_slug").on(t.parentId, t.slug),
+  ],
+);
+
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    folderId: integer("folder_id").references(() => mediaFolders.id, {
+      onDelete: "set null",
+    }),
+    filename: varchar("filename", { length: 255 }).notNull(),
+    mime: varchar("mime", { length: 100 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    storagePath: varchar("storage_path", { length: 500 }).notNull().unique(),
+    publicUrl: text("public_url").notNull(),
+    altText: varchar("alt_text", { length: 255 }),
+    title: varchar("title", { length: 255 }),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_media_assets_folder").on(t.folderId),
+    index("idx_media_assets_created_at").on(t.createdAt),
+  ],
+);
+
+export type MediaFolder = typeof mediaFolders.$inferSelect;
+export type NewMediaFolder = typeof mediaFolders.$inferInsert;
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type NewMediaAsset = typeof mediaAssets.$inferInsert;
