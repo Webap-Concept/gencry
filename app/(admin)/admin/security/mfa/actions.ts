@@ -23,11 +23,31 @@ export type ActionState =
 const GRACE_MIN = 0;
 const GRACE_MAX = 90;
 
+type Translator = Awaited<ReturnType<typeof getTranslations>>;
+
+/**
+ * Helper interno: tenta di caricare il translator di next-intl, fallisce
+ * con un translator-stub che ritorna la key stessa se la pipeline i18n ha
+ * un problema. Senza questo, un'eccezione di `getTranslations` saliva al
+ * runtime di Vercel come 500 prima che il client vedesse l'ActionState.
+ */
+async function safeT(): Promise<Translator> {
+  try {
+    return await getTranslations("admin.security.mfa.actionMessages");
+  } catch (err) {
+    console.error("[admin/security/mfa] getTranslations failed:", err);
+    // Stub: ritorna la chiave invece che il messaggio tradotto. Worst case,
+    // il toast mostra "saveFailed" raw — leggibile, non rompe nulla.
+    const stub = ((key: string) => key) as unknown as Translator;
+    return stub;
+  }
+}
+
 export async function saveMfaSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const t = await getTranslations("admin.security.mfa.actionMessages");
+  const t = await safeT();
   try {
     const enabledRaw = String(formData.get("mfa.enabled") ?? "false");
     const enabled = enabledRaw === "true";
@@ -49,10 +69,6 @@ export async function saveMfaSettings(
     }
 
     // Block disable globale se ci sono utenti già enrolled.
-    // L'admin deve prima disabilitare MFA su quegli utenti (uno per volta dal
-    // pannello user) o cancellarne l'enrollment via DB. Decisione safe:
-    // evita che un toggle "Off" lasci utenti che si sono dimenticati di
-    // togliere MFA bloccati al login.
     if (!enabled) {
       const [row] = await db
         .select({ n: count() })
@@ -67,19 +83,29 @@ export async function saveMfaSettings(
       }
     }
 
-    // Manage `mfa.required_since` automatically:
-    // - optional → required-*: set to now() (parte il countdown del grace)
-    // - required-* → optional:  clear (no enforcement attivo)
-    // - required-* → required-* (cambio sub-mode): non si tocca; staff/all
-    //   condividono il timestamp di partenza (semplificazione v1)
-    const current = await getAppSettings();
-    const wasRequired = current["mfa.mode"] !== "optional";
-    const willBeRequired = modeRaw !== "optional";
-    let requiredSince: string | null = current["mfa.required_since"] ?? null;
-    if (!wasRequired && willBeRequired) {
-      requiredSince = new Date().toISOString();
-    } else if (wasRequired && !willBeRequired) {
-      requiredSince = null;
+    // Manage `mfa.required_since` automatically.
+    // Wrappato a parte: se la lettura dei settings correnti fallisce non
+    // vogliamo abortire l'intero save — assumiamo "non era required" come
+    // safe default e lasciamo che il prossimo save corregga.
+    let requiredSince: string | null = null;
+    try {
+      const current = await getAppSettings();
+      const wasRequired = current["mfa.mode"] !== "optional";
+      const willBeRequired = modeRaw !== "optional";
+      requiredSince = current["mfa.required_since"] ?? null;
+      if (!wasRequired && willBeRequired) {
+        requiredSince = new Date().toISOString();
+      } else if (wasRequired && !willBeRequired) {
+        requiredSince = null;
+      }
+    } catch (err) {
+      console.error(
+        "[admin/security/mfa] reading current settings for required_since failed:",
+        err,
+      );
+      // Fallback: se siamo passando a required-* settiamo comunque now,
+      // così il countdown parte. Se siamo passando a optional, null.
+      requiredSince = modeRaw !== "optional" ? new Date().toISOString() : null;
     }
 
     await batchUpdateAppSettings({
