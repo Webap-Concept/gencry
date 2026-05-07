@@ -21,7 +21,8 @@
     "navEditDone": "Done",
     "navReset": "Reset",
     "navResetTooltip": "Restore default order",
-    "navDragHandle": "Drag to reorder"
+    "navDragHandle": "Drag to reorder",
+    "navDrawerClose": "Close section panel"
   },
   "confirmModal": {
     "defaultConfirm": "Confirm",
@@ -2404,6 +2405,17 @@
     "settings-languages": "Languages",
     "modules-group": "Modules",
     "tests": "Test Suite",
-    "logs": "Activity Logs"
+    "logs": "Activity Logs",
+    "descriptions": {
+      "users-group": "Users, staff, sessions, roles and permissions.",
+      "content-group": "CMS pages and reusable templates.",
+      "security-group": "Brute force, IP rules, blocked domains and usernames.",
+      "compliance-group": "GDPR, consent ledger, cookie banner and registry.",
+      "billing-group": "Plans, subscriptions, transactions and gateways.",
+      "seo-group": "Robots, sitemap, redirects and 404 monitor.",
+      "settings-group": "General, signup, email, snippets, cron and languages.",
+      "services-group": "External integrations: Resend, Redis, OAuth, Cloudflare, dependencies.",
+      "modules-group": "Installed feature modules."
+    }
   }
 }

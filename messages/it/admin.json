@@ -21,7 +21,8 @@
     "navEditDone": "Fine",
     "navReset": "Reset",
     "navResetTooltip": "Ripristina ordine di default",
-    "navDragHandle": "Trascina per riordinare"
+    "navDragHandle": "Trascina per riordinare",
+    "navDrawerClose": "Chiudi pannello sezione"
   },
   "confirmModal": {
     "defaultConfirm": "Conferma",
@@ -2404,6 +2405,17 @@
     "settings-languages": "Lingue",
     "modules-group": "Moduli",
     "tests": "Test Suite",
-    "logs": "Log attività"
+    "logs": "Log attività",
+    "descriptions": {
+      "users-group": "Utenti, staff, sessioni, ruoli e permessi.",
+      "content-group": "Pagine CMS e template riutilizzabili.",
+      "security-group": "Bruteforce, regole IP, domini e username bloccati.",
+      "compliance-group": "GDPR, ledger consensi, banner cookie e registry.",
+      "billing-group": "Piani, abbonamenti, transazioni e gateway.",
+      "seo-group": "Robots, sitemap, redirect e monitor 404.",
+      "settings-group": "Generale, signup, email, snippet, cron e lingue.",
+      "services-group": "Integrazioni esterne: Resend, Redis, OAuth, Cloudflare, dipendenze.",
+      "modules-group": "Moduli funzionali installati."
+    }
   }
 }
