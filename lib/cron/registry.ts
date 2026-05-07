@@ -63,6 +63,20 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     purpose: "Surfaces compromised or hijacked sessions early. Detect-only by default — alerts appear in /admin/access/sessions and trigger an admin notification + email digest, but do not auto-revoke sessions. Tunable from /admin/settings/notifications.",
     owner: "core",
   },
+  {
+    jobname: "policy-change-notifications",
+    label: "Policy Change Notifications",
+    description: "Selects up to 50 distinct users with pending rows in policy_change_notifications and emails each one a single digest of all their out-of-date policies (terms, privacy, marketing). Marks rows sent/failed with retry logic (max 3 attempts).",
+    purpose: "Required by GDPR re-consent flow. When an admin bumps a system policy version, all affected users get a row in policy_change_notifications; this cron delivers the email so they know to re-accept on the next login. Frequency tunable via gdpr.policy.notifications_cron_minutes (default 60).",
+    owner: "core",
+  },
+  {
+    jobname: "consent-records-cleanup",
+    label: "Consent Records Retention Cleanup",
+    description: "Deletes rows from consent_records older than gdpr.consent_log.retention_after_deletion_days (default 5 years), in batches of 5000 with a 20-batch cap per run (~100k rows max per execution). Backlog drains across subsequent runs.",
+    purpose: "Bounds the append-only consent ledger so it doesn't grow indefinitely. The retention window matches the typical GDPR Art. 7(1) demonstrability period; older rows have no probative value and can be dropped. Cron suggested daily at 03:00 UTC; set retention to 0 to disable.",
+    owner: "core",
+  },
 ];
 
 /** Costruisce l'elenco completo di metadati noti unendo core + moduli. */

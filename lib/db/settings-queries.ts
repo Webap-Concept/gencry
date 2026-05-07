@@ -136,7 +136,7 @@ export type SettingKey =
   | 'gdpr.consent_log.ip_strategy'                   // 'full' | 'mask_last_octet' | 'hash_only'
   | 'gdpr.consent_log.capture_user_agent'            // salva UA browser all'accept
   | 'gdpr.consent_log.hash_policy_text'              // SHA-256 del testo policy all'accept
-  | 'gdpr.consent_log.retention_after_deletion_days' // mantieni consent_records dopo purge utente
+  | 'gdpr.consent_log.retention_after_deletion_days' // max age (days) per consent_records; oltre vengono purgati dal cron consent-records-cleanup
   | 'gdpr.backup.tier'                               // 'none' | 'supabase_pitr' | 'external'
   | 'gdpr.backup.notes'                              // free-text per documentare il setup di backup
   | 'gdpr.deletion.grace_days'                       // grace period soft-delete prima del purge fisico

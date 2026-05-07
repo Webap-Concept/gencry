@@ -267,7 +267,7 @@ export function GdprSettingsForm({ initial }: { initial: GdprSettingsValues }) {
               max={3650}
               suffix={t("daysSuffix")}
               hint={t("retentionHint")}
-              requirement="unused"
+              requirement="recommended"
             />
           </div>
         </div>
