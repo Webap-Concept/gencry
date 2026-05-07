@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
   // ---------------------------------------------------------------------------
   experimental: {
     // nodeMiddleware: true, // abilita se usi middleware Node.js (non Edge)
+    serverActions: {
+      // Default Next.js è 1MB: troppo basso per la media library che accetta
+      // fino a 10MB per file. Margine extra per multipart overhead + multi-file.
+      bodySizeLimit: "15mb",
+    },
   },
 
   // ---------------------------------------------------------------------------
