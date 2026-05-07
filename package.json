@@ -19,7 +19,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:translations": "tsx scripts/check-translations.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit:ttfb": "tsx scripts/audit-ttfb.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
