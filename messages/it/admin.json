@@ -1842,6 +1842,47 @@
   },
   "security": {
     "breadcrumb": "Sicurezza",
+    "mfa": {
+      "metaTitle": "Sicurezza / MFA",
+      "pageTitle": "Autenticazione multi-fattore",
+      "pageSubtitle": "Configura come gli utenti proteggono i loro account con app TOTP e codici di recupero.",
+      "stats": {
+        "title": "Adozione e utilizzo",
+        "enrolled": "Utenti con MFA",
+        "staffEnrolled": "Staff con MFA",
+        "pendingSetups": "Setup in sospeso",
+        "recoveryUsed30d": "Codici di recupero usati (30g)",
+        "avgRemaining": "{n} codici rimanenti in media",
+        "noEnrolmentsHint": "Nessun utente ha ancora attivato l'MFA. Possono configurarlo da /settings/security."
+      },
+      "form": {
+        "heading": "Policy",
+        "enabledLabel": "Abilita MFA",
+        "enabledHint": "Interruttore generale. Quando è off, gli utenti non possono attivarlo e la richiesta del secondo fattore al login viene saltata.",
+        "modeLabel": "Modalità",
+        "modeOption_optional": "Opzionale — decide l'utente",
+        "modeOption_required-for-staff": "Obbligatorio per lo staff",
+        "modeOption_required-for-all": "Obbligatorio per tutti",
+        "modeHint_optional": "Ogni utente decide volontariamente se attivare l'MFA dal proprio profilo.",
+        "modeHint_required-for-staff": "Admin e staff devono attivare l'MFA. Gli utenti normali decidono comunque.",
+        "modeHint_required-for-all": "Tutti gli utenti devono attivare l'MFA. Gli account esistenti ricevono il periodo di tolleranza qui sotto.",
+        "graceLabel": "Periodo di tolleranza (giorni)",
+        "graceHint": "Quanti giorni gli account esistenti hanno per attivare l'MFA dopo l'attivazione di una modalità obbligatoria. Le nuove iscrizioni devono attivarlo subito.",
+        "issuerLabel": "Etichetta issuer",
+        "issuerHint": "Mostrata nelle app authenticator. Lascia vuoto per usare il nome dell'app (attuale: {fallback}).",
+        "issuerPlaceholder": "Default: nome dell'app",
+        "save": "Salva",
+        "disableBlocked": "Impossibile disabilitare l'MFA: {count, plural, one {# utente lo ha} other {# utenti lo hanno}} attivo. Disattivalo prima su quegli account (o aspetta che lo rimuovano loro)."
+      },
+      "actionMessages": {
+        "saved": "Impostazioni MFA salvate.",
+        "saveFailed": "Impossibile salvare le impostazioni. Riprova.",
+        "invalidMode": "Valore di modalità non valido.",
+        "invalidGracePeriod": "Il periodo di tolleranza deve essere tra 0 e 90 giorni.",
+        "issuerTooLong": "L'etichetta issuer è troppo lunga (max 100 caratteri).",
+        "cannotDisableWithEnrolled": "Impossibile disabilitare: {count, plural, one {# utente ha} other {# utenti hanno}} l'MFA attivo. Rimuovi prima la loro iscrizione."
+      }
+    },
     "bruteforce": {
       "metaTitle": "Sicurezza / Bruteforce",
       "pageTitle": "Bruteforce",
@@ -2547,6 +2588,7 @@
     "analytics": "Analytics",
     "moderation": "Moderazione",
     "security-group": "Sicurezza",
+    "security-mfa": "MFA",
     "security-bruteforce": "Bruteforce",
     "security-ip-rules": "Regole IP",
     "security-blocked-domains": "Domini bloccati",

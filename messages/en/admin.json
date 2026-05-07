@@ -1842,6 +1842,47 @@
   },
   "security": {
     "breadcrumb": "Security",
+    "mfa": {
+      "metaTitle": "Security / MFA",
+      "pageTitle": "Multi-factor authentication",
+      "pageSubtitle": "Configure how users protect their accounts with TOTP authenticator apps and recovery codes.",
+      "stats": {
+        "title": "Adoption & usage",
+        "enrolled": "Users with MFA",
+        "staffEnrolled": "Staff with MFA",
+        "pendingSetups": "Pending setups",
+        "recoveryUsed30d": "Recovery codes used (30d)",
+        "avgRemaining": "Avg. {n} codes left",
+        "noEnrolmentsHint": "No users have enabled MFA yet. They can configure it from /settings/security."
+      },
+      "form": {
+        "heading": "Policy",
+        "enabledLabel": "Enable MFA",
+        "enabledHint": "Master switch. When off, users can't enroll and the second-factor prompt is skipped at login.",
+        "modeLabel": "Mode",
+        "modeOption_optional": "Optional — users decide",
+        "modeOption_required-for-staff": "Required for staff",
+        "modeOption_required-for-all": "Required for everyone",
+        "modeHint_optional": "Each user enables MFA voluntarily from their profile.",
+        "modeHint_required-for-staff": "Admins and staff must enable MFA. Regular users still decide.",
+        "modeHint_required-for-all": "All users must enable MFA. Existing accounts get the grace period below.",
+        "graceLabel": "Grace period (days)",
+        "graceHint": "How many days existing accounts have to enable MFA after a required mode is turned on. New signups must enable it immediately.",
+        "issuerLabel": "Issuer label",
+        "issuerHint": "Shown in authenticator apps. Leave empty to use the app name (currently: {fallback}).",
+        "issuerPlaceholder": "Defaults to app name",
+        "save": "Save",
+        "disableBlocked": "Cannot disable MFA: {count, plural, one {# user has} other {# users have}} it active. Disable MFA on those accounts first (or wait until they remove it themselves)."
+      },
+      "actionMessages": {
+        "saved": "MFA settings saved.",
+        "saveFailed": "Could not save settings. Please try again.",
+        "invalidMode": "Invalid mode value.",
+        "invalidGracePeriod": "Grace period must be between 0 and 90 days.",
+        "issuerTooLong": "Issuer label is too long (max 100 characters).",
+        "cannotDisableWithEnrolled": "Cannot disable: {count, plural, one {# user has} other {# users have}} MFA active. Remove their enrollment first."
+      }
+    },
     "bruteforce": {
       "metaTitle": "Security / Bruteforce",
       "pageTitle": "Bruteforce",
@@ -2547,6 +2588,7 @@
     "analytics": "Analytics",
     "moderation": "Moderation",
     "security-group": "Security",
+    "security-mfa": "MFA",
     "security-bruteforce": "Bruteforce",
     "security-ip-rules": "IP Rules",
     "security-blocked-domains": "Blocked Domains",
