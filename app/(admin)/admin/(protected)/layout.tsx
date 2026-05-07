@@ -36,7 +36,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
         {} as Awaited<ReturnType<typeof getNavOrderOverrides>>,
       ]
     : await Promise.all([
-        getInitialBellData(userPermissions),
+        getInitialBellData(),
         getNavOrderOverrides(),
       ]);
 

@@ -2,7 +2,9 @@
 
 import "server-only";
 import { db } from "@/lib/db/drizzle";
+import { getUser } from "@/lib/db/queries";
 import { adminNotifications, type AdminNotification } from "@/lib/db/schema";
+import { getUserPermissions } from "@/lib/rbac/can";
 import {
   and,
   desc,
@@ -14,6 +16,7 @@ import {
   lte,
   or,
 } from "drizzle-orm";
+import { cache } from "react";
 import { serializeNotification, type ClientNotification } from "./serializers";
 
 const SUPERADMIN_MARKER = "__superadmin__";
@@ -63,15 +66,32 @@ export async function countUnreadActive(
 /**
  * Dati iniziali per il bell admin (Server -> Client). Date serializzate in
  * stringhe ISO per evitare problemi di passaggio attraverso i confini RSC.
+ *
+ * Argument-less + `cache()`: i due layout admin (root + protected) la
+ * chiamano in cascata sulla stessa request, e con argomento esplicito
+ * ognuno passava un `Set<string>` differente (per i super-admin si crea
+ * un nuovo `Set(["__superadmin__"])` in ciascun layout) — la dedup di
+ * cache() su argomenti reference-equal non scattava.
+ *
+ * Con argomento vuoto la dedup è automatica: la prima call DB serve
+ * entrambi i layout. `getUser()` e `getUserPermissions()` sono già
+ * cached, quindi anche la risoluzione dei permessi è zero query extra.
  */
-export async function getInitialBellData(permissions: Set<string>): Promise<{
+export const getInitialBellData = cache(async (): Promise<{
   notifications: ClientNotification[];
   unreadCount: number;
-}> {
+}> => {
+  const user = await getUser();
+  if (!user) return { notifications: [], unreadCount: 0 };
+
+  const permissions = user.isAdmin
+    ? new Set<string>(["__superadmin__"])
+    : await getUserPermissions(user);
+
   const rows = await listActiveNotifications(permissions);
   const unreadCount = rows.filter((n) => n.readAt === null).length;
   return { notifications: rows.map(serializeNotification), unreadCount };
-}
+});
 
 // ---------------------------------------------------------------------------
 // Mutation (chiamate dalle Server Actions)
