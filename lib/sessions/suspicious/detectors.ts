@@ -415,7 +415,7 @@ export async function detectSensitiveActionNewIp(
       ON s.user_id = a.user_id
       AND s.created_at >= a.timestamp - (${rule.withinMinutes} * INTERVAL '1 minute')
       AND s.created_at <= a.timestamp
-    WHERE a.action = ANY(${rule.actions})
+    WHERE a.action = ANY(${rule.actions}::text[])
       AND a.timestamp >= NOW() - INTERVAL '24 hours'
       AND s.ip IS NOT NULL
       AND NOT EXISTS (
@@ -490,7 +490,7 @@ export async function detectNewSubnet(
   }>(sql`
     SELECT user_id, ip, MIN(created_at)::text AS first_seen
     FROM sessions
-    WHERE user_id = ANY(${userIds})
+    WHERE user_id = ANY(${userIds}::uuid[])
       AND ip IS NOT NULL
       AND created_at >= NOW() - (${rule.lookbackDays} * INTERVAL '1 day')
       AND created_at < NOW() - INTERVAL '6 hours'
