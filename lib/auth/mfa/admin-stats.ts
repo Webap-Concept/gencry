@@ -35,11 +35,35 @@ export interface MfaAdminStats {
   avgRecoveryCodesRemaining: number;
 }
 
+const ZERO_STATS: MfaAdminStats = {
+  enrolledUsers: 0,
+  totalUsers: 0,
+  pendingSetups: 0,
+  staffEnrolled: 0,
+  staffTotal: 0,
+  recoveryCodesUsedLast30Days: 0,
+  avgRecoveryCodesRemaining: 0,
+};
+
 /**
  * Aggrega stats MFA per la pagina admin /admin/security/mfa.
  * Tutte le query in parallelo dove possibile.
+ *
+ * In caso di errore (es. tabella non ancora creata, driver issue) ritorna
+ * zero stats invece di throware — la pagina deve restare apribile per
+ * permettere all'admin di configurare le policy anche se le metriche
+ * non sono disponibili. Errore loggato server-side per debug.
  */
 export async function getMfaAdminStats(): Promise<MfaAdminStats> {
+  try {
+    return await fetchStats();
+  } catch (err) {
+    console.error("[admin/security/mfa] stats query failed:", err);
+    return ZERO_STATS;
+  }
+}
+
+async function fetchStats(): Promise<MfaAdminStats> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const [
