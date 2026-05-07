@@ -47,6 +47,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Fragment } from "react";
+import { MediaPickerField } from "../../media/_components/media-picker-field";
 import { EditorPageHeader } from "../../../_components/editor-page-header";
 import { upsertPageAction } from "../actions";
 import PlaceholderHint from "./placeholder-hint";
@@ -221,6 +222,15 @@ function CustomFieldsBlock({
                   placeholder={field.placeholder ?? ""}
                   rows={3}
                   style={{ ...inputStyle, resize: "vertical" }}
+                />
+              ) : field.fieldType === "image" ? (
+                <MediaPickerField
+                  imageOnly
+                  value={
+                    customFields[field.fieldKey] ?? field.defaultValue ?? ""
+                  }
+                  onChange={(v) => handleField(field.fieldKey, v)}
+                  placeholder={field.placeholder ?? undefined}
                 />
               ) : field.fieldType === "toggle" ? (
                 <div className="flex items-center gap-2 py-2">

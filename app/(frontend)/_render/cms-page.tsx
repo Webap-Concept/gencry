@@ -1,4 +1,5 @@
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
+import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fields";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
@@ -150,7 +151,11 @@ export async function CmsPage({
 
   const templateSlug = pageData.template?.slug ?? null;
   const TemplateComponent = getDynamicTemplate(templateSlug);
-  const fields = parseCustomFields(pageData.customFields);
+  const rawFields = parseCustomFields(pageData.customFields);
+  const fields = await resolveMediaFields(
+    rawFields,
+    pageData.template?.fields ?? [],
+  );
 
   const resolvedContent = resolvePlaceholders(pageData.content, settings);
   const safePage = {

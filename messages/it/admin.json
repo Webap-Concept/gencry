@@ -1521,7 +1521,7 @@
         "fieldType_text": "Testo breve",
         "fieldType_textarea": "Testo lungo",
         "fieldType_richtext": "Testo formattato",
-        "fieldType_image": "Immagine (URL)",
+        "fieldType_image": "Immagine",
         "fieldType_url": "URL",
         "fieldType_date": "Data",
         "fieldType_select": "Selezione",
@@ -1765,6 +1765,26 @@
           "confirm": "Move"
         }
       },
+      "picker": {
+        "title": "Pick an asset",
+        "close": "Close",
+        "tabLibrary": "Library",
+        "tabUpload": "Upload",
+        "folderLabel": "Folder",
+        "uploadFolderLabel": "Upload to",
+        "root": "Root",
+        "empty": "No assets in this folder.",
+        "emptyImagesOnly": "No images in this folder.",
+        "uploading": "Uploading…",
+        "uploadHint": "Click to choose a file (max 10 MB)"
+      },
+      "pickerField": {
+        "pickButton": "Pick or upload an image",
+        "change": "Change",
+        "remove": "Remove",
+        "sourceLibrary": "From library",
+        "sourceUrl": "External URL"
+      },
       "tree": {
         "title": "Folders",
         "root": "Root",
@@ -1799,6 +1819,7 @@
         "uploadedPartial": "{ok} uploaded, {failed} failed.",
         "deleteInvalidId": "Invalid asset.",
         "deleteNotFound": "Asset not found.",
+        "deleteAssetInUse": "Cannot delete: this asset is referenced by {count, plural, one {# page} other {# pages}}. Remove it from those pages first.",
         "deleted": "Asset deleted.",
         "assetMoved": "Asset moved.",
         "folderCreated": "Folder created.",
