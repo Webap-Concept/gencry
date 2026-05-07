@@ -20,7 +20,7 @@ import {
 } from "@/lib/storage/branding";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 // Regex permissiva per il core di un blocked username/pattern.
 // NB: qui *non* applichiamo le regole strict del form sign-up sui punti
@@ -498,9 +498,14 @@ export const saveModeSettingsAction = saveModeSettings;
 export const saveUsersSettingsAction = saveUsersSettings;
 
 function invalidateSnippets() {
-  // Invalidare il root layout: forza il refetch di getActiveSnippets al
-  // prossimo render (sia in admin che nel frontend pubblico).
-  revalidatePath("/", "layout");
+  // `getActiveSnippets()` usa unstable_cache con tag "snippets": invalidando
+  // il tag (Next 16 → updateTag con read-your-own-writes) forziamo il
+  // refetch al prossimo render senza dover invalidare l'INTERO root
+  // layout. Quel pattern aggressivo, in dev mode, causa rebuild Turbopack
+  // lenti e fa percepire l'UI come bloccata per secondi. Per l'admin
+  // snippets basta invalidare la sua pagina specifica.
+  updateTag("snippets");
+  revalidatePath(getAdminPath("settings-snippets"));
   // Il count "snippet collegati per servizio" mostrato in
   // /admin/compliance/cookies è cached 60s in memoria → invalida ora
   // così il badge si aggiorna immediatamente alla prossima visita admin.
