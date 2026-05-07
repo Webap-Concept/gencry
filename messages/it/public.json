@@ -94,5 +94,16 @@
         "description": "Permettono di mostrare contenuti e annunci più rilevanti per te su questo sito o su piattaforme di terze parti."
       }
     }
+  },
+  "settings": {
+    "security": {
+      "mfaPolicyBanner": {
+        "warningTitle": "L'autenticazione a due fattori è obbligatoria",
+        "warningBody": "Il tuo amministratore ha reso obbligatoria l'MFA. Configurala entro {days, plural, one {# giorno} other {# giorni}} (entro il {deadline}) per continuare a usare l'account senza interruzioni.",
+        "blockingTitle": "Configura l'autenticazione a due fattori per continuare",
+        "blockingBody": "L'MFA è obbligatoria sul tuo account. Configurala qui sotto per riavere accesso al resto dell'app.",
+        "blockingForcedBody": "Ti abbiamo portato qui perché l'MFA è obbligatoria e il periodo di tolleranza è scaduto. Configurala qui sotto per riavere accesso."
+      }
+    }
   }
 }

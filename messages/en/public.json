@@ -94,5 +94,16 @@
         "description": "Allow us to show more relevant content and ads on this site or on third-party platforms."
       }
     }
+  },
+  "settings": {
+    "security": {
+      "mfaPolicyBanner": {
+        "warningTitle": "Two-factor authentication is required",
+        "warningBody": "Your administrator has made MFA mandatory. Set it up within {days, plural, one {# day} other {# days}} (by {deadline}) to keep using your account without interruption.",
+        "blockingTitle": "Set up two-factor authentication to continue",
+        "blockingBody": "MFA is required on your account. Configure it below to regain access to the rest of the app.",
+        "blockingForcedBody": "We brought you here because MFA is mandatory and the grace period has expired. Configure it below to regain access."
+      }
+    }
   }
 }

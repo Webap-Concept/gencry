@@ -182,6 +182,7 @@ export type SettingKey =
   | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
   | 'mfa.grace_period_days'   // giorni di tolleranza per account esistenti quando mode è required-*
   | 'mfa.issuer_label'        // label mostrata nelle authenticator app; vuoto = fallback ad app_name
+  | 'mfa.required_since'      // ISO timestamp di quando mode è passato a required-*; null se optional
 
 export type AppSettings = {
   app_name: string
@@ -327,6 +328,7 @@ export type AppSettings = {
   'mfa.mode': string
   'mfa.grace_period_days': string
   'mfa.issuer_label': string | null
+  'mfa.required_since': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -474,6 +476,9 @@ const DEFAULTS: AppSettings = {
   'mfa.mode': 'optional',
   'mfa.grace_period_days': '7',
   'mfa.issuer_label': null,
+  // Settato automaticamente quando mode passa da optional a required-*.
+  // Da qui parte il countdown del grace period per gli utenti esistenti.
+  'mfa.required_since': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
