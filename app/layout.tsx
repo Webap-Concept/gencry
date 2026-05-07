@@ -200,7 +200,20 @@ export default async function RootLayout({
   // non tracciare che tracciare senza base legale.
   const showCookieBanner =
     !isAdminRoute && !isMaintenance && cookieBannerEnabled && !cookieConsent.hasDecision;
-  const analyticsAllowed = cookieBannerEnabled && cookieConsent.prefs.analytics;
+
+  // Vercel Analytics non è obbligatorio: viene caricato solo se l'admin ha
+  // dichiarato il servizio "vercel_analytics" nel registry (con enabled=true)
+  // E l'utente ha dato consenso analytics. Se l'admin lo elimina dal registry,
+  // lo script smette di caricarsi e la dichiarazione del cookie sparisce dal
+  // banner — comportamento allineato.
+  const vercelAnalyticsService = cookieRegistry.services.find(
+    (s) => s.id === "vercel_analytics",
+  );
+  const analyticsAllowed =
+    !!vercelAnalyticsService &&
+    vercelAnalyticsService.enabled &&
+    cookieBannerEnabled &&
+    cookieConsent.prefs.analytics;
   const cookiePolicyUrl = systemPageSlugs.cookie ? `/${systemPageSlugs.cookie}` : null;
 
   return (

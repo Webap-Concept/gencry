@@ -9,14 +9,18 @@ import type {
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import {
   AlertTriangle,
+  BarChart3,
   Building2,
   Check,
   CheckCircle2,
   ExternalLink,
   Globe,
   Lock,
+  Megaphone,
   Pencil,
   Plus,
+  ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -52,6 +56,17 @@ const CATEGORY_SHORT_KEYS: Record<string, "necessary" | "preferences" | "analyti
   cookie_preferences: "preferences",
   cookie_analytics: "analytics",
   cookie_marketing: "marketing",
+};
+
+/**
+ * Icona per ciascuna delle 4 categorie ePrivacy. Categorie custom future
+ * cadono sul fallback Lock (nessuna icona specifica registrata).
+ */
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  cookie_necessary: ShieldCheck,
+  cookie_preferences: SlidersHorizontal,
+  cookie_analytics: BarChart3,
+  cookie_marketing: Megaphone,
 };
 
 export function CookieServicesManager({
@@ -158,6 +173,7 @@ export function CookieServicesManager({
       <div className="space-y-4">
         {registry.categories.map((cat) => {
           const services = registry.services.filter((s) => s.categoryId === cat.id);
+          const Icon = CATEGORY_ICONS[cat.id] ?? Lock;
           return (
             <CategoryCard
               key={cat.id}
@@ -166,6 +182,7 @@ export function CookieServicesManager({
               status={statusOf(cat)}
               label={categoryLabel(cat.id)}
               description={categoryDescription(cat.id)}
+              icon={Icon}
               tr={tr}
               togglingId={togglingId}
               snippetCounts={snippetCounts}
@@ -199,6 +216,7 @@ function CategoryCard({
   status,
   label,
   description,
+  icon: Icon,
   tr,
   togglingId,
   snippetCounts,
@@ -212,6 +230,7 @@ function CategoryCard({
   status: "always_on" | "blocked" | "user_choice";
   label: string;
   description: string;
+  icon: React.ElementType;
   tr: (serviceId: string, locale: string) => CookieServiceTranslation | undefined;
   togglingId: string | null;
   snippetCounts: Record<string, number>;
@@ -256,6 +275,10 @@ function CategoryCard({
         style={{ borderBottom: "1px solid var(--admin-card-border)" }}>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            <Icon
+              size={15}
+              style={{ color: "var(--admin-accent)", flexShrink: 0 }}
+            />
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
               {label}
             </h3>
