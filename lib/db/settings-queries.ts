@@ -111,6 +111,10 @@ export type SettingKey =
   | 'github_repo'         // formato "owner/repo"
   | 'github_pat'          // fine-grained PAT con Contents:Read
   | 'github_ci_branch'    // default "ci-results"
+  // Supabase Management API (per /admin/services/supabase + check PITR
+  // nella sezione GDPR backup)
+  | 'supabase_pat'        // Personal Access Token (PAT) supabase.com/dashboard/account/tokens
+  | 'supabase_project_ref' // ref del progetto (es. "abcdefghij" da app.supabase.com URL)
   // Cloudflare Turnstile
   | 'cf_turnstile_site_key'
   | 'cf_turnstile_secret_key'
@@ -254,6 +258,9 @@ export type AppSettings = {
   github_repo: string | null
   github_pat: string | null
   github_ci_branch: string | null
+  // Supabase Management API
+  supabase_pat: string | null
+  supabase_project_ref: string | null
   // Cloudflare Turnstile
   cf_turnstile_site_key: string | null
   cf_turnstile_secret_key: string | null
@@ -381,6 +388,8 @@ const DEFAULTS: AppSettings = {
   github_repo: null,
   github_pat: null,
   github_ci_branch: 'ci-results',
+  supabase_pat: null,
+  supabase_project_ref: null,
   cf_turnstile_site_key: null,
   cf_turnstile_secret_key: null,
   // GDPR / Compliance — defaults conservativi.
