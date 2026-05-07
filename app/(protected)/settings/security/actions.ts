@@ -26,6 +26,7 @@ import {
 } from "@/lib/auth/mfa/queries";
 import { buildOtpauthUrl } from "@/lib/auth/mfa/totp";
 import { qrCodeDataUrl } from "@/lib/auth/mfa/qrcode";
+import { getMfaPolicy } from "@/lib/auth/mfa/policy";
 import {
   checkMfaTotpRateLimit,
   recordMfaTotpAttempt,
@@ -188,8 +189,6 @@ export type MfaStartState = ActionState & {
   manualKey?: string;
 };
 
-const ISSUER = "GenCrypto";
-
 const startMfaSetupSchema = z.object({});
 
 export const startMfaSetupAction = validatedActionWithUser(
@@ -200,11 +199,12 @@ export const startMfaSetupAction = validatedActionWithUser(
       return { error: "MFA già attiva. Disabilitala prima di rifare il setup." };
     }
 
+    const policy = await getMfaPolicy();
     const { secretBase32 } = await startMfaSetup(user.id);
     const otpauthUrl = buildOtpauthUrl({
       secretBase32,
       label: user.email,
-      issuer: ISSUER,
+      issuer: policy.issuer,
     });
     const dataUrl = await qrCodeDataUrl(otpauthUrl);
 

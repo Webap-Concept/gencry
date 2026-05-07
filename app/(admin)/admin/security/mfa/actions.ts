@@ -1,6 +1,9 @@
 "use server";
 
-import { batchUpdateAppSettings } from "@/lib/db/settings-queries";
+import {
+  batchUpdateAppSettings,
+  getAppSettings,
+} from "@/lib/db/settings-queries";
 import { db } from "@/lib/db/drizzle";
 import { userMfaTotp } from "@/lib/db/schema";
 import { count, isNotNull } from "drizzle-orm";
@@ -64,11 +67,27 @@ export async function saveMfaSettings(
       }
     }
 
+    // Manage `mfa.required_since` automatically:
+    // - optional → required-*: set to now() (parte il countdown del grace)
+    // - required-* → optional:  clear (no enforcement attivo)
+    // - required-* → required-* (cambio sub-mode): non si tocca; staff/all
+    //   condividono il timestamp di partenza (semplificazione v1)
+    const current = await getAppSettings();
+    const wasRequired = current["mfa.mode"] !== "optional";
+    const willBeRequired = modeRaw !== "optional";
+    let requiredSince: string | null = current["mfa.required_since"] ?? null;
+    if (!wasRequired && willBeRequired) {
+      requiredSince = new Date().toISOString();
+    } else if (wasRequired && !willBeRequired) {
+      requiredSince = null;
+    }
+
     await batchUpdateAppSettings({
       "mfa.enabled": enabled ? "true" : "false",
       "mfa.mode": modeRaw,
       "mfa.grace_period_days": String(grace),
       "mfa.issuer_label": issuerRaw || null,
+      "mfa.required_since": requiredSince,
     });
 
     return { success: t("saved"), timestamp: Date.now() };

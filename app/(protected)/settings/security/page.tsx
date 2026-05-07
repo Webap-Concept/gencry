@@ -3,14 +3,20 @@ import { getUser } from "@/lib/db/queries";
 import { getDeviceToken } from "@/lib/auth/trusted-device";
 import { getSession } from "@/lib/auth/session";
 import { listActiveSessions } from "@/lib/auth/sessions";
+import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { listMyDevices } from "@/lib/account/devices";
 import { parseUserAgent } from "@/lib/account/parse-user-agent";
 import { DevicesList } from "./_components/devices-list";
+import { MfaPolicyBanner } from "./_components/mfa-policy-banner";
 import { MfaSection } from "./_components/mfa-section";
 import { SessionsList } from "./_components/sessions-list";
 
-export default async function SecuritySettingsPage() {
+export default async function SecuritySettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
   const user = await getUser();
   if (!user) redirect("/sign-in");
 
@@ -18,11 +24,16 @@ export default async function SecuritySettingsPage() {
   const currentSessionId = session?.sessionId ?? null;
   const currentDeviceToken = await getDeviceToken();
 
-  const [sessionsRaw, devices, mfaState] = await Promise.all([
+  const [sessionsRaw, devices, mfaState, policy, params] = await Promise.all([
     listActiveSessions({ userId: user.id, currentSessionId }),
     listMyDevices(user.id, currentDeviceToken),
     getMfaState(user.id),
+    getMfaPolicy(),
+    searchParams,
   ]);
+
+  const enforcement = mfaEnforcement(user, policy, mfaState);
+  const forcedRedirect = params.reason === "mfa-required";
 
   const sessions = sessionsRaw.map((s) => ({
     id: s.id,
@@ -37,6 +48,11 @@ export default async function SecuritySettingsPage() {
 
   return (
     <div className="space-y-12">
+      <MfaPolicyBanner
+        enforcement={enforcement}
+        forcedRedirect={forcedRedirect}
+      />
+
       <MfaSection initialState={mfaState} />
 
       <SessionsList sessions={sessions} />
