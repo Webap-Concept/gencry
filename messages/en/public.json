@@ -75,6 +75,7 @@
     "saveSelection": "Save selection",
     "savingPending": "Saving…",
     "acceptAll": "Accept all",
+    "servicePolicyLink": "Provider policy",
     "categories": {
       "necessary": {
         "label": "Essential",

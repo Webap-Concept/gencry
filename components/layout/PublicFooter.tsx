@@ -1,6 +1,7 @@
 import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getServicesForBanner } from "@/lib/db/cookie-services-queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
@@ -40,6 +41,12 @@ export async function PublicFooter() {
   const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
   const cookiePolicySlug = slugs.cookie ?? null;
   const cookiePolicyUrl = cookiePolicySlug ? `/${cookiePolicySlug}` : null;
+
+  // Servizi cookie per il modal "modifica preferenze". Cached 10min,
+  // costo trascurabile rispetto agli altri fetch del footer.
+  const cookieServices = cookieBannerEnabled
+    ? await getServicesForBanner(currentLocale)
+    : undefined;
   const privacySlug = slugs.privacy ?? null;
   const termsSlug = slugs.terms ?? null;
 
@@ -97,6 +104,7 @@ export async function PublicFooter() {
             <CookiePreferencesTrigger
               initialPrefs={initialPrefs}
               policyUrl={cookiePolicyUrl}
+              services={cookieServices}
               variant="link"
               label={t("cookiePreferences")}
             />

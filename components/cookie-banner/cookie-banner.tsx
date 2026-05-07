@@ -1,5 +1,6 @@
 "use client";
 
+import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries";
 import { Cookie, Settings2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -12,9 +13,16 @@ import { CookieCustomizeModal } from "./customize-modal";
 type Props = {
   /** Link alla cookie policy pubblica, derivato dalla system page `cookie`. */
   policyUrl?: string | null;
+  /**
+   * Servizi `enabled=true` raggruppati per categoria, pre-fetched
+   * server-side dal RootLayout (cache 10min, vedi cookie-services-queries).
+   * Permette al banner di mostrare la lista tracker sotto ogni categoria
+   * senza fare query DB dal client.
+   */
+  services?: BannerServicesByCategory;
 };
 
-export function CookieBanner({ policyUrl }: Props) {
+export function CookieBanner({ policyUrl, services }: Props) {
   const t = useTranslations("public.cookieBanner");
   const [isPending, startTransition] = useTransition();
   const [showCustomize, setShowCustomize] = useState(false);
@@ -107,6 +115,7 @@ export function CookieBanner({ policyUrl }: Props) {
       {showCustomize && (
         <CookieCustomizeModal
           policyUrl={policyUrl}
+          services={services}
           onClose={() => setShowCustomize(false)}
         />
       )}

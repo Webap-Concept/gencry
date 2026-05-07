@@ -1,5 +1,5 @@
 import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
-import { COOKIE_CATEGORIES } from "@/lib/cookie-consent/services";
+import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries";
 import { Check, Minus } from "lucide-react";
 
 type Props = {
@@ -15,6 +15,8 @@ type Props = {
     | null;
   decidedAt: string | null;
   policyUrl: string | null;
+  /** Servizi attivi per categoria, prefetched dal page. */
+  services?: BannerServicesByCategory;
 };
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
@@ -22,6 +24,47 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
   month: "long",
   year: "numeric",
 });
+
+/**
+ * Le 4 categorie ePrivacy fisse — definite localmente perché sono
+ * standard di legge (non admin-editabili). Le label IT sono hardcoded
+ * coerenti col resto di /settings/privacy (file non i18nato).
+ */
+const CATEGORIES: Array<{
+  id: "cookie_necessary" | "cookie_preferences" | "cookie_analytics" | "cookie_marketing";
+  label: string;
+  description: string;
+  alwaysOn: boolean;
+}> = [
+  {
+    id: "cookie_necessary",
+    label: "Necessari",
+    description:
+      "Indispensabili per il funzionamento del sito (sessione, sicurezza, preferenze di base).",
+    alwaysOn: true,
+  },
+  {
+    id: "cookie_preferences",
+    label: "Preferenze",
+    description:
+      "Memorizzano le tue scelte (lingua, tema, visualizzazioni) per personalizzare l'esperienza.",
+    alwaysOn: false,
+  },
+  {
+    id: "cookie_analytics",
+    label: "Statistiche",
+    description:
+      "Ci aiutano a capire come viene usato il sito tramite dati aggregati e anonimi.",
+    alwaysOn: false,
+  },
+  {
+    id: "cookie_marketing",
+    label: "Marketing",
+    description:
+      "Permettono di mostrare contenuti e annunci più rilevanti su questo sito o piattaforme di terze parti.",
+    alwaysOn: false,
+  },
+];
 
 /**
  * Card "Preferenze cookie" per /settings/privacy.
@@ -39,12 +82,11 @@ export function CookiesPanel({
   prefs,
   decidedAt,
   policyUrl,
+  services,
 }: Props) {
   const initialPrefs = prefs ?? undefined;
 
-  const stateFor = (
-    catId: (typeof COOKIE_CATEGORIES)[number]["id"],
-  ): boolean => {
+  const stateFor = (catId: (typeof CATEGORIES)[number]["id"]): boolean => {
     if (catId === "cookie_necessary") return true;
     if (!prefs) return false;
     if (catId === "cookie_preferences") return prefs.preferences;
@@ -90,6 +132,7 @@ export function CookiesPanel({
             <CookiePreferencesTrigger
               initialPrefs={initialPrefs}
               policyUrl={policyUrl}
+              services={services}
               variant="button"
               label={prefs ? "Modifica preferenze" : "Apri preferenze"}
             />
@@ -98,7 +141,7 @@ export function CookiesPanel({
 
         <div className="border-t border-gc-line px-4 py-4">
           <ul className="space-y-2">
-            {COOKIE_CATEGORIES.map((cat) => {
+            {CATEGORIES.map((cat) => {
               const active = stateFor(cat.id);
               return (
                 <li

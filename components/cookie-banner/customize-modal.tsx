@@ -1,5 +1,6 @@
 "use client";
 
+import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries";
 import { Cookie, ExternalLink, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -42,10 +43,13 @@ const CATEGORY_KEYS: { key: CategoryKey; locked: boolean }[] = [
 export function CookieCustomizeModal({
   initialPrefs = DEFAULT_INITIAL,
   policyUrl,
+  services,
   onClose,
 }: {
   initialPrefs?: CustomizeInitialPrefs;
   policyUrl?: string | null;
+  /** Servizi attivi raggruppati per categoria, prefetched dal RootLayout. */
+  services?: BannerServicesByCategory;
   onClose: () => void;
 }) {
   const t = useTranslations("public.cookieModal");
@@ -160,49 +164,89 @@ export function CookieCustomizeModal({
               {CATEGORY_KEYS.map(({ key, locked }) => {
                 const checked = stateFor(key);
                 const setChecked = setterFor(key);
+                const catServices = services?.[key] ?? [];
                 return (
                   <li
                     key={key}
-                    className="rounded-lg p-3 flex items-start gap-3"
+                    className="rounded-lg p-3"
                     style={{
                       background: "#f9fafb",
                       border: "1px solid #e5e7eb",
                     }}>
-                    <input
-                      id={`cookie-cat-${key}`}
-                      type="checkbox"
-                      checked={checked}
-                      disabled={locked || isPending}
-                      onChange={(e) => setChecked(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-600"
-                      style={
-                        locked
-                          ? { cursor: "not-allowed", opacity: 0.7 }
-                          : undefined
-                      }
-                    />
-                    <label
-                      htmlFor={`cookie-cat-${key}`}
-                      className="flex-1 min-w-0 cursor-pointer"
-                      style={locked ? { cursor: "not-allowed" } : undefined}>
-                      <div
-                        className="text-sm font-medium"
-                        style={{ color: "#111827" }}>
-                        {t(`categories.${key}.label`)}
-                        {locked && (
-                          <span
-                            className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
-                            style={{ background: "#e5e7eb", color: "#374151" }}>
-                            {t("alwaysActive")}
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        className="text-[12px] mt-0.5"
-                        style={{ color: "#6b7280" }}>
-                        {t(`categories.${key}.description`)}
-                      </div>
-                    </label>
+                    <div className="flex items-start gap-3">
+                      <input
+                        id={`cookie-cat-${key}`}
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked || isPending}
+                        onChange={(e) => setChecked(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-600"
+                        style={
+                          locked
+                            ? { cursor: "not-allowed", opacity: 0.7 }
+                            : undefined
+                        }
+                      />
+                      <label
+                        htmlFor={`cookie-cat-${key}`}
+                        className="flex-1 min-w-0 cursor-pointer"
+                        style={locked ? { cursor: "not-allowed" } : undefined}>
+                        <div
+                          className="text-sm font-medium"
+                          style={{ color: "#111827" }}>
+                          {t(`categories.${key}.label`)}
+                          {locked && (
+                            <span
+                              className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+                              style={{ background: "#e5e7eb", color: "#374151" }}>
+                              {t("alwaysActive")}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="text-[12px] mt-0.5"
+                          style={{ color: "#6b7280" }}>
+                          {t(`categories.${key}.description`)}
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Lista servizi sotto la categoria — vuota se nessun
+                        tracker dichiarato in admin per questa categoria. */}
+                    {catServices.length > 0 && (
+                      <ul className="mt-3 ml-7 space-y-1.5">
+                        {catServices.map((s) => (
+                          <li
+                            key={s.id}
+                            className="text-[11.5px]"
+                            style={{ color: "#4b5563" }}>
+                            <span className="font-medium" style={{ color: "#374151" }}>
+                              {s.name}
+                            </span>
+                            {s.description && (
+                              <>
+                                {" — "}
+                                <span>{s.description}</span>
+                              </>
+                            )}
+                            {s.providerPolicyUrl && (
+                              <>
+                                {" "}
+                                <a
+                                  href={s.providerPolicyUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-0.5 underline"
+                                  style={{ color: "#b45309" }}>
+                                  {t("servicePolicyLink")}
+                                  <ExternalLink size={9} />
+                                </a>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}

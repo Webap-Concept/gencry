@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getUser } from "@/lib/db/queries";
 import { getAcceptedConsent, type ConsentSnapshot } from "@/lib/account/consents";
 import { listMyExportJobs } from "@/lib/account/gdpr-export";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
+import { getServicesForBanner } from "@/lib/db/cookie-services-queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import { ConsentsPanel, type ConsentVM } from "./_components/consents-panel";
 import { CookiesPanel } from "./_components/cookies-panel";
@@ -15,6 +18,15 @@ export default async function PrivacySettingsPage() {
   const user = await getUser();
   if (!user) redirect("/sign-in");
 
+  const headersList = await headers();
+  const localeHeader = headersList.get("x-locale");
+  const userLocale =
+    user.locale && isLocale(user.locale)
+      ? user.locale
+      : localeHeader && isLocale(localeHeader)
+        ? localeHeader
+        : DEFAULT_LOCALE;
+
   const [
     terms,
     privacy,
@@ -23,6 +35,7 @@ export default async function PrivacySettingsPage() {
     cookieConsent,
     settings,
     slugs,
+    cookieServices,
   ] = await Promise.all([
     getAcceptedConsent({
       systemKey: "terms",
@@ -40,6 +53,7 @@ export default async function PrivacySettingsPage() {
     readCookieConsent(),
     getAppSettings(),
     getSystemPageSlugs(),
+    getServicesForBanner(userLocale),
   ]);
 
   const exportJobsVM: ExportJobVM[] = exportJobs.map((j) => ({
@@ -92,6 +106,7 @@ export default async function PrivacySettingsPage() {
           cookieConsent.hasDecision ? cookieConsent.decidedAt : null
         }
         policyUrl={slugs.cookie ? `/${slugs.cookie}` : null}
+        services={cookieServices}
       />
 
       <ExportPanel jobs={exportJobsVM} />

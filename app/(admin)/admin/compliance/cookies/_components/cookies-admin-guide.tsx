@@ -1,14 +1,12 @@
 // Guide content shown inside the AdminSectionInfo modal on
-// /admin/compliance/cookies. Documents the registry pattern in
-// lib/cookie-consent/services.ts and how to wire a new tracker so the
-// admin matrix and the public banner stay in sync without code changes
-// in the UI layer.
+// /admin/compliance/cookies. Documents the registry pattern and how to
+// wire a new tracker so the admin matrix and the public banner stay in
+// sync without code changes in the UI layer.
 
 import {
   AlertTriangle,
   Code2,
   Cookie,
-  FileCode,
   ListChecks,
   PlugZap,
 } from "lucide-react";
@@ -94,39 +92,13 @@ export async function CookiesAdminGuide() {
     <div>
       <p style={{ margin: 0 }}>{t.rich("intro", richTags)}</p>
 
-      {/* ── Where the registry lives ────────────────────────────────────── */}
-      <section style={sectionStyle}>
-        <H icon={FileCode}>{t("registryHeading")}</H>
-        <p style={{ margin: "0 0 6px" }}>{t.rich("registryIntro", richTags)}</p>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          <li>{t.rich("registryCategories", richTags)}</li>
-          <li>{t.rich("registryServices", richTags)}</li>
-        </ul>
-      </section>
-
       {/* ── How to add a new service ────────────────────────────────────── */}
       <section style={sectionStyle}>
         <H icon={PlugZap}>{t("addServiceHeading")}</H>
         <ol style={{ margin: 0, paddingLeft: 20 }}>
           <li>{t.rich("addStep1", richTags)}</li>
+          <li>{t.rich("addStep2", richTags)}</li>
           <li>
-            {t("addStep2Before")} <Code>{t("addStep2Code")}</Code>
-            {t("addStep2After")}
-            <pre style={blockStyle}>{`{
-  id: "google_analytics",      // unique, lowercase_snake_case
-  name: "Google Analytics 4",  // shown in admin + tooltips
-  category: "cookie_analytics",
-  description:
-    "Anonymous page-view counter and UTM tracking. " +
-    "Loaded only after explicit user opt-in.",
-  firstParty: false,           // true if we own the cookie
-  provider: "Google LLC",
-  providerPolicyUrl:
-    "https://policies.google.com/privacy",
-}`}</pre>
-          </li>
-          <li>
-            {t("addStep3Before")} <i>{t("addStep3Italic")}</i>{" "}
             {t.rich("addStep3Mid", richTags)}
             <pre style={blockStyle}>{`const cookieConsent = await readCookieConsent();
 const gaAllowed =
@@ -136,7 +108,6 @@ const gaAllowed =
 {gaAllowed && <Script src="..." />}`}</pre>
             {t("addStep3Footer")}
           </li>
-          <li>{t.rich("addStep4", richTags)}</li>
         </ol>
       </section>
 
@@ -176,7 +147,6 @@ const gaAllowed =
           </div>
         </div>
         <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
-          <li>{t.rich("mistakeUniqueId", richTags)}</li>
           <li>{t.rich("mistakeMisuse", richTags)}</li>
           <li>{t.rich("mistakeRemoval", richTags)}</li>
         </ul>
