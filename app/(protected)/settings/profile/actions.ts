@@ -16,9 +16,11 @@ import {
   ensureBloomFilter,
 } from "@/lib/bloom/bloom-filter";
 import { db } from "@/lib/db/drizzle";
-import { activityLogs, ActivityType, userProfiles } from "@/lib/db/schema";
+import { activityLogs, ActivityType, userProfiles, users } from "@/lib/db/schema";
 import { uploadAvatarFromBuffer } from "@/lib/storage/avatars";
 import { getUser } from "@/lib/db/queries";
+import { isLocale } from "@/lib/i18n/config";
+import { setLocaleCookie } from "@/lib/i18n/locale-cookie";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -37,12 +39,16 @@ const updateProfileSchema = z.object({
       }
     }),
   bio: z.string().trim().max(160).optional().default(""),
+  /** Locale preferito (es. "it", "en"). Stringa vuota = nessuna preferenza
+   *  (segui il detection del proxy). Validato lato server contro la
+   *  whitelist `LOCALES` di lib/i18n/config.ts. */
+  locale: z.string().trim().max(5).optional().default(""),
 });
 
 export const updateProfile = validatedActionWithUser(
   updateProfileSchema,
   async (data, _formData, user) => {
-    const { firstName, lastName, username, bio } = data;
+    const { firstName, lastName, username, bio, locale } = data;
 
     // Lo username viene controllato (blacklist + bloom + DB) solo se è
     // cambiato rispetto a quello attuale. Confronto case-insensitive
@@ -96,6 +102,22 @@ export const updateProfile = validatedActionWithUser(
         await addUsernameToBloom(username);
       } catch (err) {
         console.error("[settings/profile] addUsernameToBloom failed:", err);
+      }
+    }
+
+    // Locale preferito: scriviamo `users.locale` solo se valido (whitelist
+    // LOCALES) o esplicitamente svuotato. Sync col cookie NEXT_LOCALE così
+    // la preferenza vale anche da guest dopo il logout (e viene letta dal
+    // proxy per le richieste subito successive).
+    const localeChanged = (user.locale ?? "") !== locale;
+    if (localeChanged) {
+      const safeLocale = locale === "" ? null : isLocale(locale) ? locale : null;
+      await db
+        .update(users)
+        .set({ locale: safeLocale, updatedAt: new Date() })
+        .where(eq(users.id, user.id));
+      if (safeLocale) {
+        await setLocaleCookie(safeLocale);
       }
     }
 

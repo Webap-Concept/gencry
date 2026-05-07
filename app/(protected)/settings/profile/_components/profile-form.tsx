@@ -22,9 +22,19 @@ type Initial = {
   avatarUrl: string | null;
   email: string;
   bio: string;
+  /** Locale preferito (es. "it", "en"). Stringa vuota = nessuna preferenza. */
+  locale: string;
 };
 
-export function ProfileForm({ initial }: { initial: Initial }) {
+type LocaleOption = { code: string; nativeLabel: string };
+
+export function ProfileForm({
+  initial,
+  locales,
+}: {
+  initial: Initial;
+  locales: LocaleOption[];
+}) {
   const router = useRouter();
   const [previewUrl, setPreviewUrl] = useState<string | null>(initial.avatarUrl);
 
@@ -190,6 +200,30 @@ export function ProfileForm({ initial }: { initial: Initial }) {
             Il cambio email sarà disponibile dalla sezione Account.
           </p>
         </div>
+
+        {/* Lingua preferita: salva users.locale + sync cookie NEXT_LOCALE.
+            Le lingue mostrate sono solo quelle abilitate dall'admin in
+            /admin/settings/languages (vedi getEnabledLocales). */}
+        {locales.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="locale">Lingua preferita</Label>
+            <select
+              id="locale"
+              name="locale"
+              defaultValue={initial.locale}
+              className="flex w-full rounded-2xl border px-4 py-2.5 text-sm bg-brand-surface-card text-brand-text border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50">
+              <option value="">Auto (rileva dal browser)</option>
+              {locales.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.nativeLabel}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11.5px] text-gc-fg-3 px-1">
+              Determina la lingua del pannello admin e delle email. Modifica subito al salvataggio.
+            </p>
+          </div>
+        )}
 
         {profileState.error && (
           <p className="text-[13px] text-gc-neg">{profileState.error}</p>
