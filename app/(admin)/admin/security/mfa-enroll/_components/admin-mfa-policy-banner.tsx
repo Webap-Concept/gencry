@@ -2,13 +2,18 @@
 // Server component. Usa solo --admin-* tokens — niente palette frontend.
 
 import type { MfaEnforcement } from "@/lib/auth/mfa/policy";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 interface AdminMfaPolicyBannerProps {
   enforcement: MfaEnforcement;
   /** True quando il layout admin ha forzato un redirect qui via
    *  `?reason=mfa-required`. Cambia leggermente il copy in blocking. */
   forcedRedirect?: boolean;
+  /** Quando il banner è renderizzato shell-wide (non sulla page di
+   *  enrollment), passare l'href dell'enroll per mostrare il CTA
+   *  "Vai al setup". Sulla page di enrollment va omesso. */
+  enrollHref?: string;
 }
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
@@ -20,6 +25,7 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
 export function AdminMfaPolicyBanner({
   enforcement,
   forcedRedirect,
+  enrollHref,
 }: AdminMfaPolicyBannerProps) {
   if (enforcement.kind === "ok") return null;
 
@@ -72,6 +78,15 @@ export function AdminMfaPolicyBanner({
           </p>
         ) : null}
       </div>
+      {enrollHref && (
+        <Link
+          href={enrollHref}
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white"
+          style={{ background: "var(--admin-accent)" }}>
+          Vai al setup
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      )}
     </div>
   );
 }
