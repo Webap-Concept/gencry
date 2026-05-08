@@ -3,6 +3,13 @@ import "server-only";
 import { db } from "@/lib/db/drizzle";
 import { gdprExportJobs, pages, users } from "@/lib/db/schema";
 import { and, count, eq, gte, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+
+/** Tag per `revalidateTag()` quando si vuole forzare il ricalcolo delle
+ * stats GDPR (es. dopo bump versione policy o creazione consent_records).
+ * Senza revalidate la cache scade comunque ogni 60s. */
+export const GDPR_STATS_TAG = "gdpr-dashboard-stats";
+export const GDPR_HEALTH_TAG = "gdpr-health-checks";
 
 export type GdprDashboardStats = {
   totalUsers: number;
@@ -42,7 +49,17 @@ export type GdprHealthChecks = {
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-export async function getGdprDashboardStats(): Promise<GdprDashboardStats> {
+/**
+ * Stats della dashboard GDPR: 7 query parallele su users/pages/gdprExportJobs
+ * + 2 di follow-up (drift terms/privacy). Cachata 60s con tag GDPR_STATS_TAG
+ * per evitare di ri-eseguire l'intero fan-out a ogni navigazione admin.
+ *
+ * Stale tolerance: le stats di adoption policy non cambiano realtime; 60s
+ * è ampiamente accettabile. Per forzare refresh dopo un bump di versione
+ * pagina (terms/privacy) o un purge admin, chiamare
+ * `revalidateTag(GDPR_STATS_TAG)`.
+ */
+const fetchDashboardStats = async (): Promise<GdprDashboardStats> => {
   const since = new Date(Date.now() - THIRTY_DAYS_MS);
 
   const [
@@ -155,9 +172,25 @@ export async function getGdprDashboardStats(): Promise<GdprDashboardStats> {
     },
     exportJobsRecent: exportByStatus,
   };
+};
+
+const fetchDashboardStatsCached = unstable_cache(
+  fetchDashboardStats,
+  ["gdpr-dashboard-stats"],
+  { revalidate: 60, tags: [GDPR_STATS_TAG] },
+);
+
+export async function getGdprDashboardStats(): Promise<GdprDashboardStats> {
+  return fetchDashboardStatsCached();
 }
 
-export async function getGdprHealthChecks(): Promise<GdprHealthChecks> {
+/**
+ * Health checks "infrastrutturali" GDPR: esistenza tabella consent_records
+ * + presenza trigger di immutabilità. Cambiano solo dopo migration → cache
+ * 60s è abbondantemente safe (al limite l'admin aspetta 1 min per vedere
+ * il risultato di una migration appena eseguita).
+ */
+const fetchHealthChecks = async (): Promise<GdprHealthChecks> => {
   // Probe esistenza tabella `consent_records` senza assumere lo schema:
   // to_regclass ritorna oid se esiste, NULL altrimenti.
   const tableExistsRows = await db.execute<{ exists: boolean }>(
@@ -185,4 +218,14 @@ export async function getGdprHealthChecks(): Promise<GdprHealthChecks> {
     consentRecordsTableExists,
     consentRecordsImmutable,
   };
+};
+
+const fetchHealthChecksCached = unstable_cache(
+  fetchHealthChecks,
+  ["gdpr-health-checks"],
+  { revalidate: 60, tags: [GDPR_HEALTH_TAG] },
+);
+
+export async function getGdprHealthChecks(): Promise<GdprHealthChecks> {
+  return fetchHealthChecksCached();
 }

@@ -4,6 +4,12 @@
 import { db } from "@/lib/db/drizzle";
 import { coinPrices, coins, prices, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+
+/** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
+ * fresche (es. al termine di un cron run). Senza revalidate la cache scade
+ * comunque ogni 60s — accettabile dato che il cron sync gira ogni ~5 min. */
+export const PRICES_HEALTH_TAG = "prices-health";
 
 export interface PriceRow {
   symbol: string;
@@ -100,10 +106,17 @@ export interface RecentRunStats {
   lastRunAt: Date | null;
 }
 
-export async function getRecentSyncStats(
+/**
+ * Stats run del cron prezzi (3 invocazioni dalla dashboard admin con kind
+ * sync/snapshot/cleanup). Cache 60s con tag PRICES_HEALTH_TAG: il cron
+ * gira ogni 5 min, quindi 60s di stale sono safe. unstable_cache usa gli
+ * argomenti (kind, windowHours) per derivare la chiave automaticamente,
+ * quindi le 3 chiamate hanno cache entry separate.
+ */
+const fetchRecentSyncStats = async (
   kind: "sync" | "snapshot" | "cleanup",
   windowHours = 24,
-): Promise<RecentRunStats> {
+): Promise<RecentRunStats> => {
   const cutoff = new Date(Date.now() - windowHours * 3600 * 1000);
   const rows = await db
     .select()
@@ -134,14 +147,37 @@ export async function getRecentSyncStats(
     avgDurationMs: durationSamples > 0 ? Math.round(totalDuration / durationSamples) : null,
     lastRunAt: rows[0].startedAt,
   };
+};
+
+const fetchRecentSyncStatsCached = unstable_cache(
+  fetchRecentSyncStats,
+  ["prices-recent-sync-stats"],
+  { revalidate: 60, tags: [PRICES_HEALTH_TAG] },
+);
+
+export async function getRecentSyncStats(
+  kind: "sync" | "snapshot" | "cleanup",
+  windowHours = 24,
+): Promise<RecentRunStats> {
+  return fetchRecentSyncStatsCached(kind, windowHours);
 }
 
-export async function getRecentRuns(limit = 20) {
+const fetchRecentRuns = async (limit = 20) => {
   return await db
     .select()
     .from(pricesSyncRuns)
     .orderBy(desc(pricesSyncRuns.startedAt))
     .limit(limit);
+};
+
+const fetchRecentRunsCached = unstable_cache(
+  fetchRecentRuns,
+  ["prices-recent-runs"],
+  { revalidate: 60, tags: [PRICES_HEALTH_TAG] },
+);
+
+export async function getRecentRuns(limit = 20) {
+  return fetchRecentRunsCached(limit);
 }
 
 export async function listCoins() {
