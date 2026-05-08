@@ -133,6 +133,54 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Tema BOSCO (dark) — attivo solo dentro `.gc-app-shell` quando html ha
+   la classe `.gc-dark`. Lo scope è chirurgico: l utente loggato in bosco
+   vede il tema scuro nelle pagine autenticate (layout (protected)), ma
+   landing pubblica / sign-in / CMS pages restano in sabbia. Il toggle è
+   in `components/layout/UserMenu.tsx` (ThemeToggleItem), persiste in
+   localStorage `gc-theme`.
+
+   Convenzione: invertiamo solo i livelli di sfondo / testo / linea.
+   `--gc-accent`, `--gc-pos`, `--gc-neg`, `--gc-green` sono colori
+   identitari semantici e restano uguali tra i due temi.
+
+   Identica scope per i `--brand-*` — i background/text del brand
+   (sabbia panna chiara) si scuriscono in bosco. Le accent/destructive
+   restano (sono brand colors fissi).
+   --------------------------------------------------------------------------- */
+
+.gc-dark .gc-app-shell {
+  /* Background levels — verde notte profondo → leggermente più chiaro per card → ancora un po per item */
+  --gc-bg: #0e1a14;
+  --gc-bg-2: #14241c;
+  --gc-bg-3: #1a2e25;
+
+  /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata */
+  --gc-fg: #e6e1d2;
+  --gc-fg-2: #b5b0a3;
+  --gc-fg-3: #7a7468;
+
+  /* Linee — toni del bg ma un click più chiari */
+  --gc-line: #25342c;
+  --gc-line-2: #364841;
+
+  /* Accent / pos / neg / green / accent-soft → invariati: identitari */
+
+  /* Brand tokens — stessa logica: solo background/text si invertono */
+  --brand-bg: #0e1a14;
+  --brand-surface: #14241c;
+  --brand-surface-card: #1a2e25;
+  --brand-text: #e6e1d2;
+  --brand-text-muted: #a8a297;
+  --brand-text-light: #7a7468;
+  --brand-label: #b5b0a3;
+  --brand-border: #25342c;
+  --brand-error-bg: #3a1a18;
+  /* --brand-primary, --brand-accent, --brand-destructive,
+     --brand-error-border, --brand-border-focus: invariati (brand colors) */
+}
+
+/* ---------------------------------------------------------------------------
    Animazioni GC — esposte come utility tramite @theme inline in globals.css
    (animate-gc-screen, animate-gc-pulse, animate-gc-blink).
    --------------------------------------------------------------------------- */

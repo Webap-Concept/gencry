@@ -280,10 +280,14 @@ function MenuItem({
 }
 
 /**
- * Toggle Sabbia/Bosco. Persiste in localStorage e applica la classe `dark`
- * su <html>. Nota: i token gc-* del frontend non hanno ancora una variante
- * dark — la voce sblocca il toggle, ma per vedere il tema "Bosco" effettivo
- * serve una PR dedicata che definisca i colori dark.
+ * Toggle Sabbia / Bosco. Persiste in localStorage `gc-theme` e applica la
+ * classe `.gc-dark` su <html>. Le regole concrete sono in frontend.css
+ * scope-ate sotto `.gc-dark .gc-app-shell { ... }`, quindi il tema attiva
+ * solo dentro il layout (protected) — landing pubblica, /sign-in e CMS
+ * pages restano sempre in sabbia anche per un utente loggato in bosco.
+ *
+ * Classe `.gc-dark` (non `.dark`) per evitare collisione col tema admin
+ * che usa `.dark` su <html> con la propria localStorage key `admin-theme`.
  */
 function ThemeToggleItem({ onAction }: { onAction?: () => void }) {
   const [theme, setTheme] = useState<"sabbia" | "bosco">("sabbia");
@@ -292,17 +296,17 @@ function ThemeToggleItem({ onAction }: { onAction?: () => void }) {
     const saved =
       typeof window !== "undefined" ? localStorage.getItem("gc-theme") : null;
     if (saved === "bosco") {
-      document.documentElement.classList.add("dark");
+      document.documentElement.classList.add("gc-dark");
       setTheme("bosco");
     } else {
-      document.documentElement.classList.remove("dark");
+      document.documentElement.classList.remove("gc-dark");
       setTheme("sabbia");
     }
   }, []);
 
   function toggleTheme() {
     const next = theme === "bosco" ? "sabbia" : "bosco";
-    document.documentElement.classList.toggle("dark", next === "bosco");
+    document.documentElement.classList.toggle("gc-dark", next === "bosco");
     localStorage.setItem("gc-theme", next);
     setTheme(next);
     onAction?.();
