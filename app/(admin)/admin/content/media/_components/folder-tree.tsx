@@ -17,7 +17,13 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   createMediaFolder,
   deleteMediaFolder,
@@ -390,20 +396,26 @@ function CreateOrRenameDialog(
   const inputRef = useRef<HTMLInputElement>(null);
 
   const action = props.mode === "create" ? createMediaFolder : renameMediaFolder;
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    action,
-    {},
-  );
+  // Niente useActionState qui: il pattern useEffect([state]) → onSuccess →
+  // setDialog(null) sul parent ha race in React 19/Next 16, l'effetto
+  // a volte non scatta perché il dialog viene smontato prima che React
+  // committi. Chiamiamo l'action direttamente via onSubmit + transition,
+  // così l'await è esplicito e non dipende dal lifecycle del componente.
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if ("success" in state) props.onSuccess(state.success);
-    else if ("error" in state) props.onError(state.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = (await action({}, formData)) as ActionState;
+      if ("success" in result) props.onSuccess(result.success);
+      else if ("error" in result) props.onError(result.error);
+    });
+  }
 
   const initialName = props.mode === "rename" ? props.folder.name : "";
 
@@ -424,7 +436,7 @@ function CreateOrRenameDialog(
           {props.mode === "create" ? t("createTitle") : t("renameTitle")}
         </h3>
 
-        <form action={formAction} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {props.mode === "create" ? (
             <input
               type="hidden"
@@ -498,16 +510,19 @@ function DeleteFolderDialog({
   onError: (msg: string) => void;
 }) {
   const t = useTranslations("admin.content.media.tree.dialog");
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    deleteMediaFolder,
-    {},
-  );
+  // Stesso fix del CreateOrRenameDialog: niente useActionState, chiamata
+  // diretta in transition per evitare race con setDialog(null) parent.
+  const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if ("success" in state) onSuccess(state.success);
-    else if ("error" in state) onError(state.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = (await deleteMediaFolder({}, formData)) as ActionState;
+      if ("success" in result) onSuccess(result.success);
+      else if ("error" in result) onError(result.error);
+    });
+  }
 
   return (
     <div
@@ -532,7 +547,7 @@ function DeleteFolderDialog({
           {t("deleteWarning")}
         </p>
 
-        <form action={formAction} className="flex justify-end gap-2">
+        <form onSubmit={handleSubmit} className="flex justify-end gap-2">
           <input type="hidden" name="id" value={folder.id} />
           <input
             type="hidden"

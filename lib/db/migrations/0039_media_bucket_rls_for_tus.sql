@@ -17,9 +17,18 @@
 -- gestito dall'app (vedi `deleteUnconfirmedAssets` in media-queries.ts +
 -- cron `media-orphan-cleanup` da configurare).
 
--- Abilita RLS su storage.objects (di solito è già attivo su Supabase, lo
--- mettiamo per completezza idempotente).
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- NB Supabase: RLS su storage.objects è già abilitata di default (la
+-- table è di proprietà del ruolo `supabase_storage_admin`, non `postgres`,
+-- quindi l'SQL Editor non può eseguire `ALTER TABLE ... ENABLE RLS` —
+-- error 42501 must be owner of table objects). Le CREATE POLICY qui
+-- sotto invece funzionano dall'SQL Editor perché Supabase grant-a i
+-- permessi specifici per la creazione di policy.
+--
+-- Se ANCHE le CREATE POLICY falliscono con "must be owner", fallback:
+--   Dashboard Supabase → Storage → bucket `media` → tab "Policies" →
+--   "New Policy" → per ogni operation (INSERT/UPDATE/SELECT) crea una
+--   policy "For authenticated users only" con WITH CHECK / USING
+--   `bucket_id = 'media'`. Equivalente, no SQL.
 
 -- INSERT policy: utente autenticato può creare oggetti nel bucket 'media'.
 -- Non discriminiamo per path: il path è generato server-side
