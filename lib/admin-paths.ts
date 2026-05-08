@@ -74,7 +74,17 @@ const fetchSlugCached = unstable_cache(fetchSlug, ["admin-url-slug"], {
 });
 
 export async function getAdminUrlSlug(): Promise<string> {
-  return fetchSlugCached();
+  // Outer try/catch difensivo: copre sia errori interni di fetchSlug, sia
+  // il caso "Invariant: incrementalCache missing" che `unstable_cache`
+  // lancia quando viene invocato fuori dal runtime Next.js (es. vitest).
+  // Senza questo i test che mockano solo `getUser` ma poi finiscono in
+  // un guard che chiama `getAdminUrlSlug` esploderebbero invece di
+  // testare il comportamento del guard stesso.
+  try {
+    return await fetchSlugCached();
+  } catch {
+    return DEFAULT_ADMIN_URL_SLUG;
+  }
 }
 
 /**

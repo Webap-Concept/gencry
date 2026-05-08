@@ -1,5 +1,6 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import {
   dismissAction,
   markAllReadAction,
@@ -126,6 +127,7 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const adminSlug = useAdminSlug();
   // Chiave dell'azione attualmente in volo, es. "snooze:<id>" / "dismiss:<id>" /
   // "markAll" / "read:<id>". Una sola azione per click — basta a evitare che
   // l'utente cliccando un bottone non ottenga feedback (era il problema UX).
@@ -326,7 +328,7 @@ export function NotificationBell({
           </div>
 
           <Link
-            href="/admin/notifications"
+            href={`/${adminSlug}/notifications`}
             onClick={() => setOpen(false)}
             className="block px-4 py-2.5 text-center text-xs font-medium transition-colors"
             style={{

@@ -1,6 +1,8 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { ADMIN_NAV, type NavChild, type NavItem } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import {
   DndContext,
   type DragEndEvent,
@@ -163,6 +165,11 @@ export default function AdminSidebar({
   navOrder,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const adminSlug = useAdminSlug();
+  // Gli href nel registry ADMIN_NAV sono RELATIVI al base admin (es.
+  // "/access/users"). Qui li prefissiamo runtime con lo slug pubblico
+  // configurato (`/<slug>/access/users`). Vedi lib/admin-nav.ts.
+  const prefixHref = (rel: string) => buildAdminPathFromSlug(adminSlug, rel);
   const tNav = useTranslations("admin.nav");
   const tShell = useTranslations("admin.shell");
 
@@ -286,8 +293,12 @@ export default function AdminSidebar({
   }, [pathname]);
 
   function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href;
-    return pathname === href || pathname.startsWith(href + "/");
+    // `href` è il path RELATIVO dal nav registry (es. "/access/users").
+    // Il `pathname` è quello PUBBLICO (es. "/admincontrol/access/users").
+    // Confrontiamo dopo aver prefissato lo slug.
+    const full = prefixHref(href);
+    if (exact) return pathname === full;
+    return pathname === full || pathname.startsWith(full + "/");
   }
 
   // Sotto-componente per i link semplici
@@ -308,7 +319,7 @@ export default function AdminSidebar({
     const active = isActive(href, exact);
     return (
       <Link
-        href={href}
+        href={prefixHref(href)}
         onClick={onClose}
         className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${
           sub ? "px-3 py-2 ml-3" : "px-3 py-2.5"
@@ -487,7 +498,7 @@ export default function AdminSidebar({
               {visibleChildren.map((leaf) => (
                 <NavLink
                   key={leaf.key}
-                  href={leaf.href!}
+                  href={prefixHref(leaf.href!)}
                   label={navLabel(leaf.key, leaf.label)}
                   icon={leaf.icon}
                   exact={leaf.exact}
@@ -602,7 +613,7 @@ export default function AdminSidebar({
               ) : (
                 <NavLink
                   key={child.key}
-                  href={child.href!}
+                  href={prefixHref(child.href!)}
                   label={navLabel(child.key, child.label)}
                   icon={child.icon}
                   exact={child.exact}
@@ -681,7 +692,7 @@ export default function AdminSidebar({
             </div>
           ) : (
             <NavLink
-              href={item.href!}
+              href={prefixHref(item.href!)}
               label={navLabel(item.key, item.label)}
               icon={item.icon}
               exact={item.exact}
@@ -755,7 +766,7 @@ export default function AdminSidebar({
             ) : (
               <NavLink
                 key={item.key}
-                href={item.href!}
+                href={prefixHref(item.href!)}
                 label={navLabel(item.key, item.label)}
                 icon={item.icon}
                 exact={item.exact}
