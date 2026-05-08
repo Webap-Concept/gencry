@@ -13,9 +13,11 @@ import {
   useState,
   useTransition,
 } from "react";
+import { runTusUpload } from "@/lib/client/media-tus-upload";
 import {
+  confirmMediaUploadAction,
+  createMediaUploadTicketAction,
   getMediaPickerData,
-  uploadAndPickAsset,
 } from "../actions";
 
 export interface PickedAsset {
@@ -392,29 +394,56 @@ function UploadTab({
   const t = useTranslations("admin.content.media.picker");
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   async function handleUpload(file: File) {
     setUploading(true);
+    setProgress(0);
     setError(null);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folderId", folderId === null ? "" : String(folderId));
-      const result = await uploadAndPickAsset(formData);
-      if (!result.ok) {
-        setError(result.error);
+      // Step 1: ticket
+      const ticket = await createMediaUploadTicketAction({
+        filename: file.name,
+        mime: file.type,
+        size: file.size,
+        folderId,
+      });
+      if (!ticket.ok) {
+        setError(ticket.error);
         return;
       }
+
+      // Step 2: TUS PUT diretto al bucket (resumable + progress reali)
+      try {
+        await runTusUpload(file, ticket, {
+          onProgress: setProgress,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "upload_failed";
+        setError(msg);
+        return;
+      }
+
+      // Step 3: confirm server-side (verifica + sanitize SVG)
+      const confirm = await confirmMediaUploadAction({
+        assetId: ticket.assetId,
+      });
+      if (!confirm.ok) {
+        setError(confirm.error);
+        return;
+      }
+
       startTransition(() => {
         onUploaded({
-          id: result.asset.id,
-          publicUrl: result.asset.publicUrl,
-          filename: result.asset.filename,
-          mime: result.asset.mime,
+          id: confirm.asset.id,
+          publicUrl: confirm.asset.publicUrl,
+          filename: confirm.asset.filename,
+          mime: confirm.asset.mime,
         });
       });
     } finally {
       setUploading(false);
+      setProgress(0);
     }
   }
 
@@ -473,12 +502,12 @@ function UploadTab({
         </p>
       )}
 
-      {uploading && <PickerUploadOverlay />}
+      {uploading && <PickerUploadOverlay progress={progress} />}
     </div>
   );
 }
 
-function PickerUploadOverlay() {
+function PickerUploadOverlay({ progress }: { progress: number }) {
   const t = useTranslations("admin.content.media.uploader");
   return (
     <div
@@ -486,7 +515,7 @@ function PickerUploadOverlay() {
       role="alert"
       aria-busy="true">
       <div
-        className="rounded-xl px-6 py-5 shadow-xl flex items-center gap-4 min-w-[280px]"
+        className="rounded-xl px-6 py-5 shadow-xl flex items-center gap-4 min-w-[320px]"
         style={{
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
@@ -495,14 +524,32 @@ function PickerUploadOverlay() {
           className="w-6 h-6 animate-spin flex-shrink-0"
           style={{ color: "var(--admin-accent)" }}
         />
-        <div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <p
+              className="text-sm font-medium"
+              style={{ color: "var(--admin-text)" }}>
+              {t("overlayUploading")}
+            </p>
+            <span
+              className="text-xs font-mono"
+              style={{ color: "var(--admin-text-muted)" }}>
+              {progress >= 100 ? "…" : `${progress}%`}
+            </span>
+          </div>
+          <div
+            className="mt-2 h-1.5 rounded-full overflow-hidden"
+            style={{ background: "var(--admin-page-bg)" }}>
+            <div
+              className="h-full transition-[width] duration-150"
+              style={{
+                width: `${progress}%`,
+                background: "var(--admin-accent)",
+              }}
+            />
+          </div>
           <p
-            className="text-sm font-medium"
-            style={{ color: "var(--admin-text)" }}>
-            {t("overlayUploading")}
-          </p>
-          <p
-            className="text-xs mt-0.5"
+            className="text-xs mt-1.5"
             style={{ color: "var(--admin-text-muted)" }}>
             {t("overlayHint")}
           </p>
