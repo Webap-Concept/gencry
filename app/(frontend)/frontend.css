@@ -164,6 +164,66 @@
   margin: 1.5em 0;
 }
 
+/* ---------------------------------------------------------------------------
+   CMS figure (immagini con caption + align + zoom inserite via Tiptap
+   `figureImage` node). Lo style viene da `data-align` + `style="width:N%"`
+   sul tag <figure>. Lo zoom è gestito dal client component
+   `cms-figure-lightbox.tsx` che attacca un click handler su
+   [data-zoom="true"] img.
+   --------------------------------------------------------------------------- */
+.tpl-content .cms-figure {
+  margin: 1.5em 0;
+  /* width arriva inline via style="width:25%" / 50% / 75% / 100% */
+}
+.tpl-content .cms-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0; /* override del .tpl-content img sopra */
+}
+.tpl-content .cms-figure figcaption {
+  margin-top: 0.5em;
+  font-size: 0.875em;
+  color: var(--gc-fg-3, #6c6c6c);
+  text-align: center;
+  font-style: italic;
+}
+.tpl-content .cms-figure[data-zoom="true"] img {
+  cursor: zoom-in;
+}
+/* Align via float per left/right (testo wrap), margin auto per center,
+   width 100% per full (nessun float). Margin laterale solo dove float. */
+.tpl-content .cms-figure[data-align="left"] {
+  float: left;
+  margin: 0.25em 1.25em 0.5em 0;
+}
+.tpl-content .cms-figure[data-align="right"] {
+  float: right;
+  margin: 0.25em 0 0.5em 1.25em;
+}
+.tpl-content .cms-figure[data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+.tpl-content .cms-figure[data-align="full"] {
+  width: 100% !important; /* override del style inline width:N% */
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Mobile: niente float, tutte le figure full-width per leggibilità.
+   Sotto i 640px la pagina è troppo stretta per text-wrap intorno a
+   un'immagine — sgonfia tutto a riga propria centrata. */
+@media (max-width: 640px) {
+  .tpl-content .cms-figure[data-align="left"],
+  .tpl-content .cms-figure[data-align="right"] {
+    float: none;
+    width: 100% !important;
+    margin: 1em 0;
+  }
+}
+
 .tpl-content hr {
   border: none;
   border-top: 1px solid currentColor;

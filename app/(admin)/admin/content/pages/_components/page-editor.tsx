@@ -13,12 +13,12 @@ import type {
   SeoPageTranslation,
   TemplateField,
 } from "@/lib/db/schema";
-import TiptapImage from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { FigureImage } from "./figure-image-node";
 import {
   AlertTriangle,
   AlignCenter,
@@ -800,16 +800,12 @@ export default function PageEditor({
         HTMLAttributes: { class: "underline" },
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      // Inline=false: l'immagine è block-level, sta su una riga propria —
-      // semantica corretta per content CMS (no immagini "incastrate" nel
-      // testo). allowBase64=false: niente data: URI, accettiamo solo URL
-      // dal nostro bucket. Le src arrivano dal MediaPicker, mai input
-      // utente diretto.
-      TiptapImage.configure({
-        inline: false,
-        allowBase64: false,
-        HTMLAttributes: { class: "tiptap-image" },
-      }),
+      // Custom node `figureImage`: sostituisce il default Image extension.
+      // Output: <figure class="cms-figure" data-align data-zoom style="width:N%">
+      //         <img>+<figcaption>. NodeView React in editor con floating
+      //         toolbar (width/align/zoom + caption inline). Vedi
+      //         figure-image-node.tsx per dettagli.
+      FigureImage,
     ],
     content: page?.content ?? "",
     immediatelyRender: false,
@@ -876,7 +872,15 @@ export default function PageEditor({
     editor
       ?.chain()
       .focus()
-      .setImage({ src: asset.publicUrl, alt: asset.filename })
+      .setFigureImage({
+        src: asset.publicUrl,
+        alt: asset.filename,
+        // Default sensati: full width, centro, no zoom, no caption.
+        // L'utente affina via floating toolbar.
+        width: 100,
+        align: "center",
+        zoom: false,
+      })
       .run();
     setImagePickerOpen(false);
   }
@@ -942,8 +946,11 @@ export default function PageEditor({
         .tiptap-editor pre code { background: none; padding: 0; }
         .tiptap-editor blockquote { border-left: 3px solid var(--admin-accent); padding-left: 1rem; color: var(--admin-text-muted); margin: 0.75em 0; }
         .tiptap-editor strong { font-weight: 700; }
-        .tiptap-editor .tiptap-image { max-width: 100%; height: auto; display: block; margin: 1em 0; border-radius: 0.5rem; }
-        .tiptap-editor .tiptap-image.ProseMirror-selectednode { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
+        /* La figureImage usa un NodeView React con styling inline:
+           niente CSS qui. Lasciamo solo un override per i wrapper che
+           Tiptap aggiunge: vogliamo che il <figure.cms-figure> stia su
+           una riga propria senza margin di paragrafo. */
+        .tiptap-editor figure.cms-figure { margin: 1em auto; }
         .tiptap-editor em { font-style: italic; }
         .tiptap-editor .ProseMirror-focused { outline: none; }
       `}</style>

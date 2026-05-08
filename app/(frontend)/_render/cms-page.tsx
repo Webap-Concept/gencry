@@ -1,3 +1,4 @@
+import { CmsFigureLightbox } from "@/app/(frontend)/_render/cms-figure-lightbox";
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
 import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fields";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
@@ -185,10 +186,16 @@ export async function CmsPage({
   };
 
   return (
-    <TemplateComponent
-      page={safePage}
-      template={pageData.template ?? null}
-      fields={fields}
-    />
+    <>
+      <TemplateComponent
+        page={safePage}
+        template={pageData.template ?? null}
+        fields={fields}
+      />
+      {/* Lightbox client per le `figure[data-zoom="true"]` nel content
+          rich-text. Singola istanza per pagina; scanna il DOM al mount
+          e ignora pagine senza figure zoomable (early return). */}
+      <CmsFigureLightbox />
+    </>
   );
 }
