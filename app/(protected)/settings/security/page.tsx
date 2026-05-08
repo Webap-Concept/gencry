@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getUser } from "@/lib/db/queries";
 import { getDeviceToken } from "@/lib/auth/trusted-device";
 import { getSession } from "@/lib/auth/session";
@@ -34,6 +35,16 @@ export default async function SecuritySettingsPage({
 
   const enforcement = mfaEnforcement(user, policy, mfaState);
   const forcedRedirect = params.reason === "mfa-required";
+
+  // Staff (isAdmin) gestisce il proprio MFA dentro l'admin, non sul
+  // frontend. Se la policy richiede l'MFA per loro (warning o blocking)
+  // e non sono enrolled, li mandiamo a /<adminSlug>/security/mfa-enroll
+  // dove c'è la UI dedicata. L'utente atterrato qui per errore (es.
+  // bookmark) viene riportato nel posto giusto.
+  if (user.isAdmin === true && enforcement.kind !== "ok") {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/security/mfa-enroll?reason=mfa-required`);
+  }
 
   const sessions = sessionsRaw.map((s) => ({
     id: s.id,

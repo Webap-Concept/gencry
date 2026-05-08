@@ -22,6 +22,8 @@ import type { Metadata } from "next";
 import { AdminSlugProvider } from "./_components/admin-slug-context";
 import AdminShellClient from "./_components/admin-shell-client";
 import AdminHeaderRight from "./_components/header";
+import { AdminMfaPolicyBanner } from "./security/mfa-enroll/_components/admin-mfa-policy-banner";
+import type { MfaEnforcement } from "@/lib/auth/mfa/policy";
 
 // Template metadata: ogni page.tsx esporta solo il titolo specifico
 // es. export const metadata = { title: "Utenti" }
@@ -52,15 +54,19 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     requireAdminPage(),
   ]);
 
-  // MFA enforcement (admin context): se la policy entra in blocking per
-  // questo utente, redirige a /<slug>/security/mfa-enroll. Speculare a
-  // quanto fa (protected)/layout.tsx, ma con redirect dentro l'admin —
-  // così lo staff non viene mandato sul frontend per attivare MFA.
-  // Bypass per la pagina di enrollment stessa e per le route di
-  // sign-in/challenge (gestite più sopra). Try/catch difensivo come nel
-  // layout protetto: errori transitori non bloccano l'admin.
+  // MFA enforcement (admin context):
+  //  - blocking → redirect a /<slug>/security/mfa-enroll (forziamo).
+  //  - warning  → niente redirect, ma renderizziamo un banner shell-wide
+  //    sopra ai children con countdown + CTA "Vai al setup". Lo staff
+  //    sa che ha N giorni e ha un click per arrivarci da qualunque
+  //    pagina admin.
+  //  - ok       → niente.
+  // Bypass per la enroll page stessa (la pagina ha il suo banner) e per
+  // le route di sign-in/challenge (gestite più sopra). Try/catch
+  // difensivo: errori transitori non bloccano l'admin.
   const enrollPath = `/${adminSlug}/security/mfa-enroll`;
   let mfaRedirectTo: string | null = null;
+  let mfaEnforcementForBanner: MfaEnforcement | null = null;
   if (!user.bannedAt && pathname !== enrollPath && !pathname.startsWith("/api/")) {
     try {
       const [policy, mfaState] = await Promise.all([
@@ -70,6 +76,8 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
       const enforcement = mfaEnforcement(user, policy, mfaState);
       if (enforcement.kind === "blocking") {
         mfaRedirectTo = `${enrollPath}?reason=mfa-required`;
+      } else if (enforcement.kind === "warning") {
+        mfaEnforcementForBanner = enforcement;
       }
     } catch (err) {
       console.error("[layout/admin] MFA enforcement check failed:", err);
@@ -150,6 +158,14 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
               unreadCount={bell.unreadCount}
             />
           }>
+          {mfaEnforcementForBanner && (
+            <div className="mb-4">
+              <AdminMfaPolicyBanner
+                enforcement={mfaEnforcementForBanner}
+                enrollHref={enrollPath}
+              />
+            </div>
+          )}
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-32">
