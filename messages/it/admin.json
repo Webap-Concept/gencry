@@ -1842,6 +1842,36 @@
   },
   "security": {
     "breadcrumb": "Sicurezza",
+    "adminUrl": {
+      "metaTitle": "Sicurezza / URL Admin",
+      "pageTitle": "URL Admin",
+      "pageSubtitle": "Personalizza il prefisso URL del pannello admin. Utile per deploy white-label e security through obscurity.",
+      "form": {
+        "heading": "Slug URL admin",
+        "subheading": "Primo segmento dell'URL admin. Default: \"admin\". Dopo il cambio, l'intero pannello sarà raggiungibile da /<nuovo-slug>/...",
+        "currentLabel": "Attuale",
+        "slugLabel": "Nuovo slug",
+        "saveButton": "Salva",
+        "formatHint": "Lettere minuscole, cifre, trattini e underscore. 2–40 caratteri, deve iniziare con lettera o cifra.",
+        "reservedHint": "Parola riservata — scegli un altro valore (collide con rotte di sistema tipo /api, /sign-in, ecc.).",
+        "unchangedHint": "Uguale al valore attuale — nulla da salvare.",
+        "previewHint": "L'admin sarà raggiungibile su {url}",
+        "changedToast": "URL admin cambiato. Ora sei su /{slug}."
+      },
+      "hints": {
+        "warningsTitle": "Prima di salvare",
+        "warningRedirect": "Dopo il salvataggio verrai reindirizzato automaticamente al nuovo URL. La sessione resta valida.",
+        "warningBookmarks": "I bookmark esistenti che puntano al vecchio URL admin daranno 404 — condividi il nuovo URL col team.",
+        "warningEmails": "Le email di notifica già inviate puntano ancora al vecchio URL. Le email future useranno il nuovo valore automaticamente."
+      },
+      "actionMessages": {
+        "notAuthorized": "Non hai i permessi per cambiare l'URL admin.",
+        "invalidFormat": "Formato non valido: lettere minuscole, cifre, trattini, underscore; 2–40 caratteri.",
+        "reservedSlug": "Questo valore è riservato (collide con una rotta di sistema).",
+        "collision": "Lo slug \"{slug}\" è già usato da una pagina CMS. Scegli un altro valore o rinomina prima la pagina.",
+        "saveFailed": "Impossibile salvare il nuovo URL admin. Riprova o controlla i log."
+      }
+    },
     "mfa": {
       "metaTitle": "Sicurezza / MFA",
       "pageTitle": "Autenticazione multi-fattore",
@@ -2588,6 +2618,7 @@
     "analytics": "Analytics",
     "moderation": "Moderazione",
     "security-group": "Sicurezza",
+    "security-admin-url": "URL Admin",
     "security-mfa": "MFA",
     "security-bruteforce": "Bruteforce",
     "security-ip-rules": "Regole IP",

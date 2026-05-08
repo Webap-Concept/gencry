@@ -1842,6 +1842,36 @@
   },
   "security": {
     "breadcrumb": "Security",
+    "adminUrl": {
+      "metaTitle": "Security / Admin URL",
+      "pageTitle": "Admin URL",
+      "pageSubtitle": "Customize the URL prefix of the admin panel. Useful for white-label deployments and security through obscurity.",
+      "form": {
+        "heading": "Admin URL slug",
+        "subheading": "First segment of the admin URL. Default: \"admin\". Once changed, the entire admin panel becomes available at /<new-slug>/...",
+        "currentLabel": "Currently",
+        "slugLabel": "New slug",
+        "saveButton": "Save",
+        "formatHint": "Lowercase letters, digits, dashes and underscores. 2–40 characters, must start with a letter or digit.",
+        "reservedHint": "Reserved word — pick another value (collides with system routes like /api, /sign-in, etc.).",
+        "unchangedHint": "Same as the current value — nothing to save.",
+        "previewHint": "Admin will be reachable at {url}",
+        "changedToast": "Admin URL changed. You're now on /{slug}."
+      },
+      "hints": {
+        "warningsTitle": "Before saving",
+        "warningRedirect": "After save you'll be redirected to the new URL automatically. Your session stays valid.",
+        "warningBookmarks": "Existing bookmarks pointing to the old admin URL will return 404 — share the new URL with your team.",
+        "warningEmails": "Notification emails and links sent BEFORE the change still point to the old URL. Future emails use the new value automatically."
+      },
+      "actionMessages": {
+        "notAuthorized": "You don't have permission to change the admin URL.",
+        "invalidFormat": "Invalid format: lowercase letters, digits, dashes, underscores; 2–40 characters.",
+        "reservedSlug": "That value is reserved (it would collide with a system route).",
+        "collision": "Slug \"{slug}\" is already used by a CMS page. Pick another value or rename the page first.",
+        "saveFailed": "Could not save the new admin URL. Try again or check the logs."
+      }
+    },
     "mfa": {
       "metaTitle": "Security / MFA",
       "pageTitle": "Multi-factor authentication",
@@ -2588,6 +2618,7 @@
     "analytics": "Analytics",
     "moderation": "Moderation",
     "security-group": "Security",
+    "security-admin-url": "Admin URL",
     "security-mfa": "MFA",
     "security-bruteforce": "Bruteforce",
     "security-ip-rules": "IP Rules",

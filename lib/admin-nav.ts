@@ -155,6 +155,13 @@ export const ADMIN_NAV: NavItem[] = [
     childrenMaxHeight: "260px",
     children: [
       {
+        key: "security-admin-url",
+        href: "/security/admin-url",
+        label: "Admin URL",
+        icon: "Link2",
+        permission: "admin:security",
+      },
+      {
         key: "security-mfa",
         href: "/security/mfa",
         label: "MFA",
