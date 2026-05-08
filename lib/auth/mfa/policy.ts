@@ -72,7 +72,17 @@ const fetchPolicyCached = unstable_cache(fetchPolicy, ["mfa-policy"], {
 });
 
 export async function getMfaPolicy(): Promise<MfaPolicy> {
-  return fetchPolicyCached();
+  // unstable_cache JSON-serializza il return value, quindi `requiredSince`
+  // (Date) torna come string ISO al cache hit. Ri-istanziamo Date qui per
+  // mantenere il contratto di tipo verso i caller — `mfaDeadlineFor` chiama
+  // `.getTime()` e prima di questo fix esplodeva con
+  // "TypeError: requiredSince.getTime is not a function" appena un admin
+  // attivava una mode required-* (= scriveva `mfa.required_since`).
+  const cached = await fetchPolicyCached();
+  return {
+    ...cached,
+    requiredSince: cached.requiredSince ? new Date(cached.requiredSince) : null,
+  };
 }
 
 /**
