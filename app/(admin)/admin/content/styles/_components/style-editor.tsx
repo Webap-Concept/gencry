@@ -14,18 +14,17 @@ import {
 /**
  * Editor CSS per i contenuti CMS.
  *
- * Sorgente: `app_settings[cms.custom_css]` (override) con fallback al
- * default seed (lib/cms/default-styles.ts). Il CodeMirror parte dal
- * valore custom se presente, altrimenti dal default — così l'admin vede
- * subito le regole correnti e può iterare.
+ * Persistenza: server action `saveCmsStylesAction`. Per evitare i quirks
+ * di `useActionState` chiamato programmaticamente (in alcune versioni
+ * React 19 il primo invocation veniva swallowato), invochiamo l'action
+ * via due `<form action={action}>` separati con hidden input — il
+ * pattern React 19 nativo per Server Actions:
+ *   - Form "save"  → input hidden `css` con il valore corrente.
+ *   - Form "reset" → input hidden `reset=1`, action setta DB a null.
  *
- * Persistenza: server action `saveCmsStylesAction` (stesso file in actions.ts).
- * Bottone "Ripristina default" passa `reset=1` → action setta DB a null →
- * il route handler ritornerà di nuovo il default seed.
- *
- * Il preview live non c'è (per ora): le pagine CMS si servono dall'API
- * con cache HTTP 5min, l'admin ricarica la CMS page in un'altra tab dopo
- * il save per vedere il risultato.
+ * I bottoni sono `type="submit"` dentro i propri form. Niente onClick,
+ * niente FormData costruita a mano: il browser invia automaticamente
+ * tutti gli `<input>` del form.
  */
 export default function StyleEditor({
   initialCustom,
@@ -36,9 +35,6 @@ export default function StyleEditor({
 }) {
   const t = useTranslations("admin.content.styles");
 
-  // Stato editor: parte dal custom se presente, altrimenti dal default seed.
-  // `isCustom` segnala se il DB ha un override attivo — usato per il banner
-  // "Stai usando il default" vs "Override personalizzato attivo".
   const [code, setCode] = useState<string>(initialCustom ?? defaultStyles);
   const [hasCustom, setHasCustom] = useState<boolean>(
     initialCustom !== null && initialCustom.trim() !== "",
@@ -50,17 +46,21 @@ export default function StyleEditor({
     FormData
   >(saveCmsStylesAction, {} as SaveCmsStylesState);
 
-  // Allinea l'UI dopo un save/reset andato a buon fine. Il setState qui
-  // riallinea `initialRef` così il "dirty" indicator riparte da capo.
+  // Allinea l'UI dopo un save/reset andato a buon fine. Usiamo il
+  // savedAt come trigger così re-eseguiamo l'effect solo quando l'action
+  // ritorna un nuovo successo (state.ok === true riferito a uno stato
+  // "fresh"); i ri-render senza cambio di stato non ci toccano.
   useEffect(() => {
     if (!state || !("ok" in state) || !state.ok) return;
     if (state.reset) {
-      // Reset → il DB ora è null, l'editor torna a mostrare il default
       setCode(defaultStyles);
       initialRef.current = defaultStyles;
       setHasCustom(false);
     } else {
-      // Save normale → il DB ha il valore corrente, ripartiamo da lì
+      // Il valore persistito è quello che stava nell'editor al submit:
+      // lo prendiamo da `initialRef`-shadow `code` corrente (chiusura
+      // sul render in cui state è cambiato). Più sicuro: nascondi un
+      // input "css" che riflette code e leggi state.savedAt come token.
       initialRef.current = code;
       setHasCustom(code.trim() !== "");
     }
@@ -71,8 +71,6 @@ export default function StyleEditor({
   const charCount = code.length;
   const charLimit = 200_000;
 
-  // Theme CodeMirror — niente OneDark (heavy + non corrisponde al theme admin).
-  // Custom minimal: background trasparente, font monospace coerente.
   const cmTheme = useMemo(
     () =>
       EditorView.theme({
@@ -102,16 +100,6 @@ export default function StyleEditor({
       }),
     [],
   );
-
-  function handleSave(reset: boolean) {
-    const fd = new FormData();
-    if (reset) {
-      fd.set("reset", "1");
-    } else {
-      fd.set("css", code);
-    }
-    action(fd);
-  }
 
   return (
     <div className="space-y-4">
@@ -170,32 +158,43 @@ export default function StyleEditor({
             </span>
           )}
 
-          <button
-            type="button"
-            onClick={() => handleSave(true)}
-            disabled={isPending || !hasCustom}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: "transparent",
-              border: "1px solid var(--admin-input-border)",
-              color: "var(--admin-text-muted)",
-            }}>
-            <RotateCcw size={13} />
-            {t("resetButton")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            disabled={isPending || !isDirty}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: "var(--admin-accent)",
-              color: "white",
-              border: "none",
-            }}>
-            <Save size={13} />
-            {isPending ? t("savingButton") : t("saveButton")}
-          </button>
+          {/* Form Reset — submit con hidden `reset=1`. L'action setta DB
+              a null e l'effect lato client riallinea l'editor al default. */}
+          <form action={action}>
+            <input type="hidden" name="reset" value="1" />
+            <button
+              type="submit"
+              disabled={isPending || !hasCustom}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: "transparent",
+                border: "1px solid var(--admin-input-border)",
+                color: "var(--admin-text-muted)",
+              }}>
+              <RotateCcw size={13} />
+              {t("resetButton")}
+            </button>
+          </form>
+
+          {/* Form Save — submit con hidden `css` = valore corrente
+              dell'editor. Hidden viene letto dal browser al submit, niente
+              construzione manuale di FormData né invocation programmatica
+              (fix per "primo click non salva" su React 19 useActionState). */}
+          <form action={action}>
+            <input type="hidden" name="css" value={code} />
+            <button
+              type="submit"
+              disabled={isPending || !isDirty}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: "var(--admin-accent)",
+                color: "white",
+                border: "none",
+              }}>
+              <Save size={13} />
+              {isPending ? t("savingButton") : t("saveButton")}
+            </button>
+          </form>
         </div>
       </div>
 
