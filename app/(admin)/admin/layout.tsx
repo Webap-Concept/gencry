@@ -5,6 +5,8 @@
 import "@/app/(admin)/admin.css";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { getNavOrderOverrides } from "@/lib/db/admin-nav-order-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -14,6 +16,7 @@ import { getInitialBellData } from "@/lib/notifications/queries";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AdminSlugProvider } from "./_components/admin-slug-context";
@@ -35,10 +38,12 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = headersList.get("x-pathname") ?? "";
   const adminSlug = await getAdminUrlSlug();
 
-  // La sign-in admin non deve essere protetta — è la pagina di login stessa.
-  // Match sul path PUBBLICO (proxy.ts setta x-pathname al path utente, non
-  // a quello rewriteato).
-  if (pathname === `/${adminSlug}/sign-in`) {
+  // La sign-in admin (e il challenge MFA che la segue) non deve essere
+  // protetta — è la pagina di login stessa, l'utente non ha ancora una
+  // sessione valida. Match sul path PUBBLICO (proxy.ts setta x-pathname
+  // al path utente, non a quello rewriteato).
+  const signInRoot = `/${adminSlug}/sign-in`;
+  if (pathname === signInRoot || pathname.startsWith(`${signInRoot}/`)) {
     return <AdminSlugProvider value={adminSlug}>{children}</AdminSlugProvider>;
   }
 
@@ -46,6 +51,33 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
     getAppSettings(),
     requireAdminPage(),
   ]);
+
+  // MFA enforcement (admin context): se la policy entra in blocking per
+  // questo utente, redirige a /<slug>/security/mfa-enroll. Speculare a
+  // quanto fa (protected)/layout.tsx, ma con redirect dentro l'admin —
+  // così lo staff non viene mandato sul frontend per attivare MFA.
+  // Bypass per la pagina di enrollment stessa e per le route di
+  // sign-in/challenge (gestite più sopra). Try/catch difensivo come nel
+  // layout protetto: errori transitori non bloccano l'admin.
+  const enrollPath = `/${adminSlug}/security/mfa-enroll`;
+  let mfaRedirectTo: string | null = null;
+  if (!user.bannedAt && pathname !== enrollPath && !pathname.startsWith("/api/")) {
+    try {
+      const [policy, mfaState] = await Promise.all([
+        getMfaPolicy(),
+        getMfaState(user.id),
+      ]);
+      const enforcement = mfaEnforcement(user, policy, mfaState);
+      if (enforcement.kind === "blocking") {
+        mfaRedirectTo = `${enrollPath}?reason=mfa-required`;
+      }
+    } catch (err) {
+      console.error("[layout/admin] MFA enforcement check failed:", err);
+    }
+  }
+  if (mfaRedirectTo) {
+    redirect(mfaRedirectTo);
+  }
 
   const appName = settings.app_name?.trim() || "App";
 

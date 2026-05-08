@@ -19,20 +19,29 @@ const EXPIRY_MS = 10 * 60 * 1000; // 10 minuti
 
 const key = new TextEncoder().encode(process.env.AUTH_SECRET);
 
+export type PendingMfaContext = "public" | "admin";
+
 type PendingMfaPayload = {
   userId: string;
   role: string;
+  /** Origine del challenge: "public" = /sign-in classico, "admin" =
+   *  /<adminSlug>/sign-in. Determina il redirect dopo verifica e l'UI
+   *  della pagina di challenge. Default "public" per backward-compat
+   *  con eventuali cookie scritti dalla versione precedente. */
+  context?: PendingMfaContext;
   expires: string;
 };
 
 export async function setPendingMfaCookie(
   userId: string,
   role: string,
+  context: PendingMfaContext = "public",
 ): Promise<void> {
   const expires = new Date(Date.now() + EXPIRY_MS);
   const payload: PendingMfaPayload = {
     userId,
     role,
+    context,
     expires: expires.toISOString(),
   };
   const token = await new SignJWT(payload)
@@ -57,7 +66,7 @@ export async function getPendingMfa(): Promise<PendingMfaPayload | null> {
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
     const data = payload as unknown as PendingMfaPayload;
     if (new Date() > new Date(data.expires)) return null;
-    return data;
+    return { ...data, context: data.context ?? "public" };
   } catch {
     return null;
   }

@@ -2,6 +2,8 @@
 
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { validatedAction } from "@/lib/auth/middleware";
+import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
+import { getMfaState } from "@/lib/auth/mfa/queries";
 import { comparePasswords, setSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
 import { users } from "@/lib/db/schema";
@@ -47,9 +49,20 @@ export const adminSignIn = validatedAction(
       return { error: t("invalidCredentials"), email, password };
     }
 
-    await setSession(foundUser);
-
     const slug = await getAdminUrlSlug();
+
+    // MFA gate: se l'utente ha attivato il TOTP, sospendi la sessione e
+    // manda al challenge admin. setSession verrà chiamata da
+    // /<slug>/sign-in/mfa solo dopo verifica del codice. Senza questo
+    // step, lo staff salterebbe il TOTP — gap presente prima di questo
+    // PR (il flusso pubblico già lo gestisce, l'admin no).
+    const mfaState = await getMfaState(foundUser.id);
+    if (mfaState.enabled) {
+      await setPendingMfaCookie(foundUser.id, foundUser.role, "admin");
+      redirect(`/${slug}/sign-in/mfa`);
+    }
+
+    await setSession(foundUser);
     redirect(`/${slug}`);
   },
 );

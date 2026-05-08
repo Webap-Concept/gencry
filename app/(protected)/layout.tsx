@@ -5,6 +5,7 @@ import { AppTopBar } from "@/components/layout/AppTopBar";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getPendingReconsents } from "@/lib/account/policy-reconsent";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { getSession } from "@/lib/auth/session";
@@ -18,10 +19,6 @@ import { Suspense } from "react";
 import { PolicyReconsentBanner } from "./_components/policy-reconsent-banner";
 
 const MFA_SECURITY_PATH = "/settings/security";
-const MFA_BLOCK_BYPASS_PREFIXES = [
-  MFA_SECURITY_PATH,
-  "/api/", // server actions, auth callbacks
-];
 
 // Shell dell'area loggata: sidebar a sinistra (md+), feed centrale, right
 // rail a destra (lg+); su mobile la nav passa al bottom-nav. I guest non
@@ -55,13 +52,16 @@ export default async function Layout({
 
   // MFA enforcement: se la policy admin (cfr. /admin/security/mfa) richiede
   // l'MFA per l'utente e la deadline del grace period è passata senza che
-  // l'utente lo abbia attivato, redirige a /settings/security. La pagina
-  // mostrerà il banner blocking con il setup wizard.
+  // l'utente lo abbia attivato, redirige a:
+  //   - `/<adminSlug>/security/mfa-enroll` per gli staff (isAdmin) — single
+  //     source of truth per l'enrollment dello staff, evita di mandarli sul
+  //     frontend per attivare l'MFA;
+  //   - `/settings/security` per gli utenti normali (mode required-for-all).
   //
   // Wrappato in try/catch: un errore qui (DB transitorio, settings stale,
   // ecc.) non deve bloccare l'intera area loggata. Se il calcolo fallisce,
   // l'utente continua come se MFA fosse optional — il banner della pagina
-  // /settings/security copre comunque il caso in modo non bloccante.
+  // di enrollment copre comunque il caso in modo non bloccante.
   // Il redirect viene calcolato dentro il try ma chiamato FUORI, perché
   // `redirect()` lancia un'eccezione Next-interna che non va catturata.
   let mfaRedirectTo: string | null = null;
@@ -75,11 +75,15 @@ export default async function Layout({
       const enforcement = mfaEnforcement(user, policy, mfaState);
       if (enforcement.kind === "blocking") {
         const pathname = (await headers()).get("x-pathname") ?? "";
-        const bypass = MFA_BLOCK_BYPASS_PREFIXES.some((p) =>
-          pathname.startsWith(p),
-        );
+        const isStaff = user.isAdmin === true;
+        const adminSlug = isStaff ? await getAdminUrlSlug() : null;
+        const targetPath = isStaff && adminSlug
+          ? `/${adminSlug}/security/mfa-enroll`
+          : MFA_SECURITY_PATH;
+        const bypassPaths = [targetPath, "/api/"];
+        const bypass = bypassPaths.some((p) => pathname.startsWith(p));
         if (!bypass) {
-          mfaRedirectTo = `${MFA_SECURITY_PATH}?reason=mfa-required`;
+          mfaRedirectTo = `${targetPath}?reason=mfa-required`;
         }
       }
     }

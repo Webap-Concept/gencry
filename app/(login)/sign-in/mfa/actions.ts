@@ -5,10 +5,12 @@ import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { validatedAction } from "@/lib/auth/middleware";
 import {
   clearPendingMfaCookie,
   getPendingMfa,
+  type PendingMfaContext,
 } from "@/lib/auth/mfa/pending-cookie";
 import {
   consumeRecoveryCode,
@@ -40,7 +42,8 @@ export const verifyMfa = validatedAction(verifySchema, async (data) => {
   if (!pending) {
     return { error: t("actionErrors.mfa.sessionExpired") };
   }
-  const { userId, role } = pending;
+  const { userId, role, context } = pending;
+  const ctx: PendingMfaContext = context ?? "public";
 
   const headersList = await headers();
   const ip =
@@ -67,7 +70,7 @@ export const verifyMfa = validatedAction(verifySchema, async (data) => {
     }
 
     await onMfaSuccess(userId, role, ip, ActivityType.MFA_VERIFIED);
-    return await finishLogin(userId, role);
+    return await finishLogin(userId, role, ctx);
   }
 
   // Path 2: recovery code (xxxxx-xxxxx, lowercase, eventualmente con spazi).
@@ -89,7 +92,7 @@ export const verifyMfa = validatedAction(verifySchema, async (data) => {
   }
 
   await onMfaSuccess(userId, role, ip, ActivityType.MFA_RECOVERY_CODE_USED);
-  return await finishLogin(userId, role);
+  return await finishLogin(userId, role, ctx);
 });
 
 async function onMfaSuccess(
@@ -105,9 +108,20 @@ async function onMfaSuccess(
   });
 }
 
-async function finishLogin(userId: string, role: string): Promise<never> {
+async function finishLogin(
+  userId: string,
+  role: string,
+  context: PendingMfaContext,
+): Promise<never> {
   await createSession(userId, role);
   await clearPendingMfaCookie();
+
+  // Challenge originato dall'admin sign-in: torna nel pannello admin,
+  // niente onboarding (uno staff non passa per il wizard utente).
+  if (context === "admin") {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}`);
+  }
 
   // Onboarding gate per non-admin (analogo a verify-device).
   if (role !== "admin") {
@@ -120,7 +134,5 @@ async function finishLogin(userId: string, role: string): Promise<never> {
       redirect("/onboarding");
     }
   }
-  // MFA challenge da flusso pubblico: torna sempre a "/". Il flusso admin
-  // ha la propria action `adminSignIn` con redirect dedicato.
   redirect("/");
 }
