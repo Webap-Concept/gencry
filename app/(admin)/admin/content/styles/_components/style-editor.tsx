@@ -3,6 +3,7 @@
 import { css as cssLang } from "@codemirror/lang-css";
 import { EditorView } from "@codemirror/view";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { CheckCircle2, RotateCcw, Save, AlertTriangle } from "lucide-react";
@@ -14,17 +15,25 @@ import {
 /**
  * Editor CSS per i contenuti CMS.
  *
- * Persistenza: server action `saveCmsStylesAction`. Per evitare i quirks
- * di `useActionState` chiamato programmaticamente (in alcune versioni
- * React 19 il primo invocation veniva swallowato), invochiamo l'action
- * via due `<form action={action}>` separati con hidden input — il
- * pattern React 19 nativo per Server Actions:
- *   - Form "save"  → input hidden `css` con il valore corrente.
- *   - Form "reset" → input hidden `reset=1`, action setta DB a null.
+ * Persistenza: server action `saveCmsStylesAction` invocata via due form
+ * `<form action={action}>` separati con hidden inputs (pattern React 19
+ * nativo che evita lo "first click swallowed" tipico di useActionState
+ * chiamato programmaticamente da onClick):
+ *   - Form save  → input hidden `css` con il valore corrente.
+ *   - Form reset → input hidden `reset=1` (action setta DB a null).
  *
- * I bottoni sono `type="submit"` dentro i propri form. Niente onClick,
- * niente FormData costruita a mano: il browser invia automaticamente
- * tutti gli `<input>` del form.
+ * Source of truth = prop `initialCustom` (server-side). Dopo ogni save,
+ * Next esegue automaticamente router.refresh() → la page server-component
+ * re-fetcha il setting dal DB e ritorna nuovo `initialCustom`. Il client
+ * deriva tutto da quella prop:
+ *   - `baseline` = ciò che è realmente salvato sul server adesso
+ *   - `hasCustom` = c'è un override custom o no
+ *   - `isDirty` = il buffer corrente differisce dal baseline
+ * Niente useState dirty-tracking: il refresh server è la verità.
+ *
+ * `useEffect [initialCustom]` riallinea il buffer locale al baseline
+ * quando il server refresh porta un nuovo valore — di fatto solo dopo
+ * un save (l'unico evento che cambia initialCustom in questa pagina).
  */
 export default function StyleEditor({
   initialCustom,
@@ -35,39 +44,38 @@ export default function StyleEditor({
 }) {
   const t = useTranslations("admin.content.styles");
 
-  const [code, setCode] = useState<string>(initialCustom ?? defaultStyles);
-  const [hasCustom, setHasCustom] = useState<boolean>(
-    initialCustom !== null && initialCustom.trim() !== "",
-  );
-  const initialRef = useRef(initialCustom ?? defaultStyles);
+  const baseline = initialCustom ?? defaultStyles;
+  const hasCustom =
+    initialCustom !== null && initialCustom.trim() !== "";
+
+  // Buffer del CodeMirror. Riallineato al baseline quando il server
+  // notifica un cambio (post-save router.refresh).
+  const [code, setCode] = useState<string>(baseline);
+  useEffect(() => {
+    setCode(baseline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCustom]);
 
   const [state, action, isPending] = useActionState<
     SaveCmsStylesState,
     FormData
   >(saveCmsStylesAction, {} as SaveCmsStylesState);
 
-  // Allinea l'UI dopo un save/reset andato a buon fine. Usiamo il
-  // savedAt come trigger così re-eseguiamo l'effect solo quando l'action
-  // ritorna un nuovo successo (state.ok === true riferito a uno stato
-  // "fresh"); i ri-render senza cambio di stato non ci toccano.
+  // Dopo ogni save andato a buon fine forziamo un router.refresh() —
+  // l'action revalida solo /api/cms/styles.css, non questa pagina, quindi
+  // senza refresh esplicito il prop `initialCustom` resterebbe stale e
+  // l'editor mostrerebbe per sempre "Modifiche non salvate".
+  // `lastHandledAt` evita doppio-refresh sullo stesso save.
+  const router = useRouter();
+  const lastHandledAt = useRef<number | null>(null);
   useEffect(() => {
     if (!state || !("ok" in state) || !state.ok) return;
-    if (state.reset) {
-      setCode(defaultStyles);
-      initialRef.current = defaultStyles;
-      setHasCustom(false);
-    } else {
-      // Il valore persistito è quello che stava nell'editor al submit:
-      // lo prendiamo da `initialRef`-shadow `code` corrente (chiusura
-      // sul render in cui state è cambiato). Più sicuro: nascondi un
-      // input "css" che riflette code e leggi state.savedAt come token.
-      initialRef.current = code;
-      setHasCustom(code.trim() !== "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+    if (lastHandledAt.current === state.savedAt) return;
+    lastHandledAt.current = state.savedAt;
+    router.refresh();
+  }, [state, router]);
 
-  const isDirty = code !== initialRef.current;
+  const isDirty = code !== baseline;
   const charCount = code.length;
   const charLimit = 200_000;
 
@@ -103,7 +111,6 @@ export default function StyleEditor({
 
   return (
     <div className="space-y-4">
-      {/* Header status: indicatore custom/default + dirty */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-xs">
           <span
@@ -139,7 +146,7 @@ export default function StyleEditor({
         </div>
 
         <div className="flex items-center gap-2">
-          {state && "ok" in state && state.ok && (
+          {state && "ok" in state && state.ok && !isDirty && (
             <span
               className="inline-flex items-center gap-1.5 text-xs"
               style={{ color: "#22c55e" }}>
@@ -158,8 +165,6 @@ export default function StyleEditor({
             </span>
           )}
 
-          {/* Form Reset — submit con hidden `reset=1`. L'action setta DB
-              a null e l'effect lato client riallinea l'editor al default. */}
           <form action={action}>
             <input type="hidden" name="reset" value="1" />
             <button
@@ -176,10 +181,6 @@ export default function StyleEditor({
             </button>
           </form>
 
-          {/* Form Save — submit con hidden `css` = valore corrente
-              dell'editor. Hidden viene letto dal browser al submit, niente
-              construzione manuale di FormData né invocation programmatica
-              (fix per "primo click non salva" su React 19 useActionState). */}
           <form action={action}>
             <input type="hidden" name="css" value={code} />
             <button
@@ -198,7 +199,6 @@ export default function StyleEditor({
         </div>
       </div>
 
-      {/* Editor */}
       <CodeMirror
         value={code}
         height="560px"
