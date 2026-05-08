@@ -7,6 +7,7 @@
 
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db/drizzle";
 import { mfaRecoveryCodes, userMfaTotp } from "@/lib/db/schema";
 import {
@@ -14,6 +15,13 @@ import {
   encryptSecret,
   type EncryptedPayload,
 } from "@/lib/crypto/aes-gcm";
+
+/** Tag per `revalidateTag()` dopo enroll / disable / regenerate / admin
+ * reset. Tag globale (non per-user) per semplicità: gli eventi MFA sono
+ * rari e invalidare la cache di tutti gli utenti costa solo una query DB
+ * di cache-miss alla loro prossima navigazione. Senza revalidate la
+ * cache scade comunque ogni 60s. */
+export const MFA_STATE_TAG = "mfa-state";
 import {
   generateTotpSecretBase32,
   verifyTotpToken,
@@ -39,7 +47,19 @@ export type MfaState = {
   recoveryCodesRemaining: number;
 };
 
-export async function getMfaState(userId: string): Promise<MfaState> {
+/**
+ * Stato MFA di uno specifico utente. Letta dal `(protected)/layout.tsx`
+ * a OGNI navigazione di area loggata (incluso frontend), quindi cachata
+ * con `unstable_cache` 60s (tag MFA_STATE_TAG). userId è argomento della
+ * funzione → usato automaticamente da Next come parte della cache key,
+ * ogni utente ha la sua entry.
+ *
+ * Eventi che invalidano: enroll (confirmMfaSetup), disable, regenerate
+ * recovery codes, admin reset. Quelle action chiamano
+ * `revalidateTag(MFA_STATE_TAG)`. Login/verify NON invalidano (lasciamo
+ * che lastUsedAt resti stale fino al refresh ciclico — è cosmetic).
+ */
+const fetchState = async (userId: string): Promise<MfaState> => {
   const [row] = await db
     .select({
       enabledAt: userMfaTotp.enabledAt,
@@ -73,6 +93,15 @@ export async function getMfaState(userId: string): Promise<MfaState> {
     lastUsedAt: row?.lastUsedAt ?? null,
     recoveryCodesRemaining: remaining,
   };
+};
+
+const fetchStateCached = unstable_cache(fetchState, ["mfa-state"], {
+  revalidate: 60,
+  tags: [MFA_STATE_TAG],
+});
+
+export async function getMfaState(userId: string): Promise<MfaState> {
+  return fetchStateCached(userId);
 }
 
 // ---------------------------------------------------------------------------

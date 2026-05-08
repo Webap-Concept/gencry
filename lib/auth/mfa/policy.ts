@@ -1,7 +1,13 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import type { MfaState } from "./queries";
+
+/** Tag per `revalidateTag()` quando l'admin cambia la policy MFA da
+ * /admin/security/mfa. Invalidare invalida la cache cross-request della
+ * policy globale; senza revalidate la cache scade comunque ogni 60s. */
+export const MFA_POLICY_TAG = "mfa-policy";
 
 export type MfaMode = "optional" | "required-for-staff" | "required-for-all";
 
@@ -25,8 +31,18 @@ export interface MfaPolicy {
   requiredSince: Date | null;
 }
 
-/** Caricamento della policy dai settings, con resolve dell'issuer. */
-export async function getMfaPolicy(): Promise<MfaPolicy> {
+/**
+ * Caricamento della policy dai settings, con resolve dell'issuer.
+ *
+ * Cachata con `unstable_cache` (60s, tag MFA_POLICY_TAG) perché viene
+ * letta dal `(protected)/layout.tsx` su OGNI navigazione di area loggata
+ * — anche frontend (/profilo, /notifiche, /esplora). Senza cache, ogni
+ * pageload pagava 1 query DB per leggere appSettings. Cambia raramente
+ * (solo quando l'admin tocca /admin/security/mfa), quindi 60s di stale
+ * sono safe; il save admin chiama `revalidateTag(MFA_POLICY_TAG)` per
+ * propagare immediatamente.
+ */
+const fetchPolicy = async (): Promise<MfaPolicy> => {
   const s = await getAppSettings();
   const enabled = s["mfa.enabled"] !== "false";
   const rawMode = s["mfa.mode"] ?? "optional";
@@ -48,6 +64,15 @@ export async function getMfaPolicy(): Promise<MfaPolicy> {
     issuer,
     requiredSince,
   };
+};
+
+const fetchPolicyCached = unstable_cache(fetchPolicy, ["mfa-policy"], {
+  revalidate: 60,
+  tags: [MFA_POLICY_TAG],
+});
+
+export async function getMfaPolicy(): Promise<MfaPolicy> {
+  return fetchPolicyCached();
 }
 
 /**
