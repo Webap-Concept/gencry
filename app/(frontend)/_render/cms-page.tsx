@@ -131,13 +131,29 @@ export async function CmsPage({
     : detectLocaleFromSlug(slug);
   const { locale, segments } = resolved;
   const pageSlug = segments.join("/");
-  if (!pageSlug) notFound();
+  if (!pageSlug) {
+    console.warn("[cms-page] notFound: empty slug", { rawSlug: slug, locale });
+    notFound();
+  }
   const [pageData, settings] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
     getAppSettings(),
   ]);
 
-  if (!pageData || pageData.status !== "published") {
+  if (!pageData) {
+    // Diagnostica: vediamo nel log Vercel ESATTAMENTE cosa il routing
+    // ha richiesto. Se il path è chiaramente esistente ma il record non
+    // viene trovato, controlliamo encoding, trailing slash, case del
+    // valore in DB. Senza questo log dovevamo indovinare.
+    console.warn("[cms-page] notFound: no page row", { pageSlug, locale });
+    notFound();
+  }
+  if (pageData.status !== "published") {
+    console.warn("[cms-page] notFound: page not published", {
+      pageSlug,
+      locale,
+      status: pageData.status,
+    });
     notFound();
   }
 
@@ -146,6 +162,11 @@ export async function CmsPage({
   // vere sono servite da page handler dedicati (es. /sign-in →
   // (login)/sign-in/page.tsx). Non devono essere navigabili come URL CMS.
   if (pageData.isSystem && !pageData.contentEditable) {
+    console.warn("[cms-page] notFound: system meta-only page", {
+      pageSlug,
+      locale,
+      systemKey: pageData.systemKey,
+    });
     notFound();
   }
 
