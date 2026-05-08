@@ -55,6 +55,7 @@ import {
   Map,
   Package,
   PanelTop,
+  Palette,
   Plug,
   RotateCcw,
   Scale,
@@ -125,6 +126,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   ScrollText,
   UserX,
   Languages,
+  Palette,
   Image: ImageIcon,
 };
 

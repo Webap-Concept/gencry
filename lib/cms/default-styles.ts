@@ -1,28 +1,27 @@
-/*
-  cms.css
-  Stili applicati AL CONTENUTO delle pagine CMS — typography del rich-text,
-  immagini con figure/caption/align/zoom, blockquote e relative varianti.
-
-  Caricato esplicitamente solo dal renderer `CmsPage`
-  (app/(frontend)/_render/cms-page.tsx) — non dal layout — così applica
-  unicamente alle pagine CMS effettive e NON al footer pubblico, alla 404,
-  alla landing o al cookie banner che condividono il layout (frontend).
-
-  PR 3 (roadmap): questo file diventerà editabile dall'admin tramite la
-  sezione "Content / Stile CSS", con persistenza su DB e servizio via
-  endpoint `/api/cms/styles.css` con cache invalidata su save.
-  Il contenuto qui sotto rappresenta il "default seed" — ciò che ogni
-  installazione vede prima di personalizzare lo stile.
-
-  Convenzioni:
-  - Niente token Tailwind (`bg-*`, `text-*`): le pagine CMS usano
-    `dangerouslySetInnerHTML` e non hanno classi Tailwind nel content.
-  - Tutte le regole sono scopate sotto `.tpl-content` o sui suoi
-    discendenti (es. `.cms-figure` è sempre dentro `.tpl-content`).
-*/
-
-/* ---------------------------------------------------------------------------
-   .tpl-content — wrapper attorno all'HTML grezzo del rich-text editor
+/**
+ * Default seed CSS per il rendering dei contenuti CMS.
+ *
+ * Questo modulo è la fonte canonica del CSS che viene servito da
+ * `/api/cms/styles.css` quando l'admin non ha ancora personalizzato gli
+ * stili (oppure ha azzerato l'override). L'admin può modificarlo dalla
+ * sezione "Content / Stile CSS"; il valore custom è persistito in
+ * `app_settings` con key `cms.custom_css`. Vuoto / null = usa il default.
+ *
+ * Nota: la stringa qui sotto era originariamente il file `cms.css`. Per
+ * eliminare la duplicazione e poter servire/comparare con il valore in
+ * DB senza filesystem read, è stata convertita in costante TypeScript.
+ *
+ * Convenzioni:
+ * - Niente token Tailwind (`bg-*`, `text-*`): le pagine CMS usano
+ *   `dangerouslySetInnerHTML` e non hanno classi Tailwind nel content.
+ * - Tutte le regole sono scopate sotto `.tpl-content` o sui suoi
+ *   discendenti (es. `.cms-figure` è sempre dentro `.tpl-content`).
+ *
+ * Backslash escape: `\\201C`/`\\201D` in TS → `\201C`/`\201D` in CSS
+ * (codepoint Unicode per le virgolette tipografiche `“` `”`).
+ */
+export const DEFAULT_CMS_STYLES = `/* ---------------------------------------------------------------------------
+   .tpl-content — wrapper attorno all HTML grezzo del rich-text editor
    --------------------------------------------------------------------------- */
 
 .tpl-content h1,
@@ -106,22 +105,19 @@
 
 /* ---------------------------------------------------------------------------
    .cms-figure — immagini con caption + align + zoom inserite via Tiptap
-   `figureImage` node. Lo style viene da `data-align` + `style="width:N%"`
-   sul tag <figure>. Lo zoom è gestito dal client component
-   `cms-figure-lightbox.tsx` che attacca un click handler su
-   [data-zoom="true"] img.
+   figureImage node. Lo style viene da data-align + style="width:N%" sul
+   tag <figure>. Lo zoom è gestito dal client component cms-figure-lightbox.
    --------------------------------------------------------------------------- */
 
 .tpl-content .cms-figure {
   margin: 1.5em 0;
-  /* width arriva inline via style="width:25%" / 33% / 50% / 75% / 100% */
 }
 .tpl-content .cms-figure img {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 4px;
-  margin: 0; /* override del .tpl-content img sopra */
+  margin: 0;
 }
 .tpl-content .cms-figure figcaption {
   margin-top: 0.5em;
@@ -133,8 +129,6 @@
 .tpl-content .cms-figure[data-zoom="true"] img {
   cursor: zoom-in;
 }
-/* Align via float per left/right (testo wrap), margin auto per center,
-   width 100% per full (nessun float). Margin laterale solo dove float. */
 .tpl-content .cms-figure[data-align="left"] {
   float: left;
   margin: 0.25em 1.25em 0.5em 0;
@@ -148,18 +142,12 @@
   margin-right: auto;
 }
 .tpl-content .cms-figure[data-align="full"] {
-  width: 100% !important; /* override del style inline width:N% */
+  width: 100% !important;
   margin-left: 0;
   margin-right: 0;
   clear: both;
 }
 
-/* Headings, blockquote e hr "rompono" il wrap del float (clear:both).
-   Comportamento simmetrico a quello dell'editor admin: se l'admin
-   scrive un H2 dopo un'immagine floated-left, il testo riprende a riga
-   propria invece di continuare ad avvolgere. Paragrafi (p) NON
-   clear-ano: continuano il wrap finché non superano l'altezza
-   dell'immagine. */
 .tpl-content h1,
 .tpl-content h2,
 .tpl-content h3,
@@ -171,9 +159,6 @@
   clear: both;
 }
 
-/* Mobile: niente float, tutte le figure full-width per leggibilità.
-   Sotto i 640px la pagina è troppo stretta per text-wrap intorno a
-   un'immagine — sgonfia tutto a riga propria centrata. */
 @media (max-width: 640px) {
   .tpl-content .cms-figure[data-align="left"],
   .tpl-content .cms-figure[data-align="right"] {
@@ -184,9 +169,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Blockquote — 4 varianti via data-style. L'admin sceglie dal dropdown
-   della toolbar Tiptap (vedi blockquote-styled.ts + editor-toolbar-menus.tsx).
-   Senza data-style applichiamo il default classico (border-left).
+   Blockquote — 4 varianti via data-style.
    --------------------------------------------------------------------------- */
 
 .tpl-content blockquote {
@@ -225,7 +208,7 @@
   opacity: 0.85;
 }
 .tpl-content blockquote[data-style="quoted"]::before {
-  content: "\201C"; /* “ */
+  content: "\\201C";
   position: absolute;
   left: 0;
   top: -0.1em;
@@ -235,7 +218,7 @@
   opacity: 0.4;
 }
 .tpl-content blockquote[data-style="quoted"]::after {
-  content: "\201D"; /* ” */
+  content: "\\201D";
   position: absolute;
   right: 0;
   bottom: -0.6em;
@@ -244,3 +227,4 @@
   font-family: Georgia, "Times New Roman", serif;
   opacity: 0.4;
 }
+`;
