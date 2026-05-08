@@ -11,6 +11,14 @@ import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+// CMS-specifici: typography .tpl-content, .cms-figure, blockquote 4 stili.
+// Caricato qui — non dal layout (frontend) — così applica solo alle pagine
+// CMS effettive e non al footer pubblico, alla 404, alla landing o al
+// cookie banner che condividono il layout. In PR 3 questo import statico
+// verrà sostituito da un <link rel="stylesheet" href="/api/cms/styles.css">
+// alimentato da DB e modificabile dall'admin (sezione Content / Stile CSS).
+import "@/app/(frontend)/cms.css";
+
 /**
  * Se il primo segmento dello slug è un locale conosciuto, lo strippa e
  * lo ritorna a parte. Esempio:

@@ -11,6 +11,7 @@ import { users } from "@/lib/db/schema";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import "@/app/(frontend)/frontend.css";
 
 export default async function OnboardingLayout({
   children,
