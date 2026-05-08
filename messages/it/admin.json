@@ -1664,6 +1664,7 @@
         "toolbarAlignCenter": "Centra",
         "toolbarAlignRight": "Allinea a destra",
         "toolbarLink": "Link",
+        "toolbarImage": "Inserisci immagine",
         "toolbarSeparator": "Separatore",
         "linkPrompt": "URL del link:",
         "placeholdersTrigger": "Placeholder disponibili",
@@ -1758,6 +1759,8 @@
         "deleteAria": "Elimina file",
         "moveAria": "Sposta nella cartella",
         "typeVideo": "video",
+        "referencedByPrefix": "Usata in",
+        "referencedByMany": "{count} pagine",
         "delete": {
           "title": "Elimina file",
           "body": "Eliminare \"{name}\"?",

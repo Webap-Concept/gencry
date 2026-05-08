@@ -1664,6 +1664,7 @@
         "toolbarAlignCenter": "Align center",
         "toolbarAlignRight": "Align right",
         "toolbarLink": "Link",
+        "toolbarImage": "Insert image",
         "toolbarSeparator": "Separator",
         "linkPrompt": "Link URL:",
         "placeholdersTrigger": "Available Placeholders",
@@ -1754,6 +1755,8 @@
         "overlayHint": "Don't close this tab until the upload completes."
       },
       "grid": {
+        "referencedByPrefix": "Used in",
+        "referencedByMany": "{count} pages",
         "empty": "No assets yet — upload your first file to get started.",
         "deleteAria": "Delete asset",
         "moveAria": "Move to folder",

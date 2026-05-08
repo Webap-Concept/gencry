@@ -300,3 +300,92 @@ export async function countAssetReferences(assetId: number): Promise<number> {
   }
   return n;
 }
+
+export type AssetReference = {
+  pageId: number;
+  slug: string;
+  title: string | null;
+};
+
+/**
+ * Bulk scan: per un set di asset, trova le pagine che li referenziano sia
+ * via customFields (template-driven) sia via content (immagini embedded
+ * in rich text Tiptap, dove la `src` contiene lo storagePath).
+ *
+ * Ritorna mappa assetId → list di pagine. Usata dalla MediaGrid per
+ * mostrare il badge "usata in: /slug" sotto ogni thumbnail.
+ *
+ * Costo: O(pages × assets) substring + JSON parse, ma su workload
+ * realistico (< 200 pages, < 1000 assets) sta sotto i 50ms. Single
+ * SELECT — nessun N+1.
+ */
+export async function getAssetReferences(
+  assets: Array<{ id: number; storagePath: string }>,
+): Promise<Map<number, AssetReference[]>> {
+  const result = new Map<number, AssetReference[]>();
+  if (assets.length === 0) return result;
+
+  const rows = await db
+    .select({
+      id: pages.id,
+      slug: pages.slug,
+      title: pages.title,
+      customFields: pages.customFields,
+      content: pages.content,
+    })
+    .from(pages);
+
+  // Indici di lookup pre-built per evitare la doppia iterazione
+  const byId = new Map<string | number, number>(); // value cercato → assetId
+  for (const a of assets) {
+    byId.set(String(a.id), a.id);
+    byId.set(a.id, a.id);
+  }
+
+  function pushRef(assetId: number, page: AssetReference) {
+    const list = result.get(assetId);
+    if (list) {
+      // de-dup per pageId (stesso asset embedded sia in customFields che in content)
+      if (!list.some((r) => r.pageId === page.pageId)) list.push(page);
+    } else {
+      result.set(assetId, [page]);
+    }
+  }
+
+  for (const row of rows) {
+    const ref: AssetReference = {
+      pageId: row.id,
+      slug: row.slug,
+      title: row.title,
+    };
+
+    // 1. customFields: JSON, lookup esatto sui values
+    if (row.customFields) {
+      try {
+        const parsed = JSON.parse(row.customFields) as Record<string, unknown>;
+        for (const v of Object.values(parsed)) {
+          if (typeof v === "string" || typeof v === "number") {
+            const assetId = byId.get(v);
+            if (assetId !== undefined) pushRef(assetId, ref);
+          }
+        }
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+
+    // 2. content: HTML rich text, scan per storagePath. Le immagini
+    //    embedded da Tiptap hanno la publicUrl come src, e quella
+    //    contiene lo storagePath. Substring match sufficiente —
+    //    storagePath è UUID-based, niente collisioni accidentali.
+    if (row.content) {
+      for (const a of assets) {
+        if (row.content.includes(a.storagePath)) {
+          pushRef(a.id, ref);
+        }
+      }
+    }
+  }
+
+  return result;
+}
