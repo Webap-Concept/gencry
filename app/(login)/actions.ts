@@ -212,7 +212,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     // loggato MFA_VERIFIED dopo il check.
     const mfaState = await getMfaState(foundUser.id);
     if (mfaState.enabled) {
-      await setPendingMfaCookie(foundUser.id, foundUser.role);
+      await setPendingMfaCookie(foundUser.id, foundUser.role, "public");
       redirect("/sign-in/mfa");
     }
 
