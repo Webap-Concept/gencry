@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import {
   type ActionState,
   validatedActionWithUser,
@@ -20,6 +20,7 @@ import {
   confirmMfaSetup,
   disableMfa as disableMfaQuery,
   getMfaState,
+  MFA_STATE_TAG,
   regenerateRecoveryCodes,
   startMfaSetup,
   verifyTotpForLogin,
@@ -259,6 +260,7 @@ export const confirmMfaSetupAction = validatedActionWithUser(
       });
 
     revalidatePath("/settings/security");
+    updateTag(MFA_STATE_TAG);
     return {
       success: "Autenticazione a due fattori attivata.",
       recoveryCodes: result.recoveryCodes,
@@ -319,6 +321,7 @@ export const disableMfaAction = validatedActionWithUser(
       });
 
     revalidatePath("/settings/security");
+    updateTag(MFA_STATE_TAG);
     return { success: "Autenticazione a due fattori disabilitata." };
   },
 );
@@ -365,6 +368,8 @@ export const regenerateRecoveryCodesAction = validatedActionWithUser(
     const codes = await regenerateRecoveryCodes(user.id);
     await logActivity(user.id, ActivityType.MFA_RECOVERY_CODES_REGENERATED);
     revalidatePath("/settings/security");
+    // recoveryCodesRemaining è parte di MfaState → invalida la cache.
+    updateTag(MFA_STATE_TAG);
     return {
       success: "Nuovi recovery codes generati. Salvali subito.",
       recoveryCodes: codes,

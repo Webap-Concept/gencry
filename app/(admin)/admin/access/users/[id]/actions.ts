@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminPath } from "@/lib/admin-nav";
-import { resetMfaForAdmin } from "@/lib/auth/mfa/queries";
+import { MFA_STATE_TAG, resetMfaForAdmin } from "@/lib/auth/mfa/queries";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/lib/rbac/permissions-queries";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 
@@ -214,6 +214,9 @@ export async function adminResetMfa(formData: FormData) {
   })();
 
   revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  // Lo state MFA dell'utente target è cambiato — invalida la cache così
+  // il (protected)/layout di quell'utente vedrà subito il nuovo state.
+  updateTag(MFA_STATE_TAG);
   return { success: true };
 }
 

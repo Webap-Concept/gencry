@@ -7,7 +7,9 @@ import {
 import { db } from "@/lib/db/drizzle";
 import { userMfaTotp } from "@/lib/db/schema";
 import { count, isNotNull } from "drizzle-orm";
+import { updateTag } from "next/cache";
 import { getTranslations } from "next-intl/server";
+import { MFA_POLICY_TAG } from "@/lib/auth/mfa/policy";
 import { isMfaMode } from "./_components/mfa-modes";
 
 // File con `"use server"`: tutti gli export devono essere async functions.
@@ -115,6 +117,12 @@ export async function saveMfaSettings(
       "mfa.issuer_label": issuerRaw || null,
       "mfa.required_since": requiredSince,
     });
+
+    // Invalida la cache di getMfaPolicy: il (protected)/layout legge
+    // la policy a ogni navigazione, vogliamo che il nuovo mode sia
+    // visibile subito (entro la prossima request) invece di aspettare
+    // il revalidate ciclico di 60s.
+    updateTag(MFA_POLICY_TAG);
 
     return { success: t("saved"), timestamp: Date.now() };
   } catch (err) {
