@@ -22,7 +22,7 @@ export const PRICES_MODULE: ModuleManifest = {
   navChildren: [
     {
       key: "prices-overview",
-      href: "/admin/modules/prices",
+      href: "/modules/prices",
       label: "Health",
       icon: "Activity",
       permission: "modules:prices",
@@ -32,21 +32,21 @@ export const PRICES_MODULE: ModuleManifest = {
     },
     {
       key: "prices-coins",
-      href: "/admin/modules/prices/coins",
+      href: "/modules/prices/coins",
       label: "Coins Registry",
       icon: "Coins",
       permission: "modules:prices",
     },
     {
       key: "prices-cron",
-      href: "/admin/modules/prices/cron",
+      href: "/modules/prices/cron",
       label: "Cron Jobs",
       icon: "Clock",
       permission: "modules:prices",
     },
     {
       key: "prices-settings",
-      href: "/admin/modules/prices/settings",
+      href: "/modules/prices/settings",
       label: "Settings",
       icon: "Settings",
       permission: "modules:prices",
