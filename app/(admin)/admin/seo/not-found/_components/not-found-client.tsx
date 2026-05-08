@@ -10,16 +10,21 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   GitMerge,
   RotateCcw,
+  Search,
   SearchX,
   Trash2,
+  Wand2,
+  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 type NotFoundT = ReturnType<typeof useTranslations<"admin.seo.notFound">>;
 
@@ -27,6 +32,11 @@ type Props = {
   rows: NotFoundLogRow[];
   counts: { unresolved: number; resolved: number };
   includeResolved: boolean;
+  page: number;
+  totalPages: number;
+  perPage: number;
+  filteredTotal: number;
+  initialSearch: string;
   resolveAction: (
     id: number,
   ) => Promise<{ error?: string; success?: boolean }>;
@@ -37,6 +47,11 @@ type Props = {
     id: number,
   ) => Promise<{ error?: string; success?: boolean }>;
   clearResolvedAction: () => Promise<{
+    error?: string;
+    success?: boolean;
+    cleared?: number;
+  }>;
+  clearSystemPathsAction: () => Promise<{
     error?: string;
     success?: boolean;
     cleared?: number;
@@ -65,10 +80,16 @@ export default function NotFoundClient({
   rows,
   counts,
   includeResolved,
+  page,
+  totalPages,
+  perPage,
+  filteredTotal,
+  initialSearch,
   resolveAction,
   reopenAction,
   deleteAction,
   clearResolvedAction,
+  clearSystemPathsAction,
 }: Props) {
   const t = useTranslations("admin.seo.notFound");
   const adminSlug = useAdminSlug();
@@ -79,15 +100,46 @@ export default function NotFoundClient({
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
+  const [systemClearOpen, setSystemClearOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [isPending, startTransition] = useTransition();
 
-  function setShowAll(showAll: boolean) {
+  // Sincronizza l'input quando cambia il param da URL (back/forward, link diretto)
+  useEffect(() => {
+    setSearchInput(initialSearch);
+  }, [initialSearch]);
+
+  function updateParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
-    if (showAll) params.set("show", "all");
-    else params.delete("show");
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null || v === "") params.delete(k);
+      else params.set(k, v);
+    }
     const qs = params.toString();
     router.push(qs ? `?${qs}` : "?");
+  }
+
+  function setShowAll(showAll: boolean) {
+    updateParams({ show: showAll ? "all" : null, page: null });
+  }
+
+  function setPage(nextPage: number) {
+    if (nextPage < 1 || nextPage > totalPages) return;
+    updateParams({ page: nextPage > 1 ? String(nextPage) : null });
+  }
+
+  function applySearch(e: React.FormEvent) {
+    e.preventDefault();
+    updateParams({
+      q: searchInput.trim() || null,
+      page: null, // reset alla pagina 1 a ogni nuova query
+    });
+  }
+
+  function clearSearch() {
+    setSearchInput("");
+    updateParams({ q: null, page: null });
   }
 
   async function runAction(
@@ -115,6 +167,17 @@ export default function NotFoundClient({
     if (res.error) setActionError(res.error);
     else startTransition(() => router.refresh());
   }
+
+  async function confirmClearSystemPaths() {
+    setActionError(null);
+    const res = await clearSystemPathsAction();
+    setSystemClearOpen(false);
+    if (res.error) setActionError(res.error);
+    else startTransition(() => router.refresh());
+  }
+
+  const fromIdx = filteredTotal === 0 ? 0 : (page - 1) * perPage + 1;
+  const toIdx = Math.min(page * perPage, filteredTotal);
 
   return (
     <div className="space-y-6">
@@ -164,6 +227,17 @@ export default function NotFoundClient({
         onCancel={() => setClearOpen(false)}
       />
 
+      <ConfirmModal
+        open={systemClearOpen}
+        title={t("clearSystemModalTitle")}
+        message={t("clearSystemModalBody")}
+        variant="warning"
+        confirmLabel={t("clearSystemModalConfirm")}
+        cancelLabel={t("clearSystemModalCancel")}
+        onConfirm={confirmClearSystemPaths}
+        onCancel={() => setSystemClearOpen(false)}
+      />
+
       <AdminSectionHeader
         icon={SearchX}
         breadcrumbLabel={t("pageHeading")}
@@ -208,6 +282,18 @@ export default function NotFoundClient({
                 {t("filterAll")}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setSystemClearOpen(true)}
+              title={t("clearSystemTooltip")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+              style={{
+                color: "var(--admin-text-muted)",
+                border: "1px solid var(--admin-card-border)",
+                background: "var(--admin-card-bg)",
+              }}>
+              <Wand2 size={13} /> {t("clearSystemButton")}
+            </button>
             {counts.resolved > 0 && (
               <button
                 type="button"
@@ -224,6 +310,43 @@ export default function NotFoundClient({
           </div>
         }
       />
+
+      {/* Search bar */}
+      <form
+        onSubmit={applySearch}
+        className="flex items-center gap-2 rounded-xl px-3 py-2"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+        }}>
+        <Search size={14} style={{ color: "var(--admin-text-faint)" }} />
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={t("searchPlaceholder")}
+          className="flex-1 bg-transparent border-0 outline-none text-sm py-1"
+          style={{ color: "var(--admin-text)" }}
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            title={t("searchClearTooltip")}
+            className="p-1 rounded transition-colors"
+            style={{ color: "var(--admin-text-faint)" }}>
+            <X size={14} />
+          </button>
+        )}
+        {searchInput !== initialSearch && (
+          <button
+            type="submit"
+            className="px-3 py-1 text-xs font-medium rounded-md text-white"
+            style={{ background: "var(--admin-accent)" }}>
+            {t("searchSubmit")}
+          </button>
+        )}
+      </form>
 
       {actionError && (
         <div
@@ -257,12 +380,12 @@ export default function NotFoundClient({
           <p
             className="text-sm font-medium"
             style={{ color: "var(--admin-text-muted)" }}>
-            {t("emptyTitle")}
+            {initialSearch ? t("emptySearchTitle") : t("emptyTitle")}
           </p>
           <p
             className="text-xs mt-1 max-w-sm"
             style={{ color: "var(--admin-text-faint)" }}>
-            {t("emptyHint")}
+            {initialSearch ? t("emptySearchHint") : t("emptyHint")}
           </p>
         </div>
       ) : (
@@ -272,17 +395,21 @@ export default function NotFoundClient({
             background: "var(--admin-card-bg)",
             border: "1px solid var(--admin-card-border)",
           }}>
+          {/* Header: stesso grid template delle row così le colonne
+              si allineano. Ogni cella header usa l'allineamento orizzontale
+              della cella dati corrispondente (HIT centrato come il badge,
+              ULTIMO HIT a destra come il timestamp, AZIONI a destra). */}
           <div
-            className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
+            className="grid grid-cols-[1fr_5rem_8rem_auto] gap-3 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
             style={{
               color: "var(--admin-text-faint)",
               borderBottom: "1px solid var(--admin-divider)",
               background: "var(--admin-page-bg)",
             }}>
             <span>{t("columnPath")}</span>
-            <span>{t("columnHits")}</span>
-            <span>{t("columnLastHit")}</span>
-            <span />
+            <span className="text-center">{t("columnHits")}</span>
+            <span className="text-right">{t("columnLastHit")}</span>
+            <span className="text-right">{t("columnActions")}</span>
           </div>
 
           {rows.map((row, i) => {
@@ -291,7 +418,7 @@ export default function NotFoundClient({
             return (
               <div
                 key={row.id}
-                className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 text-sm"
+                className="grid grid-cols-[1fr_5rem_8rem_auto] items-center gap-3 px-4 py-3 text-sm"
                 style={{
                   borderBottom:
                     i < rows.length - 1
@@ -342,7 +469,7 @@ export default function NotFoundClient({
                 </div>
 
                 <span
-                  className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full"
+                  className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full justify-self-center"
                   style={{
                     background: "var(--admin-page-bg)",
                     color: "var(--admin-text)",
@@ -354,13 +481,13 @@ export default function NotFoundClient({
                 </span>
 
                 <span
-                  className="text-xs whitespace-nowrap"
+                  className="text-xs whitespace-nowrap text-right"
                   style={{ color: "var(--admin-text-muted)" }}
                   title={new Date(row.lastHitAt).toLocaleString()}>
                   {formatRelative(row.lastHitAt)}
                 </span>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 justify-end">
                   <Link
                     href={`${redirectBase}?from=${encodeURIComponent(row.path)}`}
                     title={t("redirectActionTooltip")}
@@ -442,6 +569,59 @@ export default function NotFoundClient({
               </div>
             );
           })}
+
+          {/* Pagination footer */}
+          {totalPages > 1 && (
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{
+                background: "var(--admin-page-bg)",
+                borderTop: "1px solid var(--admin-divider)",
+              }}>
+              <p
+                className="text-xs"
+                style={{ color: "var(--admin-text-muted)" }}>
+                {t("paginationRange", {
+                  from: fromIdx,
+                  to: toIdx,
+                  total: filteredTotal,
+                })}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1 || isPending}
+                  onClick={() => setPage(page - 1)}
+                  title={t("paginationPrev")}
+                  className="p-1.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    color: "var(--admin-text-muted)",
+                    border: "1px solid var(--admin-card-border)",
+                    background: "var(--admin-card-bg)",
+                  }}>
+                  <ChevronLeft size={14} />
+                </button>
+                <span
+                  className="text-xs px-3"
+                  style={{ color: "var(--admin-text)" }}>
+                  {t("paginationOf", { current: page, total: totalPages })}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages || isPending}
+                  onClick={() => setPage(page + 1)}
+                  title={t("paginationNext")}
+                  className="p-1.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    color: "var(--admin-text-muted)",
+                    border: "1px solid var(--admin-card-border)",
+                    background: "var(--admin-card-bg)",
+                  }}>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
