@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
+import { redirect } from "next/navigation";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import {
   type ActionState,
   validatedActionWithUser,
@@ -25,6 +27,10 @@ import {
   startMfaSetup,
   verifyTotpForLogin,
 } from "@/lib/auth/mfa/queries";
+import {
+  clearPendingRecoveryCodesCookie,
+  setPendingRecoveryCodesCookie,
+} from "@/lib/auth/mfa/pending-codes-cookie";
 import { buildOtpauthUrl } from "@/lib/auth/mfa/totp";
 import { qrCodeDataUrl } from "@/lib/auth/mfa/qrcode";
 import { getMfaPolicy } from "@/lib/auth/mfa/policy";
@@ -224,15 +230,16 @@ export const startMfaSetupAction = validatedActionWithUser(
 // in chiaro (mostrati una sola volta).
 // ---------------------------------------------------------------------------
 
-export type MfaConfirmState = ActionState & {
-  recoveryCodes?: string[];
-};
+export type MfaConfirmState = ActionState;
 
 const confirmMfaSetupSchema = z.object({
   token: z
     .string()
     .trim()
     .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+  // Quale chrome ha invocato l'action: determina la page /codes di
+  // destinazione del redirect post-success.
+  context: z.enum(["admin", "public"]).optional().default("public"),
 });
 
 export const confirmMfaSetupAction = validatedActionWithUser(
@@ -259,14 +266,40 @@ export const confirmMfaSetupAction = validatedActionWithUser(
         console.error("[mfa] sendMfaEnabledEmail failed:", err);
       });
 
-    revalidatePath("/settings/security");
+    // Cookie firmato (10 min) → redirect a una page dedicata che li
+    // mostra. Niente codici nello state action: lo stream poteva rompersi
+    // tra commit e ack del client perdendo i codici per sempre. Vedi
+    // lib/auth/mfa/pending-codes-cookie.ts per il razionale.
+    await setPendingRecoveryCodesCookie(result.recoveryCodes, "setup");
     updateTag(MFA_STATE_TAG);
-    return {
-      success: "Autenticazione a due fattori attivata.",
-      recoveryCodes: result.recoveryCodes,
-    };
+
+    const redirectTo =
+      data.context === "admin"
+        ? `/${await getAdminUrlSlug()}/security/mfa-enroll/codes`
+        : "/settings/security/codes";
+    redirect(redirectTo);
   },
 );
+
+// ---------------------------------------------------------------------------
+// MFA — ack pending recovery codes
+//
+// Chiamata dalla page /codes quando l'utente conferma di aver salvato i
+// codici. Cancella il cookie e rimanda alla page MFA del contesto giusto.
+// Da fuori della page /codes l'azione non ha effetti utili (cookie non c'è).
+// ---------------------------------------------------------------------------
+
+export async function ackPendingRecoveryCodesAction(
+  formData: FormData,
+): Promise<void> {
+  const context = formData.get("context");
+  await clearPendingRecoveryCodesCookie();
+  if (context === "admin") {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/security/mfa-enroll`);
+  }
+  redirect("/settings/security");
+}
 
 // ---------------------------------------------------------------------------
 // MFA TOTP — disable
@@ -333,15 +366,14 @@ export const disableMfaAction = validatedActionWithUser(
 // invalidati e ne vengono generati 10 nuovi.
 // ---------------------------------------------------------------------------
 
-export type MfaRegenerateState = ActionState & {
-  recoveryCodes?: string[];
-};
+export type MfaRegenerateState = ActionState;
 
 const regenerateRecoveryCodesSchema = z.object({
   token: z
     .string()
     .trim()
     .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+  context: z.enum(["admin", "public"]).optional().default("public"),
 });
 
 export const regenerateRecoveryCodesAction = validatedActionWithUser(
@@ -367,12 +399,16 @@ export const regenerateRecoveryCodesAction = validatedActionWithUser(
 
     const codes = await regenerateRecoveryCodes(user.id);
     await logActivity(user.id, ActivityType.MFA_RECOVERY_CODES_REGENERATED);
-    revalidatePath("/settings/security");
     // recoveryCodesRemaining è parte di MfaState → invalida la cache.
     updateTag(MFA_STATE_TAG);
-    return {
-      success: "Nuovi recovery codes generati. Salvali subito.",
-      recoveryCodes: codes,
-    };
+
+    // Stesso pattern di confirmMfaSetupAction: cookie firmato + redirect.
+    await setPendingRecoveryCodesCookie(codes, "regenerate");
+
+    const redirectTo =
+      data.context === "admin"
+        ? `/${await getAdminUrlSlug()}/security/mfa-enroll/codes`
+        : "/settings/security/codes";
+    redirect(redirectTo);
   },
 );

@@ -14,11 +14,13 @@ import {
 } from "../actions";
 
 type Props = {
-  onSuccess: (recoveryCodes: string[]) => void;
   onCancel: () => void;
 };
 
-export function MfaSetupWizard({ onSuccess, onCancel }: Props) {
+// Su success il server fa redirect a /settings/security/codes — niente
+// callback onSuccess, niente useEffect su recoveryCodes. I codici
+// viaggiano via cookie firmato (cfr. lib/auth/mfa/pending-codes-cookie.ts).
+export function MfaSetupWizard({ onCancel }: Props) {
   const [startState, startAction, starting] = useActionState<
     MfaStartState,
     FormData
@@ -36,13 +38,6 @@ export function MfaSetupWizard({ onSuccess, onCancel }: Props) {
     setStarted(true);
     startAction(new FormData());
   }, [started, startAction]);
-
-  // Quando arriva il return di confirm con recoveryCodes, propaga al parent.
-  useEffect(() => {
-    if (confirmState.recoveryCodes && confirmState.recoveryCodes.length > 0) {
-      onSuccess(confirmState.recoveryCodes);
-    }
-  }, [confirmState.recoveryCodes, onSuccess]);
 
   const isLoadingQr = starting || (!startState.qrCodeDataUrl && !startState.error);
   const startError = startState.error;
@@ -105,6 +100,7 @@ export function MfaSetupWizard({ onSuccess, onCancel }: Props) {
             </div>
 
             <form action={confirmAction} className="space-y-3 pt-2 border-t border-gc-line">
+              <input type="hidden" name="context" value="public" />
               <div>
                 <Label
                   htmlFor="mfa-confirm-token"

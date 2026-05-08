@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MfaState } from "@/lib/auth/mfa/queries";
 import { MfaDisableForm } from "./mfa-disable-form";
-import { MfaRecoveryCodesDisplay } from "./mfa-recovery-codes-display";
 import { MfaRegenerateForm } from "./mfa-regenerate-form";
 import { MfaSetupWizard } from "./mfa-setup-wizard";
 
@@ -14,12 +12,11 @@ type View =
   | { kind: "idle" }
   | { kind: "setup" }
   | { kind: "disable" }
-  | { kind: "regenerate" }
-  | {
-      kind: "recovery-codes";
-      codes: string[];
-      context: "setup" | "regenerate";
-    };
+  | { kind: "regenerate" };
+
+// Niente view "recovery-codes" qui: dopo confirm/regenerate il server fa
+// redirect a /settings/security/codes con i codici nel cookie firmato. Il
+// rendering avviene su quella page dedicata, non come stato dell'orchestrator.
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
   day: "numeric",
@@ -28,7 +25,6 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
 });
 
 export function MfaSection({ initialState }: { initialState: MfaState }) {
-  const router = useRouter();
   // Se la pagina si carica con un setup pendente lasciato a metà, ripartiamo
   // dal wizard — l'utente deve completare o annullare.
   const [view, setView] = useState<View>(
@@ -39,32 +35,8 @@ export function MfaSection({ initialState }: { initialState: MfaState }) {
     setView({ kind: "idle" });
   }
 
-  function showRecoveryCodes(codes: string[], context: "setup" | "regenerate") {
-    setView({ kind: "recovery-codes", codes, context });
-  }
-
-  function acknowledgeRecoveryCodes() {
-    setView({ kind: "idle" });
-    router.refresh();
-  }
-
-  if (view.kind === "recovery-codes") {
-    return (
-      <MfaRecoveryCodesDisplay
-        codes={view.codes}
-        context={view.context}
-        onAcknowledged={acknowledgeRecoveryCodes}
-      />
-    );
-  }
-
   if (view.kind === "setup") {
-    return (
-      <MfaSetupWizard
-        onSuccess={(codes) => showRecoveryCodes(codes, "setup")}
-        onCancel={backToIdle}
-      />
-    );
+    return <MfaSetupWizard onCancel={backToIdle} />;
   }
 
   if (view.kind === "disable") {
@@ -72,12 +44,7 @@ export function MfaSection({ initialState }: { initialState: MfaState }) {
   }
 
   if (view.kind === "regenerate") {
-    return (
-      <MfaRegenerateForm
-        onSuccess={(codes) => showRecoveryCodes(codes, "regenerate")}
-        onCancel={backToIdle}
-      />
-    );
+    return <MfaRegenerateForm onCancel={backToIdle} />;
   }
 
   // view.kind === "idle"

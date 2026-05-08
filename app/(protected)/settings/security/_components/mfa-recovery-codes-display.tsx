@@ -3,18 +3,18 @@
 import { useState } from "react";
 import { Check, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ackPendingRecoveryCodesAction } from "../actions";
 
 type Props = {
   codes: string[];
   context: "setup" | "regenerate";
-  onAcknowledged: () => void;
 };
 
-export function MfaRecoveryCodesDisplay({
-  codes,
-  context,
-  onAcknowledged,
-}: Props) {
+// Resa al rendering della page /settings/security/codes. La conferma di
+// avvenuta archiviazione passa da una server action (cancella il cookie
+// + redirect) — niente callback client, così se il browser perde il
+// JS l'utente può comunque procedere con un POST plain del form.
+export function MfaRecoveryCodesDisplay({ codes, context }: Props) {
   const [copied, setCopied] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -84,25 +84,24 @@ export function MfaRecoveryCodesDisplay({
         </Button>
       </div>
 
-      <label className="flex items-start gap-3 mt-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={acknowledged}
-          onChange={(e) => setAcknowledged(e.target.checked)}
-          className="mt-0.5 size-4 rounded border-gc-line accent-brand-primary"
-        />
-        <span className="text-[13px] text-gc-fg-3">
-          Ho salvato i recovery codes in un posto sicuro.
-        </span>
-      </label>
+      <form action={ackPendingRecoveryCodesAction}>
+        <input type="hidden" name="context" value="public" />
+        <label className="flex items-start gap-3 mt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+            className="mt-0.5 size-4 rounded border-gc-line accent-brand-primary"
+          />
+          <span className="text-[13px] text-gc-fg-3">
+            Ho salvato i recovery codes in un posto sicuro.
+          </span>
+        </label>
 
-      <Button
-        type="button"
-        disabled={!acknowledged}
-        onClick={onAcknowledged}
-      >
-        Continua
-      </Button>
+        <Button type="submit" disabled={!acknowledged} className="mt-4">
+          Continua
+        </Button>
+      </form>
     </section>
   );
 }

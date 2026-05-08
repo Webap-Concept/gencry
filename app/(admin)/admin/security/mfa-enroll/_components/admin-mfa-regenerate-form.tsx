@@ -1,28 +1,22 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import {
   type MfaRegenerateState,
   regenerateRecoveryCodesAction,
 } from "@/app/(protected)/settings/security/actions";
 
 type Props = {
-  onSuccess: (recoveryCodes: string[]) => void;
   onCancel: () => void;
 };
 
-export function AdminMfaRegenerateForm({ onSuccess, onCancel }: Props) {
+// Su success il server fa redirect alla page /codes — niente callback.
+export function AdminMfaRegenerateForm({ onCancel }: Props) {
   const [state, action, pending] = useActionState<MfaRegenerateState, FormData>(
     regenerateRecoveryCodesAction,
     {},
   );
-
-  useEffect(() => {
-    if (state.recoveryCodes && state.recoveryCodes.length > 0) {
-      onSuccess(state.recoveryCodes);
-    }
-  }, [state.recoveryCodes, onSuccess]);
 
   return (
     <section
@@ -47,6 +41,7 @@ export function AdminMfaRegenerateForm({ onSuccess, onCancel }: Props) {
       </div>
 
       <form action={action} className="space-y-4">
+        <input type="hidden" name="context" value="admin" />
         <div>
           <label
             htmlFor="admin-mfa-regen-token"
