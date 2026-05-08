@@ -1,6 +1,8 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-paths";
+import { getAdminPath, getAdminUrlSlug } from "@/lib/admin-paths";
+import { isUniqueConstraintError } from "@/lib/auth/race-condition";
+import { validateCmsSlug } from "@/lib/cms-reserved-slugs";
 import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
@@ -183,6 +185,40 @@ export async function upsertPageAction(
     return { error: tErrors("slugBound") };
   }
 
+  // Reserved-slug validation (default locale + traduzioni). System pages
+  // con slug locked saltano il check: i loro slug ("admin", "sign-in",
+  // "verify-email", ecc.) coincidono per design coi riservati e non
+  // sono editabili dall'utente.
+  if (!slugLocked) {
+    const adminUrlSlug = await getAdminUrlSlug();
+    const validation = validateCmsSlug(data.slug, adminUrlSlug);
+    if (!validation.ok) {
+      const key =
+        validation.reason === "first-segment-reserved"
+          ? "slugFirstSegmentReserved"
+          : validation.reason === "reserved"
+            ? "slugReserved"
+            : "slugInvalid";
+      return { error: tErrors(key) };
+    }
+    // Stessa validazione sui slug delle traduzioni (vuoti = skip).
+    for (const locale of LOCALES) {
+      if (locale === DEFAULT_LOCALE) continue; // già coperto da data.slug
+      const trSlug = trData[locale]?.slug?.trim();
+      if (!trSlug) continue;
+      const trVal = validateCmsSlug(trSlug, adminUrlSlug);
+      if (!trVal.ok) {
+        const key =
+          trVal.reason === "first-segment-reserved"
+            ? "slugFirstSegmentReserved"
+            : trVal.reason === "reserved"
+              ? "slugReserved"
+              : "slugInvalid";
+        return { error: tErrors(key) };
+      }
+    }
+  }
+
   try {
     const savedId = await upsertPage({
       ...(id ? { id: Number(id) } : {}),
@@ -333,6 +369,13 @@ export async function upsertPageAction(
       ...(isCreating ? { createdId: savedId } : {}),
     };
   } catch (err) {
+    // Unique violation su `pages.slug`: l'admin sta tentando di usare
+    // uno slug già preso da un'altra pagina. DB constraint UNIQUE è
+    // l'ultimo baluardo (race-safe contro concurrent insert), il
+    // messaggio i18n `slugTaken` è user-friendly.
+    if (isUniqueConstraintError(err)) {
+      return { error: tErrors("slugTaken") };
+    }
     console.error("[upsertPageAction] error:", err);
     return { error: tErrors("saveError") };
   }

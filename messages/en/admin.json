@@ -1729,6 +1729,9 @@
         "missingSlug": "Missing slug",
         "slugRequired": "Slug is required",
         "slugInvalid": "Invalid slug: use only lowercase letters, numbers, dashes and slashes",
+        "slugReserved": "This slug is reserved by the system (admin URL, auth flows, static files, etc.). Pick another value.",
+        "slugFirstSegmentReserved": "The first segment of this slug collides with a reserved system route. Pick another value.",
+        "slugTaken": "This slug is already used by another page. Pick a different value.",
         "titleRequired": "Title is required",
         "invalidData": "Invalid data",
         "slugBound": "This page's URL is bound to a hardcoded route handler and cannot be renamed."
