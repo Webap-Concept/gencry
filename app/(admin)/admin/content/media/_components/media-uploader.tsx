@@ -1,11 +1,15 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { runTusUpload } from "@/lib/client/media-tus-upload";
 import { Loader2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
-import { uploadMediaAssets, type ActionState } from "../actions";
+import { useRef, useState } from "react";
+import {
+  confirmMediaUploadAction,
+  createMediaUploadTicketAction,
+} from "../actions";
 import {
   MEDIA_ALLOWED_MIMES_HINT,
   MEDIA_MAX_MB_HINT,
@@ -22,6 +26,16 @@ const ACCEPT = [
   "video/webm",
 ].join(",");
 
+type FileItem = {
+  id: string;
+  name: string;
+  size: number;
+  status: "queued" | "uploading" | "confirming" | "done" | "error";
+  /** 0..100 — popolato durante TUS PUT */
+  progress: number;
+  error?: string;
+};
+
 export function MediaUploader({
   currentFolderId,
 }: {
@@ -30,86 +44,161 @@ export function MediaUploader({
   const t = useTranslations("admin.content.media.uploader");
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [items, setItems] = useState<FileItem[]>([]);
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
-  const [uploadingCount, setUploadingCount] = useState(0);
 
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    uploadMediaAssets,
-    {},
-  );
+  function updateItem(id: string, patch: Partial<FileItem>) {
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    );
+  }
 
-  useEffect(() => {
-    if ("success" in state) {
-      setToast({ message: state.success, type: "success" });
-      formRef.current?.reset();
-      setUploadingCount(0);
-      router.refresh();
-    } else if ("error" in state) {
-      setToast({ message: state.error, type: "error" });
-      setUploadingCount(0);
+  async function uploadOne(item: FileItem, file: File): Promise<boolean> {
+    // Step 1: ticket server
+    const ticket = await createMediaUploadTicketAction({
+      filename: file.name,
+      mime: file.type,
+      size: file.size,
+      folderId: currentFolderId,
+    });
+    if (!ticket.ok) {
+      updateItem(item.id, { status: "error", error: ticket.error });
+      return false;
     }
-  }, [state, router]);
+
+    // Step 2: TUS resumable PUT diretto al bucket
+    updateItem(item.id, { status: "uploading", progress: 0 });
+    try {
+      await runTusUpload(file, ticket, {
+        onProgress: (percent) => updateItem(item.id, { progress: percent }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "upload_failed";
+      updateItem(item.id, { status: "error", error: msg });
+      return false;
+    }
+
+    // Step 3: confirm server (verifica esistenza + sanitize SVG + confirmed_at)
+    updateItem(item.id, { status: "confirming", progress: 100 });
+    const confirm = await confirmMediaUploadAction({ assetId: ticket.assetId });
+    if (!confirm.ok) {
+      updateItem(item.id, { status: "error", error: confirm.error });
+      return false;
+    }
+
+    updateItem(item.id, { status: "done" });
+    return true;
+  }
+
+  async function handleFiles(files: FileList) {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    const newItems: FileItem[] = fileArray.map((f) => ({
+      id: `${f.name}-${f.size}-${crypto.randomUUID()}`,
+      name: f.name,
+      size: f.size,
+      status: "queued",
+      progress: 0,
+    }));
+    setItems((prev) => [...prev, ...newItems]);
+    setBusy(true);
+
+    let okCount = 0;
+    let failCount = 0;
+    // Serial: rispetta i limiti del browser (TUS apre comunque un POST per
+    // ogni upload), evita di saturare la connessione + dà progress chiaro.
+    for (let i = 0; i < fileArray.length; i++) {
+      const item = newItems[i];
+      const file = fileArray[i];
+      const ok = await uploadOne(item, file);
+      if (ok) okCount += 1;
+      else failCount += 1;
+    }
+
+    setBusy(false);
+    if (okCount > 0) {
+      router.refresh();
+      setToast({
+        message:
+          failCount === 0
+            ? t("uploaded", { count: okCount })
+            : t("uploadedPartial", { ok: okCount, failed: failCount }),
+        type: failCount === 0 ? "success" : "error",
+      });
+    } else {
+      setToast({
+        message: t("uploadFailedGeneric"),
+        type: "error",
+      });
+    }
+
+    // Cleanup queue completati dopo un attimo, mantieni solo error
+    setTimeout(() => {
+      setItems((prev) => prev.filter((it) => it.status === "error"));
+    }, 2500);
+
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  const activeCount = items.filter(
+    (it) => it.status === "uploading" || it.status === "confirming" || it.status === "queued",
+  ).length;
 
   return (
     <>
-      <form ref={formRef} action={formAction}>
-        <input type="hidden" name="folderId" value={currentFolderId ?? ""} />
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h3
-              className="text-sm font-medium"
-              style={{ color: "var(--admin-text)" }}>
-              {t("title")}
-            </h3>
-            <p
-              className="text-xs mt-1"
-              style={{ color: "var(--admin-text-muted)" }}>
-              {t("hint", {
-                maxMb: MEDIA_MAX_MB_HINT,
-                mimes: MEDIA_ALLOWED_MIMES_HINT,
-              })}
-            </p>
-          </div>
-
-          <label
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors"
-            style={{
-              background: "var(--admin-accent)",
-              color: "var(--admin-accent-foreground, white)",
-              opacity: isPending ? 0.6 : 1,
-              pointerEvents: isPending ? "none" : "auto",
-            }}>
-            {isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            {isPending ? t("uploading") : t("button")}
-            <input
-              ref={inputRef}
-              type="file"
-              name="files"
-              accept={ACCEPT}
-              multiple
-              className="hidden"
-              disabled={isPending}
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files && files.length > 0) {
-                  setUploadingCount(files.length);
-                  formRef.current?.requestSubmit();
-                }
-              }}
-            />
-          </label>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h3
+            className="text-sm font-medium"
+            style={{ color: "var(--admin-text)" }}>
+            {t("title")}
+          </h3>
+          <p
+            className="text-xs mt-1"
+            style={{ color: "var(--admin-text-muted)" }}>
+            {t("hint", {
+              maxMb: MEDIA_MAX_MB_HINT,
+              mimes: MEDIA_ALLOWED_MIMES_HINT,
+            })}
+          </p>
         </div>
-      </form>
 
-      {isPending && <UploadOverlay count={uploadingCount} />}
+        <label
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors"
+          style={{
+            background: "var(--admin-accent)",
+            color: "var(--admin-accent-foreground, white)",
+            opacity: busy ? 0.6 : 1,
+            pointerEvents: busy ? "none" : "auto",
+          }}>
+          {busy ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Upload className="w-4 h-4" />
+          )}
+          {busy ? t("uploading") : t("button")}
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPT}
+            multiple
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              if (e.target.files) {
+                void handleFiles(e.target.files);
+              }
+            }}
+          />
+        </label>
+      </div>
+
+      {activeCount > 0 && <UploadOverlay items={items} />}
 
       {toast && (
         <AdminToast
@@ -123,42 +212,79 @@ export function MediaUploader({
 }
 
 /**
- * Overlay fisso a tutto schermo durante l'upload. Le server actions non
- * espongono il progress in byte (a differenza di XHR), quindi il feedback
- * è "in corso" + count file. Blocca l'interazione finché l'azione non
- * conclude — evita che l'admin pensi che sia bloccata.
+ * Overlay con progress per file, durante l'upload TUS. Sostituisce il
+ * vecchio "loading…" generico — ora mostra % reale per ogni file in coda.
+ * Blocca l'interazione finché tutti i file sono done/error.
  */
-function UploadOverlay({ count }: { count: number }) {
+function UploadOverlay({ items }: { items: FileItem[] }) {
   const t = useTranslations("admin.content.media.uploader");
+  const inFlight = items.filter(
+    (it) => it.status === "uploading" || it.status === "confirming" || it.status === "queued",
+  );
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       role="alert"
       aria-busy="true">
       <div
-        className="rounded-xl px-6 py-5 shadow-xl flex items-center gap-4 min-w-[280px]"
+        className="rounded-xl px-6 py-5 shadow-xl w-full max-w-md space-y-4"
         style={{
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
         }}>
-        <Loader2
-          className="w-6 h-6 animate-spin flex-shrink-0"
-          style={{ color: "var(--admin-accent)" }}
-        />
-        <div>
-          <p
-            className="text-sm font-medium"
-            style={{ color: "var(--admin-text)" }}>
-            {count > 1
-              ? t("overlayUploadingMany", { count })
-              : t("overlayUploading")}
-          </p>
-          <p
-            className="text-xs mt-0.5"
-            style={{ color: "var(--admin-text-muted)" }}>
-            {t("overlayHint")}
-          </p>
+        <div className="flex items-center gap-3">
+          <Loader2
+            className="w-5 h-5 animate-spin flex-shrink-0"
+            style={{ color: "var(--admin-accent)" }}
+          />
+          <div>
+            <p
+              className="text-sm font-medium"
+              style={{ color: "var(--admin-text)" }}>
+              {inFlight.length > 1
+                ? t("overlayUploadingMany", { count: inFlight.length })
+                : t("overlayUploading")}
+            </p>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "var(--admin-text-muted)" }}>
+              {t("overlayHint")}
+            </p>
+          </div>
         </div>
+
+        <ul className="space-y-2 max-h-64 overflow-y-auto">
+          {inFlight.map((it) => (
+            <li key={it.id} className="space-y-1">
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className="text-xs truncate"
+                  style={{ color: "var(--admin-text)" }}
+                  title={it.name}>
+                  {it.name}
+                </span>
+                <span
+                  className="text-xs font-mono shrink-0"
+                  style={{ color: "var(--admin-text-muted)" }}>
+                  {it.status === "confirming"
+                    ? "…"
+                    : `${it.progress}%`}
+                </span>
+              </div>
+              <div
+                className="h-1.5 rounded-full overflow-hidden"
+                style={{ background: "var(--admin-page-bg)" }}>
+                <div
+                  className="h-full transition-[width] duration-150"
+                  style={{
+                    width: `${it.progress}%`,
+                    background: "var(--admin-accent)",
+                  }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

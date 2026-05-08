@@ -1440,6 +1440,11 @@ export const mediaAssets = pgTable(
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    // null = draft (ticket creato, file non ancora confermato presente nel
+    // bucket); set = upload completato e verificato. Cron giornaliero
+    // pulisce le draft >24h non confermate (utente abbandona, browser
+    // crash, network drop a metà PUT). Vedi migration 0038.
+    confirmedAt: timestamp("confirmed_at"),
   },
   (t) => [
     index("idx_media_assets_folder").on(t.folderId),

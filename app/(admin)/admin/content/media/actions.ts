@@ -2,10 +2,11 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import {
+  confirmAsset,
   countAssetReferences,
   countAssetsInFolder,
   countSubfolders,
-  createAsset,
+  createDraftAsset,
   createFolder,
   deleteAssetById,
   deleteFolderById,
@@ -20,10 +21,12 @@ import {
 } from "@/lib/db/media-queries";
 import { getUser } from "@/lib/db/queries";
 import {
+  createMediaUploadTicket,
   deleteMediaFile,
   isAllowedMime,
   MEDIA_MAX_BYTES,
-  uploadMediaFile,
+  type MediaMime,
+  verifyAndConfirmMedia,
 } from "@/lib/storage/media";
 import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
@@ -46,101 +49,190 @@ export type ActionState =
   | { success: string; timestamp: number }
   | { error: string; timestamp: number };
 
+// ─── Ticket-based upload (TUS resumable) ───────────────────────────────────
+//
+// Vecchio flusso `uploadMediaAssets` (server action che riceveva i file)
+// rimosso: il body limit di Vercel (4.5MB hard cap su tutti i piani)
+// fermava qualunque file >4MB prima di arrivare alla nostra logica. Ora:
+//
+//   1. `createMediaUploadTicket` — server valida (mime + size + folder),
+//      genera storage_path, INSERT-a una riga draft (confirmed_at=NULL),
+//      minta un JWT short-lived per Supabase TUS, e ritorna il ticket.
+//   2. Client → `tus-js-client` PUT diretto al bucket `media`. Resumable
+//      su drop di rete, progress events reali (% completata).
+//   3. `confirmMediaUpload` — server verifica file presente nel bucket,
+//      sanitizza SVG in-place se necessario, e setta `confirmed_at`.
+//
+// Cleanup orphans: cron `media-orphan-cleanup` (vedi
+// `deleteUnconfirmedAssets` in lib/db/media-queries.ts) cancella draft
+// >24h non confermate. Configurabile in Supabase pg_cron.
+
+export type MediaUploadTicketResult =
+  | {
+      ok: true;
+      assetId: number;
+      storagePath: string;
+      uploadToken: string;
+      endpoint: string;
+      bucketName: string;
+      contentType: string;
+    }
+  | { ok: false; error: string };
+
 /**
- * Upload server action. Riceve uno o più file via FormData (key "files"),
- * li valida (mime + size), sanitizza eventuali SVG, carica nel bucket
- * Supabase "media" e crea le righe `media_assets`.
- *
- * Accetta un folder corrente via FormData "folderId" (vuoto/non valido = root).
+ * Step 1: validazione server-side + creazione draft + JWT per TUS.
+ * Il client non riceve mai service-role; il JWT è scoped al bucket
+ * `media` con TTL 2 min (vedi `mintSupabaseUploadJwt`).
  */
-export async function uploadMediaAssets(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
+export async function createMediaUploadTicketAction(input: {
+  filename: string;
+  mime: string;
+  size: number;
+  folderId: number | null;
+}): Promise<MediaUploadTicketResult> {
   const t = await getTranslations("admin.content.media.actionMessages");
   try {
     const user = await getUser();
-    if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+    if (!user) return { ok: false, error: t("notAuthenticated") };
 
-    const folderId = parseFolderId(formData.get("folderId"));
-    if (folderId !== null && !(await getFolderById(folderId))) {
-      return { error: t("folderNotFound"), timestamp: Date.now() };
+    const filename = (input.filename ?? "").trim();
+    if (!filename) return { ok: false, error: t("noFiles") };
+
+    if (!isAllowedMime(input.mime)) {
+      return { ok: false, error: t("mimeNotAllowed", { name: filename }) };
+    }
+    if (
+      !Number.isFinite(input.size) ||
+      input.size <= 0 ||
+      input.size > MEDIA_MAX_BYTES
+    ) {
+      return { ok: false, error: t("fileTooLarge", { name: filename }) };
     }
 
-    const files = formData
-      .getAll("files")
-      .filter((v): v is File => v instanceof File && v.size > 0);
-    if (files.length === 0) {
-      return { error: t("noFiles"), timestamp: Date.now() };
+    if (input.folderId !== null && !(await getFolderById(input.folderId))) {
+      return { ok: false, error: t("folderNotFound") };
     }
 
-    const errors: string[] = [];
-    let uploaded = 0;
+    const ticket = await createMediaUploadTicket({
+      mime: input.mime as MediaMime,
+      folderId: input.folderId,
+      userId: user.id,
+    });
 
-    for (const file of files) {
-      if (!isAllowedMime(file.type)) {
-        errors.push(t("mimeNotAllowed", { name: file.name }));
-        continue;
-      }
-      if (file.size > MEDIA_MAX_BYTES) {
-        errors.push(t("fileTooLarge", { name: file.name }));
-        continue;
-      }
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const result = await uploadMediaFile({
-        buffer,
-        mime: file.type,
-        originalFilename: file.name,
-        folderId,
-      });
-
-      if (!result.ok) {
-        errors.push(t("uploadFailed", { name: file.name }));
-        continue;
-      }
-
-      await createAsset({
-        folderId,
-        filename: result.data.filename,
-        mime: result.data.mime,
-        sizeBytes: result.data.sizeBytes,
-        storagePath: result.data.storagePath,
-        publicUrl: result.data.publicUrl,
-        uploadedBy: user.id,
-      });
-      uploaded += 1;
-    }
-
-    if (uploaded === 0) {
-      return {
-        error: errors[0] ?? t("uploadFailedGeneric"),
-        timestamp: Date.now(),
-      };
-    }
-
-    if (errors.length > 0) {
-      return {
-        success: t("uploadedPartial", { ok: uploaded, failed: errors.length }),
-        timestamp: Date.now(),
-      };
-    }
+    // publicUrl è deterministica (getPublicUrl) — la salviamo subito sulla
+    // draft. Sarà valida non appena il file esiste fisicamente nel bucket.
+    const draft = await createDraftAsset({
+      folderId: input.folderId,
+      filename,
+      mime: ticket.contentType,
+      sizeBytes: input.size,
+      storagePath: ticket.storagePath,
+      publicUrl: ticket.publicUrl,
+      uploadedBy: user.id,
+    });
 
     return {
-      success: t("uploaded", { count: uploaded }),
-      timestamp: Date.now(),
+      ok: true,
+      assetId: draft.id,
+      storagePath: ticket.storagePath,
+      uploadToken: ticket.uploadToken,
+      endpoint: ticket.endpoint,
+      bucketName: ticket.bucketName,
+      contentType: ticket.contentType,
     };
   } catch (err) {
-    // Catch-all per evitare che il client veda errori generici "An error
-    // occurred…" senza contesto. Il caso più frequente in passato era il
-    // body limit di 1MB delle server actions Next: ora portato a 15MB
-    // tramite next.config experimental.serverActions.bodySizeLimit, ma
-    // teniamo il safety net.
-    console.error("[media] uploadMediaAssets failed:", err);
+    console.error("[media] createMediaUploadTicketAction failed:", err);
+    return { ok: false, error: t("uploadFailedGeneric") };
+  }
+}
+
+export type MediaUploadConfirmResult =
+  | {
+      ok: true;
+      asset: {
+        id: number;
+        publicUrl: string;
+        filename: string;
+        mime: string;
+        sizeBytes: number;
+      };
+    }
+  | { ok: false; error: string };
+
+/**
+ * Step 3: il client ha terminato il TUS upload, chiede al server di
+ * verificare e confermare. Sanitizza SVG in-place (download → clean →
+ * re-upload con upsert) prima di mettere `confirmed_at`. Se la verifica
+ * fallisce (file mai arrivato, sanitization svuota il payload), la riga
+ * draft viene cancellata e ritorniamo errore: l'utente potrà ritentare.
+ */
+export async function confirmMediaUploadAction(input: {
+  assetId: number;
+}): Promise<MediaUploadConfirmResult> {
+  const t = await getTranslations("admin.content.media.actionMessages");
+  try {
+    const user = await getUser();
+    if (!user) return { ok: false, error: t("notAuthenticated") };
+
+    if (!Number.isFinite(input.assetId) || input.assetId <= 0) {
+      return { ok: false, error: t("deleteInvalidId") };
+    }
+
+    const draft = await getAssetById(input.assetId);
+    if (!draft) return { ok: false, error: t("deleteNotFound") };
+
+    // Idempotenza: se già confermata, ritorniamo l'asset corrente
+    if (draft.confirmedAt) {
+      return {
+        ok: true,
+        asset: {
+          id: draft.id,
+          publicUrl: draft.publicUrl,
+          filename: draft.filename,
+          mime: draft.mime,
+          sizeBytes: draft.sizeBytes,
+        },
+      };
+    }
+
+    // Ownership: solo l'admin che ha aperto il ticket può confermarlo.
+    // Difesa in profondità: in pratica passa per requireAdminPage.
+    if (draft.uploadedBy !== user.id) {
+      return { ok: false, error: t("notAuthenticated") };
+    }
+
+    const verify = await verifyAndConfirmMedia({
+      storagePath: draft.storagePath,
+      mime: draft.mime as MediaMime,
+    });
+    if (!verify.ok) {
+      // Cleanup: file non c'è / sanitization fallita → cancella draft.
+      // Storage è già pulito (verifyAndConfirmMedia cancella su SVG fail)
+      // o non c'è mai stato.
+      await deleteAssetById(draft.id);
+      return {
+        ok: false,
+        error: t("uploadFailed", { name: draft.filename }),
+      };
+    }
+
+    // publicUrl era già stata calcolata e salvata al ticket creation —
+    // non serve aggiornarla qui. Settiamo solo confirmed_at.
+    await confirmAsset(draft.id);
+
     return {
-      error: t("uploadFailedGeneric"),
-      timestamp: Date.now(),
+      ok: true,
+      asset: {
+        id: draft.id,
+        publicUrl: verify.publicUrl,
+        filename: draft.filename,
+        mime: draft.mime,
+        sizeBytes: draft.sizeBytes,
+      },
     };
+  } catch (err) {
+    console.error("[media] confirmMediaUploadAction failed:", err);
+    return { ok: false, error: t("uploadFailedGeneric") };
   }
 }
 
@@ -361,79 +453,10 @@ export async function moveMediaAsset(
 
 // ─── Picker single-file upload ──────────────────────────────────────────────
 //
-// Ritorna direttamente i dati dell'asset creato. Lo usa MediaPicker per
-// permettere "Upload & select" senza rerouting via page reload. Non usa
-// `useActionState`: il client lo chiama come una funzione async normale.
-
-export type PickerUploadResult =
-  | {
-      ok: true;
-      asset: {
-        id: number;
-        publicUrl: string;
-        filename: string;
-        mime: string;
-        sizeBytes: number;
-      };
-    }
-  | { ok: false; error: string };
-
-export async function uploadAndPickAsset(
-  formData: FormData,
-): Promise<PickerUploadResult> {
-  const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { ok: false, error: t("notAuthenticated") };
-
-  const folderId = parseFolderId(formData.get("folderId"));
-  if (folderId !== null && !(await getFolderById(folderId))) {
-    return { ok: false, error: t("folderNotFound") };
-  }
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: t("noFiles") };
-  }
-
-  if (!isAllowedMime(file.type)) {
-    return { ok: false, error: t("mimeNotAllowed", { name: file.name }) };
-  }
-  if (file.size > MEDIA_MAX_BYTES) {
-    return { ok: false, error: t("fileTooLarge", { name: file.name }) };
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const result = await uploadMediaFile({
-    buffer,
-    mime: file.type,
-    originalFilename: file.name,
-    folderId,
-  });
-  if (!result.ok) {
-    return { ok: false, error: t("uploadFailed", { name: file.name }) };
-  }
-
-  const created = await createAsset({
-    folderId,
-    filename: result.data.filename,
-    mime: result.data.mime,
-    sizeBytes: result.data.sizeBytes,
-    storagePath: result.data.storagePath,
-    publicUrl: result.data.publicUrl,
-    uploadedBy: user.id,
-  });
-
-  return {
-    ok: true,
-    asset: {
-      id: created.id,
-      publicUrl: created.publicUrl,
-      filename: created.filename,
-      mime: created.mime,
-      sizeBytes: created.sizeBytes,
-    },
-  };
-}
+// Vecchio `uploadAndPickAsset` rimosso: aveva lo stesso 4.5MB cap di Vercel.
+// Il MediaPicker ora usa lo stesso flusso a tre step (`createMediaUploadTicketAction`
+// → TUS resumable client-side → `confirmMediaUploadAction`). L'asset
+// ritornato da confirm ha già la shape compatibile con la selezione picker.
 
 /**
  * Carica folders + assets per il MediaPicker. Chiamata al dialog open e ad

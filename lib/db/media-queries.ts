@@ -10,7 +10,7 @@ import {
   type NewMediaFolder,
 } from "@/lib/db/schema";
 import { pages } from "@/lib/db/schema";
-import { asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 
 export type { MediaAsset, MediaFolder };
 
@@ -129,17 +129,27 @@ export async function isAncestor(
 
 export async function getAssets(opts?: {
   folderId?: number | null;
+  /** Includere anche le righe draft (confirmed_at IS NULL).
+   *  Default false — l'UI mostra solo asset confermati, le draft sono
+   *  in-flight e diventano visibili solo dopo confirm. */
+  includeUnconfirmed?: boolean;
 }): Promise<MediaAsset[]> {
-  if (opts?.folderId === undefined) {
-    return db
-      .select()
-      .from(mediaAssets)
-      .orderBy(desc(mediaAssets.createdAt));
-  }
+  const conditions = [
+    opts?.includeUnconfirmed ? undefined : sql`${mediaAssets.confirmedAt} IS NOT NULL`,
+    opts?.folderId === undefined
+      ? undefined
+      : opts.folderId === null
+        ? isNull(mediaAssets.folderId)
+        : eq(mediaAssets.folderId, opts.folderId),
+  ].filter(Boolean);
+
   const where =
-    opts.folderId === null
-      ? isNull(mediaAssets.folderId)
-      : eq(mediaAssets.folderId, opts.folderId);
+    conditions.length === 0
+      ? undefined
+      : conditions.length === 1
+        ? conditions[0]
+        : and(...(conditions as NonNullable<(typeof conditions)[number]>[]));
+
   return db
     .select()
     .from(mediaAssets)
@@ -159,6 +169,57 @@ export async function getAssetById(id: number): Promise<MediaAsset | null> {
 export async function createAsset(data: NewMediaAsset): Promise<MediaAsset> {
   const [row] = await db.insert(mediaAssets).values(data).returning();
   return row;
+}
+
+/**
+ * Crea una riga draft (confirmed_at = NULL). Il file fisico nel bucket
+ * sarà uploaded dal client via TUS resumable; quando finisce il PUT
+ * chiamiamo `confirmAsset(id)` per marcare il record come visibile
+ * nella UI.
+ */
+export async function createDraftAsset(
+  data: Omit<NewMediaAsset, "confirmedAt">,
+): Promise<MediaAsset> {
+  const [row] = await db
+    .insert(mediaAssets)
+    .values({ ...data, confirmedAt: null })
+    .returning();
+  return row;
+}
+
+/** Marca una draft come confermata. Idempotente: se è già confirmed,
+ *  non aggiorna il timestamp (non vogliamo "muovere" la conferma in
+ *  caso di doppio click). */
+export async function confirmAsset(id: number): Promise<MediaAsset | null> {
+  const [row] = await db
+    .update(mediaAssets)
+    .set({ confirmedAt: new Date() })
+    .where(and(eq(mediaAssets.id, id), isNull(mediaAssets.confirmedAt)))
+    .returning();
+  if (row) return row;
+  // Già confermata: ritorna la riga corrente senza toccare confirmedAt
+  return getAssetById(id);
+}
+
+/**
+ * Cancella draft NON confermate più vecchie di `olderThanMs` (default 24h).
+ * Usato dal cron `media-orphan-cleanup`. Ritorna le path bucket da rimuovere
+ * fisicamente (il caller esegue le delete in storage best-effort).
+ */
+export async function deleteUnconfirmedAssets(
+  olderThanMs: number = 24 * 60 * 60 * 1000,
+): Promise<Array<{ id: number; storagePath: string }>> {
+  const cutoff = new Date(Date.now() - olderThanMs);
+  const rows = await db
+    .delete(mediaAssets)
+    .where(
+      and(
+        isNull(mediaAssets.confirmedAt),
+        lt(mediaAssets.createdAt, cutoff),
+      ),
+    )
+    .returning({ id: mediaAssets.id, storagePath: mediaAssets.storagePath });
+  return rows;
 }
 
 export async function deleteAssetById(id: number): Promise<MediaAsset | null> {
