@@ -2,18 +2,18 @@
 
 import { Check, Copy, Download } from "lucide-react";
 import { useState } from "react";
+import { ackPendingRecoveryCodesAction } from "@/app/(protected)/settings/security/actions";
 
 type Props = {
   codes: string[];
   context: "setup" | "regenerate";
-  onAcknowledged: () => void;
 };
 
-export function AdminMfaRecoveryCodesDisplay({
-  codes,
-  context,
-  onAcknowledged,
-}: Props) {
+// Renderizzato dalla page /admin/security/mfa-enroll/codes. La conferma
+// di archiviazione passa da una server action condivisa
+// (`ackPendingRecoveryCodesAction`) che cancella il cookie e redirige
+// nel posto giusto in base al campo nascosto `context`.
+export function AdminMfaRecoveryCodesDisplay({ codes, context }: Props) {
   const [copied, setCopied] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -113,27 +113,29 @@ export function AdminMfaRecoveryCodesDisplay({
         </button>
       </div>
 
-      <label className="flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={acknowledged}
-          onChange={(e) => setAcknowledged(e.target.checked)}
-          className="mt-0.5 w-4 h-4"
-          style={{ accentColor: "var(--admin-accent)" }}
-        />
-        <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-          Ho salvato i recovery codes in un posto sicuro.
-        </span>
-      </label>
+      <form action={ackPendingRecoveryCodesAction} className="space-y-4">
+        <input type="hidden" name="context" value="admin" />
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+            className="mt-0.5 w-4 h-4"
+            style={{ accentColor: "var(--admin-accent)" }}
+          />
+          <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
+            Ho salvato i recovery codes in un posto sicuro.
+          </span>
+        </label>
 
-      <button
-        type="button"
-        disabled={!acknowledged}
-        onClick={onAcknowledged}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: "var(--admin-accent)" }}>
-        Continua
-      </button>
+        <button
+          type="submit"
+          disabled={!acknowledged}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: "var(--admin-accent)" }}>
+          Continua
+        </button>
+      </form>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,21 +11,16 @@ import {
 } from "../actions";
 
 type Props = {
-  onSuccess: (recoveryCodes: string[]) => void;
   onCancel: () => void;
 };
 
-export function MfaRegenerateForm({ onSuccess, onCancel }: Props) {
+// Su success il server fa redirect a /settings/security/codes con i
+// codici nel cookie firmato. Niente callback onSuccess.
+export function MfaRegenerateForm({ onCancel }: Props) {
   const [state, action, pending] = useActionState<MfaRegenerateState, FormData>(
     regenerateRecoveryCodesAction,
     {},
   );
-
-  useEffect(() => {
-    if (state.recoveryCodes && state.recoveryCodes.length > 0) {
-      onSuccess(state.recoveryCodes);
-    }
-  }, [state.recoveryCodes, onSuccess]);
 
   return (
     <section className="space-y-4">
@@ -43,6 +38,7 @@ export function MfaRegenerateForm({ onSuccess, onCancel }: Props) {
         action={action}
         className="rounded-2xl border border-gc-line bg-gc-bg-2 p-5 space-y-4"
       >
+        <input type="hidden" name="context" value="public" />
         <div>
           <Label
             htmlFor="mfa-regen-token"

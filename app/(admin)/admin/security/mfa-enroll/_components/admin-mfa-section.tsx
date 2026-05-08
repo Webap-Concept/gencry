@@ -1,14 +1,16 @@
 "use client";
 
 // Orchestrator client per /admin/security/mfa-enroll. Gestisce gli stati
-// idle / setup / disable / regenerate / recovery-codes. Tutto admin-themed.
+// idle / setup / disable / regenerate. Tutto admin-themed.
+//
+// I recovery codes NON vivono più qui: dopo setup/regenerate il server
+// fa redirect a /admin/security/mfa-enroll/codes con i codici nel cookie
+// firmato. Quella page è l'unico punto di rendering dei codici.
 
 import { ShieldCheck } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { MfaState } from "@/lib/auth/mfa/queries";
 import { AdminMfaDisableForm } from "./admin-mfa-disable-form";
-import { AdminMfaRecoveryCodesDisplay } from "./admin-mfa-recovery-codes-display";
 import { AdminMfaRegenerateForm } from "./admin-mfa-regenerate-form";
 import { AdminMfaSetupWizard } from "./admin-mfa-setup-wizard";
 
@@ -16,12 +18,7 @@ type View =
   | { kind: "idle" }
   | { kind: "setup" }
   | { kind: "disable" }
-  | { kind: "regenerate" }
-  | {
-      kind: "recovery-codes";
-      codes: string[];
-      context: "setup" | "regenerate";
-    };
+  | { kind: "regenerate" };
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
   day: "numeric",
@@ -30,7 +27,6 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
 });
 
 export function AdminMfaSection({ initialState }: { initialState: MfaState }) {
-  const router = useRouter();
   const [view, setView] = useState<View>(
     initialState.pendingSetup ? { kind: "setup" } : { kind: "idle" },
   );
@@ -39,32 +35,8 @@ export function AdminMfaSection({ initialState }: { initialState: MfaState }) {
     setView({ kind: "idle" });
   }
 
-  function showRecoveryCodes(codes: string[], context: "setup" | "regenerate") {
-    setView({ kind: "recovery-codes", codes, context });
-  }
-
-  function acknowledgeRecoveryCodes() {
-    setView({ kind: "idle" });
-    router.refresh();
-  }
-
-  if (view.kind === "recovery-codes") {
-    return (
-      <AdminMfaRecoveryCodesDisplay
-        codes={view.codes}
-        context={view.context}
-        onAcknowledged={acknowledgeRecoveryCodes}
-      />
-    );
-  }
-
   if (view.kind === "setup") {
-    return (
-      <AdminMfaSetupWizard
-        onSuccess={(codes) => showRecoveryCodes(codes, "setup")}
-        onCancel={backToIdle}
-      />
-    );
+    return <AdminMfaSetupWizard onCancel={backToIdle} />;
   }
 
   if (view.kind === "disable") {
@@ -72,12 +44,7 @@ export function AdminMfaSection({ initialState }: { initialState: MfaState }) {
   }
 
   if (view.kind === "regenerate") {
-    return (
-      <AdminMfaRegenerateForm
-        onSuccess={(codes) => showRecoveryCodes(codes, "regenerate")}
-        onCancel={backToIdle}
-      />
-    );
+    return <AdminMfaRegenerateForm onCancel={backToIdle} />;
   }
 
   if (initialState.enabled) {

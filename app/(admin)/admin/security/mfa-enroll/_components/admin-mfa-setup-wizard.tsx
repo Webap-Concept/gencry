@@ -11,11 +11,13 @@ import {
 } from "@/app/(protected)/settings/security/actions";
 
 type Props = {
-  onSuccess: (recoveryCodes: string[]) => void;
   onCancel: () => void;
 };
 
-export function AdminMfaSetupWizard({ onSuccess, onCancel }: Props) {
+// Su success il server fa redirect a /<adminSlug>/security/mfa-enroll/codes
+// — niente callback onSuccess. Codici via cookie firmato (cfr.
+// lib/auth/mfa/pending-codes-cookie.ts).
+export function AdminMfaSetupWizard({ onCancel }: Props) {
   const [startState, startAction, starting] = useActionState<
     MfaStartState,
     FormData
@@ -32,12 +34,6 @@ export function AdminMfaSetupWizard({ onSuccess, onCancel }: Props) {
     setStarted(true);
     startAction(new FormData());
   }, [started, startAction]);
-
-  useEffect(() => {
-    if (confirmState.recoveryCodes && confirmState.recoveryCodes.length > 0) {
-      onSuccess(confirmState.recoveryCodes);
-    }
-  }, [confirmState.recoveryCodes, onSuccess]);
 
   const isLoadingQr = starting || (!startState.qrCodeDataUrl && !startState.error);
   const startError = startState.error;
@@ -130,6 +126,7 @@ export function AdminMfaSetupWizard({ onSuccess, onCancel }: Props) {
             action={confirmAction}
             className="space-y-3 pt-4"
             style={{ borderTop: "1px solid var(--admin-divider)" }}>
+            <input type="hidden" name="context" value="admin" />
             <div>
               <label
                 htmlFor="admin-mfa-confirm-token"
