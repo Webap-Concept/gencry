@@ -1,18 +1,21 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import type { MediaAsset, MediaFolder } from "@/lib/db/media-queries";
-import { getOptimizedImageProps } from "@/lib/storage/image-optimizer";
+import type {
+  AssetReference,
+  MediaAsset,
+  MediaFolder,
+} from "@/lib/db/media-queries";
 import {
   ChevronRight,
   FileText,
   Film,
   FolderInput,
+  Link2,
   Loader2,
   Trash2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,6 +27,10 @@ import {
 interface MediaGridProps {
   assets: MediaAsset[];
   folders: MediaFolder[];
+  /** Mappa assetId → array di pagine che lo referenziano. Calcolata
+   *  server-side (`getAssetReferences`) per visualizzare il badge
+   *  "usata in: /slug" sotto la thumbnail. */
+  references?: Record<string, AssetReference[]>;
 }
 
 interface FolderOption {
@@ -60,7 +67,7 @@ function flattenFolders(folders: MediaFolder[]): FolderOption[] {
   return out;
 }
 
-export function MediaGrid({ assets, folders }: MediaGridProps) {
+export function MediaGrid({ assets, folders, references }: MediaGridProps) {
   const t = useTranslations("admin.content.media.grid");
   const router = useRouter();
   const [confirmId, setConfirmId] = useState<number | null>(null);
@@ -113,11 +120,16 @@ export function MediaGrid({ assets, folders }: MediaGridProps) {
 
   return (
     <>
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      {/* Masonry via CSS columns: ogni AssetCard ha `break-inside-avoid`
+          così non viene spezzato a metà tra due colonne, e l'altezza
+          segue l'aspect ratio reale dell'immagine — niente più crop a
+          quadrato. */}
+      <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-6 gap-3">
         {assets.map((asset) => (
           <AssetCard
             key={asset.id}
             asset={asset}
+            refs={references?.[asset.id]}
             onDelete={() => setConfirmId(asset.id)}
             onMove={() => setMoveAssetId(asset.id)}
           />
@@ -156,26 +168,35 @@ export function MediaGrid({ assets, folders }: MediaGridProps) {
 
 function AssetCard({
   asset,
+  refs,
   onDelete,
   onMove,
 }: {
   asset: MediaAsset;
+  refs?: AssetReference[];
   onDelete: () => void;
   onMove: () => void;
 }) {
   const t = useTranslations("admin.content.media.grid");
   const isImage = asset.mime.startsWith("image/");
   const isVideo = asset.mime.startsWith("video/");
+  const refCount = refs?.length ?? 0;
 
   return (
     <div
-      className="group rounded-lg overflow-hidden relative border"
+      className="group rounded-lg overflow-hidden relative border break-inside-avoid mb-3"
       style={{
         borderColor: "var(--admin-card-border)",
         background: "var(--admin-card-bg-secondary, var(--admin-card-bg))",
       }}>
-      <div className="aspect-square flex items-center justify-center relative bg-black/5 dark:bg-white/5">
-        {isImage ? <ImageThumb asset={asset} /> : <NonImageThumb mime={asset.mime} />}
+      <div className="relative bg-black/5 dark:bg-white/5">
+        {isImage ? (
+          <ImageThumb asset={asset} />
+        ) : (
+          <div className="aspect-[4/3] flex items-center justify-center">
+            <NonImageThumb mime={asset.mime} />
+          </div>
+        )}
 
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
@@ -195,6 +216,10 @@ function AssetCard({
         </div>
       </div>
 
+      {refCount > 0 && refs && (
+        <ReferenceBar refs={refs} />
+      )}
+
       <div className="p-2">
         <p
           className="text-xs truncate"
@@ -213,27 +238,55 @@ function AssetCard({
   );
 }
 
-function ImageThumb({ asset }: { asset: MediaAsset }) {
-  if (asset.mime === "image/svg+xml") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={asset.publicUrl}
-        alt={asset.altText ?? asset.filename}
-        className="max-w-full max-h-full object-contain"
-      />
-    );
-  }
-  const props = getOptimizedImageProps(asset.publicUrl, { width: 320, quality: 75 });
+/**
+ * Barra orizzontale colorata sotto la thumbnail che indica le pagine
+ * che referenziano l'asset. Mostra `/slug` se ref unica, altrimenti
+ * count + tooltip con la lista completa. Il colore è admin-accent
+ * con bassa opacity per non distrarre.
+ */
+function ReferenceBar({ refs }: { refs: AssetReference[] }) {
+  const t = useTranslations("admin.content.media.grid");
+  const tooltip = refs
+    .map((r) => `/${r.slug}${r.title ? ` — ${r.title}` : ""}`)
+    .join("\n");
+  const label =
+    refs.length === 1
+      ? `/${refs[0].slug}`
+      : t("referencedByMany", { count: refs.length });
+
   return (
-    <Image
-      src={props.src}
+    <div
+      className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium"
+      style={{
+        background: "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
+        color: "var(--admin-accent)",
+        borderTop: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
+      }}
+      title={tooltip}>
+      <Link2 className="w-3 h-3 shrink-0" />
+      <span className="truncate">
+        <span style={{ opacity: 0.75 }}>{t("referencedByPrefix")}</span>{" "}
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function ImageThumb({ asset }: { asset: MediaAsset }) {
+  // Aspect reale: niente object-cover, niente width/height fissi.
+  // `<img>` nativo con `w-full h-auto` segue le proporzioni naturali —
+  // il container masonry si adatta. Per i thumbnail della libreria admin
+  // (low-traffic, internal) l'ottimizzazione Next/Image è overkill: il
+  // costo è il caricamento del file originale, ma l'overhead è
+  // accettabile e la fedeltà visiva è il valore.
+  // SVG idem: render diretto.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={asset.publicUrl}
       alt={asset.altText ?? asset.filename}
-      width={320}
-      height={320}
-      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
-      className="w-full h-full object-cover"
-      unoptimized={props.unoptimized}
+      loading="lazy"
+      className="block w-full h-auto"
     />
   );
 }

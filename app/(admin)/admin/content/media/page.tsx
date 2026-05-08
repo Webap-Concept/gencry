@@ -1,6 +1,7 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import {
   getAllFolders,
+  getAssetReferences,
   getAssets,
   getFolderById,
   getFolderPath,
@@ -49,6 +50,12 @@ export default async function MediaPage({
     getTranslations("admin.content.media"),
   ]);
 
+  // Reference scan in batch (single SELECT pages, scan in JS) — alimenta
+  // i badge "usata in: /slug" sotto le thumbnail nella griglia.
+  const references = await getAssetReferences(
+    assets.map((a) => ({ id: a.id, storagePath: a.storagePath })),
+  );
+
   return (
     <div className="space-y-5">
       <AdminSectionHeader
@@ -73,7 +80,11 @@ export default async function MediaPage({
           <main className="p-5 space-y-4 min-w-0">
             <FolderBreadcrumb path={folderPath} />
             <MediaUploader currentFolderId={currentFolderId} />
-            <MediaGrid assets={assets} folders={folders} />
+            <MediaGrid
+              assets={assets}
+              folders={folders}
+              references={Object.fromEntries(references)}
+            />
           </main>
         </div>
       </div>
