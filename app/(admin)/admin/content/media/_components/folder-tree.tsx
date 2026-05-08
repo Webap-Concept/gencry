@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { MediaFolder } from "@/lib/db/media-queries";
 import {
   ChevronDown,
@@ -55,6 +58,8 @@ function buildTree(folders: MediaFolder[]): FolderNode[] {
 export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
   const t = useTranslations("admin.content.media.tree");
   const router = useRouter();
+  const adminSlug = useAdminSlug();
+  const mediaBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-media"));
   const tree = useMemo(() => buildTree(folders), [folders]);
 
   const [toast, setToast] = useState<{
@@ -92,7 +97,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
 
       <ul className="space-y-0.5">
         <li>
-          <RootLink isActive={currentFolderId === null} label={t("root")} />
+          <RootLink isActive={currentFolderId === null} label={t("root")} mediaBase={mediaBase} />
         </li>
         {tree.map((node) => (
           <FolderNodeRow
@@ -100,6 +105,7 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
             node={node}
             depth={0}
             currentFolderId={currentFolderId}
+            mediaBase={mediaBase}
             onCreate={(parentId) => setDialog({ kind: "create", parentId })}
             onRename={(folder) => setDialog({ kind: "rename", folder })}
             onDelete={(folder) => setDialog({ kind: "delete", folder })}
@@ -165,10 +171,10 @@ export function FolderTree({ folders, currentFolderId }: FolderTreeProps) {
   );
 }
 
-function RootLink({ isActive, label }: { isActive: boolean; label: string }) {
+function RootLink({ isActive, label, mediaBase }: { isActive: boolean; label: string; mediaBase: string }) {
   return (
     <Link
-      href="/admin/content/media"
+      href={mediaBase}
       className="flex items-center gap-2 px-2 py-1.5 rounded text-sm"
       style={{
         background: isActive ? "var(--admin-accent-soft, rgba(0,0,0,0.05))" : "transparent",
@@ -189,6 +195,7 @@ function FolderNodeRow({
   node,
   depth,
   currentFolderId,
+  mediaBase,
   onCreate,
   onRename,
   onDelete,
@@ -196,6 +203,7 @@ function FolderNodeRow({
   node: FolderNode;
   depth: number;
   currentFolderId: number | null;
+  mediaBase: string;
   onCreate: (parentId: number) => void;
   onRename: (folder: MediaFolder) => void;
   onDelete: (folder: MediaFolder) => void;
@@ -260,7 +268,7 @@ function FolderNodeRow({
         </button>
 
         <Link
-          href={`/admin/content/media?folder=${node.id}`}
+          href={`${mediaBase}?folder=${node.id}`}
           className="flex-1 flex items-center gap-2 py-1 text-sm min-w-0"
           style={{
             color: isActive ? "var(--admin-accent)" : "var(--admin-text)",
@@ -329,6 +337,7 @@ function FolderNodeRow({
               node={child}
               depth={depth + 1}
               currentFolderId={currentFolderId}
+              mediaBase={mediaBase}
               onCreate={onCreate}
               onRename={onRename}
               onDelete={onDelete}

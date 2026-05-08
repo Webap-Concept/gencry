@@ -1,5 +1,6 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
+import { buildAdminPath, getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   getGdprDashboardStats,
@@ -24,11 +25,16 @@ export default async function GdprCompliancePage() {
   const t = await getTranslations("admin.compliance");
   const tG = await getTranslations("admin.compliance.gdpr");
   const tTools = await getTranslations("admin.compliance.gdpr.tools");
-  const [settings, stats, health] = await Promise.all([
-    getAppSettings(),
-    getGdprDashboardStats(),
-    getGdprHealthChecks(),
-  ]);
+  const [settings, stats, health, pagesPath, exportPath, logsPath, cookiesPath] =
+    await Promise.all([
+      getAppSettings(),
+      getGdprDashboardStats(),
+      getGdprHealthChecks(),
+      getAdminPath("content-pages"),
+      buildAdminPath("/compliance/gdpr/export"),
+      getAdminPath("logs"),
+      getAdminPath("compliance-cookies"),
+    ]);
 
   return (
     <div className="space-y-8">
@@ -127,26 +133,26 @@ export default async function GdprCompliancePage() {
           <ToolRow
             title={tTools("editPolicyTitle")}
             description={tTools("editPolicyDesc")}
-            href="/admin/content/pages"
+            href={pagesPath}
             cta={tTools("editPolicyCta")}
           />
           <ToolRow
             title={tTools("exportCsvTitle")}
             description={tTools("exportCsvDesc")}
-            href="/admin/compliance/gdpr/export"
+            href={exportPath}
             cta={tTools("exportCsvCta")}
             download
           />
           <ToolRow
             title={tTools("activityLogsTitle")}
             description={tTools("activityLogsDesc")}
-            href="/admin/logs"
+            href={logsPath}
             cta={tTools("activityLogsCta")}
           />
           <ToolRow
             title={tTools("cookieSettingsTitle")}
             description={tTools("cookieSettingsDesc")}
-            href="/admin/compliance/cookies"
+            href={cookiesPath}
             cta={tTools("cookieSettingsCta")}
           />
         </div>

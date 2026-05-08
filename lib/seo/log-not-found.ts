@@ -1,3 +1,4 @@
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { recordNotFoundHit } from "@/lib/db/not-found-queries";
 
 // Pattern semplice: cattura i bot più comuni guardando lo user-agent.
@@ -17,21 +18,26 @@ const SKIP_PATH_PREFIXES = [
   "/.well-known/",
   "/wp-",
   "/wordpress/",
-  "/admin/", // l'area admin ha la sua not-found dedicata, non la logghiamo qui
 ];
 
-// Path esatti da ignorare. Casi:
-//   "/"      → root: spesso loggata da prefetch RSC o chunk sentinella di
-//              Next, raramente è un vero 404 utente. Se la homepage manca
-//              davvero, salta fuori dai log applicativi.
-//   "/admin" → variante senza trailing slash del prefisso /admin/ qui sopra.
-const SKIP_PATH_EXACT = new Set(["/", "/admin"]);
+// Path esatti da ignorare:
+//   "/" → root: spesso loggata da prefetch RSC o chunk sentinella di
+//         Next, raramente è un vero 404 utente. Se la homepage manca
+//         davvero, salta fuori dai log applicativi.
+const SKIP_PATH_EXACT = new Set(["/"]);
 
-function shouldSkip(pathname: string, userAgent: string | null): boolean {
+async function shouldSkip(
+  pathname: string,
+  userAgent: string | null,
+): Promise<boolean> {
   if (!pathname || pathname.length > 500) return true;
   if (SKIP_PATH_EXACT.has(pathname)) return true;
   if (SKIP_PATH_REGEX.test(pathname)) return true;
   if (SKIP_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  // Skip area admin: ha la sua not-found dedicata. Slug runtime via DB.
+  const adminSlug = await getAdminUrlSlug();
+  const adminBase = `/${adminSlug}`;
+  if (pathname === adminBase || pathname.startsWith(`${adminBase}/`)) return true;
   if (userAgent && BOT_UA_REGEX.test(userAgent)) return true;
   return false;
 }
@@ -50,7 +56,7 @@ export async function logNotFoundHit(input: {
   if (!pathname) return;
 
   const userAgent = input.userAgent ?? null;
-  if (shouldSkip(pathname, userAgent)) return;
+  if (await shouldSkip(pathname, userAgent)) return;
 
   try {
     await recordNotFoundHit({

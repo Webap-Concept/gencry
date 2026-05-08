@@ -1,6 +1,8 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ArrowRight, Loader2, Save, Shield, ShieldOff } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -112,6 +114,8 @@ function ModeTabInner({ settings }: { settings: AppSettings }) {
 
 function TurnstileStatus({ configured }: { configured: boolean }) {
   const t = useTranslations("admin.settings.mode");
+  const adminSlug = useAdminSlug();
+  const cloudflareHref = buildAdminPathFromSlug(adminSlug, "/services/cloudflare");
   const accent = configured
     ? "color-mix(in oklch, var(--admin-accent) 20%, transparent)"
     : "rgba(217,119,6,0.35)";
@@ -154,7 +158,7 @@ function TurnstileStatus({ configured }: { configured: boolean }) {
           )}
         </p>
         <Link
-          href="/admin/services/cloudflare"
+          href={cloudflareHref}
           className="inline-flex items-center gap-1 font-medium transition-opacity hover:opacity-80"
           style={{ color: iconColor }}>
           {configured ? t("manageKeys") : t("configureKeys")}

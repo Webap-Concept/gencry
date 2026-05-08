@@ -16,6 +16,7 @@ import {
   type CronRow,
 } from "@/app/(admin)/admin/_components/cron-jobs-table";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { buildAdminPath } from "@/lib/admin-paths";
 import { listCronJobsWithLastRun, type PgCronJobWithLastRun } from "@/lib/cron/queries";
 import {
   getAllRegisteredJobnames,
@@ -47,6 +48,14 @@ export default async function SettingsCronPage() {
   const coreNames = getCoreJobnames();
   const registeredNames = getAllRegisteredJobnames();
   const moduleSlugs = INSTALLED_MODULES.map((m) => m.slug);
+  // Path admin runtime per ogni modulo: /<adminSlug>/modules/<slug>/cron
+  const moduleCronPaths = await Promise.all(
+    INSTALLED_MODULES.map(async (m) => ({
+      slug: m.slug,
+      label: m.label,
+      href: await buildAdminPath(`/modules/${m.slug}/cron`),
+    })),
+  );
 
   const coreRows: CronRow[] = [];
   const untrackedRows: CronRow[] = [];
@@ -117,14 +126,14 @@ export default async function SettingsCronPage() {
           </p>
           <p>{t("moduleJobsHint")}</p>
           <ul className="mt-2 space-y-1">
-            {INSTALLED_MODULES.map((m) => (
+            {moduleCronPaths.map((m) => (
               <li key={m.slug}>
                 <code className="font-mono">{m.label}</code> →{" "}
                 <a
-                  href={`/admin/modules/${m.slug}/cron`}
+                  href={m.href}
                   className="underline"
                   style={{ color: "var(--admin-accent)" }}>
-                  /admin/modules/{m.slug}/cron
+                  {m.href}
                 </a>
               </li>
             ))}

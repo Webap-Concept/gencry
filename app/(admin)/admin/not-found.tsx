@@ -1,10 +1,12 @@
 // app/(admin)/admin/not-found.tsx
 // Sovrascrive il 404 globale per tutte le route /admin/*.
 // Viene wrappato automaticamente dal layout admin (sidebar + header).
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import Link from "next/link";
 import { LayoutDashboard, SearchX } from "lucide-react";
 
-export default function AdminNotFound() {
+export default async function AdminNotFound() {
+  const adminSlug = await getAdminUrlSlug();
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 gap-6">
       {/* Icona */}
@@ -42,7 +44,7 @@ export default function AdminNotFound() {
 
       {/* CTA */}
       <Link
-        href="/admin"
+        href={`/${adminSlug}`}
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
         style={{
           background: "var(--admin-accent)",

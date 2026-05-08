@@ -1,3 +1,4 @@
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { roles, staffInvitations, userProfiles, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -46,6 +47,8 @@ export default async function StaffInvitePage({
   const t = await getTranslations("auth");
   const locale = await getLocale();
   const invite = await getInviteData(token);
+  const adminSlug = await getAdminUrlSlug();
+  const adminSignInHref = `/${adminSlug}/sign-in`;
 
   // ── Invalid token ────────────────────────────────────────────────────────
   if (!invite) {
@@ -80,7 +83,7 @@ export default async function StaffInvitePage({
         icon={<CheckCircle2 className="h-8 w-8 text-emerald-400" />}
         title={t("staffInvite.acceptedTitle")}
         message={t("staffInvite.acceptedMessage")}
-        linkHref="/admin/sign-in"
+        linkHref={adminSignInHref}
         linkLabel={t("staffInvite.acceptedAction")}
       />
     );

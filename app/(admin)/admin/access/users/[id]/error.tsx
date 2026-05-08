@@ -1,5 +1,8 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -13,6 +16,8 @@ export default function UserDetailError({
   reset: () => void;
 }) {
   const t = useTranslations("admin.access.users.detail");
+  const adminSlug = useAdminSlug();
+  const usersBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("users-list"));
 
   useEffect(() => {
     console.error("[admin/users/[id]] error:", error);
@@ -28,7 +33,7 @@ export default function UserDetailError({
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Link
-          href="/admin/users"
+          href={usersBase}
           className="flex items-center gap-1.5 text-sm"
           style={{ color: "var(--admin-text-muted)" }}>
           <ArrowLeft size={15} />
@@ -60,7 +65,7 @@ export default function UserDetailError({
 
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/users"
+            href={usersBase}
             className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg"
             style={{
               background: "var(--admin-hover-bg)",

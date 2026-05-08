@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type {
   CookieCategory,
   CookieService,
@@ -446,11 +449,13 @@ function SnippetStatusBadge({
   count: number;
 }) {
   const t = useTranslations("admin.compliance.cookies.snippetStatus");
+  const adminSlug = useAdminSlug();
+  const snippetsHref = buildAdminPathFromSlug(adminSlug, getAdminRelPath("settings-snippets"));
   if (!requiresSnippet) return null;
   if (count === 0) {
     return (
       <Link
-        href="/admin/settings/snippets"
+        href={snippetsHref}
         title={t("missingTooltip")}
         className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:underline">
         <AlertTriangle size={10} /> {t("missingBadge")}
@@ -459,7 +464,7 @@ function SnippetStatusBadge({
   }
   return (
     <Link
-      href="/admin/settings/snippets"
+      href={snippetsHref}
       title={t("configuredTooltip", { count })}
       className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 hover:underline">
       <CheckCircle2 size={10} /> {t("configuredBadge", { count })}

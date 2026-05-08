@@ -1,3 +1,4 @@
+import { getAdminPath } from "@/lib/admin-paths";
 import type { MediaFolder } from "@/lib/db/media-queries";
 import { ChevronRight, Folder } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +14,7 @@ interface FolderBreadcrumbProps {
  */
 export async function FolderBreadcrumb({ path }: FolderBreadcrumbProps) {
   const t = await getTranslations("admin.content.media.tree");
+  const mediaBase = await getAdminPath("content-media");
 
   return (
     <nav
@@ -24,7 +26,7 @@ export async function FolderBreadcrumb({ path }: FolderBreadcrumbProps) {
       ) : (
         <>
           <Link
-            href="/admin/content/media"
+            href={mediaBase}
             className="hover:underline"
             style={{ color: "var(--admin-text-muted)" }}>
             {t("root")}
@@ -41,7 +43,7 @@ export async function FolderBreadcrumb({ path }: FolderBreadcrumbProps) {
                   <span style={{ color: "var(--admin-text)" }}>{folder.name}</span>
                 ) : (
                   <Link
-                    href={`/admin/content/media?folder=${folder.id}`}
+                    href={`${mediaBase}?folder=${folder.id}`}
                     className="hover:underline"
                     style={{ color: "var(--admin-text-muted)" }}>
                     {folder.name}

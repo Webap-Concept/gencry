@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type {
   SiteSnippet,
   SnippetPosition,
@@ -802,6 +805,8 @@ function SnippetRow({
   const tType = useTranslations("admin.settings.snippets.types");
   const tPosition = useTranslations("admin.settings.snippets.positions");
   const tCat = useTranslations("public.cookieModal");
+  const adminSlug = useAdminSlug();
+  const cookiesHref = buildAdminPathFromSlug(adminSlug, getAdminRelPath("compliance-cookies"));
   const isPending = pendingId === snippet.id;
   const type = snippet.type as SnippetType;
   const position = snippet.position as SnippetPosition;
@@ -882,7 +887,7 @@ function SnippetRow({
           )}
           {linkedService && categoryLabel && (
             <Link
-              href="/admin/compliance/cookies"
+              href={cookiesHref}
               title={t("rowConsentBadgeTooltip", {
                 service: linkedService.name,
                 category: categoryLabel,
@@ -899,7 +904,7 @@ function SnippetRow({
           )}
           {linkOrphan && (
             <Link
-              href="/admin/compliance/cookies"
+              href={cookiesHref}
               title={t("rowConsentOrphanTooltip")}
               className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full hover:underline"
               style={{
