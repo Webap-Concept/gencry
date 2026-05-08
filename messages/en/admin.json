@@ -1440,6 +1440,30 @@
     }
   },
   "content": {
+    "styles": {
+      "metaTitle": "Content / Styles",
+      "breadcrumbContent": "Content",
+      "pageTitle": "Styles CSS",
+      "pageSubtitle": "Edit the CSS applied to CMS page contents (typography, figures, blockquotes)",
+      "guideTitle": "About this section",
+      "guideAriaLabel": "About styles",
+      "guideIntro": "This CSS is applied only to the contents of CMS pages — typography of rich text, image figures, and blockquotes. It does NOT touch admin, sign-in, the cookie banner or the 404 page.",
+      "guideBullet1": "Save: stores your override in the database; the public CMS pages get the new CSS within 5 minutes (HTTP cache).",
+      "guideBullet2": "Reset to default: removes the override; the system falls back to the seed shipped with the codebase.",
+      "guideBullet3": "Selectors are scoped under `.tpl-content` — keep that prefix when adding rules so they only target CMS content.",
+      "statusCustom": "Custom override active",
+      "statusDefault": "Default seed",
+      "statusDirty": "Unsaved changes",
+      "charCount": "{count}/{limit} chars",
+      "saveButton": "Save",
+      "savingButton": "Saving…",
+      "saved": "Saved",
+      "savedReset": "Reset to default",
+      "resetButton": "Reset to default",
+      "errorTooLong": "CSS too long (limit: {limit} chars)",
+      "errorSave": "Save error. Please try again.",
+      "helperText": "The page renderer loads /api/cms/styles.css with a 5-minute HTTP cache. After save, refresh the public CMS page to see the result."
+    },
     "templates": {
       "metaTitle": "Content / Templates",
       "metaTitleNew": "New template",
@@ -2604,6 +2628,7 @@
     "content-pages": "Pages",
     "content-templates": "Templates",
     "content-media": "Media",
+    "content-styles": "Styles",
     "analytics": "Analytics",
     "moderation": "Moderation",
     "security-group": "Security",

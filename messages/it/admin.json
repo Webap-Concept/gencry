@@ -1440,6 +1440,30 @@
     }
   },
   "content": {
+    "styles": {
+      "metaTitle": "Contenuti / Stile CSS",
+      "breadcrumbContent": "Contenuti",
+      "pageTitle": "Stile CSS",
+      "pageSubtitle": "Modifica il CSS applicato ai contenuti delle pagine CMS (typography, immagini, blockquote)",
+      "guideTitle": "Cosa fa questa sezione",
+      "guideAriaLabel": "Info sullo stile",
+      "guideIntro": "Questo CSS viene applicato SOLO ai contenuti delle pagine CMS — typography del rich text, immagini con caption, blockquote. NON tocca admin, sign-in, banner cookie o pagina 404.",
+      "guideBullet1": "Salva: scrive l'override nel database; le pagine CMS pubbliche vedranno il nuovo CSS entro 5 minuti (cache HTTP).",
+      "guideBullet2": "Ripristina default: rimuove l'override; il sistema torna al seed di base incluso nel codice.",
+      "guideBullet3": "I selettori sono scopati sotto `.tpl-content` — mantieni questo prefisso quando aggiungi regole, così agiscono solo sul contenuto CMS.",
+      "statusCustom": "Override personalizzato attivo",
+      "statusDefault": "Default seed",
+      "statusDirty": "Modifiche non salvate",
+      "charCount": "{count}/{limit} car.",
+      "saveButton": "Salva",
+      "savingButton": "Salvataggio…",
+      "saved": "Salvato",
+      "savedReset": "Ripristinato il default",
+      "resetButton": "Ripristina default",
+      "errorTooLong": "CSS troppo lungo (limite: {limit} caratteri)",
+      "errorSave": "Errore in salvataggio. Riprova.",
+      "helperText": "Il renderer carica /api/cms/styles.css con cache HTTP di 5 minuti. Dopo aver salvato, ricarica la pagina CMS pubblica per vedere il risultato."
+    },
     "templates": {
       "metaTitle": "Contenuti / Template",
       "metaTitleNew": "Nuovo template",
@@ -2604,6 +2628,7 @@
     "content-pages": "Pagine",
     "content-templates": "Template",
     "content-media": "Media",
+    "content-styles": "Stile CSS",
     "analytics": "Analytics",
     "moderation": "Moderazione",
     "security-group": "Sicurezza",

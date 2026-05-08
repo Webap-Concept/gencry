@@ -11,13 +11,12 @@ import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-// CMS-specifici: typography .tpl-content, .cms-figure, blockquote 4 stili.
-// Caricato qui — non dal layout (frontend) — così applica solo alle pagine
-// CMS effettive e non al footer pubblico, alla 404, alla landing o al
-// cookie banner che condividono il layout. In PR 3 questo import statico
-// verrà sostituito da un <link rel="stylesheet" href="/api/cms/styles.css">
-// alimentato da DB e modificabile dall'admin (sezione Content / Stile CSS).
-import "@/app/(frontend)/cms.css";
+// CSS dei contenuti CMS (.tpl-content, .cms-figure, blockquote 4 stili).
+// Servito da /api/cms/styles.css come <link> server-rendered: il file
+// viene incluso solo sulle pagine CMS effettive (non nel layout (frontend)
+// che ospita anche footer cookie / 404 / landing). La sorgente è
+// app_settings[cms.custom_css] con fallback al default seed
+// in lib/cms/default-styles.ts. L'admin lo edita da /admin/content/styles.
 
 /**
  * Se il primo segmento dello slug è un locale conosciuto, lo strippa e
@@ -195,6 +194,14 @@ export async function CmsPage({
 
   return (
     <>
+      {/* Stylesheet CMS — servito da app/api/cms/styles.css/route.ts.
+          Usa precedence per essere hoistato nell'<head> dal Float di
+          Next 16 (app router → ReactDOM resource hoisting). */}
+      <link
+        rel="stylesheet"
+        href="/api/cms/styles.css"
+        precedence="default"
+      />
       <TemplateComponent
         page={safePage}
         template={pageData.template ?? null}

@@ -188,6 +188,11 @@ export type SettingKey =
   // Cambiarlo da UI invalida ADMIN_URL_SLUG_TAG e aggiorna le righe pages
   // delle system page admin_home / admin_sign_in.
   | 'admin.url_slug'
+  // CMS custom CSS — override editabile da /admin/content/styles.
+  // Valore = stringa CSS arbitraria oppure null/empty = usa il default seed
+  // (lib/cms/default-styles.ts). Servito da /api/cms/styles.css con cache
+  // invalidata su save via revalidateTag('cms-styles').
+  | 'cms.custom_css'
 
 export type AppSettings = {
   app_name: string
@@ -336,6 +341,8 @@ export type AppSettings = {
   'mfa.required_since': string | null
   // Admin URL slug
   'admin.url_slug': string
+  // CMS custom CSS
+  'cms.custom_css': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -488,6 +495,9 @@ const DEFAULTS: AppSettings = {
   'mfa.required_since': null,
   // Admin URL slug — default 'admin'. Cambiabile da UI; vedi lib/admin-paths.ts.
   'admin.url_slug': 'admin',
+  // CMS custom CSS — null = nessun override, l'API serve il default seed
+  // da lib/cms/default-styles.ts. L'admin lo edita da /admin/content/styles.
+  'cms.custom_css': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
