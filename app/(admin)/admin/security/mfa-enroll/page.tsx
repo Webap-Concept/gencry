@@ -10,15 +10,18 @@
 // implementano start/confirm/disable/regenerate sono invece riusate da
 // `(protected)/settings/security/actions.ts`: sono business logic, non
 // hanno CSS, single source of truth.
+//
+// NOTA: il banner di policy (warning/blocking) NON è renderizzato qui:
+// `(admin)/layout.tsx` lo mostra shell-wide su ogni pagina admin quando
+// l'enforcement è non-ok (incluso questa pagina, senza CTA "Vai al setup"
+// dato che l'utente è già qui). Single banner, niente duplicati.
 
 import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
-import { AdminMfaPolicyBanner } from "./_components/admin-mfa-policy-banner";
 import { AdminMfaSection } from "./_components/admin-mfa-section";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,21 +31,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminMfaEnrollPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ reason?: string }>;
-}) {
+export default async function AdminMfaEnrollPage() {
   const user = await requireAdminPage();
-
-  const [mfaState, policy, params] = await Promise.all([
-    getMfaState(user.id),
-    getMfaPolicy(),
-    searchParams,
-  ]);
-
-  const enforcement = mfaEnforcement(user, policy, mfaState);
-  const forcedRedirect = params.reason === "mfa-required";
+  const mfaState = await getMfaState(user.id);
 
   return (
     <div className="space-y-5">
@@ -51,11 +42,6 @@ export default async function AdminMfaEnrollPage({
         breadcrumbLabel="Sicurezza"
         title="Verifica a due fattori"
         subtitle="Attiva l'autenticazione a due fattori sul tuo account staff."
-      />
-
-      <AdminMfaPolicyBanner
-        enforcement={enforcement}
-        forcedRedirect={forcedRedirect}
       />
 
       <AdminMfaSection initialState={mfaState} />

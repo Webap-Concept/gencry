@@ -55,28 +55,30 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   ]);
 
   // MFA enforcement (admin context):
-  //  - blocking → redirect a /<slug>/security/mfa-enroll (forziamo).
-  //  - warning  → niente redirect, ma renderizziamo un banner shell-wide
-  //    sopra ai children con countdown + CTA "Vai al setup". Lo staff
-  //    sa che ha N giorni e ha un click per arrivarci da qualunque
-  //    pagina admin.
-  //  - ok       → niente.
-  // Bypass per la enroll page stessa (la pagina ha il suo banner) e per
-  // le route di sign-in/challenge (gestite più sopra). Try/catch
-  // difensivo: errori transitori non bloccano l'admin.
+  //  - blocking + non-enroll page → redirect a /<slug>/security/mfa-enroll
+  //  - blocking + enroll page    → niente redirect (siamo già lì), ma
+  //    mostra il banner shell-wide
+  //  - warning                    → mostra il banner shell-wide (con CTA
+  //    "Vai al setup" se non siamo già sull'enroll)
+  //  - ok                         → niente
+  // Bypass solo per /api/* (server actions/route handlers — niente UI).
+  // Il banner è single source of truth: non lo duplichiamo dentro
+  // mfa-enroll/page.tsx — vive solo qui nel layout. Try/catch difensivo:
+  // errori transitori non bloccano l'admin.
   const enrollPath = `/${adminSlug}/security/mfa-enroll`;
+  const isOnEnrollPage = pathname === enrollPath;
   let mfaRedirectTo: string | null = null;
   let mfaEnforcementForBanner: MfaEnforcement | null = null;
-  if (!user.bannedAt && pathname !== enrollPath && !pathname.startsWith("/api/")) {
+  if (!user.bannedAt && !pathname.startsWith("/api/")) {
     try {
       const [policy, mfaState] = await Promise.all([
         getMfaPolicy(),
         getMfaState(user.id),
       ]);
       const enforcement = mfaEnforcement(user, policy, mfaState);
-      if (enforcement.kind === "blocking") {
+      if (enforcement.kind === "blocking" && !isOnEnrollPage) {
         mfaRedirectTo = `${enrollPath}?reason=mfa-required`;
-      } else if (enforcement.kind === "warning") {
+      } else if (enforcement.kind !== "ok") {
         mfaEnforcementForBanner = enforcement;
       }
     } catch (err) {
@@ -162,7 +164,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
             <div className="mb-4">
               <AdminMfaPolicyBanner
                 enforcement={mfaEnforcementForBanner}
-                enrollHref={enrollPath}
+                enrollHref={isOnEnrollPage ? undefined : enrollPath}
               />
             </div>
           )}
