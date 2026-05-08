@@ -1,5 +1,5 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { type AdminUsersStatus, getAdminUsers } from "@/lib/db/admin-queries";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { Search, Users } from "lucide-react";
@@ -48,6 +48,8 @@ async function UsersContent({
   });
   const totalPages = Math.ceil(total / 20);
 
+  const usersBase = await getAdminPath("users-list");
+
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
@@ -57,7 +59,7 @@ async function UsersContent({
     if (status !== "active") params.set("status", status);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
-    return `${getAdminPath("users-list")}${qs ? `?${qs}` : ""}`;
+    return `${usersBase}${qs ? `?${qs}` : ""}`;
   };
 
   return (
@@ -290,7 +292,7 @@ export default async function AdminUsersPage({
 
           {hasFilters && (
             <a
-              href={getAdminPath("users-list")}
+              href={await getAdminPath("users-list")}
               className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
               style={{
                 background: "var(--admin-hover-bg)",

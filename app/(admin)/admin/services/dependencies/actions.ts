@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { invalidateDependencyCache } from "@/lib/admin/dependencies/registry";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
@@ -22,6 +22,6 @@ export async function refreshDependencyReportAction(): Promise<ActionState> {
     return { error: "Not authorized", timestamp: Date.now() };
   }
   invalidateDependencyCache();
-  revalidatePath(getAdminPath("services-dependencies"));
+  revalidatePath(await getAdminPath("services-dependencies"));
   return { success: "Report refreshed.", timestamp: Date.now() };
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   checkProjectConnection,
   type SupabaseError,
@@ -42,8 +42,8 @@ export async function saveSupabaseSettings(
       supabase_project_ref: projectRef || null,
     });
 
-    revalidatePath(getAdminPath("services-supabase"));
-    revalidatePath(getAdminPath("compliance-gdpr"));
+    revalidatePath(await getAdminPath("services-supabase"));
+    revalidatePath(await getAdminPath("compliance-gdpr"));
     return { success: t("supabaseSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("supabaseSaveFailed"), timestamp: Date.now() };

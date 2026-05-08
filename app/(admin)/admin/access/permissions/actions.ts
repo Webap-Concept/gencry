@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import {
   getAdminRoleKeys,
@@ -77,8 +77,8 @@ export async function toggleRolePermission(
     `role=${role?.name ?? roleId} perm=${perm?.key ?? permissionId}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-roles"));
 }
 
 /**
@@ -109,8 +109,8 @@ export async function grantPermissionToRole(
     `role=${role?.name ?? roleId} perm=${perm?.key ?? permissionId}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-roles"));
 }
 
 /**
@@ -141,8 +141,8 @@ export async function revokePermissionFromRole(
     `role=${role?.name ?? roleId} perm=${perm?.key ?? permissionId}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-roles"));
 }
 
 /** Creates a new permission in the catalog */
@@ -199,7 +199,7 @@ export async function createPermission(formData: FormData) {
     `create_permission key=${key} group=${group}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-permissions"));
   return { success: true };
 }
 
@@ -251,7 +251,7 @@ export async function updatePermission(
     `update_permission key=${existing.key} label=${label} group=${group}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-permissions"));
   return { success: true };
 }
 
@@ -329,8 +329,8 @@ export async function deletePermission(permissionId: number) {
     `delete_permission key=${perm.key}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-roles"));
   return { success: true };
 }
 
@@ -450,8 +450,8 @@ export async function syncSystemPermissions(): Promise<
     `sync_system_permissions inserted=${insertedKeys.length} refreshed=${refreshed} role_grants=${granted}`,
   );
 
-  revalidatePath(getAdminPath("users-permissions"));
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-permissions"));
+  revalidatePath(await getAdminPath("users-roles"));
 
   return {
     inserted: insertedKeys.length,

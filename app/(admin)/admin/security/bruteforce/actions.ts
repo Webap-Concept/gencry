@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   blacklistIp,
   getBlacklist,
@@ -52,7 +52,7 @@ export async function actionUnblockIp(formData: FormData) {
   await requireAdminPage();
   const ip = ipSchema.parse(formData.get("ip"));
   await unblockIp(ip);
-  revalidatePath(getAdminPath("security-bruteforce"));
+  revalidatePath(await getAdminPath("security-bruteforce"));
   return { ok: true };
 }
 
@@ -62,7 +62,7 @@ export async function actionBlacklistIp(formData: FormData) {
   const reason = (formData.get("reason") as string | null) ?? undefined;
   await blacklistIp(ip, reason);
   await syncIpBlacklistToRedis(ip, true);
-  revalidatePath(getAdminPath("security-bruteforce"));
+  revalidatePath(await getAdminPath("security-bruteforce"));
   return { ok: true };
 }
 
@@ -71,7 +71,7 @@ export async function actionRemoveFromBlacklist(formData: FormData) {
   const ip = ipSchema.parse(formData.get("ip"));
   await removeFromBlacklist(ip);
   await syncIpBlacklistToRedis(ip, false);
-  revalidatePath(getAdminPath("security-bruteforce"));
+  revalidatePath(await getAdminPath("security-bruteforce"));
   return { ok: true };
 }
 
@@ -109,6 +109,6 @@ export async function actionUpdateBruteforceConfig(formData: FormData) {
     updateAppSetting("bf_lockout_minutes", String(parsed.data.bf_lockout_minutes)),
     updateAppSetting("bf_alert_threshold", String(parsed.data.bf_alert_threshold)),
   ]);
-  revalidatePath(getAdminPath("security-bruteforce"));
+  revalidatePath(await getAdminPath("security-bruteforce"));
   return { ok: true };
 }

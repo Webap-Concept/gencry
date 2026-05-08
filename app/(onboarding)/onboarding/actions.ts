@@ -144,5 +144,8 @@ export async function completeOnboarding(): Promise<void> {
     .set({ onboardingCompletedAt: new Date(), updatedAt: new Date() })
     .where(eq(users.id, user.id));
 
-  redirect(user.role === "admin" ? "/admin" : "/");
+  // Onboarding è solo per nuovi utenti del frontend social. Un admin che
+  // finisce qui è un edge-case (probabilmente importato da DB con flag
+  // mancante); torna a "/", da lì può navigare manualmente all'admin.
+  redirect("/");
 }

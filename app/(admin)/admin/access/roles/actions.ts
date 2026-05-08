@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { activityLogs, ActivityType, roles, users } from "@/lib/db/schema";
@@ -89,7 +89,7 @@ export async function createRole(formData: FormData) {
     `create_role name=${parsed.data.name} label="${parsed.data.label}" isAdmin=${parsed.data.isAdmin}`,
   );
 
-  revalidatePath(getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-roles"));
   return { success: tSuccess("created") };
 }
 
@@ -138,8 +138,8 @@ export async function updateRole(id: number, formData: FormData) {
     `update_role name=${existing.name} label="${parsed.data.label}" isAdmin=${parsed.data.isAdmin}`,
   );
 
-  revalidatePath(getAdminPath("users-roles"));
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-list"));
   return { success: tSuccess("updated") };
 }
 
@@ -171,8 +171,8 @@ export async function deleteRole(id: number) {
     `delete_role name=${existing.name}`,
   );
 
-  revalidatePath(getAdminPath("users-roles"));
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-roles"));
+  revalidatePath(await getAdminPath("users-list"));
   return { success: tSuccess("deleted") };
 }
 
@@ -214,7 +214,7 @@ export async function setUserRole(userId: string, roleName: string) {
     `set_user_role userId=${userId} from=${target?.role ?? "?"} to=${roleName}`,
   );
 
-  revalidatePath(getAdminPath("users-list"));
-  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  revalidatePath(await getAdminPath("users-list"));
+  revalidatePath(`${await getAdminPath("users-list")}/${userId}`);
   return { success: tSuccess("assigned") };
 }

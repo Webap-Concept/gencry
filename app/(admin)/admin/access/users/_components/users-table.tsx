@@ -1,6 +1,8 @@
 "use client";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminUsersStatus } from "@/lib/db/admin-queries";
 import type { AdminUser } from "@/lib/db/admin-queries";
 import { ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
@@ -86,6 +88,8 @@ function UserRow({
   status: AdminUsersStatus;
 }) {
   const t = useTranslations("admin.access.users.table");
+  const adminSlug = useAdminSlug();
+  const usersBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("users-list"));
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const [pending, startTransition] = useTransition();
@@ -122,7 +126,7 @@ function UserRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
-            href={`${getAdminPath("users-list")}/${user.id}`}
+            href={`${usersBase}/${user.id}`}
             className="shrink-0">
             {user.avatarUrl ? (
               <img
@@ -141,7 +145,7 @@ function UserRow({
           </Link>
           <div>
             <Link
-              href={`${getAdminPath("users-list")}/${user.id}`}
+              href={`${usersBase}/${user.id}`}
               className="text-sm font-medium transition-colors leading-none admin-user-link"
               style={{ color: "var(--admin-accent)" }}>
               {user.username ? `@${user.username}` : user.email}

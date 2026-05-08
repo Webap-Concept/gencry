@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { runGenerators } from "@/lib/notifications/dispatcher";
 import { getTranslations } from "next-intl/server";
@@ -31,7 +31,7 @@ export async function saveSenderSettings(
     // Esecuzione esplicita: chiude subito eventuali alert di rotazione
     // per resend_api_key se il valore e' stato aggiornato.
     await runGenerators();
-    getAdminPath("services-resend");
+    await getAdminPath("services-resend");
     return { success: t("resendSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("resendSaveFailed"), timestamp: Date.now() };

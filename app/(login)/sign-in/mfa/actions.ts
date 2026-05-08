@@ -120,5 +120,7 @@ async function finishLogin(userId: string, role: string): Promise<never> {
       redirect("/onboarding");
     }
   }
-  redirect(role === "admin" ? "/admin" : "/");
+  // MFA challenge da flusso pubblico: torna sempre a "/". Il flusso admin
+  // ha la propria action `adminSignIn` con redirect dedicato.
+  redirect("/");
 }

@@ -42,8 +42,15 @@ export const SYSTEM_ALWAYS_PUBLIC = [
 ] as const;
 
 /**
- * Costante singola per la route di login admin.
- * Separata per evitare magic strings in proxy.ts e nei guard.
+ * @deprecated L'URL admin è ora dinamico (vedi `getAdminUrlSlug()` in
+ * `lib/admin-paths.ts`). Costruisci a runtime con
+ * `${await getAdminUrlSlug()}/sign-in` lato server, oppure
+ * `/${params.adminSlug}/sign-in` lato client.
+ *
+ * Lasciato come fallback fisso per i path che NON possono essere async
+ * (es. constants top-level di moduli che vengono caricati prima del DB).
+ * Punta al default 'admin' così i flussi esistenti continuano a funzionare
+ * finché non vengono migrati al lookup dinamico.
  */
 export const ADMIN_SIGNIN_ROUTE = "/admin/sign-in" as const;
 

@@ -1,5 +1,5 @@
 import { getUserConsentRecords } from "@/lib/account/consent-queries";
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { listAdminUserSessions } from "@/lib/db/admin-sessions-queries";
 import { getAdminUserActivity, getAdminUserById } from "@/lib/db/admin-queries";
@@ -203,7 +203,7 @@ async function UserContent({
             {t("roleHeading")}
           </h4>
           <Link
-            href={getAdminPath("users-roles")}
+            href={await getAdminPath("users-roles")}
             className="text-xs transition-colors"
             style={{ color: "var(--admin-accent)" }}>
             {t("roleManageRoles")}
@@ -386,7 +386,7 @@ export default async function AdminUserPage({
   return (
     <div className="space-y-6">
       <Link
-        href={getAdminPath("users-list")}
+        href={await getAdminPath("users-list")}
         className="inline-flex items-center gap-1.5 text-sm transition-colors"
         style={{ color: "var(--admin-text-muted)" }}>
         <ArrowLeft size={14} />

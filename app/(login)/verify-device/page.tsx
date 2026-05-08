@@ -16,7 +16,7 @@ export default async function VerifyDevicePage() {
   // Chi ha già una sessione attiva non deve stare qui
   const session = await getSession();
   if (session) {
-    redirect(session.user.role === "admin" ? "/admin" : "/");
+    redirect("/");
   }
 
   // Senza pending auth cookie il flusso non è iniziato → torna al login

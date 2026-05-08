@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { coins } from "@/lib/db/schema";
 import { updateAppSetting } from "@/lib/db/settings-queries";
@@ -54,7 +54,7 @@ export async function savePricesSettings(
     const proApiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
     await updateAppSetting("modules.prices.coingecko_pro_api_key", proApiKey || null);
 
-    revalidatePath(getAdminPath("prices-settings"));
+    revalidatePath(await getAdminPath("prices-settings"));
     return { success: "Prices settings saved.", timestamp: Date.now() };
   } catch {
     return { error: "Save failed.", timestamp: Date.now() };
@@ -122,7 +122,7 @@ export async function testCoinGeckoProAction(
 export async function triggerSyncNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesSync(true);
-    revalidatePath(getAdminPath("prices-overview"));
+    revalidatePath(await getAdminPath("prices-overview"));
     return {
       success: result.ok
         ? `Sync OK · ${result.coinsUpdated}/${result.coinsTotal} coins · ${result.durationMs}ms`
@@ -138,7 +138,7 @@ export async function triggerSyncNowAction(): Promise<ActionState> {
 export async function triggerSnapshotNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesSnapshot(true);
-    revalidatePath(getAdminPath("prices-overview"));
+    revalidatePath(await getAdminPath("prices-overview"));
     return {
       success: `Snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -152,7 +152,7 @@ export async function triggerSnapshotNowAction(): Promise<ActionState> {
 export async function triggerCleanupNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesCleanup();
-    revalidatePath(getAdminPath("prices-overview"));
+    revalidatePath(await getAdminPath("prices-overview"));
     return {
       success: `Cleanup OK · ${result.coinsUpdated} rows deleted · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -203,7 +203,7 @@ export async function addCoinAction(
           updatedAt: new Date(),
         },
       });
-    revalidatePath(getAdminPath("prices-coins"));
+    revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${meta.symbol} (${meta.name}) added.`, timestamp: Date.now() };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Add coin failed";
@@ -231,7 +231,7 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
         updatedAt: new Date(),
       })
       .where(eq(coins.symbol, symbol));
-    revalidatePath(getAdminPath("prices-coins"));
+    revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${symbol} metadata refreshed.`, timestamp: Date.now() };
   } catch {
     return { error: "Refetch failed.", timestamp: Date.now() };
@@ -247,7 +247,7 @@ export async function toggleCoinActiveAction(
       .update(coins)
       .set({ isActive, updatedAt: new Date() })
       .where(eq(coins.symbol, symbol));
-    revalidatePath(getAdminPath("prices-coins"));
+    revalidatePath(await getAdminPath("prices-coins"));
     return {
       success: `${symbol} ${isActive ? "activated" : "deactivated"}.`,
       timestamp: Date.now(),
@@ -260,7 +260,7 @@ export async function toggleCoinActiveAction(
 export async function deleteCoinAction(symbol: string): Promise<ActionState> {
   try {
     await db.delete(coins).where(eq(coins.symbol, symbol));
-    revalidatePath(getAdminPath("prices-coins"));
+    revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${symbol} removed.`, timestamp: Date.now() };
   } catch {
     return { error: "Delete failed.", timestamp: Date.now() };

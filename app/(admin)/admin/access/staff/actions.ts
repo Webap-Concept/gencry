@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { permissions, rolePermissions, roles, staffInvitations, userProfiles, users } from "@/lib/db/schema";
 import { sendStaffInvitationEmail } from "@/lib/email/templates/staff-invitation";
@@ -51,7 +51,7 @@ export async function changeStaffRole(userId: string, roleName: string) {
     .set({ role: roleName, isAdmin: role.isAdmin, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
-  revalidatePath(getAdminPath("users-staff"));
+  revalidatePath(await getAdminPath("users-staff"));
 }
 
 export type UserSearchResult = {
@@ -106,7 +106,7 @@ export async function addUserToStaff(userId: string, roleName: string) {
     .set({ role: roleName, isAdmin: role.isAdmin, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
-  revalidatePath(getAdminPath("users-staff"));
+  revalidatePath(await getAdminPath("users-staff"));
 }
 
 export async function inviteStaffMember(
@@ -160,6 +160,6 @@ export async function inviteStaffMember(
     console.error("[inviteStaffMember] sendStaffInvitationEmail failed:", err);
   }
 
-  revalidatePath(getAdminPath("users-staff"));
+  revalidatePath(await getAdminPath("users-staff"));
   return {};
 }

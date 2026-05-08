@@ -1,4 +1,4 @@
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   type AdminSessionStatus,
   type AlertSeverityFilter,
@@ -161,6 +161,7 @@ async function SessionsContent({
     perPage: PER_PAGE,
   });
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const sessionsBase = await getAdminPath("users-sessions");
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -169,7 +170,7 @@ async function SessionsContent({
     if (status !== "active") params.set("status", status);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
-    return `${getAdminPath("users-sessions")}${qs ? `?${qs}` : ""}`;
+    return `${sessionsBase}${qs ? `?${qs}` : ""}`;
   };
 
   return (
@@ -303,6 +304,7 @@ async function AlertsContent({
     perPage: ALERTS_PER_PAGE,
   });
   const totalPages = Math.max(1, Math.ceil(total / ALERTS_PER_PAGE));
+  const alertsBase = await getAdminPath("users-sessions");
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -310,7 +312,7 @@ async function AlertsContent({
     if (status !== "open") params.set("alertStatus", status);
     if (severity !== "all") params.set("severity", severity);
     if (p > 1) params.set("page", String(p));
-    return `${getAdminPath("users-sessions")}?${params.toString()}`;
+    return `${alertsBase}?${params.toString()}`;
   };
 
   return (
@@ -393,7 +395,7 @@ export default async function AdminSessionsPage({
   const hasSessionFilters = !!(search || ip || status !== "active");
   const hasAlertFilters = !!(alertStatus !== "open" || severity !== "all");
 
-  const sessionsHref = getAdminPath("users-sessions");
+  const sessionsHref = await getAdminPath("users-sessions");
   const alertsHref = `${sessionsHref}?tab=alerts`;
 
   return (

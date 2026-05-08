@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { sendSuspiciousAlertsDigest } from "@/lib/email/templates/admin-suspicious-alerts";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import {
@@ -292,7 +292,7 @@ export async function saveNotificationsConfigAction(
 
   try {
     await saveAlertsConfig(parsed.data);
-    revalidatePath(getAdminPath("settings-notifications"));
+    revalidatePath(await getAdminPath("settings-notifications"));
     return {
       success: t("notificationsConfigSaved"),
       timestamp: Date.now(),

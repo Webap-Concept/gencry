@@ -1,7 +1,9 @@
 "use client";
 
 import { SeoFields, type JsonLdType, type RobotsValue } from "@/app/(admin)/admin/seo/_components/seo-form";
-import { getAdminPath } from "@/lib/admin-nav";
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type {
   AppLocale,
   Page,
@@ -468,6 +470,7 @@ function StrutturaTab({
   templateLocked?: boolean;
 }) {
   const t = useTranslations("admin.content.pages.editor");
+  const adminSlug = useAdminSlug();
   const selectedTemplate =
     templates.find((tpl) => tpl.id === templateId) ?? null;
   return (
@@ -558,7 +561,7 @@ function StrutturaTab({
             }}>
             {t("structureNoTemplatesBefore")}{" "}
             <a
-              href={getAdminPath("content-templates")}
+              href={buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-templates"))}
               className="underline"
               style={{ color: "var(--admin-accent)" }}>
               {t("structureNoTemplatesLink")}
@@ -656,6 +659,7 @@ export default function PageEditor({
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
+  const adminSlug = useAdminSlug();
   const isEdit = !!page;
   const originalSlug = page?.slug ?? "";
   // Le system pages "meta-only" (contentEditable=false) hanno un editor
@@ -955,7 +959,7 @@ export default function PageEditor({
         ))}
 
         <EditorPageHeader
-          backHref={getAdminPath("content-pages")}
+          backHref={buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-pages"))}
           backLabel={t("backButton")}
           saveLabel={isEdit ? t("saveButton") : t("createButton")}
           savedAtLabel={(time) => t("savedAtLabel", { time })}

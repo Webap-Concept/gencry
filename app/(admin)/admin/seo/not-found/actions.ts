@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   deleteAllResolvedNotFoundLogs,
   deleteNotFoundLog,
@@ -17,7 +17,7 @@ export async function resolveNotFoundAction(id: number): Promise<ActionResult> {
   if (!Number.isFinite(id) || id <= 0) return { error: t("errorInvalidId") };
   try {
     await markNotFoundResolved(id);
-    revalidatePath(getAdminPath("seo-not-found"));
+    revalidatePath(await getAdminPath("seo-not-found"));
   } catch (err) {
     console.error("[resolveNotFoundAction]", err);
     return { error: t("errorResolveFailed") };
@@ -30,7 +30,7 @@ export async function reopenNotFoundAction(id: number): Promise<ActionResult> {
   if (!Number.isFinite(id) || id <= 0) return { error: t("errorInvalidId") };
   try {
     await markNotFoundUnresolved(id);
-    revalidatePath(getAdminPath("seo-not-found"));
+    revalidatePath(await getAdminPath("seo-not-found"));
   } catch (err) {
     console.error("[reopenNotFoundAction]", err);
     return { error: t("errorReopenFailed") };
@@ -43,7 +43,7 @@ export async function deleteNotFoundAction(id: number): Promise<ActionResult> {
   if (!Number.isFinite(id) || id <= 0) return { error: t("errorInvalidId") };
   try {
     await deleteNotFoundLog(id);
-    revalidatePath(getAdminPath("seo-not-found"));
+    revalidatePath(await getAdminPath("seo-not-found"));
   } catch (err) {
     console.error("[deleteNotFoundAction]", err);
     return { error: t("errorDeleteFailed") };
@@ -55,7 +55,7 @@ export async function clearResolvedNotFoundAction(): Promise<ActionResult> {
   const t = await getTranslations("admin.seo.notFound");
   try {
     const cleared = await deleteAllResolvedNotFoundLogs();
-    revalidatePath(getAdminPath("seo-not-found"));
+    revalidatePath(await getAdminPath("seo-not-found"));
     return { success: true, cleared };
   } catch (err) {
     console.error("[clearResolvedNotFoundAction]", err);

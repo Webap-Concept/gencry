@@ -154,7 +154,10 @@ export async function GET(req: NextRequest) {
       if (dbUser.role !== "admin" && !dbUser.onboardingCompletedAt) {
         return redirect("/onboarding");
       }
-      return redirect(dbUser.role === "admin" ? "/admin" : "/");
+      // OAuth Google è flusso pubblico: redirect sempre a "/". Gli admin
+      // si autenticano via /<adminSlug>/sign-in (password + MFA), non via
+      // OAuth — se un giorno serve OAuth admin, sarà una feature dedicata.
+      return redirect("/");
     }
 
     // Dispositivo non riconosciuto: OTP via email

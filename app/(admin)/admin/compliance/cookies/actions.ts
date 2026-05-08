@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import {
   cookieServiceIdExists,
@@ -42,8 +42,8 @@ async function requireGdprAdmin(): Promise<{ ok: true } | { error: string }> {
   return { ok: true };
 }
 
-function revalidateCookiesAdmin() {
-  revalidatePath(getAdminPath("compliance-cookies"));
+async function revalidateCookiesAdmin() {
+  revalidatePath(await getAdminPath("compliance-cookies"));
   // Il banner pubblico riceve la lista servizi via prop dal RootLayout.
   // La cache module-level (`getCookieRegistry`) è già stata invalidata
   // dalle CRUD helper qui sopra, ma il render del RootLayout non rilegge
@@ -73,7 +73,7 @@ export async function saveCookieSettingsAction(
     // Invalida sia la sezione cookies sia il root layout: il banner
     // pubblico viene mostrato/no in base a questo flag, e la decisione
     // è presa nel RootLayout — un revalidate locale non basterebbe.
-    revalidatePath(getAdminPath("compliance-cookies"));
+    revalidatePath(await getAdminPath("compliance-cookies"));
     revalidatePath("/", "layout");
 
     return { success: t("feedbackSaved"), timestamp: Date.now() };
@@ -151,7 +151,7 @@ export async function toggleCookieServiceEnabledAction(
   }
   try {
     await setCookieServiceEnabled(id, enabled);
-    revalidateCookiesAdmin();
+    await revalidateCookiesAdmin();
     return { success: t("toggleSaved"), timestamp: Date.now() };
   } catch (err) {
     console.error("[toggleCookieServiceEnabledAction]", err);
@@ -262,7 +262,7 @@ export async function saveCookieServiceAction(
       }
     }
 
-    revalidateCookiesAdmin();
+    await revalidateCookiesAdmin();
     return { success: t("saveOk"), timestamp: Date.now() };
   } catch (err) {
     console.error("[saveCookieServiceAction]", err);
@@ -295,7 +295,7 @@ export async function deleteCookieServiceAction(id: string): Promise<ActionState
   try {
     await deleteCookieServiceTranslations([id]);
     await deleteCookieService(id);
-    revalidateCookiesAdmin();
+    await revalidateCookiesAdmin();
     return { success: t("deleteOk"), timestamp: Date.now() };
   } catch (err) {
     console.error("[deleteCookieServiceAction]", err);

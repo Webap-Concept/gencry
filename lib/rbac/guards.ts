@@ -1,4 +1,5 @@
 // lib/rbac/guards.ts
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getUser } from "@/lib/db/queries";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { redirect } from "next/navigation";
@@ -33,10 +34,16 @@ export async function requireAdmin(): Promise<UserWithProfile> {
 
 export async function requireAdminPage(): Promise<UserWithProfile> {
   const user = await getUser();
-  if (!user) redirect("/admin/sign-in");
+  if (!user) {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/sign-in`);
+  }
 
   const ok = await hasAdminAccess(user);
-  if (!ok) redirect("/admin/sign-in");
+  if (!ok) {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/sign-in`);
+  }
 
   return user;
 }
@@ -45,15 +52,24 @@ export async function requireAdminSectionPage(
   permissionKey: string,
 ): Promise<UserWithProfile> {
   const user = await getUser();
-  if (!user) redirect("/admin/sign-in");
+  if (!user) {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/sign-in`);
+  }
 
   if (user.isAdmin) return user;
 
   const hasAdmin = await can(user, "admin:access");
-  if (!hasAdmin) redirect("/admin/sign-in");
+  if (!hasAdmin) {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}/sign-in`);
+  }
 
   const hasSection = await can(user, permissionKey);
-  if (!hasSection) redirect("/admin");
+  if (!hasSection) {
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}`);
+  }
 
   return user;
 }

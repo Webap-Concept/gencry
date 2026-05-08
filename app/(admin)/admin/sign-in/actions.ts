@@ -1,5 +1,6 @@
 "use server";
 
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { validatedAction } from "@/lib/auth/middleware";
 import { comparePasswords, setSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
@@ -48,6 +49,7 @@ export const adminSignIn = validatedAction(
 
     await setSession(foundUser);
 
-    redirect("/admin");
+    const slug = await getAdminUrlSlug();
+    redirect(`/${slug}`);
   },
 );

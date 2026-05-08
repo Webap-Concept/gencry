@@ -1,6 +1,6 @@
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
-  redirect(getAdminPath("settings-general"));
+export default async function SettingsPage() {
+  redirect(await getAdminPath("settings-general"));
 }

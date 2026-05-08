@@ -1,4 +1,5 @@
 // proxy.ts
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { verifyToken } from "@/lib/auth/session";
 import { getValidSession } from "@/lib/auth/sessions";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
@@ -15,7 +16,6 @@ import { getNavigablePages } from "@/lib/db/pages-queries";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
 import {
-  ADMIN_SIGNIN_ROUTE,
   SYSTEM_ALWAYS_PUBLIC,
   SYSTEM_AUTH_ROUTES,
 } from "@/lib/routes";
@@ -79,6 +79,52 @@ export async function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
+
+  // Slug admin runtime (es. "admin", "admincontrol", ecc.). Cachato in
+  // unstable_cache (60s + tag) — costo trascurabile su request warm.
+  //
+  // Architettura URL admin:
+  //   - File system: cartella fissa `app/(admin)/admin/` (impossibile usare
+  //     `[adminSlug]` come segmento dinamico top-level perché collide con
+  //     `app/[locale]/...` di next-intl — Next non sa distinguerli).
+  //   - URL pubblico: `/<adminSlug>/...` con `<adminSlug>` runtime.
+  //   - Traduzione: rewrite invisibile qui sotto. L'utente vede sempre
+  //     l'URL configurato, internamente Next risolve `/admin/...`.
+  const adminSlug = await getAdminUrlSlug();
+  const adminBasePath = `/${adminSlug}`;
+  const adminSignInRoute = `/${adminSlug}/sign-in`;
+  // Header pubblico per i Client Component che vogliono lo slug (alternativa
+  // a un Context Provider in layout).
+  requestHeaders.set("x-admin-slug", adminSlug);
+  const isAdminPath = (p: string) =>
+    p === adminBasePath || p.startsWith(`${adminBasePath}/`);
+
+  // --- REWRITE: URL utente "/<adminSlug>/..." → path interno "/admin/..." ---
+  // Si fa PRIMA dell'i18n e degli auth check perché tutta la logica admin
+  // sotto opera sul path PUBBLICO (quello che l'utente vede). Il rewrite è
+  // invisibile: il browser continua a vedere `/<adminSlug>/...`, ma Next
+  // serve il file da `app/(admin)/admin/...`.
+  // Caso speciale: se adminSlug === "admin", nessun rewrite necessario.
+  if (adminSlug !== "admin" && isAdminPath(pathname)) {
+    const internalPath =
+      pathname === adminBasePath
+        ? "/admin"
+        : `/admin${pathname.slice(adminBasePath.length)}`;
+    const url = request.nextUrl.clone();
+    url.pathname = internalPath;
+    // I controlli auth/MFA del proxy operano comunque sul `pathname`
+    // pubblico (variabile `pathname` definita sopra), quindi mantengono
+    // la coerenza con l'URL utente.
+    return NextResponse.rewrite(url, {
+      request: { headers: requestHeaders },
+    });
+  }
+  // Inverso: se adminSlug è cambiato e qualcuno arriva ancora su "/admin/..."
+  // (es. bookmark vecchio quando lo slug era "admin"), 404. In dev questo
+  // pulisce il routing; in prod si potrebbe valutare un redirect 308.
+  if (adminSlug !== "admin" && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    return new NextResponse(null, { status: 404 });
+  }
 
   // --- [0] I18N: LOCALE PREFIX HANDLING ---
   // Modello E del piano i18n: prefix locale valido solo per home guest e
@@ -163,7 +209,7 @@ export async function proxy(request: NextRequest) {
   // --- [2] KERNEL: ADMIN SIGN-IN ---
   // Sempre accessibile, nessun redirect automatico post-login qui
   // per evitare loop con requireAdminPage().
-  if (pathname === ADMIN_SIGNIN_ROUTE) {
+  if (pathname === adminSignInRoute) {
     return finalize(NextResponse.next({ request: { headers: requestHeaders } }));
   }
 
@@ -205,7 +251,7 @@ export async function proxy(request: NextRequest) {
   const isStaticOrApi =
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||
-    pathname.startsWith("/admin/");
+    isAdminPath(pathname);
 
   if (!isStaticOrApi) {
     try {
@@ -227,7 +273,7 @@ export async function proxy(request: NextRequest) {
   const { publicRoutes, privateRoutes } = await resolveRoutes();
 
   const isPublicRoute = matchesPrefix(pathname, publicRoutes);
-  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isAdminRoute = isAdminPath(pathname);
   const isPrivateRoute = matchesPrefix(pathname, privateRoutes);
 
   const isLoggedIn = !!sessionCookie;
@@ -244,7 +290,7 @@ export async function proxy(request: NextRequest) {
   // getSession() dei Server Component — lì serve il DB, qui no.
   if (isAdminRoute) {
     if (!isLoggedIn) {
-      const url = new URL(ADMIN_SIGNIN_ROUTE, request.url);
+      const url = new URL(adminSignInRoute, request.url);
       url.searchParams.set("from", pathname);
       return finalize(NextResponse.redirect(url));
     }
@@ -252,7 +298,7 @@ export async function proxy(request: NextRequest) {
       await verifyToken(sessionCookie!.value);
     } catch {
       return finalize(
-        NextResponse.redirect(new URL(ADMIN_SIGNIN_ROUTE, request.url)),
+        NextResponse.redirect(new URL(adminSignInRoute, request.url)),
       );
     }
   }

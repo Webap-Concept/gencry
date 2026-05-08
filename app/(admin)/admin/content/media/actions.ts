@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   countAssetReferences,
   countAssetsInFolder,
@@ -318,7 +318,7 @@ export async function deleteMediaFolder(
   // rifarebbe `getFolderById(id)` → null → notFound() → 404 nel browser.
   const currentFolderId = parseFolderId(formData.get("currentFolderId"));
   if (currentFolderId === id) {
-    redirect(getAdminPath("content-media"));
+    redirect(await getAdminPath("content-media"));
   }
 
   return { success: t("folderDeleted"), timestamp: Date.now() };

@@ -5,6 +5,12 @@
  * Le voci dei moduli social sono iniettate da `lib/modules/registry.ts`
  * sotto la voce "Modules". Aggiungere/rimuovere un modulo non richiede
  * di toccare questo file: basta editare INSTALLED_MODULES.
+ *
+ * NB: gli href QUI sono RELATIVI al base admin (es. "/access/users"),
+ * non assoluti — il prefisso runtime `/${adminSlug}` viene aggiunto al
+ * render dalla sidebar (`useParams<{adminSlug}>`) e dai caller server-side
+ * via `buildAdminPath()` in lib/admin-paths.ts. L'admin slug è settabile
+ * dalla UI (vedi app_settings.admin_url_slug, default 'admin').
  */
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
 
@@ -17,8 +23,8 @@ export interface NavChild {
   permission: string;
   comingSoon?: boolean;
   /** Quando true, il link è "active" SOLO con match esatto del pathname.
-   *  Serve per voci-radice di sezione (es. Health è `/admin/modules/prices`,
-   *  che è prefisso di `/admin/modules/prices/coins` → senza exact entrambe
+   *  Serve per voci-radice di sezione (es. Health è `/modules/prices`,
+   *  che è prefisso di `/modules/prices/coins` → senza exact entrambe
    *  risulterebbero attive). Default: false (match con startsWith). */
   exact?: boolean;
   /** Sotto-figli per supportare 3 livelli (es. Modules → Module → Leaf).
@@ -42,7 +48,7 @@ export interface NavItem {
 export const ADMIN_NAV: NavItem[] = [
   {
     key: "dashboard",
-    href: "/admin",
+    href: "/",
     label: "Dashboard",
     icon: "LayoutDashboard",
     permission: "admin:access",
@@ -62,35 +68,35 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "users-list",
-        href: "/admin/access/users",
+        href: "/access/users",
         label: "Users",
         icon: "Users",
         permission: "admin:users",
       },
       {
         key: "users-staff",
-        href: "/admin/access/staff",
+        href: "/access/staff",
         label: "Staff",
         icon: "UserCog",
         permission: "admin:staff",
       },
       {
         key: "users-roles",
-        href: "/admin/access/roles",
+        href: "/access/roles",
         label: "Roles",
         icon: "ShieldCheck",
         permission: "admin:roles",
       },
       {
         key: "users-permissions",
-        href: "/admin/access/permissions",
+        href: "/access/permissions",
         label: "Permissions",
         icon: "KeyRound",
         permission: "admin:roles",
       },
       {
         key: "users-sessions",
-        href: "/admin/access/sessions",
+        href: "/access/sessions",
         label: "Sessions",
         icon: "Activity",
         permission: "admin:sessions",
@@ -106,21 +112,21 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "content-pages",
-        href: "/admin/content/pages",
+        href: "/content/pages",
         label: "Pages",
         icon: "FileText",
         permission: "admin:content",
       },
       {
         key: "content-templates",
-        href: "/admin/content/templates",
+        href: "/content/templates",
         label: "Templates",
         icon: "PanelTop",
         permission: "admin:content",
       },
       {
         key: "content-media",
-        href: "/admin/content/media",
+        href: "/content/media",
         label: "Media",
         icon: "Image",
         permission: "admin:content",
@@ -129,14 +135,14 @@ export const ADMIN_NAV: NavItem[] = [
   },
   {
     key: "analytics",
-    href: "/admin/analytics",
+    href: "/analytics",
     label: "Analytics",
     icon: "BarChart2",
     permission: "admin:analytics",
   },
   {
     key: "moderation",
-    href: "/admin/moderation",
+    href: "/moderation",
     label: "Moderation",
     icon: "ShieldAlert",
     permission: "admin:moderation",
@@ -150,35 +156,35 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "security-mfa",
-        href: "/admin/security/mfa",
+        href: "/security/mfa",
         label: "MFA",
         icon: "ShieldCheck",
         permission: "admin:security",
       },
       {
         key: "security-bruteforce",
-        href: "/admin/security/bruteforce",
+        href: "/security/bruteforce",
         label: "Bruteforce",
         icon: "ShieldBan",
         permission: "admin:security",
       },
       {
         key: "security-ip-rules",
-        href: "/admin/security/ip-rules",
+        href: "/security/ip-rules",
         label: "Regole IP",
         icon: "ListFilter",
         permission: "admin:security",
       },
       {
         key: "security-blocked-domains",
-        href: "/admin/security/blocked-domains",
+        href: "/security/blocked-domains",
         label: "Domini Bloccati",
         icon: "Globe",
         permission: "admin:security",
       },
       {
         key: "security-blocked-usernames",
-        href: "/admin/security/blocked-usernames",
+        href: "/security/blocked-usernames",
         label: "Username Bloccati",
         icon: "UserX",
         permission: "admin:security",
@@ -196,14 +202,14 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "compliance-gdpr",
-        href: "/admin/compliance/gdpr",
+        href: "/compliance/gdpr",
         label: "GDPR & Consents",
         icon: "ScrollText",
         permission: "admin:gdpr",
       },
       {
         key: "compliance-cookies",
-        href: "/admin/compliance/cookies",
+        href: "/compliance/cookies",
         label: "Cookies",
         icon: "Cookie",
         permission: "admin:gdpr",
@@ -220,7 +226,7 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "billing-overview",
-        href: "/admin/billing",
+        href: "/billing",
         label: "General",
         icon: "LayoutDashboard",
         permission: "admin:billing",
@@ -228,7 +234,7 @@ export const ADMIN_NAV: NavItem[] = [
       },
       {
         key: "billing-plans",
-        href: "/admin/billing/plans",
+        href: "/billing/plans",
         label: "Plans",
         icon: "PackageCheck",
         permission: "billing:manage_plans",
@@ -236,7 +242,7 @@ export const ADMIN_NAV: NavItem[] = [
       },
       {
         key: "billing-transactions",
-        href: "/admin/billing/transactions",
+        href: "/billing/transactions",
         label: "Transactions",
         icon: "ArrowLeftRight",
         permission: "billing:view_transactions",
@@ -244,7 +250,7 @@ export const ADMIN_NAV: NavItem[] = [
       },
       {
         key: "billing-subscriptions",
-        href: "/admin/billing/subscriptions",
+        href: "/billing/subscriptions",
         label: "Membership",
         icon: "RefreshCcw",
         permission: "subscriptions:manage",
@@ -252,7 +258,7 @@ export const ADMIN_NAV: NavItem[] = [
       },
       {
         key: "billing-gateways",
-        href: "/admin/billing/gateways",
+        href: "/billing/gateways",
         label: "Gateway",
         icon: "Plug",
         permission: "billing:manage_gateways",
@@ -269,28 +275,28 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "seo-robots",
-        href: "/admin/seo/robots",
+        href: "/seo/robots",
         label: "Robots",
         icon: "Globe",
         permission: "admin:seo",
       },
       {
         key: "seo-sitemap",
-        href: "/admin/seo/sitemap",
+        href: "/seo/sitemap",
         label: "Sitemap",
         icon: "Map",
         permission: "admin:seo",
       },
       {
         key: "seo-redirects",
-        href: "/admin/seo/redirect",
+        href: "/seo/redirect",
         label: "Redirect",
         icon: "GitMerge",
         permission: "admin:seo",
       },
       {
         key: "seo-not-found",
-        href: "/admin/seo/not-found",
+        href: "/seo/not-found",
         label: "404 Monitor",
         icon: "SearchX",
         permission: "admin:seo",
@@ -306,56 +312,56 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "settings-general",
-        href: "/admin/settings/general",
+        href: "/settings/general",
         label: "General",
         icon: "Settings",
         permission: "admin:settings",
       },
       {
         key: "settings-mode",
-        href: "/admin/settings/operation-mode",
+        href: "/settings/operation-mode",
         label: "Operation Mode",
         icon: "SlidersHorizontal",
         permission: "admin:settings",
       },
       {
         key: "settings-notifications",
-        href: "/admin/settings/notifications",
+        href: "/settings/notifications",
         label: "Notifications",
         icon: "Bell",
         permission: "admin:settings",
       },
       {
         key: "settings-signup",
-        href: "/admin/settings/signup",
+        href: "/settings/signup",
         label: "SignUp",
         icon: "LogIn",
         permission: "admin:settings",
       },
       {
         key: "settings-email",
-        href: "/admin/settings/email",
+        href: "/settings/email",
         label: "Email",
         icon: "MailOpen",
         permission: "admin:settings",
       },
       {
         key: "settings-snippets",
-        href: "/admin/settings/snippets",
+        href: "/settings/snippets",
         label: "Snippets",
         icon: "Code2",
         permission: "admin:settings",
       },
       {
         key: "settings-cron",
-        href: "/admin/settings/cron",
+        href: "/settings/cron",
         label: "Cron Jobs",
         icon: "Clock",
         permission: "admin:settings",
       },
       {
         key: "settings-languages",
-        href: "/admin/settings/languages",
+        href: "/settings/languages",
         label: "Languages",
         icon: "Languages",
         permission: "admin:languages",
@@ -371,49 +377,49 @@ export const ADMIN_NAV: NavItem[] = [
     children: [
       {
         key: "services-resend",
-        href: "/admin/services/resend",
+        href: "/services/resend",
         label: "Resend",
         icon: "Send",
         permission: "admin:settings",
       },
       {
         key: "services-redis",
-        href: "/admin/services/redis",
+        href: "/services/redis",
         label: "Redis",
         icon: "Database",
         permission: "admin:settings",
       },
       {
         key: "services-google",
-        href: "/admin/services/google-oauth",
+        href: "/services/google-oauth",
         label: "Google OAuth",
         icon: "LogIn",
         permission: "admin:settings",
       },
       {
         key: "services-github",
-        href: "/admin/services/github",
+        href: "/services/github",
         label: "GitHub CI",
         icon: "GitMerge",
         permission: "admin:settings",
       },
       {
         key: "services-cloudflare",
-        href: "/admin/services/cloudflare",
+        href: "/services/cloudflare",
         label: "Cloudflare",
         icon: "Shield",
         permission: "admin:settings",
       },
       {
         key: "services-supabase",
-        href: "/admin/services/supabase",
+        href: "/services/supabase",
         label: "Supabase",
         icon: "Database",
         permission: "admin:settings",
       },
       {
         key: "services-dependencies",
-        href: "/admin/services/dependencies",
+        href: "/services/dependencies",
         label: "Dependencies",
         icon: "Package",
         permission: "admin:settings",
@@ -454,14 +460,14 @@ export const ADMIN_NAV: NavItem[] = [
     : []),
   {
     key: "tests",
-    href: "/admin/tests",
+    href: "/tests",
     label: "Test Suite",
     icon: "FlaskConical",
     permission: "admin:tests",
   },
   {
     key: "logs",
-    href: "/admin/logs",
+    href: "/logs",
     label: "Activity Logs",
     icon: "ClipboardList",
     permission: "admin:logs",
@@ -485,9 +491,17 @@ function findHrefByKey(
   return null;
 }
 
-export function getAdminPath(key: string): string {
+/**
+ * Ritorna il path RELATIVO al base admin (es. "/access/users"). Sync, no DB.
+ * Sicuro per CLIENT component (no `server-only` deps).
+ *
+ * Per il path ASSOLUTO server-side esiste `getAdminPath()` async in
+ * `lib/admin-paths.ts` (NON in questo file: separato per evitare di
+ * trascinare il DB lookup nel bundle client di chi usa solo questo helper).
+ */
+export function getAdminRelPath(key: string): string {
   const found = findHrefByKey(ADMIN_NAV, key);
   if (found) return found;
-  console.warn(`[getAdminPath] Key "${key}" not found in ADMIN_NAV registry.`);
-  return "/admin";
+  console.warn(`[getAdminRelPath] Key "${key}" not found in ADMIN_NAV registry.`);
+  return "/";
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import Tooltip from "@/app/(admin)/admin/_components/tooltip";
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { Page, PageTemplate } from "@/lib/db/schema";
 import {
   DndContext,
@@ -923,6 +925,8 @@ export default function PageManager({
 }) {
   const t = useTranslations("admin.content.pages.manager");
   const router = useRouter();
+  const adminSlug = useAdminSlug();
+  const pagesBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-pages"));
   const [activeTab, setActiveTab] = useState<PagesTab>("user");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [pendingToggleId, setPendingToggleId] = useState<number | null>(null);
@@ -1021,7 +1025,7 @@ export default function PageManager({
   function handleNewChild(parentId: number) {
     const parent = pages.find((p) => p.id === parentId);
     if (!parent) {
-      router.push(`${getAdminPath("content-pages")}/new?parentId=${parentId}`);
+      router.push(`${pagesBase}/new?parentId=${parentId}`);
       return;
     }
     const parentTemplate = parent.templateId
@@ -1029,12 +1033,12 @@ export default function PageManager({
       : undefined;
     const allowedIds = getAllowedChildIds(parentTemplate);
     if (allowedIds.length === 0) {
-      router.push(`${getAdminPath("content-pages")}/new?parentId=${parentId}`);
+      router.push(`${pagesBase}/new?parentId=${parentId}`);
       return;
     }
     if (allowedIds.length === 1) {
       router.push(
-        `${getAdminPath("content-pages")}/new?parentId=${parentId}&templateId=${allowedIds[0]}&templateLocked=1`,
+        `${pagesBase}/new?parentId=${parentId}&templateId=${allowedIds[0]}&templateLocked=1`,
       );
       return;
     }
@@ -1047,7 +1051,7 @@ export default function PageManager({
     if (!pickerParent) return;
     setPickerParent(null);
     router.push(
-      `${getAdminPath("content-pages")}/new?parentId=${pickerParent.id}&templateId=${templateId}&templateLocked=1`,
+      `${pagesBase}/new?parentId=${pickerParent.id}&templateId=${templateId}&templateLocked=1`,
     );
   }
 
@@ -1199,14 +1203,14 @@ export default function PageManager({
             toggleExpand={toggleExpand}
             pendingToggleId={pendingToggleId}
             appDomain={appDomain}
-            onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
+            onEdit={(id) => router.push(`${pagesBase}/${id}/edit`)}
             onDeleteRequest={setDeleteTarget}
             onNewChild={handleNewChild}
             onToggleStatus={handleToggleStatus}
             emptyLabel={t("emptyUserLabel")}
             emptyHint={t("emptyUserHint")}
             showNewButton={true}
-            onNewPage={() => router.push(`${getAdminPath("content-pages")}/new`)}
+            onNewPage={() => router.push(`${pagesBase}/new`)}
           />
         )}
 
@@ -1218,7 +1222,7 @@ export default function PageManager({
             toggleExpand={toggleExpand}
             pendingToggleId={pendingToggleId}
             appDomain={appDomain}
-            onEdit={(id) => router.push(`${getAdminPath("content-pages")}/${id}/edit`)}
+            onEdit={(id) => router.push(`${pagesBase}/${id}/edit`)}
             onDeleteRequest={setDeleteTarget}
             onNewChild={handleNewChild}
             onToggleStatus={handleToggleStatus}

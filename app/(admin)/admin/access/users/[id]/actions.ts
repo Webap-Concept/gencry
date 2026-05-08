@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { MFA_STATE_TAG, resetMfaForAdmin } from "@/lib/auth/mfa/queries";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
@@ -120,7 +120,7 @@ export async function addOverride(formData: FormData) {
       (reason ? ` reason="${reason}"` : ""),
   );
 
-  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  revalidatePath(`${await getAdminPath("users-list")}/${userId}`);
 
   return { success: true };
 }
@@ -141,7 +141,7 @@ export async function removeOverride(overrideId: number, userId: string) {
     `remove_override overrideId=${overrideId} userId=${userId}`,
   );
 
-  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  revalidatePath(`${await getAdminPath("users-list")}/${userId}`);
   return { success: true };
 }
 
@@ -213,7 +213,7 @@ export async function adminResetMfa(formData: FormData) {
     }
   })();
 
-  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  revalidatePath(`${await getAdminPath("users-list")}/${userId}`);
   // Lo state MFA dell'utente target è cambiato — invalida la cache così
   // il (protected)/layout di quell'utente vedrà subito il nuovo state.
   updateTag(MFA_STATE_TAG);
@@ -242,6 +242,6 @@ export async function purgeExpired(userId: string) {
     );
   }
 
-  revalidatePath(`${getAdminPath("users-list")}/${userId}`);
+  revalidatePath(`${await getAdminPath("users-list")}/${userId}`);
   return { success: true, deleted };
 }

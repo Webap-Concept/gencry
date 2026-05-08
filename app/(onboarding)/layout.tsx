@@ -30,7 +30,8 @@ export default async function OnboardingLayout({
     .limit(1);
 
   if (row?.completedAt) {
-    redirect(user.role === "admin" ? "/admin" : "/");
+    // Onboarding già completato → out. Il flusso admin ha entry dedicato.
+    redirect("/");
   }
 
   return <>{children}</>;

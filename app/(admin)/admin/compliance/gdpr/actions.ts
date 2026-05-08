@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   checkSupabaseConnection,
   type SupabaseError,
@@ -166,7 +166,7 @@ export async function saveGdprSettingsAction(
 
     await batchUpdateAppSettings(updates);
 
-    revalidatePath(getAdminPath("compliance-gdpr"));
+    revalidatePath(await getAdminPath("compliance-gdpr"));
     return { success: t("feedbackSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("feedbackError"), timestamp: Date.now() };
@@ -213,7 +213,7 @@ export async function verifyPitrAction(): Promise<ActionState> {
       "gdpr.backup.pitr.last_verified_tier": result.project.tier,
     });
 
-    revalidatePath(getAdminPath("compliance-gdpr"));
+    revalidatePath(await getAdminPath("compliance-gdpr"));
 
     if (PITR_TIERS.has(result.project.tier)) {
       return {

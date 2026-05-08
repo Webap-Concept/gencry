@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { invalidateRedisConfigCache } from "@/lib/bloom/bloom-filter";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { runGenerators } from "@/lib/notifications/dispatcher";
@@ -31,7 +31,7 @@ export async function saveRedisSettings(
     // Chiude subito alert di rotazione per upstash_redis_rest_token.
     await runGenerators();
 
-    revalidatePath(getAdminPath("services-redis"));
+    revalidatePath(await getAdminPath("services-redis"));
     return { success: t("redisSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("redisSaveFailed"), timestamp: Date.now() };
