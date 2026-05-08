@@ -1,7 +1,27 @@
 @import "tailwindcss";
 /*
-  ---break---
+  globals.css — caricato dal root layout, presente OVUNQUE
+  (admin + login + onboarding + protected + frontend + [locale]).
+
+  Contiene esclusivamente quello che serve dappertutto:
+    - import Tailwind v4 + tw-animate-css (per shadcn slide/fade)
+    - tokens shadcn (--background/--foreground/--card/...) + .dark
+    - reset border-color v4 + setup body
+    - .no-scrollbar utility (usata sia in front che in admin)
+    - @theme inline mapping di tutti i token (shadcn + brand/gc + animate-gc-*),
+      così il compiler genera le utility `bg-brand-*`, `bg-gc-*`,
+      `animate-gc-*` ovunque. I VALORI delle var --brand- e --gc- vivono
+      in frontend.css — caricato in tutti i contesti non-admin. Le utility
+      esistono anche in admin, ma puntano a variabili non definite e quindi
+      non rendono nulla — per convenzione lato admin si usano solo --admin-*.
+
+  Token --admin-* + classi .admin-* sono in app/(admin)/admin.css.
+  Reset del frontend pubblico, animazioni gc/gc404 e :focus-visible accent
+  sono in app/(frontend)/frontend.css.
+  Stili dei contenuti CMS (.tpl-content, .cms-figure, blockquote 4 stili)
+  sono in app/(frontend)/cms.css, caricati dal renderer CmsPage.
 */
+
 @custom-variant dark (&:is(.dark *));
 
 @import "tw-animate-css";
@@ -58,12 +78,9 @@
 }
 
 /*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
+  Compatibilità v4: il default border è cambiato a `currentColor`.
+  Questa regola riporta il comportamento v3 (gray-200) per non rompere
+  componenti esistenti che si aspettano il vecchio default.
 */
 @layer base {
   *,
@@ -174,336 +191,16 @@
 }
 
 /*
-  ---break---
+  @theme inline — mapping di TUTTE le var (shadcn + brand + gc) verso le
+  utility Tailwind. Il compiler ha bisogno di vedere queste dichiarazioni
+  per generare classi tipo `bg-card`, `bg-brand-primary`, `bg-gc-bg`,
+  `animate-gc-screen`, ecc.
+
+  Le var --background/--foreground/... (shadcn) sono definite qui sopra.
+  Le var --brand- e --gc- sono definite in app/(frontend)/frontend.css —
+  l'admin (che non carica frontend.css) vede le utility ma con var nulle:
+  per convenzione in admin si usa solo `--admin-*`.
 */
-
-:root {
-  --brand-primary: #e07a3a;
-  --brand-primary-hover: #c9642a;
-  --brand-accent: #7dbe9e;
-  --brand-accent-hover: #5ea882;
-  --brand-accent-light: #e8f5ee;
-  --brand-destructive: #d94f3d;
-  --brand-border: #ddd6c8;
-  --brand-border-focus: #7dbe9e;
-  --brand-text: #2c2416;
-  --brand-text-muted: #7a6e5f;
-  --brand-text-light: #a89e8f;
-  --brand-label: #5c5146;
-  --brand-surface: #fdfaf4;
-  --brand-surface-card: #ffffff;
-  --brand-bg: #f5f0e8;
-  --brand-border-focus-rgb: 125, 190, 158;
-  --brand-error-border: #e07a7a;
-  --brand-text-light: #a89e8f;
-  --brand-surface-card: #ffffff;
-  --brand-text: #2c2416;
-  --brand-border-focus: #7dbe9e;
-  --brand-error-bg: #fdecea;
-
-  /* ── feed design tokens ──────────────────────────────
-     Palette del feed sociale. Riusabili in tutta l'area loggata.
-     Convenzione: bg/fg con livelli numerati (più alto = più contrasto/pieno),
-     line per i bordi, accent per l'arancione brand, pos/neg per i prezzi. */
-  --gc-bg: #f5f0e8; /* sfondo pagina (cream) */
-  --gc-bg-2: #fdfaf4; /* card su pagina */
-  --gc-bg-3: #fffbf2; /* item annidati nella card */
-  --gc-fg: #123928; /* testo principale (verde scuro brand) */
-  --gc-fg-2: #5c5146; /* testo secondario */
-  --gc-fg-3: #94897a; /* testo terziario / metadata */
-  --gc-line: #e6dfd0; /* bordo sottile */
-  --gc-line-2: #d4ccba; /* bordo medio */
-  --gc-accent: #fa8b1e; /* arancione brand (live, CTA) */
-  --gc-accent-soft: rgba(250, 139, 30, 0.1);
-  --gc-pos: #2d8659; /* prezzi in salita */
-  --gc-neg: #c2553f; /* prezzi in discesa */
-  --gc-green: #7dbe9e; /* verde brand (badge, indicatori live) */
-}
-
-/* Keyframes GC (esposti come utility tramite @theme inline) */
-@keyframes gc-screen {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes gc-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-@keyframes gc-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-
-/* ── 404 page ─────────────────────────────────────────────────────────────
-   Animazioni dello stage "crash" (app/not-found.tsx + Crash404.tsx).
-   Vivono qui anziché in un CSS module per coerenza col resto del progetto. */
-
-@keyframes gc404-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes gc404-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes gc404-fade-in {
-  to {
-    opacity: 1;
-  }
-}
-@keyframes gc404-candle-in {
-  from {
-    opacity: 0;
-    transform: scaleY(0);
-  }
-  to {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
-@keyframes gc404-dot-pulse {
-  0%,
-  100% {
-    r: 8;
-  }
-  50% {
-    r: 11;
-  }
-}
-/* Slide-in del drawer della sidebar admin (vedi sidebar.tsx → SidebarDrawer). */
-@keyframes drawer-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes gc404-splat-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@keyframes gc404-fall {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-30px, 110vh) rotate(540deg);
-    opacity: 0;
-  }
-}
-
-.gc404-fade-up {
-  opacity: 0;
-  animation: gc404-fade-up 0.7s ease forwards;
-}
-.gc404-digit-fill {
-  fill: var(--gc-fg);
-  opacity: 0;
-  animation: gc404-fade-in 0.8s 1.4s ease forwards;
-}
-.gc404-digit-stroke {
-  fill: none;
-  stroke: var(--gc-fg);
-  stroke-width: 1.5;
-  stroke-dasharray: 1400;
-  stroke-dashoffset: 1400;
-  animation: gc404-draw 1.8s 0.2s ease forwards;
-}
-.gc404-chart-line {
-  fill: none;
-  stroke: var(--gc-accent);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 1800;
-  stroke-dashoffset: 1800;
-  animation: gc404-draw 2.4s 0.9s cubic-bezier(0.7, 0.05, 0.4, 1) forwards;
-  filter: drop-shadow(0 4px 14px rgba(250, 139, 30, 0.32));
-}
-.gc404-chart-area {
-  fill: url(#gc404-grad);
-  opacity: 0;
-  animation: gc404-fade-in 1s 2.5s ease forwards;
-}
-.gc404-candle {
-  opacity: 0;
-  transform-origin: bottom center;
-  animation: gc404-candle-in 0.32s ease forwards;
-}
-.gc404-crash-dot {
-  fill: var(--gc-bg);
-  stroke: var(--gc-accent);
-  stroke-width: 3;
-  opacity: 0;
-  animation:
-    gc404-fade-in 0.3s 3s ease forwards,
-    gc404-dot-pulse 1.6s 3.3s ease-in-out infinite;
-}
-.gc404-splat {
-  opacity: 0;
-  transform-origin: 760px 320px;
-  animation: gc404-splat-pop 0.6s 3.1s cubic-bezier(0.34, 1.56, 0.64, 1)
-    forwards;
-}
-.gc404-coin {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--gc-bg-2);
-  border: 1px solid var(--gc-line-2);
-  box-shadow: 0 6px 18px rgba(18, 57, 40, 0.08);
-  opacity: 0;
-  pointer-events: none;
-  animation: gc404-fall linear infinite;
-}
-.gc404-coin-btc {
-  color: #f7931a;
-  border-color: rgba(247, 147, 26, 0.4);
-}
-.gc404-coin-eth {
-  color: #627eea;
-  border-color: rgba(98, 126, 234, 0.4);
-}
-.gc404-coin-sol {
-  color: #14a37a;
-  border-color: rgba(20, 163, 122, 0.4);
-}
-.gc404-coin-doge {
-  color: #c2a633;
-  border-color: rgba(194, 166, 51, 0.4);
-}
-.gc404-coin-ada {
-  color: #0033ad;
-  border-color: rgba(0, 51, 173, 0.4);
-}
-@media (max-width: 720px) {
-  .gc404-coin {
-    width: 36px;
-    height: 36px;
-  }
-}
-
-/* ── a11y ────────────────────────────────────────────────────────────────
-   Focus ring visibile solo per la navigazione tastiera (focus-visible),
-   evita l'outline sgradevole sul click del mouse. Tinta accent per coerenza
-   con il brand.
-
-   Esclude input/textarea/select perché hanno già il loro stile di focus
-   (vedi components/ui/input.tsx — pill + ring menta). Senza questa
-   esclusione, l'outline arancione + `border-radius: 4px` sovrascriveva
-   `rounded-full` e faceva perdere la forma pill agli input al focus. */
-:focus-visible:not(input):not(textarea):not(select) {
-  outline: 2px solid var(--gc-accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Disabilita le animazioni decorative GC per chi ha richiesto reduced motion.
-   Le transition più brevi (hover, dropdown) restano: non sono problematiche
-   per chi è sensibile e migliorano comunque la percezione di interazione. */
-@media (prefers-reduced-motion: reduce) {
-  .animate-gc-screen,
-  .animate-gc-pulse,
-  .animate-gc-blink,
-  .gc404-fade-up,
-  .gc404-digit-fill,
-  .gc404-digit-stroke,
-  .gc404-chart-line,
-  .gc404-chart-area,
-  .gc404-candle,
-  .gc404-crash-dot,
-  .gc404-splat,
-  .gc404-coin {
-    animation: none !important;
-    opacity: 1 !important;
-    stroke-dashoffset: 0 !important;
-  }
-}
-
-/*
-  ---break---
-*/
-
-.dark {
-  --background: hsl(240 10% 3.9%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(240 10% 3.9%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(240 10% 3.9%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(240 5.9% 10%);
-  --secondary: hsl(240 3.7% 15.9%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
-  --accent: hsl(240 3.7% 15.9%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 3.7% 15.9%);
-  --input: hsl(240 3.7% 15.9%);
-  --ring: hsl(240 4.9% 83.9%);
-  --chart-1: hsl(220 70% 50%);
-  --chart-2: hsl(160 60% 45%);
-  --chart-3: hsl(30 80% 55%);
-  --chart-4: hsl(280 65% 60%);
-  --chart-5: hsl(340 75% 55%);
-}
-
-/*
-  ---break---
-*/
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -533,6 +230,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Brand color tokens — utility `bg-brand-*`, `text-brand-*`, ecc.
+     Var values in frontend.css (front utente, no admin). */
   --color-brand-primary: var(--brand-primary);
   --color-brand-primary-hover: var(--brand-primary-hover);
   --color-brand-accent: var(--brand-accent);
@@ -553,7 +253,8 @@
   --font-sans: var(--font-satoshi);
   --font-display: var(--font-instrument-serif);
 
-  /* GC color tokens → utility Tailwind (bg-gc-bg, text-gc-fg, border-gc-line, ecc.) */
+  /* GC color tokens → utility Tailwind (bg-gc-bg, text-gc-fg, border-gc-line, ecc.).
+     Var values in frontend.css. */
   --color-gc-bg: var(--gc-bg);
   --color-gc-bg-2: var(--gc-bg-2);
   --color-gc-bg-3: var(--gc-bg-3);
@@ -572,15 +273,12 @@
   --radius-gc: 14px;
   --radius-gc-sm: 10px;
 
-  /* Animazioni GC → utility Tailwind (animate-gc-screen, animate-gc-pulse, animate-gc-blink) */
+  /* Animazioni GC → utility Tailwind (animate-gc-screen, animate-gc-pulse,
+     animate-gc-blink). I @keyframes sono in frontend.css. */
   --animate-gc-screen: gc-screen 0.5s ease-out;
   --animate-gc-pulse: gc-pulse 2s ease-in-out infinite;
   --animate-gc-blink: gc-blink 1.4s infinite;
 }
-
-/*
-  ---break---
-*/
 
 @layer base {
   * {

@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { PolicyReconsentBanner } from "./_components/policy-reconsent-banner";
+import "@/app/(frontend)/frontend.css";
 
 const MFA_SECURITY_PATH = "/settings/security";
 

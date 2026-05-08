@@ -1,6 +1,7 @@
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { Suspense } from "react";
+import "@/app/(frontend)/frontend.css";
 
 /**
  * Layout per le pagine di login pubbliche (sign-in, sign-up, forgot-password,

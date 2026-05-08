@@ -55,6 +55,19 @@
   --admin-icon-color: #94a3b8;
 }
 
+/* Slide-in del drawer della sidebar admin (vedi sidebar.tsx → SidebarDrawer).
+   Vive qui anziché in globals.css perché è strettamente admin. */
+@keyframes drawer-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @layer components {
   .admin-breadcrumb-link {
     color: var(--admin-text-faint);
