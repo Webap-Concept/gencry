@@ -18,6 +18,7 @@ import {
   userSubscriptions,
 } from "@/lib/db/schema";
 import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { uploadGdprExport, getGdprExportSignedUrl, deleteGdprExport } from "@/lib/storage/gdpr-exports";
 import { sendGdprExportReadyEmail } from "@/lib/email/templates/gdpr-export-ready";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
@@ -41,10 +42,23 @@ const PROCESS_BATCH_SIZE = 5;
  * - Job `ready` non scaduto → "ne hai già uno scaricabile"
  * - Job `failed`/`expired` → ignorati (può rifare subito)
  *
- * Inoltre, indipendentemente dallo stato, max 1 job ogni 7 giorni dalla
- * `requestedAt`: anti-abuso lato storage e CPU.
+ * Inoltre, indipendentemente dallo stato, max 1 job ogni N giorni dalla
+ * `requestedAt`: anti-abuso lato storage e CPU. N è configurabile
+ * dall'admin (`gdpr.export.rate_limit_days`), default 7.
  */
-const REQUEST_THROTTLE_DAYS = 7;
+const REQUEST_THROTTLE_DAYS_DEFAULT = 7;
+
+async function getRequestThrottleDays(): Promise<number> {
+  try {
+    const settings = await getAppSettings();
+    const raw = settings["gdpr.export.rate_limit_days"];
+    const n = raw != null ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(n) && n >= 0) return n;
+  } catch (err) {
+    console.error("[gdpr-export] reading rate_limit_days setting failed:", err);
+  }
+  return REQUEST_THROTTLE_DAYS_DEFAULT;
+}
 
 // ---------------------------------------------------------------------------
 // Raccolta dati GDPR
@@ -351,10 +365,12 @@ export async function requestGdprExport(
     };
   }
 
-  // Throttle anti-abuso: max 1 richiesta ogni REQUEST_THROTTLE_DAYS giorni
-  // a prescindere dallo stato (anche failed/expired contano qui).
+  // Throttle anti-abuso: max 1 richiesta ogni N giorni a prescindere
+  // dallo stato (anche failed/expired contano qui). N viene dall'admin
+  // setting `gdpr.export.rate_limit_days` (default 7).
+  const throttleDays = await getRequestThrottleDays();
   const cutoff = new Date(
-    Date.now() - REQUEST_THROTTLE_DAYS * 24 * 60 * 60 * 1000,
+    Date.now() - throttleDays * 24 * 60 * 60 * 1000,
   );
   const [recent] = await db
     .select({ requestedAt: gdprExportJobs.requestedAt })
@@ -370,8 +386,7 @@ export async function requestGdprExport(
 
   if (recent) {
     const nextAt = new Date(
-      recent.requestedAt.getTime() +
-        REQUEST_THROTTLE_DAYS * 24 * 60 * 60 * 1000,
+      recent.requestedAt.getTime() + throttleDays * 24 * 60 * 60 * 1000,
     );
     return {
       ok: false,

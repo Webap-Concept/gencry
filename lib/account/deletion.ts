@@ -17,13 +17,48 @@ import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
 import { comparePasswords } from "@/lib/auth/session";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { sendAccountDeletionRequestedEmail } from "@/lib/email/templates/account-deletion-requested";
 import { sendAccountDeletionOtpEmail } from "@/lib/email/templates/account-deletion-otp";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { eq } from "drizzle-orm";
 
-/** Giorni di grace tra richiesta utente e purge fisico. */
-export const ACCOUNT_DELETION_GRACE_DAYS = 30;
+/**
+ * Default fallback per i giorni di grace tra richiesta utente e purge
+ * fisico. L'admin può sovrascriverlo da `/admin/compliance/gdpr` (setting
+ * `gdpr.deletion.grace_days`). Lasciato esportato per chi non può
+ * leggere il DB (client components, costanti top-level).
+ *
+ * NB: il purge fisico è eseguito da un job pg_cron Supabase
+ * (`soft-deleted-purge`, vedi `lib/cron/registry.ts`) hardcoded a 30
+ * giorni — quindi se l'admin imposta es. 60, l'app comunica 60g all'utente
+ * ma il purge avviene comunque a 30g. Per allineare davvero serve
+ * aggiornare anche lo SQL del cron in Supabase. Inconsistenza nota,
+ * tracciata nel TODO GDPR residuo.
+ */
+export const ACCOUNT_DELETION_GRACE_DAYS_DEFAULT = 30;
+
+/** @deprecated usa `ACCOUNT_DELETION_GRACE_DAYS_DEFAULT` o
+ *  `getDeletionGraceDays()` per il valore runtime. Lasciato per
+ *  retro-compat dei caller esistenti. */
+export const ACCOUNT_DELETION_GRACE_DAYS = ACCOUNT_DELETION_GRACE_DAYS_DEFAULT;
+
+/**
+ * Legge il grace period configurato dall'admin (`gdpr.deletion.grace_days`)
+ * con fallback al default. Usare quando si è in contesto async server-side
+ * e si vuole il valore aggiornato.
+ */
+export async function getDeletionGraceDays(): Promise<number> {
+  try {
+    const settings = await getAppSettings();
+    const raw = settings["gdpr.deletion.grace_days"];
+    const n = raw != null ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(n) && n >= 0) return n;
+  } catch (err) {
+    console.error("[account/deletion] reading grace_days setting failed:", err);
+  }
+  return ACCOUNT_DELETION_GRACE_DAYS_DEFAULT;
+}
 
 export type DeletionResult =
   | { ok: true }
@@ -165,8 +200,9 @@ async function performDeletion(params: {
   ]);
 
   try {
+    const graceDays = await getDeletionGraceDays();
     const purgeDate = new Date(
-      now.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+      now.getTime() + graceDays * 24 * 60 * 60 * 1000,
     );
     await sendAccountDeletionRequestedEmail({
       toEmail: email,
@@ -185,13 +221,21 @@ async function performDeletion(params: {
 
 /**
  * Ritorna true se l'utente è in stato di eliminazione richiesta — cioè
- * deletedAt è settato e ricade nei `ACCOUNT_DELETION_GRACE_DAYS` giorni
- * di grace. Oltre la grace, l'account è considerato definitivamente
- * eliminato (anche se il purge fisico arriverà solo col cron).
+ * deletedAt è settato e ricade nei N giorni di grace. Oltre la grace,
+ * l'account è considerato definitivamente eliminato (anche se il purge
+ * fisico arriverà solo col cron).
+ *
+ * `graceDays` opzionale: passare il valore runtime (`getDeletionGraceDays()`)
+ * dove possibile per riflettere la setting admin. Senza, usa il default
+ * 30 — è una funzione sync usata da middleware/UI dove async non è
+ * sempre disponibile, e accettiamo il drift quando admin cambia setting.
  */
-export function isDeletionPending(deletedAt: Date | null): boolean {
+export function isDeletionPending(
+  deletedAt: Date | null,
+  graceDays: number = ACCOUNT_DELETION_GRACE_DAYS_DEFAULT,
+): boolean {
   if (!deletedAt) return false;
   const graceEnd =
-    deletedAt.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000;
+    deletedAt.getTime() + graceDays * 24 * 60 * 60 * 1000;
   return graceEnd > Date.now();
 }
