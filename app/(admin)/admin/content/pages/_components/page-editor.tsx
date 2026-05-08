@@ -946,11 +946,22 @@ export default function PageEditor({
         .tiptap-editor pre code { background: none; padding: 0; }
         .tiptap-editor blockquote { border-left: 3px solid var(--admin-accent); padding-left: 1rem; color: var(--admin-text-muted); margin: 0.75em 0; }
         .tiptap-editor strong { font-weight: 700; }
-        /* La figureImage usa un NodeView React con styling inline:
-           niente CSS qui. Lasciamo solo un override per i wrapper che
-           Tiptap aggiunge: vogliamo che il <figure.cms-figure> stia su
-           una riga propria senza margin di paragrafo. */
-        .tiptap-editor figure.cms-figure { margin: 1em auto; }
+        /* Editor ↔ frontend WYSIWYG: stessi data-align/float usati in
+           (frontend)/frontend.css. Così quando l'admin imposta align=left,
+           il testo del paragrafo successivo si avvolge a destra anche
+           DENTRO l'editor — niente più discrepanza visiva con il render
+           finale online. Niente media query mobile (l'editor è desktop). */
+        .tiptap-editor figure.cms-figure { margin: 1em 0; box-sizing: border-box; }
+        .tiptap-editor figure.cms-figure[data-align="left"] { float: left; margin: 0.25em 1.25em 0.5em 0; }
+        .tiptap-editor figure.cms-figure[data-align="right"] { float: right; margin: 0.25em 0 0.5em 1.25em; }
+        .tiptap-editor figure.cms-figure[data-align="center"] { margin-left: auto; margin-right: auto; }
+        .tiptap-editor figure.cms-figure[data-align="full"] { width: 100% !important; margin-left: 0; margin-right: 0; clear: both; }
+        /* Heading/blockquote/hr rompono il wrap del float (clear:both).
+           Comportamento simmetrico al frontend (frontend.css) — un H2
+           dopo immagine floated va a capo. Paragrafi NON clear-ano:
+           continuano l'avvolgimento finché non superano l'altezza
+           dell'immagine, esattamente come nel render online. */
+        .tiptap-editor h2, .tiptap-editor h3, .tiptap-editor h4, .tiptap-editor blockquote, .tiptap-editor hr { clear: both; }
         .tiptap-editor em { font-style: italic; }
         .tiptap-editor .ProseMirror-focused { outline: none; }
       `}</style>

@@ -210,6 +210,24 @@
   width: 100% !important; /* override del style inline width:N% */
   margin-left: 0;
   margin-right: 0;
+  clear: both;
+}
+
+/* Headings, blockquote e hr "rompono" il wrap del float (clear:both).
+   Comportamento simmetrico a quello dell'editor admin: se l'admin
+   scrive un H2 dopo un'immagine floated-left, il testo riprende a riga
+   propria invece di continuare ad avvolgere. Paragrafi (`p`) NON
+   clear-ano: continuano il wrap finché non superano l'altezza
+   dell'immagine. */
+.tpl-content h1,
+.tpl-content h2,
+.tpl-content h3,
+.tpl-content h4,
+.tpl-content h5,
+.tpl-content h6,
+.tpl-content blockquote,
+.tpl-content hr {
+  clear: both;
 }
 
 /* Mobile: niente float, tutte le figure full-width per leggibilità.
