@@ -60,6 +60,7 @@ import {
   users,
   type NewActivityLog,
 } from "@/lib/db/schema";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { sendSignupVerificationEmail } from "@/lib/email/templates/signup-verification";
 import { eq, sql } from "drizzle-orm";
@@ -554,7 +555,17 @@ export async function signOut() {
   // + cancella il cookie. Senza, la sessione resterebbe valida per altri
   // 60s (TTL cache) anche dopo il "logout".
   await endCurrentSession();
-  redirect("/sign-in");
+
+  // Redirect context-aware: se il logout parte dall'area admin, manda al
+  // sign-in admin; altrimenti al sign-in pubblico. Il proxy.ts setta
+  // x-pathname al path PUBBLICO della request che ha invocato l'action,
+  // quindi `/<adminSlug>/...` per logout dall'admin.
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const adminSlug = await getAdminUrlSlug();
+  const isFromAdmin =
+    pathname === `/${adminSlug}` || pathname.startsWith(`/${adminSlug}/`);
+  redirect(isFromAdmin ? `/${adminSlug}/sign-in` : "/sign-in");
 }
 
 // ---------------------------------------------------------------------------
