@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   revokeAllUserSessions as revokeAllUserSessionsHelper,
   revokeSession as revokeSessionHelper,
@@ -37,7 +37,7 @@ export async function revokeUserSessionAdmin(sessionId: string) {
     timestamp: new Date(),
   });
 
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
 }
 
 export async function revokeAllSessionsForUserAdmin(userId: string) {
@@ -53,7 +53,7 @@ export async function revokeAllSessionsForUserAdmin(userId: string) {
     });
   }
 
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
   revalidatePath(`/admin/access/users/${userId}`);
 
   return { revokedCount };
@@ -81,7 +81,7 @@ export async function revokeSessionsBulkAdmin(sessionIds: string[]) {
     timestamp: new Date(),
   });
 
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
 
   return { revokedCount: sessionIds.length };
 }
@@ -103,7 +103,7 @@ export async function acknowledgeAlertAdmin(alertId: number) {
       and(eq(sessionAlerts.id, alertId), isNull(sessionAlerts.acknowledgedAt)),
     );
 
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
 }
 
 export async function acknowledgeAlertsBulkAdmin(alertIds: number[]) {
@@ -127,7 +127,7 @@ export async function acknowledgeAlertsBulkAdmin(alertIds: number[]) {
     )
     .returning({ id: sessionAlerts.id });
 
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
   return { acknowledgedCount: updated.length };
 }
 
@@ -135,6 +135,6 @@ export async function acknowledgeAlertsBulkAdmin(alertIds: number[]) {
 export async function triggerSuspiciousDetectionAdmin() {
   await requireSessionsPermission();
   const result = await runSuspiciousDetection();
-  revalidatePath(getAdminPath("users-sessions"));
+  revalidatePath(await getAdminPath("users-sessions"));
   return result;
 }

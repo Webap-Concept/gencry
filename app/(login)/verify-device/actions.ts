@@ -94,7 +94,8 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
     }
   }
 
-  redirect(role === "admin" ? "/admin" : "/");
+  // Verify-device da flusso pubblico → "/". Admin entry è dedicato.
+  redirect("/");
 });
 
 // ─── Re-invio codice OTP ────────────────────────────────────────────────────

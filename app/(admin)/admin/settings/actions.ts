@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { invalidateBlockedUsernamesCache } from "@/lib/auth/blocked-usernames";
 import { invalidateDisposableDomainsCache } from "@/lib/auth/disposable-domains";
 import { addUsernameToBloom } from "@/lib/bloom/bloom-filter";
@@ -73,7 +73,7 @@ export async function saveAppSettings(
       formData.get("app_description") as string,
     );
     await updateAppSetting("app_domain", domain ? `https://${domain}` : "");
-    revalidatePath(getAdminPath("settings-general"));
+    revalidatePath(await getAdminPath("settings-general"));
     return { success: t("saved"), timestamp: Date.now() };
   } catch {
     return { error: t("saveFailed"), timestamp: Date.now() };
@@ -118,7 +118,7 @@ export async function uploadBrandingAssetAction(
       try { await deleteBrandingAsset(previousUrl); } catch {}
     }
 
-    revalidatePath(getAdminPath("settings-general"));
+    revalidatePath(await getAdminPath("settings-general"));
     return { success: t("assetUploaded"), timestamp: Date.now() };
   } catch (err) {
     // Bubble up infrastructure error message verbatim — di solito è una
@@ -148,7 +148,7 @@ export async function removeBrandingAssetAction(
       try { await deleteBrandingAsset(previousUrl); } catch {}
     }
 
-    revalidatePath(getAdminPath("settings-general"));
+    revalidatePath(await getAdminPath("settings-general"));
     return { success: t("assetRemoved"), timestamp: Date.now() };
   } catch {
     return { error: t("removeFailed"), timestamp: Date.now() };
@@ -168,7 +168,7 @@ export async function saveModeSettings(
       "maintenance_mode",
       formData.get("maintenance_mode") as string,
     );
-    revalidatePath(getAdminPath("settings-mode"));
+    revalidatePath(await getAdminPath("settings-mode"));
     return {
       success: "Impostazioni comportamento salvate.",
       timestamp: Date.now(),
@@ -289,7 +289,7 @@ export async function saveEmailTemplateSettings(
         : "logo";
     await updateAppSetting("email_logo_choice", logoChoice);
 
-    revalidatePath(getAdminPath("settings-email"));
+    revalidatePath(await getAdminPath("settings-email"));
     return { success: "Email templates saved.", timestamp: Date.now() };
   } catch {
     return { error: "Save failed.", timestamp: Date.now() };
@@ -306,7 +306,7 @@ export async function saveUsersSettings(
       "default_role",
       formData.get("default_role") as string,
     );
-    revalidatePath(getAdminPath("settings-signin"));
+    revalidatePath(await getAdminPath("settings-signin"));
     return { success: t("usersSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("usersSaveFailed"), timestamp: Date.now() };
@@ -328,7 +328,7 @@ export async function addDisposableDomainAction(
       .values({ domain: clean })
       .onConflictDoNothing();
     invalidateDisposableDomainsCache();
-    revalidatePath(getAdminPath("security-blocked-domains"));
+    revalidatePath(await getAdminPath("security-blocked-domains"));
     return { success: `"${clean}" aggiunto.`, timestamp: Date.now() };
   } catch {
     return { error: "Errore durante l'aggiunta.", timestamp: Date.now() };
@@ -343,7 +343,7 @@ export async function removeDisposableDomainAction(
       .delete(disposableDomains)
       .where(eq(disposableDomains.domain, domain.trim().toLowerCase()));
     invalidateDisposableDomainsCache();
-    revalidatePath(getAdminPath("security-blocked-domains"));
+    revalidatePath(await getAdminPath("security-blocked-domains"));
     return { success: `"${domain}" rimosso.`, timestamp: Date.now() };
   } catch {
     return { error: "Errore durante la rimozione.", timestamp: Date.now() };
@@ -362,7 +362,7 @@ export async function bulkImportDisposableDomainsAction(
       .map((domain) => ({ domain }));
     await db.insert(disposableDomains).values(values).onConflictDoNothing();
     invalidateDisposableDomainsCache();
-    revalidatePath(getAdminPath("security-blocked-domains"));
+    revalidatePath(await getAdminPath("security-blocked-domains"));
     return {
       success: `${values.length} domini importati con successo.`,
       timestamp: Date.now(),
@@ -408,7 +408,7 @@ export async function addBlockedUsernameAction(
     }
 
     invalidateBlockedUsernamesCache();
-    revalidatePath(getAdminPath("security-blocked-usernames"));
+    revalidatePath(await getAdminPath("security-blocked-usernames"));
     return { success: `"${clean}" aggiunto.`, timestamp: Date.now() };
   } catch {
     return { error: "Errore durante l'aggiunta.", timestamp: Date.now() };
@@ -425,7 +425,7 @@ export async function removeBlockedUsernameAction(
         eq(blockedUsernames.username, username.trim().toLowerCase()),
       );
     invalidateBlockedUsernamesCache();
-    revalidatePath(getAdminPath("security-blocked-usernames"));
+    revalidatePath(await getAdminPath("security-blocked-usernames"));
     return { success: `"${username}" rimosso.`, timestamp: Date.now() };
   } catch {
     return { error: "Errore durante la rimozione.", timestamp: Date.now() };
@@ -477,7 +477,7 @@ export async function bulkImportBlockedUsernamesAction(
     }
 
     invalidateBlockedUsernamesCache();
-    revalidatePath(getAdminPath("security-blocked-usernames"));
+    revalidatePath(await getAdminPath("security-blocked-usernames"));
 
     const msg =
       invalid.length > 0
@@ -497,7 +497,7 @@ export const saveGeneralSettingsAction = saveAppSettings;
 export const saveModeSettingsAction = saveModeSettings;
 export const saveUsersSettingsAction = saveUsersSettings;
 
-function invalidateSnippets() {
+async function invalidateSnippets() {
   // `getActiveSnippets()` usa unstable_cache con tag "snippets": invalidando
   // il tag (Next 16 → updateTag con read-your-own-writes) forziamo il
   // refetch al prossimo render senza dover invalidare l'INTERO root
@@ -505,7 +505,7 @@ function invalidateSnippets() {
   // lenti e fa percepire l'UI come bloccata per secondi. Per l'admin
   // snippets basta invalidare la sua pagina specifica.
   updateTag("snippets");
-  revalidatePath(getAdminPath("settings-snippets"));
+  revalidatePath(await getAdminPath("settings-snippets"));
   // Il count "snippet collegati per servizio" mostrato in
   // /admin/compliance/cookies è cached 60s in memoria → invalida ora
   // così il badge si aggiorna immediatamente alla prossima visita admin.
@@ -521,7 +521,7 @@ export async function createSnippetAction(
     createdAt: new Date(),
     updatedAt: new Date(),
   });
-  invalidateSnippets();
+  await invalidateSnippets();
 }
 
 export async function updateSnippetAction(
@@ -536,12 +536,12 @@ export async function updateSnippetAction(
       updatedAt: new Date(),
     })
     .where(eq(siteSnippets.id, id));
-  invalidateSnippets();
+  await invalidateSnippets();
 }
 
 export async function deleteSnippetAction(id: number) {
   await db.delete(siteSnippets).where(eq(siteSnippets.id, id));
-  invalidateSnippets();
+  await invalidateSnippets();
 }
 
 export async function toggleSnippetAction(id: number, isActive: boolean) {
@@ -549,5 +549,5 @@ export async function toggleSnippetAction(id: number, isActive: boolean) {
     .update(siteSnippets)
     .set({ isActive, updatedAt: new Date() })
     .where(eq(siteSnippets.id, id));
-  invalidateSnippets();
+  await invalidateSnippets();
 }

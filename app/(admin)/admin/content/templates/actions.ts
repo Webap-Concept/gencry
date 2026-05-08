@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { logContentActivity } from "@/lib/db/content-activity";
 import { getUser } from "@/lib/db/queries";
 import type { NewPageTemplate, NewTemplateField } from "@/lib/db/schema";
@@ -67,8 +67,8 @@ export async function saveTemplateAction(formData: FormData) {
     user?.id ?? null,
   );
 
-  revalidatePath(getAdminPath("content-templates"));
-  redirect(getAdminPath("content-templates"));
+  revalidatePath(await getAdminPath("content-templates"));
+  redirect(await getAdminPath("content-templates"));
 }
 
 export async function deleteTemplateAction(formData: FormData) {
@@ -76,7 +76,7 @@ export async function deleteTemplateAction(formData: FormData) {
   if (!id) return;
   const result = await deleteTemplate(id);
   if (!result.error) {
-    revalidatePath(getAdminPath("content-templates"));
+    revalidatePath(await getAdminPath("content-templates"));
     const user = await getUser();
     await logContentActivity(
       ActivityType.TEMPLATE_DELETED,
@@ -90,7 +90,7 @@ export async function duplicateTemplateAction(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await duplicateTemplate(id);
-  revalidatePath(getAdminPath("content-templates"));
+  revalidatePath(await getAdminPath("content-templates"));
   const user = await getUser();
   await logContentActivity(
     ActivityType.TEMPLATE_CREATED,

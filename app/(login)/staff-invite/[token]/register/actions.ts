@@ -1,6 +1,7 @@
 "use server";
 
 import { recordSignupConsents } from "@/lib/account/consent-ledger";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { isUsernameBlacklisted } from "@/lib/auth/blacklist";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import { createSession, hashPassword } from "@/lib/auth/session";
@@ -180,5 +181,8 @@ export async function registerViaInvite(
 
   await createSession(createdUserId, invite.role);
 
-  redirect("/admin");
+  // Staff invite è esplicitamente un flusso admin (chi accetta l'invito
+  // diventa staff/admin). Redirect al base admin runtime.
+  const slug = await getAdminUrlSlug();
+  redirect(`/${slug}`);
 }

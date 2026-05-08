@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { deleteRedirect, toggleRedirectActive, upsertRedirect } from "@/lib/db/redirects-queries";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
@@ -60,7 +60,7 @@ export async function upsertRedirectAction(
       statusCode: Number(statusCode) as 301 | 302 | 307 | 308,
       isActive: isActive === "true",
     });
-    revalidatePath(getAdminPath("seo-redirects"));
+    revalidatePath(await getAdminPath("seo-redirects"));
   } catch (err) {
     console.error("[upsertRedirectAction]", err);
     return { error: tErrors("errorSaveFailed") };
@@ -74,7 +74,7 @@ export async function deleteRedirectAction(
   const tErrors = await getTranslations("admin.seo.redirect");
   try {
     await deleteRedirect(id);
-    revalidatePath(getAdminPath("seo-redirects"));
+    revalidatePath(await getAdminPath("seo-redirects"));
   } catch (err) {
     console.error("[deleteRedirectAction]", err);
     return { error: tErrors("errorDeleteFailed") };
@@ -89,7 +89,7 @@ export async function toggleAutoRedirectAction(
   const tErrors = await getTranslations("admin.seo.redirect");
   try {
     await toggleRedirectActive(id, isActive);
-    revalidatePath(getAdminPath("seo-redirects"));
+    revalidatePath(await getAdminPath("seo-redirects"));
   } catch (err) {
     console.error("[toggleAutoRedirectAction]", err);
     return { error: tErrors("errorSaveFailed") };

@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { runGenerators } from "@/lib/notifications/dispatcher";
 import { getTranslations } from "next-intl/server";
@@ -28,7 +28,7 @@ export async function saveGoogleOAuthSettings(
     // Chiude subito alert di rotazione per google_client_secret.
     await runGenerators();
 
-    revalidatePath(getAdminPath("services-google"));
+    revalidatePath(await getAdminPath("services-google"));
     return { success: t("googleOAuthSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("googleOAuthSaveFailed"), timestamp: Date.now() };

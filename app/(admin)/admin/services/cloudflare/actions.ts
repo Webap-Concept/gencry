@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
@@ -22,7 +22,7 @@ export async function saveCloudflareSettings(
     await updateAppSetting("cf_turnstile_site_key", siteKey || null);
     await updateAppSetting("cf_turnstile_secret_key", secretKey || null);
 
-    revalidatePath(getAdminPath("services-cloudflare"));
+    revalidatePath(await getAdminPath("services-cloudflare"));
     return { success: t("cloudflareSaved"), timestamp: Date.now() };
   } catch {
     return { error: t("cloudflareSaveFailed"), timestamp: Date.now() };

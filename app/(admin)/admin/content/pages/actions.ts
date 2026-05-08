@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
@@ -298,12 +298,12 @@ export async function upsertPageAction(
       }
     }
 
-    revalidatePath(getAdminPath("content-pages"));
+    revalidatePath(await getAdminPath("content-pages"));
     revalidatePath(`/${data.slug}`);
     if (slugChanged) {
       revalidatePath(`/${originalSlug}`);
-      revalidatePath(getAdminPath("seo-meta"));
-      revalidatePath(getAdminPath("seo-redirects"));
+      revalidatePath(await getAdminPath("seo-meta"));
+      revalidatePath(await getAdminPath("seo-redirects"));
     }
 
     // Cache del proxy: invalida la lista navigable, altrimenti per
@@ -347,9 +347,9 @@ export async function deletePageAction(
     const deleted = await deletePageCascade(slug);
     await deleteSeoPage(`/${slug}`);
 
-    revalidatePath(getAdminPath("content-pages"));
+    revalidatePath(await getAdminPath("content-pages"));
     revalidatePath(`/${slug}`);
-    revalidatePath(getAdminPath("seo-meta"));
+    revalidatePath(await getAdminPath("seo-meta"));
     invalidateNavigablePagesCache();
 
     const user = await getUser();
@@ -387,7 +387,7 @@ export async function reorderPagesAction(
   }
   try {
     await reorderPages(updates);
-    revalidatePath(getAdminPath("content-pages"));
+    revalidatePath(await getAdminPath("content-pages"));
     invalidateNavigablePagesCache();
   } catch (err) {
     console.error("[reorderPagesAction] error:", err);
@@ -403,7 +403,7 @@ export async function togglePageStatusAction(
   const tErrors = await getTranslations("admin.content.pages.errors");
   try {
     await togglePageStatus(id, currentStatus);
-    revalidatePath(getAdminPath("content-pages"));
+    revalidatePath(await getAdminPath("content-pages"));
     invalidateNavigablePagesCache();
 
     const user = await getUser();

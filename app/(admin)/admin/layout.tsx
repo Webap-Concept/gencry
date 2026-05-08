@@ -3,6 +3,7 @@
 // Importa il CSS admin e applica il guard RBAC a tutte le route
 // TRANNE /admin/sign-in — per evitare il redirect loop.
 import "@/app/(admin)/admin.css";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { getNavOrderOverrides } from "@/lib/db/admin-nav-order-queries";
@@ -15,6 +16,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { AdminSlugProvider } from "./_components/admin-slug-context";
 import AdminShellClient from "./_components/admin-shell-client";
 import AdminHeaderRight from "./_components/header";
 
@@ -31,10 +33,13 @@ export const metadata: Metadata = {
 async function AdminShell({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") ?? "";
+  const adminSlug = await getAdminUrlSlug();
 
-  // /admin/sign-in non deve essere protetta — è la pagina di login stessa
-  if (pathname === "/admin/sign-in") {
-    return <>{children}</>;
+  // La sign-in admin non deve essere protetta — è la pagina di login stessa.
+  // Match sul path PUBBLICO (proxy.ts setta x-pathname al path utente, non
+  // a quello rewriteato).
+  if (pathname === `/${adminSlug}/sign-in`) {
+    return <AdminSlugProvider value={adminSlug}>{children}</AdminSlugProvider>;
   }
 
   const [settings, user] = await Promise.all([
@@ -100,30 +105,32 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <NextIntlClientProvider locale={userLocale} messages={messages}>
-      <AdminShellClient
-        appName={appName}
-        userPermissions={[...userPermissions]}
-        isSuperAdmin={user.isAdmin === true}
-        navOrder={navOrder}
-        header={
-          <AdminHeaderRight
-            user={user}
-            notifications={bell.notifications}
-            unreadCount={bell.unreadCount}
-          />
-        }>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center h-32">
-              <div
-                className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: "var(--admin-accent)", borderTopColor: "transparent" }}
-              />
-            </div>
+      <AdminSlugProvider value={adminSlug}>
+        <AdminShellClient
+          appName={appName}
+          userPermissions={[...userPermissions]}
+          isSuperAdmin={user.isAdmin === true}
+          navOrder={navOrder}
+          header={
+            <AdminHeaderRight
+              user={user}
+              notifications={bell.notifications}
+              unreadCount={bell.unreadCount}
+            />
           }>
-          {children}
-        </Suspense>
-      </AdminShellClient>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-32">
+                <div
+                  className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: "var(--admin-accent)", borderTopColor: "transparent" }}
+                />
+              </div>
+            }>
+            {children}
+          </Suspense>
+        </AdminShellClient>
+      </AdminSlugProvider>
     </NextIntlClientProvider>
   );
 }

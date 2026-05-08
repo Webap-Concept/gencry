@@ -1,5 +1,7 @@
 "use client";
-import { getAdminPath } from "@/lib/admin-nav";
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { TemplateField } from "@/lib/db/schema";
 import { slugify, slugToPascalCase } from "@/lib/utils/slugify";
 import {
@@ -422,6 +424,7 @@ export default function TemplateFormClient({
   saveAction,
 }: TemplateFormClientProps) {
   const t = useTranslations("admin.content.templates.form");
+  const adminSlug = useAdminSlug();
   const fieldTypes = getFieldTypes(t);
   const isEdit = !!template;
   const registeredSlugSet = new Set(registeredSlugs);
@@ -585,7 +588,7 @@ export default function TemplateFormClient({
       {template?.id && <input type="hidden" name="id" value={template.id} />}
 
       <EditorPageHeader
-        backHref={getAdminPath("content-templates")}
+        backHref={buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-templates"))}
         backLabel={t("backButton")}
         saveLabel={isEdit ? t("saveButton") : t("createButton")}
         savedAtLabel={(time) => t("savedAtLabel", { time })}

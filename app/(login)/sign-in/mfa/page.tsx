@@ -16,7 +16,8 @@ export const metadata: Metadata = { title: "Verifica in due fattori" };
 export default async function MfaChallengePage() {
   const session = await getSession();
   if (session) {
-    redirect(session.user.role === "admin" ? "/admin" : "/");
+    // Già loggato: torna a "/". L'admin ha il proprio entry point dedicato.
+    redirect("/");
   }
 
   const pending = await getPendingMfa();

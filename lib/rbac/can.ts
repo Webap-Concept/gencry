@@ -174,11 +174,14 @@ export async function requirePermission(
 }
 
 export async function requireAdminPermission(permissionKey: string) {
+  const { getAdminUrlSlug } = await import("@/lib/admin-paths");
+  const slug = await getAdminUrlSlug();
+
   const user = await getUser();
-  if (!user) redirect("/admin/sign-in");
+  if (!user) redirect(`/${slug}/sign-in`);
 
   const allowed = await can(user, permissionKey);
-  if (!allowed) redirect("/admin");
+  if (!allowed) redirect(`/${slug}`);
 
   return user;
 }

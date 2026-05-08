@@ -177,12 +177,17 @@ export type SettingKey =
   | 'modules.prices.retention_days'    // retention coin_prices in giorni
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
-  // MFA policy (vedi /admin/security/mfa)
+  // MFA policy (vedi /<adminSlug>/security/mfa)
   | 'mfa.enabled'             // 'true'|'false' — master switch della feature MFA
   | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
   | 'mfa.grace_period_days'   // giorni di tolleranza per account esistenti quando mode è required-*
   | 'mfa.issuer_label'        // label mostrata nelle authenticator app; vuoto = fallback ad app_name
   | 'mfa.required_since'      // ISO timestamp di quando mode è passato a required-*; null se optional
+  // Admin URL slug — primo segmento dell'URL del pannello admin.
+  // Validato in lib/admin-paths.ts (regex + reserved + collision check pages).
+  // Cambiarlo da UI invalida ADMIN_URL_SLUG_TAG e aggiorna le righe pages
+  // delle system page admin_home / admin_sign_in.
+  | 'admin.url_slug'
 
 export type AppSettings = {
   app_name: string
@@ -329,6 +334,8 @@ export type AppSettings = {
   'mfa.grace_period_days': string
   'mfa.issuer_label': string | null
   'mfa.required_since': string | null
+  // Admin URL slug
+  'admin.url_slug': string
 }
 
 const DEFAULTS: AppSettings = {
@@ -479,6 +486,8 @@ const DEFAULTS: AppSettings = {
   // Settato automaticamente quando mode passa da optional a required-*.
   // Da qui parte il countdown del grace period per gli utenti esistenti.
   'mfa.required_since': null,
+  // Admin URL slug — default 'admin'. Cambiabile da UI; vedi lib/admin-paths.ts.
+  'admin.url_slug': 'admin',
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

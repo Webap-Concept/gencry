@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
@@ -32,7 +32,7 @@ export async function saveGitHubCISettings(
     await updateAppSetting("github_pat", pat || null);
     await updateAppSetting("github_ci_branch", branch || null);
 
-    revalidatePath(getAdminPath("services-github"));
+    revalidatePath(await getAdminPath("services-github"));
     revalidatePath("/admin/tests");
     return { success: t("githubCISaved"), timestamp: Date.now() };
   } catch {

@@ -1,6 +1,8 @@
 "use client";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminUser } from "@/lib/db/admin-queries";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -21,6 +23,8 @@ function RoleBadge({ label, color }: { label: string; color: string }) {
 
 function StaffRow({ user }: { user: AdminUser }) {
   const t = useTranslations("admin.access.staff.table");
+  const adminSlug = useAdminSlug();
+  const usersBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("users-list"));
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const initials =
@@ -44,7 +48,7 @@ function StaffRow({ user }: { user: AdminUser }) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
-            href={`${getAdminPath("users-list")}/${user.id}`}
+            href={`${usersBase}/${user.id}`}
             className="shrink-0">
             {user.avatarUrl ? (
               <img
@@ -63,7 +67,7 @@ function StaffRow({ user }: { user: AdminUser }) {
           </Link>
           <div>
             <Link
-              href={`${getAdminPath("users-list")}/${user.id}`}
+              href={`${usersBase}/${user.id}`}
               className="text-sm font-medium transition-colors leading-none admin-user-link"
               style={{ color: "var(--admin-accent)" }}>
               {user.username ? `@${user.username}` : user.email}

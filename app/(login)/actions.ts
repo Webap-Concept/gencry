@@ -224,7 +224,12 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     if (foundUser.role !== "admin" && !foundUser.onboardingCompletedAt) {
       redirect("/onboarding");
     }
-    redirect(foundUser.role === "admin" ? "/admin" : "/");
+    // Login pubblico: redirect sempre a "/" anche per gli admin. Il flusso
+    // admin ha il proprio entry point `/<adminSlug>/sign-in` e non passa
+    // mai per qui — un admin che si trova qui ha cliccato il link sbagliato
+    // e va trattato come utente normale. Single source of truth per
+    // l'admin entry → no leak "questo è un admin" tramite redirect.
+    redirect("/");
   }
 
   // Dispositivo non riconosciuto: OTP via email, sessione sospesa

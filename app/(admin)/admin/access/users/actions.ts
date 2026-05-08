@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import {
   activityLogs,
@@ -43,7 +43,7 @@ export async function banUser(userId: string, reason?: string) {
       updatedAt: new Date(),
     })
     .where(eq(users.id, userId));
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-list"));
 }
 
 export async function unbanUser(userId: string) {
@@ -64,7 +64,7 @@ export async function unbanUser(userId: string) {
     .update(users)
     .set({ bannedAt: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-list"));
 }
 
 export async function deleteUser(userId: string) {
@@ -118,7 +118,7 @@ export async function deleteUser(userId: string) {
     console.error("[deleteUser] Error sending email:", emailError);
   }
 
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-list"));
 }
 
 /**
@@ -159,7 +159,7 @@ export async function cancelUserDeletion(userId: string) {
     timestamp: now,
   });
 
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-list"));
 }
 
 /** @deprecated Use setUserRole in /admin/roles/actions.ts */
@@ -181,5 +181,5 @@ export async function changeUserRole(userId: string, roleName: string) {
     })
     .where(eq(users.id, userId));
 
-  revalidatePath(getAdminPath("users-list"));
+  revalidatePath(await getAdminPath("users-list"));
 }

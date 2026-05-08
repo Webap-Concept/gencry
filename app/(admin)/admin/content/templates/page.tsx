@@ -1,6 +1,6 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { isTemplateSlugRegistered } from "@/app/(frontend)/_templates/registered-slugs";
-import { getAdminPath } from "@/lib/admin-nav";
+import { getAdminPath } from "@/lib/admin-paths";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
 import { AlertTriangle, Copy, PanelTop, Plus } from "lucide-react";
 import type { Metadata } from "next";
@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function TemplatePage() {
   const t = await getTranslations("admin.content.templates");
   const templates = await getAllTemplatesWithPageCount();
+  const templatesBase = await getAdminPath("content-templates");
 
   return (
     <div className="">
@@ -28,7 +29,7 @@ export default async function TemplatePage() {
         subtitle={t("pageSubtitle")}
         actionSlot={
           <Link
-            href={`${getAdminPath("content-templates")}/new`}
+            href={`${templatesBase}/new`}
             className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "var(--admin-accent)" }}>
             <Plus size={16} />
@@ -59,7 +60,7 @@ export default async function TemplatePage() {
             {t("emptySubtitle")}
           </p>
           <Link
-            href={`${getAdminPath("content-templates")}/new`}
+            href={`${templatesBase}/new`}
             className="mt-6 px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "var(--admin-accent)" }}>
             {t("emptyCreateButton")}
@@ -142,7 +143,7 @@ export default async function TemplatePage() {
 
                 <div className="flex items-center gap-2 mt-4">
                   <Link
-                    href={`${getAdminPath("content-templates")}/${tpl.id}`}
+                    href={`${templatesBase}/${tpl.id}`}
                     className="flex-1 text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
                     style={{
                       background: "var(--admin-input-bg)",
