@@ -47,6 +47,10 @@ export function sanitizeRichTextHtml(html: string | null | undefined): string {
       img: ["src", "alt", "title", "width", "height", "loading", "decoding"],
       figure: ["class", "data-align", "data-zoom", "style"],
       figcaption: ["class"],
+      // 4 stili visuali: default/card/pull/quoted (vedi blockquote-styled.ts +
+      // frontend.css). Niente altri attributi: non vogliamo class arbitrarie
+      // o style inline su blockquote, gli stili vengono dal solo data-style.
+      blockquote: ["data-style"],
       "*": ["style"],
     },
     allowedClasses: {

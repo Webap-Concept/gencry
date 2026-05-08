@@ -42,7 +42,7 @@ interface FigureImageAttrs {
   src: string;
   alt: string | null;
   caption: string;
-  width: number; // 25, 50, 75, 100
+  width: number; // 25, 33, 50, 75, 100
   align: FigureAlign;
   zoom: boolean;
 }
@@ -156,7 +156,7 @@ export const FigureImage = Node.create<{
 // NodeView React — l'esperienza in editor
 // ---------------------------------------------------------------------------
 
-const WIDTH_PRESETS = [25, 50, 75, 100] as const;
+const WIDTH_PRESETS = [25, 33, 50, 75, 100] as const;
 
 function FigureImageView(props: NodeViewProps) {
   const { node, updateAttributes, selected } = props;

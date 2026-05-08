@@ -18,7 +18,15 @@ import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { BlockquoteStyled } from "./blockquote-styled";
 import { FigureImage } from "./figure-image-node";
+import {
+  BlockquoteMenu,
+  HeadingMenu,
+  InternalLinkPicker,
+  LinkMenu,
+  type InternalLinkPage,
+} from "./editor-toolbar-menus";
 import {
   AlertTriangle,
   AlignCenter,
@@ -31,11 +39,8 @@ import {
   EyeOff,
   GitBranch,
   Globe,
-  Heading2,
-  Heading3,
   ImagePlus,
   Italic,
-  Link2,
   List,
   ListOrdered,
   Lock,
@@ -49,7 +54,7 @@ import {
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Fragment } from "react";
 import { MediaPicker } from "../../media/_components/media-picker";
 import { MediaPickerField } from "../../media/_components/media-picker-field";
@@ -61,6 +66,14 @@ type TemplateWithFields = PageTemplate & { fields: TemplateField[] };
 
 const FORM_ID = "page-editor-form";
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -793,7 +806,15 @@ export default function PageEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
+      // `blockquote: false` per non duplicare il node — lo registriamo subito
+      // dopo via BlockquoteStyled (estende il default aggiungendo `data-style`).
+      // I 6 levels di heading sono abilitati tutti — la toolbar mostra una
+      // select con Paragraph + H1…H6.
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
+        blockquote: false,
+      }),
+      BlockquoteStyled,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -849,10 +870,34 @@ export default function PageEditor({
     }
   }
   function handleLinkInsert() {
-    const url = window.prompt(t("linkPrompt"));
+    const current = editor?.getAttributes("link").href as string | undefined;
+    const url = window.prompt(t("linkPrompt"), current ?? "");
     if (url === null) return;
     if (url === "") editor?.chain().focus().unsetLink().run();
     else editor?.chain().focus().setLink({ href: url }).run();
+  }
+  const [internalLinkOpen, setInternalLinkOpen] = useState(false);
+  function handleInternalLinkPicked(p: InternalLinkPage) {
+    if (!editor) return;
+    const { from, to, empty } = editor.state.selection;
+    const href = `/${p.slug}`;
+    if (empty) {
+      // Niente selezione → inseriamo il titolo come link (più utile del solo URL).
+      editor
+        .chain()
+        .focus()
+        .insertContent(
+          `<a href="${href}">${escapeHtml(p.title)}</a>`,
+        )
+        .run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from, to })
+        .setLink({ href })
+        .run();
+    }
   }
   function handleInsertPlaceholder(token: string) {
     editor?.chain().focus().insertContent(token).run();
@@ -918,6 +963,26 @@ export default function PageEditor({
 
   const selectedTemplate =
     templates.find((tpl) => tpl.id === templateId) ?? null;
+
+  // Lista pagine selezionabili nel picker "Link a pagina interna":
+  //   - solo pubblicate (le draft non sono navigabili e creerebbero link 404)
+  //   - escluso self (no auto-link a sé)
+  //   - escluse system meta-only (sign-in/sign-up/...): non sono URL CMS,
+  //     i loro slug sono serviti da page handler dedicati e non vogliamo
+  //     che un editor inserisca link verso pagine "fantasma".
+  const internalLinkPages = useMemo<InternalLinkPage[]>(
+    () =>
+      pages
+        .filter(
+          (p) =>
+            p.status === "published" &&
+            (!page?.id || p.id !== page.id) &&
+            !(p.isSystem && p.contentEditable === false),
+        )
+        .map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
+    [pages, page?.id],
+  );
+
   // L'avviso "verrà creato un redirect 301" ha senso SOLO se il vecchio
   // slug era effettivamente raggiungibile, ovvero se la pagina è stata
   // pubblicata almeno una volta (publishedAt !== null). Una pagina
@@ -944,7 +1009,19 @@ export default function PageEditor({
         .tiptap-editor code { font-family: monospace; font-size: 0.875em; background: var(--admin-hover-bg); padding: 0.1em 0.35em; border-radius: 0.25rem; }
         .tiptap-editor pre { background: var(--admin-hover-bg); padding: 1em; border-radius: 0.5rem; overflow-x: auto; margin: 0.75em 0; }
         .tiptap-editor pre code { background: none; padding: 0; }
-        .tiptap-editor blockquote { border-left: 3px solid var(--admin-accent); padding-left: 1rem; color: var(--admin-text-muted); margin: 0.75em 0; }
+        /* Blockquote — 4 varianti via data-style. Stessi pattern visivi
+           del frontend (frontend.css), parametrizzati sui token --admin-*
+           per restare coerenti con il dark theme dell'editor.
+           - default: border-left + italic (classico)
+           - card: box riempito, border morbido, no italic
+           - pull: pull-quote grande centrata, no border, font 1.5x
+           - quoted: virgolette tipografiche generate via ::before/::after */
+        .tiptap-editor blockquote { margin: 0.75em 0; padding-left: 1rem; border-left: 3px solid var(--admin-accent); color: var(--admin-text-muted); font-style: italic; }
+        .tiptap-editor blockquote[data-style="card"] { border-left: none; padding: 0.75em 1em; background: var(--admin-hover-bg); border-radius: 0.5rem; font-style: normal; color: var(--admin-text); }
+        .tiptap-editor blockquote[data-style="pull"] { border-left: none; padding: 0.5em 0; margin: 1.25em auto; max-width: 36rem; text-align: center; font-size: 1.375em; line-height: 1.4; font-weight: 600; font-style: normal; color: var(--admin-text); }
+        .tiptap-editor blockquote[data-style="quoted"] { border-left: none; padding: 0.5em 2.25em; margin: 1.25em 0; position: relative; font-style: italic; color: var(--admin-text-muted); }
+        .tiptap-editor blockquote[data-style="quoted"]::before { content: "\\201C"; position: absolute; left: 0; top: -0.1em; font-size: 3em; line-height: 1; color: var(--admin-accent); opacity: 0.5; font-family: Georgia, serif; }
+        .tiptap-editor blockquote[data-style="quoted"]::after { content: "\\201D"; position: absolute; right: 0; bottom: -0.6em; font-size: 3em; line-height: 1; color: var(--admin-accent); opacity: 0.5; font-family: Georgia, serif; }
         .tiptap-editor strong { font-weight: 700; }
         /* Editor ↔ frontend WYSIWYG: stessi data-align/float usati in
            (frontend)/frontend.css. Così quando l'admin imposta align=left,
@@ -1343,22 +1420,7 @@ export default function PageEditor({
                   <RotateCw size={15} />
                 </TBtn>
                 <TDivider />
-                <TBtn
-                  onClick={() =>
-                    editor?.chain().focus().toggleHeading({ level: 2 }).run()
-                  }
-                  active={editor?.isActive("heading", { level: 2 })}
-                  title={t("toolbarH2")}>
-                  <Heading2 size={15} />
-                </TBtn>
-                <TBtn
-                  onClick={() =>
-                    editor?.chain().focus().toggleHeading({ level: 3 }).run()
-                  }
-                  active={editor?.isActive("heading", { level: 3 })}
-                  title={t("toolbarH3")}>
-                  <Heading3 size={15} />
-                </TBtn>
+                <HeadingMenu editor={editor} />
                 <TDivider />
                 <TBtn
                   onClick={() => editor?.chain().focus().toggleBold().run()}
@@ -1429,12 +1491,13 @@ export default function PageEditor({
                   <AlignRight size={15} />
                 </TBtn>
                 <TDivider />
-                <TBtn
-                  onClick={handleLinkInsert}
-                  active={editor?.isActive("link")}
-                  title={t("toolbarLink")}>
-                  <Link2 size={15} />
-                </TBtn>
+                <LinkMenu
+                  editor={editor}
+                  internalPages={internalLinkPages}
+                  onOpenInternalPicker={() => setInternalLinkOpen(true)}
+                  onSetExternalLink={handleLinkInsert}
+                />
+                <BlockquoteMenu editor={editor} />
                 <TBtn
                   onClick={() => setImagePickerOpen(true)}
                   title={t("toolbarImage")}>
@@ -1457,6 +1520,12 @@ export default function PageEditor({
                 imageOnly
                 onClose={() => setImagePickerOpen(false)}
                 onSelect={handleImagePicked}
+              />
+              <InternalLinkPicker
+                open={internalLinkOpen}
+                pages={internalLinkPages}
+                onClose={() => setInternalLinkOpen(false)}
+                onSelect={handleInternalLinkPicked}
               />
             </>
           )}
