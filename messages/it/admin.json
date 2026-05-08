@@ -1729,6 +1729,9 @@
         "missingSlug": "Slug mancante",
         "slugRequired": "Lo slug è obbligatorio",
         "slugInvalid": "Slug non valido: usa solo lettere minuscole, numeri, trattini e slash",
+        "slugReserved": "Questo slug è riservato dal sistema (URL admin, flussi di autenticazione, file statici, ecc.). Scegli un altro valore.",
+        "slugFirstSegmentReserved": "Il primo segmento dello slug collide con una rotta di sistema riservata. Scegli un altro valore.",
+        "slugTaken": "Questo slug è già usato da un'altra pagina. Scegli un valore diverso.",
         "titleRequired": "Il titolo è obbligatorio",
         "invalidData": "Dati non validi",
         "slugBound": "L'URL di questa pagina è legato a un route handler hardcoded e non può essere rinominato."
