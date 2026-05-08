@@ -122,7 +122,12 @@ export default async function Layout({
   }
 
   return (
-    <div className="min-h-dvh bg-gc-bg">
+    // `gc-app-shell`: marker per scope-are le regole `.gc-dark` del tema bosco.
+    // Le definizioni in frontend.css sono `.gc-dark .gc-app-shell { --gc-*: ... }`
+    // → un utente loggato in bosco vede il tema scuro SOLO dentro questo layout.
+    // La landing pubblica, /sign-in, le CMS pages restano sempre in sabbia
+    // anche se html.gc-dark è attiva (vedi UserMenu/ThemeToggleItem).
+    <div className="gc-app-shell min-h-dvh bg-gc-bg">
       <PageShowRevalidator />
       {reconsent.items.length > 0 && (
         <PolicyReconsentBanner
