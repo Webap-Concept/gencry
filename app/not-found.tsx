@@ -64,8 +64,11 @@ export default async function NotFound() {
 
   // `after()` esegue il callback DOPO che la response è stata inviata
   // all'utente: l'INSERT/UPDATE non aggiunge latenza percepita al 404.
+  // Passiamo le headers raw al logger così può filtrare prefetch/RSC
+  // fetcher (Next-Router-Prefetch, Sec-Purpose, Sec-Fetch-Mode/Dest) —
+  // niente lista hardcoded di path "buoni".
   after(async () => {
-    await logNotFoundHit({ pathname, referrer, userAgent });
+    await logNotFoundHit({ pathname, referrer, userAgent, reqHeaders: h });
   });
 
   // Logo + content sono gestiti via /admin: l'admin può modificare il
