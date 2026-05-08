@@ -9,6 +9,7 @@ import { db } from "@/lib/db/drizzle";
 import { isUndefinedTableError } from "@/lib/db/errors";
 import { sessionAlerts } from "@/lib/db/schema";
 import { count, isNull } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { meetsThreshold } from "@/lib/sessions/suspicious/types";
 import { getAlertsConfig } from "@/lib/sessions/suspicious/config";
 import type {
@@ -18,6 +19,11 @@ import type {
 } from "../types";
 
 export const SUSPICIOUS_SESSIONS_TYPE = "suspicious_sessions";
+
+/** Tag per `revalidateTag()` quando l'admin ack-a un alert e vuole vedere
+ * il count aggiornato subito. Senza revalidate la cache scade comunque
+ * ogni 60s. */
+export const UNACKED_ALERTS_TAG = "unacked-alerts";
 
 /** Maps our alert severity to the notifications-framework severity. */
 const SEVERITY_MAP: Record<string, NotificationSeverity> = {
@@ -94,13 +100,13 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
 
 /** Counts unacknowledged alerts (used by the sessions admin page badge).
  *  Returns zeros if `session_alerts` doesn't exist yet (migration not
- *  applied) — the page should keep rendering. */
-export async function countUnacknowledgedAlerts(): Promise<{
-  total: number;
-  critical: number;
-  warning: number;
-  info: number;
-}> {
+ *  applied) — the page should keep rendering.
+ *
+ *  Cache 60s con tag UNACKED_ALERTS_TAG. Per vedere il count fresco
+ *  subito dopo un ack, l'azione di ack deve chiamare
+ *  `revalidateTag(UNACKED_ALERTS_TAG)`. Senza revalidate l'admin vede
+ *  comunque il numero corretto entro 60s. */
+const fetchCount = async () => {
   const result = { total: 0, critical: 0, warning: 0, info: 0 };
   let rows: Array<{ severity: string; c: number }>;
   try {
@@ -124,4 +130,18 @@ export async function countUnacknowledgedAlerts(): Promise<{
     else if (r.severity === "info") result.info = n;
   }
   return result;
+};
+
+const fetchCountCached = unstable_cache(fetchCount, ["unacked-alerts-count"], {
+  revalidate: 60,
+  tags: [UNACKED_ALERTS_TAG],
+});
+
+export async function countUnacknowledgedAlerts(): Promise<{
+  total: number;
+  critical: number;
+  warning: number;
+  info: number;
+}> {
+  return fetchCountCached();
 }

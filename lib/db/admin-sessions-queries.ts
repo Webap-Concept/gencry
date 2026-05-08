@@ -13,8 +13,13 @@ import { db } from "@/lib/db/drizzle";
 import { isUndefinedTableError } from "@/lib/db/errors";
 import { sessionAlerts, sessions, userProfiles, users } from "@/lib/db/schema";
 import { and, count, desc, eq, gt, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache, unstable_noStore as noStore } from "next/cache";
 import "server-only";
+
+/** Tag per `revalidateTag()` quando si vogliono forzare le KPI fresche
+ * (es. dopo una revoca admin di sessione). Senza revalidate la cache
+ * scade comunque ogni 60s. */
+export const ADMIN_SESSIONS_KPIS_TAG = "admin-sessions-kpis";
 
 export type AdminSessionStatus = "active" | "revoked" | "expired" | "all";
 
@@ -299,9 +304,22 @@ export async function listAdminAlerts(params: {
   return { items: rows, total };
 }
 
-export async function getAdminSessionsKpis(): Promise<AdminSessionsKpis> {
-  noStore();
-
+/**
+ * KPI strip della pagina /admin/access/sessions: 4 count() in parallelo
+ * sulle sessioni (active/unique/revoked-24h/created-24h).
+ *
+ * Cache 60s con tag ADMIN_SESSIONS_KPIS_TAG. Le KPI sono globali (non
+ * dipendono dall'utente che guarda) ed è accettabile vederle fino a 60s
+ * stale: l'admin che monitora attivamente può ricaricare e otterrà il
+ * valore fresco quando la cache scade. Per forzare il refresh subito
+ * (es. dopo revoca admin) chiamare `revalidateTag(ADMIN_SESSIONS_KPIS_TAG)`.
+ *
+ * Senza cache, ogni navigazione in /admin/access/sessions lanciava 4
+ * count() parallele che, sommate al fan-out del layout protected/admin,
+ * contribuivano alla saturazione del connection pool osservata nel bug
+ * MFA (vedi commit fix(db): cap postgres pool).
+ */
+const fetchKpis = async (): Promise<AdminSessionsKpis> => {
   const now = new Date();
 
   const [activeRow, uniqueRow, revokedRow, createdRow] = await Promise.all([
@@ -329,4 +347,13 @@ export async function getAdminSessionsKpis(): Promise<AdminSessionsKpis> {
     revokedLast24h: revokedRow[0]?.count ?? 0,
     createdLast24h: createdRow[0]?.count ?? 0,
   };
+};
+
+const fetchKpisCached = unstable_cache(fetchKpis, ["admin-sessions-kpis"], {
+  revalidate: 60,
+  tags: [ADMIN_SESSIONS_KPIS_TAG],
+});
+
+export async function getAdminSessionsKpis(): Promise<AdminSessionsKpis> {
+  return fetchKpisCached();
 }
