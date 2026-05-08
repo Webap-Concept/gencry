@@ -228,6 +228,26 @@ export default async function RootLayout({
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${satoshi.variable} ${instrumentSerif.variable}`}>
       <head>
         {/*
+         * Anti-flash theme bootstrap — DEVE essere il primo elemento dentro
+         * <head>, prima di qualsiasi CSS, così la classe gc-dark è già su
+         * <html> al primo paint. Senza questo, il toggle del UserMenu legge
+         * localStorage solo quando il dropdown viene APERTO (è lì che il
+         * componente ThemeToggleItem si monta), quindi al refresh la pagina
+         * partiva sempre in sabbia anche per utenti che avevano scelto bosco.
+         *
+         * Sicurezza: lettura limitata a `localStorage["gc-theme"]`, valore
+         * confrontato con la stringa letterale "bosco". Niente eval, niente
+         * input esterno. try/catch per Safari ITP / privacy mode che blocca
+         * localStorage. Il `__html` è una costante inline, no XSS.
+         */}
+        {/* eslint-disable-next-line react/no-danger */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("gc-theme")==="bosco")document.documentElement.classList.add("gc-dark")}catch{}',
+          }}
+        />
+        {/*
          * Favicon dinamico — sovrascrive app/favicon.ico quando l'admin
          * ne carica uno custom. Va prima degli snippet così un eventuale
          * snippet head con <link rel="icon"> ha l'ultima parola.
