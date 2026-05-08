@@ -114,12 +114,65 @@
   margin-bottom: 0.375em;
 }
 
+/* ── Blockquote 4 stili ──────────────────────────────────────────
+   L'admin sceglie il `data-style` dal dropdown della toolbar Tiptap
+   (vedi `blockquote-styled.ts` + `editor-toolbar-menus.tsx`).
+   Senza data-style applichiamo il default classico (border-left).
+*/
 .tpl-content blockquote {
   border-left: 3px solid currentColor;
   padding-left: 1rem;
   margin: 1.5em 0;
   opacity: 0.75;
   font-style: italic;
+}
+.tpl-content blockquote[data-style="card"] {
+  border-left: none;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1em 1.25em;
+  border-radius: 8px;
+  font-style: normal;
+  opacity: 1;
+}
+.tpl-content blockquote[data-style="pull"] {
+  border-left: none;
+  padding: 0.5em 0;
+  margin: 1.75em auto;
+  max-width: 36rem;
+  text-align: center;
+  font-size: 1.5em;
+  line-height: 1.35;
+  font-weight: 600;
+  font-style: normal;
+  opacity: 1;
+}
+.tpl-content blockquote[data-style="quoted"] {
+  border-left: none;
+  padding: 0.5em 2.5em;
+  margin: 1.75em 0;
+  position: relative;
+  font-style: italic;
+  opacity: 0.85;
+}
+.tpl-content blockquote[data-style="quoted"]::before {
+  content: "\201C"; /* “ */
+  position: absolute;
+  left: 0;
+  top: -0.1em;
+  font-size: 3.5em;
+  line-height: 1;
+  font-family: Georgia, "Times New Roman", serif;
+  opacity: 0.4;
+}
+.tpl-content blockquote[data-style="quoted"]::after {
+  content: "\201D"; /* ” */
+  position: absolute;
+  right: 0;
+  bottom: -0.6em;
+  font-size: 3.5em;
+  line-height: 1;
+  font-family: Georgia, "Times New Roman", serif;
+  opacity: 0.4;
 }
 
 .tpl-content a {
