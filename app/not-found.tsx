@@ -1,11 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { after } from "next/server";
 import { Crash404 } from "@/components/not-found/Crash404";
 import { GridBackdrop } from "@/components/decor/grid-backdrop";
-import { logNotFoundHit } from "@/lib/seo/log-not-found";
 import { getPageBySystemKey } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -54,23 +51,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NotFound() {
-  // Il proxy (vedi proxy.ts) imposta `x-pathname` su ogni request: usiamolo
-  // per sapere QUALE URL ha generato il 404. Senza questo, dal not-found.tsx
-  // non avremmo modo di recuperare il pathname originario.
-  const h = await headers();
-  const pathname = h.get("x-pathname");
-  const referrer = h.get("referer");
-  const userAgent = h.get("user-agent");
-
-  // `after()` esegue il callback DOPO che la response è stata inviata
-  // all'utente: l'INSERT/UPDATE non aggiunge latenza percepita al 404.
-  // Passiamo le headers raw al logger così può filtrare prefetch/RSC
-  // fetcher (Next-Router-Prefetch, Sec-Purpose, Sec-Fetch-Mode/Dest) —
-  // niente lista hardcoded di path "buoni".
-  after(async () => {
-    await logNotFoundHit({ pathname, referrer, userAgent, reqHeaders: h });
-  });
-
+  // Niente logging: il monitor 404 admin è stato rimosso (era inaffidabile —
+  // not-found.tsx scatta anche per RSC prefetch race / redirect chain). In
+  // futuro ci affideremo a Vercel Analytics / Web Analytics per i 404 reali.
+  //
   // Logo + content sono gestiti via /admin: l'admin può modificare il
   // sottotitolo da /admin/content/pages tab Sistema, e il logo da
   // /admin/settings/general. Niente fallback hardcoded sull'asset

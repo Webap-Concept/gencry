@@ -301,13 +301,6 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "GitMerge",
         permission: "admin:seo",
       },
-      {
-        key: "seo-not-found",
-        href: "/seo/not-found",
-        label: "404 Monitor",
-        icon: "SearchX",
-        permission: "admin:seo",
-      },
     ],
   },
   {
