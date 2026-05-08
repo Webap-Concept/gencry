@@ -162,28 +162,21 @@ function FigureImageView(props: NodeViewProps) {
   const { node, updateAttributes, selected } = props;
   const attrs = node.attrs as FigureImageAttrs;
 
-  // L'allineamento è una preview in editor — il rendering finale segue il CSS
-  // di frontend.css. Qui mostriamo `display: block` con margin-auto/margin-0
-  // per dare un feeling simile, ma senza float (in editor il float
-  // bloccherebbe l'editing del testo seguente).
-  const editorStyle: React.CSSProperties = {
-    width: `${attrs.width}%`,
-    margin:
-      attrs.align === "center" || attrs.align === "full"
-        ? "1rem auto"
-        : attrs.align === "left"
-          ? "1rem auto 1rem 0"
-          : "1rem 0 1rem auto",
-  };
-
+  // WYSIWYG vero: il NodeViewWrapper è un <figure> reale con `data-align`
+  // e `width: N%` inline — gli stessi attributi che genera renderHTML().
+  // Le regole `.tiptap-editor figure.cms-figure[data-align="left|right"]
+  // { float ... }` in page-editor.tsx replicano il comportamento del
+  // frontend, così se l'admin allinea a sinistra il testo successivo gli
+  // si avvolge a destra anche dentro l'editor — niente più mismatch.
   return (
     <NodeViewWrapper
-      className="cms-figure-editor"
+      as="figure"
+      className="cms-figure"
       data-align={attrs.align}
-      style={editorStyle}>
-      <figure
-        className="cms-figure"
-        style={{ margin: 0, position: "relative" }}>
+      style={{
+        width: `${attrs.width}%`,
+        position: "relative",
+      }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={attrs.src}
@@ -219,8 +212,6 @@ function FigureImageView(props: NodeViewProps) {
             borderTop: attrs.caption ? "1px solid var(--admin-divider)" : "none",
           }}
         />
-      </figure>
-
       {selected && (
         <FloatingToolbar
           attrs={attrs}
