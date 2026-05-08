@@ -5,10 +5,20 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { UserWithProfile } from "@/lib/db/schema";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import type { ClientNotification } from "@/lib/notifications/serializers";
-import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
+import {
+  ChevronDown,
+  ExternalLink,
+  LogOut,
+  Moon,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Sun,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAdminSlug } from "./admin-slug-context";
 import { NotificationBell } from "./notification-bell";
 
 function useTheme() {
@@ -50,9 +60,14 @@ export default function AdminHeaderRight({
   const localeRaw = useLocale();
   const currentLocale = isLocale(localeRaw) ? localeRaw : DEFAULT_LOCALE;
   const currentPath = usePathname() ?? "/admin";
+  const adminSlug = useAdminSlug();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { theme, toggle } = useTheme();
+
+  function closeMenu() {
+    setOpen(false);
+  }
 
   const initials =
     [user.firstName, user.lastName]
@@ -129,7 +144,7 @@ export default function AdminHeaderRight({
 
         {open && (
           <div
-            className="absolute right-0 top-full mt-2 w-48 rounded-xl shadow-lg z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 w-60 rounded-xl shadow-lg z-50 overflow-hidden"
             style={{
               background: "var(--admin-card-bg)",
               border: "1px solid var(--admin-card-border)",
@@ -148,6 +163,46 @@ export default function AdminHeaderRight({
                 {user.email}
               </p>
             </div>
+
+            {/* Voci personali staff: la verifica a due fattori vive in
+                admin (single source per lo staff), le impostazioni
+                account stanno sul frontend (sono dell'utente). L'icona
+                ExternalLink segnala la transizione di chrome. */}
+            <div style={{ borderBottom: "1px solid var(--admin-divider)" }}>
+              <Link
+                href={`/${adminSlug}/security/mfa-enroll`}
+                onClick={closeMenu}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
+                style={{ color: "var(--admin-text)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--admin-hover-bg)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }>
+                <ShieldCheck size={15} />
+                <span className="flex-1">{t("menuMfa")}</span>
+              </Link>
+              <Link
+                href="/settings"
+                onClick={closeMenu}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
+                style={{ color: "var(--admin-text)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--admin-hover-bg)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }>
+                <SettingsIcon size={15} />
+                <span className="flex-1">{t("menuAccount")}</span>
+                <ExternalLink
+                  size={12}
+                  style={{ color: "var(--admin-text-faint)" }}
+                />
+              </Link>
+            </div>
+
             <div
               className="px-4 py-2.5"
               style={{ borderBottom: "1px solid var(--admin-divider)" }}>

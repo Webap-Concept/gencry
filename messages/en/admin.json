@@ -16,6 +16,8 @@
     "dashboardTitleShort": "Admin",
     "themeToggleAria": "Toggle theme",
     "logout": "Logout",
+    "menuMfa": "Two-factor auth",
+    "menuAccount": "User account",
     "openMenuAria": "Open menu",
     "navEditEnter": "Reorder sidebar",
     "navEditDone": "Done",

@@ -16,6 +16,8 @@
     "dashboardTitleShort": "Admin",
     "themeToggleAria": "Cambia tema",
     "logout": "Esci",
+    "menuMfa": "Verifica a due fattori",
+    "menuAccount": "Account utente",
     "openMenuAria": "Apri menu",
     "navEditEnter": "Riordina sidebar",
     "navEditDone": "Fine",
