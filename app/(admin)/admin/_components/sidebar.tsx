@@ -498,7 +498,7 @@ export default function AdminSidebar({
               {visibleChildren.map((leaf) => (
                 <NavLink
                   key={leaf.key}
-                  href={prefixHref(leaf.href!)}
+                  href={leaf.href!}
                   label={navLabel(leaf.key, leaf.label)}
                   icon={leaf.icon}
                   exact={leaf.exact}
@@ -613,7 +613,7 @@ export default function AdminSidebar({
               ) : (
                 <NavLink
                   key={child.key}
-                  href={prefixHref(child.href!)}
+                  href={child.href!}
                   label={navLabel(child.key, child.label)}
                   icon={child.icon}
                   exact={child.exact}
@@ -692,7 +692,7 @@ export default function AdminSidebar({
             </div>
           ) : (
             <NavLink
-              href={prefixHref(item.href!)}
+              href={item.href!}
               label={navLabel(item.key, item.label)}
               icon={item.icon}
               exact={item.exact}
@@ -766,7 +766,7 @@ export default function AdminSidebar({
             ) : (
               <NavLink
                 key={item.key}
-                href={prefixHref(item.href!)}
+                href={item.href!}
                 label={navLabel(item.key, item.label)}
                 icon={item.icon}
                 exact={item.exact}
