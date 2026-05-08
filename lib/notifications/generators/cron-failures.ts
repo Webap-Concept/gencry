@@ -133,6 +133,18 @@ function truncate(s: string, max: number): string {
 async function fetchJobsWithRuns(jobnames: string[]): Promise<CronJobRow[]> {
   if (jobnames.length === 0) return [];
 
+  // NB: NON usiamo `ANY(${jobnames}::text[])`. Drizzle 0.45 espande gli
+  // array JS in placeholder multipli `($1, $2, $3)`, e Postgres parsa
+  // quella tupla come record — il cast `record::text[]` fallisce con
+  // "cannot cast type record to text[]" (#194 ci aveva provato a fixare
+  // col cast esplicito, ma il bug è prima del cast). Usiamo `IN (...)`
+  // con `sql.join` che produce SQL valido senza dipendere dal binding
+  // di array nativi PG.
+  const inList = sql.join(
+    jobnames.map((n) => sql`${n}`),
+    sql`, `,
+  );
+
   const rows = await db.execute(sql`
     SELECT
       j.jobid,
@@ -149,7 +161,7 @@ async function fetchJobsWithRuns(jobnames: string[]): Promise<CronJobRow[]> {
       ORDER BY start_time DESC NULLS LAST
       LIMIT 10
     ) r ON TRUE
-    WHERE j.jobname = ANY(${jobnames}::text[])
+    WHERE j.jobname IN (${inList})
     ORDER BY j.jobname, r.start_time DESC NULLS LAST
   `);
 

@@ -392,10 +392,17 @@ export async function detectSensitiveActionNewIp(
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
+  if (rule.actions.length === 0) return [];
 
   // Find activity_logs of sensitive types in the recent window, joined back
   // to a session opened on a "new" IP for that user (one not seen in the
   // last 90 days). Cheap-ish via NOT EXISTS.
+  // IN (sql.join) invece di ANY(::text[]) — vedi commento gemello in
+  // lib/notifications/generators/cron-failures.ts per il razionale.
+  const actionsInList = sql.join(
+    rule.actions.map((a) => sql`${a}`),
+    sql`, `,
+  );
   const rows = await db.execute<{
     activity_id: number;
     user_id: string;
@@ -415,7 +422,7 @@ export async function detectSensitiveActionNewIp(
       ON s.user_id = a.user_id
       AND s.created_at >= a.timestamp - (${rule.withinMinutes} * INTERVAL '1 minute')
       AND s.created_at <= a.timestamp
-    WHERE a.action = ANY(${rule.actions}::text[])
+    WHERE a.action IN (${actionsInList})
       AND a.timestamp >= NOW() - INTERVAL '24 hours'
       AND s.ip IS NOT NULL
       AND NOT EXISTS (
@@ -483,6 +490,13 @@ export async function detectNewSubnet(
   if (recent.length === 0) return [];
 
   const userIds = [...new Set(recent.map((r) => r.user_id))];
+  if (userIds.length === 0) return [];
+  // IN (sql.join) invece di ANY(::uuid[]) — vedi commento gemello in
+  // lib/notifications/generators/cron-failures.ts per il razionale.
+  const userIdsInList = sql.join(
+    userIds.map((u) => sql`${u}`),
+    sql`, `,
+  );
   const histRows = await db.execute<{
     user_id: string;
     ip: string;
@@ -490,7 +504,7 @@ export async function detectNewSubnet(
   }>(sql`
     SELECT user_id, ip, MIN(created_at)::text AS first_seen
     FROM sessions
-    WHERE user_id = ANY(${userIds}::uuid[])
+    WHERE user_id IN (${userIdsInList})
       AND ip IS NOT NULL
       AND created_at >= NOW() - (${rule.lookbackDays} * INTERVAL '1 day')
       AND created_at < NOW() - INTERVAL '6 hours'

@@ -68,6 +68,12 @@ export async function getSparklinesBatch(
   points = 24,
 ): Promise<Map<string, number[]>> {
   if (symbols.length === 0) return new Map();
+  // IN (sql.join) invece di ANY(::text[]) — vedi commento gemello in
+  // lib/notifications/generators/cron-failures.ts per il razionale.
+  const symbolsInList = sql.join(
+    symbols.map((s) => sql`${s}`),
+    sql`, `,
+  );
   // Window function per prendere gli ultimi N punti per simbolo in una query
   const rowsRaw = await db.execute<{ symbol: string; price: string; rn: number }>(sql`
     SELECT symbol, price::text AS price, rn
@@ -77,7 +83,7 @@ export async function getSparklinesBatch(
         price,
         ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY ts DESC) AS rn
       FROM coin_prices
-      WHERE symbol = ANY(${symbols}::text[])
+      WHERE symbol IN (${symbolsInList})
     ) t
     WHERE rn <= ${points}
     ORDER BY symbol, rn DESC
