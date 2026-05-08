@@ -4,13 +4,34 @@ import { getAdminPath } from "@/lib/admin-paths";
 import {
   deleteAllResolvedNotFoundLogs,
   deleteNotFoundLog,
+  deleteSystemPathsNotFoundLogs,
   markNotFoundResolved,
   markNotFoundUnresolved,
 } from "@/lib/db/not-found-queries";
+import { NON_PREFIXABLE_PREFIXES } from "@/lib/i18n/resolve-locale";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
 type ActionResult = { error?: string; success?: boolean; cleared?: number };
+
+// Tenuto IN SINCRONO con `BOT_PROBE_PREFIXES` di lib/seo/log-not-found.ts.
+// Non importato perché quel file ha "server-only" e questo è già una
+// server action — duplicazione minima per evitare cascade di re-export.
+const BOT_PROBE_PREFIXES = [
+  "/wp-",
+  "/wordpress",
+  "/wp/",
+  "/wp",
+  "/old/",
+  "/old",
+  "/new/",
+  "/new",
+  "/backup/",
+  "/backup",
+  "/admin.php",
+  "/phpmyadmin",
+  "/.git",
+] as const;
 
 export async function resolveNotFoundAction(id: number): Promise<ActionResult> {
   const t = await getTranslations("admin.seo.notFound");
@@ -59,6 +80,28 @@ export async function clearResolvedNotFoundAction(): Promise<ActionResult> {
     return { success: true, cleared };
   } catch (err) {
     console.error("[clearResolvedNotFoundAction]", err);
+    return { error: t("errorClearFailed") };
+  }
+}
+
+/**
+ * Cancella tutte le righe che corrispondono a path file-based di sistema
+ * (sign-in, settings, onboarding, …) o a probe noti di bot (/wp-, /old,
+ * …). Il filter d'ingresso ora le scarta a monte, ma le righe già
+ * accumulate prima del fix vanno pulite manualmente — questa action lo
+ * fa in batch.
+ */
+export async function clearSystemPathsNotFoundAction(): Promise<ActionResult> {
+  const t = await getTranslations("admin.seo.notFound");
+  try {
+    const cleared = await deleteSystemPathsNotFoundLogs({
+      exactOrUnderPrefixes: NON_PREFIXABLE_PREFIXES,
+      startsWithPrefixes: BOT_PROBE_PREFIXES,
+    });
+    revalidatePath(await getAdminPath("seo-not-found"));
+    return { success: true, cleared };
+  } catch (err) {
+    console.error("[clearSystemPathsNotFoundAction]", err);
     return { error: t("errorClearFailed") };
   }
 }
