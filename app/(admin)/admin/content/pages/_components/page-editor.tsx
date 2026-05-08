@@ -882,7 +882,14 @@ export default function PageEditor({
 
   const selectedTemplate =
     templates.find((tpl) => tpl.id === templateId) ?? null;
-  const slugChanged = isEdit && slug !== originalSlug && slug.trim() !== "";
+  // L'avviso "verrà creato un redirect 301" ha senso SOLO se il vecchio
+  // slug era effettivamente raggiungibile, ovvero se la pagina è stata
+  // pubblicata almeno una volta (publishedAt !== null). Una pagina
+  // ancora in draft con slug cambiato non ha redirect da creare: il
+  // vecchio URL non è mai stato online.
+  const wasEverPublished = page?.publishedAt != null;
+  const slugChanged =
+    isEdit && slug !== originalSlug && slug.trim() !== "" && wasEverPublished;
 
   return (
     <>

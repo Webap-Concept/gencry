@@ -169,7 +169,13 @@ export async function upsertPageAction(
   //   - ignoriamo gli slug delle traduzioni (anche le altre lingue
   //     devono usare il pathname canonico, perché il page handler
   //     hardcoded della rotta non sa di /en/<altro> per /sign-up & co.)
+  //
+  // `wasEverPublished` (publishedAt != null) decide se vale la pena
+  // creare il redirect 301 sul rename slug: se la pagina è ancora in
+  // draft e non è MAI stata online, il vecchio URL non è raggiungibile
+  // → niente da redirectare.
   let slugLocked = false;
+  let wasEverPublished = false;
   if (id) {
     const { getPageById } = await import("@/lib/db/pages-queries");
     const { isSystemSlugEditable } = await import("@/lib/db/schema");
@@ -179,6 +185,7 @@ export async function upsertPageAction(
         isSystem: existing.isSystem ?? false,
         systemKey: existing.systemKey ?? null,
       });
+      wasEverPublished = existing.publishedAt != null;
     }
   }
   if (slugChanged && slugLocked) {
@@ -245,12 +252,18 @@ export async function upsertPageAction(
         });
       }
 
-      await createAutoSlugRedirect({
-        pageId: savedId,
-        locale: null,
-        fromPath: `/${originalSlug}`,
-        toPath: `/${data.slug}`,
-      });
+      // Redirect 301 solo se la pagina è stata pubblicata almeno una
+      // volta: in quel caso il vecchio URL era online e link / bookmark
+      // esterni potrebbero puntarci. Per pagine ancora in draft, il
+      // vecchio slug non è mai stato raggiungibile → niente redirect.
+      if (wasEverPublished) {
+        await createAutoSlugRedirect({
+          pageId: savedId,
+          locale: null,
+          fromPath: `/${originalSlug}`,
+          toPath: `/${data.slug}`,
+        });
+      }
     }
 
     // Salva le traduzioni per ogni locale non-default
@@ -267,8 +280,11 @@ export async function upsertPageAction(
         const hasInput = fields.title || effectiveSlug || fields.content;
         if (!hasInput && !existingByLocale[locale]) continue;
 
-        // Rileva cambio slug locale per auto-redirect (skip se locked)
-        if (!slugLocked) {
+        // Rileva cambio slug locale per auto-redirect (skip se locked,
+        // skip se la pagina non è mai stata pubblicata — stesso ragionamento
+        // del redirect default-locale: senza pubblicazione passata, il
+        // vecchio URL localizzato non era online).
+        if (!slugLocked && wasEverPublished) {
           const prevSlug = existingByLocale[locale]?.slug ?? null;
           if (prevSlug && fields.slug && prevSlug !== fields.slug) {
             await createAutoSlugRedirect({
