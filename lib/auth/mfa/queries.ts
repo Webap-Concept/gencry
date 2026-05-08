@@ -101,7 +101,16 @@ const fetchStateCached = unstable_cache(fetchState, ["mfa-state"], {
 });
 
 export async function getMfaState(userId: string): Promise<MfaState> {
-  return fetchStateCached(userId);
+  // unstable_cache JSON-serializza il return: `enabledAt` / `lastUsedAt`
+  // tornano come string ISO al cache hit, rompendo i caller che li
+  // trattano come Date (es. `Intl.DateTimeFormat.format`). Riconvertiamo
+  // qui per mantenere il contratto di tipo dichiarato in MfaState.
+  const cached = await fetchStateCached(userId);
+  return {
+    ...cached,
+    enabledAt: cached.enabledAt ? new Date(cached.enabledAt) : null,
+    lastUsedAt: cached.lastUsedAt ? new Date(cached.lastUsedAt) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
