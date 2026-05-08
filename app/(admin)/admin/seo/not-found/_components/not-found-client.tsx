@@ -396,9 +396,12 @@ export default function NotFoundClient({
             border: "1px solid var(--admin-card-border)",
           }}>
           {/* Header: stesso grid template delle row così le colonne
-              si allineano. Ogni cella header usa l'allineamento orizzontale
-              della cella dati corrispondente (HIT centrato come il badge,
-              ULTIMO HIT a destra come il timestamp, AZIONI a destra). */}
+              si allineano. Le celle wrappano in div che applicano
+              `text-center`/`text-right` — quella stessa regola viene
+              applicata simmetricamente sulle celle dati, garantendo che
+              header e contenuto siano sull'asse giusto. NB: usare
+              `justify-self-*` sugli inline children non basta, perché
+              non sposta il flusso del text dentro il wrapper. */}
           <div
             className="grid grid-cols-[1fr_5rem_8rem_auto] gap-3 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
             style={{
@@ -406,10 +409,10 @@ export default function NotFoundClient({
               borderBottom: "1px solid var(--admin-divider)",
               background: "var(--admin-page-bg)",
             }}>
-            <span>{t("columnPath")}</span>
-            <span className="text-center">{t("columnHits")}</span>
-            <span className="text-right">{t("columnLastHit")}</span>
-            <span className="text-right">{t("columnActions")}</span>
+            <div>{t("columnPath")}</div>
+            <div className="text-center">{t("columnHits")}</div>
+            <div className="text-right">{t("columnLastHit")}</div>
+            <div className="text-right">{t("columnActions")}</div>
           </div>
 
           {rows.map((row, i) => {
@@ -468,24 +471,26 @@ export default function NotFoundClient({
                   )}
                 </div>
 
-                <span
-                  className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full justify-self-center"
-                  style={{
-                    background: "var(--admin-page-bg)",
-                    color: "var(--admin-text)",
-                    border: "1px solid var(--admin-card-border)",
-                    minWidth: "2.5rem",
-                    textAlign: "center",
-                  }}>
-                  {row.hitCount}
-                </span>
+                <div className="text-center">
+                  <span
+                    className="inline-block text-xs font-mono font-semibold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: "var(--admin-page-bg)",
+                      color: "var(--admin-text)",
+                      border: "1px solid var(--admin-card-border)",
+                      minWidth: "2.5rem",
+                      textAlign: "center",
+                    }}>
+                    {row.hitCount}
+                  </span>
+                </div>
 
-                <span
-                  className="text-xs whitespace-nowrap text-right"
+                <div
+                  className="text-right text-xs whitespace-nowrap"
                   style={{ color: "var(--admin-text-muted)" }}
                   title={new Date(row.lastHitAt).toLocaleString()}>
                   {formatRelative(row.lastHitAt)}
-                </span>
+                </div>
 
                 <div className="flex items-center gap-1 justify-end">
                   <Link
