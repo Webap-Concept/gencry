@@ -2,6 +2,7 @@ import { CmsFigureLightbox } from "@/app/(frontend)/_render/cms-figure-lightbox"
 import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
 import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fields";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
+import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -143,9 +144,10 @@ export async function CmsPage({
     console.warn("[cms-page] notFound: empty slug", { rawSlug: slug, locale });
     notFound();
   }
-  const [pageData, settings] = await Promise.all([
+  const [pageData, settings, stylesVersion] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
     getAppSettings(),
+    getCmsStylesVersion(),
   ]);
 
   if (!pageData) {
@@ -196,10 +198,16 @@ export async function CmsPage({
     <>
       {/* Stylesheet CMS — servito da app/api/cms/styles.css/route.ts.
           Usa precedence per essere hoistato nell'<head> dal Float di
-          Next 16 (app router → ReactDOM resource hoisting). */}
+          Next 16 (app router → ReactDOM resource hoisting).
+
+          `?v=<stylesVersion>` è un cache buster: il valore = updated_at
+          della key cms.custom_css. Quando l'admin salva, il timestamp
+          cambia → URL diverso → browser/CDN fanno cache miss e
+          fetch-ano la nuova versione subito (senza aspettare i 5 min di
+          max-age). Vedi lib/cms/styles-version.ts. */}
       <link
         rel="stylesheet"
-        href="/api/cms/styles.css"
+        href={`/api/cms/styles.css?v=${stylesVersion}`}
         precedence="default"
       />
       <TemplateComponent

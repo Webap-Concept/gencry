@@ -2,7 +2,7 @@
 
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 const MAX_CSS_BYTES = 200_000; // 200KB — più che sufficiente, evita upload abnormi
 
@@ -45,7 +45,16 @@ export async function saveCmsStylesAction(
 
   try {
     await updateAppSetting("cms.custom_css", raw);
+    // 1. Invalida la cache Next del route handler che serve il CSS.
     revalidatePath("/api/cms/styles.css");
+    // 2. Invalida il timestamp cachato (lib/cms/styles-version.ts) usato
+    //    come cache buster nel <link href> del CmsPage. Senza questo, il
+    //    timestamp resterebbe quello vecchio e il browser continuerebbe
+    //    a servire il CSS in cache fino allo scadere del max-age (5min).
+    //    In Next 16 dentro una Server Action si usa `updateTag` (single
+    //    arg, read-your-own-writes) — non `revalidateTag` che ora ne
+    //    richiede 2 ed è pensato per route handlers.
+    updateTag("cms-styles");
     return { ok: true, savedAt: Date.now(), reset: isReset };
   } catch (err) {
     console.error("[admin/content/styles] save failed:", err);
