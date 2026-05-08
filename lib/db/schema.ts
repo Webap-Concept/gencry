@@ -448,24 +448,6 @@ export const redirects = pgTable("redirects", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Aggregato per `path`: l'inserimento è in UPSERT (vedi
-// `lib/db/not-found-queries.ts → recordNotFoundHit`), così la cardinalità
-// resta limitata al numero di URL distinti, non al traffico.
-export const notFoundLogs = pgTable(
-  "not_found_logs",
-  {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    path: varchar("path", { length: 500 }).notNull().unique(),
-    hitCount: integer("hit_count").notNull().default(1),
-    lastReferrer: varchar("last_referrer", { length: 500 }),
-    lastUserAgent: varchar("last_user_agent", { length: 500 }),
-    resolvedAt: timestamp("resolved_at"),
-    firstHitAt: timestamp("first_hit_at").notNull().defaultNow(),
-    lastHitAt: timestamp("last_hit_at").notNull().defaultNow(),
-  },
-  (t) => [index("idx_not_found_logs_last_hit").on(t.lastHitAt)],
-);
-
 export type SnippetType =
   | "link_css"
   | "style"
