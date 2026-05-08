@@ -1,5 +1,6 @@
 // Catch-all: captures any unmatched /admin/* URLs.
 // Shows a 404 with the admin layout (sidebar + header) instead of the main site's 404.
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { LayoutDashboard, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   robots: "noindex",
 };
 
-export default function AdminCatchAll() {
+export default async function AdminCatchAll() {
+  const adminSlug = await getAdminUrlSlug();
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 gap-6">
       {/* Icon */}
@@ -46,7 +48,7 @@ export default function AdminCatchAll() {
 
       {/* CTA */}
       <Link
-        href="/admin"
+        href={`/${adminSlug}`}
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
         style={{
           background: "var(--admin-accent)",

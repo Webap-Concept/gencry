@@ -395,7 +395,10 @@ export default async function AdminSessionsPage({
   const hasSessionFilters = !!(search || ip || status !== "active");
   const hasAlertFilters = !!(alertStatus !== "open" || severity !== "all");
 
-  const sessionsHref = await getAdminPath("users-sessions");
+  const [sessionsHref, notificationsHref] = await Promise.all([
+    getAdminPath("users-sessions"),
+    getAdminPath("settings-notifications"),
+  ]);
   const alertsHref = `${sessionsHref}?tab=alerts`;
 
   return (
@@ -618,7 +621,7 @@ export default async function AdminSessionsPage({
                 style={{ color: "var(--admin-text-muted)" }}>
                 {t("detectionInfoBefore")}{" "}
                 <a
-                  href="/admin/settings/notifications"
+                  href={notificationsHref}
                   className="underline"
                   style={{ color: "var(--admin-accent)" }}>
                   {t("detectionInfoLink")}

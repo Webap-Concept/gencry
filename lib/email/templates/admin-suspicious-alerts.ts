@@ -5,6 +5,7 @@
 // a digest, not one mail per alert: a single mail lists everything that
 // fired since the last successful send, grouped by severity.
 
+import { buildAdminPath } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   paragraphs,
@@ -95,11 +96,11 @@ function escape(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function alertCard(a: DigestAlert, appDomain: string): string {
+function alertCard(a: DigestAlert, appDomain: string, usersAdminPath: string): string {
   const reasonLabel = REASON_LABELS[a.reason] ?? a.reason;
   const when = `${dateTimeFmt.format(a.createdAt)} UTC`;
   const userBit = a.userId
-    ? `<a href="https://${appDomain}/admin/access/users/${a.userId}" style="color:${t.brandPrimary};text-decoration:none;">User ${a.userId.slice(0, 8)}…</a>`
+    ? `<a href="https://${appDomain}${usersAdminPath}/${a.userId}" style="color:${t.brandPrimary};text-decoration:none;">User ${a.userId.slice(0, 8)}…</a>`
     : "no specific user";
 
   return `
@@ -155,7 +156,11 @@ export async function sendSuspiciousAlertsDigest({
 }): Promise<void> {
   if (recipients.length === 0 || alerts.length === 0) return;
 
-  const settings = await getAppSettings();
+  const [settings, usersAdminPath, sessionsAdminPath] = await Promise.all([
+    getAppSettings(),
+    buildAdminPath("/access/users"),
+    buildAdminPath("/access/sessions"),
+  ]);
   const appName = settings.app_name;
   const appDomain = settings.app_domain || "";
 
@@ -170,11 +175,13 @@ export async function sendSuspiciousAlertsDigest({
   const subject = buildSubject(sorted);
   const intro = `Detected ${sorted.length} suspicious session ${sorted.length === 1 ? "alert" : "alerts"} since the last digest (${schedule.replace("_", " ")}).`;
 
-  const cardsHtml = sorted.map((a) => alertCard(a, appDomain)).join("\n");
+  const cardsHtml = sorted
+    .map((a) => alertCard(a, appDomain, usersAdminPath))
+    .join("\n");
 
   const link = appDomain
-    ? `https://${appDomain}/admin/access/sessions?tab=alerts`
-    : "/admin/access/sessions?tab=alerts";
+    ? `https://${appDomain}${sessionsAdminPath}?tab=alerts`
+    : `${sessionsAdminPath}?tab=alerts`;
 
   const contentHtml = `
     ${paragraphs(intro)}

@@ -1,5 +1,6 @@
 // Barra di stato anteprima — fissa in cima alla preview.
 // Mostra: stato pagina, titolo, link all'editor, link alla pagina pubblica (se published).
+import { buildAdminPath } from "@/lib/admin-paths";
 import Link from "next/link";
 
 interface Props {
@@ -9,8 +10,9 @@ interface Props {
   pageSlug: string;
 }
 
-export default function PreviewBar({ pageId, pageTitle, pageStatus, pageSlug }: Props) {
+export default async function PreviewBar({ pageId, pageTitle, pageStatus, pageSlug }: Props) {
   const isDraft = pageStatus === "draft";
+  const editorHref = await buildAdminPath(`/content/pages/${pageId}/edit`);
 
   return (
     <div
@@ -68,7 +70,7 @@ export default function PreviewBar({ pageId, pageTitle, pageStatus, pageSlug }: 
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
         {/* Torna all'editor */}
         <Link
-          href={`/admin/contenuti/${pageId}/edit`}
+          href={editorHref}
           style={{
             padding: "0.3rem 0.85rem",
             borderRadius: "6px",

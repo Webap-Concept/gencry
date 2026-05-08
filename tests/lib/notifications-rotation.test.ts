@@ -12,7 +12,7 @@ const TARGETS = [
     key: "google_client_secret",
     label: "Google Client Secret",
     maxAgeDays: 180,
-    link: "/admin/settings/google-oauth",
+    subPath: "/admin/settings/google-oauth",
   },
 ];
 
@@ -98,8 +98,8 @@ describe("computeRotationCandidates", () => {
 
   it("emette un candidato per ogni target scaduto", () => {
     const targets = [
-      { key: "k1", label: "K1", maxAgeDays: 180, link: "/a" },
-      { key: "k2", label: "K2", maxAgeDays: 365, link: "/b" },
+      { key: "k1", label: "K1", maxAgeDays: 180, subPath: "/a" },
+      { key: "k2", label: "K2", maxAgeDays: 365, subPath: "/b" },
     ];
     const rows = [
       { key: "k1", value: "v", updatedAt: new Date(NOW - 200 * DAY_MS) },

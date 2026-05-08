@@ -6,6 +6,7 @@
 // (admin acknowledges all matching alerts).
 
 import { db } from "@/lib/db/drizzle";
+import { buildAdminPath } from "@/lib/admin-paths";
 import { isUndefinedTableError } from "@/lib/db/errors";
 import { sessionAlerts } from "@/lib/db/schema";
 import { count, isNull } from "drizzle-orm";
@@ -65,6 +66,10 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
     const counts: Record<string, number> = {};
     for (const r of rows) counts[r.severity] = Number(r.c);
 
+    // Pre-risolvo il base admin path per costruire i link runtime con
+    // lo slug pubblico configurato.
+    const sessionsBase = await buildAdminPath("/access/sessions");
+
     const out: NotificationCandidate[] = [];
     for (const sev of ["critical", "warning", "info"] as const) {
       const n = counts[sev] ?? 0;
@@ -86,7 +91,7 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
           sev === "critical"
             ? "Likely takeover signals detected. Review and revoke if needed."
             : "Unusual session patterns detected. Review when possible.",
-        link: `/admin/access/sessions?tab=alerts&severity=${sev}`,
+        link: `${sessionsBase}?tab=alerts&severity=${sev}`,
         // Stable per-severity dedup so the dispatcher updates the count in
         // place instead of inserting new rows on every cron tick.
         dedupKey: `suspicious_sessions:${sev}`,

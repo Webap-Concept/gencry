@@ -1,7 +1,10 @@
 // app/(admin)/admin/settings/tabs/email-templates-tab.tsx
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import type { Locale } from "@/lib/i18n/config";
 import {
@@ -480,6 +483,8 @@ function TemplatePanel({
 // ---------------------------------------------------------------------------
 function EmailLogoCard({ settings }: { settings: AppSettings }) {
   const t = useTranslations("admin.settings.emailTemplates.emailLogo");
+  const adminSlug = useAdminSlug();
+  const generalHref = buildAdminPathFromSlug(adminSlug, getAdminRelPath("settings-general"));
   const initial =
     settings.email_logo_choice === "logo-variant" ||
     settings.email_logo_choice === "none"
@@ -518,7 +523,7 @@ function EmailLogoCard({ settings }: { settings: AppSettings }) {
         style={{ color: "var(--admin-text-faint)" }}>
         {t("descBefore")}{" "}
         <a
-          href="/admin/settings/general"
+          href={generalHref}
           className="underline"
           style={{ color: "var(--admin-accent)" }}>
           {t("descLink")}

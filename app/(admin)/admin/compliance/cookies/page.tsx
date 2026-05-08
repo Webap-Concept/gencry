@@ -1,5 +1,6 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
+import { getAdminPath } from "@/lib/admin-paths";
 import {
   getCookieRegistry,
   getSnippetCountByService,
@@ -107,6 +108,7 @@ export default async function CookiesCompliancePage() {
 
 async function CookiePolicyCard({ slug }: { slug: string | null }) {
   const t = await getTranslations("admin.compliance.cookies.policyCard");
+  const pagesPath = await getAdminPath("content-pages");
   const hasPage = slug !== null;
 
   return (
@@ -150,7 +152,7 @@ async function CookiePolicyCard({ slug }: { slug: string | null }) {
 
         <div className="flex flex-col gap-2 shrink-0">
           <Link
-            href="/admin/content/pages"
+            href={pagesPath}
             className="text-xs px-3 py-1.5 rounded-lg"
             style={{
               background: "var(--admin-page-bg)",

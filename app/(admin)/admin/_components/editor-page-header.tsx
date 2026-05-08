@@ -1,6 +1,8 @@
 // app/(admin)/admin/_components/editor-page-header.tsx
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import { ArrowLeft, Check, ExternalLink, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -52,6 +54,10 @@ export function EditorPageHeader({
   previewUrl,
 }: EditorPageHeaderProps) {
   const router = useRouter();
+  const adminSlug = useAdminSlug();
+  const previewHref = pageId
+    ? buildAdminPathFromSlug(adminSlug, `/preview/${pageId}`)
+    : "#";
 
   const isPublished = pageStatus === "published";
   const showOnlineBtn = isPublished && !!previewUrl;
@@ -134,7 +140,7 @@ export function EditorPageHeader({
           {/* "Anteprima" — pagina BOZZA */}
           {showPreviewBtn && (
             <a
-              href={`/admin/preview/${pageId}`}
+              href={previewHref}
               target="_blank"
               rel="noopener noreferrer"
               title="Anteprima bozza (non pubblica)"

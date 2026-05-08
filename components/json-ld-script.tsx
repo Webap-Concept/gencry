@@ -11,6 +11,7 @@
  * - la pagina non ha una riga nella tabella seo_pages
  */
 
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { headers } from "next/headers";
@@ -39,7 +40,13 @@ export async function JsonLdScript() {
   const pathname = headersList.get("x-pathname") ?? "/";
 
   // Non iniettare JSON-LD nelle route admin o api
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api")) {
+  const adminSlug = await getAdminUrlSlug();
+  const adminBase = `/${adminSlug}`;
+  if (
+    pathname === adminBase ||
+    pathname.startsWith(`${adminBase}/`) ||
+    pathname.startsWith("/api")
+  ) {
     return null;
   }
 

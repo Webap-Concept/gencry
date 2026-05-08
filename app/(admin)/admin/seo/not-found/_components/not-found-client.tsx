@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import type { NotFoundLogRow } from "@/lib/db/not-found-queries";
 import {
@@ -68,6 +71,8 @@ export default function NotFoundClient({
   clearResolvedAction,
 }: Props) {
   const t = useTranslations("admin.seo.notFound");
+  const adminSlug = useAdminSlug();
+  const redirectBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("seo-redirects"));
   const formatRelative = makeFormatRelative(t);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -357,7 +362,7 @@ export default function NotFoundClient({
 
                 <div className="flex items-center gap-1">
                   <Link
-                    href={`/admin/seo/redirect?from=${encodeURIComponent(row.path)}`}
+                    href={`${redirectBase}?from=${encodeURIComponent(row.path)}`}
                     title={t("redirectActionTooltip")}
                     className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
                     style={{

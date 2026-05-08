@@ -161,7 +161,7 @@ export async function proxy(request: NextRequest) {
       return res;
     }
 
-    if (isNonPrefixablePath(fromPath.rest)) {
+    if (isNonPrefixablePath(fromPath.rest, [adminBasePath])) {
       // Caso 2: prefix locale + path system → redirect a clean + cookie
       const cleanUrl = new URL(fromPath.rest, request.url);
       cleanUrl.search = request.nextUrl.search;

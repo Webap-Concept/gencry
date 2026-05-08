@@ -18,6 +18,7 @@
  */
 import { db } from "@/lib/db/drizzle";
 import { sql } from "drizzle-orm";
+import { buildAdminPath } from "@/lib/admin-paths";
 import {
   CORE_CRON_JOBS,
   getAllRegisteredJobnames,
@@ -192,21 +193,27 @@ interface FactoryArgs {
   requiredPermission: string;
   /** Set di jobname che questo generator possiede. Se vuoto, niente run. */
   jobnames: Set<string>;
-  buildLink: (jobname: string) => string;
+  /** Sotto-path RELATIVO al base admin (es. "/settings/cron"). Risolto a
+   *  runtime con `buildAdminPath()` dentro `run` per applicare lo slug
+   *  pubblico configurato. */
+  subPath: string;
 }
 
 function makeCronFailuresGenerator({
   requiredPermission,
   jobnames,
-  buildLink,
+  subPath,
 }: FactoryArgs): NotificationGenerator {
   return {
     type: CRON_FAILURE_TYPE,
     requiredPermission,
     run: async () => {
       if (jobnames.size === 0) return [];
-      const jobs = await fetchJobsWithRuns(Array.from(jobnames));
-      return computeCronFailureCandidates(jobs, buildLink);
+      const [jobs, link] = await Promise.all([
+        fetchJobsWithRuns(Array.from(jobnames)),
+        buildAdminPath(subPath),
+      ]);
+      return computeCronFailureCandidates(jobs, () => link);
     },
   };
 }
@@ -240,8 +247,11 @@ export const coreCronFailuresGenerator: NotificationGenerator = {
 
     const targets = new Set<string>([...coreNames, ...untracked]);
     if (targets.size === 0) return [];
-    const jobs = await fetchJobsWithRuns(Array.from(targets));
-    return computeCronFailureCandidates(jobs, () => "/admin/settings/cron");
+    const [jobs, link] = await Promise.all([
+      fetchJobsWithRuns(Array.from(targets)),
+      buildAdminPath("/settings/cron"),
+    ]);
+    return computeCronFailureCandidates(jobs, () => link);
   },
 };
 
@@ -251,7 +261,7 @@ export function moduleCronFailuresGenerators(): NotificationGenerator[] {
     makeCronFailuresGenerator({
       requiredPermission: m.permission,
       jobnames: getModuleJobnames(m.slug),
-      buildLink: () => `/admin/modules/${m.slug}/cron`,
+      subPath: `/modules/${m.slug}/cron`,
     }),
   );
 }

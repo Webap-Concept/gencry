@@ -10,6 +10,7 @@
 
 import { db } from "@/lib/db/drizzle";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/account/deletion";
+import { buildAdminPath } from "@/lib/admin-paths";
 import { users } from "@/lib/db/schema";
 import { and, isNotNull, sql } from "drizzle-orm";
 import type {
@@ -35,11 +36,17 @@ function severityFor(daysRemaining: number): NotificationSeverity {
 /**
  * Logica pura: dato l'elenco di utenti soft-deleted, ritorna i candidati.
  * Esposta per essere testata senza DB.
+ *
+ * `usersBaseLink` è il path admin RUNTIME (es. "/admincontrol/access/users").
+ * Default `/admin/access/users` per backward-compat coi test che non lo
+ * passano; in produzione il caller lo risolve via `buildAdminPath()` con
+ * lo slug runtime.
  */
 export function computeAccountDeletionCandidates(
   rows: PendingDeletionRow[],
   now = Date.now(),
   graceDays = ACCOUNT_DELETION_GRACE_DAYS,
+  usersBaseLink = "/admin/access/users",
 ): NotificationCandidate[] {
   const out: NotificationCandidate[] = [];
 
@@ -56,7 +63,7 @@ export function computeAccountDeletionCandidates(
       severity: severityFor(daysRemaining),
       title: `Account deletion requested: ${row.email}`,
       body: `Purge scheduled in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} (${purgeDate.toISOString().slice(0, 10)}). Cancel from the user page if requested by mistake.`,
-      link: `/admin/access/users/${row.id}?status=deletion_requested`,
+      link: `${usersBaseLink}/${row.id}?status=deletion_requested`,
       dedupKey: `account_deletion_requested:${row.id}`,
       metadata: {
         userId: row.id,
@@ -95,6 +102,12 @@ export const accountDeletionsGenerator: NotificationGenerator = {
     const filtered = rows.filter(
       (r): r is PendingDeletionRow => r.deletedAt !== null,
     );
-    return computeAccountDeletionCandidates(filtered);
+    const usersBaseLink = await buildAdminPath("/access/users");
+    return computeAccountDeletionCandidates(
+      filtered,
+      Date.now(),
+      ACCOUNT_DELETION_GRACE_DAYS,
+      usersBaseLink,
+    );
   },
 };

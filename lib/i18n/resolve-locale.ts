@@ -30,10 +30,22 @@ export const NON_PREFIXABLE_PREFIXES = [
   "/unauthorized",
 ] as const;
 
-export function isNonPrefixablePath(path: string): boolean {
-  return NON_PREFIXABLE_PREFIXES.some(
-    (p) => path === p || path.startsWith(p + "/"),
-  );
+export function isNonPrefixablePath(
+  path: string,
+  extraPrefixes: readonly string[] = [],
+): boolean {
+  // `extraPrefixes` permette al caller (proxy.ts) di aggiungere prefissi
+  // non-prefixable risolti runtime — es. l'admin URL slug configurato in
+  // app_settings, che NON è hardcoded nell'array sopra (lo slug "/admin"
+  // è il default ma viene preservato anche se l'admin sceglie un altro
+  // valore tipo "/admincontrol").
+  for (const p of NON_PREFIXABLE_PREFIXES) {
+    if (path === p || path.startsWith(p + "/")) return true;
+  }
+  for (const p of extraPrefixes) {
+    if (path === p || path.startsWith(p + "/")) return true;
+  }
+  return false;
 }
 
 /**

@@ -3,6 +3,7 @@
 // un candidato se l'eta' supera la soglia configurata.
 
 import { db } from "@/lib/db/drizzle";
+import { buildAdminPath } from "@/lib/admin-paths";
 import { appSettings } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
 import type {
@@ -15,33 +16,42 @@ type RotationTarget = {
   key: string;
   label: string;
   maxAgeDays: number;
-  link: string;
+  /** Path admin del setting da ruotare. Può essere relativo al base admin
+   *  (es. "/services/google-oauth") o assoluto (es. "/foo/bar") — vedi
+   *  `computeRotationCandidates(rows, now, targets, adminBase)`: se è
+   *  passato `adminBase`, viene prefisso al subPath per ottenere l'URL
+   *  finale runtime (slug-aware). I test che non passano `adminBase`
+   *  ottengono `link === subPath` per backward-compat. */
+  subPath: string;
 };
 
 const ROTATION_TARGETS: RotationTarget[] = [
+  // I subPath sono RELATIVI al base admin: il caller `run` qui sotto
+  // li prefigge con `await buildAdminPath("")` = `/<adminSlug>` per ottenere
+  // l'URL completo runtime (es. `/admin/services/google-oauth`).
   {
     key: "google_client_secret",
     label: "Google Client Secret",
     maxAgeDays: 180,
-    link: "/admin/settings/google-oauth",
+    subPath: "/services/google-oauth",
   },
   {
     key: "resend_api_key",
     label: "Resend API Key",
     maxAgeDays: 180,
-    link: "/admin/settings/resend",
+    subPath: "/services/resend",
   },
   {
     key: "upstash_redis_rest_token",
     label: "Upstash Redis Token",
     maxAgeDays: 180,
-    link: "/admin/settings/redis",
+    subPath: "/services/redis",
   },
   {
     key: "cf_turnstile_secret_key",
     label: "Cloudflare Turnstile Secret Key",
     maxAgeDays: 180,
-    link: "/admin/settings/cloudflare",
+    subPath: "/services/cloudflare",
   },
 ];
 
@@ -62,11 +72,16 @@ type SettingRow = {
 /**
  * Logica pura: dato lo stato delle chiavi monitorate, ritorna i candidati.
  * Esposta per essere testata senza DB.
+ *
+ * `adminBase` (default "") viene prefisso al `subPath` di ogni target per
+ * costruire il `link` finale. In produzione il caller risolve adminBase
+ * via `buildAdminPath("")`, così il link contiene lo slug runtime.
  */
 export function computeRotationCandidates(
   rows: SettingRow[],
   now = Date.now(),
   targets: RotationTarget[] = ROTATION_TARGETS,
+  adminBase = "",
 ): NotificationCandidate[] {
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const out: NotificationCandidate[] = [];
@@ -86,7 +101,7 @@ export function computeRotationCandidates(
       severity: severityFor(ageDays, target.maxAgeDays),
       title: `Rotate ${target.label}`,
       body: `Not updated for ${ageDays} days (threshold: ${target.maxAgeDays}d).`,
-      link: target.link,
+      link: `${adminBase}${target.subPath}`,
       dedupKey: `rotation:${target.key}`,
       metadata: {
         settingKey: target.key,
@@ -104,14 +119,17 @@ export const rotationGenerator: NotificationGenerator = {
   requiredPermission: "admin:settings",
   run: async () => {
     const keys = ROTATION_TARGETS.map((t) => t.key);
-    const rows = await db
-      .select({
-        key: appSettings.key,
-        value: appSettings.value,
-        updatedAt: appSettings.updatedAt,
-      })
-      .from(appSettings)
-      .where(inArray(appSettings.key, keys));
-    return computeRotationCandidates(rows);
+    const [rows, adminBase] = await Promise.all([
+      db
+        .select({
+          key: appSettings.key,
+          value: appSettings.value,
+          updatedAt: appSettings.updatedAt,
+        })
+        .from(appSettings)
+        .where(inArray(appSettings.key, keys)),
+      buildAdminPath(""),
+    ]);
+    return computeRotationCandidates(rows, Date.now(), ROTATION_TARGETS, adminBase);
   },
 };

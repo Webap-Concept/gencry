@@ -1,5 +1,8 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminAlertRow } from "@/lib/db/admin-sessions-queries";
 import {
   AlertCircle,
@@ -122,6 +125,8 @@ function AlertRow({
   onChanged: () => void;
 }) {
   const t = useTranslations("admin.access.sessions.alertsTable");
+  const adminSlug = useAdminSlug();
+  const usersBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("users-list"));
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const dateTimeFmt = new Intl.DateTimeFormat(dateLocale, {
@@ -180,7 +185,7 @@ function AlertRow({
       <td className="px-4 py-3">
         {row.userId ? (
           <Link
-            href={`/admin/access/users/${row.userId}`}
+            href={`${usersBase}/${row.userId}`}
             className="flex items-center gap-2 min-w-0 hover:underline"
             style={{ color: "var(--admin-text)" }}>
             {row.avatarUrl ? (

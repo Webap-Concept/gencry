@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import {
   DEFAULT_LOCALE,
   isLocale,
@@ -44,8 +45,11 @@ export async function switchLocaleAction(formData: FormData): Promise<void> {
 
   await setLocaleCookie(target);
 
-  // Path non-prefixable: niente prefix, cookie già aggiornato
-  if (isNonPrefixablePath(canonicalNormalized)) {
+  // Path non-prefixable: niente prefix, cookie già aggiornato. Lo slug
+  // admin runtime è incluso negli `extraPrefixes` per coprire valori
+  // diversi dal default "admin".
+  const adminSlug = await getAdminUrlSlug();
+  if (isNonPrefixablePath(canonicalNormalized, [`/${adminSlug}`])) {
     redirect(canonicalNormalized);
   }
 

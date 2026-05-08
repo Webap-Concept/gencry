@@ -2,6 +2,7 @@ import { CookieBanner } from "@/components/cookie-banner/cookie-banner";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import {
   buildServiceCategoryMap,
@@ -142,8 +143,13 @@ export default async function RootLayout({
   const localeHeader = headersList.get("x-locale");
   const lang = localeHeader && isLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
 
+  // adminBase risolto runtime (default "/admin", configurabile via setting).
+  // Usato per il match "questa è una rotta admin?" che è alla base del
+  // by-pass MaintenancePage.
+  const adminSlug = await getAdminUrlSlug();
+  const adminBase = `/${adminSlug}`;
   const isAdminRoute =
-    pathname === "/admin" || pathname.startsWith("/admin/");
+    pathname === adminBase || pathname.startsWith(`${adminBase}/`);
 
   // Fetch unico: snippet + settings + cookie consent + system page slugs +
   // i18n messages. I messages sono caricati QUI così sia i Client Components

@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { Role } from "@/lib/db/schema";
 import type { AppSettings } from "@/lib/db/settings-queries";
 import { ExternalLink, FileText, Loader2, Save, ShieldCheck, Megaphone } from "lucide-react";
@@ -248,6 +251,8 @@ function RegistrationPanel({
 // ---------------------------------------------------------------------------
 function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }) {
   const t = useTranslations("admin.settings.signup");
+  const adminSlug = useAdminSlug();
+  const pagesBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("content-pages"));
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "it-IT";
 
@@ -332,7 +337,7 @@ function ConsentVersionsPanel({ systemPages }: { systemPages: SystemPageInfo[] }
                     </span>
                     {/* Link corretto: usa l'id della pagina → /admin/content/pages/{id}/edit */}
                     <a
-                      href={`/admin/content/pages/${page.id}/edit`}
+                      href={`${pagesBase}/${page.id}/edit`}
                       className="inline-flex items-center gap-1 text-[11px] transition-colors"
                       style={{ color: "var(--admin-text-muted)" }}
                       onMouseEnter={(e) =>

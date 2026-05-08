@@ -1,6 +1,9 @@
 "use client";
 
+import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import { parseUserAgent } from "@/lib/account/parse-user-agent";
+import { getAdminRelPath } from "@/lib/admin-nav";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminSessionRow } from "@/lib/db/admin-sessions-queries";
 import {
   AlertCircle,
@@ -124,6 +127,8 @@ function userDisplayName(row: AdminSessionRow): string {
 
 function SessionRow({ row }: { row: AdminSessionRow }) {
   const t = useTranslations("admin.access.sessions.table");
+  const adminSlug = useAdminSlug();
+  const usersBase = buildAdminPathFromSlug(adminSlug, getAdminRelPath("users-list"));
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "it-IT";
   const dateFmt = new Intl.DateTimeFormat(dateLocale, {
@@ -203,7 +208,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
           )}
           <div className="min-w-0">
             <Link
-              href={`/admin/access/users/${row.userId}`}
+              href={`${usersBase}/${row.userId}`}
               className="block text-sm font-medium truncate transition-colors hover:underline"
               style={{ color: "var(--admin-text)" }}>
               {userDisplayName(row)}
@@ -251,7 +256,7 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
       <td className="px-4 py-3 whitespace-nowrap text-right">
         <div className="flex items-center justify-end gap-1">
           <Link
-            href={`/admin/access/users/${row.userId}`}
+            href={`${usersBase}/${row.userId}`}
             className="p-1.5 rounded-md transition-colors hover:bg-[var(--admin-hover-bg)]"
             title={t("actionViewUser")}
             style={{ color: "var(--admin-text-muted)" }}>

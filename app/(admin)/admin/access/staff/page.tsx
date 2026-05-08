@@ -1,5 +1,6 @@
-// app/(admin)/admin/staff/page.tsx
+// app/(admin)/admin/access/staff/page.tsx
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { getAdminPath } from "@/lib/admin-paths";
 import { getStaffUsers } from "@/lib/db/admin-queries";
 import { getStaffAssignableRoles } from "@/lib/db/roles-queries";
 import { Search, UserCog } from "lucide-react";
@@ -26,6 +27,7 @@ async function StaffContent({
   const t = await getTranslations("admin.access.staff");
   const { users, total } = await getStaffUsers({ search, role, page });
   const totalPages = Math.ceil(total / 20);
+  const staffBase = await getAdminPath("users-staff");
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -33,7 +35,7 @@ async function StaffContent({
     if (role) params.set("role", role);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
-    return `/admin/staff${qs ? `?${qs}` : ""}`;
+    return `${staffBase}${qs ? `?${qs}` : ""}`;
   };
 
   return (
@@ -136,7 +138,10 @@ export default async function AdminStaffPage({
   const role = params.role ?? "";
   const page = Number(params.page ?? 1);
 
-  const adminRoles = await getStaffAssignableRoles();
+  const [adminRoles, staffBase] = await Promise.all([
+    getStaffAssignableRoles(),
+    getAdminPath("users-staff"),
+  ]);
 
   const hasFilters = !!(search || role);
 
@@ -202,7 +207,7 @@ export default async function AdminStaffPage({
 
           {hasFilters && (
             <a
-              href="/admin/staff"
+              href={staffBase}
               className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
               style={{
                 background: "var(--admin-hover-bg)",
