@@ -60,6 +60,11 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "content:delete_own", label: "Delete own content",       group: "Content", isSystem: false },
   { key: "content:delete_any", label: "Delete any content",       group: "Content", isSystem: false },
   { key: "content:publish",    label: "Publish without approval", group: "Content", isSystem: false },
+  // High-privilege content permissions: structural changes that affect
+  // every CMS page, separate from per-article create/edit. A blogger
+  // typically gets the create/edit_own set without these two.
+  { key: "content:templates",  label: "Manage page templates",    group: "Content", isSystem: true  },
+  { key: "content:styles",     label: "Manage CMS custom CSS",    group: "Content", isSystem: true  },
 
   // ── Profile ──────────────────────────────────────────────────────────
   { key: "profile:read",   label: "View own profile", group: "Profile", isSystem: false },
@@ -102,6 +107,7 @@ export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     // content
     "content:read", "content:create", "content:edit_own", "content:edit_any",
     "content:delete_own", "content:delete_any", "content:publish",
+    "content:templates", "content:styles",
     // profile
     "profile:read", "profile:edit", "profile:export",
     // billing

@@ -5,6 +5,8 @@ export default async function ContentStylesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdminSectionPage("admin:content");
+  // Custom CSS impatta TUTTE le pagine CMS: serve un permesso ad alto
+  // privilegio, separato da content:create.
+  await requireAdminSectionPage("content:styles");
   return <>{children}</>;
 }

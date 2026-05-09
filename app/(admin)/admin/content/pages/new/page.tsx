@@ -1,7 +1,9 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAllPages } from "@/lib/db/pages-queries";
+import { getUser } from "@/lib/db/queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { can } from "@/lib/rbac/can";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -18,11 +20,12 @@ export default async function NewPagePage({
 }: {
   searchParams: Promise<{ parentId?: string; templateId?: string; templateLocked?: string }>;
 }) {
-  const [pages, templates, settings, params] = await Promise.all([
+  const [pages, templates, settings, params, user] = await Promise.all([
     getAllPages(),
     getAllTemplates(),
     getAppSettings(),
     searchParams,
+    getUser(),
   ]);
 
   const initialParentId = params.parentId ? Number(params.parentId) : null;
@@ -31,6 +34,10 @@ export default async function NewPagePage({
   const initialTemplateId = params.templateId ? Number(params.templateId) : null;
   // templateLocked=1 significa che il template è imposto dalla regola del padre e non può essere cambiato
   const templateLocked = params.templateLocked === "1";
+
+  const canManageTemplates = user
+    ? user.isAdmin || (await can(user, "content:templates"))
+    : false;
 
   const t = await getTranslations("admin.content.pages");
 
@@ -49,6 +56,7 @@ export default async function NewPagePage({
         initialParentId={initialParentId}
         initialTemplateId={initialTemplateId}
         templateLocked={templateLocked}
+        canManageTemplates={canManageTemplates}
       />
     </div>
   );

@@ -1,7 +1,8 @@
 "use server";
 
 import { updateAppSetting } from "@/lib/db/settings-queries";
-import { requireAdminPage } from "@/lib/rbac/guards";
+import { can } from "@/lib/rbac/can";
+import { requireAdmin } from "@/lib/rbac/guards";
 import { revalidatePath } from "next/cache";
 
 const MAX_CSS_BYTES = 200_000; // 200KB — più che sufficiente, evita upload abnormi
@@ -34,7 +35,13 @@ export async function saveCmsStylesAction(
   _prev: SaveCmsStylesState,
   formData: FormData,
 ): Promise<SaveCmsStylesState> {
-  await requireAdminPage();
+  // Permesso ad alto privilegio: il CSS qui sotto cambia il look di
+  // TUTTE le pagine CMS pubbliche. Non basta admin:access — un blogger
+  // non deve poter rompere lo stile globale.
+  const user = await requireAdmin();
+  if (!user.isAdmin && !(await can(user, "content:styles"))) {
+    throw new Error("Non autorizzato");
+  }
 
   const isReset = formData.get("reset") === "1";
   const raw = isReset ? null : ((formData.get("css") as string | null) ?? "");

@@ -474,6 +474,7 @@ function StrutturaTab({
   setCustomFields,
   currentPageId,
   templateLocked,
+  canManageTemplates,
 }: {
   pages: Page[];
   templates: TemplateWithFields[];
@@ -484,6 +485,10 @@ function StrutturaTab({
   setCustomFields: (v: Record<string, string>) => void;
   currentPageId?: number;
   templateLocked?: boolean;
+  /** Senza content:templates il selettore è in sola lettura — il template
+   *  esistente si vede ma non si può cambiare. La server action ignora
+   *  comunque qualunque templateId passato senza permesso. */
+  canManageTemplates: boolean;
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const adminSlug = useAdminSlug();
@@ -522,7 +527,47 @@ function StrutturaTab({
 
       <div className="space-y-1.5">
         <label style={labelStyle}>{t("structureTemplateLabel")}</label>
-        {templateLocked && selectedTemplate ? (
+        {!canManageTemplates ? (
+          // Read-only: l'utente non ha content:templates. Mostra il
+          // template assegnato (o stato "nessuno") senza selettore.
+          // La server action sovrascrive comunque qualunque templateId
+          // arrivasse dal form a null/valore esistente.
+          selectedTemplate ? (
+            <div
+              className="rounded-lg px-4 py-3 flex items-center gap-3"
+              style={{
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
+              }}>
+              <Lock
+                size={14}
+                style={{ color: "var(--admin-text-faint)", flexShrink: 0 }}
+              />
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--admin-text)" }}>
+                  {selectedTemplate.name}
+                </p>
+                <p
+                  className="text-xs font-mono"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  {selectedTemplate.slug}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
+                color: "var(--admin-text-faint)",
+              }}>
+              {t("structureTemplateNone")}
+            </div>
+          )
+        ) : templateLocked && selectedTemplate ? (
           <div
             className="rounded-lg px-4 py-3 flex items-center gap-3"
             style={{
@@ -655,6 +700,7 @@ export default function PageEditor({
   locales = [],
   initialTranslations = [],
   initialSeoTranslations = [],
+  canManageTemplates = false,
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -672,6 +718,10 @@ export default function PageEditor({
   locales?: AppLocale[];
   initialTranslations?: PageTranslation[];
   initialSeoTranslations?: SeoPageTranslation[];
+  /** True se l'utente ha content:templates. Se false, il selettore
+   *  template è read-only e la server action ignorerà qualunque
+   *  templateId nel form. Default false = "negato by default". */
+  canManageTemplates?: boolean;
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
@@ -1541,6 +1591,7 @@ export default function PageEditor({
                 setCustomFields={setCustomFields}
                 currentPageId={page?.id}
                 templateLocked={templateLocked}
+                canManageTemplates={canManageTemplates}
               />
             </div>
           )}

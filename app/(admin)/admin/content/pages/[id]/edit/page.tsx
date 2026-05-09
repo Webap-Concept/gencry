@@ -5,10 +5,12 @@ import {
   getPageById,
   getPageTranslationsForPage,
 } from "@/lib/db/pages-queries";
+import { getUser } from "@/lib/db/queries";
 import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getSeoPage, getSeoPageTranslations } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
+import { can } from "@/lib/rbac/can";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -44,15 +46,20 @@ export default async function EditPagePage({
   const pageId = Number(id);
   if (isNaN(pageId)) notFound();
 
-  const [page, pages, templates, settings, locales] = await Promise.all([
+  const [page, pages, templates, settings, locales, user] = await Promise.all([
     getPageById(pageId),
     getAllPages(),
     getAllTemplates(),
     getAppSettings(),
     getEnabledLocales(),
+    getUser(),
   ]);
 
   if (!page) notFound();
+
+  const canManageTemplates = user
+    ? user.isAdmin || (await can(user, "content:templates"))
+    : false;
 
   const [seo, translations, seoTranslations] = await Promise.all([
     getSeoPage(`/${page.slug}`),
@@ -102,6 +109,7 @@ export default async function EditPagePage({
         locales={locales}
         initialTranslations={translations}
         initialSeoTranslations={seoTranslations}
+        canManageTemplates={canManageTemplates}
       />
     </div>
   );

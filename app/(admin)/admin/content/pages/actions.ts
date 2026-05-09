@@ -25,6 +25,7 @@ import {
   upsertSeoPageTranslation,
 } from "@/lib/db/seo-queries";
 import { DEFAULT_LOCALE, LOCALES } from "@/lib/i18n/config";
+import { can } from "@/lib/rbac/can";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -176,6 +177,16 @@ export async function upsertPageAction(
   // → niente da redirectare.
   let slugLocked = false;
   let wasEverPublished = false;
+  // Template enforcement: se l'utente non ha content:templates, ignoriamo
+  // qualunque templateId arrivato dal form (anche manipolato via DOM/curl)
+  // e — per pagine esistenti — manteniamo il template già assegnato.
+  // Per pagine nuove cade a null. Difesa server-side: il selettore UI è
+  // disabled lato client, ma le server actions sono callable indipendentemente.
+  const editor = await getUser();
+  const canManageTemplates = editor
+    ? editor.isAdmin || (await can(editor, "content:templates"))
+    : false;
+  let existingTemplateId: number | null = null;
   if (id) {
     const { getPageById } = await import("@/lib/db/pages-queries");
     const { isSystemSlugEditable } = await import("@/lib/db/schema");
@@ -186,8 +197,12 @@ export async function upsertPageAction(
         systemKey: existing.systemKey ?? null,
       });
       wasEverPublished = existing.publishedAt != null;
+      existingTemplateId = existing.templateId ?? null;
     }
   }
+  const effectiveTemplateId = canManageTemplates
+    ? (templateId ? Number(templateId) : null)
+    : existingTemplateId;
   if (slugChanged && slugLocked) {
     return { error: tErrors("slugBound") };
   }
@@ -233,7 +248,7 @@ export async function upsertPageAction(
       publishedAt: resolvedPublishedAt,
       expiresAt: resolvedExpiresAt,
       parentId: parentId ? Number(parentId) : null,
-      templateId: templateId ? Number(templateId) : null,
+      templateId: effectiveTemplateId,
       customFields: JSON.stringify(parsedCustomFields),
       pageType: pageType ?? "page",
       sortOrder: sortOrder ? Number(sortOrder) : 0,
@@ -365,8 +380,7 @@ export async function upsertPageAction(
     invalidateNavigablePagesCache();
 
     // ── Activity log ──────────────────────────────────────────────────────────
-    const user = await getUser();
-    const uid = user?.id ?? null;
+    const uid = editor?.id ?? null;
     const detail = `slug: /${data.slug} | titolo: ${data.title}`;
 
     if (isCreating) {

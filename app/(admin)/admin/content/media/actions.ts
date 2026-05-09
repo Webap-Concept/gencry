@@ -19,7 +19,8 @@ import {
   type MediaAsset,
   type MediaFolder,
 } from "@/lib/db/media-queries";
-import { getUser } from "@/lib/db/queries";
+import { can } from "@/lib/rbac/can";
+import { requireAdmin } from "@/lib/rbac/guards";
 import {
   createMediaUploadTicket,
   deleteMediaFile,
@@ -28,9 +29,22 @@ import {
   type MediaMime,
   verifyAndConfirmMedia,
 } from "@/lib/storage/media";
+import type { UserWithProfile } from "@/lib/db/schema";
 import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
+
+// Helper RBAC: throw se l'utente non ha il permesso richiesto. Le server
+// actions sono callable indipendentemente dal layout RSC (Next route
+// handler interno), quindi il guard del layout NON basta — ogni action
+// deve ricontrollare il permesso o un attaccante autenticato bypassa.
+async function requireMediaPermission(perm: string): Promise<UserWithProfile> {
+  const user = await requireAdmin();
+  if (!user.isAdmin && !(await can(user, perm))) {
+    throw new Error("Non autorizzato");
+  }
+  return user;
+}
 
 // NOTE on revalidatePath:
 // In Next 16 dev mode, calling revalidatePath() inside a server action
@@ -92,8 +106,7 @@ export async function createMediaUploadTicketAction(input: {
 }): Promise<MediaUploadTicketResult> {
   const t = await getTranslations("admin.content.media.actionMessages");
   try {
-    const user = await getUser();
-    if (!user) return { ok: false, error: t("notAuthenticated") };
+    const user = await requireMediaPermission("content:create");
 
     const filename = (input.filename ?? "").trim();
     if (!filename) return { ok: false, error: t("noFiles") };
@@ -171,8 +184,7 @@ export async function confirmMediaUploadAction(input: {
 }): Promise<MediaUploadConfirmResult> {
   const t = await getTranslations("admin.content.media.actionMessages");
   try {
-    const user = await getUser();
-    if (!user) return { ok: false, error: t("notAuthenticated") };
+    const user = await requireMediaPermission("content:create");
 
     if (!Number.isFinite(input.assetId) || input.assetId <= 0) {
       return { ok: false, error: t("deleteInvalidId") };
@@ -248,8 +260,7 @@ export async function deleteMediaAsset(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  await requireMediaPermission("content:delete_any");
 
   const idRaw = formData.get("id");
   const id = Number(idRaw);
@@ -306,8 +317,7 @@ export async function createMediaFolder(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  const user = await requireMediaPermission("content:create");
 
   const name = String(formData.get("name") ?? "").trim();
   const parentId = parseFolderId(formData.get("parentId"));
@@ -345,8 +355,7 @@ export async function renameMediaFolder(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  await requireMediaPermission("content:edit_any");
 
   const id = parseFolderId(formData.get("id"));
   if (id === null) return { error: t("folderInvalidId"), timestamp: Date.now() };
@@ -383,8 +392,7 @@ export async function deleteMediaFolder(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  await requireMediaPermission("content:delete_any");
 
   const id = parseFolderId(formData.get("id"));
   if (id === null) return { error: t("folderInvalidId"), timestamp: Date.now() };
@@ -426,8 +434,7 @@ export async function moveMediaAsset(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations("admin.content.media.actionMessages");
-  const user = await getUser();
-  if (!user) return { error: t("notAuthenticated"), timestamp: Date.now() };
+  await requireMediaPermission("content:edit_any");
 
   const assetId = Number(formData.get("assetId"));
   if (!Number.isFinite(assetId) || assetId <= 0) {
@@ -468,6 +475,9 @@ export async function getMediaPickerData(
   folderId: number | null,
   opts: { imageOnly?: boolean } = {},
 ): Promise<{ folders: MediaFolder[]; assets: MediaAsset[] }> {
+  // Read-only: chi può anche solo leggere contenuti deve poter aprire
+  // il picker (es. browse da editor pagina). Niente content:create qui.
+  await requireMediaPermission("content:read");
   const [folders, allAssets] = await Promise.all([
     getAllFolders(),
     getAssets({ folderId }),
@@ -485,6 +495,7 @@ export async function getMediaPickerData(
 export async function getMediaAssetPreview(
   id: number,
 ): Promise<{ id: number; publicUrl: string; filename: string; mime: string } | null> {
+  await requireMediaPermission("content:read");
   if (!Number.isFinite(id) || id <= 0) return null;
   const asset = await getAssetById(id);
   if (!asset) return null;

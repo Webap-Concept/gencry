@@ -3,18 +3,33 @@
 import { getAdminPath } from "@/lib/admin-paths";
 import { logContentActivity } from "@/lib/db/content-activity";
 import { getUser } from "@/lib/db/queries";
-import type { NewPageTemplate, NewTemplateField } from "@/lib/db/schema";
+import type { NewPageTemplate, NewTemplateField, UserWithProfile } from "@/lib/db/schema";
 import { ActivityType } from "@/lib/db/schema";
 import {
   deleteTemplate,
   duplicateTemplate,
   upsertTemplate,
 } from "@/lib/db/template-queries";
+import { can } from "@/lib/rbac/can";
+import { requireAdmin } from "@/lib/rbac/guards";
 import { slugify } from "@/lib/utils/slugify";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+// Templates è una sezione strutturale: il blogger con content:create non
+// deve poter creare/modificare/eliminare templates. Le server actions
+// vanno protette indipendentemente dal layout (callable via internal
+// route handler, il guard del layout non basta).
+async function requireTemplatesPermission(): Promise<UserWithProfile> {
+  const user = await requireAdmin();
+  if (!user.isAdmin && !(await can(user, "content:templates"))) {
+    throw new Error("Non autorizzato");
+  }
+  return user;
+}
+
 export async function saveTemplateAction(formData: FormData) {
+  await requireTemplatesPermission();
   const id = formData.get("id") ? Number(formData.get("id")) : undefined;
   const name = (formData.get("name") as string).trim();
   const rawSlug = (formData.get("slug") as string).trim();
@@ -72,6 +87,7 @@ export async function saveTemplateAction(formData: FormData) {
 }
 
 export async function deleteTemplateAction(formData: FormData) {
+  await requireTemplatesPermission();
   const id = Number(formData.get("id"));
   if (!id) return;
   const result = await deleteTemplate(id);
@@ -87,6 +103,7 @@ export async function deleteTemplateAction(formData: FormData) {
 }
 
 export async function duplicateTemplateAction(formData: FormData) {
+  await requireTemplatesPermission();
   const id = Number(formData.get("id"));
   if (!id) return;
   await duplicateTemplate(id);

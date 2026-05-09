@@ -241,6 +241,20 @@ export const SYSTEM_PERMISSIONS: SystemPermission[] = [
     description: "Pubblica contenuti direttamente senza flusso editoriale.",
     isSystem: false,
   },
+  {
+    key: "content:templates",
+    group: "Content",
+    label: "Gestisci page templates",
+    description: "Accesso alla sezione Templates e possibilità di assegnare/modificare il template di una pagina. Senza questo permesso, il selettore template del page editor è in sola lettura.",
+    isSystem: true,
+  },
+  {
+    key: "content:styles",
+    group: "Content",
+    label: "Gestisci CSS personalizzato CMS",
+    description: "Modifica del CSS custom applicato a TUTTE le pagine CMS. Permesso ad alto privilegio: cambia il look globale del frontend, separato da content:create per evitare che un blogger rompa lo stile del sito.",
+    isSystem: true,
+  },
 
   // ── Profile ───────────────────────────────────────────────────────
   {
