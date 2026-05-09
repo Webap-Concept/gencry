@@ -220,6 +220,10 @@ vi.mock("@/lib/account/consent-ledger", () => ({
 }));
 
 // ─── Mock middleware ──────────────────────────────────────────────────────────
+// Replica la logica di localizzazione di validatedAction reale: i messaggi
+// Zod che iniziano con "validation." sono chiavi i18n risolte tramite il
+// mock di next-intl/server definito sopra. Questo permette ai test di
+// continuare a fare assert sui testi italiani localizzati.
 vi.mock("@/lib/auth/middleware", () => ({
   validatedAction: vi.fn(
     (
@@ -235,6 +239,11 @@ vi.mock("@/lib/auth/middleware", () => ({
         if (!result.success) {
           const fieldErrors = result.error!.flatten().fieldErrors;
           const firstMsg = Object.values(fieldErrors).flat()[0] ?? "Dati non validi";
+          if (typeof firstMsg === "string" && firstMsg.startsWith("validation.")) {
+            const { getTranslations } = await import("next-intl/server");
+            const t = await getTranslations("auth");
+            return { error: t(firstMsg) };
+          }
           return { error: firstMsg };
         }
         return fn(result.data, formData);
