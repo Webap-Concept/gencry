@@ -19,11 +19,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useTransition,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   createMediaFolder,
   deleteMediaFolder,
@@ -234,17 +236,30 @@ function FolderNodeRow({
   }, [isActive, containsActive]);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      const target = e.target as Node;
+      if (menuPanelRef.current?.contains(target)) return;
+      if (menuTriggerRef.current?.contains(target)) return;
+      setMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onScroll = () => setMenuOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [menuOpen]);
 
   const t = useTranslations("admin.content.media.tree");
@@ -288,51 +303,38 @@ function FolderNodeRow({
           <span className="truncate">{node.name}</span>
         </Link>
 
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setMenuOpen((v) => !v);
-            }}
-            className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5"
-            style={{ color: "var(--admin-text-muted)" }}
-            aria-label={t("folderActions")}>
-            <MoreVertical className="w-3.5 h-3.5" />
-          </button>
+        <button
+          ref={menuTriggerRef}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setMenuOpen((v) => !v);
+          }}
+          className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ color: "var(--admin-text-muted)" }}
+          aria-label={t("folderActions")}>
+          <MoreVertical className="w-3.5 h-3.5" />
+        </button>
 
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 z-20 rounded-md shadow-lg py-1 min-w-[160px]"
-              style={{
-                background: "var(--admin-card-bg)",
-                border: "1px solid var(--admin-card-border)",
-              }}>
-              <MenuItem
-                label={t("newSubfolder")}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onCreate(node.id);
-                }}
-              />
-              <MenuItem
-                label={t("rename")}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onRename(node);
-                }}
-              />
-              <MenuItem
-                label={t("delete")}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete(node);
-                }}
-                danger
-              />
-            </div>
-          )}
-        </div>
+        {menuOpen && (
+          <FolderActionMenu
+            triggerRef={menuTriggerRef}
+            panelRef={menuPanelRef}
+            onNewSubfolder={() => {
+              setMenuOpen(false);
+              onCreate(node.id);
+            }}
+            onRename={() => {
+              setMenuOpen(false);
+              onRename(node);
+            }}
+            onDelete={() => {
+              setMenuOpen(false);
+              onDelete(node);
+            }}
+            t={t}
+          />
+        )}
       </div>
 
       {open && hasChildren && (
@@ -352,6 +354,79 @@ function FolderNodeRow({
         </ul>
       )}
     </li>
+  );
+}
+
+/**
+ * Portalized action menu per la riga del folder. Lo serviamo via createPortal
+ * perché la card root della pagina ha `overflow: hidden` (per i rounded
+ * corner): un menu in `position: absolute` dentro la card viene clippato
+ * quando la card non ha abbastanza altezza sotto il trigger.
+ *
+ * Posizione fissa calcolata dal `getBoundingClientRect()` del trigger; se
+ * sotto non c'è spazio per ~140px lo flip-puiamo sopra il trigger.
+ */
+function FolderActionMenu({
+  triggerRef,
+  panelRef,
+  onNewSubfolder,
+  onRename,
+  onDelete,
+  t,
+}: {
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  onNewSubfolder: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    placement: "below" | "above";
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuHeight = 140; // ~3 menu items + paddings
+    const menuWidth = 180;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placement: "below" | "above" =
+      spaceBelow >= menuHeight + 8 ? "below" : "above";
+    const top =
+      placement === "below" ? rect.bottom + 4 : rect.top - menuHeight - 4;
+    // Allinea il menu al bordo destro del trigger; se non c'è spazio a
+    // sinistra (menuWidth) clamp al viewport.
+    const left = Math.min(
+      Math.max(8, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 8,
+    );
+    setCoords({ top, left, placement });
+  }, [triggerRef]);
+
+  if (!coords) return null;
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      className="rounded-md shadow-lg py-1"
+      style={{
+        position: "fixed",
+        top: coords.top,
+        left: coords.left,
+        zIndex: 10000,
+        minWidth: "180px",
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <MenuItem label={t("newSubfolder")} onClick={onNewSubfolder} />
+      <MenuItem label={t("rename")} onClick={onRename} />
+      <MenuItem label={t("delete")} onClick={onDelete} danger />
+    </div>,
+    document.body,
   );
 }
 
