@@ -2,6 +2,11 @@
 
 import type { MediaAsset, MediaFolder } from "@/lib/db/media-queries";
 import { getOptimizedImageProps } from "@/lib/storage/image-optimizer";
+import {
+  isAllowedMime,
+  MEDIA_MAX_BYTES,
+  MEDIA_MAX_MB_HINT,
+} from "@/lib/storage/media-constants";
 import { FileText, Folder, Loader2, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
@@ -397,6 +402,18 @@ function UploadTab({
   const [progress, setProgress] = useState(0);
 
   async function handleUpload(file: File) {
+    // Pre-check client-side: scarta subito file troppo grossi o di mime non
+    // ammessi senza round-trip al server. Il check server resta autoritativo,
+    // qui è solo UX.
+    if (!isAllowedMime(file.type)) {
+      setError(t("rejectedMime", { name: file.name }));
+      return;
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      setError(t("rejectedSize", { name: file.name, maxMb: MEDIA_MAX_MB_HINT }));
+      return;
+    }
+
     setUploading(true);
     setProgress(0);
     setError(null);
@@ -480,7 +497,9 @@ function UploadTab({
         <span
           className="text-sm"
           style={{ color: "var(--admin-text-muted)" }}>
-          {uploading ? t("uploading") : t("uploadHint")}
+          {uploading
+            ? t("uploading")
+            : t("uploadHint", { maxMb: MEDIA_MAX_MB_HINT })}
         </span>
       </button>
 
