@@ -11,7 +11,7 @@ import {
   validatedAction,
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
-import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
+import { bypassOnboardingIfNeeded, isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { createVerificationCode } from "@/lib/auth/otp";
@@ -223,10 +223,13 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     ]);
     // Onboarding gate: utenti non-admin che non hanno completato il wizard
     // (es. abbandonato dopo signup) tornano sempre lì finché non finiscono.
-    // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
+    // L'admin può disabilitare globalmente il wizard via /admin/settings/signup;
+    // in quel caso `bypassOnboardingIfNeeded` chiude il profilo (username
+    // auto-generato per gli OAuth + onboardingCompletedAt).
     if (await isOnboardingRequired(foundUser)) {
       redirect("/onboarding");
     }
+    await bypassOnboardingIfNeeded(foundUser);
     // Login pubblico: redirect sempre a "/" anche per gli admin. Il flusso
     // admin ha il proprio entry point `/<adminSlug>/sign-in` e non passa
     // mai per qui — un admin che si trova qui ha cliccato il link sbagliato
