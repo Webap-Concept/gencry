@@ -116,7 +116,7 @@ function UserRow({
   return (
     <tr
       className={`transition-colors ${
-        isBanned || isDeleted ? "opacity-50" : ""
+        !showDeletionColumns && (isBanned || isDeleted) ? "opacity-50" : ""
       }`}
       style={{ borderBottom: "1px solid var(--admin-divider)" }}
       onMouseEnter={(e) =>
