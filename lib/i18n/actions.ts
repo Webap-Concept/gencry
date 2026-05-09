@@ -1,7 +1,11 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { db } from "@/lib/db/drizzle";
+import { getUser } from "@/lib/db/queries";
+import { users } from "@/lib/db/schema";
 import {
   DEFAULT_LOCALE,
   isLocale,
@@ -44,6 +48,19 @@ export async function switchLocaleAction(formData: FormData): Promise<void> {
   const canonicalNormalized = canonical === "" ? "/" : canonical;
 
   await setLocaleCookie(target);
+
+  // Se c'è un utente loggato, persistiamo anche `users.locale`. In zone
+  // non-prefix (admin/protected) il request loader di next-intl dà priorità
+  // a `users.locale` sul cookie: senza questo update, il cookie verrebbe
+  // ignorato e la pagina continuerebbe a renderizzare nella lingua salvata
+  // sul profilo.
+  const currentUser = await getUser();
+  if (currentUser && currentUser.locale !== target) {
+    await db
+      .update(users)
+      .set({ locale: target, updatedAt: new Date() })
+      .where(eq(users.id, currentUser.id));
+  }
 
   // Path non-prefixable: niente prefix, cookie già aggiornato. Lo slug
   // admin runtime è incluso negli `extraPrefixes` per coprire valori
