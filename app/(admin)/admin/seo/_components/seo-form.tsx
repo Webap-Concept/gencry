@@ -135,7 +135,7 @@ function AppNameHint({ appName }: { appName: string }) {
       <code
         className="px-1 py-0.5 rounded font-mono"
         style={{ background: "var(--admin-hover-bg)", color: "var(--admin-text-muted)" }}>
-        {"{"}appName{"}"}
+        {"{{"}appName{"}}"}
       </code>{" "}
       {t("appNameHintAfter")}{" "}
       <strong style={{ color: "var(--admin-text-muted)" }}>{appName}</strong>.
