@@ -384,7 +384,7 @@ export const ADMIN_NAV: NavItem[] = [
     label: "Services",
     icon: "Plug",
     permission: "admin:settings",
-    childrenMaxHeight: "260px",
+    childrenMaxHeight: "300px",
     children: [
       {
         key: "services-resend",
@@ -426,6 +426,13 @@ export const ADMIN_NAV: NavItem[] = [
         href: "/services/supabase",
         label: "Supabase",
         icon: "Database",
+        permission: "admin:settings",
+      },
+      {
+        key: "services-sentry",
+        href: "/services/sentry",
+        label: "Sentry",
+        icon: "Bug",
         permission: "admin:settings",
       },
       {

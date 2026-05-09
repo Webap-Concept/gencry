@@ -589,6 +589,10 @@
       "supabase": {
         "label": "Supabase",
         "description": "PAT + project ref per la Supabase Management API. Alimenta verifica PITR, health check dei backup e diagnostica del progetto."
+      },
+      "sentry": {
+        "label": "Sentry",
+        "description": "Error tracking, performance monitoring e session replay. DSN, sample rate e flag PII sono letti da app_settings al cold start."
       }
     },
     "actionMessages": {
@@ -643,7 +647,20 @@
       "supabaseTestProjectNotFound": "Progetto non trovato. Controlla il project ref.",
       "supabaseTestUnexpectedResponse": "Risposta inattesa dalla Supabase API.",
       "supabaseTestNetworkFailed": "Errore durante la verifica. Controlla la connessione.",
-      "supabaseTestOk": "Connessione OK · {name} ({tier}, {region})"
+      "supabaseTestOk": "Connessione OK · {name} ({tier}, {region})",
+      "sentrySaved": "Impostazioni Sentry salvate.",
+      "sentrySaveFailed": "Errore durante il salvataggio.",
+      "sentryInvalidDsn": "Formato DSN non valido. Atteso https://<chiave>@<host>/<project_id>.",
+      "sentryTestDsnRequired": "Inserisci un DSN prima di testare.",
+      "sentryTestInvalidDsn": "Formato DSN non valido.",
+      "sentryTestDsnUnreachable": "Endpoint Sentry non raggiungibile.",
+      "sentryTestDsnUnauthorized": "DSN rifiutato da Sentry (401/403). Controlla la chiave pubblica.",
+      "sentryTestDsnUnknownStatus": "Sentry ha risposto con status inatteso {status}.",
+      "sentryTestTokenInvalid": "Auth token non valido o scaduto.",
+      "sentryTestTokenForbidden": "Auth token senza accesso a questa org/project.",
+      "sentryTestNetworkError": "Errore di rete contattando Sentry.",
+      "sentryTestOk": "DSN OK · evento di test consegnato.",
+      "sentryTestOkFull": "DSN + auth token OK · pronto per upload source maps."
     },
     "resend": {
       "cardTitle": "Resend",
@@ -660,6 +677,34 @@
       "senderAddressLabel": "Indirizzo mittente",
       "senderAddressPlaceholder": "noreply@tuodominio.com",
       "senderAddressHint": "Deve essere un dominio verificato su Resend.",
+      "save": "Salva",
+      "saving": "Salvataggio..."
+    },
+    "sentry": {
+      "dsnCardTitle": "Connessione",
+      "getDsn": "Ottieni DSN",
+      "dsnLabel": "DSN",
+      "dsnHint": "Endpoint con chiave pubblica. Lo trovi in Sentry Settings → Projects → tuo progetto → Client Keys (DSN). Vuoto = Sentry disattivato.",
+      "show": "Mostra",
+      "hide": "Nascondi",
+      "testButton": "Testa connessione",
+      "testButtonPending": "Test in corso...",
+      "environmentLabel": "Environment",
+      "environmentPlaceholder": "production",
+      "environmentHint": "Tag aggiunto a ogni evento (production, staging, ecc). Se vuoto, usa VERCEL_ENV.",
+      "samplingCardTitle": "Sampling & Privacy",
+      "tracesLabel": "Performance traces",
+      "tracesHint": "% di richieste inviate a Sentry per il performance monitoring. 0 = solo errori (raccomandato).",
+      "replayLabel": "Session replay sull'errore",
+      "replayHint": "% di sessioni con errore catturate come replay DOM. 0 = off. Pesante su bundle e rete — accendi solo in fase di debug.",
+      "piiLabel": "Invia PII di default (IP, headers, info utente)",
+      "piiHint": "Off di default per GDPR. Attiva solo se la tua privacy policy lo copre.",
+      "sourceMapsCardTitle": "Upload Source Maps",
+      "sourceMapsCardHint": "Opzionale. Permette a Sentry di deminificare gli stack trace al build. Necessario solo se vuoi stack trace leggibili in produzione.",
+      "orgLabel": "Org slug",
+      "projectLabel": "Project slug",
+      "authTokenLabel": "Auth token",
+      "authTokenHint": "Server-only. Usato al build time per upload source maps. Mai inviato al browser.",
       "save": "Salva",
       "saving": "Salvataggio..."
     },
