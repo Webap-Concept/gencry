@@ -39,17 +39,6 @@ const codeStyle: React.CSSProperties = {
   color: "var(--admin-text, #cdccca)",
 };
 
-const calloutStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  padding: "10px 12px",
-  borderRadius: 8,
-  background:
-    "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-card-bg))",
-  border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-  marginTop: 6,
-};
-
 function H({
   icon: Icon,
   children,
@@ -128,19 +117,7 @@ export async function PagesAdminGuide() {
 
       <section style={sectionStyle}>
         <H icon={AlertTriangle}>{t("mistakesHeading")}</H>
-        <div style={calloutStyle}>
-          <AlertTriangle
-            size={14}
-            style={{
-              color: "var(--admin-accent)",
-              marginTop: 2,
-              flexShrink: 0,
-            }}
-          />
-          <div style={{ fontSize: 12 }}>{t.rich("mistakesCallout", richTags)}</div>
-        </div>
-        <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
-          <li>{t.rich("mistakesParent", richTags)}</li>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
           <li>{t.rich("mistakesSeoConflict", richTags)}</li>
         </ul>
       </section>
