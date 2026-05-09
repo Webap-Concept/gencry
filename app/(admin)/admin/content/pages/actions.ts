@@ -33,11 +33,16 @@ import { z } from "zod";
 const schema = z.object({
   id: z.string().optional(),
   originalSlug: z.string().optional(),
+  // Empty slug è ammesso solo per la home page system (systemKey="home"),
+  // dove rappresenta il path "/". La validazione semantica (no-empty per le
+  // pagine non-home) viene fatta più sotto, dopo aver caricato `existing`.
   slug: z
     .string()
-    .min(1, "slugRequired")
     .max(255)
-    .regex(/^[a-z0-9]+(?:[/-][a-z0-9]+)*$/, { message: "slugInvalid" }),
+    .refine(
+      (s) => s === "" || /^[a-z0-9]+(?:[/-][a-z0-9]+)*$/.test(s),
+      { message: "slugInvalid" },
+    ),
   title: z.string().min(1, "titleRequired").max(255),
   content: z.string().default(""),
   status: z.enum(["draft", "published"]).default("draft"),
@@ -177,6 +182,7 @@ export async function upsertPageAction(
   // → niente da redirectare.
   let slugLocked = false;
   let wasEverPublished = false;
+  let existingSystemKey: string | null = null;
   // Template enforcement: se l'utente non ha content:templates, ignoriamo
   // qualunque templateId arrivato dal form (anche manipolato via DOM/curl)
   // e — per pagine esistenti — manteniamo il template già assegnato.
@@ -198,7 +204,16 @@ export async function upsertPageAction(
       });
       wasEverPublished = existing.publishedAt != null;
       existingTemplateId = existing.templateId ?? null;
+      existingSystemKey = existing.systemKey ?? null;
     }
+  }
+
+  // Empty slug = path "/", consentito SOLO per la home page system. Per
+  // qualunque altra pagina (incluse system pages diverse o user pages)
+  // lo slug è obbligatorio. La zod schema lo lascia passare così possiamo
+  // dare un messaggio specifico qui (slugRequired) anziché slugInvalid.
+  if (data.slug === "" && existingSystemKey !== "home") {
+    return { error: tErrors("slugRequired") };
   }
   const effectiveTemplateId = canManageTemplates
     ? (templateId ? Number(templateId) : null)
