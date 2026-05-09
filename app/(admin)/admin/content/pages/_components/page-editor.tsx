@@ -840,7 +840,11 @@ export default function PageEditor({
   useEffect(() => {
     if (!state?.savedAt) return;
     if (!isEdit && state.createdId) {
-      router.replace(`/admin/content/pages/${state.createdId}/edit`);
+      const pagesBase = buildAdminPathFromSlug(
+        adminSlug,
+        getAdminRelPath("content-pages"),
+      );
+      router.replace(`${pagesBase}/${state.createdId}/edit`);
       return;
     }
     setSavedAt(
