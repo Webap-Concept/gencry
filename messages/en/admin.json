@@ -532,7 +532,7 @@
       "noRolesAvailable": "No non-admin roles available. Create at least one role in the Access › Roles section.",
       "availableRoles": "Available roles",
       "onboardingLabel": "Require onboarding wizard",
-      "onboardingDescription": "When on, new users (form and OAuth) must complete the welcome wizard (username + interests) before entering the app. Turn off to skip it and send users straight to the home.",
+      "onboardingDescription": "When on, new users (form and OAuth) must complete the welcome wizard (username + interests) before entering the app. When off, the wizard is skipped and users land directly on the home; for OAuth signups a username is auto-generated from the email and the user can change it later from their profile.",
       "save": "Save",
       "saving": "Saving...",
       "consentVersionsTitle": "Registration Consent Versions",
