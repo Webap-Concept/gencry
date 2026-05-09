@@ -17,5 +17,33 @@ if (!process.env.POSTGRES_URL) {
 // "prepared statement does not exist". Disattivarli ha un costo trascurabile
 // (un round-trip extra di Parse) ma rende il client safe contro queste
 // classi di bug.
-export const client = postgres(process.env.POSTGRES_URL, { prepare: false });
+//
+// Singleton-guard via globalThis: in Next.js dev, ogni hot-reload
+// re-esegue questo modulo. Senza guard ogni reload aprirebbe un nuovo
+// pool postgres-js (default max=10) e quelli vecchi resterebbero con
+// connessioni TCP attive sul backend Supabase. Dopo ~20 reload si tocca
+// il limit del pooler condiviso (EMAXCONN 200) e ogni query fallisce.
+// In prod (`NODE_ENV=production`) NON memorizziamo: ogni serverless
+// function ha la sua istanza, già isolata per natura.
+//
+// idle_timeout 20s: chiude connessioni inattive — Supabase le chiude lato
+// server dopo qualche minuto, meglio chiuderle proattivamente.
+// max_lifetime 30min: hard cap per evitare connessioni stuck dopo
+// failover/restart del pooler (raccomandato dai Supabase docs).
+const globalForPg = globalThis as unknown as {
+  __pg?: ReturnType<typeof postgres>;
+};
+
+export const client =
+  globalForPg.__pg ??
+  postgres(process.env.POSTGRES_URL, {
+    prepare: false,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPg.__pg = client;
+}
+
 export const db = drizzle(client, { schema });
