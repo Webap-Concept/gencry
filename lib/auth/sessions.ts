@@ -276,7 +276,22 @@ function maybeTouchLastSeen(sessionId: string, cached: CachedSession): void {
         .set({ lastSeenAt: new Date(now) })
         .where(eq(sessions.id, sessionId));
     } catch (err) {
-      console.error("[sessions] last_seen update failed:", err);
+      // SQLSTATE 08006 / EAUTHTIMEOUT è un sintomo classico di Vercel
+      // serverless + Supabase pooler: una connessione TCP cached tra
+      // invocazioni viene killed dal pooler (idle/restart) e postgres.js
+      // se ne accorge solo al prossimo handshake che va in timeout. Il
+      // last_seen_at è telemetria non critica e questa write è già
+      // fire-and-forget — demotiamo a `warn` per evitare di scatenare
+      // alert su un errore transient atteso. Tutto il resto resta `error`.
+      const code = (err as { code?: string } | null | undefined)?.code;
+      const causeCode = (err as { cause?: { code?: string } } | null | undefined)?.cause?.code;
+      const isPoolerTimeout =
+        code === "08006" || causeCode === "08006" || causeCode === "EAUTHTIMEOUT";
+      if (isPoolerTimeout) {
+        console.warn("[sessions] last_seen update transient pooler timeout:", code ?? causeCode);
+      } else {
+        console.error("[sessions] last_seen update failed:", err);
+      }
     }
   })();
 }
