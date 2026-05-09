@@ -89,6 +89,9 @@ export function GitHubCIForm({ settings }: { settings: AppSettings }) {
               defaultValue={settings.github_repo ?? ""}
               placeholder={t("repoPlaceholder")}
               autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -124,6 +127,9 @@ export function GitHubCIForm({ settings }: { settings: AppSettings }) {
                 defaultValue={settings.github_pat ?? ""}
                 placeholder={tokenMasked || "github_pat_????????????????"}
                 autoComplete="new-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",
@@ -174,6 +180,7 @@ export function GitHubCIForm({ settings }: { settings: AppSettings }) {
               defaultValue={settings.github_ci_branch ?? "ci-results"}
               placeholder={t("branchPlaceholder")}
               autoComplete="off"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",

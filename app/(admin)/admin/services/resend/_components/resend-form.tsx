@@ -107,6 +107,13 @@ function ResendFormInner({ settings }: { settings: AppSettings }) {
                   type={showKey ? "text" : "password"}
                   defaultValue={settings.resend_api_key ?? ""}
                   placeholder="re_xxxxxxxxxxxxxxxxxxxx"
+                  // Niente autofill: il campo non è un login. Senza
+                  // questi attributi 1Password/Chrome riempivano la
+                  // password con la prima credenziale salvata sul dominio.
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  spellCheck={false}
                   className="w-full px-3 py-2 pr-20 text-sm rounded-lg focus:outline-none transition-colors font-mono"
                   style={inputStyle}
                 />
@@ -168,6 +175,7 @@ function ResendFormInner({ settings }: { settings: AppSettings }) {
                 name="email_from_name"
                 defaultValue={settings.email_from_name ?? settings.app_name}
                 placeholder={t("senderNamePlaceholder")}
+                autoComplete="off"
                 className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                 style={inputStyle}
               />

@@ -89,6 +89,9 @@ export function GoogleOAuthForm({ settings }: { settings: AppSettings }) {
               defaultValue={settings.google_client_id ?? ""}
               placeholder="123456789-abcdefg.apps.googleusercontent.com"
               autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -130,6 +133,9 @@ export function GoogleOAuthForm({ settings }: { settings: AppSettings }) {
                 defaultValue={settings.google_client_secret ?? ""}
                 placeholder={secretMasked || "GOCSPX-????????????????"}
                 autoComplete="new-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",
@@ -169,6 +175,8 @@ export function GoogleOAuthForm({ settings }: { settings: AppSettings }) {
               type="url"
               defaultValue={settings.google_redirect_uri ?? ""}
               placeholder={t("redirectUriPlaceholder")}
+              autoComplete="off"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",

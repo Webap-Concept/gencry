@@ -28,7 +28,10 @@ export function AccountForm({ initial }: { initial: Initial }) {
     <div className="space-y-10">
       <EmailSection initial={initial} />
       <hr className="border-gc-line" />
-      <PasswordSection hasPassword={initial.hasPassword} />
+      <PasswordSection
+        hasPassword={initial.hasPassword}
+        currentEmail={initial.email}
+      />
     </div>
   );
 }
@@ -162,6 +165,23 @@ function RequestEmailChangeForm({
 
   return (
     <form action={action} className="space-y-4">
+      {/*
+       * Username hidden field — disambigua le credenziali per il
+       * password manager (vedi note nel form di cambio password).
+       * Qui c'è un solo campo password ("attuale") quindi il rischio
+       * è minore, ma il pattern resta raccomandato.
+       */}
+      <input
+        type="text"
+        name="username"
+        value={currentEmail}
+        autoComplete="username"
+        readOnly
+        aria-hidden="true"
+        tabIndex={-1}
+        style={{ display: "none" }}
+      />
+
       <div className="space-y-1.5">
         <Label htmlFor="newEmail">Nuova email</Label>
         <Input
@@ -334,7 +354,13 @@ function ConfirmEmailChangeForm({
 // Password
 // ---------------------------------------------------------------------------
 
-function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+function PasswordSection({
+  hasPassword,
+  currentEmail,
+}: {
+  hasPassword: boolean;
+  currentEmail: string;
+}) {
   if (!hasPassword) {
     return (
       <section className="space-y-2">
@@ -349,10 +375,10 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
     );
   }
 
-  return <ChangePasswordForm />;
+  return <ChangePasswordForm currentEmail={currentEmail} />;
 }
 
-function ChangePasswordForm() {
+function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     changePasswordAction,
@@ -380,6 +406,26 @@ function ChangePasswordForm() {
       </div>
 
       <form action={action} className="space-y-4">
+        {/*
+         * Username hidden field — pattern raccomandato da Chrome/Web.dev
+         * per i form di "change password": disambigua per il password
+         * manager a quale account si riferiscono `current-password` e
+         * `new-password`. Senza questo, alcuni password manager (1Password,
+         * Bitwarden) propongono credenziali sbagliate o le inseriscono
+         * nei campi successivi.
+         * https://web.dev/sign-in-form-best-practices/#new-password
+         */}
+        <input
+          type="text"
+          name="username"
+          value={currentEmail}
+          autoComplete="username"
+          readOnly
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{ display: "none" }}
+        />
+
         <div className="space-y-1.5">
           <Label htmlFor="currentPassword">Password attuale</Label>
           <div className="relative">
