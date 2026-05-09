@@ -139,7 +139,7 @@ async function finishLogin(
     if (u && (await isOnboardingRequired({ role, onboardingCompletedAt: u.onboardingCompletedAt }))) {
       redirect("/onboarding");
     }
-    if (u) await bypassOnboardingIfNeeded({ id: userId, email: u.email, onboardingCompletedAt: u.onboardingCompletedAt });
+    if (u) await bypassOnboardingIfNeeded({ id: userId, email: u.email, role, onboardingCompletedAt: u.onboardingCompletedAt });
   }
   redirect("/");
 }

@@ -98,7 +98,7 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
     if (u && (await isOnboardingRequired({ role, onboardingCompletedAt: u.onboardingCompletedAt }))) {
       redirect("/onboarding");
     }
-    if (u) await bypassOnboardingIfNeeded({ id: userId, email: u.email, onboardingCompletedAt: u.onboardingCompletedAt });
+    if (u) await bypassOnboardingIfNeeded({ id: userId, email: u.email, role, onboardingCompletedAt: u.onboardingCompletedAt });
   }
 
   // Verify-device da flusso pubblico → "/". Admin entry è dedicato.

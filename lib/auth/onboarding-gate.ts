@@ -34,8 +34,12 @@ export async function isOnboardingRequired(user: {
 export async function bypassOnboardingIfNeeded(user: {
   id: string;
   email: string;
+  role: string;
   onboardingCompletedAt: Date | null;
 }): Promise<void> {
+  // Gli admin non passano dal wizard utente: niente username auto-generato
+  // né completedAt — coerente con `isOnboardingRequired`.
+  if (user.role === "admin") return;
   if (user.onboardingCompletedAt) return;
 
   // Username: se l'utente è arrivato qui via form signup ce l'ha già; gli
