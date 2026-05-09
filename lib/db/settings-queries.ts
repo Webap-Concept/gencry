@@ -199,14 +199,17 @@ export type SettingKey =
   // sono persistiti come stringhe (es. '0.1'). Cambi al DSN/rate si
   // applicano al prossimo cold start della funzione serverless, non in
   // live (Sentry.init() viene chiamato una sola volta al boot).
+  // Nota: org/project/auth_token NON vivono qui. Servono al build plugin
+  // di @sentry/nextjs (next.config.ts) e vanno settati come env vars
+  // SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN sul progetto Vercel —
+  // il build gira prima che la funzione serverless esista, quindi non
+  // può leggere il DB. La UI di /admin/services/sentry mostra un info box
+  // che spiega questo punto.
   | 'sentry.dsn'                          // DSN pubblico (https://<key>@<org>.ingest.sentry.io/<id>)
   | 'sentry.environment'                  // 'production' | 'staging' | 'development' | custom string
   | 'sentry.traces_sample_rate'           // '0'..'1' — performance monitoring (default '0' = off)
   | 'sentry.replays_on_error_sample_rate' // '0'..'1' — session replay sull'errore (default '0' = off)
   | 'sentry.send_default_pii'             // 'true'|'false' — invia IP/email/headers utente (default 'false' per GDPR)
-  | 'sentry.org'                          // org slug Sentry (es. 'acme-inc') — usato per source maps + API
-  | 'sentry.project'                      // project slug (es. 'gencry-web') — usato per source maps + API
-  | 'sentry.auth_token'                   // server-only, per upload source maps al build (.env.SENTRY_AUTH_TOKEN o qui)
 
 export type AppSettings = {
   app_name: string
@@ -363,9 +366,6 @@ export type AppSettings = {
   'sentry.traces_sample_rate': string
   'sentry.replays_on_error_sample_rate': string
   'sentry.send_default_pii': string
-  'sentry.org': string | null
-  'sentry.project': string | null
-  'sentry.auth_token': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -529,9 +529,6 @@ const DEFAULTS: AppSettings = {
   'sentry.traces_sample_rate': '0',
   'sentry.replays_on_error_sample_rate': '0',
   'sentry.send_default_pii': 'false',
-  'sentry.org': null,
-  'sentry.project': null,
-  'sentry.auth_token': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

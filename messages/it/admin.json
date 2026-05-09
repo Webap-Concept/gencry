@@ -656,11 +656,8 @@
       "sentryTestDsnUnreachable": "Endpoint Sentry non raggiungibile.",
       "sentryTestDsnUnauthorized": "DSN rifiutato da Sentry (401/403). Controlla la chiave pubblica.",
       "sentryTestDsnUnknownStatus": "Sentry ha risposto con status inatteso {status}.",
-      "sentryTestTokenInvalid": "Auth token non valido o scaduto.",
-      "sentryTestTokenForbidden": "Auth token senza accesso a questa org/project.",
       "sentryTestNetworkError": "Errore di rete contattando Sentry.",
-      "sentryTestOk": "DSN OK · evento di test consegnato.",
-      "sentryTestOkFull": "DSN + auth token OK · pronto per upload source maps."
+      "sentryTestOk": "DSN OK · evento di test consegnato."
     },
     "resend": {
       "cardTitle": "Resend",
@@ -700,11 +697,9 @@
       "piiLabel": "Invia PII di default (IP, headers, info utente)",
       "piiHint": "Off di default per GDPR. Attiva solo se la tua privacy policy lo copre.",
       "sourceMapsCardTitle": "Upload Source Maps",
-      "sourceMapsCardHint": "Opzionale. Permette a Sentry di deminificare gli stack trace al build. Necessario solo se vuoi stack trace leggibili in produzione.",
-      "orgLabel": "Org slug",
-      "projectLabel": "Project slug",
-      "authTokenLabel": "Auth token",
-      "authTokenHint": "Server-only. Usato al build time per upload source maps. Mai inviato al browser.",
+      "sourceMapsCardHint": "Opzionale — serve solo se vuoi stack trace leggibili in produzione. Il plugin di build carica le source maps su Sentry durante il build.",
+      "vercelInfoBody": "Questi tre valori vengono letti dal plugin di build in next.config.ts, che gira su Vercel prima che esista qualsiasi funzione serverless. Configurali come environment variables sul progetto Vercel (scope Production, e Preview se vuoi le maps anche lì):",
+      "vercelInfoLink": "Documentazione env vars Vercel",
       "save": "Salva",
       "saving": "Salvataggio..."
     },

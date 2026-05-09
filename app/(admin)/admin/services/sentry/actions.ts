@@ -54,13 +54,6 @@ export async function saveSentrySettings(
     );
     const sendDefaultPii =
       formData.get("sentry_send_default_pii") === "true" ? "true" : "false";
-    const org =
-      ((formData.get("sentry_org") as string | null) ?? "").trim() || null;
-    const project =
-      ((formData.get("sentry_project") as string | null) ?? "").trim() || null;
-    const authToken =
-      ((formData.get("sentry_auth_token") as string | null) ?? "").trim() ||
-      null;
 
     await batchUpdateAppSettings({
       "sentry.dsn": dsn || null,
@@ -68,9 +61,6 @@ export async function saveSentrySettings(
       "sentry.traces_sample_rate": tracesSampleRate,
       "sentry.replays_on_error_sample_rate": replaysOnErrorSampleRate,
       "sentry.send_default_pii": sendDefaultPii,
-      "sentry.org": org,
-      "sentry.project": project,
-      "sentry.auth_token": authToken,
     });
 
     // Invalida la cache della pagina così la prossima nav (o un
@@ -97,12 +87,7 @@ export async function testSentry(
     return { error: t("sentryTestDsnRequired"), timestamp: Date.now() };
   }
 
-  const result = await testSentryConnection({
-    dsn,
-    authToken: formData.get("sentry_auth_token") as string | null,
-    org: formData.get("sentry_org") as string | null,
-    project: formData.get("sentry_project") as string | null,
-  });
+  const result = await testSentryConnection({ dsn });
 
   if (!result.ok) {
     const messages: Record<typeof result.reason, string> = {
@@ -113,19 +98,10 @@ export async function testSentry(
       dsn_unknown_status: t("sentryTestDsnUnknownStatus", {
         status: result.detail ?? "?",
       }),
-      token_invalid: t("sentryTestTokenInvalid"),
-      token_forbidden: t("sentryTestTokenForbidden"),
       network_error: t("sentryTestNetworkError"),
     };
     return { error: messages[result.reason], timestamp: Date.now() };
   }
 
-  // result.tokenValid undefined = token check non eseguito (uno tra
-  // authToken/org/project mancante). result.tokenValid=true = anche il
-  // token funziona. Mostriamo messaggio diverso così l'admin sa se ha
-  // pieno setup oppure DSN-only.
-  if (result.tokenValid === true) {
-    return { success: t("sentryTestOkFull"), timestamp: Date.now() };
-  }
   return { success: t("sentryTestOk"), timestamp: Date.now() };
 }

@@ -2,7 +2,7 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { ExternalLink, Loader2, Save, Wifi } from "lucide-react";
+import { ExternalLink, Info, Loader2, Save, Wifi } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -32,7 +32,6 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
     type: "success" | "error";
   } | null>(null);
   const [showDsn, setShowDsn] = useState(false);
-  const [showToken, setShowToken] = useState(false);
 
   // Tutti i campi sono CONTROLLED. Pattern non-controlled (defaultValue +
   // ref) non funziona qui: dopo il submit di una server action, React 19
@@ -43,11 +42,6 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
   const [dsn, setDsn] = useState(settings["sentry.dsn"] ?? "");
   const [environment, setEnvironment] = useState(
     settings["sentry.environment"] ?? "",
-  );
-  const [org, setOrg] = useState(settings["sentry.org"] ?? "");
-  const [project, setProject] = useState(settings["sentry.project"] ?? "");
-  const [authToken, setAuthToken] = useState(
-    settings["sentry.auth_token"] ?? "",
   );
   const [pii, setPii] = useState(settings["sentry.send_default_pii"] === "true");
   const [tracesPct, setTracesPct] = useState<string>(() =>
@@ -91,9 +85,6 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
     // non-controlled).
     const fd = new FormData();
     fd.append("sentry_dsn", dsn);
-    fd.append("sentry_org", org);
-    fd.append("sentry_project", project);
-    fd.append("sentry_auth_token", authToken);
     testAction(fd);
   }
 
@@ -317,7 +308,14 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
           </div>
         </div>
 
-        {/* ──── Card 3: Source Maps (org/project/token) ───────────── */}
+        {/* ──── Card 3: Source Maps — env vars Vercel ──────────────── */}
+        {/* Org / project / auth token NON vivono qui: li legge il plugin
+            @sentry/nextjs in next.config.ts a build-time, e quel processo
+            non ha accesso al DB delle app_settings (gira su Vercel prima
+            che la funzione serverless esista). Dobbiamo passarli via env
+            vars del progetto Vercel. Se mancano, il build non crasha ma
+            l'upload source maps è skippato → stack trace minified in
+            produzione. */}
         <div
           className="rounded-xl shadow-sm p-6"
           style={{
@@ -330,86 +328,54 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
             {t("sourceMapsCardTitle")}
           </h3>
           <p
-            className="text-[11px] mb-5"
+            className="text-[11px] mb-4"
             style={{ color: "var(--admin-text-faint)" }}>
             {t("sourceMapsCardHint")}
           </p>
 
-          <div className="space-y-4 max-w-lg">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: "var(--admin-text-muted)" }}>
-                  {t("orgLabel")}
-                </label>
-                <input
-                  name="sentry_org"
-                  value={org}
-                  onChange={(e) => setOrg(e.target.value)}
-                  placeholder="acme-inc"
-                  autoComplete="off"
-                  data-1p-ignore="true"
-                  data-lpignore="true"
-                  spellCheck={false}
-                  className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: "var(--admin-text-muted)" }}>
-                  {t("projectLabel")}
-                </label>
-                <input
-                  name="sentry_project"
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  placeholder="my-web"
-                  autoComplete="off"
-                  data-1p-ignore="true"
-                  data-lpignore="true"
-                  spellCheck={false}
-                  className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                className="block text-xs font-medium mb-1.5"
-                style={{ color: "var(--admin-text-muted)" }}>
-                {t("authTokenLabel")}
-              </label>
-              <div className="relative">
-                <input
-                  name="sentry_auth_token"
-                  type={showToken ? "text" : "password"}
-                  value={authToken}
-                  onChange={(e) => setAuthToken(e.target.value)}
-                  placeholder="sntrys_..."
-                  autoComplete="off"
-                  data-1p-ignore="true"
-                  data-lpignore="true"
-                  spellCheck={false}
-                  className="w-full px-3 py-2 pr-20 text-sm rounded-lg focus:outline-none transition-colors font-mono"
-                  style={inputStyle}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium px-2 py-0.5 rounded transition-colors"
-                  style={{ color: "var(--admin-text-faint)" }}>
-                  {showToken ? t("hide") : t("show")}
-                </button>
-              </div>
-              <p
-                className="text-[11px] mt-1"
-                style={{ color: "var(--admin-text-faint)" }}>
-                {t("authTokenHint")}
+          <div
+            className="flex gap-3 px-4 py-3 rounded-lg text-xs max-w-lg"
+            style={{
+              background:
+                "color-mix(in oklch, var(--admin-accent) 6%, var(--admin-card-bg))",
+              border:
+                "1px solid color-mix(in oklch, var(--admin-accent) 20%, transparent)",
+            }}>
+            <Info
+              size={14}
+              className="shrink-0 mt-0.5"
+              style={{ color: "var(--admin-accent)" }}
+            />
+            <div className="space-y-2">
+              <p style={{ color: "var(--admin-text-muted)" }}>
+                {t("vercelInfoBody")}
               </p>
+              <ul
+                className="space-y-1 pl-0 list-none"
+                style={{ color: "var(--admin-text-muted)" }}>
+                {(
+                  ["SENTRY_ORG", "SENTRY_PROJECT", "SENTRY_AUTH_TOKEN"] as const
+                ).map((name) => (
+                  <li key={name} className="flex items-center gap-2">
+                    <span
+                      className="font-mono px-1.5 py-0.5 rounded"
+                      style={{
+                        background: "var(--admin-card-border)",
+                        color: "var(--admin-text)",
+                      }}>
+                      {name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <a
+                href="https://vercel.com/docs/environment-variables"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-1"
+                style={{ color: "var(--admin-accent)" }}>
+                {t("vercelInfoLink")} <ExternalLink size={11} />
+              </a>
             </div>
           </div>
         </div>

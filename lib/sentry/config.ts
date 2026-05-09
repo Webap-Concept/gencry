@@ -1,10 +1,16 @@
 /**
- * Helper per caricare la config Sentry dalle app_settings DB.
+ * Helper per caricare la config Sentry runtime dalle app_settings DB.
  *
- * Convenzione: tutte le chiavi vivono in app_settings sotto il namespace
- * `sentry.*`. La sorgente di verità è la UI in /admin/services/sentry.
- * Le env var (es. SENTRY_AUTH_TOKEN per il build, SENTRY_DSN per debug
- * locale) sono ancora supportate ma il DB ha precedenza quando popolato.
+ * Convenzione: tutte le chiavi runtime vivono in app_settings sotto il
+ * namespace `sentry.*`. La sorgente di verità è la UI in
+ * /admin/services/sentry. La env var SENTRY_DSN è supportata come
+ * fallback per debug locale ma il DB ha precedenza quando popolato.
+ *
+ * BUILD-TIME (non gestito qui): SENTRY_ORG / SENTRY_PROJECT /
+ * SENTRY_AUTH_TOKEN servono al plugin @sentry/nextjs per l'upload
+ * source maps. Vivono SOLO come env vars del progetto Vercel —
+ * `next.config.ts` gira al build, prima che la funzione serverless
+ * esista, e non può leggere il DB.
  *
  * IMPORTANTE: questa lib è server-only. Sentry.init() per il client
  * riceve i valori via injection nel root layout (window.__SENTRY_CONFIG__),
@@ -25,12 +31,6 @@ export type SentryRuntimeConfig = {
   replaysOnErrorSampleRate: number;
   /** Se true, Sentry include IP/email/headers utente nei report. Default false (GDPR). */
   sendDefaultPii: boolean;
-  /** Org slug Sentry (es. "acme-inc"). Usato dal build plugin per upload source maps. */
-  org: string | null;
-  /** Project slug Sentry (es. "gencry-web"). Usato dal build plugin. */
-  project: string | null;
-  /** Auth token per upload source maps (server-only). Build-time. */
-  authToken: string | null;
 };
 
 function clampRate(raw: string | null | undefined): number {
@@ -43,13 +43,11 @@ function clampRate(raw: string | null | undefined): number {
 }
 
 /**
- * Carica la config Sentry dal DB. Cached via React `cache()` di
+ * Carica la config Sentry runtime dal DB. Cached via React `cache()` di
  * getAppSettings — una sola query per request server.
  *
- * Fallback su env var per il caso "build/dev locale senza DB":
- *   - SENTRY_DSN (legacy, alcuni dev preferiscono ENV)
- *   - SENTRY_AUTH_TOKEN (il build di Vercel lo legge da env per il
- *     plugin webpack, anche se il valore è in DB lo leggiamo qui)
+ * Fallback su SENTRY_DSN env var per il caso "build/dev locale senza DB"
+ * o quando l'admin non ha ancora salvato nulla.
  */
 export async function loadSentryConfig(): Promise<SentryRuntimeConfig> {
   let dbValues: {
@@ -58,9 +56,6 @@ export async function loadSentryConfig(): Promise<SentryRuntimeConfig> {
     tracesSampleRate: string;
     replaysOnErrorSampleRate: string;
     sendDefaultPii: string;
-    org: string | null;
-    project: string | null;
-    authToken: string | null;
   };
   try {
     const settings = await getAppSettings();
@@ -71,9 +66,6 @@ export async function loadSentryConfig(): Promise<SentryRuntimeConfig> {
       replaysOnErrorSampleRate:
         settings["sentry.replays_on_error_sample_rate"] ?? "0",
       sendDefaultPii: settings["sentry.send_default_pii"] ?? "false",
-      org: settings["sentry.org"] ?? null,
-      project: settings["sentry.project"] ?? null,
-      authToken: settings["sentry.auth_token"] ?? null,
     };
   } catch {
     // Build/CI senza DB raggiungibile: fallback su env var.
@@ -85,9 +77,6 @@ export async function loadSentryConfig(): Promise<SentryRuntimeConfig> {
       tracesSampleRate: "0",
       replaysOnErrorSampleRate: "0",
       sendDefaultPii: "false",
-      org: null,
-      project: null,
-      authToken: null,
     };
   }
 
@@ -98,9 +87,6 @@ export async function loadSentryConfig(): Promise<SentryRuntimeConfig> {
     tracesSampleRate: clampRate(dbValues.tracesSampleRate),
     replaysOnErrorSampleRate: clampRate(dbValues.replaysOnErrorSampleRate),
     sendDefaultPii: dbValues.sendDefaultPii === "true",
-    org: dbValues.org || process.env.SENTRY_ORG || null,
-    project: dbValues.project || process.env.SENTRY_PROJECT || null,
-    authToken: dbValues.authToken || process.env.SENTRY_AUTH_TOKEN || null,
   };
 }
 
