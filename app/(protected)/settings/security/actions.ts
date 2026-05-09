@@ -127,7 +127,7 @@ export const revokeAllOtherDevicesAction = validatedActionWithUser(
 // ---------------------------------------------------------------------------
 
 const revokeSessionSchema = z.object({
-  sessionId: z.string().uuid("Sessione non valida"),
+  sessionId: z.string().uuid("validation.zod.sessionInvalid"),
 });
 
 export const revokeSessionAction = validatedActionWithUser(

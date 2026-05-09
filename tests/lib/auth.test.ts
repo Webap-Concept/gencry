@@ -208,7 +208,7 @@ describe('otp.ts', () => {
       const { verifyOtpCode } = await import('@/lib/auth/otp')
       const result = await verifyOtpCode(USER_ID, VALID_CODE)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice non trovato.')
+      if (!result.success) expect(result.errorCode).toBe('notFound')
     })
 
     it('rifiuta codice scaduto', async () => {
@@ -219,7 +219,7 @@ describe('otp.ts', () => {
       const { verifyOtpCode } = await import('@/lib/auth/otp')
       const result = await verifyOtpCode(USER_ID, VALID_CODE)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice scaduto.')
+      if (!result.success) expect(result.errorCode).toBe('expired')
     })
 
     it('rifiuta codice errato e incrementa attempts', async () => {
@@ -230,7 +230,7 @@ describe('otp.ts', () => {
       const { verifyOtpCode } = await import('@/lib/auth/otp')
       const result = await verifyOtpCode(USER_ID, '000000')
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice non corretto.')
+      if (!result.success) expect(result.errorCode).toBe('wrong')
       expect(mockUpdateFn).toHaveBeenCalledTimes(1)
     })
 
@@ -254,7 +254,7 @@ describe('otp.ts', () => {
       }])
       const result = await verifyOtpCode(USER_ID, VALID_CODE)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice non trovato.')
+      if (!result.success) expect(result.errorCode).toBe('notFound')
       expect(mockDeleteFn).toHaveBeenCalledTimes(1)
       expect(mockUpdateFn).not.toHaveBeenCalled()
     })
@@ -267,7 +267,7 @@ describe('otp.ts', () => {
       }])
       const result = await verifyOtpCode(USER_ID, '999999')
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice non trovato.')
+      if (!result.success) expect(result.errorCode).toBe('notFound')
       expect(mockDeleteFn).toHaveBeenCalledTimes(1)
     })
 
@@ -279,7 +279,7 @@ describe('otp.ts', () => {
       }])
       const result = await verifyOtpCode(USER_ID, '000000')
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Codice non corretto.')
+      if (!result.success) expect(result.errorCode).toBe('wrong')
       expect(mockUpdateFn).toHaveBeenCalledTimes(1)
       expect(mockDeleteFn).not.toHaveBeenCalled()
     })
@@ -297,7 +297,7 @@ describe('password-reset.ts', () => {
     const { verifyPasswordResetToken } = await import('@/lib/auth/password-reset')
     const result = await verifyPasswordResetToken('nonexistent-token')
     expect(result.valid).toBe(false)
-    if (!result.valid) expect(result.error).toBe('Link non valido.')
+    if (!result.valid) expect(result.errorCode).toBe('invalid')
     // Nessuna delete su token inesistente
     expect(mockDeleteFn).not.toHaveBeenCalled()
   })
@@ -312,7 +312,7 @@ describe('password-reset.ts', () => {
     const { verifyPasswordResetToken } = await import('@/lib/auth/password-reset')
     const result = await verifyPasswordResetToken('expired-token')
     expect(result.valid).toBe(false)
-    if (!result.valid) expect(result.error).toBe('Link scaduto. Richiedine uno nuovo.')
+    if (!result.valid) expect(result.errorCode).toBe('expired')
     // Nessuna delete su token scaduto (non bruciarlo — l\'utente potrebbe richiederne uno nuovo)
     expect(mockDeleteFn).not.toHaveBeenCalled()
   })

@@ -38,11 +38,22 @@ export async function createVerificationCode(
   return code;
 }
 
+/**
+ * Codici di errore i18n-friendly. I caller mappano questi codici alle
+ * stringhe localizzate (chiave `auth.validation.otp.<code>`) — la lib
+ * non conosce il locale del request.
+ */
+export type OtpErrorCode = "notFound" | "expired" | "wrong";
+
+export type VerifyOtpResult =
+  | { success: true }
+  | { success: false; errorCode: OtpErrorCode };
+
 export async function verifyOtpCode(
   userId: string,
   inputCode: string,
   type: OtpType = "email_verification",
-): Promise<{ success: boolean; error?: string }> {
+): Promise<VerifyOtpResult> {
   const [record] = await db
     .select()
     .from(emailVerifications)
@@ -54,7 +65,7 @@ export async function verifyOtpCode(
     )
     .limit(1);
 
-  if (!record) return { success: false, error: "Codice non trovato." };
+  if (!record) return { success: false, errorCode: "notFound" };
 
   // Troppi tentativi falliti: il record va considerato bruciato
   if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -66,11 +77,11 @@ export async function verifyOtpCode(
           eq(emailVerifications.type, type),
         ),
       );
-    return { success: false, error: "Codice non trovato." };
+    return { success: false, errorCode: "notFound" };
   }
 
   if (new Date() > record.expiresAt)
-    return { success: false, error: "Codice scaduto." };
+    return { success: false, errorCode: "expired" };
 
   if (record.code !== inputCode) {
     // Incrementa il contatore dei tentativi falliti
@@ -83,7 +94,7 @@ export async function verifyOtpCode(
           eq(emailVerifications.type, type),
         ),
       );
-    return { success: false, error: "Codice non corretto." };
+    return { success: false, errorCode: "wrong" };
   }
 
   // Codice valido → elimina il record

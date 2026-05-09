@@ -27,6 +27,7 @@ import {
 import { sendEmailChangeVerificationEmail } from "@/lib/email/templates/email-change-verification";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { and, eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 
 const RATE_LIMIT_HOURS = 24;
 
@@ -173,7 +174,8 @@ export async function confirmEmailChange(params: {
 
   const result = await verifyOtpCode(userId, code, "email_change");
   if (!result.success) {
-    return { ok: false, error: result.error ?? "Codice non valido." };
+    const t = await getTranslations("auth.validation.otp");
+    return { ok: false, error: t(result.errorCode) };
   }
 
   // Swap email + clear pendingEmail. Mantiene pendingEmailRequestedAt

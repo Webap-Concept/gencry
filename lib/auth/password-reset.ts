@@ -20,22 +20,33 @@ export async function createPasswordResetToken(
 }
 
 /**
+ * Codici di errore i18n-friendly. I caller mappano questi codici alle
+ * stringhe localizzate (chiave `auth.validation.passwordReset.<code>`) —
+ * la lib non conosce il locale del request.
+ */
+export type PasswordResetErrorCode = "invalid" | "expired";
+
+export type VerifyPasswordResetResult =
+  | { valid: true; userId: string }
+  | { valid: false; errorCode: PasswordResetErrorCode };
+
+/**
  * Verifica il token e lo elimina atomicamente se valido.
  * In questo modo il token non può essere riutilizzato anche se il chiamante
  * dimentica di invocare deletePasswordResetToken.
  */
 export async function verifyPasswordResetToken(
   token: string,
-): Promise<{ valid: false; error: string } | { valid: true; userId: string }> {
+): Promise<VerifyPasswordResetResult> {
   const [record] = await db
     .select()
     .from(passwordResetTokens)
     .where(eq(passwordResetTokens.token, token))
     .limit(1);
 
-  if (!record) return { valid: false, error: "Link non valido." };
+  if (!record) return { valid: false, errorCode: "invalid" };
   if (new Date() > record.expiresAt)
-    return { valid: false, error: "Link scaduto. Richiedine uno nuovo." };
+    return { valid: false, errorCode: "expired" };
 
   // Token valido → eliminalo subito per impedire riuso
   await db
