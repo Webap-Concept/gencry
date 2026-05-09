@@ -23,10 +23,10 @@ const requestEmailChangeSchema = z.object({
   newEmail: z
     .string()
     .trim()
-    .min(3, "Email troppo corta")
+    .min(3, "validation.zod.emailInvalid")
     .max(255)
-    .email("Email non valida"),
-  password: z.string().min(1, "La password è obbligatoria").max(100),
+    .email("validation.zod.emailInvalid"),
+  password: z.string().min(1, "validation.zod.passwordRequired").max(100),
 });
 
 export const requestEmailChangeAction = validatedActionWithUser(
@@ -68,8 +68,8 @@ const confirmEmailChangeSchema = z.object({
   code: z
     .string()
     .trim()
-    .length(6, "Il codice deve essere di 6 cifre")
-    .regex(/^\d{6}$/, "Solo cifre"),
+    .length(6, "validation.zod.code6Digits")
+    .regex(/^\d{6}$/, "validation.zod.code6Digits"),
 });
 
 export const confirmEmailChangeAction = validatedActionWithUser(
@@ -124,8 +124,8 @@ export const cancelEmailChangeAction = validatedActionWithUser(
 // ---------------------------------------------------------------------------
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Password attuale obbligatoria").max(100),
-  newPassword: z.string().min(8, "Minimo 8 caratteri").max(100),
+  currentPassword: z.string().min(1, "validation.zod.currentPasswordRequired").max(100),
+  newPassword: z.string().min(8, "validation.zod.newPasswordMin").max(100),
   confirmPassword: z.string().min(1).max(100),
 });
 

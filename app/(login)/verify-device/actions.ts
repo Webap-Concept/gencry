@@ -35,7 +35,7 @@ const RESEND_WINDOW_SECONDS = 10 * 60;
 // ─── Verifica codice OTP dispositivo ───────────────────────────────────────
 
 const verifySchema = z.object({
-  code: z.string().length(6, "Il codice deve essere di 6 cifre"),
+  code: z.string().length(6, "validation.zod.code6Digits"),
 });
 
 export const verifyDevice = validatedAction(verifySchema, async (data) => {
@@ -49,7 +49,7 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
 
   const result = await verifyOtpCode(userId, data.code, "device_verification");
   if (!result.success) {
-    return { error: result.error };
+    return { error: t(`validation.otp.${result.errorCode}`) };
   }
 
   const headersList = await headers();

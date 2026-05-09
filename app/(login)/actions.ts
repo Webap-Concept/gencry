@@ -255,35 +255,32 @@ const signUpSchema = z
     // vengono inseriti dall'utente nella pagina del profilo dopo la registrazione.
     username: z
       .string()
-      .min(3, "Username minimo 3 caratteri")
-      .max(50, "Username massimo 50 caratteri")
+      .min(3, "validation.zod.usernameMin")
+      .max(50, "validation.zod.usernameMax")
       .superRefine((value, ctx) => {
         const result = validateUsernameFormat(value);
         if (!result.ok) {
           ctx.addIssue({ code: "custom", message: result.error });
         }
       }),
-    email: z.email("Email non valida"),
+    email: z.email("validation.zod.emailInvalid"),
     password: z
       .string()
-      .min(8, "La password deve contenere almeno 8 caratteri")
+      .min(8, "validation.zod.passwordMin")
       .max(30)
-      .regex(/[A-Z]/, "La password deve contenere almeno una lettera maiuscola")
-      .regex(/[0-9]/, "La password deve contenere almeno un numero")
-      .regex(
-        /[^a-zA-Z0-9]/,
-        "La password deve contenere almeno un carattere speciale",
-      ),
+      .regex(/[A-Z]/, "validation.zod.passwordUppercase")
+      .regex(/[0-9]/, "validation.zod.passwordNumber")
+      .regex(/[^a-zA-Z0-9]/, "validation.zod.passwordSpecial"),
     acceptTerms: z.string(),
     acceptPrivacy: z.string(),
     acceptMarketing: z.string().optional(),
   })
   .refine((data) => data.acceptTerms === "on", {
-    message: "Devi accettare i Termini e Condizioni per procedere",
+    message: "validation.zod.acceptTerms",
     path: ["acceptTerms"],
   })
   .refine((data) => data.acceptPrivacy === "on", {
-    message: "Devi accettare la Privacy Policy per procedere",
+    message: "validation.zod.acceptPrivacy",
     path: ["acceptPrivacy"],
   });
 
@@ -665,9 +662,9 @@ export const deleteAccount = validatedActionWithUser(
 // ---------------------------------------------------------------------------
 
 const updateAccountSchema = z.object({
-  firstName: z.string().min(1, "Il nome è richiesto").max(100),
-  lastName: z.string().min(1, "Il cognome è richiesto").max(100),
-  email: z.string().email("Email non valida"),
+  firstName: z.string().min(1, "validation.zod.firstNameRequired").max(100),
+  lastName: z.string().min(1, "validation.zod.lastNameRequired").max(100),
+  email: z.string().email("validation.zod.emailInvalid"),
 });
 
 export const updateAccount = validatedActionWithUser(

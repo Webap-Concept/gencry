@@ -10,6 +10,7 @@ import { hashPassword } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -18,14 +19,14 @@ const resetPasswordSchema = z
     token: z.string().min(1),
     password: z
       .string()
-      .min(8, "La password deve contenere almeno 8 caratteri")
+      .min(8, "validation.zod.passwordMin")
       .max(30)
-      .regex(/[A-Z]/, "La password deve contenere almeno una lettera maiuscola")
-      .regex(/[0-9]/, "La password deve contenere almeno un numero"),
+      .regex(/[A-Z]/, "validation.zod.passwordUppercase")
+      .regex(/[0-9]/, "validation.zod.passwordNumber"),
     confirmPassword: z.string().min(8).max(30),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Le password non sono uguali",
+    message: "validation.passwordMismatch",
     path: ["confirmPassword"],
   });
 
@@ -36,7 +37,8 @@ export const resetPassword = validatedAction(
 
     const result = await verifyPasswordResetToken(token);
     if (!result.valid) {
-      return { error: result.error };
+      const t = await getTranslations("auth.validation.passwordReset");
+      return { error: t(result.errorCode) };
     }
 
     const passwordHash = await hashPassword(password);

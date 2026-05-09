@@ -28,7 +28,7 @@ async function getPendingUserId(): Promise<string | null> {
 
 // ─── Verifica codice OTP ────────────────────────────────────────
 const verifySchema = z.object({
-  code: z.string().length(6, "Il codice deve essere di 6 cifre"),
+  code: z.string().length(6, "validation.zod.code6Digits"),
 });
 
 export const verifyEmail = validatedAction(verifySchema, async (data) => {
@@ -40,7 +40,7 @@ export const verifyEmail = validatedAction(verifySchema, async (data) => {
 
   const result = await verifyOtpCode(userId, data.code);
   if (!result.success) {
-    return { error: result.error };
+    return { error: t(`validation.otp.${result.errorCode}`) };
   }
 
   const [user] = await db

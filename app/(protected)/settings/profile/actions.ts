@@ -30,8 +30,8 @@ const updateProfileSchema = z.object({
   username: z
     .string()
     .trim()
-    .min(3, "Username minimo 3 caratteri")
-    .max(50, "Username massimo 50 caratteri")
+    .min(3, "validation.zod.usernameMin")
+    .max(50, "validation.zod.usernameMax")
     .superRefine((value, ctx) => {
       const result = validateUsernameFormat(value);
       if (!result.ok) {

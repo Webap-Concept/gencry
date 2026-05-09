@@ -33,17 +33,17 @@ const registerSchema = z.object({
   token: z.string().min(64).max(64),
   username: z
     .string()
-    .min(3, "Username troppo corto (minimo 3 caratteri)")
-    .max(50, "Username troppo lungo (massimo 50 caratteri)"),
+    .min(3, "validation.zod.usernameTooShort")
+    .max(50, "validation.zod.usernameTooLong"),
   password: z
     .string()
-    .min(8, "La password deve avere almeno 8 caratteri")
-    .max(30, "La password non può superare 30 caratteri")
-    .regex(/[A-Z]/, "La password deve contenere almeno una lettera maiuscola")
-    .regex(/[0-9]/, "La password deve contenere almeno un numero")
-    .regex(/[^a-zA-Z0-9]/, "La password deve contenere almeno un carattere speciale"),
-  acceptTerms: z.literal("on", { message: "Devi accettare i Termini di Servizio" }),
-  acceptPrivacy: z.literal("on", { message: "Devi accettare la Privacy Policy" }),
+    .min(8, "validation.zod.passwordMin")
+    .max(30, "validation.zod.passwordMax")
+    .regex(/[A-Z]/, "validation.zod.passwordUppercase")
+    .regex(/[0-9]/, "validation.zod.passwordNumber")
+    .regex(/[^a-zA-Z0-9]/, "validation.zod.passwordSpecial"),
+  acceptTerms: z.literal("on", { message: "validation.zod.acceptTermsShort" }),
+  acceptPrivacy: z.literal("on", { message: "validation.zod.acceptPrivacyShort" }),
 });
 
 export type RegisterState = { error?: string };
@@ -55,7 +55,8 @@ export async function registerViaInvite(
   const t = await getTranslations("auth");
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const raw = parsed.error.issues[0].message;
+    return { error: raw.startsWith("validation.") ? t(raw) : raw };
   }
 
   const { token, username, password } = parsed.data;

@@ -22,6 +22,7 @@ import { sendAccountDeletionRequestedEmail } from "@/lib/email/templates/account
 import { sendAccountDeletionOtpEmail } from "@/lib/email/templates/account-deletion-otp";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Default fallback per i giorni di grace tra richiesta utente e purge
@@ -164,10 +165,8 @@ export async function requestAccountDeletionViaOtp(params: {
 
   const result = await verifyOtpCode(userId, code, "account_deletion");
   if (!result.success) {
-    return {
-      ok: false,
-      error: result.error ?? "Codice di verifica non valido.",
-    };
+    const t = await getTranslations("auth.validation.otp");
+    return { ok: false, error: t(result.errorCode) };
   }
 
   await performDeletion({ userId, email, firstName, locale });

@@ -151,10 +151,10 @@ const confirmDeletionViaOtpSchema = z.object({
   code: z
     .string()
     .trim()
-    .length(6, "Il codice deve essere di 6 cifre")
-    .regex(/^\d{6}$/, "Solo cifre"),
+    .length(6, "validation.zod.code6Digits")
+    .regex(/^\d{6}$/, "validation.zod.code6Digits"),
   confirmDelete: z.literal("on", {
-    message: "Devi confermare di voler eliminare l'account",
+    message: "validation.zod.confirmDeleteAccount",
   }),
 });
 
@@ -213,7 +213,7 @@ export const requestGdprExportAction = validatedActionWithUser(
 export type DownloadActionState = ActionState & { downloadUrl?: string };
 
 const regenerateGdprUrlSchema = z.object({
-  jobId: z.string().uuid("Job non valido"),
+  jobId: z.string().uuid("validation.zod.jobInvalid"),
 });
 
 export const regenerateGdprExportUrlAction = validatedActionWithUser(
