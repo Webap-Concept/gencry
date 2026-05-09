@@ -61,7 +61,7 @@ export default function PlaceholderHint({
               key={key}
               type="button"
               title={`${t("placeholderTooltip")}\n${meta.description}`}
-              onClick={() => onInsert?.(`{${key}}`)}
+              onClick={() => onInsert?.(`{{${key}}}`)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition-colors"
               style={{
                 background:
@@ -74,7 +74,7 @@ export default function PlaceholderHint({
                 (e.currentTarget.style.filter = "brightness(1.15)")
               }
               onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-              {`{${key}}`}
+              {`{{${key}}}`}
               <span
                 className="font-sans not-italic ml-1"
                 style={{
