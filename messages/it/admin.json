@@ -1964,7 +1964,10 @@
         "rejectedMime": "tipo di file non ammesso",
         "rejectedSize": "supera i {maxMb} MB",
         "rejectedOne": "{name}: {reason}.",
-        "rejectedMany": "{count} file scartati (dimensione o tipo)."
+        "rejectedMany": "{count} file scartati (dimensione o tipo).",
+        "uploaded": "{count, plural, one {File caricato.} other {{count} file caricati.}}",
+        "uploadedPartial": "{ok} caricati, {failed} falliti.",
+        "uploadFailedGeneric": "Caricamento fallito. Riprova."
       },
       "grid": {
         "empty": "Nessun file caricato — carica il primo per iniziare.",

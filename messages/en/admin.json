@@ -1964,7 +1964,10 @@
         "rejectedMime": "file type not allowed",
         "rejectedSize": "exceeds {maxMb} MB",
         "rejectedOne": "{name}: {reason}.",
-        "rejectedMany": "{count} files rejected (size or type)."
+        "rejectedMany": "{count} files rejected (size or type).",
+        "uploaded": "{count, plural, one {File uploaded successfully.} other {{count} files uploaded successfully.}}",
+        "uploadedPartial": "{ok} uploaded, {failed} failed.",
+        "uploadFailedGeneric": "Upload failed. Try again."
       },
       "grid": {
         "referencedByPrefix": "Used in",
