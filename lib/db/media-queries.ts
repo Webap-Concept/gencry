@@ -170,14 +170,19 @@ export async function getAssets(opts?: {
   // Mapping da AssetSortBy alla colonna drizzle. Tie-break SEMPRE su id desc
   // così il sort è deterministico anche con valori uguali (es. due file
   // caricati nello stesso secondo, oppure stesso filename in due cartelle).
+  //
+  // `name` e `type` usano LOWER() per essere case-insensitive: con il default
+  // PostgreSQL (UTF-8 + ASCII collation) `ORDER BY filename ASC` mette tutti
+  // i nomi che iniziano con maiuscola prima di quelli con minuscola — non è
+  // l'ordine A→Z naturale che l'utente si aspetta dalla toolbar.
   const sortBy = opts?.sortBy ?? "date";
   const sortDir = opts?.sortDir ?? "desc";
   const dirFn = sortDir === "asc" ? asc : desc;
   const primaryCol =
     sortBy === "name"
-      ? mediaAssets.filename
+      ? sql`LOWER(${mediaAssets.filename})`
       : sortBy === "type"
-        ? mediaAssets.mime
+        ? sql`LOWER(${mediaAssets.mime})`
         : mediaAssets.createdAt;
 
   let q = db

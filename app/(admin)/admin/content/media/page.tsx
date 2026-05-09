@@ -47,8 +47,19 @@ function parseSort(raw: string | undefined): AssetSortBy {
   return raw === "name" || raw === "type" ? raw : "date";
 }
 
-function parseDir(raw: string | undefined): AssetSortDir {
-  return raw === "asc" ? "asc" : "desc";
+/**
+ * Default direction per sort:
+ *   date → desc (più recenti prima)
+ *   name/type → asc (A→Z)
+ *
+ * Deve combaciare con `SORT_OPTIONS[].defaultDir` in media-toolbar.tsx,
+ * altrimenti il toolbar omette `dir` dall'URL pensando "default per name=asc"
+ * mentre il server applicherebbe desc → primo click su un sort non-date
+ * si comporta in modo opposto a quanto mostrato dal chevron.
+ */
+function parseDir(raw: string | undefined, sort: AssetSortBy): AssetSortDir {
+  if (raw === "asc" || raw === "desc") return raw;
+  return sort === "date" ? "desc" : "asc";
 }
 
 export default async function MediaPage({
@@ -65,7 +76,7 @@ export default async function MediaPage({
   const currentFolderId = parseFolderId(params.folder);
   const requestedPage = parsePage(params.page);
   const sort = parseSort(params.sort);
-  const dir = parseDir(params.dir);
+  const dir = parseDir(params.dir, sort);
 
   if (currentFolderId !== null) {
     const folder = await getFolderById(currentFolderId);
