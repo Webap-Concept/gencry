@@ -17,7 +17,9 @@ export default async function AdminRootLayout({
   // PR-5 sovrascriverà con users.locale per l'admin staff loggato.
   await setRequestLocaleFromHeaders();
   return (
-    <div className={`min-h-screen bg-[#f1f5f9] ${manrope.className}`}>
+    <div
+      className={`min-h-screen ${manrope.className}`}
+      style={{ background: "var(--admin-page-bg)" }}>
       {children}
     </div>
   );

@@ -35,6 +35,12 @@
   --admin-input-border: #d1d5db;
   --admin-hover-bg: #f9fafb;
   --admin-icon-color: #6b7280;
+
+  /* Stati */
+  --admin-destructive: #dc2626;
+  --admin-destructive-bg: #fef2f2;
+  --admin-destructive-border: #fecaca;
+  --admin-accent-soft: #fff1e6;
 }
 
 .dark {
@@ -53,6 +59,11 @@
   --admin-input-border: #475569;
   --admin-hover-bg: #334155;
   --admin-icon-color: #94a3b8;
+
+  --admin-destructive: #f87171;
+  --admin-destructive-bg: rgba(127, 29, 29, 0.25);
+  --admin-destructive-border: rgba(248, 113, 113, 0.4);
+  --admin-accent-soft: rgba(224, 122, 58, 0.18);
 }
 
 /* Slide-in del drawer della sidebar admin (vedi sidebar.tsx → SidebarDrawer).
