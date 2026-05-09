@@ -63,8 +63,8 @@ export async function generatePageMetadata(
   ]);
 
   const appName = settings.app_name?.trim() || "App";
-  // resolvePlaceholders gestisce {appName}, {appDescription}, {appDomain},
-  // {emailFrom}, {currentYear}: stesso set usato dal CMS per il content.
+  // resolvePlaceholders gestisce {{appName}}, {{appDescription}}, {{appDomain}},
+  // {{emailFrom}}, {{currentYear}}: stesso set usato dal CMS per il content.
   const resolve = (text: string) => resolvePlaceholders(text, settings);
 
   const title = resolve(row?.title || defaults?.title || appName);

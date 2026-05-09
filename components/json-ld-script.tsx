@@ -32,7 +32,7 @@ const getCachedSettings = unstable_cache(
 /** Identica alla funzione in lib/seo.ts — replicata per evitare import cross-layer. */
 function resolvePlaceholders(text: string, appName: string): string {
   if (!text || !appName) return text;
-  return text.replace(/\{appName\}/gi, appName);
+  return text.replace(/\{\{appName\}\}/gi, appName);
 }
 
 export async function JsonLdScript() {
@@ -64,7 +64,7 @@ export async function JsonLdScript() {
 
   const siteUrl = domain ? `${domain}${pathname}` : undefined;
 
-  // Risolve i placeholder {appName} in tutti i campi testuali
+  // Risolve i placeholder {{appName}} in tutti i campi testuali
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, appName) : undefined;
 
