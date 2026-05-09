@@ -141,15 +141,18 @@ interface AdminSidebarProps {
 }
 
 /**
- * Applica l'override DB sopra ADMIN_NAV. Le voci con override (sortOrder
- * ∈ navOrder) vengono ordinate per sortOrder; le voci senza override
- * restano dopo, nell'ordine del codice. Risultato deterministico, stabile
- * sui tie.
+ * Applica l'override DB sopra una lista di voci nav (top-level o child).
+ * Le voci con override (sortOrder ∈ order) vengono ordinate per sortOrder;
+ * quelle senza override restano dopo, nell'ordine del codice. Risultato
+ * deterministico, stabile sui tie.
+ *
+ * Generic su `{ key: string }` per riusarlo sia per `NavItem` (top-level)
+ * sia per `NavChild` (sotto-voci del drawer).
  */
-function applyOrder(
-  items: NavItem[],
+function applyOrder<T extends { key: string }>(
+  items: T[],
   order: Record<string, number>,
-): NavItem[] {
+): T[] {
   return [...items].sort((a, b) => {
     const oa = order[a.key];
     const ob = order[b.key];
@@ -257,9 +260,18 @@ export default function AdminSidebar({
     });
   }
   function handleReset() {
+    // Reset granulare: cancella SOLO gli override dei top-level visibili
+    // (così non distruggiamo gli override delle child salvati dai drawer).
+    const topKeys = visibleNav.map((i) => i.key);
     startTransition(async () => {
-      await resetNavOrderAction();
-      setVisibleNav(applyOrder(ADMIN_NAV.filter(isItemVisible), {}));
+      await resetNavOrderAction(topKeys);
+      // Optimistic: rimuoviamo gli override dei top-level dalla mappa
+      // locale, poi applyOrder ricalcola.
+      const remaining: Record<string, number> = {};
+      for (const [k, v] of Object.entries(navOrder)) {
+        if (!topKeys.includes(k)) remaining[k] = v;
+      }
+      setVisibleNav(applyOrder(ADMIN_NAV.filter(isItemVisible), remaining));
     });
   }
 
@@ -520,24 +532,77 @@ export default function AdminSidebar({
   // + descrizione + lista sotto-voci. Renderizzato una volta al top del
   // componente sulla base di `openGroupKey`. Click outside / Escape /
   // click su una sotto-voce → chiude.
+  //
+  // In drawer-edit-mode (toggle dal footer del drawer) le sotto-voci
+  // diventano draggable: si possono riordinare in modo identico al
+  // top-level. Le keys delle child sono uniche cross-parent (vedi
+  // ADMIN_NAV) → riusiamo la stessa tabella `admin_nav_order` senza
+  // bisogno di tracciare il parent. Il save fa upsert solo del subset.
   function SidebarDrawer({ item, onCloseDrawer }: {
     item: NavItem;
     onCloseDrawer: () => void;
   }) {
     const Icon = ICON_MAP[item.icon] ?? Settings;
-    const visibleChildren = (item.children ?? []).filter(isChildVisible);
+    const allVisibleChildren = (item.children ?? []).filter(isChildVisible);
     const description = tNav.has(`descriptions.${item.key}`)
       ? tNav(`descriptions.${item.key}`)
       : null;
     const label = navLabel(item.key, item.label);
 
+    // Ordine effettivo dei child = override DB applicato sopra l'ordine
+    // del registry. Tenuto in stato locale per l'optimistic update durante
+    // il drag.
+    const [drawerChildren, setDrawerChildren] = useState<NavChild[]>(() =>
+      applyOrder(allVisibleChildren, navOrder),
+    );
+    useEffect(() => {
+      setDrawerChildren(applyOrder(allVisibleChildren, navOrder));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navOrder, item.key]);
+
+    const [drawerEdit, setDrawerEdit] = useState(false);
+    const [, startDrawerTransition] = useTransition();
+    const drawerSensors = useSensors(
+      useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    );
+
+    function handleDrawerDragEnd(event: DragEndEvent) {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIdx = drawerChildren.findIndex((c) => c.key === active.id);
+      const newIdx = drawerChildren.findIndex((c) => c.key === over.id);
+      if (oldIdx < 0 || newIdx < 0) return;
+      const reordered = arrayMove(drawerChildren, oldIdx, newIdx);
+      setDrawerChildren(reordered); // optimistic
+      const updates = reordered.map((c, i) => ({ itemKey: c.key, sortOrder: i }));
+      startDrawerTransition(async () => {
+        const res = await saveNavOrderAction(updates);
+        if (res.error) {
+          // Rollback all'ordine pre-drag (ricompone da navOrder corrente)
+          setDrawerChildren(applyOrder(allVisibleChildren, navOrder));
+        }
+      });
+    }
+
+    function handleDrawerReset() {
+      const childKeys = allVisibleChildren.map((c) => c.key);
+      startDrawerTransition(async () => {
+        await resetNavOrderAction(childKeys);
+        // Optimistic: ordine = registry filtrato per visibility
+        setDrawerChildren(allVisibleChildren);
+      });
+    }
+
     useEffect(() => {
       function onEsc(e: KeyboardEvent) {
-        if (e.key === "Escape") onCloseDrawer();
+        if (e.key === "Escape") {
+          if (drawerEdit) setDrawerEdit(false);
+          else onCloseDrawer();
+        }
       }
       window.addEventListener("keydown", onEsc);
       return () => window.removeEventListener("keydown", onEsc);
-    }, [onCloseDrawer]);
+    }, [onCloseDrawer, drawerEdit]);
 
     return (
       <>
@@ -611,22 +676,159 @@ export default function AdminSidebar({
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
-            {visibleChildren.map((child) =>
-              child.children && child.children.length > 0 ? (
-                <SubExpandableGroup key={child.key} item={child} />
-              ) : (
-                <NavLink
-                  key={child.key}
-                  href={child.href!}
-                  label={navLabel(child.key, child.label)}
-                  icon={child.icon}
-                  exact={child.exact}
-                />
-              ),
+            {drawerEdit ? (
+              <DndContext
+                sensors={drawerSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDrawerDragEnd}>
+                <SortableContext
+                  items={drawerChildren.map((c) => c.key)}
+                  strategy={verticalListSortingStrategy}>
+                  {drawerChildren.map((child) => (
+                    <SortableChildItem key={child.key} child={child} />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              drawerChildren.map((child) =>
+                child.children && child.children.length > 0 ? (
+                  <SubExpandableGroup key={child.key} item={child} />
+                ) : (
+                  <NavLink
+                    key={child.key}
+                    href={child.href!}
+                    label={navLabel(child.key, child.label)}
+                    icon={child.icon}
+                    exact={child.exact}
+                  />
+                ),
+              )
             )}
           </nav>
+          <div
+            className="px-5 py-3 flex items-center justify-between gap-2"
+            style={{ borderTop: "1px solid var(--admin-sidebar-border)" }}>
+            {drawerEdit ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleDrawerReset}
+                  title={tShell("navResetTooltip")}
+                  className="flex items-center gap-1.5 text-[11px] transition-colors"
+                  style={{ color: "var(--admin-sidebar-text-faint)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = "var(--admin-sidebar-text-active)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = "var(--admin-sidebar-text-faint)")
+                  }>
+                  <RotateCcw size={11} />
+                  {tShell("navReset")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrawerEdit(false)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors"
+                  style={{ background: "var(--admin-accent)", color: "#fff" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.filter = "brightness(0.9)")
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
+                  <Check size={12} />
+                  {tShell("navEditDone")}
+                </button>
+              </>
+            ) : (
+              <>
+                <span
+                  className="text-[11px]"
+                  style={{ color: "var(--admin-sidebar-text-faint)" }}>
+                  {tShell("navDrawerEditHint")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDrawerEdit(true)}
+                  title={tShell("navEditEnter")}
+                  aria-label={tShell("navEditEnter")}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: "var(--admin-sidebar-text-faint)" }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color =
+                      "var(--admin-sidebar-text-active)";
+                    e.currentTarget.style.background =
+                      "var(--admin-sidebar-item-hover-bg)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color =
+                      "var(--admin-sidebar-text-faint)";
+                    e.currentTarget.style.background = "transparent";
+                  }}>
+                  <ArrowUpDown size={13} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </>
+    );
+  }
+
+  // Versione draggable di una sotto-voce del drawer. Mostra solo icona +
+  // label (no link, no expand di sotto-gruppi): l'utente sta riordinando.
+  function SortableChildItem({ child }: { child: NavChild }) {
+    const sortable = useSortable({ id: child.key });
+    const Icon = ICON_MAP[child.icon] ?? Settings;
+    const dragStyle: React.CSSProperties = {
+      transform: CSS.Transform.toString(sortable.transform),
+      transition: sortable.transition,
+      opacity: sortable.isDragging ? 0.4 : undefined,
+      zIndex: sortable.isDragging ? 10 : undefined,
+    };
+    return (
+      <div
+        ref={sortable.setNodeRef}
+        style={dragStyle}
+        className="flex items-stretch gap-1">
+        <button
+          type="button"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          aria-label={tShell("navDragHandle")}
+          className="flex items-center justify-center w-5 shrink-0 rounded transition-colors"
+          style={{
+            color: "var(--admin-sidebar-text-faint)",
+            cursor: "grab",
+            touchAction: "none",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "var(--admin-sidebar-text-active)";
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "var(--admin-sidebar-item-hover-bg)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color =
+              "var(--admin-sidebar-text-faint)";
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "transparent";
+          }}>
+          <GripVertical size={14} />
+        </button>
+        <div
+          className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium"
+          style={{
+            background: "transparent",
+            color: "var(--admin-sidebar-text)",
+          }}>
+          <Icon
+            size={15}
+            style={{ color: "var(--admin-sidebar-icon-inactive)" }}
+          />
+          <span className="flex-1 text-left truncate">
+            {navLabel(child.key, child.label)}
+          </span>
+        </div>
+      </div>
     );
   }
 

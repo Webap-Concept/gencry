@@ -24,7 +24,8 @@
     "navReset": "Reset",
     "navResetTooltip": "Ripristina ordine di default",
     "navDragHandle": "Trascina per riordinare",
-    "navDrawerClose": "Chiudi pannello sezione"
+    "navDrawerClose": "Chiudi pannello sezione",
+    "navDrawerEditHint": "Riordina le sotto-voci"
   },
   "confirmModal": {
     "defaultConfirm": "Conferma",

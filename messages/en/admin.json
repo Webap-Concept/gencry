@@ -24,7 +24,8 @@
     "navReset": "Reset",
     "navResetTooltip": "Restore default order",
     "navDragHandle": "Drag to reorder",
-    "navDrawerClose": "Close section panel"
+    "navDrawerClose": "Close section panel",
+    "navDrawerEditHint": "Reorder sub-items"
   },
   "confirmModal": {
     "defaultConfirm": "Confirm",
