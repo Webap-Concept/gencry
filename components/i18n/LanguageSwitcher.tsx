@@ -2,6 +2,7 @@
 
 import { switchLocaleAction } from "@/lib/i18n/actions";
 import { LOCALES, type Locale } from "@/lib/i18n/config";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 const LABELS: Record<Locale, string> = {
@@ -14,11 +15,14 @@ const LABELS: Record<Locale, string> = {
  *
  * Pattern volutamente minimale (`<select>` accessibile, no flag-only) per
  * a11y. Quando l'utente cambia opzione, una Server Action setta il cookie
- * `NEXT_LOCALE` e fa redirect all'URL corretto per la nuova lingua
- * (vedi `switchLocaleAction` per la logica di routing per zona).
+ * `NEXT_LOCALE`, persiste `users.locale` e (se serve cambiare URL) fa
+ * redirect alla destinazione corretta per la nuova lingua.
  *
- * Non è ancora integrato nel footer/header — sarà messo in posa in PR-4
- * quando inizieremo a migrare i testi pubblici.
+ * Quando la destinazione coincide col path corrente (zone non-prefix come
+ * admin/protected) la server action non fa redirect: serve un
+ * `router.refresh()` esplicito per invalidare il router cache, altrimenti
+ * il segment renderizzato resta in cache e si vede la vecchia lingua finché
+ * il cache scade da solo.
  */
 export function LanguageSwitcher({
   current,
@@ -30,6 +34,7 @@ export function LanguageSwitcher({
   className?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <label className={className}>
@@ -43,8 +48,13 @@ export function LanguageSwitcher({
           const formData = new FormData();
           formData.append("locale", target);
           formData.append("currentPath", currentPath);
-          startTransition(() => {
-            void switchLocaleAction(formData);
+          startTransition(async () => {
+            await switchLocaleAction(formData);
+            // Se la server action ha fatto redirect, l'await non torna mai
+            // (throw NEXT_REDIRECT). Se siamo qui significa stesso URL →
+            // forziamo il refresh del segment per ricaricare i Server
+            // Components con i nuovi messages.
+            router.refresh();
           });
         }}
         className="rounded border border-gray-300 bg-white px-2 py-1 text-sm"

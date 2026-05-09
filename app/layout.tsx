@@ -22,7 +22,7 @@ import { loadSentryConfig, toClientConfig } from "@/lib/sentry/config";
 import { Analytics } from "@vercel/analytics/next";
 import type { Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
@@ -142,8 +142,14 @@ export default async function RootLayout({
 }) {
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") ?? "/";
-  const localeHeader = headersList.get("x-locale");
-  const lang = localeHeader && isLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
+  // `getLocale()` passa per i18n/request.ts → stessa identica risoluzione di
+  // `getMessages()` qui sotto. Leggere `x-locale` direttamente dall'header
+  // (cookie/Accept-Language) lasciava `lang` e `messages` disallineati per
+  // gli utenti loggati con `users.locale` ≠ cookie: il provider client
+  // riceveva `locale` da una fonte e `messages` dall'altra → sintomi
+  // tipo "header in EN ma sidebar in IT" subito dopo un cambio lingua.
+  const localeFromIntl = await getLocale();
+  const lang = isLocale(localeFromIntl) ? localeFromIntl : DEFAULT_LOCALE;
 
   // adminBase risolto runtime (default "/admin", configurabile via setting).
   // Usato per il match "questa è una rotta admin?" che è alla base del
