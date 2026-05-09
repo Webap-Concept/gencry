@@ -1776,9 +1776,7 @@
         "dataPagesTable": "Tabella <c>pages</c> — title, content, slug, visibility, flag isSystem, systemKey. Source of truth sia per il router CMS sia per il check di visibilità in <c>proxy.ts</c>.",
         "dataSeoTable": "Tabella <c>seo_pages</c> — meta tag, indicizzati per pathname. Scritti dal tab SEO dentro l'editor della pagina.",
         "dataWhitelist": "<c>SYSTEM_PAGE_KEYS_EDITABLE_SLUG</c> in <c>lib/db/schema.ts</c> — whitelist dei systemKey il cui slug è modificabile. Aggiornare lì se serve mai promuovere una pagina solo-meta a editoriale.",
-        "mistakesHeading": "Errori comuni",
-        "mistakesCallout": "Impostare lo slug di una pagina utente CMS su un path già servito da un handler hardcoded (es. <c>sign-in</c>) <b>non</b> sovrascrive l'handler — vince la rotta più specifica. La pagina CMS diventa irraggiungibile. Scegli uno slug diverso.",
-        "mistakesParent": "Non impostare una pagina di sistema come parent di una pagina utente. Il select del parent le filtra già fuori, ma bypassare la UI produrrebbe slug come <c>/sign-in/qualcosa</c> che il catch-all non serve mai.",
+        "mistakesHeading": "Attenzione",
         "mistakesSeoConflict": "Non aspettarti che modifiche in <c>/admin/seo/…</c> per uno slug abbiano la priorità su quanto impostato nel tab SEO dell'editor — entrambi scrivono sulla stessa riga di <c>seo_pages</c>, last write wins.",
         "schemaHeading": "Schema reference",
         "schemaBody": "L'enum completo degli identificatori di sistema è <c>SYSTEM_PAGE_KEYS</c> in <c>lib/db/schema.ts</c>. Aggiungere una nuova pagina di sistema significa aggiungere la chiave a quell'array, aggiungere una riga in <c>pages</c> via migration con <c>is_system = true</c>, e (per solo-meta) decidere se lo slug debba essere nella whitelist editabile."
