@@ -21,12 +21,16 @@ import { isNonPrefixablePath } from "./resolve-locale";
  *
  * Logica:
  *   - Setta cookie `NEXT_LOCALE` = target.
+ *   - Persiste `users.locale` se l'utente è loggato (nelle zone non-prefix
+ *     il request loader di next-intl dà priorità a questo valore).
  *   - Estrae il pathname "canonical" dal `currentPath` rimuovendo eventuale
  *     prefix locale presente.
- *   - Se il path canonical è non-prefixable (auth/admin/loggato/api) → redirect
- *     a quel path senza prefix (la nuova lingua viaggia via cookie).
- *   - Se il path è pubblico (home / CMS) → redirect a `/<target><path>`
- *     quando target ≠ default, altrimenti al path canonical (no prefix).
+ *   - Calcola la destinazione e redirige SOLO se diversa dal currentPath:
+ *     un `redirect()` verso lo stesso path è un no-op a livello di URL ma
+ *     può lasciare il router cache lato client a servire il payload RSC
+ *     "stantio" → l'utente vede la vecchia lingua finché il cache scade.
+ *     Quando non c'è cambio URL, il LanguageSwitcher chiama `router.refresh()`
+ *     dopo l'await per invalidare esplicitamente il segment.
  */
 export async function switchLocaleAction(formData: FormData): Promise<void> {
   const targetRaw = formData.get("locale");
@@ -49,11 +53,6 @@ export async function switchLocaleAction(formData: FormData): Promise<void> {
 
   await setLocaleCookie(target);
 
-  // Se c'è un utente loggato, persistiamo anche `users.locale`. In zone
-  // non-prefix (admin/protected) il request loader di next-intl dà priorità
-  // a `users.locale` sul cookie: senza questo update, il cookie verrebbe
-  // ignorato e la pagina continuerebbe a renderizzare nella lingua salvata
-  // sul profilo.
   const currentUser = await getUser();
   if (currentUser && currentUser.locale !== target) {
     await db
@@ -62,22 +61,27 @@ export async function switchLocaleAction(formData: FormData): Promise<void> {
       .where(eq(users.id, currentUser.id));
   }
 
-  // Path non-prefixable: niente prefix, cookie già aggiornato. Lo slug
-  // admin runtime è incluso negli `extraPrefixes` per coprire valori
-  // diversi dal default "admin".
+  // Calcola la destinazione finale per la nuova lingua.
   const adminSlug = await getAdminUrlSlug();
+  let destination: string;
   if (isNonPrefixablePath(canonicalNormalized, [`/${adminSlug}`])) {
-    redirect(canonicalNormalized);
-  }
-
-  // Path pubblico (home/CMS): aggiungi prefix solo se ≠ default
-  if (target === DEFAULT_LOCALE) {
-    redirect(canonicalNormalized);
+    // Zone non-prefix (admin/protected/auth): la lingua viaggia via cookie+DB,
+    // l'URL resta canonico.
+    destination = canonicalNormalized;
+  } else if (target === DEFAULT_LOCALE) {
+    // Path pubblico, lingua di default: niente prefix.
+    destination = canonicalNormalized;
   } else {
-    const dest =
+    // Path pubblico, lingua non-default: aggiungi prefix.
+    destination =
       canonicalNormalized === "/"
         ? `/${target}`
         : `/${target}${canonicalNormalized}`;
-    redirect(dest);
+  }
+
+  // Solo redirect se l'URL effettivamente cambia. Stesso path → ritorno
+  // void e lascio al client il router.refresh() per invalidare il cache.
+  if (destination !== currentPath) {
+    redirect(destination);
   }
 }
