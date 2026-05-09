@@ -2339,7 +2339,7 @@
       "robotsNoIndexFollowLabel": "noindex, follow",
       "robotsNoIndexFollowHint": "Non indicizzare, ma segui i link",
       "jsonLdHeading": "JSON-LD Structured Data",
-      "jsonLdToggleHint": "Inietta un blocco <script type=\"application/ld+json\"> nella pagina per i rich result di Google.",
+      "jsonLdToggleHint": "Inietta un blocco '<script type=\"application/ld+json\">' nella pagina per i rich result di Google.",
       "jsonLdTypeLabel": "Tipo di schema",
       "jsonLdTypePlaceholder": "Seleziona un tipo...",
       "jsonLdHint_WebPage": "Pagina web generica — ideale per homepage e pagine istituzionali",
@@ -2486,7 +2486,7 @@
         "mistakesHeading": "Errori comuni",
         "mistakesCallout": "Aggiungere un servizio al registry ma dimenticare di proteggere il caricamento dello script è la regression più frequente. Il registry è documentazione — <b>non</b> impedisce automaticamente il set del cookie. Accoppia sempre la modifica al registry con un check del consenso al sito di mount.",
         "mistakeMisuse": "Non mettere un tracker in <c>cookie_necessary</c> solo perché \"il sito ne ha bisogno per funzionare come vogliamo\". Necessary significa <i>l'utente l'ha richiesto</i> (sessione, CSRF). Analytics non si qualifica mai — neanche quando business-critical.",
-        "mistakeRemoval": "Quando elimini un servizio da questa vista, rimuovi anche il sito di script-load nello stesso commit. Un <c><script src></c> live senza entry nel registry lascia ai visitatori cookie che non hanno mai accettato.",
+        "mistakeRemoval": "Quando elimini un servizio da questa vista, rimuovi anche il sito di script-load nello stesso commit. Un <c>'<script src>'</c> live senza entry nel registry lascia ai visitatori cookie che non hanno mai accettato.",
         "schemaHeading": "Schema reference",
         "schemaBody": "I quattro valori di <c>consent_type</c> vengono da <c>CONSENT_TYPES</c> in <c>lib/db/schema.ts</c> e sono persistiti in <c>consent_records</c> con <c>source = \"cookie_banner\"</c> e <c>metadata.variant ∈ {literalOpen}accept_all, reject_all, custom{literalClose}</c>. Aggiungere una quinta categoria è un cambiamento di schema (nuova riga in <c>cookie_categories</c> + nuovo valore nell'enum + chiave i18n + routing del servizio) — non solo una modifica UI."
       }

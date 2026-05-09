@@ -313,11 +313,11 @@ function ChildTemplatePicker({
                 border: "1px solid var(--admin-border)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--admin-accent)";
+                e.currentTarget.style.border = "1px solid var(--admin-accent)";
                 e.currentTarget.style.background = "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-input-bg))";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--admin-border)";
+                e.currentTarget.style.border = "1px solid var(--admin-border)";
                 e.currentTarget.style.background = "var(--admin-input-bg)";
               }}>
               <PanelTop size={15} style={{ color: "var(--admin-accent)", flexShrink: 0 }} />
@@ -341,8 +341,8 @@ function ChildTemplatePicker({
             border: "1px solid var(--admin-border)",
             color: "var(--admin-text-muted)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--admin-input-border)")}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--admin-border)")}>
+          onMouseEnter={(e) => (e.currentTarget.style.border = "1px solid var(--admin-input-border)")}
+          onMouseLeave={(e) => (e.currentTarget.style.border = "1px solid var(--admin-border)")}>
           {t("pickerCancel")}
         </button>
       </div>
@@ -464,10 +464,10 @@ function PageRow({
           cursor: hasChildren ? "pointer" : "default",
         }}
         onMouseEnter={(e) =>
-          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--admin-input-border)")
+          ((e.currentTarget as HTMLDivElement).style.border = "1px solid var(--admin-input-border)")
         }
         onMouseLeave={(e) =>
-          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--admin-card-border)")
+          ((e.currentTarget as HTMLDivElement).style.border = "1px solid var(--admin-card-border)")
         }>
         {/* Drag handle: durante search/quando è disabilitato il drag,
             il bottone resta visibile ma inerte. Stoppa la propagazione
