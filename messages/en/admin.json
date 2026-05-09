@@ -2010,6 +2010,12 @@
         "sourceLibrary": "From library",
         "sourceUrl": "External URL"
       },
+      "pagination": {
+        "ariaLabel": "Media pagination",
+        "indicator": "Page {current} of {total} — {count} assets",
+        "prev": "Previous page",
+        "next": "Next page"
+      },
       "tree": {
         "title": "Folders",
         "root": "Root",

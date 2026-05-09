@@ -60,18 +60,21 @@ export async function deleteFolderById(id: number): Promise<MediaFolder | null> 
 
 /**
  * Conta gli asset diretti in un folder (null = root). Non ricorsivo.
+ * Esclude le draft non confermate (`confirmedAt IS NULL`) per restare
+ * allineato a `getAssets()`, così il count usato dalla paginazione UI
+ * matcha il numero di card effettivamente renderizzate.
  */
 export async function countAssetsInFolder(
   folderId: number | null,
 ): Promise<number> {
-  const where =
+  const folderCond =
     folderId === null
       ? isNull(mediaAssets.folderId)
       : eq(mediaAssets.folderId, folderId);
   const [row] = await db
     .select({ n: count() })
     .from(mediaAssets)
-    .where(where);
+    .where(and(folderCond, sql`${mediaAssets.confirmedAt} IS NOT NULL`));
   return row?.n ?? 0;
 }
 
@@ -133,6 +136,10 @@ export async function getAssets(opts?: {
    *  Default false — l'UI mostra solo asset confermati, le draft sono
    *  in-flight e diventano visibili solo dopo confirm. */
   includeUnconfirmed?: boolean;
+  /** Paginazione: max righe da ritornare (es. 30/pagina UI admin). */
+  limit?: number;
+  /** Paginazione: offset (skip rows before this index). */
+  offset?: number;
 }): Promise<MediaAsset[]> {
   const conditions = [
     opts?.includeUnconfirmed ? undefined : sql`${mediaAssets.confirmedAt} IS NOT NULL`,
@@ -150,11 +157,15 @@ export async function getAssets(opts?: {
         ? conditions[0]
         : and(...(conditions as NonNullable<(typeof conditions)[number]>[]));
 
-  return db
+  let q = db
     .select()
     .from(mediaAssets)
     .where(where)
-    .orderBy(desc(mediaAssets.createdAt));
+    .orderBy(desc(mediaAssets.createdAt))
+    .$dynamic();
+  if (opts?.limit !== undefined) q = q.limit(opts.limit);
+  if (opts?.offset !== undefined) q = q.offset(opts.offset);
+  return q;
 }
 
 export async function getAssetById(id: number): Promise<MediaAsset | null> {

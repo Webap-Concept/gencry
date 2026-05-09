@@ -1,6 +1,7 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
+  countAssetsInFolder,
   getAllFolders,
   getAssetReferences,
   getAssets,
@@ -16,6 +17,9 @@ import { FolderBreadcrumb } from "./_components/folder-breadcrumb";
 import { FolderTree } from "./_components/folder-tree";
 import { MediaUploader } from "./_components/media-uploader";
 import { MediaGrid } from "./_components/media-grid";
+import { MediaPagination } from "./_components/media-pagination";
+
+const PAGE_SIZE = 30;
 
 export async function generateMetadata(): Promise<Metadata> {
   await connection();
@@ -31,22 +35,36 @@ function parseFolderId(raw: string | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function parsePage(raw: string | undefined): number {
+  if (!raw) return 1;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
 export default async function MediaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string }>;
+  searchParams: Promise<{ folder?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const currentFolderId = parseFolderId(params.folder);
+  const requestedPage = parsePage(params.page);
 
   if (currentFolderId !== null) {
     const folder = await getFolderById(currentFolderId);
     if (!folder) notFound();
   }
 
+  // Servi prima il count per clamp-are una `?page=999` fuori scala alla
+  // pagina massima reale (così un link stale non mostra una griglia vuota).
+  const totalAssets = await countAssetsInFolder(currentFolderId);
+  const totalPages = Math.max(1, Math.ceil(totalAssets / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
   const [folders, assets, folderPath, t] = await Promise.all([
     getAllFolders(),
-    getAssets({ folderId: currentFolderId }),
+    getAssets({ folderId: currentFolderId, limit: PAGE_SIZE, offset }),
     currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
     getTranslations("admin.content.media"),
   ]);
@@ -101,6 +119,12 @@ export default async function MediaPage({
               assets={assets}
               folders={folders}
               references={Object.fromEntries(references)}
+            />
+            <MediaPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalAssets={totalAssets}
+              folderId={currentFolderId}
             />
           </main>
         </div>

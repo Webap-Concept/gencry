@@ -2010,6 +2010,12 @@
         "sourceLibrary": "Dalla libreria",
         "sourceUrl": "URL esterno"
       },
+      "pagination": {
+        "ariaLabel": "Paginazione media",
+        "indicator": "Pagina {current} di {total} — {count} asset",
+        "prev": "Pagina precedente",
+        "next": "Pagina successiva"
+      },
       "tree": {
         "title": "Cartelle",
         "root": "Root",
