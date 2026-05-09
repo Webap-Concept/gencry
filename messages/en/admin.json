@@ -24,7 +24,8 @@
     "navReset": "Reset",
     "navResetTooltip": "Restore default order",
     "navDragHandle": "Drag to reorder",
-    "navDrawerClose": "Close section panel"
+    "navDrawerClose": "Close section panel",
+    "navDrawerEditHint": "Reorder sub-items"
   },
   "confirmModal": {
     "defaultConfirm": "Confirm",
@@ -531,6 +532,8 @@
       "defaultRoleHint": "Role automatically assigned to every new user who registers. Roles with administrator privileges are not selectable.",
       "noRolesAvailable": "No non-admin roles available. Create at least one role in the Access › Roles section.",
       "availableRoles": "Available roles",
+      "onboardingLabel": "Require onboarding wizard",
+      "onboardingDescription": "When on, new users (form and OAuth) must complete the welcome wizard (username + interests) before entering the app. When off, the wizard is skipped and users land directly on the home; for OAuth signups a username is auto-generated from the email and the user can change it later from their profile.",
       "save": "Save",
       "saving": "Saving...",
       "consentVersionsTitle": "Registration Consent Versions",
@@ -1841,6 +1844,23 @@
         "toolbarImage": "Insert image",
         "toolbarSeparator": "Separator",
         "linkPrompt": "Link URL:",
+        "linkDialogInsertTitle": "Insert link",
+        "linkDialogEditTitle": "Edit link",
+        "linkDialogClose": "Close",
+        "linkDialogUrlLabel": "URL",
+        "linkDialogUrlPlaceholder": "https://example.com",
+        "linkDialogTargetLabel": "Target",
+        "linkDialogTargetSelf": "Same tab (default)",
+        "linkDialogTargetBlank": "New tab (_blank)",
+        "linkDialogTargetParent": "Parent frame (_parent)",
+        "linkDialogTargetTop": "Top frame (_top)",
+        "linkDialogTargetHint": "Where the browser opens the link. Pick \"New tab\" to keep the user on this page.",
+        "linkDialogRelLabel": "Rel",
+        "linkDialogRelHint": "Relationship between the current page and the destination. \"noopener noreferrer\" is auto-suggested for new-tab links to prevent window.opener hijacking.",
+        "linkDialogInsert": "Insert",
+        "linkDialogSave": "Save",
+        "linkDialogCancel": "Cancel",
+        "linkDialogRemove": "Remove link",
         "linkInternalSearchPlaceholder": "Search by title or slug…",
         "linkInternalEmpty": "No pages match",
         "linkInternalCloseAria": "Close",
@@ -1945,7 +1965,10 @@
         "rejectedMime": "file type not allowed",
         "rejectedSize": "exceeds {maxMb} MB",
         "rejectedOne": "{name}: {reason}.",
-        "rejectedMany": "{count} files rejected (size or type)."
+        "rejectedMany": "{count} files rejected (size or type).",
+        "uploaded": "{count, plural, one {File uploaded successfully.} other {{count} files uploaded successfully.}}",
+        "uploadedPartial": "{ok} uploaded, {failed} failed.",
+        "uploadFailedGeneric": "Upload failed. Try again."
       },
       "grid": {
         "referencedByPrefix": "Used in",
@@ -1990,6 +2013,12 @@
         "remove": "Remove",
         "sourceLibrary": "From library",
         "sourceUrl": "External URL"
+      },
+      "pagination": {
+        "ariaLabel": "Media pagination",
+        "indicator": "Page {current} of {total} — {count} assets",
+        "prev": "Previous page",
+        "next": "Next page"
       },
       "tree": {
         "title": "Folders",

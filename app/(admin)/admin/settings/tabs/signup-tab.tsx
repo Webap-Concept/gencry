@@ -88,6 +88,13 @@ function RegistrationPanel({
   const [selectedRole, setSelectedRole] = useState(
     settings.default_role || "member",
   );
+  // Toggle inline (layout verticale: descrizione sopra, switch sotto). Non
+  // riusiamo `SettingToggle` perché lì label+desc e switch sono in un flex
+  // riga senza `shrink-0`: con descrizioni lunghe lo switch (w-11) viene
+  // strizzato e la pallina interna sparisce.
+  const [onboardingEnabled, setOnboardingEnabled] = useState(
+    settings.onboarding_enabled === "true",
+  );
 
   useEffect(() => {
     if (!("timestamp" in state)) return;
@@ -212,6 +219,40 @@ function RegistrationPanel({
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div
+              className="pt-5"
+              style={{ borderTop: "1px solid var(--admin-divider)" }}>
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--admin-text)" }}>
+                {t("onboardingLabel")}
+              </p>
+              <p
+                className="text-[11px] mt-1 mb-3"
+                style={{ color: "var(--admin-text-faint)" }}>
+                {t("onboardingDescription")}
+              </p>
+              <input
+                type="hidden"
+                name="onboarding_enabled"
+                value={onboardingEnabled ? "true" : "false"}
+              />
+              <button
+                type="button"
+                role="switch"
+                aria-checked={onboardingEnabled}
+                onClick={() => setOnboardingEnabled((v) => !v)}
+                className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${
+                  onboardingEnabled ? "bg-green-500" : "bg-gray-200"
+                }`}>
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    onboardingEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
           </div>
         </div>

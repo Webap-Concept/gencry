@@ -1,7 +1,10 @@
 "use server";
 
 import { requireAdminPage } from "@/lib/rbac/guards";
-import { resetNavOrder, setNavOrder } from "@/lib/db/admin-nav-order-queries";
+import {
+  clearNavOrderForKeys,
+  setNavOrder,
+} from "@/lib/db/admin-nav-order-queries";
 
 /**
  * Salva l'ordinamento custom dei top-level della sidebar admin.
@@ -40,15 +43,23 @@ export async function saveNavOrderAction(
   return { success: true };
 }
 
-/** Cancella tutti gli override → torna ai default del codice. */
-export async function resetNavOrderAction(): Promise<{
-  error?: string;
-  success?: boolean;
-}> {
+/**
+ * Reset granulare: cancella gli override solo per le `keys` indicate. Il
+ * caller passa l'insieme di keys "in scope" (top-level del primo edit
+ * mode, oppure le direct children di un drawer specifico) — così il reset
+ * di uno scope non distrugge gli override dell'altro.
+ */
+export async function resetNavOrderAction(
+  keys: string[],
+): Promise<{ error?: string; success?: boolean }> {
   const user = await requireAdminPage();
   if (!user) return { error: "Unauthorized" };
+  if (!Array.isArray(keys)) return { error: "Invalid payload" };
+  const safe = keys.filter(
+    (k): k is string => typeof k === "string" && k.length > 0 && k.length <= 64,
+  );
   try {
-    await resetNavOrder();
+    await clearNavOrderForKeys(safe);
   } catch (err) {
     console.error("[resetNavOrderAction] error:", err);
     return { error: "Failed to reset order" };

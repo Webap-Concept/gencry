@@ -24,7 +24,8 @@
     "navReset": "Reset",
     "navResetTooltip": "Ripristina ordine di default",
     "navDragHandle": "Trascina per riordinare",
-    "navDrawerClose": "Chiudi pannello sezione"
+    "navDrawerClose": "Chiudi pannello sezione",
+    "navDrawerEditHint": "Riordina le sotto-voci"
   },
   "confirmModal": {
     "defaultConfirm": "Conferma",
@@ -531,6 +532,8 @@
       "defaultRoleHint": "Ruolo assegnato automaticamente a ogni nuovo utente che si registra. I ruoli con privilegi di amministratore non sono selezionabili.",
       "noRolesAvailable": "Nessun ruolo non-admin disponibile. Crea almeno un ruolo nella sezione Accesso › Ruoli.",
       "availableRoles": "Ruoli disponibili",
+      "onboardingLabel": "Richiedi wizard di onboarding",
+      "onboardingDescription": "Se attivo, i nuovi utenti (sia da form sia OAuth) devono completare il wizard di benvenuto (username + interessi) prima di entrare nell'app. Se disattivo, il wizard viene saltato e l'utente atterra direttamente in home; per i signup OAuth lo username viene generato automaticamente dall'email e l'utente può modificarlo in seguito dal proprio profilo.",
       "save": "Salva",
       "saving": "Salvataggio...",
       "consentVersionsTitle": "Versioni consensi registrazione",
@@ -1841,6 +1844,23 @@
         "toolbarImage": "Inserisci immagine",
         "toolbarSeparator": "Separatore",
         "linkPrompt": "URL del link:",
+        "linkDialogInsertTitle": "Inserisci link",
+        "linkDialogEditTitle": "Modifica link",
+        "linkDialogClose": "Chiudi",
+        "linkDialogUrlLabel": "URL",
+        "linkDialogUrlPlaceholder": "https://esempio.it",
+        "linkDialogTargetLabel": "Target",
+        "linkDialogTargetSelf": "Stessa scheda (default)",
+        "linkDialogTargetBlank": "Nuova scheda (_blank)",
+        "linkDialogTargetParent": "Frame padre (_parent)",
+        "linkDialogTargetTop": "Frame top (_top)",
+        "linkDialogTargetHint": "Dove il browser apre il link. Scegli \"Nuova scheda\" per non far perdere all'utente la pagina corrente.",
+        "linkDialogRelLabel": "Rel",
+        "linkDialogRelHint": "Relazione tra questa pagina e la destinazione. \"noopener noreferrer\" viene suggerito di default sui link in nuova scheda per prevenire hijacking via window.opener.",
+        "linkDialogInsert": "Inserisci",
+        "linkDialogSave": "Salva",
+        "linkDialogCancel": "Annulla",
+        "linkDialogRemove": "Rimuovi link",
         "linkInternalSearchPlaceholder": "Cerca per titolo o slug…",
         "linkInternalEmpty": "Nessuna pagina trovata",
         "linkInternalCloseAria": "Chiudi",
@@ -1945,7 +1965,10 @@
         "rejectedMime": "tipo di file non ammesso",
         "rejectedSize": "supera i {maxMb} MB",
         "rejectedOne": "{name}: {reason}.",
-        "rejectedMany": "{count} file scartati (dimensione o tipo)."
+        "rejectedMany": "{count} file scartati (dimensione o tipo).",
+        "uploaded": "{count, plural, one {File caricato.} other {{count} file caricati.}}",
+        "uploadedPartial": "{ok} caricati, {failed} falliti.",
+        "uploadFailedGeneric": "Caricamento fallito. Riprova."
       },
       "grid": {
         "empty": "Nessun file caricato — carica il primo per iniziare.",
@@ -1990,6 +2013,12 @@
         "remove": "Rimuovi",
         "sourceLibrary": "Dalla libreria",
         "sourceUrl": "URL esterno"
+      },
+      "pagination": {
+        "ariaLabel": "Paginazione media",
+        "indicator": "Pagina {current} di {total} — {count} asset",
+        "prev": "Pagina precedente",
+        "next": "Pagina successiva"
       },
       "tree": {
         "title": "Cartelle",

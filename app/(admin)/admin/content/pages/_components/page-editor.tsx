@@ -24,8 +24,10 @@ import {
   BlockquoteMenu,
   HeadingMenu,
   InternalLinkPicker,
+  LinkDialog,
   LinkMenu,
   type InternalLinkPage,
+  type LinkDialogValue,
 } from "./editor-toolbar-menus";
 import {
   AlertTriangle,
@@ -870,7 +872,30 @@ export default function PageEditor({
       }),
       BlockquoteStyled,
       Underline,
-      Link.configure({
+      // Link esteso: target/rel sono parte dello schema dell'attributo così
+      // sopravvivono al round-trip HTML→ProseMirror→HTML. Il default Tiptap
+      // v3 espone `target` ma scarta `rel`; senza queste estensioni il
+      // dialog UI sembrerebbe funzionare ma il `rel` salvato verrebbe perso
+      // alla riapertura della pagina nell'editor.
+      Link.extend({
+        addAttributes() {
+          const parent = this.parent?.() ?? {};
+          return {
+            ...parent,
+            target: {
+              default: null,
+              parseHTML: (el) => (el as HTMLElement).getAttribute("target"),
+              renderHTML: (attrs) =>
+                attrs.target ? { target: attrs.target } : {},
+            },
+            rel: {
+              default: null,
+              parseHTML: (el) => (el as HTMLElement).getAttribute("rel"),
+              renderHTML: (attrs) => (attrs.rel ? { rel: attrs.rel } : {}),
+            },
+          };
+        },
+      }).configure({
         openOnClick: false,
         HTMLAttributes: { class: "underline" },
       }),
@@ -923,12 +948,43 @@ export default function PageEditor({
       setSlug(leaf);
     }
   }
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkDialogInitial, setLinkDialogInitial] = useState<LinkDialogValue>({
+    href: "",
+    target: null,
+    rel: null,
+  });
   function handleLinkInsert() {
-    const current = editor?.getAttributes("link").href as string | undefined;
-    const url = window.prompt(t("linkPrompt"), current ?? "");
-    if (url === null) return;
-    if (url === "") editor?.chain().focus().unsetLink().run();
-    else editor?.chain().focus().setLink({ href: url }).run();
+    if (!editor) return;
+    const attrs = editor.getAttributes("link") as {
+      href?: string;
+      target?: string | null;
+      rel?: string | null;
+    };
+    setLinkDialogInitial({
+      href: attrs.href ?? "",
+      target: attrs.target ?? null,
+      rel: attrs.rel ?? null,
+    });
+    setLinkDialogOpen(true);
+  }
+  function handleLinkDialogSubmit(value: LinkDialogValue) {
+    setLinkDialogOpen(false);
+    if (!editor) return;
+    if (!value.href) {
+      editor.chain().focus().unsetLink().run();
+      return;
+    }
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({
+        href: value.href,
+        target: value.target ?? null,
+        rel: value.rel ?? null,
+      })
+      .run();
   }
   const [internalLinkOpen, setInternalLinkOpen] = useState(false);
   function handleInternalLinkPicked(p: InternalLinkPage) {
@@ -1585,6 +1641,12 @@ export default function PageEditor({
                 pages={internalLinkPages}
                 onClose={() => setInternalLinkOpen(false)}
                 onSelect={handleInternalLinkPicked}
+              />
+              <LinkDialog
+                open={linkDialogOpen}
+                initial={linkDialogInitial}
+                onClose={() => setLinkDialogOpen(false)}
+                onSubmit={handleLinkDialogSubmit}
               />
             </>
           )}

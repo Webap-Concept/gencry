@@ -4,6 +4,7 @@
 import { validatedAction } from "@/lib/auth/middleware";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
+import { bypassOnboardingIfNeeded, isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import {
   checkGeneralRateLimit,
@@ -83,15 +84,21 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
   // Onboarding gate per non-admin: leggiamo onboardingCompletedAt qui
   // (cookie pendingAuth non lo contiene). PK lookup, sul path raro della
   // verifica dispositivo: costo trascurabile.
+  // L'admin può disabilitare globalmente il wizard via /admin/settings/signup;
+  // in quel caso `bypassOnboardingIfNeeded` chiude il profilo.
   if (role !== "admin") {
     const [u] = await db
-      .select({ onboardingCompletedAt: users.onboardingCompletedAt })
+      .select({
+        email: users.email,
+        onboardingCompletedAt: users.onboardingCompletedAt,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!u?.onboardingCompletedAt) {
+    if (u && (await isOnboardingRequired({ role, onboardingCompletedAt: u.onboardingCompletedAt }))) {
       redirect("/onboarding");
     }
+    if (u) await bypassOnboardingIfNeeded({ id: userId, email: u.email, role, onboardingCompletedAt: u.onboardingCompletedAt });
   }
 
   // Verify-device da flusso pubblico → "/". Admin entry è dedicato.

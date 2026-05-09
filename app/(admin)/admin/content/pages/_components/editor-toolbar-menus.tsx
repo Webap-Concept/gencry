@@ -753,3 +753,413 @@ function MenuItem({
     </button>
   );
 }
+
+// ---------------------------------------------------------------------------
+// LinkDialog — modale per inserimento/modifica link esterno con target + rel
+// ---------------------------------------------------------------------------
+
+export type LinkDialogValue = {
+  href: string;
+  target: string | null;
+  rel: string | null;
+};
+
+const TARGET_OPTIONS = [
+  { value: "", labelKey: "linkDialogTargetSelf" }, // null/_self → stessa tab
+  { value: "_blank", labelKey: "linkDialogTargetBlank" },
+  { value: "_parent", labelKey: "linkDialogTargetParent" },
+  { value: "_top", labelKey: "linkDialogTargetTop" },
+] as const;
+
+// I valori `rel` ammessi sono fissi (il browser non riconosce custom token).
+// L'ordine qui è quello in cui appariranno serializzati: `noopener noreferrer`
+// per coerenza coi default del browser quando si apre un link in nuova tab.
+const REL_TOKENS = [
+  "noopener",
+  "noreferrer",
+  "nofollow",
+  "sponsored",
+  "ugc",
+] as const;
+type RelToken = (typeof REL_TOKENS)[number];
+
+function parseRel(rel: string | null): Set<RelToken> {
+  const out = new Set<RelToken>();
+  if (!rel) return out;
+  for (const part of rel.split(/\s+/)) {
+    if ((REL_TOKENS as readonly string[]).includes(part)) out.add(part as RelToken);
+  }
+  return out;
+}
+
+function serializeRel(tokens: Set<RelToken>): string | null {
+  if (tokens.size === 0) return null;
+  // Mantieni l'ordine canonico di REL_TOKENS, non quello di inserimento.
+  return REL_TOKENS.filter((t) => tokens.has(t)).join(" ");
+}
+
+export function LinkDialog({
+  open,
+  initial,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  initial: LinkDialogValue;
+  onClose: () => void;
+  onSubmit: (value: LinkDialogValue) => void;
+}) {
+  const t = useTranslations("admin.content.pages.editor");
+  const [href, setHref] = useState(initial.href);
+  const [target, setTarget] = useState<string>(initial.target ?? "");
+  const [rel, setRel] = useState<Set<RelToken>>(() => parseRel(initial.rel));
+  // Quando l'utente passa a target=_blank vogliamo suggerire automaticamente
+  // `noopener noreferrer` (security best practice — evita window.opener
+  // hijacking + non leakare il referrer al sito di destinazione). Lo facciamo
+  // SOLO al primo cambio user-driven a `_blank`, non riapplichiamo mai dopo:
+  // se l'utente toglie le checkbox manualmente è una scelta esplicita.
+  const autoRelAppliedRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setHref(initial.href);
+      setTarget(initial.target ?? "");
+      setRel(parseRel(initial.rel));
+      autoRelAppliedRef.current = false;
+      setTimeout(() => inputRef.current?.focus(), 30);
+    }
+  }, [open, initial]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  function toggleRel(token: RelToken) {
+    setRel((prev) => {
+      const next = new Set(prev);
+      if (next.has(token)) next.delete(token);
+      else next.add(token);
+      return next;
+    });
+  }
+
+  function handleTargetChange(next: string) {
+    setTarget(next);
+    if (
+      next === "_blank" &&
+      !autoRelAppliedRef.current &&
+      rel.size === 0
+    ) {
+      autoRelAppliedRef.current = true;
+      setRel(new Set<RelToken>(["noopener", "noreferrer"]));
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = href.trim();
+    onSubmit({
+      href: trimmed,
+      target: target || null,
+      rel: serializeRel(rel),
+    });
+  }
+
+  function handleRemove() {
+    onSubmit({ href: "", target: null, rel: null });
+  }
+
+  if (!open) return null;
+
+  const isEdit = Boolean(initial.href);
+
+  return createPortal(
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(2px)",
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10001,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          padding: "5rem 1rem 1rem",
+          pointerEvents: "none",
+        }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+            borderRadius: "14px",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+            width: "100%",
+            maxWidth: "520px",
+            display: "flex",
+            flexDirection: "column",
+            pointerEvents: "auto",
+          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+              padding: "14px 16px",
+              borderBottom: "1px solid var(--admin-card-border)",
+            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Link2 size={15} style={{ color: "var(--admin-text-faint)" }} />
+              <h3
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "var(--admin-text)",
+                  margin: 0,
+                }}>
+                {isEdit ? t("linkDialogEditTitle") : t("linkDialogInsertTitle")}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("linkDialogClose")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--admin-text-faint)",
+                cursor: "pointer",
+                display: "inline-flex",
+                padding: 4,
+              }}>
+              <X size={14} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--admin-text-muted)",
+                }}>
+                {t("linkDialogUrlLabel")}
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={href}
+                onChange={(e) => setHref(e.target.value)}
+                placeholder={t("linkDialogUrlPlaceholder")}
+                style={{
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
+                  fontSize: "0.85rem",
+                  color: "var(--admin-text)",
+                  outline: "none",
+                }}
+              />
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--admin-text-muted)",
+                }}>
+                {t("linkDialogTargetLabel")}
+              </span>
+              <select
+                value={target}
+                onChange={(e) => handleTargetChange(e.target.value)}
+                style={{
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
+                  fontSize: "0.85rem",
+                  color: "var(--admin-text)",
+                  outline: "none",
+                }}>
+                {TARGET_OPTIONS.map((opt) => (
+                  <option key={opt.value || "_self"} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <span
+                style={{ fontSize: "0.72rem", color: "var(--admin-text-faint)" }}>
+                {t("linkDialogTargetHint")}
+              </span>
+            </label>
+
+            <fieldset
+              style={{
+                border: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}>
+              <legend
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--admin-text-muted)",
+                  padding: 0,
+                }}>
+                {t("linkDialogRelLabel")}
+              </legend>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                }}>
+                {REL_TOKENS.map((token) => {
+                  const checked = rel.has(token);
+                  return (
+                    <label
+                      key={token}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        border: `1px solid ${
+                          checked
+                            ? "var(--admin-accent)"
+                            : "var(--admin-card-border)"
+                        }`,
+                        background: checked
+                          ? "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))"
+                          : "var(--admin-page-bg)",
+                        color: checked
+                          ? "var(--admin-accent)"
+                          : "var(--admin-text-muted)",
+                        fontSize: "0.78rem",
+                        cursor: "pointer",
+                        userSelect: "none",
+                      }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleRel(token)}
+                        style={{ accentColor: "var(--admin-accent)" }}
+                      />
+                      <span style={{ fontFamily: "monospace" }}>{token}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <span
+                style={{ fontSize: "0.72rem", color: "var(--admin-text-faint)" }}>
+                {t("linkDialogRelHint")}
+              </span>
+            </fieldset>
+          </div>
+
+          <div
+            style={{
+              padding: "12px 16px",
+              borderTop: "1px solid var(--admin-card-border)",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}>
+            {isEdit ? (
+              <button
+                type="button"
+                onClick={handleRemove}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--admin-destructive, #b91c1c)",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.8rem",
+                  padding: "6px 10px",
+                }}>
+                <Link2Off size={13} />
+                {t("linkDialogRemove")}
+              </button>
+            ) : (
+              <span />
+            )}
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--admin-card-border)",
+                  borderRadius: "8px",
+                  color: "var(--admin-text-muted)",
+                  cursor: "pointer",
+                  padding: "8px 14px",
+                  fontSize: "0.82rem",
+                }}>
+                {t("linkDialogCancel")}
+              </button>
+              <button
+                type="submit"
+                disabled={!href.trim()}
+                style={{
+                  background: "var(--admin-accent)",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "white",
+                  cursor: href.trim() ? "pointer" : "not-allowed",
+                  padding: "8px 14px",
+                  fontSize: "0.82rem",
+                  fontWeight: 500,
+                  opacity: href.trim() ? 1 : 0.6,
+                }}>
+                {isEdit ? t("linkDialogSave") : t("linkDialogInsert")}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </>,
+    document.body,
+  );
+}

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/drizzle";
 import { adminNavOrder } from "@/lib/db/schema";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 
 /**
  * Cache in-memory dell'ordering override (TTL 60s). Evita un round-trip al
@@ -36,26 +36,42 @@ export async function getNavOrderOverrides(): Promise<Record<string, number>> {
 }
 
 /**
- * Sostituisce TUTTI gli override con `updates`. Le righe non più presenti
- * vengono rimosse → torna ai default del codice. Atomico via transazione.
+ * Upsert degli override forniti. Le keys non incluse in `updates` NON
+ * vengono toccate — questo permette di salvare un subset (es. solo i
+ * top-level, o solo le child di un drawer) senza azzerare gli altri
+ * override già persistiti.
  */
 export async function setNavOrder(
   updates: { itemKey: string; sortOrder: number }[],
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.delete(adminNavOrder);
-    if (updates.length > 0) {
-      const now = new Date();
-      await tx
-        .insert(adminNavOrder)
-        .values(updates.map((u) => ({ ...u, updatedAt: now })));
-    }
-  });
+  if (updates.length === 0) {
+    invalidateNavOrderCache();
+    return;
+  }
+  const now = new Date();
+  await db
+    .insert(adminNavOrder)
+    .values(updates.map((u) => ({ ...u, updatedAt: now })))
+    .onConflictDoUpdate({
+      target: adminNavOrder.itemKey,
+      set: {
+        sortOrder: sql`excluded.sort_order`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
   invalidateNavOrderCache();
 }
 
-/** Cancella tutti gli override → la sidebar torna ai default del codice. */
-export async function resetNavOrder(): Promise<void> {
-  await db.execute(sql`DELETE FROM admin_nav_order`);
+/**
+ * Cancella gli override per le sole `keys` indicate. Usato dai pulsanti
+ * "Reset" granulari (top-level e per-drawer) per non distruggere gli
+ * override degli altri scope.
+ */
+export async function clearNavOrderForKeys(keys: string[]): Promise<void> {
+  if (keys.length === 0) {
+    invalidateNavOrderCache();
+    return;
+  }
+  await db.delete(adminNavOrder).where(inArray(adminNavOrder.itemKey, keys));
   invalidateNavOrderCache();
 }

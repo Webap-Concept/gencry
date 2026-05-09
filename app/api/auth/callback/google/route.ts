@@ -29,6 +29,7 @@ import {
 } from "@/lib/auth/trusted-device";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
+import { bypassOnboardingIfNeeded, isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -117,7 +118,11 @@ export async function GET(req: NextRequest) {
       await addTrustedDevice(dbUser.id, newToken, ua);
       await setDeviceTokenCookie(newToken);
       await createSession(dbUser.id, dbUser.role);
-      return redirect(!dbUser.onboardingCompletedAt ? "/onboarding" : "/");
+      if (await isOnboardingRequired(dbUser)) {
+        return redirect("/onboarding");
+      }
+      await bypassOnboardingIfNeeded(dbUser);
+      return redirect("/");
     }
 
     // SIGN_UP è già loggato in findOrCreateOAuthUser; qui logghiamo SIGN_IN
@@ -151,9 +156,12 @@ export async function GET(req: NextRequest) {
       await createSession(dbUser.id, dbUser.role);
       // Onboarding gate: utenti non-admin con onboarding incompleto vengono
       // rimandati al wizard (es. abbandono dopo signup OAuth).
-      if (dbUser.role !== "admin" && !dbUser.onboardingCompletedAt) {
+      // L'admin può disabilitare globalmente il wizard via /admin/settings/signup;
+      // in quel caso `bypassOnboardingIfNeeded` chiude il profilo.
+      if (await isOnboardingRequired(dbUser)) {
         return redirect("/onboarding");
       }
+      await bypassOnboardingIfNeeded(dbUser);
       // OAuth Google è flusso pubblico: redirect sempre a "/". Gli admin
       // si autenticano via /<adminSlug>/sign-in (password + MFA), non via
       // OAuth — se un giorno serve OAuth admin, sarà una feature dedicata.
