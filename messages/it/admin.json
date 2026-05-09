@@ -1846,6 +1846,8 @@
         "linkInternalSearchPlaceholder": "Cerca per titolo o slug…",
         "linkInternalEmpty": "Nessuna pagina trovata",
         "linkInternalCloseAria": "Chiudi",
+        "linkInternalExpand": "Espandi",
+        "linkInternalCollapse": "Comprimi",
         "placeholdersTrigger": "Placeholder disponibili",
         "placeholderTooltip": "Clicca per inserire nel testo",
         "seoConfigured": "Meta SEO configurati",

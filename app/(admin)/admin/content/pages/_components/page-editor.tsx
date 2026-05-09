@@ -1033,7 +1033,12 @@ export default function PageEditor({
             (!page?.id || p.id !== page.id) &&
             !(p.isSystem && p.contentEditable === false),
         )
-        .map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          parentId: p.parentId ?? null,
+        })),
     [pages, page?.id],
   );
 

@@ -1846,6 +1846,8 @@
         "linkInternalSearchPlaceholder": "Search by title or slug…",
         "linkInternalEmpty": "No pages match",
         "linkInternalCloseAria": "Close",
+        "linkInternalExpand": "Expand",
+        "linkInternalCollapse": "Collapse",
         "placeholdersTrigger": "Available Placeholders",
         "placeholderTooltip": "Click for insert into the text",
         "seoConfigured": "SEO meta configured",

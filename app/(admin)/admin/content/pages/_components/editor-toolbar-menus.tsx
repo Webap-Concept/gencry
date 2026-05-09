@@ -3,6 +3,7 @@
 import type { Editor } from "@tiptap/react";
 import {
   ChevronDown,
+  ChevronRight,
   Link2,
   Link2Off,
   Quote,
@@ -224,6 +225,7 @@ export type InternalLinkPage = {
   id: number;
   title: string;
   slug: string;
+  parentId: number | null;
 };
 
 export function LinkMenu({
@@ -331,8 +333,65 @@ export function LinkMenu({
 }
 
 // ---------------------------------------------------------------------------
-// InternalLinkPicker — modal con search + lista pagine pubblicate
+// InternalLinkPicker — modal con search + albero pagine pubblicate
 // ---------------------------------------------------------------------------
+
+type InternalLinkTreeNode = InternalLinkPage & {
+  depth: number;
+  children: InternalLinkTreeNode[];
+};
+
+function buildInternalLinkTree(
+  pages: InternalLinkPage[],
+): InternalLinkTreeNode[] {
+  const byId = new Map<number, InternalLinkTreeNode>();
+  for (const p of pages) {
+    byId.set(p.id, { ...p, depth: 0, children: [] });
+  }
+  const roots: InternalLinkTreeNode[] = [];
+  for (const p of pages) {
+    const node = byId.get(p.id)!;
+    const parent =
+      p.parentId != null ? byId.get(p.parentId) ?? null : null;
+    if (parent) {
+      node.depth = parent.depth + 1;
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+// Per ogni nodo che (lui o un discendente) matcha la query, ritorniamo
+// l'insieme dei nodi visibili e quello degli antenati da espandere a forza.
+function filterTree(
+  roots: InternalLinkTreeNode[],
+  q: string,
+): { visible: Set<number>; forceExpand: Set<number> } {
+  const visible = new Set<number>();
+  const forceExpand = new Set<number>();
+
+  function visit(node: InternalLinkTreeNode, ancestors: number[]): boolean {
+    const selfMatch =
+      node.title.toLowerCase().includes(q) ||
+      node.slug.toLowerCase().includes(q);
+    let descendantMatch = false;
+    for (const c of node.children) {
+      if (visit(c, [...ancestors, node.id])) descendantMatch = true;
+    }
+    if (selfMatch || descendantMatch) {
+      visible.add(node.id);
+      for (const a of ancestors) forceExpand.add(a);
+      if (descendantMatch) forceExpand.add(node.id);
+      return true;
+    }
+    return false;
+  }
+
+  for (const r of roots) visit(r, []);
+  return { visible, forceExpand };
+}
 
 export function InternalLinkPicker({
   open,
@@ -347,11 +406,13 @@ export function InternalLinkPicker({
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setQuery("");
+      setExpanded(new Set());
       setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
@@ -365,14 +426,40 @@ export function InternalLinkPicker({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return pages;
-    return pages.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q),
-    );
-  }, [pages, query]);
+  const tree = useMemo(() => buildInternalLinkTree(pages), [pages]);
+
+  const trimmedQuery = query.trim().toLowerCase();
+
+  const { visible, forceExpand } = useMemo(() => {
+    if (!trimmedQuery)
+      return { visible: null as Set<number> | null, forceExpand: new Set<number>() };
+    return filterTree(tree, trimmedQuery);
+  }, [tree, trimmedQuery]);
+
+  // Linearizza l'albero per il render, rispettando expanded ∪ forceExpand
+  // e filtrando i nodi non visibili quando c'è una query attiva.
+  const rows = useMemo(() => {
+    const out: InternalLinkTreeNode[] = [];
+    function walk(node: InternalLinkTreeNode) {
+      if (visible && !visible.has(node.id)) return;
+      out.push(node);
+      const isOpen = forceExpand.has(node.id) || expanded.has(node.id);
+      if (isOpen) {
+        for (const c of node.children) walk(c);
+      }
+    }
+    for (const r of tree) walk(r);
+    return out;
+  }, [tree, expanded, forceExpand, visible]);
+
+  function toggle(id: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   if (!open) return null;
 
@@ -458,7 +545,7 @@ export function InternalLinkPicker({
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "0.5rem" }}>
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               <div
                 style={{
                   padding: "2rem 1rem",
@@ -469,48 +556,107 @@ export function InternalLinkPicker({
                 {t("linkInternalEmpty")}
               </div>
             ) : (
-              filtered.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    onSelect(p);
-                    onClose();
-                  }}
-                  className="w-full text-left transition-colors"
-                  style={{
-                    display: "block",
-                    padding: "0.5rem 0.75rem",
-                    borderRadius: "0.5rem",
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "var(--admin-text)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--admin-hover-bg)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                  }}>
+              rows.map((node) => {
+                const hasChildren = node.children.length > 0;
+                const isOpen =
+                  forceExpand.has(node.id) || expanded.has(node.id);
+                // Indent: 18px per livello + 4px di base. Il chevron occupa
+                // 22px, quando il nodo è foglia mettiamo uno spacer per
+                // mantenere allineamento title/slug colonna-stile.
+                const indent = 4 + node.depth * 18;
+                return (
                   <div
+                    key={node.id}
                     style={{
-                      fontSize: "0.875rem",
-                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "stretch",
+                      borderRadius: "0.5rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "var(--admin-hover-bg)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
                     }}>
-                    {p.title}
+                    <div style={{ width: indent, flexShrink: 0 }} />
+                    {hasChildren ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggle(node.id);
+                        }}
+                        aria-label={t(
+                          isOpen
+                            ? "linkInternalCollapse"
+                            : "linkInternalExpand",
+                        )}
+                        style={{
+                          width: 22,
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "none",
+                          background: "transparent",
+                          color: "var(--admin-text-faint)",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}>
+                        {isOpen ? (
+                          <ChevronDown size={13} />
+                        ) : (
+                          <ChevronRight size={13} />
+                        )}
+                      </button>
+                    ) : (
+                      <div style={{ width: 22, flexShrink: 0 }} />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelect(node);
+                        onClose();
+                      }}
+                      className="text-left transition-colors"
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "block",
+                        padding: "0.4rem 0.5rem 0.4rem 0.25rem",
+                        borderRadius: "0.5rem",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        color: "var(--admin-text)",
+                      }}>
+                      <div
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                        {node.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          fontFamily: "monospace",
+                          color: "var(--admin-text-faint)",
+                          marginTop: "2px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                        /{node.slug}
+                      </div>
+                    </button>
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      fontFamily: "monospace",
-                      color: "var(--admin-text-faint)",
-                      marginTop: "2px",
-                    }}>
-                    /{p.slug}
-                  </div>
-                </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>
