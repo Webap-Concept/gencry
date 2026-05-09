@@ -2368,7 +2368,7 @@
       "robotsNoIndexFollowLabel": "noindex, follow",
       "robotsNoIndexFollowHint": "Do not index, but follow links",
       "jsonLdHeading": "JSON-LD Structured Data",
-      "jsonLdToggleHint": "Injects a <script type=\"application/ld+json\"> block in the page for Google rich results.",
+      "jsonLdToggleHint": "Injects a '<script type=\"application/ld+json\">' block in the page for Google rich results.",
       "jsonLdTypeLabel": "Schema type",
       "jsonLdTypePlaceholder": "Select a type...",
       "jsonLdHint_WebPage": "Generic web page — ideal for homepages and institutional pages",
@@ -2515,7 +2515,7 @@
         "mistakesHeading": "Common mistakes",
         "mistakesCallout": "Adding a service to the registry but forgetting to gate its script load is the most frequent regression. The registry is documentation — it does <b>not</b> automatically prevent the cookie from being set. Always pair the registry change with a consent check at the mount site.",
         "mistakeMisuse": "Don't put a tracker in <c>cookie_necessary</c> just because \"the site needs it to work the way we want\". Necessary means <i>the user requested</i> it (session, CSRF). Analytics never qualifies — even when business-critical.",
-        "mistakeRemoval": "When you delete a service from this view, remove the script-load site at the same commit too. A live <c><script src></c> with no matching registry entry leaves visitors with cookies they never agreed to.",
+        "mistakeRemoval": "When you delete a service from this view, remove the script-load site at the same commit too. A live <c>'<script src>'</c> with no matching registry entry leaves visitors with cookies they never agreed to.",
         "schemaHeading": "Schema reference",
         "schemaBody": "The four <c>consent_type</c> values come from <c>CONSENT_TYPES</c> in <c>lib/db/schema.ts</c> and are persisted in <c>consent_records</c> with <c>source = \"cookie_banner\"</c> and <c>metadata.variant ∈ {literalOpen}accept_all, reject_all, custom{literalClose}</c>. Adding a fifth category is a schema change (new row in <c>cookie_categories</c> + new value in the enum + i18n key + service routing) — not just a UI change."
       }
