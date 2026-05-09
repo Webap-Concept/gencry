@@ -531,6 +531,10 @@ function PageRow({
           style={{ background: isPublished ? "#22c55e" : "var(--admin-text-faint)" }}
         />
 
+        {/* Colonna NOME — flex:1 min-w-0 garantisce truncate sia su title
+            che su slug. Il bottone "+ child" sta inline col title così
+            quando lo slug è lungo si comprime senza muovere le altre
+            colonne. */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <Tooltip label={t("rowEdit")} side="top">
@@ -552,9 +556,8 @@ function PageRow({
               </button>
             </Tooltip>
 
-            {/* Inline + child — solo per pagine non-system, come gli altri
-                comandi di hierarchy creation. Stop propagation per non
-                triggerare il toggle expand del row. */}
+            {/* Inline + child — solo per pagine non-system. Stop
+                propagation per non triggerare il toggle expand del row. */}
             {!isSystem && (
               <Tooltip label={t("rowNewChild")} side="top">
                 <button
@@ -580,41 +583,45 @@ function PageRow({
                 </button>
               </Tooltip>
             )}
-
-            {/* Mini-thumbnails (max 2) — estratte server-side da customFields
-                image + primi <img> nel content. Click no-op per non triggerare
-                l'expand involontario. */}
-            {pageThumbnails[page.id]?.length ? (
-              <span
-                className="flex items-center gap-1 shrink-0"
-                onClick={(e) => e.stopPropagation()}>
-                {pageThumbnails[page.id].map((thumb, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={thumb.src}
-                    srcSet={thumb.srcSet}
-                    sizes={thumb.sizes}
-                    alt={thumb.alt}
-                    width={20}
-                    height={20}
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      borderRadius: "4px",
-                      objectFit: "cover",
-                      border: "1px solid var(--admin-card-border)",
-                      background: "var(--admin-page-bg)",
-                      flexShrink: 0,
-                    }}
-                  />
-                ))}
-              </span>
-            ) : null}
           </div>
           <p className="text-xs font-mono truncate" style={{ color: "var(--admin-text-faint)" }}>
             /{page.slug}
           </p>
+        </div>
+
+        {/* Colonna THUMBS — width fissa SEMPRE renderizzata (anche se la
+            pagina non ha immagini) così le thumbs delle righe siblings
+            restano verticalmente incolonnate "a tabella". 2 thumbs × 36
+            + gap 4 = 76px → fissato 80px per padding visivo. */}
+        <div
+          className="hidden sm:flex items-center justify-start shrink-0"
+          style={{ width: "80px", height: "36px", marginLeft: "8px" }}
+          onClick={(e) => e.stopPropagation()}>
+          {pageThumbnails[page.id]?.length ? (
+            <span className="flex items-center gap-1">
+              {pageThumbnails[page.id].map((thumb, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={thumb.src}
+                  srcSet={thumb.srcSet}
+                  sizes={thumb.sizes}
+                  alt={thumb.alt}
+                  width={36}
+                  height={36}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "6px",
+                    objectFit: "cover",
+                    border: "1px solid var(--admin-card-border)",
+                    background: "var(--admin-page-bg)",
+                    flexShrink: 0,
+                  }}
+                />
+              ))}
+            </span>
+          ) : null}
         </div>
 
         {tplName && (
