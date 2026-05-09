@@ -1,5 +1,6 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { db } from "@/lib/db/drizzle";
+import { getAllSystemPermissions } from "@/lib/db/permissions-data";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { rolePermissions } from "@/lib/db/schema";
 import { requireAdminPage } from "@/lib/rbac/guards";
@@ -7,7 +8,6 @@ import {
   getAllPermissions,
   getSystemPermissionsDrift,
 } from "@/lib/rbac/permissions-queries";
-import { SYSTEM_PERMISSIONS } from "@/lib/rbac/system-permissions";
 import { KeyRound } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -21,36 +21,46 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function PermissionsContent() {
-  const [allPermissions, roles, matrix, drift, tDesc] = await Promise.all([
-    getAllPermissions(),
-    getAdminRoles(),
-    db
-      .select({
-        roleId: rolePermissions.roleId,
-        permissionId: rolePermissions.permissionId,
-      })
-      .from(rolePermissions),
-    getSystemPermissionsDrift(),
-    getTranslations("admin.access.permissions.permissionDescriptions"),
-  ]);
+  const [allPermissions, roles, matrix, drift, tLabel, tDesc] =
+    await Promise.all([
+      getAllPermissions(),
+      getAdminRoles(),
+      db
+        .select({
+          roleId: rolePermissions.roleId,
+          permissionId: rolePermissions.permissionId,
+        })
+        .from(rolePermissions),
+      getSystemPermissionsDrift(),
+      getTranslations("admin.access.permissions.permissionLabels"),
+      getTranslations("admin.access.permissions.permissionDescriptions"),
+    ]);
 
-  // Per i permessi di sistema preferiamo la description dalla i18n: il
-  // seed/DB tiene una versione IT come fallback, ma la UI deve seguire la
-  // lingua dell'utente. Per i custom permissions creati dall'admin
-  // manteniamo la description del DB (può essere in qualunque lingua).
+  // Source of truth dei permessi system = permissions-data.ts (lo stesso
+  // file che alimenta seed e "Sync system permissions"). Per ognuno la UI
+  // mostra label e description tradotti dai messages i18n; i fallback
+  // (label dal codice, description dal DB) coprono i custom permissions e
+  // i casi in cui manca la traduzione per la chiave.
+  const systemPerms = getAllSystemPermissions();
+  const systemKeySet = new Set(systemPerms.map((p) => p.key));
+  const translateLabel = (key: string, fallback: string) =>
+    tLabel.has(key) ? tLabel(key) : fallback;
   const translateDescription = (key: string, fallback: string | null) =>
     tDesc.has(key) ? tDesc(key) : (fallback ?? "");
 
-  const systemKeys = SYSTEM_PERMISSIONS.map((p) => ({
+  const systemKeys = systemPerms.map((p) => ({
     key: p.key,
-    description: translateDescription(p.key, p.description),
+    description: translateDescription(p.key, null),
     group: p.group,
   }));
 
-  const systemKeySet = new Set(SYSTEM_PERMISSIONS.map((p) => p.key));
   const translatedPermissions = allPermissions.map((p) =>
     systemKeySet.has(p.key)
-      ? { ...p, description: translateDescription(p.key, p.description) }
+      ? {
+          ...p,
+          label: translateLabel(p.key, p.label),
+          description: translateDescription(p.key, p.description),
+        }
       : p,
   );
 
