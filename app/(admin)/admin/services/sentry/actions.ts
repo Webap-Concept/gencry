@@ -1,11 +1,13 @@
 "use server";
 
+import { getAdminPath } from "@/lib/admin-paths";
 import { batchUpdateAppSettings } from "@/lib/db/settings-queries";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { isValidDsn } from "@/lib/sentry/config";
 import { testSentryConnection } from "@/lib/sentry/test-connection";
 import { getTranslations } from "next-intl/server";
+import { revalidatePath } from "next/cache";
 
 export type ActionState =
   | Record<string, never>
@@ -70,6 +72,12 @@ export async function saveSentrySettings(
       "sentry.project": project,
       "sentry.auth_token": authToken,
     });
+
+    // Invalida la cache della pagina così la prossima nav (o un
+    // router.refresh client-side) ricarica i settings freschi. Il form
+    // è già controlled-state quindi non si svuota dopo il save, ma
+    // questo serve a chi torna sulla rotta dopo aver navigato altrove.
+    revalidatePath(await getAdminPath("services-sentry"));
 
     return { success: t("sentrySaved"), timestamp: Date.now() };
   } catch {

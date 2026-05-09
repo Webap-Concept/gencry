@@ -33,6 +33,22 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
   } | null>(null);
   const [showDsn, setShowDsn] = useState(false);
   const [showToken, setShowToken] = useState(false);
+
+  // Tutti i campi sono CONTROLLED. Pattern non-controlled (defaultValue +
+  // ref) non funziona qui: dopo il submit di una server action, React 19
+  // resetta i form non-controlled al defaultValue iniziale (snapshot al
+  // mount), non al valore appena salvato — l'utente vede l'input tornare
+  // vuoto finché non fa refresh. Con state controllato il valore resta
+  // quello digitato dall'utente.
+  const [dsn, setDsn] = useState(settings["sentry.dsn"] ?? "");
+  const [environment, setEnvironment] = useState(
+    settings["sentry.environment"] ?? "",
+  );
+  const [org, setOrg] = useState(settings["sentry.org"] ?? "");
+  const [project, setProject] = useState(settings["sentry.project"] ?? "");
+  const [authToken, setAuthToken] = useState(
+    settings["sentry.auth_token"] ?? "",
+  );
   const [pii, setPii] = useState(settings["sentry.send_default_pii"] === "true");
   const [tracesPct, setTracesPct] = useState<string>(() =>
     String(Math.round(Number(settings["sentry.traces_sample_rate"] ?? "0") * 100)),
@@ -45,10 +61,6 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
     ),
   );
 
-  const dsnRef = useRef<HTMLInputElement>(null);
-  const orgRef = useRef<HTMLInputElement>(null);
-  const projectRef = useRef<HTMLInputElement>(null);
-  const tokenRef = useRef<HTMLInputElement>(null);
   const lastSaveTs = useRef<number>(0);
   const lastTestTs = useRef<number>(0);
 
@@ -73,11 +85,15 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
   }, [testState]);
 
   function handleTest() {
+    // Niente refs: i valori vivono in state controllato e li leggiamo
+    // direttamente. Questo elimina il bug del Test che vedeva l'input
+    // vuoto subito dopo un Save (post-action React reset dei form
+    // non-controlled).
     const fd = new FormData();
-    fd.append("sentry_dsn", dsnRef.current?.value ?? "");
-    fd.append("sentry_org", orgRef.current?.value ?? "");
-    fd.append("sentry_project", projectRef.current?.value ?? "");
-    fd.append("sentry_auth_token", tokenRef.current?.value ?? "");
+    fd.append("sentry_dsn", dsn);
+    fd.append("sentry_org", org);
+    fd.append("sentry_project", project);
+    fd.append("sentry_auth_token", authToken);
     testAction(fd);
   }
 
@@ -129,11 +145,19 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
               </label>
               <div className="relative">
                 <input
-                  ref={dsnRef}
                   name="sentry_dsn"
                   type={showDsn ? "text" : "password"}
-                  defaultValue={settings["sentry.dsn"] ?? ""}
+                  value={dsn}
+                  onChange={(e) => setDsn(e.target.value)}
                   placeholder="https://abc@o123.ingest.sentry.io/456"
+                  // Niente autofill da password manager: il campo non è
+                  // un login, è un endpoint con chiave pubblica. Senza
+                  // questi attributi 1Password/Chrome riempivano il
+                  // campo con la prima password salvata sul dominio.
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  spellCheck={false}
                   className="w-full px-3 py-2 pr-20 text-sm rounded-lg focus:outline-none transition-colors font-mono"
                   style={inputStyle}
                 />
@@ -178,8 +202,10 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
               </label>
               <input
                 name="sentry_environment"
-                defaultValue={settings["sentry.environment"] ?? ""}
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value)}
                 placeholder={t("environmentPlaceholder")}
+                autoComplete="off"
                 className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
                 style={inputStyle}
               />
@@ -318,10 +344,14 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
                   {t("orgLabel")}
                 </label>
                 <input
-                  ref={orgRef}
                   name="sentry_org"
-                  defaultValue={settings["sentry.org"] ?? ""}
+                  value={org}
+                  onChange={(e) => setOrg(e.target.value)}
                   placeholder="acme-inc"
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  spellCheck={false}
                   className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
                   style={inputStyle}
                 />
@@ -333,10 +363,14 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
                   {t("projectLabel")}
                 </label>
                 <input
-                  ref={projectRef}
                   name="sentry_project"
-                  defaultValue={settings["sentry.project"] ?? ""}
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
                   placeholder="my-web"
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  spellCheck={false}
                   className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
                   style={inputStyle}
                 />
@@ -351,11 +385,15 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
               </label>
               <div className="relative">
                 <input
-                  ref={tokenRef}
                   name="sentry_auth_token"
                   type={showToken ? "text" : "password"}
-                  defaultValue={settings["sentry.auth_token"] ?? ""}
+                  value={authToken}
+                  onChange={(e) => setAuthToken(e.target.value)}
                   placeholder="sntrys_..."
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  spellCheck={false}
                   className="w-full px-3 py-2 pr-20 text-sm rounded-lg focus:outline-none transition-colors font-mono"
                   style={inputStyle}
                 />
