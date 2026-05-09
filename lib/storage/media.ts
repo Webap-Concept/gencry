@@ -4,27 +4,18 @@ import { randomUUID } from "node:crypto";
 import { SignJWT } from "jose";
 import sanitizeHtml from "sanitize-html";
 import { getStorageClient } from "./supabase";
+import type { MediaMime } from "./media-constants";
+
+export {
+  MEDIA_MAX_BYTES,
+  MEDIA_MAX_MB_HINT,
+  MEDIA_ALLOWED_MIMES,
+  MEDIA_ALLOWED_MIMES_HINT,
+  isAllowedMime,
+  type MediaMime,
+} from "./media-constants";
 
 const BUCKET = "media";
-
-export const MEDIA_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-
-export const MEDIA_ALLOWED_MIMES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-  "application/pdf",
-  "video/mp4",
-  "video/webm",
-] as const;
-
-export type MediaMime = (typeof MEDIA_ALLOWED_MIMES)[number];
-
-export function isAllowedMime(mime: string): mime is MediaMime {
-  return (MEDIA_ALLOWED_MIMES as readonly string[]).includes(mime);
-}
 
 const EXT_BY_MIME: Record<MediaMime, string> = {
   "image/jpeg": "jpg",

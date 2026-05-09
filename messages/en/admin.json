@@ -1931,7 +1931,11 @@
         "uploading": "Uploading…",
         "overlayUploading": "Uploading file…",
         "overlayUploadingMany": "Uploading {count} files…",
-        "overlayHint": "Don't close this tab until the upload completes."
+        "overlayHint": "Don't close this tab until the upload completes.",
+        "rejectedMime": "file type not allowed",
+        "rejectedSize": "exceeds {maxMb} MB",
+        "rejectedOne": "{name}: {reason}.",
+        "rejectedMany": "{count} files rejected (size or type)."
       },
       "grid": {
         "referencedByPrefix": "Used in",
@@ -1966,7 +1970,9 @@
         "empty": "No assets in this folder.",
         "emptyImagesOnly": "No images in this folder.",
         "uploading": "Uploading…",
-        "uploadHint": "Click to choose a file (max 10 MB)"
+        "uploadHint": "Click to choose a file (max {maxMb} MB)",
+        "rejectedMime": "{name}: file type not allowed.",
+        "rejectedSize": "{name}: exceeds {maxMb} MB."
       },
       "pickerField": {
         "pickButton": "Pick or upload an image",
@@ -2002,7 +2008,7 @@
         "notAuthenticated": "Not authenticated.",
         "noFiles": "No file selected.",
         "mimeNotAllowed": "{name}: file type not allowed.",
-        "fileTooLarge": "{name}: file is larger than 10 MB.",
+        "fileTooLarge": "{name}: file is larger than 16 MB.",
         "uploadFailed": "{name}: upload failed.",
         "uploadFailedGeneric": "Upload failed. Please try again.",
         "uploaded": "{count, plural, one {# asset uploaded} other {# assets uploaded}}.",

@@ -2,6 +2,13 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import { runTusUpload } from "@/lib/client/media-tus-upload";
+import {
+  isAllowedMime,
+  MEDIA_ALLOWED_MIMES,
+  MEDIA_ALLOWED_MIMES_HINT,
+  MEDIA_MAX_BYTES,
+  MEDIA_MAX_MB_HINT,
+} from "@/lib/storage/media-constants";
 import { Loader2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -10,21 +17,8 @@ import {
   confirmMediaUploadAction,
   createMediaUploadTicketAction,
 } from "../actions";
-import {
-  MEDIA_ALLOWED_MIMES_HINT,
-  MEDIA_MAX_MB_HINT,
-} from "./media-constants";
 
-const ACCEPT = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-  "application/pdf",
-  "video/mp4",
-  "video/webm",
-].join(",");
+const ACCEPT = MEDIA_ALLOWED_MIMES.join(",");
 
 type FileItem = {
   id: string;
@@ -57,7 +51,10 @@ export function MediaUploader({
     );
   }
 
-  async function uploadOne(item: FileItem, file: File): Promise<boolean> {
+  async function uploadOne(
+    item: FileItem,
+    file: File,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     // Step 1: ticket server
     const ticket = await createMediaUploadTicketAction({
       filename: file.name,
@@ -67,7 +64,7 @@ export function MediaUploader({
     });
     if (!ticket.ok) {
       updateItem(item.id, { status: "error", error: ticket.error });
-      return false;
+      return { ok: false, error: ticket.error };
     }
 
     // Step 2: TUS resumable PUT diretto al bucket
@@ -79,7 +76,7 @@ export function MediaUploader({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "upload_failed";
       updateItem(item.id, { status: "error", error: msg });
-      return false;
+      return { ok: false, error: msg };
     }
 
     // Step 3: confirm server (verifica esistenza + sanitize SVG + confirmed_at)
@@ -87,18 +84,55 @@ export function MediaUploader({
     const confirm = await confirmMediaUploadAction({ assetId: ticket.assetId });
     if (!confirm.ok) {
       updateItem(item.id, { status: "error", error: confirm.error });
-      return false;
+      return { ok: false, error: confirm.error };
     }
 
     updateItem(item.id, { status: "done" });
-    return true;
+    return { ok: true };
   }
 
   async function handleFiles(files: FileList) {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
 
-    const newItems: FileItem[] = fileArray.map((f) => ({
+    // Pre-check client-side: scarta subito file troppo grossi o di mime non
+    // ammessi senza round-trip al server. Il check server (createMediaUploadTicketAction)
+    // resta autoritativo, qui è solo UX.
+    const accepted: File[] = [];
+    const rejected: { name: string; reason: string }[] = [];
+    for (const f of fileArray) {
+      if (!isAllowedMime(f.type)) {
+        rejected.push({ name: f.name, reason: t("rejectedMime") });
+        continue;
+      }
+      if (f.size > MEDIA_MAX_BYTES) {
+        rejected.push({
+          name: f.name,
+          reason: t("rejectedSize", { maxMb: MEDIA_MAX_MB_HINT }),
+        });
+        continue;
+      }
+      accepted.push(f);
+    }
+
+    if (rejected.length > 0 && accepted.length === 0) {
+      // Nessun file valido: mostra subito l'errore puntuale (primo rejected)
+      // o un riassunto se sono >1.
+      setToast({
+        message:
+          rejected.length === 1
+            ? t("rejectedOne", {
+                name: rejected[0].name,
+                reason: rejected[0].reason,
+              })
+            : t("rejectedMany", { count: rejected.length }),
+        type: "error",
+      });
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    const newItems: FileItem[] = accepted.map((f) => ({
       id: `${f.name}-${f.size}-${crypto.randomUUID()}`,
       name: f.name,
       size: f.size,
@@ -109,15 +143,20 @@ export function MediaUploader({
     setBusy(true);
 
     let okCount = 0;
-    let failCount = 0;
+    let failCount = rejected.length;
+    let firstError: string | null = rejected[0]?.reason ?? null;
     // Serial: rispetta i limiti del browser (TUS apre comunque un POST per
     // ogni upload), evita di saturare la connessione + dà progress chiaro.
-    for (let i = 0; i < fileArray.length; i++) {
+    for (let i = 0; i < accepted.length; i++) {
       const item = newItems[i];
-      const file = fileArray[i];
-      const ok = await uploadOne(item, file);
-      if (ok) okCount += 1;
-      else failCount += 1;
+      const file = accepted[i];
+      const result = await uploadOne(item, file);
+      if (result.ok) {
+        okCount += 1;
+      } else {
+        failCount += 1;
+        if (!firstError) firstError = result.error;
+      }
     }
 
     setBusy(false);
@@ -131,8 +170,10 @@ export function MediaUploader({
         type: failCount === 0 ? "success" : "error",
       });
     } else {
+      // Nessun upload riuscito: mostra l'errore specifico se l'abbiamo,
+      // altrimenti il fallback generico.
       setToast({
-        message: t("uploadFailedGeneric"),
+        message: firstError ?? t("uploadFailedGeneric"),
         type: "error",
       });
     }

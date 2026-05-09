@@ -1931,7 +1931,11 @@
         "uploading": "Caricamento…",
         "overlayUploading": "Caricamento del file in corso…",
         "overlayUploadingMany": "Caricamento di {count} file in corso…",
-        "overlayHint": "Non chiudere questa scheda fino al termine."
+        "overlayHint": "Non chiudere questa scheda fino al termine.",
+        "rejectedMime": "tipo di file non ammesso",
+        "rejectedSize": "supera i {maxMb} MB",
+        "rejectedOne": "{name}: {reason}.",
+        "rejectedMany": "{count} file scartati (dimensione o tipo)."
       },
       "grid": {
         "empty": "Nessun file caricato — carica il primo per iniziare.",
@@ -1966,7 +1970,9 @@
         "empty": "Nessun file in questa cartella.",
         "emptyImagesOnly": "Nessuna immagine in questa cartella.",
         "uploading": "Caricamento…",
-        "uploadHint": "Clicca per scegliere un file (max 10 MB)"
+        "uploadHint": "Clicca per scegliere un file (max {maxMb} MB)",
+        "rejectedMime": "{name}: tipo di file non ammesso.",
+        "rejectedSize": "{name}: supera i {maxMb} MB."
       },
       "pickerField": {
         "pickButton": "Scegli o carica un'immagine",
@@ -2002,7 +2008,7 @@
         "notAuthenticated": "Non autenticato.",
         "noFiles": "Nessun file selezionato.",
         "mimeNotAllowed": "{name}: tipo file non ammesso.",
-        "fileTooLarge": "{name}: il file supera i 10 MB.",
+        "fileTooLarge": "{name}: il file supera i 16 MB.",
         "uploadFailed": "{name}: caricamento fallito.",
         "uploadFailedGeneric": "Caricamento fallito. Riprova.",
         "uploaded": "{count, plural, one {# file caricato} other {# file caricati}}.",
