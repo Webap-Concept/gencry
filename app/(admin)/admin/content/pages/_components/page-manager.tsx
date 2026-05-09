@@ -383,6 +383,7 @@ function PageRow({
   pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
+  const adminSlug = useAdminSlug();
   const allChildren = allPages.filter((p) => p.parentId === page.id);
   const hasChildren = allChildren.length > 0;
   const isExpanded = expandedIds.has(page.id);
@@ -435,7 +436,7 @@ function PageRow({
     isPublished && appDomain
       ? `${appDomain.replace(/\/+$/, "")}/${page.slug}`
       : null;
-  const previewUrl = `/admin/preview/${page.id}`;
+  const previewUrl = buildAdminPathFromSlug(adminSlug, `/preview/${page.id}`);
 
   function countDescendants(id: number): number {
     const direct = allPages.filter((p) => p.parentId === id);
