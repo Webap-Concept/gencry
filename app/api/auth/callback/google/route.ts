@@ -29,6 +29,7 @@ import {
 } from "@/lib/auth/trusted-device";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
+import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
       await addTrustedDevice(dbUser.id, newToken, ua);
       await setDeviceTokenCookie(newToken);
       await createSession(dbUser.id, dbUser.role);
-      return redirect(!dbUser.onboardingCompletedAt ? "/onboarding" : "/");
+      return redirect((await isOnboardingRequired(dbUser)) ? "/onboarding" : "/");
     }
 
     // SIGN_UP è già loggato in findOrCreateOAuthUser; qui logghiamo SIGN_IN
@@ -151,7 +152,8 @@ export async function GET(req: NextRequest) {
       await createSession(dbUser.id, dbUser.role);
       // Onboarding gate: utenti non-admin con onboarding incompleto vengono
       // rimandati al wizard (es. abbandono dopo signup OAuth).
-      if (dbUser.role !== "admin" && !dbUser.onboardingCompletedAt) {
+      // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
+      if (await isOnboardingRequired(dbUser)) {
         return redirect("/onboarding");
       }
       // OAuth Google è flusso pubblico: redirect sempre a "/". Gli admin

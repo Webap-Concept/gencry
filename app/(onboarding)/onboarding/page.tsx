@@ -7,6 +7,7 @@
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import { userProfiles } from "@/lib/db/schema";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -19,6 +20,11 @@ export const metadata: Metadata = { title: "Benvenuto" };
 export default async function OnboardingPage() {
   const user = await getUser();
   if (!user) redirect("/sign-in");
+
+  // Se l'admin ha disabilitato il wizard globalmente (toggle in
+  // /admin/settings/signup), saltiamo direttamente in app.
+  const settings = await getAppSettings();
+  if (settings.onboarding_enabled === "false") redirect("/");
 
   const [profile] = await db
     .select({

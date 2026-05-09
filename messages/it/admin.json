@@ -531,6 +531,8 @@
       "defaultRoleHint": "Ruolo assegnato automaticamente a ogni nuovo utente che si registra. I ruoli con privilegi di amministratore non sono selezionabili.",
       "noRolesAvailable": "Nessun ruolo non-admin disponibile. Crea almeno un ruolo nella sezione Accesso › Ruoli.",
       "availableRoles": "Ruoli disponibili",
+      "onboardingLabel": "Richiedi wizard di onboarding",
+      "onboardingDescription": "Se attivo, i nuovi utenti (sia da form sia OAuth) devono completare il wizard di benvenuto (username + interessi) prima di entrare nell'app. Disattivalo per saltarlo e mandarli direttamente in home.",
       "save": "Salva",
       "saving": "Salvataggio...",
       "consentVersionsTitle": "Versioni consensi registrazione",

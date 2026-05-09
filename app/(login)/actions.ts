@@ -11,6 +11,7 @@ import {
   validatedAction,
   validatedActionWithUser,
 } from "@/lib/auth/middleware";
+import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { createVerificationCode } from "@/lib/auth/otp";
@@ -222,7 +223,8 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     ]);
     // Onboarding gate: utenti non-admin che non hanno completato il wizard
     // (es. abbandonato dopo signup) tornano sempre lì finché non finiscono.
-    if (foundUser.role !== "admin" && !foundUser.onboardingCompletedAt) {
+    // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
+    if (await isOnboardingRequired(foundUser)) {
       redirect("/onboarding");
     }
     // Login pubblico: redirect sempre a "/" anche per gli admin. Il flusso

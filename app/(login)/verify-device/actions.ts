@@ -4,6 +4,7 @@
 import { validatedAction } from "@/lib/auth/middleware";
 import { setPendingMfaCookie } from "@/lib/auth/mfa/pending-cookie";
 import { getMfaState } from "@/lib/auth/mfa/queries";
+import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import {
   checkGeneralRateLimit,
@@ -83,13 +84,14 @@ export const verifyDevice = validatedAction(verifySchema, async (data) => {
   // Onboarding gate per non-admin: leggiamo onboardingCompletedAt qui
   // (cookie pendingAuth non lo contiene). PK lookup, sul path raro della
   // verifica dispositivo: costo trascurabile.
+  // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
   if (role !== "admin") {
     const [u] = await db
       .select({ onboardingCompletedAt: users.onboardingCompletedAt })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!u?.onboardingCompletedAt) {
+    if (u && (await isOnboardingRequired({ role, onboardingCompletedAt: u.onboardingCompletedAt }))) {
       redirect("/onboarding");
     }
   }

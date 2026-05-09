@@ -22,6 +22,7 @@ import {
   recordMfaRecoveryAttempt,
   recordMfaTotpAttempt,
 } from "@/lib/auth/mfa/rate-limit";
+import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { createSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, users } from "@/lib/db/schema";
@@ -124,13 +125,14 @@ async function finishLogin(
   }
 
   // Onboarding gate per non-admin (analogo a verify-device).
+  // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
   if (role !== "admin") {
     const [u] = await db
       .select({ onboardingCompletedAt: users.onboardingCompletedAt })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!u?.onboardingCompletedAt) {
+    if (u && (await isOnboardingRequired({ role, onboardingCompletedAt: u.onboardingCompletedAt }))) {
       redirect("/onboarding");
     }
   }

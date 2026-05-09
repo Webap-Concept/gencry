@@ -11,6 +11,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveUsersSettings, type ActionState } from "../actions";
+import { SettingToggle } from "../toggles";
 
 type SystemPageInfo = {
   id: number;            // aggiunto per costruire il link corretto
@@ -212,6 +213,18 @@ function RegistrationPanel({
                   ))}
                 </div>
               </div>
+            </div>
+
+            <div
+              className="pt-5"
+              style={{ borderTop: "1px solid var(--admin-divider)" }}>
+              <SettingToggle
+                name="onboarding_enabled"
+                label={t("onboardingLabel")}
+                description={t("onboardingDescription")}
+                defaultValue={settings.onboarding_enabled === "true"}
+                activeColor="bg-green-500"
+              />
             </div>
           </div>
         </div>

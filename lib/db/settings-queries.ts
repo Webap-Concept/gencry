@@ -13,6 +13,7 @@ export type SettingKey =
   | 'app_favicon_url'
   | 'maintenance_mode'
   | 'registrations_enabled'
+  | 'onboarding_enabled'      // 'true'|'false' — wizard /onboarding post-signup obbligatorio o saltato
   | 'default_role'
   | 'resend_api_key'
   | 'email_from_name'
@@ -220,6 +221,7 @@ export type AppSettings = {
   app_favicon_url: string | null
   maintenance_mode: string
   registrations_enabled: string
+  onboarding_enabled: string
   default_role: string
   resend_api_key: string | null
   email_from_name: string | null
@@ -377,6 +379,7 @@ const DEFAULTS: AppSettings = {
   app_favicon_url: null,
   maintenance_mode: 'false',
   registrations_enabled: 'true',
+  onboarding_enabled: 'true',
   default_role: 'member',
   resend_api_key: null,
   email_from_name: null,

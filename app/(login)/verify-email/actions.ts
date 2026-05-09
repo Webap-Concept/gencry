@@ -2,6 +2,7 @@
 "use server";
 
 import { validatedAction } from "@/lib/auth/middleware";
+import { isOnboardingRequired } from "@/lib/auth/onboarding-gate";
 import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
 import { setSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/drizzle";
@@ -56,7 +57,8 @@ export const verifyEmail = validatedAction(verifySchema, async (data) => {
   // Allinea form signup al flusso OAuth: dopo la verifica OTP indirizza
   // al wizard di onboarding finché non è completato. Il guard in
   // app/(onboarding)/layout.tsx evita comunque il loop per utenti già fatti.
-  redirect(user.onboardingCompletedAt ? "/" : "/onboarding");
+  // L'admin può disabilitare globalmente il wizard via /admin/settings/signup.
+  redirect((await isOnboardingRequired(user)) ? "/onboarding" : "/");
 });
 
 // ─── Re-invio codice ────────────────────────────────────────────
