@@ -3,7 +3,6 @@
 import { getOptimizedImageProps } from "@/lib/storage/image-optimizer";
 import { FileText, ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getMediaAssetPreview } from "../actions";
 import { MediaPicker, type PickedAsset } from "./media-picker";
@@ -113,10 +112,13 @@ export function MediaPickerField({
         ) : (
           <div className="flex items-center gap-3">
             <div
-              className="w-20 h-20 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0"
+              className="h-20 w-auto max-w-40 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0"
               style={{
                 background: "var(--admin-card-bg)",
                 border: "1px solid var(--admin-card-border)",
+                // min-width: in stato loading o per icone non-immagine, evita
+                // un container collassato in larghezza zero.
+                minWidth: "5rem",
               }}>
               {loadingPreview ? (
                 <Loader2
@@ -188,25 +190,17 @@ function AssetPreviewThumb({
   asset: { id: number; publicUrl: string; filename: string; mime: string };
 }) {
   if (asset.mime.startsWith("image/")) {
-    if (asset.mime === "image/svg+xml") {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={asset.publicUrl}
-          alt={asset.filename}
-          className="max-w-full max-h-full object-contain"
-        />
-      );
-    }
-    const props = getOptimizedImageProps(asset.publicUrl, { width: 160, quality: 75 });
+    // Niente Next/Image: vogliamo width auto basata sull'aspect ratio reale
+    // dell'immagine (Next/Image impone l'aspect ratio dei width/height passati).
+    // Per immagini larghe il browser scala in width fino al max-w del container,
+    // mantenendo h-full. Letterbox NON serve: il container si adatta.
+    const props = getOptimizedImageProps(asset.publicUrl, { width: 320, quality: 75 });
     return (
-      <Image
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={props.src}
         alt={asset.filename}
-        width={80}
-        height={80}
-        className="w-full h-full object-cover"
-        unoptimized={props.unoptimized}
+        className="h-full w-auto max-w-full object-contain"
       />
     );
   }
@@ -224,7 +218,7 @@ function UrlPreviewThumb({ url }: { url: string }) {
     <img
       src={url}
       alt=""
-      className="w-full h-full object-cover"
+      className="h-full w-auto max-w-full object-contain"
       onError={(e) => {
         // Asset URL rotto: nascondi e mostra placeholder
         (e.target as HTMLImageElement).style.display = "none";
