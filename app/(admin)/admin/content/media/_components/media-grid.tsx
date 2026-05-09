@@ -25,6 +25,7 @@ import {
   moveMediaAsset,
   type ActionState,
 } from "../actions";
+import { ImageLightbox } from "./image-lightbox";
 
 interface MediaGridProps {
   assets: MediaAsset[];
@@ -88,6 +89,7 @@ export function MediaGrid({
   const router = useRouter();
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [moveAssetId, setMoveAssetId] = useState<number | null>(null);
+  const [lightboxId, setLightboxId] = useState<number | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -149,9 +151,17 @@ export function MediaGrid({
             thumbSize={thumbSize}
             onDelete={() => setConfirmId(asset.id)}
             onMove={() => setMoveAssetId(asset.id)}
+            onZoom={() => setLightboxId(asset.id)}
           />
         ))}
       </div>
+
+      {lightboxId !== null && (
+        <ImageLightbox
+          asset={assets.find((a) => a.id === lightboxId)!}
+          onClose={() => setLightboxId(null)}
+        />
+      )}
 
       {confirmId !== null && (
         <ConfirmDeleteDialog
@@ -189,12 +199,14 @@ function AssetCard({
   thumbSize,
   onDelete,
   onMove,
+  onZoom,
 }: {
   asset: MediaAsset;
   refs?: AssetReference[];
   thumbSize: "sm" | "md";
   onDelete: () => void;
   onMove: () => void;
+  onZoom: () => void;
 }) {
   const t = useTranslations("admin.content.media.grid");
   const isImage = asset.mime.startsWith("image/");
@@ -212,7 +224,14 @@ function AssetCard({
       }}>
       <div className="relative bg-black/5 dark:bg-white/5">
         {isImage ? (
-          <ImageThumb asset={asset} />
+          <button
+            type="button"
+            onClick={onZoom}
+            aria-label={t("zoomAria")}
+            className="block w-full text-left"
+            style={{ cursor: "zoom-in" }}>
+            <ImageThumb asset={asset} />
+          </button>
         ) : (
           <div className="aspect-[4/3] flex items-center justify-center">
             <NonImageThumb mime={asset.mime} />

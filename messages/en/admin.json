@@ -1976,6 +1976,7 @@
         "empty": "No assets yet — upload your first file to get started.",
         "deleteAria": "Delete asset",
         "moveAria": "Move to folder",
+        "zoomAria": "Open preview",
         "typeVideo": "video",
         "delete": {
           "title": "Delete asset",
@@ -2025,9 +2026,17 @@
         "sortDate": "Date",
         "sortName": "Name",
         "sortType": "Type",
+        "sortAsc": "Ascending",
+        "sortDesc": "Descending",
+        "sortFlipFromAsc": "{label} — ascending. Click to reverse.",
+        "sortFlipFromDesc": "{label} — descending. Click to reverse.",
         "sizeGroupAria": "Thumbnail size",
         "sizeSmall": "Small thumbnails",
         "sizeNormal": "Normal thumbnails"
+      },
+      "lightbox": {
+        "ariaLabel": "Preview of {name}",
+        "close": "Close preview"
       },
       "tree": {
         "title": "Folders",

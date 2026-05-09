@@ -1974,6 +1974,7 @@
         "empty": "Nessun file caricato — carica il primo per iniziare.",
         "deleteAria": "Elimina file",
         "moveAria": "Sposta nella cartella",
+        "zoomAria": "Apri anteprima",
         "typeVideo": "video",
         "referencedByPrefix": "Usata in",
         "referencedByMany": "{count} pagine",
@@ -2025,9 +2026,17 @@
         "sortDate": "Data",
         "sortName": "Nome",
         "sortType": "Tipo",
+        "sortAsc": "Crescente",
+        "sortDesc": "Decrescente",
+        "sortFlipFromAsc": "{label} — crescente. Clicca per invertire.",
+        "sortFlipFromDesc": "{label} — decrescente. Clicca per invertire.",
         "sizeGroupAria": "Dimensione miniature",
         "sizeSmall": "Miniature piccole",
         "sizeNormal": "Miniature normali"
+      },
+      "lightbox": {
+        "ariaLabel": "Anteprima di {name}",
+        "close": "Chiudi anteprima"
       },
       "tree": {
         "title": "Cartelle",

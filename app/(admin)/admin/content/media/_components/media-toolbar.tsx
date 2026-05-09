@@ -89,12 +89,20 @@ export function MediaToolbar({
           const isActive = sort === opt.value;
           const Icon = opt.icon;
           const Chev = dir === "asc" ? ArrowUp : ArrowDown;
+          // Tooltip differente quando il bottone è attivo: comunica che un
+          // ulteriore click flippa la direzione invece di "non fare nulla".
+          const labelText = t(opt.labelKey);
+          const titleText = isActive
+            ? t(dir === "asc" ? "sortFlipFromAsc" : "sortFlipFromDesc", {
+                label: labelText,
+              })
+            : labelText;
           return (
             <Link
               key={opt.value}
               href={buildSortHref(opt.value)}
               aria-pressed={isActive}
-              title={t(opt.labelKey)}
+              title={titleText}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors"
               style={{
                 background: isActive
@@ -114,8 +122,14 @@ export function MediaToolbar({
                 if (!isActive) e.currentTarget.style.background = "transparent";
               }}>
               <Icon size={13} />
-              <span>{t(opt.labelKey)}</span>
-              {isActive && <Chev size={11} />}
+              <span>{labelText}</span>
+              {isActive && (
+                <Chev
+                  size={14}
+                  strokeWidth={2.6}
+                  aria-label={t(dir === "asc" ? "sortAsc" : "sortDesc")}
+                />
+              )}
             </Link>
           );
         })}
