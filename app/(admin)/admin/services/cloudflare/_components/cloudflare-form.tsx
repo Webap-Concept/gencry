@@ -83,6 +83,10 @@ export function CloudflareForm({ settings }: { settings: AppSettings }) {
               type="text"
               defaultValue={settings.cf_turnstile_site_key ?? ""}
               placeholder="0x4AAAAAAA…"
+              autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -113,6 +117,10 @@ export function CloudflareForm({ settings }: { settings: AppSettings }) {
                 type={showSecret ? "text" : "password"}
                 defaultValue={settings.cf_turnstile_secret_key ?? ""}
                 placeholder={secretMasked || "0x4AAAAAAA????????????????"}
+                autoComplete="off"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",

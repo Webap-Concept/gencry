@@ -86,6 +86,9 @@ export function SupabaseForm({ settings }: { settings: AppSettings }) {
               defaultValue={settings.supabase_project_ref ?? ""}
               placeholder={t("projectRefPlaceholder")}
               autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -118,6 +121,9 @@ export function SupabaseForm({ settings }: { settings: AppSettings }) {
                 defaultValue={settings.supabase_pat ?? ""}
                 placeholder={tokenMasked || "sbp_????????????????"}
                 autoComplete="new-password"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",

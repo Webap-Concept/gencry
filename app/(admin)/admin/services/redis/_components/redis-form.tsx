@@ -88,6 +88,10 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
               type="url"
               defaultValue={settings.upstash_redis_rest_url ?? ""}
               placeholder="https://your-db.upstash.io"
+              autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
                 background: "var(--admin-input-bg)",
@@ -122,6 +126,10 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
                 type={showToken ? "text" : "password"}
                 defaultValue={settings.upstash_redis_rest_token ?? ""}
                 placeholder={tokenMasked || "AX????????????????"}
+                autoComplete="off"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
                   background: "var(--admin-input-bg)",
