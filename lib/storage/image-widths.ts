@@ -81,6 +81,14 @@ export const IMAGE_PRESETS = {
     quality: 75,
     sizes: "160px",
   },
+  /** Mini-thumbnail nel tree view del page manager. Container 32×32 css,
+   *  retina = 64. Due varianti per coprire 1× e 2× DPR. */
+  adminTreeThumb: {
+    srcset: [32, 64],
+    default: 64,
+    quality: 75,
+    sizes: "32px",
+  },
 } as const satisfies Record<string, ImagePreset>;
 
 export type ImagePresetKey = keyof typeof IMAGE_PRESETS;
