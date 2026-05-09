@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
+    // Widths accettati da /_next/image. Next valida `?w=` contro
+    // deviceSizes ∪ imageSizes e risponde 400 se il valore non c'è —
+    // quindi ogni width usato dai preset in lib/storage/image-widths.ts
+    // DEVE comparire qui (o tra imageSizes per width piccole). Quando
+    // aggiungi un nuovo preset con width inedita, propagala anche qui.
+    deviceSizes: [640, 750, 828, 1024, 1080, 1200, 1440, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 320, 360, 384, 400],
   },
 
   // ---------------------------------------------------------------------------
