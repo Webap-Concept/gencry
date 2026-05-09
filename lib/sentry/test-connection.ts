@@ -1,14 +1,15 @@
 /**
- * Test connessione Sentry.
+ * Test connessione Sentry (DSN runtime).
  *
- * Due step indipendenti:
- *   1. Validazione formato DSN + invio evento di test all'envelope
- *      endpoint Sentry. Se Sentry restituisce 200/202 con header
- *      `X-Sentry-ID`, il DSN è valido e il progetto risponde.
- *   2. (Opzionale, solo se l'admin ha incollato `auth_token` + org +
- *      project) chiamata GET all'API REST per validare anche il token —
- *      conferma che il token può essere usato per upload source maps al
- *      build.
+ * Validazione formato DSN + invio evento di test all'envelope endpoint
+ * Sentry. Se Sentry restituisce 200/202, il DSN è valido e il progetto
+ * risponde — è quanto basta per confermare che gli errori di runtime
+ * arriveranno.
+ *
+ * NOTA: il setup build-time (org/project/authToken per upload source
+ * maps) NON si testa qui — quei valori vivono in env vars Vercel
+ * (vedi /admin/services/sentry → info box "Source Maps") e li legge
+ * solo `next.config.ts` durante il build, fuori dal contesto runtime.
  *
  * Mai mandare l'evento via SDK (`Sentry.captureMessage`) per il test:
  * non sappiamo se Sentry è già stato init in questo processo, e
@@ -20,7 +21,7 @@ import "server-only";
 import { isValidDsn } from "./config";
 
 export type SentryTestResult =
-  | { ok: true; eventId: string; tokenValid?: boolean }
+  | { ok: true; eventId: string }
   | {
       ok: false;
       reason:
@@ -29,8 +30,6 @@ export type SentryTestResult =
         | "dsn_unreachable"
         | "dsn_unauthorized"
         | "dsn_unknown_status"
-        | "token_invalid"
-        | "token_forbidden"
         | "network_error";
       detail?: string;
     };
@@ -69,9 +68,6 @@ function envelopeEndpoint(parsed: {
 
 export async function testSentryConnection(input: {
   dsn: string;
-  authToken?: string | null;
-  org?: string | null;
-  project?: string | null;
 }): Promise<SentryTestResult> {
   const dsn = (input.dsn ?? "").trim();
   if (!dsn) return { ok: false, reason: "dsn_required" };
@@ -80,7 +76,7 @@ export async function testSentryConnection(input: {
   const parsed = parseDsn(dsn);
   if (!parsed) return { ok: false, reason: "invalid_dsn_format" };
 
-  // Step 1: invia un evento test al progetto Sentry.
+  // Invia un evento test al progetto Sentry.
   // Envelope = 3 righe NDJSON: header, item-header, item-payload.
   const eventId = crypto.randomUUID().replace(/-/g, "");
   const sentAt = new Date().toISOString();
@@ -128,36 +124,5 @@ export async function testSentryConnection(input: {
     };
   }
 
-  // Step 2: se l'admin ha settato auth_token + org + project, validiamo
-  // anche il token via API REST. Skip silenzioso se non tutti e tre.
-  const token = input.authToken?.trim();
-  const org = input.org?.trim();
-  const project = input.project?.trim();
-  if (!token || !org || !project) {
-    return { ok: true, eventId };
-  }
-
-  let tokenResp: Response;
-  try {
-    tokenResp = await fetch(
-      `https://sentry.io/api/0/projects/${encodeURIComponent(org)}/${encodeURIComponent(project)}/`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-  } catch {
-    // DSN ok, token check di rete fallito → segnaliamo OK ma marchiamo
-    // tokenValid undefined.
-    return { ok: true, eventId };
-  }
-
-  if (tokenResp.status === 401) {
-    return { ok: false, reason: "token_invalid" };
-  }
-  if (tokenResp.status === 403 || tokenResp.status === 404) {
-    return { ok: false, reason: "token_forbidden" };
-  }
-
-  return { ok: true, eventId, tokenValid: tokenResp.ok };
+  return { ok: true, eventId };
 }
