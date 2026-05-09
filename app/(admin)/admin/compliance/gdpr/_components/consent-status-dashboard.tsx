@@ -105,8 +105,10 @@ function StatTile({
   );
 }
 
-function fmtDate(d: Date | null, dateLocale: string): string {
-  if (!d) return "—";
+function fmtDate(iso: string | null, dateLocale: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString(dateLocale, {
     year: "numeric",
     month: "short",

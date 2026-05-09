@@ -24,10 +24,13 @@ export type GdprDashboardStats = {
     privacy: string | null;
     marketing: string | null;
   };
+  /** ISO 8601 strings (not Date) — `unstable_cache` serializza in JSON, quindi
+   *  Date round-trippate diventano string. Esponiamo direttamente string per
+   *  non mentire sul type runtime. Parsare con `new Date(...)` lato consumer. */
   policyUpdatedAt: {
-    terms: Date | null;
-    privacy: Date | null;
-    marketing: Date | null;
+    terms: string | null;
+    privacy: string | null;
+    marketing: string | null;
   };
   exportJobsRecent: {
     pending: number;
@@ -166,9 +169,9 @@ const fetchDashboardStats = async (): Promise<GdprDashboardStats> => {
       marketing: versionByKey.get("marketing") ?? null,
     },
     policyUpdatedAt: {
-      terms: updatedByKey.get("terms") ?? null,
-      privacy: updatedByKey.get("privacy") ?? null,
-      marketing: updatedByKey.get("marketing") ?? null,
+      terms: updatedByKey.get("terms")?.toISOString() ?? null,
+      privacy: updatedByKey.get("privacy")?.toISOString() ?? null,
+      marketing: updatedByKey.get("marketing")?.toISOString() ?? null,
     },
     exportJobsRecent: exportByStatus,
   };
