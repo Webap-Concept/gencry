@@ -193,6 +193,20 @@ export type SettingKey =
   // (lib/cms/default-styles.ts). Servito da /api/cms/styles.css con cache
   // invalidata su save via revalidateTag('cms-styles').
   | 'cms.custom_css'
+  // Sentry — error tracking + performance + session replay.
+  // Tutte governate da /admin/services/sentry. Se `sentry.dsn` è null
+  // o vuoto, l'init è no-op (Sentry non parte). I sample rates 0..1
+  // sono persistiti come stringhe (es. '0.1'). Cambi al DSN/rate si
+  // applicano al prossimo cold start della funzione serverless, non in
+  // live (Sentry.init() viene chiamato una sola volta al boot).
+  | 'sentry.dsn'                          // DSN pubblico (https://<key>@<org>.ingest.sentry.io/<id>)
+  | 'sentry.environment'                  // 'production' | 'staging' | 'development' | custom string
+  | 'sentry.traces_sample_rate'           // '0'..'1' — performance monitoring (default '0' = off)
+  | 'sentry.replays_on_error_sample_rate' // '0'..'1' — session replay sull'errore (default '0' = off)
+  | 'sentry.send_default_pii'             // 'true'|'false' — invia IP/email/headers utente (default 'false' per GDPR)
+  | 'sentry.org'                          // org slug Sentry (es. 'acme-inc') — usato per source maps + API
+  | 'sentry.project'                      // project slug (es. 'gencry-web') — usato per source maps + API
+  | 'sentry.auth_token'                   // server-only, per upload source maps al build (.env.SENTRY_AUTH_TOKEN o qui)
 
 export type AppSettings = {
   app_name: string
@@ -343,6 +357,15 @@ export type AppSettings = {
   'admin.url_slug': string
   // CMS custom CSS
   'cms.custom_css': string | null
+  // Sentry — error tracking + performance + replay
+  'sentry.dsn': string | null
+  'sentry.environment': string | null
+  'sentry.traces_sample_rate': string
+  'sentry.replays_on_error_sample_rate': string
+  'sentry.send_default_pii': string
+  'sentry.org': string | null
+  'sentry.project': string | null
+  'sentry.auth_token': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -498,6 +521,17 @@ const DEFAULTS: AppSettings = {
   // CMS custom CSS — null = nessun override, l'API serve il default seed
   // da lib/cms/default-styles.ts. L'admin lo edita da /admin/content/styles.
   'cms.custom_css': null,
+  // Sentry — defaults conservativi: spento finché l'admin non incolla un
+  // DSN. Sample rates a 0 = solo errori (zero overhead). PII off per
+  // GDPR (l'admin può attivarlo se policy lo permette).
+  'sentry.dsn': null,
+  'sentry.environment': null,
+  'sentry.traces_sample_rate': '0',
+  'sentry.replays_on_error_sample_rate': '0',
+  'sentry.send_default_pii': 'false',
+  'sentry.org': null,
+  'sentry.project': null,
+  'sentry.auth_token': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

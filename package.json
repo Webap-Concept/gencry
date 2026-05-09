@@ -30,6 +30,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@marsidev/react-turnstile": "^1.5.1",
+    "@sentry/nextjs": "^10.52.0",
     "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/postcss": "4.1.7",
     "@tiptap/core": "^3.23.1",

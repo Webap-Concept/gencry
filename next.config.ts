@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -97,4 +98,30 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Sentry build plugin: si occupa di iniettare le source maps (se
+// SENTRY_AUTH_TOKEN/ORG/PROJECT sono settati come env var Vercel) e di
+// instrumentare il bundle. Quando il token non c'è, il plugin fa skip
+// silenzioso del source maps upload — il build non rompe in dev/CI.
+//
+// I sample rate / DSN runtime non passano da qui: vivono in app_settings
+// e li legge `lib/sentry/config.ts` al cold start (server) o via
+// `window.__SENTRY_CONFIG__` (client, iniettato dal root layout).
+const withSentry = (cfg: NextConfig) =>
+  withSentryConfig(cfg, {
+    // Build-time only. In runtime questi valori non hanno effetto.
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    silent: !process.env.CI,
+    // Disabilita upload source maps quando il token non c'è (dev/locale).
+    sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    // Tunnel route: aggira gli ad-blocker (sentry.io spesso bloccato).
+    // Niente fetch a sentry.io dal client — passa per /monitoring del
+    // tuo dominio. Costo: 1 route extra Next handler.
+    tunnelRoute: "/monitoring",
+    // Note: `disableLogger` e `automaticVercelMonitors` ora sono opzioni
+    // sotto `webpack.*` ma non supportate da Turbopack (Next 16). I default
+    // sono già conservativi, lasciamo che il plugin decida.
+  });
+
+export default withSentry(withNextIntl(nextConfig));

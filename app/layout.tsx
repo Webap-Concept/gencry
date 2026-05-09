@@ -2,6 +2,7 @@ import { CookieBanner } from "@/components/cookie-banner/cookie-banner";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
+import { SentryClientBoot } from "@/components/sentry-client-boot";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/lib/db/snippets-queries";
 import type { SiteSnippet, SnippetType } from "@/lib/db/schema";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import { loadSentryConfig, toClientConfig } from "@/lib/sentry/config";
 import { Analytics } from "@vercel/analytics/next";
 import type { Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
@@ -164,6 +166,7 @@ export default async function RootLayout({
     messages,
     cookieServices,
     cookieRegistry,
+    sentryServerCfg,
   ] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
@@ -176,7 +179,11 @@ export default async function RootLayout({
     // Stessa cache 10min: serve solo per la mappa serviceId → categoryId
     // usata sotto per filtrare gli snippet in base al consenso.
     getCookieRegistry(),
+    // Sentry — solo i campi safe-da-esporre al client (mai authToken).
+    loadSentryConfig(),
   ]);
+
+  const sentryClientCfg = toClientConfig(sentryServerCfg);
 
   const cookieBannerEnabled = settings["gdpr.cookie_banner.enabled"] === "true";
 
@@ -248,6 +255,19 @@ export default async function RootLayout({
           }}
         />
         {/*
+         * Sentry config injection — il client legge da window.__SENTRY_CONFIG__
+         * al boot. JSON.stringify dei soli campi safe (mai authToken).
+         * Niente XSS: il payload è un oggetto controllato server-side, e il
+         * componente <SentryClientBoot /> accetta solo le proprietà definite
+         * in SentryClientConfig.
+         */}
+        {/* eslint-disable-next-line react/no-danger */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__SENTRY_CONFIG__=${JSON.stringify(sentryClientCfg)};`,
+          }}
+        />
+        {/*
          * Favicon dinamico — sovrascrive app/favicon.ico quando l'admin
          * ne carica uno custom. Va prima degli snippet così un eventuale
          * snippet head con <link rel="icon"> ha l'ultima parola.
@@ -289,6 +309,11 @@ export default async function RootLayout({
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />
         {analyticsAllowed && <Analytics />}
+        {/*
+         * Sentry boot client-side. No-op se DSN non configurato, altrimenti
+         * lazy import del chunk SDK al primo mount (post-idratazione).
+         */}
+        <SentryClientBoot />
       </body>
     </html>
   );
