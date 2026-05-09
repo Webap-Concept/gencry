@@ -88,7 +88,7 @@ export function AdminMfaChallengeForm() {
                     ? t("fields.totpPlaceholder")
                     : t("fields.recoveryPlaceholder")
                 }
-                className={`flex w-full min-w-0 rounded-full px-4 outline-none transition-colors disabled:pointer-events-none disabled:opacity-50 ${codeInputClass}`}
+                className={`flex w-full min-w-0 rounded-md px-3 outline-none transition-colors disabled:pointer-events-none disabled:opacity-50 ${codeInputClass}`}
                 style={{
                   background: "var(--admin-input-bg)",
                   color: "var(--admin-text)",
@@ -122,7 +122,7 @@ export function AdminMfaChallengeForm() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold h-10 px-4 py-2.5 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium px-4 py-2.5 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "var(--admin-accent)" }}
               onMouseEnter={(e) => {
                 if (!pending)
