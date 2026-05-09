@@ -1,7 +1,8 @@
 "use client";
 
 import type { MediaAsset, MediaFolder } from "@/lib/db/media-queries";
-import { getOptimizedImageProps } from "@/lib/storage/image-optimizer";
+import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import {
   isAllowedMime,
   MEDIA_MAX_BYTES,
@@ -9,7 +10,6 @@ import {
 } from "@/lib/storage/media-constants";
 import { FileText, Folder, Loader2, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from "next/image";
 import {
   startTransition,
   useEffect,
@@ -365,16 +365,13 @@ function PickerThumb({ asset }: { asset: MediaAsset }) {
       />
     );
   }
-  const props = getOptimizedImageProps(asset.publicUrl, { width: 240, quality: 75 });
   return (
-    <Image
-      src={props.src}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      {...buildOptimizedImageAttrs(asset.publicUrl, IMAGE_PRESETS.adminThumb)}
       alt={asset.altText ?? asset.filename}
-      width={240}
-      height={240}
-      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
+      loading="lazy"
       className="w-full h-full object-cover"
-      unoptimized={props.unoptimized}
     />
   );
 }

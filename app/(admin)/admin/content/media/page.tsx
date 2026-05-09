@@ -1,4 +1,5 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   getAllFolders,
   getAssetReferences,
@@ -63,6 +64,22 @@ export default async function MediaPage({
         breadcrumbLabel={t("breadcrumbContent")}
         title={t("pageTitle")}
         subtitle={t("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={t("guideTitle")}
+            ariaLabel={t("guideAriaLabel")}>
+            <p>{t("guideIntro")}</p>
+            <ul>
+              <li>{t("guideBulletOriginal")}</li>
+              <li>{t("guideBulletVariants")}</li>
+              <li>{t("guideBulletWhereCmsBody")}</li>
+              <li>{t("guideBulletWhereCmsHero")}</li>
+              <li>{t("guideBulletWhereLightbox")}</li>
+              <li>{t("guideBulletWhereAdmin")}</li>
+            </ul>
+            <p>{t("guideTuning")}</p>
+          </AdminSectionInfo>
+        }
       />
 
       <div

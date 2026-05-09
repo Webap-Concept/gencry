@@ -6,6 +6,8 @@ import type {
   MediaAsset,
   MediaFolder,
 } from "@/lib/db/media-queries";
+import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import {
   ChevronRight,
   FileText,
@@ -275,15 +277,26 @@ function ReferenceBar({ refs }: { refs: AssetReference[] }) {
 function ImageThumb({ asset }: { asset: MediaAsset }) {
   // Aspect reale: niente object-cover, niente width/height fissi.
   // `<img>` nativo con `w-full h-auto` segue le proporzioni naturali —
-  // il container masonry si adatta. Per i thumbnail della libreria admin
-  // (low-traffic, internal) l'ottimizzazione Next/Image è overkill: il
-  // costo è il caricamento del file originale, ma l'overhead è
-  // accettabile e la fedeltà visiva è il valore.
-  // SVG idem: render diretto.
+  // il container masonry si adatta. Variante ottimizzata via /_next/image
+  // (preset adminThumb, ~400px) per evitare di scaricare l'originale
+  // potenzialmente da molti MB. Vercel cacha la trasformazione sul CDN.
+  // SVG NON va a /_next/image: Vercel lo rifiuta di default per safety;
+  // li renderizziamo raw (sono piccoli per natura).
+  if (asset.mime === "image/svg+xml") {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={asset.publicUrl}
+        alt={asset.altText ?? asset.filename}
+        loading="lazy"
+        className="block w-full h-auto"
+      />
+    );
+  }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={asset.publicUrl}
+      {...buildOptimizedImageAttrs(asset.publicUrl, IMAGE_PRESETS.adminThumb)}
       alt={asset.altText ?? asset.filename}
       loading="lazy"
       className="block w-full h-auto"
