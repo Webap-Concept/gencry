@@ -130,6 +130,12 @@ export async function isAncestor(
 
 // ─── Assets ─────────────────────────────────────────────────────────────────
 
+/** Colonna ammessa per ORDER BY in `getAssets`. Whitelist esplicita: il
+ *  caller (page.tsx) parsa la query string e usa solo questi valori, così
+ *  la stringa utente non si traduce mai in SQL injection. */
+export type AssetSortBy = "date" | "name" | "type";
+export type AssetSortDir = "asc" | "desc";
+
 export async function getAssets(opts?: {
   folderId?: number | null;
   /** Includere anche le righe draft (confirmed_at IS NULL).
@@ -140,6 +146,10 @@ export async function getAssets(opts?: {
   limit?: number;
   /** Paginazione: offset (skip rows before this index). */
   offset?: number;
+  /** Default 'date' (= createdAt). 'name' = filename, 'type' = mime. */
+  sortBy?: AssetSortBy;
+  /** Default 'desc'. */
+  sortDir?: AssetSortDir;
 }): Promise<MediaAsset[]> {
   const conditions = [
     opts?.includeUnconfirmed ? undefined : sql`${mediaAssets.confirmedAt} IS NOT NULL`,
@@ -157,11 +167,24 @@ export async function getAssets(opts?: {
         ? conditions[0]
         : and(...(conditions as NonNullable<(typeof conditions)[number]>[]));
 
+  // Mapping da AssetSortBy alla colonna drizzle. Tie-break SEMPRE su id desc
+  // così il sort è deterministico anche con valori uguali (es. due file
+  // caricati nello stesso secondo, oppure stesso filename in due cartelle).
+  const sortBy = opts?.sortBy ?? "date";
+  const sortDir = opts?.sortDir ?? "desc";
+  const dirFn = sortDir === "asc" ? asc : desc;
+  const primaryCol =
+    sortBy === "name"
+      ? mediaAssets.filename
+      : sortBy === "type"
+        ? mediaAssets.mime
+        : mediaAssets.createdAt;
+
   let q = db
     .select()
     .from(mediaAssets)
     .where(where)
-    .orderBy(desc(mediaAssets.createdAt))
+    .orderBy(dirFn(primaryCol), desc(mediaAssets.id))
     .$dynamic();
   if (opts?.limit !== undefined) q = q.limit(opts.limit);
   if (opts?.offset !== undefined) q = q.offset(opts.offset);

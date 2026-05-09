@@ -33,7 +33,16 @@ interface MediaGridProps {
    *  server-side (`getAssetReferences`) per visualizzare il badge
    *  "usata in: /slug" sotto la thumbnail. */
   references?: Record<string, AssetReference[]>;
+  /** Densità della griglia. `md` = default storico (2/3/4/6 columns).
+   *  `sm` = thumbnail più piccole (3/4/6/9 columns). Persistito in
+   *  localStorage dal MediaShell wrapper. */
+  thumbSize?: "sm" | "md";
 }
+
+const COLUMN_CLASSES = {
+  sm: "columns-3 sm:columns-4 md:columns-6 lg:columns-9 gap-2",
+  md: "columns-2 sm:columns-3 md:columns-4 lg:columns-6 gap-3",
+} as const;
 
 interface FolderOption {
   id: number | null;
@@ -69,7 +78,12 @@ function flattenFolders(folders: MediaFolder[]): FolderOption[] {
   return out;
 }
 
-export function MediaGrid({ assets, folders, references }: MediaGridProps) {
+export function MediaGrid({
+  assets,
+  folders,
+  references,
+  thumbSize = "md",
+}: MediaGridProps) {
   const t = useTranslations("admin.content.media.grid");
   const router = useRouter();
   const [confirmId, setConfirmId] = useState<number | null>(null);
@@ -125,13 +139,14 @@ export function MediaGrid({ assets, folders, references }: MediaGridProps) {
       {/* Masonry via CSS columns: ogni AssetCard ha `break-inside-avoid`
           così non viene spezzato a metà tra due colonne, e l'altezza
           segue l'aspect ratio reale dell'immagine — niente più crop a
-          quadrato. */}
-      <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-6 gap-3">
+          quadrato. Densità controllata da `thumbSize`. */}
+      <div className={COLUMN_CLASSES[thumbSize]}>
         {assets.map((asset) => (
           <AssetCard
             key={asset.id}
             asset={asset}
             refs={references?.[asset.id]}
+            thumbSize={thumbSize}
             onDelete={() => setConfirmId(asset.id)}
             onMove={() => setMoveAssetId(asset.id)}
           />
@@ -171,11 +186,13 @@ export function MediaGrid({ assets, folders, references }: MediaGridProps) {
 function AssetCard({
   asset,
   refs,
+  thumbSize,
   onDelete,
   onMove,
 }: {
   asset: MediaAsset;
   refs?: AssetReference[];
+  thumbSize: "sm" | "md";
   onDelete: () => void;
   onMove: () => void;
 }) {
@@ -186,7 +203,9 @@ function AssetCard({
 
   return (
     <div
-      className="group rounded-lg overflow-hidden relative border break-inside-avoid mb-3"
+      className={`group rounded-lg overflow-hidden relative border break-inside-avoid ${
+        thumbSize === "sm" ? "mb-2" : "mb-3"
+      }`}
       style={{
         borderColor: "var(--admin-card-border)",
         background: "var(--admin-card-bg-secondary, var(--admin-card-bg))",

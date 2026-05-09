@@ -2020,6 +2020,15 @@
         "prev": "Previous page",
         "next": "Next page"
       },
+      "toolbar": {
+        "sortGroupAria": "Sort assets",
+        "sortDate": "Date",
+        "sortName": "Name",
+        "sortType": "Type",
+        "sizeGroupAria": "Thumbnail size",
+        "sizeSmall": "Small thumbnails",
+        "sizeNormal": "Normal thumbnails"
+      },
       "tree": {
         "title": "Folders",
         "root": "Root",

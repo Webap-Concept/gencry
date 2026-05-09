@@ -1,6 +1,8 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
+  type AssetSortBy,
+  type AssetSortDir,
   countAssetsInFolder,
   getAllFolders,
   getAssetReferences,
@@ -16,8 +18,8 @@ import { getTranslations } from "next-intl/server";
 import { FolderBreadcrumb } from "./_components/folder-breadcrumb";
 import { FolderTree } from "./_components/folder-tree";
 import { MediaUploader } from "./_components/media-uploader";
-import { MediaGrid } from "./_components/media-grid";
 import { MediaPagination } from "./_components/media-pagination";
+import { MediaShell } from "./_components/media-shell";
 
 const PAGE_SIZE = 30;
 
@@ -41,14 +43,29 @@ function parsePage(raw: string | undefined): number {
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
 }
 
+function parseSort(raw: string | undefined): AssetSortBy {
+  return raw === "name" || raw === "type" ? raw : "date";
+}
+
+function parseDir(raw: string | undefined): AssetSortDir {
+  return raw === "asc" ? "asc" : "desc";
+}
+
 export default async function MediaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ folder?: string; page?: string }>;
+  searchParams: Promise<{
+    folder?: string;
+    page?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
   const params = await searchParams;
   const currentFolderId = parseFolderId(params.folder);
   const requestedPage = parsePage(params.page);
+  const sort = parseSort(params.sort);
+  const dir = parseDir(params.dir);
 
   if (currentFolderId !== null) {
     const folder = await getFolderById(currentFolderId);
@@ -64,7 +81,13 @@ export default async function MediaPage({
 
   const [folders, assets, folderPath, t] = await Promise.all([
     getAllFolders(),
-    getAssets({ folderId: currentFolderId, limit: PAGE_SIZE, offset }),
+    getAssets({
+      folderId: currentFolderId,
+      limit: PAGE_SIZE,
+      offset,
+      sortBy: sort,
+      sortDir: dir,
+    }),
     currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
     getTranslations("admin.content.media"),
   ]);
@@ -112,19 +135,26 @@ export default async function MediaPage({
             <FolderTree folders={folders} currentFolderId={currentFolderId} />
           </aside>
 
-          <main className="p-5 space-y-4 min-w-0">
-            <FolderBreadcrumb path={folderPath} />
-            <MediaUploader currentFolderId={currentFolderId} />
-            <MediaGrid
+          <main className="p-5 min-w-0">
+            <MediaShell
+              breadcrumb={<FolderBreadcrumb path={folderPath} />}
+              uploader={<MediaUploader currentFolderId={currentFolderId} />}
+              pagination={
+                <MediaPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalAssets={totalAssets}
+                  folderId={currentFolderId}
+                  sort={sort}
+                  dir={dir}
+                />
+              }
               assets={assets}
               folders={folders}
               references={Object.fromEntries(references)}
-            />
-            <MediaPagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalAssets={totalAssets}
               folderId={currentFolderId}
+              sort={sort}
+              dir={dir}
             />
           </main>
         </div>
