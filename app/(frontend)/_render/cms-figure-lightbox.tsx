@@ -1,5 +1,7 @@
 "use client";
 
+import { buildOptimizedImageUrl } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import { useEffect, useState } from "react";
 
 /**
@@ -45,8 +47,20 @@ export function CmsFigureLightbox() {
         e.preventDefault();
         e.stopPropagation();
         const cap = fig0.querySelector("figcaption");
+        // Preferiamo `data-src-full` (URL canonico Supabase, settato dal
+        // sanitize server-side) e generiamo una variante ottimizzata
+        // alla risoluzione del lightbox preset. Se manca il data-attr
+        // (URL esterni paste-ati nel rich-text), fallback al `src`.
+        const fullSrc = img.getAttribute("data-src-full");
+        const renderSrc = fullSrc
+          ? buildOptimizedImageUrl(
+              fullSrc,
+              IMAGE_PRESETS.cmsLightbox.default,
+              IMAGE_PRESETS.cmsLightbox.quality,
+            )
+          : img.getAttribute("src") ?? "";
         setActive({
-          src: img.getAttribute("src") ?? "",
+          src: renderSrc,
           alt: img.getAttribute("alt") ?? "",
           caption: cap?.textContent?.trim() || null,
         });

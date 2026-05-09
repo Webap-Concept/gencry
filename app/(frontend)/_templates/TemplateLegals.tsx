@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import type { TemplateProps } from "./types";
 
 /**
@@ -64,8 +66,9 @@ export async function TemplateLegals({ page }: TemplateProps) {
             }}
             aria-label={appName}>
             {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={logoUrl}
+                {...buildOptimizedImageAttrs(logoUrl, IMAGE_PRESETS.cmsLogo)}
                 alt={appName}
                 style={{ height: "32px", width: "auto", display: "block" }}
               />

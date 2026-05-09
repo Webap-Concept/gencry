@@ -1,6 +1,7 @@
 "use client";
 
-import { getOptimizedImageProps } from "@/lib/storage/image-optimizer";
+import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import { FileText, ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -193,12 +194,21 @@ function AssetPreviewThumb({
     // Niente Next/Image: vogliamo width auto basata sull'aspect ratio reale
     // dell'immagine (Next/Image impone l'aspect ratio dei width/height passati).
     // Per immagini larghe il browser scala in width fino al max-w del container,
-    // mantenendo h-full. Letterbox NON serve: il container si adatta.
-    const props = getOptimizedImageProps(asset.publicUrl, { width: 320, quality: 75 });
+    // mantenendo h-full. SVG non passa per /_next/image (Vercel rifiuta SVG).
+    if (asset.mime === "image/svg+xml") {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={asset.publicUrl}
+          alt={asset.filename}
+          className="h-full w-auto max-w-full object-contain"
+        />
+      );
+    }
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={props.src}
+        {...buildOptimizedImageAttrs(asset.publicUrl, IMAGE_PRESETS.adminPreview)}
         alt={asset.filename}
         className="h-full w-auto max-w-full object-contain"
       />

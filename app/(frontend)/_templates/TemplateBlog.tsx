@@ -1,4 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
+import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
 import type { TemplateProps } from "./types";
 
 /**
@@ -34,9 +36,12 @@ export async function TemplateBlog({ page, fields }: TemplateProps) {
             overflow: "hidden",
             background: "#e5e7eb",
           }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={fields.coverImage}
+            {...buildOptimizedImageAttrs(fields.coverImage, IMAGE_PRESETS.cmsHero)}
             alt={page.title}
+            loading="eager"
+            decoding="async"
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         </div>
