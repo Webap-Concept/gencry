@@ -28,7 +28,6 @@ import {
   Eye,
   EyeOff,
   FileText,
-  GitFork,
   Globe,
   GripVertical,
   Lock,
@@ -48,6 +47,7 @@ import {
   reorderPagesAction,
   togglePageStatusAction,
 } from "../actions";
+import type { PageThumb } from "../_lib/page-thumbnails";
 
 const PAGE_SIZE = 10;
 
@@ -365,6 +365,7 @@ function PageRow({
   pendingToggleId,
   searchActive,
   appDomain,
+  pageThumbnails,
 }: {
   page: Page;
   allPages: Page[];
@@ -379,6 +380,7 @@ function PageRow({
   pendingToggleId: number | null;
   searchActive: boolean;
   appDomain: string;
+  pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
   const allChildren = allPages.filter((p) => p.parentId === page.id);
@@ -529,10 +531,85 @@ function PageRow({
         />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium truncate" style={{ color: "var(--admin-text)" }}>
-              {page.title}
-            </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Tooltip label={t("rowEdit")} side="top">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onEdit(page.id); }}
+                className="text-sm font-medium truncate text-left bg-transparent border-0 p-0 cursor-pointer transition-colors min-w-0"
+                style={{
+                  color: "var(--admin-text)",
+                  maxWidth: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--admin-accent)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--admin-text)";
+                }}>
+                {page.title}
+              </button>
+            </Tooltip>
+
+            {/* Inline + child — solo per pagine non-system, come gli altri
+                comandi di hierarchy creation. Stop propagation per non
+                triggerare il toggle expand del row. */}
+            {!isSystem && (
+              <Tooltip label={t("rowNewChild")} side="top">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onNewChild(page.id); }}
+                  aria-label={t("rowNewChild")}
+                  className="flex items-center justify-center w-5 h-5 rounded-full shrink-0 transition-colors"
+                  style={{
+                    background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
+                    color: "var(--admin-accent)",
+                    border: "1px solid color-mix(in srgb, var(--admin-accent) 28%, transparent)",
+                    padding: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "color-mix(in srgb, var(--admin-accent) 22%, var(--admin-card-bg))";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))";
+                  }}>
+                  <Plus size={11} strokeWidth={2.5} />
+                </button>
+              </Tooltip>
+            )}
+
+            {/* Mini-thumbnails (max 2) — estratte server-side da customFields
+                image + primi <img> nel content. Click no-op per non triggerare
+                l'expand involontario. */}
+            {pageThumbnails[page.id]?.length ? (
+              <span
+                className="flex items-center gap-1 shrink-0"
+                onClick={(e) => e.stopPropagation()}>
+                {pageThumbnails[page.id].map((thumb, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={thumb.src}
+                    srcSet={thumb.srcSet}
+                    sizes={thumb.sizes}
+                    alt={thumb.alt}
+                    width={20}
+                    height={20}
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "4px",
+                      objectFit: "cover",
+                      border: "1px solid var(--admin-card-border)",
+                      background: "var(--admin-page-bg)",
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+              </span>
+            ) : null}
           </div>
           <p className="text-xs font-mono truncate" style={{ color: "var(--admin-text-faint)" }}>
             /{page.slug}
@@ -576,6 +653,11 @@ function PageRow({
           </span>
         )}
 
+        {/* Cluster azioni "secondarie" (edit/publish/delete) raggruppate.
+            La preview/view-live è separata in un cluster a parte alla fine
+            del row con BG color, perché è l'azione che l'utente vuole
+            raggiungere più velocemente (cfr. richiesta "anteprima alla fine
+            visivamente diversa"). */}
         <div className="flex items-center gap-0.5 shrink-0" onClick={stopRow}>
           <Tooltip label={t("rowEdit")} side="top">
             <button
@@ -593,69 +675,6 @@ function PageRow({
               <Pencil size={13} />
             </button>
           </Tooltip>
-
-          {isPublished && frontUrl && (
-            <Tooltip label={t("rowViewLive")} side="top">
-              <a
-                href={frontUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 rounded-lg transition-colors inline-flex items-center"
-                style={{ color: "#22c55e" }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background =
-                    "color-mix(in srgb, #22c55e 12%, var(--admin-card-bg))";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-                }}>
-                <ExternalLink size={13} />
-              </a>
-            </Tooltip>
-          )}
-
-          {!isPublished && (
-            <Tooltip label={t("rowPreviewDraft")} side="top">
-              <a
-                href={previewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 rounded-lg transition-colors inline-flex items-center"
-                style={{ color: "var(--admin-text-faint)" }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background =
-                    "color-mix(in srgb, var(--admin-accent) 10%, var(--admin-card-bg))";
-                  (e.currentTarget as HTMLAnchorElement).style.color = "var(--admin-accent)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-                  (e.currentTarget as HTMLAnchorElement).style.color = "var(--admin-text-faint)";
-                }}>
-                <Eye size={13} />
-              </a>
-            </Tooltip>
-          )}
-
-          {/* New child — only for non-system pages */}
-          {!isSystem && (
-            <Tooltip label={t("rowNewChild")} side="top">
-              <button
-                onClick={() => onNewChild(page.id)}
-                className="p-1.5 rounded-lg transition-colors"
-                style={{ color: "var(--admin-text-faint)" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background =
-                    "color-mix(in srgb, var(--admin-accent) 10%, var(--admin-card-bg))";
-                  e.currentTarget.style.color = "var(--admin-accent)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--admin-text-faint)";
-                }}>
-                <GitFork size={13} />
-              </button>
-            </Tooltip>
-          )}
 
           {/* Toggle publish/unpublish: nascosto per le system pages —
               sono sempre published per definizione (servono i meta a
@@ -727,6 +746,75 @@ function PageRow({
             </Tooltip>
           )}
         </div>
+
+        {/* Separatore + cluster anteprima isolato */}
+        <span
+          aria-hidden
+          style={{
+            width: "1px",
+            height: "20px",
+            background: "var(--admin-card-border)",
+            marginLeft: "4px",
+            marginRight: "4px",
+            flexShrink: 0,
+          }}
+        />
+
+        <div className="shrink-0" onClick={stopRow}>
+          {isPublished && frontUrl ? (
+            <Tooltip label={t("rowViewLive")} side="top">
+              <a
+                href={frontUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center transition-colors"
+                style={{
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "8px",
+                  background: "color-mix(in srgb, #22c55e 14%, var(--admin-card-bg))",
+                  border: "1px solid color-mix(in srgb, #22c55e 32%, transparent)",
+                  color: "#22c55e",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background =
+                    "color-mix(in srgb, #22c55e 26%, var(--admin-card-bg))";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background =
+                    "color-mix(in srgb, #22c55e 14%, var(--admin-card-bg))";
+                }}>
+                <ExternalLink size={14} />
+              </a>
+            </Tooltip>
+          ) : (
+            <Tooltip label={t("rowPreviewDraft")} side="top">
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center transition-colors"
+                style={{
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "8px",
+                  background: "color-mix(in srgb, var(--admin-accent) 14%, var(--admin-card-bg))",
+                  border: "1px solid color-mix(in srgb, var(--admin-accent) 32%, transparent)",
+                  color: "var(--admin-accent)",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background =
+                    "color-mix(in srgb, var(--admin-accent) 26%, var(--admin-card-bg))";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background =
+                    "color-mix(in srgb, var(--admin-accent) 14%, var(--admin-card-bg))";
+                }}>
+                <Eye size={14} />
+              </a>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {(isExpanded || searchActive) && (
@@ -751,6 +839,7 @@ function PageRow({
                   pendingToggleId={pendingToggleId}
                   searchActive={searchActive}
                   appDomain={appDomain}
+                  pageThumbnails={pageThumbnails}
                 />
               ))}
             </SortableContext>
@@ -790,6 +879,7 @@ function PageTreeView({
   emptyHint,
   showNewButton,
   onNewPage,
+  pageThumbnails,
 }: {
   allPagesInTab: Page[];
   templates: TemplateWithFields[];
@@ -805,6 +895,7 @@ function PageTreeView({
   emptyHint?: string;
   showNewButton: boolean;
   onNewPage: () => void;
+  pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
   const [search, setSearch] = useState("");
@@ -904,6 +995,7 @@ function PageTreeView({
                 pendingToggleId={pendingToggleId}
                 searchActive={searchActive}
                 appDomain={appDomain}
+                pageThumbnails={pageThumbnails}
               />
             ))}
           </SortableContext>
@@ -918,10 +1010,12 @@ export default function PageManager({
   initialPages,
   templates,
   appDomain,
+  pageThumbnails,
 }: {
   initialPages: Page[];
   templates: TemplateWithFields[];
   appDomain: string;
+  pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
   const router = useRouter();
@@ -1211,6 +1305,7 @@ export default function PageManager({
             emptyHint={t("emptyUserHint")}
             showNewButton={true}
             onNewPage={() => router.push(`${pagesBase}/new`)}
+            pageThumbnails={pageThumbnails}
           />
         )}
 
@@ -1230,6 +1325,7 @@ export default function PageManager({
             emptyHint={t("emptySystemHint")}
             showNewButton={false}
             onNewPage={() => {}}
+            pageThumbnails={pageThumbnails}
           />
         )}
       </DndContext>

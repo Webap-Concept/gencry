@@ -9,6 +9,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import PageManager from "./_components/page-manager";
 import { PagesAdminGuide } from "./_components/pages-admin-guide";
+import { buildPageThumbnails } from "./_lib/page-thumbnails";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.content.pages");
@@ -29,11 +30,14 @@ async function ContentContent() {
   }
   appDomain = appDomain.replace(/\/+$/, "");
 
+  const pageThumbnails = await buildPageThumbnails(pages, templates);
+
   return (
     <PageManager
       initialPages={pages}
       templates={templates}
       appDomain={appDomain}
+      pageThumbnails={pageThumbnails}
     />
   );
 }
