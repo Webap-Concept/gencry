@@ -32,7 +32,7 @@ function getRobotsOptions(t: FormT): {
 
 export function resolvePreview(text: string, appName: string): string {
   if (!appName || !text) return text;
-  return text.replace(/\{appName\}/gi, appName);
+  return text.replace(/\{\{appName\}\}/gi, appName);
 }
 
 const inputStyle = {
