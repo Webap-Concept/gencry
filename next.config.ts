@@ -27,6 +27,11 @@ const nextConfig: NextConfig = {
     // aggiungi un nuovo preset con width inedita, propagala anche qui.
     deviceSizes: [640, 750, 828, 1024, 1080, 1200, 1440, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 320, 360, 384, 400],
+    // Next 15+ valida anche `?q=` contro questa lista (default `[75]` —
+    // ogni altro valore risponde 400). I preset in lib/storage/image-widths.ts
+    // usano 75 (cmsBody/cmsHero/adminThumb/adminPreview) e 80 (cmsLightbox/
+    // cmsLogo). Aggiungere qui ogni quality nuovo introdotto in un preset.
+    qualities: [75, 80],
   },
 
   // ---------------------------------------------------------------------------
