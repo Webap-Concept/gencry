@@ -1,10 +1,13 @@
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 
-export default async function ContentLayout({
+export default async function TemplatesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdminSectionPage("admin:content");
+  // Templates è una sezione "strutturale": un blogger con content:create
+  // non deve poter creare/modificare/eliminare templates né assegnarli a
+  // pagine. Permesso dedicato content:templates richiesto.
+  await requireAdminSectionPage("content:templates");
   return <>{children}</>;
 }

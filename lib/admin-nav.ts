@@ -122,21 +122,25 @@ export const ADMIN_NAV: NavItem[] = [
         href: "/content/templates",
         label: "Templates",
         icon: "PanelTop",
-        permission: "admin:content",
+        permission: "content:templates",
       },
       {
         key: "content-media",
         href: "/content/media",
         label: "Media",
         icon: "Image",
-        permission: "admin:content",
+        // Media library: chiunque possa creare/modificare contenuti deve
+        // poterci entrare (upload, organizzazione folder). Read-only per
+        // chi ha solo `content:read` resta possibile via getMediaPickerData
+        // dentro l'editor pagine.
+        permission: "content:create",
       },
       {
         key: "content-styles",
         href: "/content/styles",
         label: "Styles",
         icon: "Palette",
-        permission: "admin:content",
+        permission: "content:styles",
       },
     ],
   },
