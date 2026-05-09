@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function PermissionsContent() {
-  const [allPermissions, roles, matrix, drift] = await Promise.all([
+  const [allPermissions, roles, matrix, drift, tDesc] = await Promise.all([
     getAllPermissions(),
     getAdminRoles(),
     db
@@ -31,17 +31,32 @@ async function PermissionsContent() {
       })
       .from(rolePermissions),
     getSystemPermissionsDrift(),
+    getTranslations("admin.access.permissions.permissionDescriptions"),
   ]);
+
+  // Per i permessi di sistema preferiamo la description dalla i18n: il
+  // seed/DB tiene una versione IT come fallback, ma la UI deve seguire la
+  // lingua dell'utente. Per i custom permissions creati dall'admin
+  // manteniamo la description del DB (può essere in qualunque lingua).
+  const translateDescription = (key: string, fallback: string | null) =>
+    tDesc.has(key) ? tDesc(key) : (fallback ?? "");
 
   const systemKeys = SYSTEM_PERMISSIONS.map((p) => ({
     key: p.key,
-    description: p.description,
+    description: translateDescription(p.key, p.description),
     group: p.group,
   }));
 
+  const systemKeySet = new Set(SYSTEM_PERMISSIONS.map((p) => p.key));
+  const translatedPermissions = allPermissions.map((p) =>
+    systemKeySet.has(p.key)
+      ? { ...p, description: translateDescription(p.key, p.description) }
+      : p,
+  );
+
   return (
     <PermissionsManager
-      permissions={allPermissions}
+      permissions={translatedPermissions}
       roles={roles}
       rolePermissions={matrix}
       systemKeys={systemKeys}
