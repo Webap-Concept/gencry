@@ -15,6 +15,7 @@ import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { PgCronJobWithLastRun, PgCronRun } from "@/lib/cron/queries";
 import type { CronJobMeta } from "@/lib/cron/registry";
 import {
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -31,6 +32,13 @@ import { useState, useTransition } from "react";
 export type CronRow = {
   job: PgCronJobWithLastRun;
   meta: CronJobMeta | null;
+  /** Comando `cron.schedule(...)` ricostruito dal registro + dominio dei
+   *  settings. Se assente (job senza `path` o senza dominio configurato)
+   *  la sezione "Expected command" non viene mostrata. */
+  expectedCommand?: string;
+  /** True se l'URL nel comando reale di pg_cron differisce da quello
+   *  atteso. Mostra un badge "URL drift" accanto al nome del job. */
+  commandDrift?: boolean;
 };
 
 export type CronToggleResult =
@@ -116,7 +124,7 @@ function CronRowItem({
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
   const t = useTranslations("admin.cron");
-  const { job, meta } = row;
+  const { job, meta, expectedCommand, commandDrift } = row;
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState(job.active);
   const [pending, startTransition] = useTransition();
@@ -187,6 +195,19 @@ function CronRowItem({
                   }}
                   title={t("untrackedTooltip")}>
                   {t("untrackedBadge")}
+                </span>
+              )}
+              {commandDrift && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] uppercase font-mono px-1.5 py-0.5 rounded"
+                  style={{
+                    background: "color-mix(in srgb, #d97706 14%, transparent)",
+                    color: "#d97706",
+                    border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
+                  }}
+                  title={t("urlDriftTooltip")}>
+                  <AlertTriangle size={10} />
+                  {t("urlDriftBadge")}
                 </span>
               )}
             </div>
@@ -262,11 +283,34 @@ function CronRowItem({
                   className="text-[11px] font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
                   style={{
                     background: "var(--admin-card-bg)",
-                    border: "1px solid var(--admin-input-border)",
+                    border: commandDrift
+                      ? "1px solid color-mix(in srgb, #d97706 40%, transparent)"
+                      : "1px solid var(--admin-input-border)",
                     color: "var(--admin-text-muted)",
                   }}>
                   {job.command}
                 </pre>
+                {expectedCommand && (
+                  <>
+                    <h4
+                      className="text-xs font-semibold uppercase tracking-wide pt-2 flex items-center gap-1.5"
+                      style={{ color: "var(--admin-text-faint)" }}>
+                      {t("expectedCommandTitle")}
+                    </h4>
+                    <p className="text-[11px] leading-snug" style={{ color: "var(--admin-text-faint)" }}>
+                      {t("expectedCommandHint")}
+                    </p>
+                    <pre
+                      className="text-[11px] font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
+                      style={{
+                        background: "var(--admin-card-bg)",
+                        border: "1px solid var(--admin-input-border)",
+                        color: "var(--admin-text-muted)",
+                      }}>
+                      {expectedCommand}
+                    </pre>
+                  </>
+                )}
               </div>
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 mb-2" style={{ color: "var(--admin-text-faint)" }}>

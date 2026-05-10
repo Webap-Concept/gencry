@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useTransition, useState } from "react";
+import { KeyRound, ScanSearch, SlidersHorizontal, UserPlus } from "lucide-react";
 import {
   actionUnblockIp,
   actionBlacklistIp,
@@ -72,7 +73,8 @@ const btnDanger: React.CSSProperties = {
 };
 
 // Sezione configurazione con titolo e descrizione contestuale
-function ConfigSection({ title, description, children }: {
+function ConfigSection({ icon: Icon, title, description, children }: {
+  icon: React.ElementType;
   title: string;
   description: string;
   children: React.ReactNode;
@@ -87,7 +89,10 @@ function ConfigSection({ title, description, children }: {
       gap: 12,
     }}>
       <div>
-        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--admin-text)", marginBottom: 2 }}>{title}</p>
+        <p style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--admin-text)", marginBottom: 2 }}>
+          <Icon size={13} style={{ color: "var(--admin-accent)" }} />
+          {title}
+        </p>
         <p style={{ fontSize: 11, color: "var(--admin-text-faint)" }}>{description}</p>
       </div>
       {children}
@@ -407,6 +412,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
 
           {/* Login */}
           <ConfigSection
+            icon={KeyRound}
             title={t("sectionLoginTitle")}
             description={t("sectionLoginDesc")}
           >
@@ -415,6 +421,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
 
           {/* Registration */}
           <ConfigSection
+            icon={UserPlus}
             title={t("sectionRegistrationTitle")}
             description={t("sectionRegistrationDesc")}
           >
@@ -423,6 +430,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
 
           {/* Availability check */}
           <ConfigSection
+            icon={ScanSearch}
             title={t("sectionCheckTitle")}
             description={t("sectionCheckDesc")}
           >
@@ -432,6 +440,7 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
 
           {/* Common */}
           <ConfigSection
+            icon={SlidersHorizontal}
             title={t("sectionCommonTitle")}
             description={t("sectionCommonDesc")}
           >
