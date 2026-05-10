@@ -182,7 +182,22 @@ async function evaluate(
   const parsed = parseIp(clientIp);
   if (!parsed) return NO_RULE;
 
-  const rules = await loadActiveRules();
+  let rules: LoadedIpRule[];
+  try {
+    rules = await loadActiveRules();
+  } catch {
+    // Fail-open. Due casi coperti:
+    //   1. Test environment: vitest non ha il runtime Next.js, quindi
+    //      `unstable_cache` lancia "Invariant: incrementalCache missing".
+    //      Questo rompeva a cascata tutti i test di rate-limit.ts che
+    //      passano per `checkRateLimit`/`checkSignupRateLimit`/
+    //      `checkAvailabilityRateLimit`, che ora chiamano `evaluateIpForAuth`
+    //      come primo step.
+    //   2. Cache rotta in produzione: meglio "nessuna regola applicata"
+    //      che bloccare il rate-limit a cascata. Allineato al fail-open
+    //      del proxy.ts per il lockdown admin.
+    return NO_RULE;
+  }
   if (rules.length === 0) return NO_RULE;
 
   // Allow batte deny: scansiona tutto, ricorda l'eventuale deny match,
