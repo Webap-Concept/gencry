@@ -131,6 +131,7 @@
       "domainHintMiddleOr": "o",
       "domainHintAfterPrefix": "). Il prefisso",
       "domainHintAfterSuffix": "viene aggiunto automaticamente.",
+      "domainHintPrimary": "Usa la stessa forma (con o senza www.) del dominio primario configurato sul tuo hosting. Una differenza causa redirect, disallinea i canonical SEO e fa fallire il match URL dei cron schedulati.",
       "save": "Salva",
       "saving": "Salvataggio...",
       "brandAssetsTitle": "Risorse brand",

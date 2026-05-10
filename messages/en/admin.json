@@ -131,6 +131,7 @@
       "domainHintMiddleOr": "or",
       "domainHintAfterPrefix": "). Prefix",
       "domainHintAfterSuffix": "is added automatically.",
+      "domainHintPrimary": "Match the same form (with or without www.) as the primary domain configured on your hosting provider. A mismatch causes redirects, misaligns SEO canonical URLs, and breaks the URL match for scheduled jobs.",
       "save": "Save",
       "saving": "Saving...",
       "brandAssetsTitle": "Brand assets",
