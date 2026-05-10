@@ -3,8 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { LayoutDashboard, RotateCcw, X } from "lucide-react";
-import type { WidgetMeta } from "@/lib/admin/dashboard/types";
+import { Info, LayoutDashboard, RotateCcw, X } from "lucide-react";
+import type {
+  WidgetMeta,
+  WidgetSetupGuide as WidgetSetupGuideData,
+} from "@/lib/admin/dashboard/types";
+import WidgetSetupGuide from "./widget-setup-guide";
 import {
   resetUserDashboardWidgets,
   saveUserDashboardWidgets,
@@ -31,6 +35,7 @@ export default function DashboardConfigModal({
 }: DashboardConfigModalProps) {
   const t = useTranslations("admin.dashboard.configModal");
   const [enabled, setEnabled] = useState<Set<string>>(() => new Set(initialEnabled));
+  const [openGuides, setOpenGuides] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -39,6 +44,7 @@ export default function DashboardConfigModal({
   useEffect(() => {
     if (open) {
       setEnabled(new Set(initialEnabled));
+      setOpenGuides(new Set());
       setError(null);
     }
   }, [open, initialEnabled]);
@@ -60,6 +66,15 @@ export default function DashboardConfigModal({
 
   function toggle(id: string) {
     setEnabled((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleGuide(id: string) {
+    setOpenGuides((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -231,6 +246,8 @@ export default function DashboardConfigModal({
                     widget={w}
                     checked={enabled.has(w.id)}
                     onToggle={() => toggle(w.id)}
+                    guideOpen={openGuides.has(w.id)}
+                    onToggleGuide={() => toggleGuide(w.id)}
                   />
                 ))}
               </ul>
@@ -357,85 +374,139 @@ function WidgetRow({
   widget,
   checked,
   onToggle,
+  guideOpen,
+  onToggleGuide,
 }: {
   widget: WidgetMeta;
   checked: boolean;
   onToggle: () => void;
+  guideOpen: boolean;
+  onToggleGuide: () => void;
 }) {
   const t = useTranslations("admin.dashboard");
   const title = t(widget.titleKey);
   const description = widget.descriptionKey ? t(widget.descriptionKey) : "";
+  const guide = widget.setupGuideKey
+    ? (t.raw(widget.setupGuideKey) as WidgetSetupGuideData | undefined)
+    : undefined;
 
   return (
     <li
       style={{
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 14,
         padding: "12px 4px",
         borderBottom: "1px solid var(--admin-card-border, #2a2927)",
       }}
     >
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "13px",
-            fontWeight: 500,
-            color: "var(--admin-text, #cdccca)",
-          }}
-        >
-          {title}
-        </p>
-        {description && (
-          <p
-            style={{
-              margin: "2px 0 0 0",
-              fontSize: "11px",
-              color: "var(--admin-text-faint, #5a5957)",
-              lineHeight: 1.5,
-            }}
-          >
-            {description}
-          </p>
-        )}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={title}
-        onClick={onToggle}
+      <div
         style={{
-          position: "relative",
-          width: 38,
-          height: 22,
-          borderRadius: 999,
-          border: "none",
-          background: checked
-            ? "var(--admin-accent)"
-            : "var(--admin-input-border, #3a3937)",
-          cursor: "pointer",
-          flexShrink: 0,
-          transition: "background-color 140ms ease",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 14,
         }}
       >
-        <span
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "13px",
+                fontWeight: 500,
+                color: "var(--admin-text, #cdccca)",
+              }}
+            >
+              {title}
+            </p>
+            {guide && (
+              <button
+                type="button"
+                onClick={onToggleGuide}
+                aria-label={t("configModal.guideToggleAria", { name: title })}
+                aria-expanded={guideOpen}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 18,
+                  height: 18,
+                  border: "none",
+                  background: guideOpen
+                    ? "color-mix(in srgb, var(--admin-accent) 14%, transparent)"
+                    : "transparent",
+                  color: guideOpen
+                    ? "var(--admin-accent)"
+                    : "var(--admin-text-faint, #5a5957)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <Info size={12} />
+              </button>
+            )}
+          </div>
+          {description && (
+            <p
+              style={{
+                margin: "2px 0 0 0",
+                fontSize: "11px",
+                color: "var(--admin-text-faint, #5a5957)",
+                lineHeight: 1.5,
+              }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={title}
+          onClick={onToggle}
           style={{
-            position: "absolute",
-            top: 2,
-            left: 2,
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            background: "#fff",
-            transform: checked ? "translateX(16px)" : "translateX(0)",
-            transition: "transform 140ms ease",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+            position: "relative",
+            width: 38,
+            height: 22,
+            borderRadius: 999,
+            border: "none",
+            background: checked
+              ? "var(--admin-accent)"
+              : "var(--admin-input-border, #3a3937)",
+            cursor: "pointer",
+            flexShrink: 0,
+            transition: "background-color 140ms ease",
           }}
-        />
-      </button>
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 2,
+              left: 2,
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: "#fff",
+              transform: checked ? "translateX(16px)" : "translateX(0)",
+              transition: "transform 140ms ease",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+            }}
+          />
+        </button>
+      </div>
+      {guide && guideOpen && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: "10px 12px",
+            background: "var(--admin-page-bg)",
+            border: "1px solid var(--admin-card-border)",
+            borderRadius: 8,
+          }}
+        >
+          <WidgetSetupGuide guide={guide} />
+        </div>
+      )}
     </li>
   );
 }

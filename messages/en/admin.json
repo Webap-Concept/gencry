@@ -3025,6 +3025,27 @@
         "roles": "Roles",
         "pages": "Pages",
         "settings": "Settings"
+      },
+      "sentryErrors": {
+        "title": "Sentry errors",
+        "description": "Last 24h unresolved issues from Sentry.",
+        "totalIssues": "{count, plural, =0 {No errors} one {# error in the last 24h} other {# errors in the last 24h}}",
+        "allClear": "No errors in the last 24h.",
+        "missingConfigShort": "Sentry credentials are not set. See the setup guide below.",
+        "errors": {
+          "unauthorized": "Sentry rejected the auth token. Check SENTRY_API_AUTH_TOKEN.",
+          "network": "Could not reach Sentry. Will retry on the next refresh.",
+          "unknown": "Sentry returned an unexpected response."
+        },
+        "setupGuide": {
+          "intro": "This widget pulls unresolved issues from the Sentry API. It needs three Vercel project env vars (the first two are already used by the build plugin):",
+          "env": [
+            { "name": "SENTRY_ORG", "hint": "Your Sentry organization slug." },
+            { "name": "SENTRY_PROJECT", "hint": "Your Sentry project slug." },
+            { "name": "SENTRY_API_AUTH_TOKEN", "hint": "Personal Access Token with scope project:read. Recommended: separate from the build token. Falls back to SENTRY_AUTH_TOKEN if missing." }
+          ],
+          "docsUrl": "https://sentry.io/settings/account/api/auth-tokens/"
+        }
       }
     },
     "configModal": {
@@ -3037,7 +3058,8 @@
       "resetButton": "Reset to role default",
       "resetTooltip": "Drop your customization and follow the role-level preset.",
       "errorSaving": "Could not save your preferences. Try again.",
-      "errorResetting": "Could not reset to role default. Try again."
+      "errorResetting": "Could not reset to role default. Try again.",
+      "guideToggleAria": "Show setup guide for {name}"
     },
     "rolePreset": {
       "heading": "Default dashboard",

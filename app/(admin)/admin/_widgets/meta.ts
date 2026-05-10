@@ -23,4 +23,15 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     descriptionKey: "widgets.quickActions.description",
     defaultEnabled: true,
   },
+  {
+    id: "sentry-errors",
+    titleKey: "widgets.sentryErrors.title",
+    descriptionKey: "widgets.sentryErrors.description",
+    // Off by default: requires Vercel env vars, no point showing a
+    // "missing config" card to admins that haven't set them up yet.
+    // Each user can flip it on from Customize once configured.
+    defaultEnabled: false,
+    requiredPermission: "admin:sentry",
+    setupGuideKey: "widgets.sentryErrors.setupGuide",
+  },
 ];

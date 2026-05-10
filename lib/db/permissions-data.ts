@@ -39,6 +39,8 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "admin:sessions",     label: "Access Sessions section",           group: "Admin", isSystem: true },
   { key: "admin:gdpr",         label: "Access Compliance & GDPR section",  group: "Admin", isSystem: true },
   { key: "admin:languages",    label: "Manage languages",                  group: "Admin", isSystem: true },
+  // Dashboard widget gates (one per widget that needs RBAC).
+  { key: "admin:sentry",       label: "View Sentry errors widget",         group: "Admin", isSystem: true },
 
   // ── Users ────────────────────────────────────────────────────────────
   { key: "users:read",              label: "View user list",                  group: "Users", isSystem: true },
@@ -99,6 +101,7 @@ export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "admin:content", "admin:seo", "admin:users", "admin:staff",
     "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
     "admin:sessions", "admin:gdpr", "admin:languages",
+    "admin:sentry",
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
     "users:role_assign", "users:permission_assign",
