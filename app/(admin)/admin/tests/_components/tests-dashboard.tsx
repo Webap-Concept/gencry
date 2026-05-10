@@ -259,27 +259,8 @@ export function TestsDashboard({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
-          border: "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-        }}>
-          <FlaskConical size={18} style={{ color: "var(--admin-accent)" }} />
-        </div>
-        <div>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--admin-text)", margin: 0 }}>
-            {t("pageTitle")}
-          </h2>
-          <p style={{ fontSize: 12, color: "var(--admin-text-faint)", margin: "2px 0 0" }}>
-            {t("checkedAt", { date: fmt(health.checkedAt, locale) })}
-          </p>
-        </div>
-      </div>
-
-      {/* Global status banner */}
+      {/* Global status banner — l'header di sezione è già nel SectionHeader
+          della pagina; qui mettiamo solo lo stato + il timestamp del check. */}
       <div style={{
         display: "flex", alignItems: "center", gap: 10,
         padding: "12px 16px", borderRadius: 10,
@@ -293,6 +274,9 @@ export function TestsDashboard({
             : globalStatus === "error"
             ? t("globalStatus.error")
             : t("globalStatus.degraded")}
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--admin-text-faint)" }}>
+          {t("checkedAt", { date: fmt(health.checkedAt, locale) })}
         </span>
       </div>
 

@@ -552,7 +552,7 @@ export default async function AdminSessionsPage({
             <form className="flex flex-wrap gap-3 items-end">
               <input type="hidden" name="tab" value="alerts" />
 
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1.5">
                 <label
                   className="text-[11px] uppercase tracking-wide font-medium"
                   style={{ color: "var(--admin-text-muted)" }}>
@@ -575,7 +575,7 @@ export default async function AdminSessionsPage({
                 </select>
               </div>
 
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1.5">
                 <label
                   className="text-[11px] uppercase tracking-wide font-medium"
                   style={{ color: "var(--admin-text-muted)" }}>

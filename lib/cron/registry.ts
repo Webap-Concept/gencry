@@ -96,6 +96,15 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     path: "/api/cron/account/consent-records-cleanup",
     schedule: "0 3 * * *",
   },
+  {
+    jobname: "ip-rules-maintenance",
+    label: "IP Rules Maintenance",
+    description: "Two jobs in one: deletes expired ip_rules rows older than 30 days, and flushes per-rule hit counters from Redis (GETDEL on ip-rule:hits:<id>) into the hit_count column.",
+    purpose: "Keeps the manual IP rules table tidy (auto-purge of long-stale expired entries) and persists analytics counters that are written fire-and-forget at request time. Without this cron, the dashboard would show zero hits even for rules that matched many times. Suggested every 15 minutes.",
+    owner: "core",
+    path: "/api/cron/security/ip-rules",
+    schedule: "*/15 * * * *",
+  },
 ];
 
 /** Costruisce l'elenco completo di metadati noti unendo core + moduli. */
