@@ -73,13 +73,24 @@ const GENERAL_IP_MARKER       = "__general__";
 const SIGNUP_EMAIL_MARKER     = "__signup__";
 const PER_EMAIL_ANY_IP_MARKER = "__anyip__";
 
+// `reason` è valorizzato SOLO quando il blocco arriva da una regola IP
+// manuale (deny in `ip_rules`). Per il caller serve a scegliere il
+// messaggio: "Accesso negato" invece dell'ingannevole "Troppi tentativi,
+// riprova tra X minuti" usato per il rate-limit reale.
+export type RateLimitBlockReason = "ip-rule";
+
 // ---------------------------------------------------------------------------
 // checkRateLimit — login, DUAL LAYER
 // ---------------------------------------------------------------------------
 export async function checkRateLimit(
   email: string,
   ip: string,
-): Promise<{ blocked: boolean; remaining: number; lockoutMinutes: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  lockoutMinutes: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
 
@@ -93,7 +104,12 @@ export async function checkRateLimit(
   }
   if (ruling.decision === "deny") {
     recordIpRuleHit(ruling.ruleId);
-    return { blocked: true, remaining: 0, lockoutMinutes: cfg.lockoutMinutes };
+    return {
+      blocked: true,
+      remaining: 0,
+      lockoutMinutes: cfg.lockoutMinutes,
+      reason: "ip-rule",
+    };
   }
 
   // ── L1: Redis ────────────────────────────────────────────────────────────
@@ -176,7 +192,11 @@ export async function recordLoginAttempt(
 // ---------------------------------------------------------------------------
 export async function checkSignupRateLimit(
   ip: string,
-): Promise<{ blocked: boolean; remaining: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
 
@@ -188,7 +208,7 @@ export async function checkSignupRateLimit(
   }
   if (ruling.decision === "deny") {
     recordIpRuleHit(ruling.ruleId);
-    return { blocked: true, remaining: 0 };
+    return { blocked: true, remaining: 0, reason: "ip-rule" };
   }
 
   // ── L1: Redis ────────────────────────────────────────────────────────────
@@ -240,7 +260,11 @@ export async function recordSignupAttempt(ip: string): Promise<void> {
 // ---------------------------------------------------------------------------
 export async function checkAvailabilityRateLimit(
   ip: string,
-): Promise<{ blocked: boolean; remaining: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.checkWindow * 60;
 
@@ -252,7 +276,7 @@ export async function checkAvailabilityRateLimit(
   }
   if (ruling.decision === "deny") {
     recordIpRuleHit(ruling.ruleId);
-    return { blocked: true, remaining: 0 };
+    return { blocked: true, remaining: 0, reason: "ip-rule" };
   }
 
   // Solo L1 Redis — se Redis è down lasciamo passare (degradazione graceful)

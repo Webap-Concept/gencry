@@ -51,7 +51,7 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
         className="rounded-xl p-6 max-w-md w-full shadow-xl"
         style={{
           background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-border)",
+          border: "1px solid var(--admin-card-border)",
         }}
         onClick={(e) => e.stopPropagation()}>
         <h3
@@ -76,8 +76,8 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
                 maxLength={50}
                 className="flex-1 px-3 py-2 rounded-md text-sm font-mono"
                 style={{
-                  background: "var(--admin-input-bg, var(--admin-card-bg))",
-                  border: "1px solid var(--admin-border)",
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
                   color: "var(--admin-text)",
                 }}
               />
@@ -87,7 +87,7 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
                   onClick={fillCurrentIp}
                   className="px-2.5 py-1 rounded-md text-xs font-medium border"
                   style={{
-                    borderColor: "var(--admin-border)",
+                    borderColor: "var(--admin-card-border)",
                     color: "var(--admin-text-muted)",
                   }}
                   title={t("useCurrentIpTitle")}>
@@ -133,8 +133,8 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
               onChange={(e) => setScope(e.target.value as Scope)}
               className="w-full px-3 py-2 rounded-md text-sm"
               style={{
-                background: "var(--admin-input-bg, var(--admin-card-bg))",
-                border: "1px solid var(--admin-border)",
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
                 color: "var(--admin-text)",
               }}>
               <option value="auth">{t("scope_auth")}</option>
@@ -156,8 +156,8 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
               onChange={(e) => setDuration(e.target.value as Duration)}
               className="w-full px-3 py-2 rounded-md text-sm"
               style={{
-                background: "var(--admin-input-bg, var(--admin-card-bg))",
-                border: "1px solid var(--admin-border)",
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
                 color: "var(--admin-text)",
               }}>
               <option value="never">{t("durationNever")}</option>
@@ -184,8 +184,8 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
               placeholder={t("fieldReasonPlaceholder")}
               className="w-full px-3 py-2 rounded-md text-sm"
               style={{
-                background: "var(--admin-input-bg, var(--admin-card-bg))",
-                border: "1px solid var(--admin-border)",
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
                 color: "var(--admin-text)",
               }}
             />
@@ -198,7 +198,7 @@ export function AddIpRuleDialog({ currentIp, onClose, onDone }: Props) {
               disabled={isPending}
               className="px-4 py-2 rounded-lg text-sm font-medium border"
               style={{
-                borderColor: "var(--admin-border)",
+                borderColor: "var(--admin-card-border)",
                 color: "var(--admin-text)",
               }}>
               {t("cancel")}
@@ -242,7 +242,7 @@ function RadioPill({
         background: checked
           ? `color-mix(in srgb, ${accent} 12%, var(--admin-card-bg))`
           : "var(--admin-card-bg)",
-        border: `1px solid ${checked ? accent : "var(--admin-border)"}`,
+        border: `1px solid ${checked ? accent : "var(--admin-card-border)"}`,
         color: checked ? accent : "var(--admin-text)",
       }}>
       <div className="font-semibold">{label}</div>

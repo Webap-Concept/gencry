@@ -176,7 +176,7 @@ function CurrentIpBanner({
         border: `1px solid ${
           dangerActive
             ? "color-mix(in srgb, #ef4444 30%, transparent)"
-            : "var(--admin-border)"
+            : "var(--admin-card-border)"
         }`,
       }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -272,14 +272,14 @@ function RulesTable({
       className="rounded-xl overflow-hidden"
       style={{
         background: "var(--admin-card-bg)",
-        border: "1px solid var(--admin-border)",
+        border: "1px solid var(--admin-card-border)",
       }}>
       <table className="w-full text-sm">
         <thead>
           <tr
             style={{
               background: "var(--admin-page-bg, rgba(0,0,0,0.02))",
-              borderBottom: "1px solid var(--admin-border)",
+              borderBottom: "1px solid var(--admin-card-border)",
             }}>
             <Th>{t("colIp")}</Th>
             <Th>{t("colAction")}</Th>
@@ -298,7 +298,7 @@ function RulesTable({
               <tr
                 key={r.id}
                 style={{
-                  borderTop: "1px solid var(--admin-border)",
+                  borderTop: "1px solid var(--admin-card-border)",
                   opacity: expired ? 0.55 : 1,
                 }}>
                 <Td>
@@ -379,7 +379,7 @@ function ScopeBadge({ scope }: { scope: "auth" | "admin" | "all" }) {
       style={{
         background: "var(--admin-page-bg, rgba(0,0,0,0.04))",
         color: "var(--admin-text-muted)",
-        border: "1px solid var(--admin-border)",
+        border: "1px solid var(--admin-card-border)",
       }}>
       {t(`scope_${scope}`)}
     </span>
@@ -425,7 +425,7 @@ function EmptyState() {
       className="rounded-xl p-8 text-center"
       style={{
         background: "var(--admin-card-bg)",
-        border: "1px dashed var(--admin-border)",
+        border: "1px dashed var(--admin-card-border)",
       }}>
       <p className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
         {t("emptyTitle")}

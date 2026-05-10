@@ -6,6 +6,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { ListFilter } from "lucide-react";
 import { IpRulesClient } from "./_components/ip-rules-client";
+import { IpRulesGuide } from "./_components/ip-rules-guide";
 import { getIpRulesData } from "./actions";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,16 +32,7 @@ export default async function AdminIpRulesPage() {
           <AdminSectionInfo
             title={tIp("guideTitle")}
             ariaLabel={tIp("guideAriaLabel")}>
-            <p>{tIp("guideIntro")}</p>
-            <ul>
-              <li>{tIp("guideBulletAuth")}</li>
-              <li>{tIp("guideBulletAdmin")}</li>
-              <li>{tIp("guideBulletAllow")}</li>
-              <li>{tIp("guideBulletCidr")}</li>
-              <li>{tIp("guideBulletLockdown")}</li>
-              <li>{tIp("guideBulletPerf")}</li>
-            </ul>
-            <p>{tIp("guidePerfNote")}</p>
+            <IpRulesGuide />
           </AdminSectionInfo>
         }
       />

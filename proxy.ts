@@ -112,8 +112,12 @@ export async function proxy(request: NextRequest) {
   //   2. se OFF → return immediato, costo = 1 cache hit
   //   3. se ON  → 1 cache hit di ip-rules (in-memory) + match BigInt (~µs)
   //
-  // Risposta 404 (non 403) per non rivelare l'esistenza del pannello a
-  // un IP non autorizzato. Si combina bene con custom admin slug.
+  // Risposta: rewrite (NON redirect — l'address bar resta su /<adminSlug>/…)
+  // verso un path catch-all del CMS che non esisterà mai → renderizza la
+  // 404 frontend standard (con SEO/branding del sito). Indistinguibile da
+  // un URL inesistente qualunque, così l'esistenza del pannello resta
+  // invisibile a un IP non autorizzato. Lo status 404 lo setta `notFound()`
+  // dentro CmsPage.
   if (isAdminPath(pathname)) {
     try {
       const settings = await getAppSettings();
@@ -124,7 +128,13 @@ export async function proxy(request: NextRequest) {
           null;
         const ruling = await evaluateIpForAdmin(clientIp);
         if (ruling.decision !== "allow") {
-          return new NextResponse(null, { status: 404 });
+          const fallback = request.nextUrl.clone();
+          // Path con underscore-prefix: il CMS catch-all `[...slug]` non
+          // troverà mai un page con questo slug → notFound() → renderizza
+          // `(frontend)/not-found.tsx` con frontend.css caricato.
+          fallback.pathname = "/__ip-blocked";
+          fallback.search = "";
+          return NextResponse.rewrite(fallback);
         }
         recordIpRuleHit(ruling.ruleId);
       }
