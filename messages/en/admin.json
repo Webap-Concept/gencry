@@ -3001,5 +3001,49 @@
       "services-group": "External integrations: Resend, Redis, OAuth, Cloudflare, dependencies.",
       "modules-group": "Installed feature modules."
     }
+  },
+  "dashboard": {
+    "metaTitle": "Dashboard",
+    "breadcrumb": "Home",
+    "pageTitle": "Dashboard",
+    "pageSubtitle": "Your operational overview at a glance.",
+    "customizeButton": "Customize",
+    "emptyTitle": "No widgets to show",
+    "emptyHint": "All widgets are turned off. Click Customize to pick which ones you want on your dashboard.",
+    "widgets": {
+      "welcome": {
+        "title": "Welcome",
+        "description": "Personalized greeting at the top of your dashboard.",
+        "greeting": "Welcome back",
+        "greetingNamed": "Welcome back, {name}",
+        "body": "This is your admin dashboard. Use Customize to choose which widgets you want to see."
+      },
+      "quickActions": {
+        "title": "Quick actions",
+        "description": "Shortcuts to the most-used admin sections.",
+        "users": "Users",
+        "roles": "Roles",
+        "pages": "Pages",
+        "settings": "Settings"
+      }
+    },
+    "configModal": {
+      "title": "Customize dashboard",
+      "subtitle": "Pick which widgets show up on your dashboard.",
+      "closeAria": "Close",
+      "emptyAvailable": "No widgets are available for your role.",
+      "cancelButton": "Cancel",
+      "saveButton": "Save",
+      "resetButton": "Reset to role default",
+      "resetTooltip": "Drop your customization and follow the role-level preset.",
+      "errorSaving": "Could not save your preferences. Try again.",
+      "errorResetting": "Could not reset to role default. Try again."
+    },
+    "rolePreset": {
+      "heading": "Default dashboard",
+      "activeBadge": "Override active",
+      "overrideLabel": "Override default dashboard for this role",
+      "overrideDescription": "When ON, users with this role start with the widget set you choose here instead of the system defaults. Each user can still customize their own dashboard on top of this preset."
+    }
   }
 }

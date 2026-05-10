@@ -1,10 +1,12 @@
 "use client";
 
 import type { RoleRow } from "@/lib/db/roles-queries";
+import { DASHBOARD_WIDGETS_META } from "@/app/(admin)/admin/_widgets/meta";
 import {
   AlertTriangle,
   Check,
   ChevronDown,
+  LayoutDashboard,
   Lock,
   Pencil,
   Plus,
@@ -67,10 +69,24 @@ function RoleForm({
   pending: boolean;
 }) {
   const t = useTranslations("admin.access.roles.form");
+  const tDash = useTranslations("admin.dashboard");
   const [color, setColor] = useState(initial?.color ?? "#6b7280");
   const [isAdmin, setIsAdmin] = useState(initial?.isAdmin ?? false);
   const [adminOpen, setAdminOpen] = useState(initial?.isAdmin ?? false);
   const [slug, setSlug] = useState(initial?.name ?? "");
+  const [dashOpen, setDashOpen] = useState(false);
+  const [dashOverride, setDashOverride] = useState(
+    initial?.dashboardWidgets != null,
+  );
+  const [dashEnabled, setDashEnabled] = useState<Set<string>>(() => {
+    const fromInitial = initial?.dashboardWidgets?.enabled;
+    if (fromInitial) return new Set(fromInitial);
+    // Sensible starting point when first turning override on:
+    // pre-tick the registry defaults so admins don't start from zero.
+    return new Set(
+      DASHBOARD_WIDGETS_META.filter((w) => w.defaultEnabled).map((w) => w.id),
+    );
+  });
   const isEdit = !!initial;
   const isSystem = initial?.isSystem ?? false;
 
@@ -84,7 +100,18 @@ function RoleForm({
     fd.set("name", slug);
     fd.set("color", color);
     fd.set("isAdmin", String(isAdmin));
+    fd.set("dashboardWidgetsOverride", String(dashOverride));
+    fd.set("dashboardWidgetsEnabled", JSON.stringify([...dashEnabled]));
     onSave(fd);
+  }
+
+  function toggleDashWidget(id: string) {
+    setDashEnabled((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   const inputCls =
@@ -331,6 +358,193 @@ function RoleForm({
                 </p>
               </div>
             </label>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Dashboard preset (accordion) ───────────────────── */}
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{
+          border: dashOpen
+            ? "1px solid color-mix(in srgb, var(--admin-accent) 35%, transparent)"
+            : "1px solid var(--admin-card-border)",
+        }}>
+        <button
+          type="button"
+          onClick={() => setDashOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors"
+          style={{
+            background: "var(--admin-hover-bg)",
+            color: "var(--admin-text-muted)",
+          }}>
+          <span className="flex items-center gap-2 text-xs font-medium">
+            <LayoutDashboard size={13} />
+            {tDash("rolePreset.heading")}
+            {dashOverride && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
+                  color: "var(--admin-accent)",
+                }}>
+                {tDash("rolePreset.activeBadge")}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            size={14}
+            style={{
+              transform: dashOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 200ms ease",
+            }}
+          />
+        </button>
+
+        {dashOpen && (
+          <div
+            className="px-4 py-4 space-y-4"
+            style={{ background: "var(--admin-card-bg)" }}>
+            {/* Override toggle */}
+            <label className="flex items-start gap-3 cursor-pointer">
+              <div className="mt-0.5 shrink-0">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={dashOverride}
+                  onClick={() => setDashOverride((v) => !v)}
+                  style={{
+                    position: "relative",
+                    width: 38,
+                    height: 22,
+                    borderRadius: 999,
+                    border: "none",
+                    background: dashOverride
+                      ? "var(--admin-accent)"
+                      : "var(--admin-input-border)",
+                    cursor: "pointer",
+                    transition: "background-color 140ms ease",
+                  }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: 2,
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transform: dashOverride
+                        ? "translateX(16px)"
+                        : "translateX(0)",
+                      transition: "transform 140ms ease",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                    }}
+                  />
+                </button>
+              </div>
+              <div>
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--admin-text)" }}>
+                  {tDash("rolePreset.overrideLabel")}
+                </p>
+                <p
+                  className="text-xs mt-0.5 leading-relaxed"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  {tDash("rolePreset.overrideDescription")}
+                </p>
+              </div>
+            </label>
+
+            {/* Per-widget toggles (only when override is on) */}
+            {dashOverride && (
+              <ul
+                className="rounded-lg overflow-hidden"
+                style={{
+                  border: "1px solid var(--admin-card-border)",
+                  background: "var(--admin-page-bg)",
+                  margin: 0,
+                  padding: 0,
+                  listStyle: "none",
+                }}>
+                {DASHBOARD_WIDGETS_META.map((w, i) => {
+                  const checked = dashEnabled.has(w.id);
+                  const isLast = i === DASHBOARD_WIDGETS_META.length - 1;
+                  return (
+                    <li
+                      key={w.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        padding: "10px 12px",
+                        borderBottom: isLast
+                          ? "none"
+                          : "1px solid var(--admin-card-border)",
+                      }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "13px",
+                            color: "var(--admin-text)",
+                          }}>
+                          {tDash(w.titleKey)}
+                        </p>
+                        {w.descriptionKey && (
+                          <p
+                            style={{
+                              margin: "2px 0 0 0",
+                              fontSize: "11px",
+                              color: "var(--admin-text-faint)",
+                            }}>
+                            {tDash(w.descriptionKey)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={checked}
+                        onClick={() => toggleDashWidget(w.id)}
+                        style={{
+                          position: "relative",
+                          width: 34,
+                          height: 20,
+                          borderRadius: 999,
+                          border: "none",
+                          background: checked
+                            ? "var(--admin-accent)"
+                            : "var(--admin-input-border)",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          transition: "background-color 140ms ease",
+                        }}>
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: 2,
+                            width: 16,
+                            height: 16,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            transform: checked
+                              ? "translateX(14px)"
+                              : "translateX(0)",
+                            transition: "transform 140ms ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                          }}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         )}
       </div>

@@ -171,6 +171,8 @@ export const roles = pgTable("roles", {
   level: integer("level").notNull().default(0),
   isDefault: boolean("is_default").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Default dashboard preset for users with this role. NULL = registry defaults.
+  dashboardWidgets: jsonb("dashboard_widgets").$type<{ enabled: string[] } | null>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1007,6 +1009,27 @@ export const mfaRecoveryCodesRelations = relations(
   ({ one }) => ({
     user: one(users, {
       fields: [mfaRecoveryCodes.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+// 1:1 staff/admin-only preferences. Kept separate from `users` so the public
+// table does not carry admin-specific columns (most users never get a row).
+export const adminUserPreferences = pgTable("admin_user_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // NULL = no user override → fall back to role preset / registry defaults.
+  dashboardWidgets: jsonb("dashboard_widgets").$type<{ enabled: string[] } | null>(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const adminUserPreferencesRelations = relations(
+  adminUserPreferences,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [adminUserPreferences.userId],
       references: [users.id],
     }),
   }),

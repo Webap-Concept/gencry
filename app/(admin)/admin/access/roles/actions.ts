@@ -10,6 +10,38 @@ import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { DASHBOARD_WIDGETS_META } from "@/app/(admin)/admin/_widgets/meta";
+
+/** Parse the dashboard preset fields from the role form payload.
+ *  Returns the value to persist into roles.dashboard_widgets:
+ *    - null  → no override, use registry defaults
+ *    - { enabled } → exact preset (sanitized against the registry) */
+function parseDashboardPresetFromFormData(
+  fd: FormData,
+): { enabled: string[] } | null {
+  const override = fd.get("dashboardWidgetsOverride") === "true";
+  if (!override) return null;
+
+  const raw = fd.get("dashboardWidgetsEnabled");
+  let parsed: unknown;
+  try {
+    parsed = typeof raw === "string" ? JSON.parse(raw) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!Array.isArray(parsed)) return { enabled: [] };
+
+  const validIds = new Set(DASHBOARD_WIDGETS_META.map((w) => w.id));
+  const seen = new Set<string>();
+  const enabled: string[] = [];
+  for (const id of parsed) {
+    if (typeof id !== "string") continue;
+    if (!validIds.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    enabled.push(id);
+  }
+  return { enabled };
+}
 
 /** Writes a record to activity_logs with the requester's IP. */
 async function logRbacAction(
@@ -76,11 +108,13 @@ export async function createRole(formData: FormData) {
 
   const allRoles = await getAdminRoles();
   const maxOrder = allRoles.reduce((m, r) => Math.max(m, r.sortOrder), 0);
+  const dashboardWidgets = parseDashboardPresetFromFormData(formData);
 
   await db.insert(roles).values({
     ...parsed.data,
     isSystem: false,
     sortOrder: maxOrder + 1,
+    dashboardWidgets,
   });
 
   await logRbacAction(
@@ -118,9 +152,11 @@ export async function updateRole(id: number, formData: FormData) {
     return { error: await translateSchemaError(parsed.error.issues[0].message) };
   }
 
+  const dashboardWidgets = parseDashboardPresetFromFormData(formData);
+
   await db
     .update(roles)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({ ...parsed.data, dashboardWidgets, updatedAt: new Date() })
     .where(eq(roles.id, id));
 
   // Sync is_admin for all users with this role

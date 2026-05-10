@@ -13,6 +13,7 @@ export type RoleRow = {
   isAdmin: boolean;
   isSystem: boolean;
   sortOrder: number;
+  dashboardWidgets: { enabled: string[] } | null;
 };
 
 export async function getAdminRoles(): Promise<RoleRow[]> {
@@ -26,6 +27,7 @@ export async function getAdminRoles(): Promise<RoleRow[]> {
       isAdmin: roles.isAdmin,
       isSystem: roles.isSystem,
       sortOrder: roles.sortOrder,
+      dashboardWidgets: roles.dashboardWidgets,
     })
     .from(roles)
     .orderBy(asc(roles.sortOrder), asc(roles.name));
@@ -43,6 +45,7 @@ export async function getStaffAssignableRoles(): Promise<RoleRow[]> {
       isAdmin: roles.isAdmin,
       isSystem: roles.isSystem,
       sortOrder: roles.sortOrder,
+      dashboardWidgets: roles.dashboardWidgets,
     })
     .from(roles)
     .where(
