@@ -1,6 +1,11 @@
 "use client";
 
-import type { AssetReference, MediaAsset, MediaFolder } from "@/lib/db/media-queries";
+import type {
+  AssetReference,
+  AssetTypeFilter,
+  MediaAsset,
+  MediaFolder,
+} from "@/lib/db/media-queries";
 import { useEffect, useState, type ReactNode } from "react";
 import { MediaGrid } from "./media-grid";
 import {
@@ -29,6 +34,8 @@ interface MediaShellProps {
   folderId: number | null;
   sort: SortBy;
   dir: SortDir;
+  /** null = nessun filtro attivo (= "Tutti"). */
+  typeFilter: AssetTypeFilter | null;
 }
 
 export function MediaShell({
@@ -41,6 +48,7 @@ export function MediaShell({
   folderId,
   sort,
   dir,
+  typeFilter,
 }: MediaShellProps) {
   // Default `md` lato server per evitare flash di layout: il useEffect
   // sotto rilegge da localStorage al mount client e aggiorna se necessario.
@@ -72,6 +80,7 @@ export function MediaShell({
           folderId={folderId}
           sort={sort}
           dir={dir}
+          typeFilter={typeFilter}
           thumbSize={thumbSize}
           onThumbSizeChange={handleThumbSizeChange}
         />

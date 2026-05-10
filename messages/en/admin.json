@@ -2038,6 +2038,13 @@
         "sortDesc": "Descending",
         "sortFlipFromAsc": "{label} — ascending. Click to reverse.",
         "sortFlipFromDesc": "{label} — descending. Click to reverse.",
+        "filterGroupAria": "Filter by file type",
+        "filterAll": "All",
+        "filterImage": "Images",
+        "filterVideo": "Videos",
+        "filterAudio": "Audio",
+        "filterDocument": "Documents",
+        "filterOther": "Other",
         "sizeGroupAria": "Thumbnail size",
         "sizeSmall": "Small thumbnails",
         "sizeNormal": "Normal thumbnails"

@@ -2038,6 +2038,13 @@
         "sortDesc": "Decrescente",
         "sortFlipFromAsc": "{label} — crescente. Clicca per invertire.",
         "sortFlipFromDesc": "{label} — decrescente. Clicca per invertire.",
+        "filterGroupAria": "Filtra per tipo di file",
+        "filterAll": "Tutti",
+        "filterImage": "Immagini",
+        "filterVideo": "Video",
+        "filterAudio": "Audio",
+        "filterDocument": "Documenti",
+        "filterOther": "Altro",
         "sizeGroupAria": "Dimensione miniature",
         "sizeSmall": "Miniature piccole",
         "sizeNormal": "Miniature normali"
