@@ -3,6 +3,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   type AssetSortBy,
   type AssetSortDir,
+  type AssetTypeFilter,
   countAssetsInFolder,
   getAllFolders,
   getAssetReferences,
@@ -62,6 +63,18 @@ function parseDir(raw: string | undefined, sort: AssetSortBy): AssetSortDir {
   return sort === "date" ? "desc" : "asc";
 }
 
+/** Whitelist server-side per `?type=` (toolbar filter). Qualunque altro
+ *  valore (incluso "all" o assente) → null = nessun filtro. */
+function parseTypeFilter(raw: string | undefined): AssetTypeFilter | null {
+  return raw === "image" ||
+    raw === "video" ||
+    raw === "audio" ||
+    raw === "document" ||
+    raw === "other"
+    ? raw
+    : null;
+}
+
 export default async function MediaPage({
   searchParams,
 }: {
@@ -70,6 +83,7 @@ export default async function MediaPage({
     page?: string;
     sort?: string;
     dir?: string;
+    type?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -77,6 +91,7 @@ export default async function MediaPage({
   const requestedPage = parsePage(params.page);
   const sort = parseSort(params.sort);
   const dir = parseDir(params.dir, sort);
+  const typeFilter = parseTypeFilter(params.type);
 
   if (currentFolderId !== null) {
     const folder = await getFolderById(currentFolderId);
@@ -85,7 +100,11 @@ export default async function MediaPage({
 
   // Servi prima il count per clamp-are una `?page=999` fuori scala alla
   // pagina massima reale (così un link stale non mostra una griglia vuota).
-  const totalAssets = await countAssetsInFolder(currentFolderId);
+  // Il count rispetta il filtro così la paginazione è coerente con la grid.
+  const totalAssets = await countAssetsInFolder(
+    currentFolderId,
+    typeFilter ?? undefined,
+  );
   const totalPages = Math.max(1, Math.ceil(totalAssets / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
   const offset = (currentPage - 1) * PAGE_SIZE;
@@ -98,6 +117,7 @@ export default async function MediaPage({
       offset,
       sortBy: sort,
       sortDir: dir,
+      typeFilter: typeFilter ?? undefined,
     }),
     currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
     getTranslations("admin.content.media"),
@@ -158,6 +178,7 @@ export default async function MediaPage({
                   folderId={currentFolderId}
                   sort={sort}
                   dir={dir}
+                  typeFilter={typeFilter}
                 />
               }
               assets={assets}
@@ -166,6 +187,7 @@ export default async function MediaPage({
               folderId={currentFolderId}
               sort={sort}
               dir={dir}
+              typeFilter={typeFilter}
             />
           </main>
         </div>

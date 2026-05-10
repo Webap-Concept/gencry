@@ -10,9 +10,56 @@ import {
   type NewMediaFolder,
 } from "@/lib/db/schema";
 import { pages } from "@/lib/db/schema";
-import { and, asc, count, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 
 export type { MediaAsset, MediaFolder };
+
+/** Filtro per tipologia di file nella media library. La toolbar (e
+ *  l'URL `?type=`) usano questa whitelist; il caller è responsabile del
+ *  parsing — qui si assume valore già validato. */
+export type AssetTypeFilter = "image" | "video" | "audio" | "document" | "other";
+
+// Mime esatti riconosciuti come "documento". L'utente ha richiesto
+// esplicitamente: pdf, word, excel, zip, rar, txt. Confronto case-insensitive
+// (LOWER) perché qualche provider salva il mime in maiuscolo.
+const DOCUMENT_MIMES: ReadonlyArray<string> = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/x-rar-compressed",
+  "application/vnd.rar",
+  "text/plain",
+];
+
+/**
+ * Costruisce il predicato SQL per filtrare per `AssetTypeFilter`. Centralizzato
+ * così `getAssets` e `countAssetsInFolder` restano coerenti — se diverge la
+ * paginazione mostra "X assets" ma la grid ne renderizza un numero diverso.
+ *
+ * `image|video|audio` → prefix match `mime LIKE 'kind/%'`.
+ * `document` → IN list dei mime esatti elencati (pdf/word/excel/zip/rar/txt).
+ * `other` → NOT image/video/audio AND NOT in document list.
+ */
+function buildTypeFilterCondition(filter: AssetTypeFilter): SQL {
+  const lowerMime = sql`LOWER(${mediaAssets.mime})`;
+  if (filter === "image") return sql`${lowerMime} LIKE 'image/%'`;
+  if (filter === "video") return sql`${lowerMime} LIKE 'video/%'`;
+  if (filter === "audio") return sql`${lowerMime} LIKE 'audio/%'`;
+  if (filter === "document") {
+    return inArray(lowerMime, DOCUMENT_MIMES);
+  }
+  // other = catch-all
+  const notMedia = sql`${lowerMime} NOT LIKE 'image/%' AND ${lowerMime} NOT LIKE 'video/%' AND ${lowerMime} NOT LIKE 'audio/%'`;
+  const notDocument = sql`${lowerMime} NOT IN (${sql.join(
+    DOCUMENT_MIMES.map((m) => sql`${m}`),
+    sql`, `,
+  )})`;
+  return and(notMedia, notDocument) as SQL;
+}
 
 // ─── Folders ────────────────────────────────────────────────────────────────
 
@@ -66,15 +113,21 @@ export async function deleteFolderById(id: number): Promise<MediaFolder | null> 
  */
 export async function countAssetsInFolder(
   folderId: number | null,
+  typeFilter?: AssetTypeFilter,
 ): Promise<number> {
   const folderCond =
     folderId === null
       ? isNull(mediaAssets.folderId)
       : eq(mediaAssets.folderId, folderId);
+  const conditions: SQL[] = [
+    folderCond,
+    sql`${mediaAssets.confirmedAt} IS NOT NULL`,
+  ];
+  if (typeFilter) conditions.push(buildTypeFilterCondition(typeFilter));
   const [row] = await db
     .select({ n: count() })
     .from(mediaAssets)
-    .where(and(folderCond, sql`${mediaAssets.confirmedAt} IS NOT NULL`));
+    .where(and(...conditions));
   return row?.n ?? 0;
 }
 
@@ -150,6 +203,8 @@ export async function getAssets(opts?: {
   sortBy?: AssetSortBy;
   /** Default 'desc'. */
   sortDir?: AssetSortDir;
+  /** Filtro per tipologia di file. Whitelist applicata dal caller. */
+  typeFilter?: AssetTypeFilter;
 }): Promise<MediaAsset[]> {
   const conditions = [
     opts?.includeUnconfirmed ? undefined : sql`${mediaAssets.confirmedAt} IS NOT NULL`,
@@ -158,6 +213,7 @@ export async function getAssets(opts?: {
       : opts.folderId === null
         ? isNull(mediaAssets.folderId)
         : eq(mediaAssets.folderId, opts.folderId),
+    opts?.typeFilter ? buildTypeFilterCondition(opts.typeFilter) : undefined,
   ].filter(Boolean);
 
   const where =

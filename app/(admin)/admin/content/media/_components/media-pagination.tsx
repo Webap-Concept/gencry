@@ -1,6 +1,7 @@
 "use client";
 
 import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
+import type { AssetTypeFilter } from "@/lib/db/media-queries";
 import { getAdminRelPath } from "@/lib/admin-nav";
 import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -16,6 +17,8 @@ interface MediaPaginationProps {
    *  vengono inclusi nei link per tenere gli URL puliti. */
   sort?: "date" | "name" | "type";
   dir?: "asc" | "desc";
+  /** null = nessun filtro attivo, omesso dall'URL. */
+  typeFilter?: AssetTypeFilter | null;
 }
 
 export function MediaPagination({
@@ -25,6 +28,7 @@ export function MediaPagination({
   folderId,
   sort = "date",
   dir = "desc",
+  typeFilter = null,
 }: MediaPaginationProps) {
   const t = useTranslations("admin.content.media.pagination");
   const adminSlug = useAdminSlug();
@@ -46,6 +50,7 @@ export function MediaPagination({
       (sort === "date" && dir === "desc") ||
       ((sort === "name" || sort === "type") && dir === "asc");
     if (!isDefaultDir) params.set("dir", dir);
+    if (typeFilter !== null) params.set("type", typeFilter);
     const qs = params.toString();
     return qs ? `${mediaBase}?${qs}` : mediaBase;
   }
