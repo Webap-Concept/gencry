@@ -1,8 +1,9 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useTransition, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { KeyRound, ScanSearch, SlidersHorizontal, UserPlus } from "lucide-react";
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import {
   actionUnblockIp,
   actionBlacklistIp,
@@ -144,6 +145,19 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
   const [tab, setTab] = useState<"offenders" | "blacklist" | "config">("offenders");
   const [configValues, setConfigValues] = useState(config);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [blacklistTarget, setBlacklistTarget] = useState<string | null>(null);
+  const [blacklistReason, setBlacklistReason] = useState("");
+  const reasonInputRef = useRef<HTMLInputElement>(null);
+
+  // Quando si apre la modale blacklist, sposta il focus dal bottone Cancel
+  // (auto-focusato da ConfirmModal a 30ms dal mount) all'input motivo —
+  // l'admin nella maggioranza dei casi vuole digitare subito.
+  useEffect(() => {
+    if (blacklistTarget !== null) {
+      const id = setTimeout(() => reasonInputRef.current?.focus(), 60);
+      return () => clearTimeout(id);
+    }
+  }, [blacklistTarget]);
 
   function showFeedback(msg: string) {
     setFeedback(msg);
@@ -164,14 +178,23 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
   }
 
   function handleBlacklist(ip: string) {
-    const reason =
-      window.prompt(t("blacklistReasonPrompt", { ip })) ?? undefined;
+    setBlacklistReason("");
+    setBlacklistTarget(ip);
+  }
+
+  function confirmBlacklist() {
+    if (!blacklistTarget) return;
+    const ip = blacklistTarget;
+    const reason = blacklistReason.trim();
     const fd = new FormData();
     fd.set("ip", ip);
     if (reason) fd.set("reason", reason);
     startTransition(async () => {
       const res = await actionBlacklistIp(fd);
-      if (res.ok) showFeedback(t("feedbackBlacklisted", { ip }));
+      if (res.ok) {
+        showFeedback(t("feedbackBlacklisted", { ip }));
+        setBlacklistTarget(null);
+      }
     });
   }
 
@@ -237,6 +260,69 @@ export function BruteforceClient({ offenders, blacklist, config }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      <ConfirmModal
+        open={blacklistTarget !== null}
+        title={t("blacklistModalTitle")}
+        message={
+          <>
+            <p style={{ margin: 0, marginBottom: 12 }}>
+              {t.rich("blacklistModalBody", {
+                ip: blacklistTarget ?? "",
+                c: (chunks) => (
+                  <code
+                    style={{
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                      fontSize: 12,
+                      background: "var(--admin-hover-bg)",
+                      padding: "1px 5px",
+                      borderRadius: 4,
+                      color: "var(--admin-text)",
+                    }}>
+                    {chunks}
+                  </code>
+                ),
+              })}
+            </p>
+            <label
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--admin-text)",
+                marginBottom: 4,
+              }}>
+              {t("blacklistReasonLabel")}{" "}
+              <span style={{ color: "var(--admin-text-faint)", fontWeight: 400 }}>
+                ({t("blacklistReasonOptional")})
+              </span>
+            </label>
+            <input
+              ref={reasonInputRef}
+              type="text"
+              value={blacklistReason}
+              onChange={(e) => setBlacklistReason(e.target.value)}
+              placeholder={t("blacklistReasonPlaceholder")}
+              maxLength={255}
+              style={{
+                width: "100%",
+                padding: "7px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--admin-input-border)",
+                background: "var(--admin-page-bg)",
+                color: "var(--admin-text)",
+                outline: "none",
+                fontSize: 13,
+              }}
+            />
+          </>
+        }
+        variant="warning"
+        confirmLabel={t("blacklistModalConfirm")}
+        loading={pending && blacklistTarget !== null}
+        onConfirm={confirmBlacklist}
+        onCancel={() => setBlacklistTarget(null)}
+      />
 
       {feedback && (
         <div style={{

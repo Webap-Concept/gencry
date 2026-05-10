@@ -4,11 +4,13 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { UserX } from "lucide-react";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { db } from "@/lib/db/drizzle";
 import { blockedUsernames } from "@/lib/db/schema";
 import { asc } from "drizzle-orm";
 import { BlockedUsernamesClient } from "./_components/blocked-usernames-client";
+import { BlockedUsernamesGuide } from "./_components/blocked-usernames-guide";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.security.blockedUsernames");
@@ -35,6 +37,13 @@ export default async function AdminBlockedUsernamesPage() {
         breadcrumbLabel={t("breadcrumb")}
         title={tBu("pageTitle")}
         subtitle={tBu("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={tBu("guideTitle")}
+            ariaLabel={tBu("guideAriaLabel")}>
+            <BlockedUsernamesGuide />
+          </AdminSectionInfo>
+        }
       />
 
       <Suspense
