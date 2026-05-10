@@ -22,4 +22,24 @@ export type WidgetMeta = {
   defaultEnabled: boolean;
   /** RBAC gate — widget is filtered out if the user lacks this permission. Bypassed for super admins. */
   requiredPermission?: string;
+  /** Optional i18n BASE key pointing to a setup guide object (see WidgetSetupGuide).
+   *  When set, the customize modal shows an Info button next to the toggle and the
+   *  widget runtime can render the same guide inline if its config is missing. */
+  setupGuideKey?: string;
+};
+
+/** JSON shape stored under `setupGuideKey` in the i18n messages.
+ *  Read via `useTranslations(...).raw(key)` and rendered by the
+ *  WidgetSetupGuide component. All fields except `intro` are optional;
+ *  the renderer skips empty sections cleanly. */
+export type WidgetSetupGuide = {
+  /** Short paragraph explaining what the widget needs. */
+  intro: string;
+  /** Required environment variables (or DB settings). */
+  env?: Array<{ name: string; hint: string }>;
+  /** External documentation URL (Sentry, Vercel, etc.). */
+  docsUrl?: string;
+  /** Short message shown inside the widget body when the config is
+   *  missing — kept terse since the full guide is one click away. */
+  missingConfigShort?: string;
 };
