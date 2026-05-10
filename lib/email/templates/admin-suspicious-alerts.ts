@@ -96,11 +96,11 @@ function escape(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function alertCard(a: DigestAlert, appDomain: string, usersAdminPath: string): string {
+function alertCard(a: DigestAlert, baseUrl: string, usersAdminPath: string): string {
   const reasonLabel = REASON_LABELS[a.reason] ?? a.reason;
   const when = `${dateTimeFmt.format(a.createdAt)} UTC`;
   const userBit = a.userId
-    ? `<a href="https://${appDomain}${usersAdminPath}/${a.userId}" style="color:${t.brandPrimary};text-decoration:none;">User ${a.userId.slice(0, 8)}…</a>`
+    ? `<a href="${baseUrl}${usersAdminPath}/${a.userId}" style="color:${t.brandPrimary};text-decoration:none;">User ${a.userId.slice(0, 8)}…</a>`
     : "no specific user";
 
   return `
@@ -163,6 +163,12 @@ export async function sendSuspiciousAlertsDigest({
   ]);
   const appName = settings.app_name;
   const appDomain = settings.app_domain || "";
+  // app_domain in DB may or may not include the scheme (legacy rows / future
+  // tenants). Normalize once: prepend https:// only if missing, strip trailing
+  // slash. Same pattern used in lib/db/pages-queries.ts and admin/content/pages.
+  const baseUrl = appDomain
+    ? (/^https?:\/\//i.test(appDomain) ? appDomain : `https://${appDomain}`).replace(/\/$/, "")
+    : "";
 
   // Sort: critical → warning → info, then newest first inside each group.
   const sorted = [...alerts].sort((a, b) => {
@@ -176,11 +182,11 @@ export async function sendSuspiciousAlertsDigest({
   const intro = `Detected ${sorted.length} suspicious session ${sorted.length === 1 ? "alert" : "alerts"} since the last digest (${schedule.replace("_", " ")}).`;
 
   const cardsHtml = sorted
-    .map((a) => alertCard(a, appDomain, usersAdminPath))
+    .map((a) => alertCard(a, baseUrl, usersAdminPath))
     .join("\n");
 
-  const link = appDomain
-    ? `https://${appDomain}${sessionsAdminPath}?tab=alerts`
+  const link = baseUrl
+    ? `${baseUrl}${sessionsAdminPath}?tab=alerts`
     : `${sessionsAdminPath}?tab=alerts`;
 
   const contentHtml = `
