@@ -3001,5 +3001,49 @@
       "services-group": "Integrazioni esterne: Resend, Redis, OAuth, Cloudflare, dipendenze.",
       "modules-group": "Moduli funzionali installati."
     }
+  },
+  "dashboard": {
+    "metaTitle": "Dashboard",
+    "breadcrumb": "Home",
+    "pageTitle": "Dashboard",
+    "pageSubtitle": "Il tuo colpo d'occhio operativo.",
+    "customizeButton": "Personalizza",
+    "emptyTitle": "Nessun widget da mostrare",
+    "emptyHint": "Tutti i widget sono disattivati. Clicca su Personalizza per scegliere quali mostrare.",
+    "widgets": {
+      "welcome": {
+        "title": "Benvenuto",
+        "description": "Saluto personalizzato in cima alla dashboard.",
+        "greeting": "Bentornato",
+        "greetingNamed": "Bentornato, {name}",
+        "body": "Questa è la tua dashboard di amministrazione. Usa Personalizza per scegliere quali widget vedere."
+      },
+      "quickActions": {
+        "title": "Azioni rapide",
+        "description": "Scorciatoie alle sezioni admin più usate.",
+        "users": "Utenti",
+        "roles": "Ruoli",
+        "pages": "Pagine",
+        "settings": "Impostazioni"
+      }
+    },
+    "configModal": {
+      "title": "Personalizza dashboard",
+      "subtitle": "Scegli quali widget vedere nella tua dashboard.",
+      "closeAria": "Chiudi",
+      "emptyAvailable": "Nessun widget è disponibile per il tuo ruolo.",
+      "cancelButton": "Annulla",
+      "saveButton": "Salva",
+      "resetButton": "Ripristina vista del ruolo",
+      "resetTooltip": "Annulla la tua personalizzazione e segui il preset definito per il ruolo.",
+      "errorSaving": "Impossibile salvare le preferenze. Riprova.",
+      "errorResetting": "Impossibile ripristinare il preset del ruolo. Riprova."
+    },
+    "rolePreset": {
+      "heading": "Dashboard predefinita",
+      "activeBadge": "Override attivo",
+      "overrideLabel": "Sovrascrivi la dashboard predefinita per questo ruolo",
+      "overrideDescription": "Se attivo, gli utenti con questo ruolo partono dal set di widget scelto qui invece che dai default di sistema. Ogni utente può comunque personalizzare ulteriormente la propria dashboard sopra questo preset."
+    }
   }
 }
