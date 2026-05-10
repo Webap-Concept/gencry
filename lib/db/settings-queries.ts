@@ -189,6 +189,10 @@ export type SettingKey =
   // Cambiarlo da UI invalida ADMIN_URL_SLUG_TAG e aggiorna le righe pages
   // delle system page admin_home / admin_sign_in.
   | 'admin.url_slug'
+  // IP lockdown admin — se 'true', il proxy ammette al pannello admin solo
+  // gli IP che matchano una `ip_rules` con scope='admin'/'all' action='allow'.
+  // Default 'false' (zero overhead). Vedi /admin/security/ip-rules.
+  | 'admin.ip_lockdown_enabled'
   // CMS custom CSS — override editabile da /admin/content/styles.
   // Valore = stringa CSS arbitraria oppure null/empty = usa il default seed
   // (lib/cms/default-styles.ts). Servito da /api/cms/styles.css con cache
@@ -360,6 +364,8 @@ export type AppSettings = {
   'mfa.required_since': string | null
   // Admin URL slug
   'admin.url_slug': string
+  // IP lockdown admin: 'true' | 'false'
+  'admin.ip_lockdown_enabled': string
   // CMS custom CSS
   'cms.custom_css': string | null
   // Sentry — error tracking + performance + replay
@@ -521,6 +527,8 @@ const DEFAULTS: AppSettings = {
   'mfa.required_since': null,
   // Admin URL slug — default 'admin'. Cambiabile da UI; vedi lib/admin-paths.ts.
   'admin.url_slug': 'admin',
+  // IP lockdown admin — default 'false' = zero overhead nel proxy.
+  'admin.ip_lockdown_enabled': 'false',
   // CMS custom CSS — null = nessun override, l'API serve il default seed
   // da lib/cms/default-styles.ts. L'admin lo edita da /admin/content/styles.
   'cms.custom_css': null,

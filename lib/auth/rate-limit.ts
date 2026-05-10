@@ -15,6 +15,10 @@ import { loginAttempts, ipBlacklist } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { and, count, eq, gte, lt, desc, sql } from "drizzle-orm";
 import {
+  evaluateIpForAuth,
+  recordIpRuleHit,
+} from "./ip-rules";
+import {
   checkAndIncrLoginRedis,
   checkAndIncrSignupRedis,
   checkAndIncrAvailabilityRedis,
@@ -78,6 +82,19 @@ export async function checkRateLimit(
 ): Promise<{ blocked: boolean; remaining: number; lockoutMinutes: number }> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
+
+  // ── L0: IP rules manuali (in-memory cache, ~µs) ──────────────────────────
+  // Allow → bypass totale rate-limit (l'IP è in allowlist amministrativa).
+  // Deny  → reject immediato senza toccare Redis/DB. Hit counter f-and-f.
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.signinMax, lockoutMinutes: cfg.lockoutMinutes };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: true, remaining: 0, lockoutMinutes: cfg.lockoutMinutes };
+  }
 
   // ── L1: Redis ────────────────────────────────────────────────────────────
   const peek = await peekLoginRedis(email, ip, cfg.signinMax, windowSeconds);
@@ -163,6 +180,17 @@ export async function checkSignupRateLimit(
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
 
+  // ── L0: IP rules manuali (vedi commento in checkRateLimit) ───────────────
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.signupMax };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: true, remaining: 0 };
+  }
+
   // ── L1: Redis ────────────────────────────────────────────────────────────
   const result = await checkAndIncrSignupRedis(ip, cfg.signupMax, windowSeconds);
   if (result.source === "redis") {
@@ -215,6 +243,17 @@ export async function checkAvailabilityRateLimit(
 ): Promise<{ blocked: boolean; remaining: number }> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.checkWindow * 60;
+
+  // ── L0: IP rules manuali (vedi commento in checkRateLimit) ───────────────
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.checkMax };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: true, remaining: 0 };
+  }
 
   // Solo L1 Redis — se Redis è down lasciamo passare (degradazione graceful)
   const result = await checkAndIncrAvailabilityRedis(ip, cfg.checkMax, windowSeconds);

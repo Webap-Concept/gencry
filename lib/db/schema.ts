@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -16,6 +17,16 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+
+// Postgres ha `inet` nativo (singolo IP v4/v6) e `cidr` (range con prefix).
+// Usiamo `inet` per entrambi: accetta sia "1.2.3.4" che "10.0.0.0/8" che IPv6.
+// Il driver `postgres.js` restituisce/accetta stringhe direttamente, quindi
+// niente parsing custom — il cast lo fa il DB.
+const inet = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return "inet";
+  },
+});
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -501,6 +512,36 @@ export const loginAttempts = pgTable("login_attempts", {
   ip: varchar("ip", { length: 45 }).notNull(),
   attemptedAt: timestamp("attempted_at").notNull().defaultNow(),
   success: boolean("success").notNull().default(false),
+});
+
+/**
+ * Regole IP manuali (allow/deny) gestite dall'admin via /admin/security/ip-rules.
+ * Coesiste con `ipBlacklist` (auto-popolata da bruteforce); una PR successiva
+ * unificherà le due. Le query NON girano per request: il loader cached
+ * (`lib/auth/ip-rules.ts`) carica tutto in memoria e fa match CIDR in JS.
+ *
+ * Vincolo unique(ip, scope): la stessa subnet può avere regole diverse per
+ * scope differenti (es. permessa per signup ma negata per admin).
+ */
+export const ipRules = pgTable("ip_rules", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ip: inet("ip").notNull(),
+  // 'allow' bypass total, 'deny' reject. CHECK constraint a livello SQL.
+  action: varchar("action", { length: 10 }).notNull(),
+  // 'auth' | 'admin' | 'all' — scope di applicazione. CHECK SQL.
+  scope: varchar("scope", { length: 10 }).notNull(),
+  reason: varchar("reason", { length: 255 }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  // Hit counter aggiornato fire-and-forget (Redis INCR) e flushato a DB
+  // periodicamente da cron — mai sincrono nel hot path.
+  hitCount: integer("hit_count").notNull().default(0),
+  lastHitAt: timestamp("last_hit_at", { withTimezone: true }),
 });
 
 export const emailVerifications = pgTable("email_verifications", {
@@ -1456,3 +1497,4 @@ export type MediaFolder = typeof mediaFolders.$inferSelect;
 export type NewMediaFolder = typeof mediaFolders.$inferInsert;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NewMediaAsset = typeof mediaAssets.$inferInsert;
+export type IpRule = typeof ipRules.$inferSelect;
