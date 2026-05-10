@@ -4,13 +4,17 @@
  * Reads credentials from env vars (NOT app_settings DB):
  *   - SENTRY_ORG          → organization slug, also used by build plugin
  *   - SENTRY_PROJECT      → project slug, also used by build plugin
- *   - SENTRY_API_AUTH_TOKEN → Personal Access Token with scope "project:read".
+ *   - SENTRY_API_AUTH_TOKEN → User Auth Token with scopes:
+ *                             - `project:read` + `event:read` (always required)
+ *                             - `event:write` (optional — only needed for the
+ *                                "Resolve" button in the All Errors modal)
  *                             Recommended: separate from the build token
- *                             (which has scope "project:write" + "release").
+ *                             (which is an Org token with scope `org:ci`).
  *                             Falls back to SENTRY_AUTH_TOKEN if missing.
  *
- * Cached 60s via unstable_cache + tag "admin-sentry-issues" so that any
- * future explicit refresh button can call updateTag(SENTRY_ISSUES_TAG).
+ * Cached 60s via unstable_cache + tag "admin-sentry-issues" so any
+ * mutation (e.g. resolving an issue) can call revalidateTag(SENTRY_ISSUES_TAG)
+ * to force a fresh fetch on the next render.
  *
  * Errors never throw: every failure mode returns a discriminated result
  * the widget can render as a card. We don't want a Sentry hiccup to
@@ -141,7 +145,10 @@ async function fetchIssuesUncached(): Promise<SentryIssuesResult> {
     .map(toSummary)
     .filter((x): x is SentryIssueSummary => x !== null);
 
-  return { ok: true, total: all.length, issues: all.slice(0, 5) };
+  // Return ALL fetched issues (capped at the API's limit of 100). The
+  // widget shows the first 5 inline; the "Show all" modal renders the
+  // full list. Slicing here would force a second fetch from the modal.
+  return { ok: true, total: all.length, issues: all };
 }
 
 export const fetchSentryIssues24h = unstable_cache(
@@ -149,3 +156,72 @@ export const fetchSentryIssues24h = unstable_cache(
   ["admin-sentry-issues-24h"],
   { tags: [SENTRY_ISSUES_TAG], revalidate: 60 },
 );
+
+// ─── Mutations ───────────────────────────────────────────────────────────
+export type SentryResolveResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing_env" | "scope_insufficient" | "network" | "unknown";
+      detail?: string;
+    };
+
+/**
+ * Marks a Sentry issue as resolved via PUT to the org-scoped issues
+ * endpoint. The API requires `event:write` on the auth token; if missing
+ * Sentry returns 403 and we surface it as `scope_insufficient` so the UI
+ * can tell the user to update their token, not retry blindly.
+ *
+ * Caller should `revalidateTag(SENTRY_ISSUES_TAG)` on success so the next
+ * widget render shows the issue gone.
+ */
+export async function markSentryIssueAsResolved(
+  issueId: string,
+): Promise<SentryResolveResult> {
+  const cfg = loadSentryWidgetConfig();
+  if (!cfg) return { ok: false, reason: "missing_env" };
+
+  const url = `https://sentry.io/api/0/organizations/${encodeURIComponent(
+    cfg.org,
+  )}/issues/${encodeURIComponent(issueId)}/`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ status: "resolved" }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("[sentry/issues] resolve network error:", err);
+    return {
+      ok: false,
+      reason: "network",
+      detail: err instanceof Error ? err.message : "fetch failed",
+    };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, reason: "scope_insufficient" };
+  }
+  if (response.status === 404) {
+    // Issue already resolved/deleted, or the id is wrong. Either way the
+    // user will not see it after the next refresh — treat as success.
+    return { ok: true };
+  }
+  if (!response.ok) {
+    console.error("[sentry/issues] resolve unexpected status:", response.status);
+    return {
+      ok: false,
+      reason: "unknown",
+      detail: String(response.status),
+    };
+  }
+
+  return { ok: true };
+}
