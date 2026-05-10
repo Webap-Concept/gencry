@@ -94,7 +94,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
               spellCheck={false}
               className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
               style={{
-                background: "var(--admin-input-bg)",
+                background: "var(--admin-page-bg)",
                 border: "1px solid var(--admin-input-border)",
                 color: "var(--admin-text)",
                 outline: "none",
@@ -132,7 +132,7 @@ export function RedisForm({ settings }: { settings: AppSettings }) {
                 spellCheck={false}
                 className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm font-mono"
                 style={{
-                  background: "var(--admin-input-bg)",
+                  background: "var(--admin-page-bg)",
                   border: "1px solid var(--admin-input-border)",
                   color: "var(--admin-text)",
                   outline: "none",

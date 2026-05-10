@@ -11,34 +11,12 @@ import {
   Plus,
   RotateCcw,
   Trash2,
-  X,
   Zap,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--admin-page-bg)",
-  border: "1px solid var(--admin-input-border)",
-  color: "var(--admin-text)",
-  borderRadius: "0.5rem",
-  padding: "0.5rem 0.75rem",
-  fontSize: "0.875rem",
-  width: "100%",
-  outline: "none",
-  fontFamily: "monospace",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "0.65rem",
-  fontWeight: 600,
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.06em",
-  color: "var(--admin-text-muted)",
-  display: "block",
-  marginBottom: "0.375rem",
-};
+import { RedirectFormDialog } from "./redirect-form-dialog";
 
 const STATUS_COLORS: Record<number, { bg: string; text: string; border: string }> = {
   301: {
@@ -167,13 +145,21 @@ export default function RedirectsClient({
     setTogglingId(null);
   }
 
-  const editRow = mode?.type === "edit" ? mode.row : null;
-  const rows = activeTab === "manual" ? manualRows : automaticRows;
   const totalManual = manualRows.length;
   const totalAutomatic = automaticRows.length;
 
   return (
     <div className="space-y-6">
+      <RedirectFormDialog
+        open={mode !== null}
+        mode={mode}
+        prefillFrom={prefillFrom}
+        formAction={formAction}
+        formError={(formState as { error?: string })?.error ?? null}
+        isPending={isPending}
+        onClose={() => setMode(null)}
+      />
+
       <ConfirmModal
         open={deleteTarget !== null}
         title={t("deleteModalTitle")}
@@ -211,7 +197,7 @@ export default function RedirectsClient({
         breadcrumbLabel={t("pageHeading")}
         subtitle={t("totalCount", { count: totalManual + totalAutomatic })}
         actionSlot={
-          mode === null && activeTab === "manual" ? (
+          activeTab === "manual" ? (
             <button
               type="button"
               onClick={() => setMode({ type: "new" })}
@@ -267,98 +253,6 @@ export default function RedirectsClient({
         {/* Manual tab content */}
         {activeTab === "manual" && (
           <div className="p-5 space-y-4">
-            {/* Form */}
-            {mode !== null && (
-              <div
-                className="rounded-xl p-5"
-                style={{ background: "var(--admin-page-bg)", border: "1px solid var(--admin-input-border)" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-                    {mode.type === "new" ? t("formNewTitle") : t("formEditTitle")}
-                  </p>
-                  <button type="button" onClick={() => setMode(null)}>
-                    <X size={16} style={{ color: "var(--admin-text-muted)" }} />
-                  </button>
-                </div>
-                <form action={formAction} className="space-y-4">
-                  {editRow && <input type="hidden" name="id" value={editRow.id} />}
-                  <input type="hidden" name="isActive" value="true" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label style={labelStyle}>{t("fromLabel")}</label>
-                      <input
-                        name="fromPath"
-                        defaultValue={editRow?.fromPath ?? (mode.type === "new" && prefillFrom ? prefillFrom : "")}
-                        placeholder={t("fromPlaceholder")}
-                        required
-                        style={inputStyle}
-                      />
-                      <p style={{ fontSize: "0.7rem", color: "var(--admin-text-faint)", marginTop: "0.25rem" }}>
-                        {t("fromHint")}
-                      </p>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>{t("toLabel")}</label>
-                      <input
-                        name="toPath"
-                        defaultValue={editRow?.toPath ?? ""}
-                        placeholder={t("toPlaceholder")}
-                        required
-                        style={inputStyle}
-                      />
-                      <p style={{ fontSize: "0.7rem", color: "var(--admin-text-faint)", marginTop: "0.25rem" }}>
-                        {t("toHint")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="max-w-xs">
-                    <label style={labelStyle}>{t("statusCodeLabel")}</label>
-                    <select
-                      name="statusCode"
-                      defaultValue={String(editRow?.statusCode ?? "301")}
-                      style={{ ...inputStyle, fontFamily: "inherit" }}>
-                      <option value="301">{t("statusCode301")}</option>
-                      <option value="302">{t("statusCode302")}</option>
-                      <option value="307">{t("statusCode307")}</option>
-                      <option value="308">{t("statusCode308")}</option>
-                    </select>
-                  </div>
-                  {(formState as { error?: string })?.error && (
-                    <p
-                      className="text-sm rounded-lg px-3 py-2"
-                      style={{
-                        color: "#ef4444",
-                        background: "color-mix(in srgb, #ef4444 10%, var(--admin-card-bg))",
-                        border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                      }}>
-                      {(formState as { error?: string }).error}
-                    </p>
-                  )}
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMode(null)}
-                      className="px-4 py-1.5 text-sm rounded-lg transition-colors"
-                      style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-card-border)" }}>
-                      {t("cancelButton")}
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isPending}
-                      className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-lg text-white disabled:opacity-60 transition-colors"
-                      style={{ background: "var(--admin-accent)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.9)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}>
-                      {isPending && (
-                        <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      )}
-                      {mode.type === "new" ? t("createButton") : t("saveButton")}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
             {deleteError && (
               <div
                 className="flex items-center gap-2 rounded-lg px-3 py-2"

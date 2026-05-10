@@ -1,5 +1,6 @@
 "use client";
 
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { IpRule } from "@/lib/db/schema";
 import {
@@ -39,7 +40,8 @@ export function IpRulesClient({
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
-  const [, startTransition] = useTransition();
+  const [pendingDelete, setPendingDelete] = useState<IpRule | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function handleAddDone(ok: boolean, errorKey?: string) {
     setAddOpen(false);
@@ -48,13 +50,19 @@ export function IpRulesClient({
   }
 
   function handleRemove(rule: IpRule) {
-    if (!confirm(t("confirmRemove", { ip: rule.ip }))) return;
+    setPendingDelete(rule);
+  }
+
+  function confirmRemove() {
+    if (!pendingDelete) return;
+    const rule = pendingDelete;
     setPendingId(rule.id);
     const fd = new FormData();
     fd.set("id", String(rule.id));
     startTransition(async () => {
       const res = await actionRemoveIpRule(fd);
       setPendingId(null);
+      setPendingDelete(null);
       if (res.ok) setToast({ message: t("toastRemoved"), type: "success" });
       else setToast({ message: t(res.error), type: "error" });
     });
@@ -122,6 +130,31 @@ export function IpRulesClient({
           onDone={handleAddDone}
         />
       )}
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("confirmRemoveTitle")}
+        message={t.rich("confirmRemoveBody", {
+          ip: pendingDelete?.ip ?? "",
+          code: (chunks) => (
+            <code
+              style={{
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                background: "var(--admin-hover-bg)",
+                padding: "1px 5px",
+                borderRadius: 4,
+                color: "var(--admin-text)",
+              }}>
+              {chunks}
+            </code>
+          ),
+        })}
+        variant="danger"
+        confirmLabel={t("confirmRemoveConfirm")}
+        loading={isPending && pendingId === pendingDelete?.id}
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
 
       {toast && (
         <AdminToast

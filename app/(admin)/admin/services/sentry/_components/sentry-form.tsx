@@ -96,7 +96,7 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
   }
 
   const inputStyle = {
-    background: "var(--admin-input-bg)",
+    background: "var(--admin-page-bg)",
     border: "1px solid var(--admin-input-border)",
     color: "var(--admin-text)",
   };
