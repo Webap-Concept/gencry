@@ -15,6 +15,10 @@ import { loginAttempts, ipBlacklist } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { and, count, eq, gte, lt, desc, sql } from "drizzle-orm";
 import {
+  evaluateIpForAuth,
+  recordIpRuleHit,
+} from "./ip-rules";
+import {
   checkAndIncrLoginRedis,
   checkAndIncrSignupRedis,
   checkAndIncrAvailabilityRedis,
@@ -69,15 +73,44 @@ const GENERAL_IP_MARKER       = "__general__";
 const SIGNUP_EMAIL_MARKER     = "__signup__";
 const PER_EMAIL_ANY_IP_MARKER = "__anyip__";
 
+// `reason` è valorizzato SOLO quando il blocco arriva da una regola IP
+// manuale (deny in `ip_rules`). Per il caller serve a scegliere il
+// messaggio: "Accesso negato" invece dell'ingannevole "Troppi tentativi,
+// riprova tra X minuti" usato per il rate-limit reale.
+export type RateLimitBlockReason = "ip-rule";
+
 // ---------------------------------------------------------------------------
 // checkRateLimit — login, DUAL LAYER
 // ---------------------------------------------------------------------------
 export async function checkRateLimit(
   email: string,
   ip: string,
-): Promise<{ blocked: boolean; remaining: number; lockoutMinutes: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  lockoutMinutes: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
+
+  // ── L0: IP rules manuali (in-memory cache, ~µs) ──────────────────────────
+  // Allow → bypass totale rate-limit (l'IP è in allowlist amministrativa).
+  // Deny  → reject immediato senza toccare Redis/DB. Hit counter f-and-f.
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.signinMax, lockoutMinutes: cfg.lockoutMinutes };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return {
+      blocked: true,
+      remaining: 0,
+      lockoutMinutes: cfg.lockoutMinutes,
+      reason: "ip-rule",
+    };
+  }
 
   // ── L1: Redis ────────────────────────────────────────────────────────────
   const peek = await peekLoginRedis(email, ip, cfg.signinMax, windowSeconds);
@@ -159,9 +192,24 @@ export async function recordLoginAttempt(
 // ---------------------------------------------------------------------------
 export async function checkSignupRateLimit(
   ip: string,
-): Promise<{ blocked: boolean; remaining: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.windowMinutes * 60;
+
+  // ── L0: IP rules manuali (vedi commento in checkRateLimit) ───────────────
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.signupMax };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: true, remaining: 0, reason: "ip-rule" };
+  }
 
   // ── L1: Redis ────────────────────────────────────────────────────────────
   const result = await checkAndIncrSignupRedis(ip, cfg.signupMax, windowSeconds);
@@ -212,9 +260,24 @@ export async function recordSignupAttempt(ip: string): Promise<void> {
 // ---------------------------------------------------------------------------
 export async function checkAvailabilityRateLimit(
   ip: string,
-): Promise<{ blocked: boolean; remaining: number }> {
+): Promise<{
+  blocked: boolean;
+  remaining: number;
+  reason?: RateLimitBlockReason;
+}> {
   const cfg = await getBruteforceConfig();
   const windowSeconds = cfg.checkWindow * 60;
+
+  // ── L0: IP rules manuali (vedi commento in checkRateLimit) ───────────────
+  const ruling = await evaluateIpForAuth(ip);
+  if (ruling.decision === "allow") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: false, remaining: cfg.checkMax };
+  }
+  if (ruling.decision === "deny") {
+    recordIpRuleHit(ruling.ruleId);
+    return { blocked: true, remaining: 0, reason: "ip-rule" };
+  }
 
   // Solo L1 Redis — se Redis è down lasciamo passare (degradazione graceful)
   const result = await checkAndIncrAvailabilityRedis(ip, cfg.checkMax, windowSeconds);

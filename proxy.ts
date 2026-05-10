@@ -1,5 +1,6 @@
 // proxy.ts
 import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { evaluateIpForAdmin, recordIpRuleHit } from "@/lib/auth/ip-rules";
 import { verifyToken } from "@/lib/auth/session";
 import { getValidSession } from "@/lib/auth/sessions";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
@@ -15,6 +16,7 @@ import {
 import { getNavigablePages } from "@/lib/db/pages-queries";
 import { getRedirectByFromPath } from "@/lib/db/redirects-queries";
 import type { RouteVisibility } from "@/lib/db/schema";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   SYSTEM_ALWAYS_PUBLIC,
   SYSTEM_AUTH_ROUTES,
@@ -98,6 +100,49 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("x-admin-slug", adminSlug);
   const isAdminPath = (p: string) =>
     p === adminBasePath || p.startsWith(`${adminBasePath}/`);
+
+  // --- ADMIN IP LOCKDOWN ---
+  // Quando il setting `admin.ip_lockdown_enabled === 'true'`, l'accesso al
+  // pannello admin (qualunque path sotto /<adminSlug>/) è limitato agli IP
+  // matchati da una `ip_rules` con scope='admin'/'all' action='allow'.
+  //
+  // Perf design: questo branch entra SOLO se la request è verso un path
+  // admin. Per tutte le altre request: zero overhead. Quando entra:
+  //   1. settings lookup (react cache, già caldo se chiamato altrove)
+  //   2. se OFF → return immediato, costo = 1 cache hit
+  //   3. se ON  → 1 cache hit di ip-rules (in-memory) + match BigInt (~µs)
+  //
+  // Risposta: rewrite (NON redirect — l'address bar resta su /<adminSlug>/…)
+  // verso un path catch-all del CMS che non esisterà mai → renderizza la
+  // 404 frontend standard (con SEO/branding del sito). Indistinguibile da
+  // un URL inesistente qualunque, così l'esistenza del pannello resta
+  // invisibile a un IP non autorizzato. Lo status 404 lo setta `notFound()`
+  // dentro CmsPage.
+  if (isAdminPath(pathname)) {
+    try {
+      const settings = await getAppSettings();
+      if (settings["admin.ip_lockdown_enabled"] === "true") {
+        const clientIp =
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          request.headers.get("x-real-ip") ??
+          null;
+        const ruling = await evaluateIpForAdmin(clientIp);
+        if (ruling.decision !== "allow") {
+          const fallback = request.nextUrl.clone();
+          // Path con underscore-prefix: il CMS catch-all `[...slug]` non
+          // troverà mai un page con questo slug → notFound() → renderizza
+          // `(frontend)/not-found.tsx` con frontend.css caricato.
+          fallback.pathname = "/__ip-blocked";
+          fallback.search = "";
+          return NextResponse.rewrite(fallback);
+        }
+        recordIpRuleHit(ruling.ruleId);
+      }
+    } catch {
+      // Fail-open: se settings/cache è rotta, NON bloccare l'admin (si
+      // rischierebbe lockout totale). L'admin saprà gestire il toggle.
+    }
+  }
 
   // --- REWRITE: URL utente "/<adminSlug>/..." → path interno "/admin/..." ---
   // Si fa PRIMA dell'i18n e degli auth check perché tutta la logica admin

@@ -2,10 +2,12 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { ListFilter } from "lucide-react";
-import { Suspense } from "react";
 import { IpRulesClient } from "./_components/ip-rules-client";
+import { IpRulesGuide } from "./_components/ip-rules-guide";
+import { getIpRulesData } from "./actions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.security.ipRules");
@@ -17,6 +19,8 @@ export default async function AdminIpRulesPage() {
   const t = await getTranslations("admin.security");
   const tIp = await getTranslations("admin.security.ipRules");
 
+  const data = await getIpRulesData();
+
   return (
     <div className="space-y-5">
       <AdminSectionHeader
@@ -24,20 +28,21 @@ export default async function AdminIpRulesPage() {
         breadcrumbLabel={t("breadcrumb")}
         title={tIp("pageTitle")}
         subtitle={tIp("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={tIp("guideTitle")}
+            ariaLabel={tIp("guideAriaLabel")}>
+            <IpRulesGuide />
+          </AdminSectionInfo>
+        }
       />
 
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center h-40">
-            <div
-              className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: "var(--admin-accent)", borderTopColor: "transparent" }}
-            />
-          </div>
-        }
-      >
-        <IpRulesClient />
-      </Suspense>
+      <IpRulesClient
+        initialRules={data.rules}
+        lockdownEnabled={data.lockdownEnabled}
+        currentIp={data.currentIp}
+        currentIpAdminDecision={data.currentIpAdminDecision}
+      />
     </div>
   );
 }

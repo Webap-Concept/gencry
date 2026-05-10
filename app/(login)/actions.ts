@@ -125,10 +125,16 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     return { error: t("actionErrors.common.turnstileFailed"), email, password };
   }
 
-  const { blocked } = await checkRateLimit(email, ip);
-  if (blocked) {
+  const rateLimit = await checkRateLimit(email, ip);
+  if (rateLimit.blocked) {
+    // Distingui il blocco da regola manuale dal rate-limit: il primo è
+    // permanente/intenzionale ("riprova tra X min" sarebbe ingannevole).
     return {
-      error: t("actionErrors.common.tooManyAttempts"),
+      error: t(
+        rateLimit.reason === "ip-rule"
+          ? "actionErrors.common.ipBlocked"
+          : "actionErrors.common.tooManyAttempts",
+      ),
       email,
       password,
     };
@@ -322,7 +328,11 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const signupCheck = await checkSignupRateLimit(ip);
   if (signupCheck.blocked) {
     return {
-      error: t("actionErrors.signUp.tooManyAttempts"),
+      error: t(
+        signupCheck.reason === "ip-rule"
+          ? "actionErrors.common.ipBlocked"
+          : "actionErrors.signUp.tooManyAttempts",
+      ),
       email,
       password,
     };
@@ -483,7 +493,11 @@ export async function checkEmailAction(email: string) {
   if (availCheck.blocked) {
     return {
       available: false,
-      error: t("actionErrors.common.tooManyChecks"),
+      error: t(
+        availCheck.reason === "ip-rule"
+          ? "actionErrors.common.ipBlocked"
+          : "actionErrors.common.tooManyChecks",
+      ),
     };
   }
 
@@ -527,7 +541,11 @@ export async function checkUsernameAction(
   if (availCheck.blocked) {
     return {
       available: false,
-      error: t("actionErrors.common.tooManyChecks"),
+      error: t(
+        availCheck.reason === "ip-rule"
+          ? "actionErrors.common.ipBlocked"
+          : "actionErrors.common.tooManyChecks",
+      ),
     };
   }
 
