@@ -55,23 +55,38 @@ export const ADMIN_URL_SLUG_TAG = "admin-url-slug";
  * in 404 (vecchio slug) o nel public CMS (nuovo slug non ancora visto).
  */
 const fetchSlug = async (): Promise<string> => {
-  try {
-    const s = await getAppSettings();
-    const v = s["admin.url_slug"]?.trim();
-    if (!v) return DEFAULT_ADMIN_URL_SLUG;
-    // Defense in depth: anche se qualcuno ha messo un valore invalido
-    // direttamente in DB, non lasciamolo "rompere" il routing.
-    const validated = validateAdminSlugSync(v);
-    return validated.ok ? validated.slug : DEFAULT_ADMIN_URL_SLUG;
-  } catch {
-    return DEFAULT_ADMIN_URL_SLUG;
-  }
+  // NB: niente try/catch qui. Le eccezioni (DB down, timeout, ecc.) devono
+  // propagare a `getAdminUrlSlug()` che decide tra last-known e default.
+  // Catturare qui significherebbe POPOLARE la unstable_cache col valore
+  // default per 60s, congelando il sintomo "admin = 404" anche dopo che
+  // il DB è tornato online.
+  const s = await getAppSettings();
+  const v = s["admin.url_slug"]?.trim();
+  if (!v) return DEFAULT_ADMIN_URL_SLUG;
+  // Defense in depth: anche se qualcuno ha messo un valore invalido
+  // direttamente in DB, non lasciamolo "rompere" il routing.
+  const validated = validateAdminSlugSync(v);
+  return validated.ok ? validated.slug : DEFAULT_ADMIN_URL_SLUG;
 };
 
 const fetchSlugCached = unstable_cache(fetchSlug, ["admin-url-slug"], {
   revalidate: 60,
   tags: [ADMIN_URL_SLUG_TAG],
 });
+
+/**
+ * Last-known good value, in process memory. Vive per la durata del
+ * worker (in produzione: una serverless function instance), non è
+ * condiviso fra istanze. Sopravvive a un cache miss + DB timeout
+ * occasionale: il proxy continua a vedere lo slug giusto invece di
+ * fallback-are al default e mandare TUTTE le request admin nel CMS
+ * 404. Si aggiorna OGNI VOLTA che `fetchSlug` ritorna con successo.
+ *
+ * Pattern intentionalmente più resiliente del solo `unstable_cache`:
+ * la cache di Next può evictare in regioni edge differenti, qui invece
+ * abbiamo un floor permanente (per la lifetime del worker).
+ */
+let lastKnownSlug: string | null = null;
 
 export async function getAdminUrlSlug(): Promise<string> {
   // Outer try/catch difensivo: copre sia errori interni di fetchSlug, sia
@@ -81,9 +96,16 @@ export async function getAdminUrlSlug(): Promise<string> {
   // un guard che chiama `getAdminUrlSlug` esploderebbero invece di
   // testare il comportamento del guard stesso.
   try {
-    return await fetchSlugCached();
+    const slug = await fetchSlugCached();
+    lastKnownSlug = slug;
+    return slug;
   } catch {
-    return DEFAULT_ADMIN_URL_SLUG;
+    // Preferisci l'ultimo valore conosciuto al default. In produzione
+    // su slug custom (es. "businessmanager") il default "admin" manderebbe
+    // tutte le request admin nel CMS catch-all → 404 frontend, finché il
+    // DB non ritorna. Con last-known il sintomo svanisce dopo il primo
+    // hit andato a buon fine, e gli outage successivi non lo riprodurranno.
+    return lastKnownSlug ?? DEFAULT_ADMIN_URL_SLUG;
   }
 }
 
