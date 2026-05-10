@@ -3,9 +3,10 @@
 /* react-grid-layout — required for the admin dashboard "Edit Layout"
    mode. Loaded globally in the admin shell; the lib code itself is
    dynamically imported only when the user enters edit mode (see
-   _components/dashboard-edit-grid.tsx). */
+   _components/dashboard-edit-grid.tsx). RGL 2.x ships its resize
+   handle styles inside this same file — no separate react-resizable
+   import is needed (and it's no longer available as a package). */
 @import "react-grid-layout/css/styles.css";
-@import "react-resizable/css/styles.css";
 
 :root {
   /* Brand */
