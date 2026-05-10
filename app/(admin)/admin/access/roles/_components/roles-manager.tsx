@@ -79,7 +79,15 @@ function RoleForm({
     initial?.dashboardWidgets != null,
   );
   const [dashEnabled, setDashEnabled] = useState<Set<string>>(() => {
-    const fromInitial = initial?.dashboardWidgets?.enabled;
+    // dashboardWidgets can be either the legacy { enabled: string[] } shape
+    // or the new { items: WidgetItem[] } shape. Extract ids from either.
+    const pref = initial?.dashboardWidgets;
+    const fromInitial =
+      pref && "items" in pref
+        ? pref.items.map((it) => it.id)
+        : pref && "enabled" in pref
+          ? pref.enabled
+          : null;
     if (fromInitial) return new Set(fromInitial);
     // Sensible starting point when first turning override on:
     // pre-tick the registry defaults so admins don't start from zero.

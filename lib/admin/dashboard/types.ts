@@ -4,9 +4,35 @@
 // caller can depend on the type without pulling in the whole widget registry
 // (which lives under app/(admin)/admin/_widgets and imports React components).
 
+/** A widget's position + size in the 12-column grid layout. Coordinates
+ *  follow react-grid-layout's convention: `x` and `w` in column units
+ *  (0..12), `y` and `h` in row units (1 row ~ 60px tall). */
+export type WidgetItem = {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 /** Persisted shape for both `admin_user_preferences.dashboard_widgets`
- *  and `roles.dashboard_widgets`. NULL row/column = inherit lower level. */
-export type DashboardWidgetsPref = { enabled: string[] };
+ *  and `roles.dashboard_widgets`. NULL row/column = inherit lower level.
+ *
+ *  Two shapes coexist for backward-compat:
+ *    - LEGACY `{ enabled: string[] }` — pre-layout era, list of ids only.
+ *      Treated by the resolver as "these widgets are on, use defaults".
+ *    - CURRENT `{ items: WidgetItem[] }` — id + grid position + size.
+ *      Written on every save once the user/admin touches the layout. */
+export type DashboardWidgetsPref =
+  | { enabled: string[] }
+  | { items: WidgetItem[] };
+
+/** Default grid sizing for newly-enabled widgets that don't carry a
+ *  saved layout yet. Half-width × 2 rows is a balanced starting card. */
+export const DEFAULT_WIDGET_SIZE = { w: 6, h: 2 } as const;
+
+/** Total grid columns. Must match the value passed to react-grid-layout. */
+export const GRID_COLS = 12;
 
 /** Pure-data view of a widget — no React component reference. The resolver
  *  and the customize modal only need this; the page builds the full

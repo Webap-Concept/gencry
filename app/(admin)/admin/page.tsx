@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { LayoutDashboard } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -11,11 +11,13 @@ import {
 } from "@/lib/admin/dashboard/queries";
 import {
   getVisibleRegistry,
-  resolveEnabledWidgetIds,
+  resolveDashboardLayout,
 } from "@/lib/admin/dashboard/resolve";
 import { DASHBOARD_WIDGETS_META } from "./_widgets/meta";
 import { WIDGET_COMPONENTS } from "./_widgets/registry";
-import DashboardCustomizeButton from "./_components/dashboard-customize-button";
+import DashboardToolbar from "./_components/dashboard-toolbar";
+import { DashboardEditModeProvider } from "./_components/dashboard-edit-mode-context";
+import DashboardGridSwitcher from "./_components/dashboard-grid-switcher";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.dashboard");
@@ -26,23 +28,18 @@ export default async function AdminDashboardPage() {
   const user = await requireAdminPage();
   const t = await getTranslations("admin.dashboard");
 
-  // Super admins bypass the per-widget RBAC gate; we don't need their
-  // permission set at all in that case (one less DB query).
   const isSuperAdmin = user.isAdmin === true;
   const userPermissions = isSuperAdmin
     ? new Set<string>()
     : await getUserPermissions(user);
 
-  // Multi-role union: today users have a single role string. The array
-  // shape is here so multi-role can land later without changing this page.
   const roleNames = [user.role];
-
   const [userPref, rolePresets] = await Promise.all([
     getAdminUserDashboardPref(user.id),
     getRolePresetsByNames(roleNames),
   ]);
 
-  const enabledIds = resolveEnabledWidgetIds({
+  const items = resolveDashboardLayout({
     registry: DASHBOARD_WIDGETS_META,
     userPref,
     rolePresets,
@@ -56,64 +53,71 @@ export default async function AdminDashboardPage() {
     isSuperAdmin,
   });
 
-  return (
-    <div className="space-y-5">
-      <AdminSectionHeader
-        icon={LayoutDashboard}
-        breadcrumbLabel={t("breadcrumb")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-        actionSlot={
-          <DashboardCustomizeButton
-            visibleWidgets={visibleWidgets}
-            initialEnabled={enabledIds}
-            hasUserOverride={userPref !== null}
-          />
-        }
-      />
+  // Pre-render every widget RSC body once so the client grid can place
+  // them by id without re-running the server fetches when toggling
+  // edit mode. This works because Server Components can be passed as
+  // children/props of Client Components in the React 19 model.
+  const widgetsById: Record<string, ReactNode> = {};
+  for (const it of items) {
+    const Component = WIDGET_COMPONENTS[it.id];
+    if (!Component) continue;
+    widgetsById[it.id] = (
+      <Suspense fallback={<WidgetSkeleton />}>
+        <Component />
+      </Suspense>
+    );
+  }
 
-      {enabledIds.length === 0 ? (
-        <div
-          className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-3"
-          style={{
-            borderColor: "var(--admin-card-border)",
-            color: "var(--admin-text-faint)",
-          }}
-        >
-          <LayoutDashboard size={28} style={{ opacity: 0.3 }} />
-          <p className="text-sm">{t("emptyTitle")}</p>
-          <p
-            className="text-xs text-center max-w-xs"
-            style={{ color: "var(--admin-text-faint)" }}
+  return (
+    <DashboardEditModeProvider initialItems={items}>
+      <div className="space-y-5">
+        <AdminSectionHeader
+          icon={LayoutDashboard}
+          breadcrumbLabel={t("breadcrumb")}
+          title={t("pageTitle")}
+          subtitle={t("pageSubtitle")}
+          actionSlot={
+            <DashboardToolbar
+              visibleWidgets={visibleWidgets}
+              initialEnabled={items.map((it) => it.id)}
+              hasUserOverride={userPref !== null}
+            />
+          }
+        />
+
+        {items.length === 0 ? (
+          <div
+            className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center py-12 gap-3"
+            style={{
+              borderColor: "var(--admin-card-border)",
+              color: "var(--admin-text-faint)",
+            }}
           >
-            {t("emptyHint")}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {enabledIds.map((id) => {
-            const Component = WIDGET_COMPONENTS[id];
-            if (!Component) return null;
-            return (
-              <Suspense key={id} fallback={<WidgetSkeleton />}>
-                <Component />
-              </Suspense>
-            );
-          })}
-        </div>
-      )}
-    </div>
+            <LayoutDashboard size={28} style={{ opacity: 0.3 }} />
+            <p className="text-sm">{t("emptyTitle")}</p>
+            <p
+              className="text-xs text-center max-w-xs"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              {t("emptyHint")}
+            </p>
+          </div>
+        ) : (
+          <DashboardGridSwitcher widgetsById={widgetsById} />
+        )}
+      </div>
+    </DashboardEditModeProvider>
   );
 }
 
 function WidgetSkeleton() {
   return (
     <div
-      className="rounded-xl p-5 animate-pulse"
+      className="rounded-xl p-5 animate-pulse h-full"
       style={{
         background: "var(--admin-card-bg)",
         border: "1px solid var(--admin-card-border)",
-        minHeight: "120px",
+        minHeight: 120,
       }}
     >
       <div

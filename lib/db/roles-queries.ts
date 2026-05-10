@@ -13,7 +13,10 @@ export type RoleRow = {
   isAdmin: boolean;
   isSystem: boolean;
   sortOrder: number;
-  dashboardWidgets: { enabled: string[] } | null;
+  dashboardWidgets:
+    | { enabled: string[] }
+    | { items: Array<{ id: string; x: number; y: number; w: number; h: number }> }
+    | null;
 };
 
 export async function getAdminRoles(): Promise<RoleRow[]> {
