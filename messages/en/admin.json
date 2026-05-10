@@ -3037,12 +3037,29 @@
           "network": "Could not reach Sentry. Will retry on the next refresh.",
           "unknown": "Sentry returned an unexpected response."
         },
+        "showAllButton": "Show all (+{count})",
+        "modalTitle": "All errors (last 24h)",
+        "modalSubtitle": "{count, plural, =0 {No remaining issues} one {# unresolved issue} other {# unresolved issues}}",
+        "modalCloseAria": "Close",
+        "modalAllResolved": "All issues have been resolved.",
+        "resolveButton": "Resolve",
+        "resolvingLabel": "Resolving…",
+        "confirmResolveTitle": "Mark as resolved?",
+        "confirmResolveMessage": "Mark this issue as resolved on Sentry: \"{title}\". You can always reopen it from the Sentry dashboard.",
+        "confirmResolveButton": "Mark resolved",
+        "resolveErrors": {
+          "scopeInsufficient": "Sentry rejected the action — your token needs scope event:write. Update SENTRY_API_AUTH_TOKEN with a token that has Issue & Event: Write, then redeploy.",
+          "missingEnv": "Sentry credentials are not configured.",
+          "network": "Network error reaching Sentry. Try again.",
+          "forbidden": "You don't have the admin:sentry permission.",
+          "unknown": "Sentry returned an unexpected response."
+        },
         "setupGuide": {
           "intro": "This widget pulls unresolved issues from the Sentry API. It needs three Vercel project env vars (the first two are already used by the build plugin):",
           "env": [
             { "name": "SENTRY_ORG", "hint": "Your Sentry organization slug." },
             { "name": "SENTRY_PROJECT", "hint": "Your Sentry project slug." },
-            { "name": "SENTRY_API_AUTH_TOKEN", "hint": "Personal Access Token with scope project:read. Recommended: separate from the build token. Falls back to SENTRY_AUTH_TOKEN if missing." }
+            { "name": "SENTRY_API_AUTH_TOKEN", "hint": "User Auth Token. Required scopes: Project: Read + Issue & Event: Read. Optional: Issue & Event: Write to enable the Resolve button. Falls back to SENTRY_AUTH_TOKEN if missing." }
           ],
           "docsUrl": "https://sentry.io/settings/account/api/auth-tokens/"
         }
