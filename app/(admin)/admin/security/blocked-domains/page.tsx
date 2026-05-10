@@ -1,5 +1,6 @@
 // app/(admin)/admin/security/blocked-domains/page.tsx
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { db } from "@/lib/db/drizzle";
 import { disposableDomains } from "@/lib/db/schema";
 import { requireAdminPage } from "@/lib/rbac/guards";
@@ -9,6 +10,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { BlockedDomainsClient } from "./_components/blocked-domains-client";
+import { BlockedDomainsGuide } from "./_components/blocked-domains-guide";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.security.blockedDomains");
@@ -37,6 +39,13 @@ export default async function AdminBlockedDomainsPage() {
         breadcrumbLabel={t("breadcrumb")}
         title={tBd("pageTitle")}
         subtitle={tBd("pageSubtitle")}
+        infoSlot={
+          <AdminSectionInfo
+            title={tBd("guideTitle")}
+            ariaLabel={tBd("guideAriaLabel")}>
+            <BlockedDomainsGuide />
+          </AdminSectionInfo>
+        }
       />
 
       <Suspense
