@@ -158,6 +158,11 @@ function GeneralTabInner({ settings }: { settings: AppSettings }) {
                   <code className="font-mono">https://</code>{" "}
                   {t("domainHintAfterSuffix")}
                 </p>
+                <p
+                  className="text-[11px] mt-1"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  {t("domainHintPrimary")}
+                </p>
               </div>
             </div>
           </div>
