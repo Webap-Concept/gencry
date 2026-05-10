@@ -12,9 +12,15 @@ import {
   CronJobsTable,
   type CronRow,
 } from "@/app/(admin)/admin/_components/cron-jobs-table";
+import {
+  buildExpectedCommandBody,
+  buildScheduleStatement,
+  commandsMatch,
+} from "@/lib/cron/expected-command";
 import { listCronJobsWithLastRun, type PgCronJobWithLastRun } from "@/lib/cron/queries";
 import { getCronJobMeta, getModuleJobnames } from "@/lib/cron/registry";
 import { PRICES_MODULE } from "@/lib/modules/prices/manifest";
+import { getSiteUrl } from "@/lib/seo";
 import type { Metadata } from "next";
 import { fetchPricesCronRunsAction, togglePricesCronJobAction } from "./actions";
 
@@ -32,12 +38,46 @@ export default async function PricesCronPage() {
 
   const owned = getModuleJobnames("prices");
   const presentJobnames = new Set(allJobs.map((j) => j.jobname).filter(Boolean) as string[]);
+  const siteUrl = await getSiteUrl();
 
   const rows: CronRow[] = allJobs
     .filter((job) => job.jobname && owned.has(job.jobname))
-    .map((job) => ({ job, meta: getCronJobMeta(job.jobname) ?? null }));
+    .map((job) => {
+      const meta = getCronJobMeta(job.jobname) ?? null;
+      if (!meta?.path || !siteUrl) return { job, meta };
+      const expectedBody = buildExpectedCommandBody({
+        path: meta.path,
+        baseUrl: siteUrl,
+      });
+      const expectedCommand = meta.schedule
+        ? buildScheduleStatement({
+            jobname: meta.jobname,
+            schedule: meta.schedule,
+            path: meta.path,
+            baseUrl: siteUrl,
+          })
+        : expectedBody;
+      return {
+        job,
+        meta,
+        expectedCommand,
+        commandDrift: !commandsMatch(job.command, expectedBody),
+      };
+    });
 
-  const missing = PRICES_MODULE.cronJobs.filter((c) => !presentJobnames.has(c.jobname));
+  const missing = PRICES_MODULE.cronJobs
+    .filter((c) => !presentJobnames.has(c.jobname))
+    .map((c) => ({
+      ...c,
+      statement: siteUrl
+        ? buildScheduleStatement({
+            jobname: c.jobname,
+            schedule: c.schedule,
+            path: c.path,
+            baseUrl: siteUrl,
+          })
+        : null,
+    }));
 
   return (
     <div className="space-y-5">
@@ -56,25 +96,51 @@ export default async function PricesCronPage() {
 
       {missing.length > 0 && (
         <div
-          className="rounded-xl p-4 text-xs"
+          className="rounded-xl p-4 text-xs space-y-3"
           style={{
             background: "color-mix(in srgb, #d97706 8%, var(--admin-card-bg))",
             border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
             color: "#d97706",
           }}>
-          <p className="font-semibold mb-1">Missing jobs</p>
+          <p className="font-semibold">Missing jobs</p>
           <p>
             The module manifest declares the following jobs that are NOT registered
             in pg_cron. Run the matching <code>cron.schedule(...)</code> in the
-            Supabase SQL Editor to activate them:
+            Supabase SQL Editor to activate them — the URL is rebuilt from your
+            current site domain.
           </p>
-          <ul className="mt-2 space-y-1 font-mono">
+          {!siteUrl && (
+            <p className="font-semibold">
+              Site domain is not configured. Set it in Settings → General before
+              installing missing cron jobs, otherwise the schedule statement
+              cannot be generated.
+            </p>
+          )}
+          <ul className="space-y-3">
             {missing.map((c) => (
               <li key={c.jobname}>
-                {c.jobname} <span style={{ color: "var(--admin-text-faint)" }}>· {c.schedule} · {c.path}</span>
+                <p className="font-mono">
+                  {c.jobname} <span style={{ color: "var(--admin-text-faint)" }}>· {c.schedule} · {c.path}</span>
+                </p>
+                {c.statement && (
+                  <pre
+                    className="text-[11px] font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all mt-1.5"
+                    style={{
+                      background: "var(--admin-card-bg)",
+                      border: "1px solid var(--admin-input-border)",
+                      color: "var(--admin-text-muted)",
+                    }}>
+                    {c.statement}
+                  </pre>
+                )}
               </li>
             ))}
           </ul>
+          {siteUrl && (
+            <p style={{ color: "var(--admin-text-faint)" }}>
+              Replace <code>&lt;CRON_SECRET&gt;</code> with the real bearer secret before running.
+            </p>
+          )}
         </div>
       )}
 

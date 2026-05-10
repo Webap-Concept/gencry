@@ -86,7 +86,11 @@ export function RedisAdminGuide() {
             <b>Bloom filter</b> — sub-millisecond email / username
             availability check during sign-up. Two pre-allocated bitmaps of
             200,000 bits each, ~1% false-positive rate up to 20k entries.
-            Falls back to a Postgres query on miss.
+            Falls back to a Postgres query on miss. <i>Append-only by design:
+            classic Bloom can't delete entries, so emails/usernames of
+            removed users stay in the filter forever — but the DB fallback
+            on positive hits keeps sign-up correct (a deleted email simply
+            takes one extra DB round-trip to be marked available again).</i>
           </li>
           <li>
             <b>Rate limiting</b> — login, sign-up and availability-check
@@ -256,6 +260,16 @@ export function RedisAdminGuide() {
             Bloom filter false-positive rate above ~1% on real signups →
             you've outgrown the pre-allocated bitmap (<Code>BLOOM_M</Code>{" "}
             in <Code>lib/bloom/bloom-filter.ts</Code>). Re-tune and reseed.
+          </li>
+          <li>
+            <b>Total registered emails (live + soft-deleted) crossing
+            ~20–30k</b> → the bitmap saturates because deleted entries are
+            never removed, FP rate climbs and the DB fallback is hit more
+            often. Schedule a nightly{" "}
+            <Code>pnpm bloom:seed</Code> via GitHub Actions to rebuild from{" "}
+            <Code>users</Code>. Past ~50k consider migrating to a Cuckoo
+            filter (RedisBloom <Code>CF.*</Code> commands) which supports
+            native delete on user removal.
           </li>
           <li>
             <Code>[detect/long_idle_resurrect] Redis MGET failed</Code>{" "}
