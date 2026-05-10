@@ -14,6 +14,7 @@ import {
   type DashboardWidgetsPref,
   type WidgetItem,
 } from "@/lib/admin/dashboard/types";
+import { normalizeLayout } from "@/lib/admin/dashboard/layout-utils";
 import { getAdminUserDashboardPref } from "@/lib/admin/dashboard/queries";
 
 // ─── Validation schemas ─────────────────────────────────────────────
@@ -124,7 +125,8 @@ export async function saveUserDashboardWidgets(
   const kept = existing.filter((it) => enabledSet.has(it.id));
   const merged = appendNewItems(kept, cleanedIds);
 
-  const payload = { items: merged };
+  // Compact vertically so we never persist overlapping rectangles.
+  const payload = { items: normalizeLayout(merged, GRID_COLS) };
   const now = new Date();
 
   await db
@@ -159,7 +161,10 @@ export async function saveUserDashboardLayout(
   if (!parsed.success) return { error: "invalid_payload" };
 
   const cleanedItems = sanitizeItems(parsed.data.items);
-  const payload = { items: cleanedItems };
+  // Compact vertically: even if the client sent slightly overlapping
+  // rectangles (RGL edge cases, paste-from-DB, etc.), the persisted
+  // shape is always collision-free.
+  const payload = { items: normalizeLayout(cleanedItems, GRID_COLS) };
   const now = new Date();
 
   await db

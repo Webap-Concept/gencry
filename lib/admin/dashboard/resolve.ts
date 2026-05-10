@@ -11,6 +11,7 @@ import {
   type WidgetItem,
   type WidgetMeta,
 } from "./types";
+import { normalizeLayout } from "./layout-utils";
 
 /** Read the enabled-id list from either shape of DashboardWidgetsPref.
  *  Returns null when the pref carries no enabled set (e.g. malformed). */
@@ -139,7 +140,10 @@ export function resolveDashboardLayout(args: {
     return true;
   });
 
-  return filtered;
+  // 4) Clamp to grid + vertical compaction. Auto-fixes historic data
+  //    that was saved with overlapping x/y/w/h before this step landed
+  //    (the static CSS grid render has no collision detection).
+  return normalizeLayout(filtered, GRID_COLS);
 }
 
 /**
