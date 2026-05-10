@@ -3008,6 +3008,13 @@
     "pageTitle": "Dashboard",
     "pageSubtitle": "Your operational overview at a glance.",
     "customizeButton": "Customize",
+    "editLayout": {
+      "button": "Edit layout",
+      "saveButton": "Save layout",
+      "savingLabel": "Saving…",
+      "cancelButton": "Cancel",
+      "saveError": "Could not save the layout. Try again."
+    },
     "emptyTitle": "No widgets to show",
     "emptyHint": "All widgets are turned off. Click Customize to pick which ones you want on your dashboard.",
     "widgets": {

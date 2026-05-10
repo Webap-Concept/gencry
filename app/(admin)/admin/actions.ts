@@ -8,39 +8,158 @@ import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { DASHBOARD_WIDGETS_META } from "./_widgets/meta";
+import {
+  DEFAULT_WIDGET_SIZE,
+  GRID_COLS,
+  type DashboardWidgetsPref,
+  type WidgetItem,
+} from "@/lib/admin/dashboard/types";
+import { getAdminUserDashboardPref } from "@/lib/admin/dashboard/queries";
 
-// ─── Validation ─────────────────────────────────────────────────────
-// We accept any string array, but only persist ids that are still in the
-// registry. This protects against stale clients sending removed ids and
-// against payload pollution.
-const dashboardPrefSchema = z.object({
+// ─── Validation schemas ─────────────────────────────────────────────
+const enabledSchema = z.object({
   enabled: z.array(z.string().min(1).max(64)).max(64),
 });
 
+const itemSchema = z.object({
+  id: z.string().min(1).max(64),
+  x: z.number().int().min(0).max(GRID_COLS - 1),
+  y: z.number().int().min(0).max(200),
+  w: z.number().int().min(1).max(GRID_COLS),
+  h: z.number().int().min(1).max(40),
+});
+
+const itemsSchema = z.object({
+  items: z.array(itemSchema).max(64),
+});
+
+// ─── Helpers ────────────────────────────────────────────────────────
+const VALID_IDS = new Set(DASHBOARD_WIDGETS_META.map((w) => w.id));
+
 function sanitizeIds(ids: ReadonlyArray<string>): string[] {
-  const valid = new Set(DASHBOARD_WIDGETS_META.map((w) => w.id));
-  // Preserve incoming order but drop unknown ids and dedupe.
   const seen = new Set<string>();
   const out: string[] = [];
   for (const id of ids) {
-    if (!valid.has(id) || seen.has(id)) continue;
+    if (!VALID_IDS.has(id) || seen.has(id)) continue;
     seen.add(id);
     out.push(id);
   }
   return out;
 }
 
-// ─── Save user override ─────────────────────────────────────────────
+function sanitizeItems(items: ReadonlyArray<WidgetItem>): WidgetItem[] {
+  const seen = new Set<string>();
+  const out: WidgetItem[] = [];
+  for (const it of items) {
+    if (!VALID_IDS.has(it.id) || seen.has(it.id)) continue;
+    seen.add(it.id);
+    // Clamp x+w to never exceed the grid edge.
+    const w = Math.min(it.w, GRID_COLS);
+    const x = Math.min(it.x, GRID_COLS - w);
+    out.push({ id: it.id, x, y: it.y, w, h: it.h });
+  }
+  return out;
+}
+
+/** Read existing items from a pref (any shape). Returns empty array
+ *  when the pref is null or in a shape we can't extract from. */
+function existingItemsFromPref(pref: DashboardWidgetsPref | null): WidgetItem[] {
+  if (!pref) return [];
+  if ("items" in pref && Array.isArray(pref.items)) return pref.items;
+  return [];
+}
+
+/** Append default-sized items for ids not already in `existing`. */
+function appendNewItems(
+  existing: WidgetItem[],
+  newIds: ReadonlyArray<string>,
+): WidgetItem[] {
+  const knownIds = new Set(existing.map((it) => it.id));
+  const out: WidgetItem[] = [...existing];
+
+  // Find a row to start placing the new items from: just below the
+  // bottom-most existing item.
+  let nextY = 0;
+  for (const it of existing) {
+    nextY = Math.max(nextY, it.y + it.h);
+  }
+  let nextX = 0;
+
+  for (const id of newIds) {
+    if (knownIds.has(id)) continue;
+    const w = DEFAULT_WIDGET_SIZE.w;
+    const h = DEFAULT_WIDGET_SIZE.h;
+    if (nextX + w > GRID_COLS) {
+      nextX = 0;
+      nextY += h;
+    }
+    out.push({ id, x: nextX, y: nextY, w, h });
+    nextX += w;
+  }
+  return out;
+}
+
+// ─── Save user override (toggle on/off via Customize modal) ─────────
+//
+// Accepts the list of currently-enabled ids. We DON'T overwrite the
+// existing layout: items already positioned keep their x/y/w/h, items
+// no longer enabled are dropped, brand-new items are appended at the
+// bottom with the default size.
 export async function saveUserDashboardWidgets(
   enabled: string[],
 ): Promise<{ success: true } | { error: string }> {
   const user = await requireAdmin();
 
-  const parsed = dashboardPrefSchema.safeParse({ enabled });
+  const parsed = enabledSchema.safeParse({ enabled });
   if (!parsed.success) return { error: "invalid_payload" };
 
   const cleanedIds = sanitizeIds(parsed.data.enabled);
-  const payload = { enabled: cleanedIds };
+
+  // Pull current user pref to preserve any positional data.
+  const currentPref = await getAdminUserDashboardPref(user.id);
+  const existing = existingItemsFromPref(currentPref);
+
+  // Keep only items still enabled, append new ones at the bottom.
+  const enabledSet = new Set(cleanedIds);
+  const kept = existing.filter((it) => enabledSet.has(it.id));
+  const merged = appendNewItems(kept, cleanedIds);
+
+  const payload = { items: merged };
+  const now = new Date();
+
+  await db
+    .insert(adminUserPreferences)
+    .values({
+      userId: user.id,
+      dashboardWidgets: payload,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: adminUserPreferences.userId,
+      set: {
+        dashboardWidgets: payload,
+        updatedAt: now,
+      },
+    });
+
+  revalidatePath(await getAdminPath("dashboard"));
+  return { success: true };
+}
+
+// ─── Save user layout (drag/resize via Edit Layout mode) ────────────
+//
+// Accepts the full set of items with their positions. The set of ids
+// is treated as authoritative — anything not in the payload is removed.
+export async function saveUserDashboardLayout(
+  items: WidgetItem[],
+): Promise<{ success: true } | { error: string }> {
+  const user = await requireAdmin();
+
+  const parsed = itemsSchema.safeParse({ items });
+  if (!parsed.success) return { error: "invalid_payload" };
+
+  const cleanedItems = sanitizeItems(parsed.data.items);
+  const payload = { items: cleanedItems };
   const now = new Date();
 
   await db

@@ -3008,6 +3008,13 @@
     "pageTitle": "Dashboard",
     "pageSubtitle": "Il tuo colpo d'occhio operativo.",
     "customizeButton": "Personalizza",
+    "editLayout": {
+      "button": "Modifica layout",
+      "saveButton": "Salva layout",
+      "savingLabel": "Salvo…",
+      "cancelButton": "Annulla",
+      "saveError": "Impossibile salvare il layout. Riprova."
+    },
     "emptyTitle": "Nessun widget da mostrare",
     "emptyHint": "Tutti i widget sono disattivati. Clicca su Personalizza per scegliere quali mostrare.",
     "widgets": {

@@ -172,7 +172,11 @@ export const roles = pgTable("roles", {
   isDefault: boolean("is_default").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   // Default dashboard preset for users with this role. NULL = registry defaults.
-  dashboardWidgets: jsonb("dashboard_widgets").$type<{ enabled: string[] } | null>(),
+  dashboardWidgets: jsonb("dashboard_widgets").$type<
+    | { enabled: string[] }
+    | { items: Array<{ id: string; x: number; y: number; w: number; h: number }> }
+    | null
+  >(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1021,7 +1025,11 @@ export const adminUserPreferences = pgTable("admin_user_preferences", {
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
   // NULL = no user override → fall back to role preset / registry defaults.
-  dashboardWidgets: jsonb("dashboard_widgets").$type<{ enabled: string[] } | null>(),
+  dashboardWidgets: jsonb("dashboard_widgets").$type<
+    | { enabled: string[] }
+    | { items: Array<{ id: string; x: number; y: number; w: number; h: number }> }
+    | null
+  >(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

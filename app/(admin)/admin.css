@@ -1,5 +1,12 @@
 /* app/(admin)/admin.css */
 
+/* react-grid-layout — required for the admin dashboard "Edit Layout"
+   mode. Loaded globally in the admin shell; the lib code itself is
+   dynamically imported only when the user enters edit mode (see
+   _components/dashboard-edit-grid.tsx). */
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
 :root {
   /* Brand */
   --admin-accent: #e07a3a;
@@ -97,5 +104,20 @@
   .admin-nav-item.active {
     background: var(--admin-sidebar-item-active-bg);
     color: var(--admin-sidebar-text-active);
+  }
+}
+
+/* Dashboard responsive: under 768px viewport, the static 12-col grid
+   collapses to a single column with auto-flow rows. The saved x/y/w/h
+   is ignored on mobile (no point honoring desktop positions on a
+   phone). RGL has its own breakpoint behavior in edit mode. */
+@media (max-width: 768px) {
+  .dashboard-grid-static {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+  }
+  .dashboard-grid-static > * {
+    grid-column: 1 !important;
+    grid-row: auto !important;
   }
 }
