@@ -22,19 +22,22 @@ export default async function QuickActionsWidget() {
 
   return (
     <div
-      className="rounded-xl p-5 h-full"
+      className="rounded-xl p-5 h-full flex flex-col"
       style={{
         background: "var(--admin-card-bg)",
         border: "1px solid var(--admin-card-border)",
       }}
     >
       <h2
-        className="text-xs font-semibold uppercase tracking-widest mb-3"
+        className="text-xs font-semibold uppercase tracking-widest mb-3 shrink-0"
         style={{ color: "var(--admin-text-faint)" }}
       >
         {t("title")}
       </h2>
-      <div className="grid grid-cols-2 gap-2">
+      {/* min-h-0 lets the grid shrink below its content height when the
+          user resizes the widget tighter than 3 rows; overflow-auto
+          keeps the layout from busting out of the card. */}
+      <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 overflow-auto content-start">
         {actions.map(({ href, label, Icon }) => (
           <Link
             key={href}

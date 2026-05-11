@@ -38,14 +38,23 @@ export function DashboardEditModeProvider({
   const [editMode, setEditMode] = useState(false);
   const [items, setItems] = useState<WidgetItem[]>(() => [...initialItems]);
 
-  // Sync external changes (e.g. router.refresh() after a save brings new
-  // initialItems from the server) into local state, but only when not
-  // editing — we don't want to clobber an in-progress draft.
+  // Sync ONLY when `initialItems` actually changes (new data from the
+  // server, e.g. after router.refresh() following a save).
+  //
+  // Why this no longer depends on `editMode`: when commit() flips
+  // editMode false the server fetch triggered by router.refresh() is
+  // still in flight, so `initialItems` still reflects the pre-save
+  // layout. If this effect re-ran on the editMode transition it would
+  // overwrite the just-saved draft with stale initialItems, making the
+  // dashboard "snap back" to the previous layout for a moment — the
+  // "stuck on save / had to refresh" symptom the user reported.
+  //
+  // cancel() handles its own reset to initialItems; commit() leaves the
+  // draft as-is and trusts this effect to pick up the new initialItems
+  // when the server-refreshed render lands.
   useEffect(() => {
-    if (!editMode) {
-      setItems([...initialItems]);
-    }
-  }, [initialItems, editMode]);
+    setItems([...initialItems]);
+  }, [initialItems]);
 
   const enterEdit = useCallback(() => setEditMode(true), []);
   const setDraft = useCallback((next: WidgetItem[]) => setItems(next), []);

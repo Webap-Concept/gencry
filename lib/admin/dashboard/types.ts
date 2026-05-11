@@ -52,6 +52,11 @@ export type WidgetMeta = {
    *  When set, the customize modal shows an Info button next to the toggle and the
    *  widget runtime can render the same guide inline if its config is missing. */
   setupGuideKey?: string;
+  /** Optional per-widget override of DEFAULT_WIDGET_SIZE used the first
+   *  time this widget is placed on the grid (no saved layout yet). Use
+   *  for widgets that need more vertical room than the default 6×2.
+   *  Users can still resize freely afterwards. */
+  defaultSize?: { w: number; h: number };
 };
 
 /** JSON shape stored under `setupGuideKey` in the i18n messages.

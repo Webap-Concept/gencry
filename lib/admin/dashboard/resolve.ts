@@ -34,22 +34,32 @@ function extractItems(pref: DashboardWidgetsPref | null): WidgetItem[] | null {
   return null;
 }
 
-/** Build a default layout for an ordered list of ids: stack pairs of
- *  half-width cards (w=6, h=2) two-per-row down the grid. Used when the
- *  effective preference doesn't carry positional info. */
-function defaultLayoutFor(ids: ReadonlyArray<string>): WidgetItem[] {
+/** Build a default layout for an ordered list of ids. Per-widget
+ *  `defaultSize` is honored (Quick Actions, Sentry, etc. need more
+ *  room than the global 6×2). Items flow left-to-right and wrap when
+ *  they would exceed GRID_COLS; the normalizer downstream clamps and
+ *  compacts the result. */
+function defaultLayoutFor(
+  ids: ReadonlyArray<string>,
+  registry: ReadonlyArray<WidgetMeta>,
+): WidgetItem[] {
+  const byId = new Map(registry.map((w) => [w.id, w]));
   const items: WidgetItem[] = [];
   let x = 0;
   let y = 0;
+  let rowMaxH = 0;
   for (const id of ids) {
-    const w = DEFAULT_WIDGET_SIZE.w;
-    const h = DEFAULT_WIDGET_SIZE.h;
+    const meta = byId.get(id);
+    const w = meta?.defaultSize?.w ?? DEFAULT_WIDGET_SIZE.w;
+    const h = meta?.defaultSize?.h ?? DEFAULT_WIDGET_SIZE.h;
     if (x + w > GRID_COLS) {
       x = 0;
-      y += h;
+      y += rowMaxH;
+      rowMaxH = 0;
     }
     items.push({ id, x, y, w, h });
     x += w;
+    if (h > rowMaxH) rowMaxH = h;
   }
   return items;
 }
@@ -123,7 +133,7 @@ export function resolveDashboardLayout(args: {
   }
 
   // 2) Materialize to a list of items with default sizing where needed.
-  const items: WidgetItem[] = baseItems ?? defaultLayoutFor(baseIds ?? []);
+  const items: WidgetItem[] = baseItems ?? defaultLayoutFor(baseIds ?? [], registry);
 
   // 3) Drop unknown ids and apply the RBAC gate.
   const filtered = items.filter((it) => {

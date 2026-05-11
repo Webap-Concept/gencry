@@ -70,12 +70,17 @@ function existingItemsFromPref(pref: DashboardWidgetsPref | null): WidgetItem[] 
   return [];
 }
 
-/** Append default-sized items for ids not already in `existing`. */
+/** Append default-sized items for ids not already in `existing`. Per-widget
+ *  `defaultSize` (declared in meta.ts) is honored so newly-toggled widgets
+ *  match the initial dimensions used by the registry default layout. */
 function appendNewItems(
   existing: WidgetItem[],
   newIds: ReadonlyArray<string>,
 ): WidgetItem[] {
   const knownIds = new Set(existing.map((it) => it.id));
+  const sizesById = new Map(
+    DASHBOARD_WIDGETS_META.map((w) => [w.id, w.defaultSize ?? DEFAULT_WIDGET_SIZE]),
+  );
   const out: WidgetItem[] = [...existing];
 
   // Find a row to start placing the new items from: just below the
@@ -85,17 +90,19 @@ function appendNewItems(
     nextY = Math.max(nextY, it.y + it.h);
   }
   let nextX = 0;
+  let rowMaxH = 0;
 
   for (const id of newIds) {
     if (knownIds.has(id)) continue;
-    const w = DEFAULT_WIDGET_SIZE.w;
-    const h = DEFAULT_WIDGET_SIZE.h;
+    const { w, h } = sizesById.get(id) ?? DEFAULT_WIDGET_SIZE;
     if (nextX + w > GRID_COLS) {
       nextX = 0;
-      nextY += h;
+      nextY += rowMaxH;
+      rowMaxH = 0;
     }
     out.push({ id, x: nextX, y: nextY, w, h });
     nextX += w;
+    if (h > rowMaxH) rowMaxH = h;
   }
   return out;
 }
