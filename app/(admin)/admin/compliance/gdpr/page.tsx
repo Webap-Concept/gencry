@@ -2,15 +2,12 @@ import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-head
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { buildAdminPath, getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import {
-  getGdprDashboardStats,
-  getGdprHealthChecks,
-} from "@/lib/account/gdpr-stats";
 import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { ConsentStatusDashboard } from "./_components/consent-status-dashboard";
+import { Suspense } from "react";
+import ConsentStatusDashboardLoader from "./_components/consent-status-dashboard-loader";
 import { GdprLegendGuide } from "./_components/gdpr-legend-guide";
 import { GdprSettingsForm } from "./_components/gdpr-settings-form";
 
@@ -25,11 +22,13 @@ export default async function GdprCompliancePage() {
   const t = await getTranslations("admin.compliance");
   const tG = await getTranslations("admin.compliance.gdpr");
   const tTools = await getTranslations("admin.compliance.gdpr.tools");
-  const [settings, stats, health, pagesPath, exportPath, logsPath, cookiesPath] =
+  // We DON'T await stats/health here — they are the slowest leaf on the
+  // page and we want the header + settings form + tools to paint before
+  // the metrics section. The loader inside <Suspense> below owns those
+  // calls. Settings + paths are cached/cheap and stay in the fast path.
+  const [settings, pagesPath, exportPath, logsPath, cookiesPath] =
     await Promise.all([
       getAppSettings(),
-      getGdprDashboardStats(),
-      getGdprHealthChecks(),
       getAdminPath("content-pages"),
       buildAdminPath("/compliance/gdpr/export"),
       getAdminPath("logs"),
@@ -52,14 +51,17 @@ export default async function GdprCompliancePage() {
         }
       />
 
-      {/* Section 1 — current consent status */}
-      <ConsentStatusDashboard
-        stats={stats}
-        health={health}
-        consentLogEnabled={settings["gdpr.consent_log.enabled"] === "true"}
-        backupTier={settings["gdpr.backup.tier"]}
-        pagesAdminPath="/admin/content/pages"
-      />
+      {/* Section 1 — current consent status. Behind its own Suspense
+          boundary so the page paints header/settings/tools immediately
+          and the metrics section streams in once the consolidated
+          users aggregate lands. */}
+      <Suspense fallback={<ConsentStatusSkeleton />}>
+        <ConsentStatusDashboardLoader
+          consentLogEnabled={settings["gdpr.consent_log.enabled"] === "true"}
+          backupTier={settings["gdpr.backup.tier"]}
+          pagesAdminPath="/admin/content/pages"
+        />
+      </Suspense>
 
       {/* Section 2 — settings */}
       <section>
@@ -155,6 +157,48 @@ export default async function GdprCompliancePage() {
             href={cookiesPath}
             cta={tTools("cookieSettingsCta")}
           />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// Skeleton placeholder for the metrics section while the consolidated
+// users aggregate is in flight. Same vertical rhythm and approximate
+// tile count as the real <ConsentStatusDashboard> so the page doesn't
+// jump when the data lands.
+function ConsentStatusSkeleton() {
+  const tile: React.CSSProperties = {
+    background: "var(--admin-card-bg)",
+    border: "1px solid var(--admin-card-border)",
+  };
+  const bar: React.CSSProperties = {
+    background: "var(--admin-hover-bg)",
+  };
+  return (
+    <div className="space-y-5 animate-pulse">
+      <section>
+        <div className="h-4 w-32 rounded mb-3" style={bar} />
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg p-3 h-14" style={tile} />
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="h-4 w-40 rounded mb-3" style={bar} />
+        <div className="grid gap-3 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-lg p-4 h-20" style={tile} />
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="h-4 w-36 rounded mb-3" style={bar} />
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-lg p-4 h-20" style={tile} />
+          ))}
         </div>
       </section>
     </div>
