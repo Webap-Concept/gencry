@@ -3064,6 +3064,7 @@
         "title": "Recent signups",
         "description": "Last 5 users that registered.",
         "empty": "No signups yet.",
+        "anonymous": "No username yet",
         "providerEmail": "Email registration",
         "providerOAuth": "via {name}"
       },

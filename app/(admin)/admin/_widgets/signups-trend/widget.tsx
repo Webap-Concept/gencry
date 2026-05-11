@@ -63,7 +63,9 @@ export default async function SignupsTrendWidget() {
           {t("totalLabel", { days: DAYS })}
         </span>
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      {/* minHeight floor keeps the chart legible even on a shrunken
+          1-row card; in normal sizes the flex:1 just fills the body. */}
+      <div style={{ flex: 1, minHeight: 120 }}>
         <SignupsTrendChart data={series} />
       </div>
     </WidgetCard>

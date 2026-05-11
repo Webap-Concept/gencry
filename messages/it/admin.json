@@ -3064,6 +3064,7 @@
         "title": "Iscrizioni recenti",
         "description": "Ultimi 5 utenti registrati.",
         "empty": "Nessuna iscrizione ancora.",
+        "anonymous": "Username non impostato",
         "providerEmail": "Registrazione via email",
         "providerOAuth": "via {name}"
       },

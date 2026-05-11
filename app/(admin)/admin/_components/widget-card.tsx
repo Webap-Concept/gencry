@@ -68,11 +68,20 @@ export default function WidgetCard({
         </div>
       )}
 
-      {scrollable ? (
-        <div className="flex-1 min-h-0 overflow-auto">{children}</div>
-      ) : (
-        <div className="min-h-0">{children}</div>
-      )}
+      {/* Body always flex-1 + min-h-0 so children that rely on the
+          parent's measurable height (charts, ResponsiveContainer, etc.)
+          actually get one. Short content still anchors to the top of
+          the body region — the bottom whitespace was already there in
+          the previous layout because the card itself has fixed height. */}
+      <div
+        className={
+          scrollable
+            ? "flex-1 min-h-0 overflow-auto"
+            : "flex-1 min-h-0"
+        }
+      >
+        {children}
+      </div>
     </div>
   );
 }
