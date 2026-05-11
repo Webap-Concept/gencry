@@ -23,7 +23,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { checkUsernameAction } from "@/app/(login)/actions";
@@ -386,21 +385,14 @@ function CoinPicksStep({
             ? "border-brand-primary bg-brand-primary/5 shadow-sm"
             : "border-brand-border bg-brand-bg hover:border-brand-primary/40"
         }`}>
+        {/* Iniziali del symbol invece dell'immagine remota: le coin images
+            del DB puntano oggi a CoinGecko e non vogliamo fetch esterni dal
+            frontend pubblico. Quando il modulo prices farà self-host su R2
+            (PR-4), restituiremo `<Image>` con `c.imageUrl` interno. */}
         <div className="h-9 w-9 rounded-full bg-brand-surface flex items-center justify-center overflow-hidden shrink-0">
-          {c.imageUrl ? (
-            <Image
-              src={c.imageUrl}
-              alt={c.symbol}
-              width={36}
-              height={36}
-              unoptimized
-              className="object-cover"
-            />
-          ) : (
-            <span className="text-xs font-bold text-brand-text-muted">
-              {c.symbol.slice(0, 3)}
-            </span>
-          )}
+          <span className="text-xs font-bold text-brand-text-muted">
+            {c.symbol.slice(0, 3)}
+          </span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-brand-text truncate">
