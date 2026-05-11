@@ -55,5 +55,33 @@ export function bootSentryClient(): void {
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: cfg.replaysOnErrorSampleRate,
     integrations,
+
+    // Filtri "noise da extensions browser": Sentry intercetta gli error
+    // globali della finestra, e i password manager / ad-blocker /
+    // traduttori iniettano script che lanciano errori loro propri. Senza
+    // questi filtri il dashboard si riempie di issue che NON sono bug
+    // dell'app — vedi la lista canonica Sentry su browser noise:
+    // https://docs.sentry.io/platforms/javascript/configuration/filtering/
+    ignoreErrors: [
+      // Stream API errors da extensions di decompressione (es. password
+      // manager con auto-fill che intercettano response bodies)
+      "Error in input stream",
+      // Loop di ResizeObserver: noto false positive di Chrome — è un
+      // warning, non un errore che impatta l'utente
+      "ResizeObserver loop limit exceeded",
+      "ResizeObserver loop completed with undelivered notifications",
+      // Errori senza stack utilizzabile: di solito cross-origin script
+      // bloccato da CORS, niente di azionabile
+      "Script error.",
+      "Non-Error promise rejection captured",
+    ],
+    denyUrls: [
+      // Stack frame che originano dalle extensions del browser
+      /^chrome-extension:\/\//i,
+      /^moz-extension:\/\//i,
+      /^safari-extension:\/\//i,
+      /^safari-web-extension:\/\//i,
+      /^edge:\/\//i,
+    ],
   });
 }
