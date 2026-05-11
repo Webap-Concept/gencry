@@ -21,10 +21,20 @@ if (!process.env.POSTGRES_URL) {
 // Singleton-guard via globalThis: in Next.js dev, ogni hot-reload
 // re-esegue questo modulo. Senza guard ogni reload aprirebbe un nuovo
 // pool postgres-js (default max=10) e quelli vecchi resterebbero con
-// connessioni TCP attive sul backend Supabase. Dopo ~20 reload si tocca
-// il limit del pooler condiviso (EMAXCONN 200) e ogni query fallisce.
+// connessioni TCP attive sul backend Supabase. Il guard funziona quando
+// `globalThis` sopravvive l'HMR — ma Turbopack a volte lo isola tra
+// contexts (edge ≠ node, worker diversi) e abbiamo visto sul DSN Sentry
+// errori `EMAXCONN 200`: quel limit è facile da toccare con default `max=10`.
+//
+// Difesa in profondità: in dev forziamo `max: 1`. Anche se il guard
+// fallisce e si apre un pool nuovo a ogni HMR, ciascuno costa una sola
+// connessione TCP — ci servirebbero 200 reload per saturare Supabase
+// invece di 20. Cleanup esplicito: se troviamo un client esistente nel
+// global lo riusiamo, altrimenti registriamo un cleanup hook che
+// chiude il pool al SIGTERM/exit (utile quando il dev server si killa).
 // In prod (`NODE_ENV=production`) NON memorizziamo: ogni serverless
-// function ha la sua istanza, già isolata per natura.
+// function ha la sua istanza, già isolata per natura, e il `max=10`
+// default è giusto per servire request concorrenti.
 //
 // idle_timeout 20s: chiude connessioni inattive — Supabase le chiude lato
 // server dopo qualche minuto, meglio chiuderle proattivamente.
@@ -32,7 +42,10 @@ if (!process.env.POSTGRES_URL) {
 // failover/restart del pooler (raccomandato dai Supabase docs).
 const globalForPg = globalThis as unknown as {
   __pg?: ReturnType<typeof postgres>;
+  __pgCleanupRegistered?: boolean;
 };
+
+const isDev = process.env.NODE_ENV !== 'production';
 
 export const client =
   globalForPg.__pg ??
@@ -40,10 +53,25 @@ export const client =
     prepare: false,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
+    // In dev: cap 1 conn per pool. In prod: default postgres-js (10).
+    ...(isDev ? { max: 1 } : {}),
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (isDev) {
   globalForPg.__pg = client;
+  // Hook di cleanup registrato una volta sola: quando il processo
+  // riceve SIGTERM/SIGINT (dev server killato, npm script chiuso), prova
+  // a chiudere il pool per liberare le connessioni TCP lato Supabase.
+  // `timeout: 0` = non aspetta query in volo, chiude subito.
+  if (!globalForPg.__pgCleanupRegistered) {
+    globalForPg.__pgCleanupRegistered = true;
+    const close = () => {
+      void globalForPg.__pg?.end({ timeout: 0 }).catch(() => {});
+    };
+    process.once('SIGTERM', close);
+    process.once('SIGINT', close);
+    process.once('beforeExit', close);
+  }
 }
 
 export const db = drizzle(client, { schema });
