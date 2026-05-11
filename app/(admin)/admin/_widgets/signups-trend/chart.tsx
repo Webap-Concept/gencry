@@ -17,11 +17,14 @@ import {
  * flex chain can race the layout pass and read back -1×-1 from
  * getBoundingClientRect).
  *
- * Two series: signups in accent color (positive), unsubs in red at
- * lower opacity so they don't visually scream when sparse. The
- * widget reads as "shape of growth + shape of churn" — for exact
- * numbers users hover the tooltip.
+ * Two series: signups in green (positive growth) and unsubs in red
+ * (churn) — using accent (orange) for signups got visually confused
+ * with the unsubs red on overlapping areas, so we picked a green that
+ * also matches the "net positive" color in the widget header KPI.
+ * Unsubs use lower opacity so they don't visually scream when sparse.
  */
+const SIGNUPS_COLOR = "#16a34a";
+const UNSUBS_COLOR = "#ef4444";
 export interface SignupsTrendChartProps {
   data: ReadonlyArray<{ day: string; signups: number; unsubs: number }>;
 }
@@ -42,20 +45,12 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
       >
         <defs>
           <linearGradient id="signupsFill" x1="0" y1="0" x2="0" y2="1">
-            <stop
-              offset="0%"
-              stopColor="var(--admin-accent)"
-              stopOpacity={0.45}
-            />
-            <stop
-              offset="100%"
-              stopColor="var(--admin-accent)"
-              stopOpacity={0.05}
-            />
+            <stop offset="0%" stopColor={SIGNUPS_COLOR} stopOpacity={0.45} />
+            <stop offset="100%" stopColor={SIGNUPS_COLOR} stopOpacity={0.05} />
           </linearGradient>
           <linearGradient id="unsubsFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity={0.04} />
+            <stop offset="0%" stopColor={UNSUBS_COLOR} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={UNSUBS_COLOR} stopOpacity={0.04} />
           </linearGradient>
         </defs>
         <XAxis
@@ -76,7 +71,7 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
         />
         <Tooltip
           cursor={{
-            stroke: "var(--admin-accent)",
+            stroke: SIGNUPS_COLOR,
             strokeWidth: 1,
             strokeDasharray: "3 3",
           }}
@@ -96,7 +91,7 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
         <Area
           type="monotone"
           dataKey="signups"
-          stroke="var(--admin-accent)"
+          stroke={SIGNUPS_COLOR}
           strokeWidth={2}
           fill="url(#signupsFill)"
           isAnimationActive={false}
@@ -104,7 +99,7 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
         <Area
           type="monotone"
           dataKey="unsubs"
-          stroke="#ef4444"
+          stroke={UNSUBS_COLOR}
           strokeWidth={1.5}
           fill="url(#unsubsFill)"
           isAnimationActive={false}
