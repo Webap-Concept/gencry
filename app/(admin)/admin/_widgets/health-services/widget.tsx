@@ -5,6 +5,7 @@ import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 import {
   getHealthSnapshot,
   type HealthServiceId,
+  type HealthStatus,
   type ServiceHealth,
 } from "@/lib/admin/health/aggregate";
 
@@ -20,6 +21,17 @@ const SERVICE_ORDER: ReadonlyArray<HealthServiceId> = [
   "sentry",
 ];
 
+// Centralized color map. Slow uses the same warning amber as
+// "operational metrics" alerts and the GDPR-failed tile, so the
+// "something to look at but not critical" signal is visually
+// consistent across the dashboard.
+const STATUS_COLORS: Record<HealthStatus, string> = {
+  ok: "#16a34a",
+  slow: "#d97706",
+  down: "#ef4444",
+  missing_config: "var(--admin-text-faint)",
+};
+
 export default async function HealthServicesWidget() {
   const [snapshot, t] = await Promise.all([
     getHealthSnapshot(),
@@ -28,32 +40,38 @@ export default async function HealthServicesWidget() {
 
   const byId = new Map(snapshot.services.map((s) => [s.id, s]));
   const okCount = snapshot.services.filter((s) => s.status === "ok").length;
+  const slowCount = snapshot.services.filter((s) => s.status === "slow").length;
   const downCount = snapshot.services.filter((s) => s.status === "down").length;
 
+  // Summary priority: down > slow > healthy. Down dominates so even a
+  // single broken service surfaces first; slow is the secondary signal
+  // ("everything's reachable but X feels sluggish").
+  const summary =
+    downCount > 0
+      ? { text: t("summaryDown", { count: downCount }), color: "#ef4444", bold: true }
+      : slowCount > 0
+        ? { text: t("summarySlow", { count: slowCount }), color: "#d97706", bold: true }
+        : {
+            text: t("summaryOk", {
+              ok: okCount,
+              total: snapshot.services.length,
+            }),
+            color: "var(--admin-text-muted)",
+            bold: false,
+          };
+
   return (
-    <WidgetCard
-      title={t("title")}
-      icon={Activity}
-      scrollable={false}
-    >
+    <WidgetCard title={t("title")} icon={Activity} scrollable={false}>
       <div className="flex flex-col gap-2.5">
         <p
           className="text-xs"
           style={{
             margin: 0,
-            color:
-              downCount > 0
-                ? "#ef4444"
-                : "var(--admin-text-muted)",
-            fontWeight: downCount > 0 ? 600 : 400,
+            color: summary.color,
+            fontWeight: summary.bold ? 600 : 400,
           }}
         >
-          {downCount > 0
-            ? t("summaryDown", { count: downCount })
-            : t("summaryOk", {
-                ok: okCount,
-                total: snapshot.services.length,
-              })}
+          {summary.text}
         </p>
 
         <ul
@@ -97,24 +115,39 @@ function ServiceRow({
   statusLabel: string;
   isLast: boolean;
 }) {
-  const dotColor =
-    service.status === "ok"
-      ? "#16a34a"
-      : service.status === "down"
-        ? "#ef4444"
-        : "var(--admin-text-faint)";
+  const dotColor = STATUS_COLORS[service.status];
 
+  // For reachable services (ok/slow) the right-side text is the
+  // latency — admins care about the number, not the label. For
+  // unreachable/unconfigured rows we show the label since latency is
+  // null/meaningless.
+  const reachable = service.status === "ok" || service.status === "slow";
   const rightText =
-    service.status === "ok" && service.latencyMs !== null
+    reachable && service.latencyMs !== null
       ? `${service.latencyMs} ms`
       : statusLabel;
 
-  // Tooltip surfaces the raw error code for failed probes; harmless for
-  // ok/missing rows (just shows the status label).
+  // Slow rows colorize both the right text and the tooltip so the
+  // anomaly stays detectable even when the user is reading the
+  // latency number instead of the dot.
+  const rightColor =
+    service.status === "down"
+      ? "#ef4444"
+      : service.status === "slow"
+        ? "#d97706"
+        : service.status === "ok"
+          ? "var(--admin-text-muted)"
+          : "var(--admin-text-faint)";
+
+  // Tooltip surfaces the raw error code for failed probes and the
+  // exact latency for slow ones — both help triage faster than the
+  // dot color alone.
   const titleAttr =
     service.status === "down" && service.error
       ? `${statusLabel} — ${service.error}`
-      : statusLabel;
+      : service.status === "slow" && service.latencyMs !== null
+        ? `${statusLabel} (${service.latencyMs} ms)`
+        : statusLabel;
 
   return (
     <li
@@ -123,9 +156,7 @@ function ServiceRow({
         alignItems: "center",
         gap: 10,
         padding: "8px 0",
-        borderBottom: isLast
-          ? "none"
-          : "1px solid var(--admin-divider)",
+        borderBottom: isLast ? "none" : "1px solid var(--admin-divider)",
       }}
       title={titleAttr}
     >
@@ -136,8 +167,10 @@ function ServiceRow({
           borderRadius: 999,
           background: dotColor,
           flexShrink: 0,
+          // Halo on ok/slow rows for visual weight; ok is green halo,
+          // slow is amber halo — both signal "this service is alive".
           boxShadow:
-            service.status === "ok"
+            service.status === "ok" || service.status === "slow"
               ? `0 0 0 3px color-mix(in srgb, ${dotColor} 20%, transparent)`
               : "none",
         }}
@@ -159,12 +192,7 @@ function ServiceRow({
       <span
         style={{
           fontSize: 11,
-          color:
-            service.status === "ok"
-              ? "var(--admin-text-muted)"
-              : service.status === "down"
-                ? "#ef4444"
-                : "var(--admin-text-faint)",
+          color: rightColor,
           fontVariantNumeric: "tabular-nums",
           flexShrink: 0,
         }}

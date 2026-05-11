@@ -28,9 +28,27 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { checkSupabaseConnection } from "@/lib/admin/supabase/management";
 import { isValidDsn } from "@/lib/sentry/config";
 
-const FETCH_TIMEOUT_MS = 5000;
+// Hard ceiling for a probe before we mark the service down. Bumped
+// from 5s to 8s after observing intermittent false-down on Resend:
+// transatlantic API calls occasionally land in the 5–6s tail and the
+// 60s cache then froze that misread for the next minute. 8s catches
+// the long tail while still keeping the widget bounded.
+const FETCH_TIMEOUT_MS = 8000;
 
-export type HealthStatus = "ok" | "down" | "missing_config";
+// Above this latency we still consider the service operational but
+// degraded — pallino arancio, label "Slow". Picked at 2.5s because in
+// practice anything past ~2s feels noticeably sluggish for an API ping;
+// Supabase Management API from EU often sits at 3–5s, exactly the
+// signal we want to surface for ops triage.
+const SLOW_THRESHOLD_MS = 2500;
+
+export type HealthStatus = "ok" | "slow" | "down" | "missing_config";
+
+/** Classify a successful probe by latency. Centralized so a future
+ *  tune (e.g. per-service thresholds) touches one place. */
+function classifyByLatency(latencyMs: number): "ok" | "slow" {
+  return latencyMs >= SLOW_THRESHOLD_MS ? "slow" : "ok";
+}
 
 export type HealthServiceId =
   | "database"
@@ -83,7 +101,12 @@ async function checkDatabase(): Promise<ServiceHealth> {
   const t0 = Date.now();
   try {
     await db.execute(sql`SELECT 1`);
-    return { id: "database", status: "ok", latencyMs: Date.now() - t0 };
+    const latencyMs = Date.now() - t0;
+    return {
+      id: "database",
+      status: classifyByLatency(latencyMs),
+      latencyMs,
+    };
   } catch (e) {
     return {
       id: "database",
@@ -98,7 +121,12 @@ async function checkSupabase(): Promise<ServiceHealth> {
   const t0 = Date.now();
   const result = await checkSupabaseConnection();
   if (result.ok) {
-    return { id: "supabase", status: "ok", latencyMs: Date.now() - t0 };
+    const latencyMs = Date.now() - t0;
+    return {
+      id: "supabase",
+      status: classifyByLatency(latencyMs),
+      latencyMs,
+    };
   }
   if (result.error === "credentials_missing") {
     return { id: "supabase", status: "missing_config", latencyMs: null };
@@ -138,7 +166,8 @@ async function checkRedis(): Promise<ServiceHealth> {
       error: `http_${res.status}`,
     };
   }
-  return { id: "redis", status: "ok", latencyMs: Date.now() - t0 };
+  const latencyMs = Date.now() - t0;
+  return { id: "redis", status: classifyByLatency(latencyMs), latencyMs };
 }
 
 async function checkResend(): Promise<ServiceHealth> {
@@ -163,7 +192,8 @@ async function checkResend(): Promise<ServiceHealth> {
       error: `http_${res.status}`,
     };
   }
-  return { id: "resend", status: "ok", latencyMs: Date.now() - t0 };
+  const latencyMs = Date.now() - t0;
+  return { id: "resend", status: classifyByLatency(latencyMs), latencyMs };
 }
 
 async function checkCloudflare(): Promise<ServiceHealth> {
@@ -216,7 +246,12 @@ async function checkCloudflare(): Promise<ServiceHealth> {
       error: "invalid_secret",
     };
   }
-  return { id: "cloudflare", status: "ok", latencyMs: Date.now() - t0 };
+  const latencyMs = Date.now() - t0;
+  return {
+    id: "cloudflare",
+    status: classifyByLatency(latencyMs),
+    latencyMs,
+  };
 }
 
 async function checkSentry(): Promise<ServiceHealth> {

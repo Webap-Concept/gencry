@@ -3055,6 +3055,7 @@
         "title": "Stato servizi",
         "description": "Stato live dei servizi esterni da cui dipende l'admin.",
         "summaryOk": "{ok}/{total} servizi operativi",
+        "summarySlow": "{count, plural, one {# servizio lento} other {# servizi lenti}}",
         "summaryDown": "{count, plural, one {# servizio non operativo} other {# servizi non operativi}}",
         "services": {
           "database": "Database",
@@ -3066,6 +3067,7 @@
         },
         "status": {
           "ok": "Operativo",
+          "slow": "Lento",
           "down": "Non operativo",
           "missing_config": "Non configurato"
         }
