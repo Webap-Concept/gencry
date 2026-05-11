@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/drizzle";
 import { pages, pageTemplates, pageVersions, pageTranslations, appLocales, templateFields, type NewPage, type Page, type PageTranslation, type AppLocale, type PageTemplate, type TemplateField, type SystemPageKey, type RouteVisibility } from "@/lib/db/schema";
 import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 
 export type { PageTranslation, AppLocale };
@@ -123,6 +124,27 @@ export async function getPageBySystemKey(
     .where(and(eq(pages.isSystem, true), eq(pages.systemKey, key)))
     .limit(1);
   return row;
+}
+
+/**
+ * Versione cached di `getPageBySystemKey` — pensata per i call site ad alto
+ * traffico come la 404 page, dove ogni request del bot/scanner farebbe
+ * altrimenti una query DB. Il tag dinamico `page:system:${key}` permette
+ * di invalidare selettivamente solo la system page modificata
+ * (vedi `revalidateTag` in `upsertPageAction` / `deletePageAction`).
+ *
+ * 60s di TTL come fallback se l'invalidazione viene saltata (es. errore
+ * nell'admin action): la pagina si auto-aggiorna comunque entro un minuto.
+ */
+export async function getCachedPageBySystemKey(
+  key: SystemPageKey,
+): Promise<Page | undefined> {
+  const cached = unstable_cache(
+    () => getPageBySystemKey(key),
+    [`page-by-system-key`, key],
+    { revalidate: 60, tags: [`page:system:${key}`] },
+  );
+  return cached();
 }
 
 export async function getPageById(id: number): Promise<Page | undefined> {

@@ -6,8 +6,10 @@ import { unstable_cache } from "next/cache";
 import { connection } from "next/server";
 /**
  * Versione cached di getSeoPage — revalidata ogni 60s o su revalidateTag('seo').
+ * Esportata per i call site ad alto traffico (es. `app/not-found.tsx`) che
+ * devono evitare un round-trip al DB ad ogni hit.
  */
-const getCachedSeoPage = unstable_cache(
+export const getCachedSeoPage = unstable_cache(
   (pathname: string) => _getSeoPage(pathname),
   ["seo-page"],
   { revalidate: 60, tags: ["seo"] },
@@ -16,7 +18,7 @@ const getCachedSeoPage = unstable_cache(
 /**
  * Versione cached di getAppSettings — revalidata ogni 60s o su revalidateTag('settings').
  */
-const getCachedAppSettings = unstable_cache(
+export const getCachedAppSettings = unstable_cache(
   () => _getAppSettings(),
   ["app-settings"],
   { revalidate: 60, tags: ["settings"] },
