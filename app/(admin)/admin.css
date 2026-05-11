@@ -183,6 +183,58 @@
   border-bottom-color: var(--admin-accent);
 }
 
+/* Action tile used by the Quick Actions widget (and reusable by any
+   future widget that needs a clickable card-style shortcut). Kept here
+   instead of inline styles because :hover, :focus-visible and :active
+   states can't be expressed inline — and the admin token-only rule
+   (project_admin_no_frontend_css) means we can't drop them in
+   globals.css either. */
+.dashboard-action-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--admin-page-bg);
+  border: 1px solid var(--admin-card-border);
+  color: var(--admin-text);
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+.dashboard-action-tile:hover {
+  background: var(--admin-accent-soft);
+  border-color: color-mix(in srgb, var(--admin-accent) 35%, transparent);
+  color: var(--admin-accent);
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 16px -8px color-mix(in srgb, var(--admin-accent) 50%, transparent);
+}
+.dashboard-action-tile:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+.dashboard-action-tile:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+.dashboard-action-tile .dashboard-action-tile__icon {
+  color: var(--admin-text-muted);
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
+  flex-shrink: 0;
+}
+.dashboard-action-tile:hover .dashboard-action-tile__icon {
+  color: var(--admin-accent);
+  transform: scale(1.08);
+}
+
 /* RGL placeholder (the translucent preview shown while dragging or
    resizing a widget). Default RGL ships a red rectangle — recolored
    here to the admin accent and rounded to match widget corners. */

@@ -4,7 +4,7 @@ import { UserPlus, Mail, KeyRound } from "lucide-react";
 
 import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 import { db } from "@/lib/db/drizzle";
-import { users, oauthAccounts } from "@/lib/db/schema";
+import { users, userProfiles, oauthAccounts } from "@/lib/db/schema";
 
 const RECENT_LIMIT = 5;
 
@@ -16,9 +16,11 @@ export default async function RecentSignupsWidget() {
         email: users.email,
         createdAt: users.createdAt,
         provider: oauthAccounts.provider,
+        username: userProfiles.username,
       })
       .from(users)
       .leftJoin(oauthAccounts, eq(oauthAccounts.userId, users.id))
+      .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(isNull(users.deletedAt))
       .orderBy(desc(users.createdAt))
       .limit(RECENT_LIMIT),
@@ -52,6 +54,8 @@ export default async function RecentSignupsWidget() {
             <SignupRow
               key={row.id}
               email={row.email}
+              username={row.username}
+              anonymousLabel={t("anonymous")}
               createdAt={row.createdAt}
               provider={row.provider}
               locale={locale}
@@ -73,6 +77,8 @@ export default async function RecentSignupsWidget() {
 
 function SignupRow({
   email,
+  username,
+  anonymousLabel,
   createdAt,
   provider,
   providerLabel,
@@ -80,6 +86,8 @@ function SignupRow({
   isLast,
 }: {
   email: string;
+  username: string | null;
+  anonymousLabel: string;
   createdAt: Date;
   provider: string | null;
   providerLabel: string;
@@ -87,6 +95,7 @@ function SignupRow({
   isLast: boolean;
 }) {
   const Icon = provider ? KeyRound : Mail;
+  const displayName = username ? `@${username}` : anonymousLabel;
 
   return (
     <li
@@ -101,8 +110,8 @@ function SignupRow({
     >
       <span
         style={{
-          width: 26,
-          height: 26,
+          width: 28,
+          height: 28,
           borderRadius: 999,
           background: "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
           color: "var(--admin-accent)",
@@ -119,21 +128,30 @@ function SignupRow({
         <div
           style={{
             fontSize: 13,
-            color: "var(--admin-text)",
+            fontWeight: 500,
+            color: username ? "var(--admin-text)" : "var(--admin-text-faint)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontStyle: username ? "normal" : "italic",
+          }}
+        >
+          {displayName}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--admin-text-muted)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
         >
           {maskEmail(email)}
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--admin-text-faint)",
-          }}
-        >
-          {providerLabel}
+          <span style={{ color: "var(--admin-text-faint)" }}>
+            {" · "}
+            {providerLabel}
+          </span>
         </div>
       </div>
       <span
