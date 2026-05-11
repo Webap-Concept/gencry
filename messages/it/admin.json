@@ -3026,7 +3026,21 @@
         "users": "Utenti",
         "roles": "Ruoli",
         "pages": "Pagine",
-        "settings": "Impostazioni"
+        "settings": "Impostazioni",
+        "customizeAria": "Personalizza scorciatoie",
+        "emptySelection": "Nessuna scorciatoia selezionata — clicca l'icona dell'ingranaggio per sceglierne.",
+        "customize": {
+          "title": "Personalizza Azioni Rapide",
+          "subtitle": "Scegli fino a {max} scorciatoie admin. Selezionate: {count}/{max}.",
+          "empty": "Nessuna sezione admin disponibile per il tuo ruolo.",
+          "closeAria": "Chiudi",
+          "cancelButton": "Annulla",
+          "saveButton": "Salva",
+          "resetButton": "Ripristina default",
+          "resetTooltip": "Annulla la tua personalizzazione e usa i default integrati.",
+          "errorSaving": "Impossibile salvare le scorciatoie. Riprova.",
+          "errorResetting": "Impossibile ripristinare. Riprova."
+        }
       },
       "operationalMetrics": {
         "title": "Metriche operative",

@@ -16,6 +16,10 @@ import {
 } from "@/lib/admin/dashboard/types";
 import { normalizeLayout } from "@/lib/admin/dashboard/layout-utils";
 import { getAdminUserDashboardPref } from "@/lib/admin/dashboard/queries";
+import {
+  QUICK_ACTIONS_MAX,
+  getAvailableQuickActions,
+} from "@/lib/admin/dashboard/quick-actions-options";
 
 // ─── Validation schemas ─────────────────────────────────────────────
 const enabledSchema = z.object({
@@ -185,6 +189,82 @@ export async function saveUserDashboardLayout(
       target: adminUserPreferences.userId,
       set: {
         dashboardWidgets: payload,
+        updatedAt: now,
+      },
+    });
+
+  revalidatePath(await getAdminPath("dashboard"));
+  return { success: true };
+}
+
+// ─── Save user Quick Actions selection ──────────────────────────────
+//
+// Accepts an ordered list of nav-registry keys (max 10). We sanitize
+// against the user's RBAC-filtered set of available options so the
+// client can't push keys that the user shouldn't see, AND drop any
+// keys that don't exist in the nav registry anymore.
+export async function saveUserQuickActions(
+  ids: string[],
+): Promise<{ success: true } | { error: string }> {
+  const user = await requireAdmin();
+
+  const parsed = z
+    .object({ ids: z.array(z.string().min(1).max(80)).max(QUICK_ACTIONS_MAX) })
+    .safeParse({ ids });
+  if (!parsed.success) return { error: "invalid_payload" };
+
+  const available = await getAvailableQuickActions(user);
+  const allowed = new Set(available.map((o) => o.key));
+
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const id of parsed.data.ids) {
+    if (!allowed.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    cleaned.push(id);
+    if (cleaned.length >= QUICK_ACTIONS_MAX) break;
+  }
+
+  const now = new Date();
+  await db
+    .insert(adminUserPreferences)
+    .values({
+      userId: user.id,
+      quickActions: cleaned,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: adminUserPreferences.userId,
+      set: {
+        quickActions: cleaned,
+        updatedAt: now,
+      },
+    });
+
+  revalidatePath(await getAdminPath("dashboard"));
+  return { success: true };
+}
+
+// ─── Reset Quick Actions to defaults ────────────────────────────────
+// Sets quick_actions to NULL so the resolver falls back to
+// QUICK_ACTIONS_DEFAULTS.
+export async function resetUserQuickActions(): Promise<
+  { success: true } | { error: string }
+> {
+  const user = await requireAdmin();
+  const now = new Date();
+
+  await db
+    .insert(adminUserPreferences)
+    .values({
+      userId: user.id,
+      quickActions: sql`NULL`,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: adminUserPreferences.userId,
+      set: {
+        quickActions: sql`NULL`,
         updatedAt: now,
       },
     });
