@@ -11,25 +11,24 @@ import {
 } from "recharts";
 
 /**
- * Compact 30-day signups area chart. The parent widget passes a fixed
- * pixel height so ResponsiveContainer always has a measurable parent
- * on first paint (a percentage height inside a flex chain can race
- * the layout pass and read back -1×-1 from getBoundingClientRect).
+ * Compact 30-day signups vs unsubs area chart. The parent widget
+ * passes a fixed pixel height so ResponsiveContainer always has a
+ * measurable parent on first paint (a percentage height inside a
+ * flex chain can race the layout pass and read back -1×-1 from
+ * getBoundingClientRect).
  *
- * We intentionally skip a y-axis grid: the widget is meant for shape
- * recognition (growing? flat? spiking?), not exact reads. Hover-tooltip
- * is the precise-value channel.
+ * Two series: signups in accent color (positive), unsubs in red at
+ * lower opacity so they don't visually scream when sparse. The
+ * widget reads as "shape of growth + shape of churn" — for exact
+ * numbers users hover the tooltip.
  */
 export interface SignupsTrendChartProps {
-  data: ReadonlyArray<{ day: string; value: number }>;
+  data: ReadonlyArray<{ day: string; signups: number; unsubs: number }>;
 }
 
 export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
   const locale = useLocale();
 
-  // Tick formatter: only render a label every ~5 days so labels don't
-  // overlap on narrow widget sizes; recharts has its own collision
-  // avoidance but it's tuned for taller axes.
   function formatXTick(value: string, index: number): string {
     if (index % 5 !== 0) return "";
     return formatShortDate(value, locale);
@@ -42,7 +41,7 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
         margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
       >
         <defs>
-          <linearGradient id="signupsTrendFill" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="signupsFill" x1="0" y1="0" x2="0" y2="1">
             <stop
               offset="0%"
               stopColor="var(--admin-accent)"
@@ -53,6 +52,10 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
               stopColor="var(--admin-accent)"
               stopOpacity={0.05}
             />
+          </linearGradient>
+          <linearGradient id="unsubsFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity={0.04} />
           </linearGradient>
         </defs>
         <XAxis
@@ -87,14 +90,23 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
           labelFormatter={(v) =>
             typeof v === "string" ? formatLongDate(v, locale) : ""
           }
-          formatter={(v) => [String(v), ""] as [string, string]}
+        />
+        {/* Order matters: signups first so unsubs (smaller usually)
+            renders on top and stays visible. */}
+        <Area
+          type="monotone"
+          dataKey="signups"
+          stroke="var(--admin-accent)"
+          strokeWidth={2}
+          fill="url(#signupsFill)"
+          isAnimationActive={false}
         />
         <Area
           type="monotone"
-          dataKey="value"
-          stroke="var(--admin-accent)"
-          strokeWidth={2}
-          fill="url(#signupsTrendFill)"
+          dataKey="unsubs"
+          stroke="#ef4444"
+          strokeWidth={1.5}
+          fill="url(#unsubsFill)"
           isAnimationActive={false}
         />
       </AreaChart>

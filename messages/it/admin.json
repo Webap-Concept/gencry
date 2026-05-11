@@ -3072,7 +3072,11 @@
       },
       "signupsTrend": {
         "title": "Trend iscrizioni",
-        "description": "Grafico ad area delle nuove iscrizioni degli ultimi 30 giorni.",
+        "description": "Grafico ad area di iscrizioni vs disiscrizioni con crescita netta — ultimi 30 giorni.",
+        "signupsLabel": "iscrizioni",
+        "unsubsLabel": "disiscrizioni",
+        "netLabel": "netto",
+        "windowLabel": "ultimi {days}g",
         "totalLabel": "negli ultimi {days} giorni"
       },
       "recentSignups": {
