@@ -6,6 +6,7 @@ import { validateCmsSlug } from "@/lib/cms-reserved-slugs";
 import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
+  getPageById,
   getPageBySlug,
   getPageTranslationsForPage,
   invalidateNavigablePagesCache,
@@ -27,7 +28,7 @@ import {
 import { DEFAULT_LOCALE, LOCALES } from "@/lib/i18n/config";
 import { can } from "@/lib/rbac/can";
 import { getTranslations } from "next-intl/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 const schema = z.object({
@@ -388,6 +389,21 @@ export async function upsertPageAction(
       revalidatePath(await getAdminPath("seo-redirects"));
     }
 
+    // Invalida la cache `unstable_cache` di getCachedSeoPage (tag "seo")
+    // così la 404 e gli altri caller cached vedono subito il nuovo meta.
+    updateTag("seo");
+
+    // Per le system pages c'è anche la cache di getCachedPageBySystemKey,
+    // tag dinamico `page:system:<key>`. Refetch della systemKey dal record
+    // appena salvato — è l'unica strada perché l'input non la contiene.
+    const isSystemFlag = isSystem === "1" || isSystem === "true";
+    if (isSystemFlag) {
+      const saved = await getPageById(savedId);
+      if (saved?.systemKey) {
+        updateTag(`page:system:${saved.systemKey}`);
+      }
+    }
+
     // Cache del proxy: invalida la lista navigable, altrimenti per
     // ~60s il proxy può ancora vedere lo slug vecchio o la visibility
     // precedente. Importante quando si cambia status (draft↔published)
@@ -438,6 +454,8 @@ export async function deletePageAction(
     revalidatePath(await getAdminPath("content-pages"));
     revalidatePath(`/${slug}`);
     revalidatePath(await getAdminPath("seo-meta"));
+    // La SEO è stata appena cancellata: invalida la cache `seo` tag.
+    updateTag("seo");
     invalidateNavigablePagesCache();
 
     const user = await getUser();

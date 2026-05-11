@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { NotFoundShell } from "@/components/not-found/NotFoundShell";
-import { getSeoPage } from "@/lib/db/seo-queries";
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getCachedAppSettings, getCachedSeoPage } from "@/lib/seo";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 
 // Disabilita lo static rendering: `generateMetadata` deve rieseguire la
@@ -21,9 +20,13 @@ export async function generateMetadata(): Promise<Metadata> {
   // (frontend)/[...slug]/page.tsx e i meta arrivano dal generateMetadata
   // di QUEL handler. Lo teniamo defensive — se per qualche caso il
   // framework lo chiama, vogliamo title valido e placeholder risolti.
+  // Cached: bot/scanner martellano URL inesistenti ed ogni hit, prima,
+  // bruciava 2 query DB. Con la cache (60s + revalidateTag su edit admin)
+  // restano un cache hit a hit dopo il primo, evitando timeout sul pool
+  // visti su Sentry (statement_timeout 57014).
   const [seo, settings] = await Promise.all([
-    getSeoPage(NOT_FOUND_SEO_PATHNAME),
-    getAppSettings(),
+    getCachedSeoPage(NOT_FOUND_SEO_PATHNAME),
+    getCachedAppSettings(),
   ]);
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, settings) : undefined;

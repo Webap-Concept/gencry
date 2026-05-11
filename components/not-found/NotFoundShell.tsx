@@ -19,8 +19,8 @@
  */
 import { Crash404 } from "@/components/not-found/Crash404";
 import { GridBackdrop } from "@/components/decor/grid-backdrop";
-import { getPageBySystemKey } from "@/lib/db/pages-queries";
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getCachedPageBySystemKey } from "@/lib/db/pages-queries";
+import { getCachedAppSettings } from "@/lib/seo";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
 import Image from "next/image";
 import Link from "next/link";
@@ -32,9 +32,12 @@ import Link from "next/link";
 import "@/app/(frontend)/frontend.css";
 
 export async function NotFoundShell() {
+  // Stesso ragionamento di app/not-found.tsx: la 404 viene martellata da
+  // bot/scanner, prima ogni hit faceva una query a pages e una a settings.
+  // Con la cache i lookup sopravvivono il timeout 57014 visto su Sentry.
   const [settings, systemPage] = await Promise.all([
-    getAppSettings(),
-    getPageBySystemKey("not_found"),
+    getCachedAppSettings(),
+    getCachedPageBySystemKey("not_found"),
   ]);
 
   const logoUrl = settings.app_logo_url ?? settings.app_logo_variant_url;

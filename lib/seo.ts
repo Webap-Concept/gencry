@@ -6,17 +6,38 @@ import { unstable_cache } from "next/cache";
 import { connection } from "next/server";
 /**
  * Versione cached di getSeoPage — revalidata ogni 60s o su revalidateTag('seo').
+ * Esportata per i call site ad alto traffico (es. `app/not-found.tsx`) che
+ * devono evitare un round-trip al DB ad ogni hit.
+ *
+ * Fallback graceful: se il DB fallisce (statement_timeout 57014 visto su
+ * Sentry sotto burst di 404), ritorna undefined invece di propagare —
+ * `generatePageMetadata` cade sui defaults e la pagina non crasha. Il
+ * try/catch sta FUORI dalla cache così non finisce nei 60s di TTL.
  */
-const getCachedSeoPage = unstable_cache(
+const _cachedSeoPage = unstable_cache(
   (pathname: string) => _getSeoPage(pathname),
   ["seo-page"],
   { revalidate: 60, tags: ["seo"] },
 );
+export async function getCachedSeoPage(pathname: string) {
+  try {
+    return await _cachedSeoPage(pathname);
+  } catch (err) {
+    console.warn(
+      `[getCachedSeoPage] lookup failed for ${pathname}, falling back to undefined`,
+      err,
+    );
+    return undefined;
+  }
+}
 
 /**
  * Versione cached di getAppSettings — revalidata ogni 60s o su revalidateTag('settings').
+ * Niente try/catch: settings sono richieste anche dai layout autenticati
+ * dove un fallback parziale romperebbe più di quel che salva. Se il DB
+ * non risponde, vogliamo l'error boundary, non un undefined silenzioso.
  */
-const getCachedAppSettings = unstable_cache(
+export const getCachedAppSettings = unstable_cache(
   () => _getAppSettings(),
   ["app-settings"],
   { revalidate: 60, tags: ["settings"] },
