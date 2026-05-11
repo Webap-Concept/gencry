@@ -3013,6 +3013,7 @@
     },
     "emptyTitle": "Nessun widget da mostrare",
     "emptyHint": "Tutti i widget sono disattivati. Clicca su Personalizza per scegliere quali mostrare.",
+    "widgetError": "Impossibile caricare questo widget.",
     "widgets": {
       "welcome": {
         "title": "Benvenuto",

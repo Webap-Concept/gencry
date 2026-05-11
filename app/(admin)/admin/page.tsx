@@ -18,6 +18,7 @@ import { WIDGET_COMPONENTS } from "./_widgets/registry";
 import DashboardToolbar from "./_components/dashboard-toolbar";
 import { DashboardEditModeProvider } from "./_components/dashboard-edit-mode-context";
 import DashboardGridSwitcher from "./_components/dashboard-grid-switcher";
+import WidgetIsolator from "./_components/widget-isolator";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.dashboard");
@@ -57,14 +58,25 @@ export default async function AdminDashboardPage() {
   // them by id without re-running the server fetches when toggling
   // edit mode. This works because Server Components can be passed as
   // children/props of Client Components in the React 19 model.
+  //
+  // Each widget is wrapped in TWO independent boundaries:
+  //   - <WidgetIsolator>: catches throws inside the widget RSC (DB
+  //     timeout, third-party API, malformed data) and renders an inline
+  //     error state without ever bringing down the rest of the dashboard.
+  //   - <Suspense>: lets the page stream — the fast widgets paint as
+  //     soon as their data lands, the slow ones show a skeleton until
+  //     they're ready instead of holding back the whole response.
+  const errorLabel = t("widgetError");
   const widgetsById: Record<string, ReactNode> = {};
   for (const it of items) {
     const Component = WIDGET_COMPONENTS[it.id];
     if (!Component) continue;
     widgetsById[it.id] = (
-      <Suspense fallback={<WidgetSkeleton />}>
-        <Component />
-      </Suspense>
+      <WidgetIsolator fallbackLabel={errorLabel}>
+        <Suspense fallback={<WidgetSkeleton />}>
+          <Component />
+        </Suspense>
+      </WidgetIsolator>
     );
   }
 
