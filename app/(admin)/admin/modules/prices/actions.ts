@@ -2,7 +2,7 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
-import { coins } from "@/lib/db/schema";
+import { pricesCoins } from "@/lib/db/schema";
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { fetchCoinMetadata } from "@/lib/modules/prices/sources/coingecko";
 import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/modules/prices/sync";
@@ -181,7 +181,7 @@ export async function addCoinAction(
       return { error: `CoinGecko ID "${coingeckoId}" not found.`, timestamp: Date.now() };
     }
     await db
-      .insert(coins)
+      .insert(pricesCoins)
       .values({
         symbol: meta.symbol,
         coingeckoId,
@@ -192,7 +192,7 @@ export async function addCoinAction(
         isActive: true,
       })
       .onConflictDoUpdate({
-        target: coins.symbol,
+        target: pricesCoins.symbol,
         set: {
           coingeckoId,
           name: meta.name,
@@ -213,7 +213,7 @@ export async function addCoinAction(
 
 export async function refetchCoinAction(symbol: string): Promise<ActionState> {
   try {
-    const row = await db.select().from(coins).where(eq(coins.symbol, symbol)).limit(1);
+    const row = await db.select().from(pricesCoins).where(eq(pricesCoins.symbol, symbol)).limit(1);
     if (!row[0] || !row[0].coingeckoId) {
       return { error: `${symbol}: missing CoinGecko ID.`, timestamp: Date.now() };
     }
@@ -222,7 +222,7 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
       return { error: `${symbol}: CoinGecko returned no data.`, timestamp: Date.now() };
     }
     await db
-      .update(coins)
+      .update(pricesCoins)
       .set({
         name: meta.name,
         imageUrl: meta.imageUrl ?? null,
@@ -230,7 +230,7 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
         category: meta.category ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(coins.symbol, symbol));
+      .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${symbol} metadata refreshed.`, timestamp: Date.now() };
   } catch {
@@ -244,9 +244,9 @@ export async function toggleCoinActiveAction(
 ): Promise<ActionState> {
   try {
     await db
-      .update(coins)
+      .update(pricesCoins)
       .set({ isActive, updatedAt: new Date() })
-      .where(eq(coins.symbol, symbol));
+      .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
     return {
       success: `${symbol} ${isActive ? "activated" : "deactivated"}.`,
@@ -259,7 +259,7 @@ export async function toggleCoinActiveAction(
 
 export async function deleteCoinAction(symbol: string): Promise<ActionState> {
   try {
-    await db.delete(coins).where(eq(coins.symbol, symbol));
+    await db.delete(pricesCoins).where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${symbol} removed.`, timestamp: Date.now() };
   } catch {

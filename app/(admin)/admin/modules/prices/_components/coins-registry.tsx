@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import type { Coin } from "@/lib/db/schema";
+import type { PricesCoin } from "@/lib/db/schema";
 import type { PriceRow } from "@/lib/modules/prices/queries";
 import { ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
@@ -14,7 +14,7 @@ import {
 } from "../actions";
 
 interface Props {
-  coins: Coin[];
+  coins: PricesCoin[];
   priceMap: Record<string, PriceRow>;
 }
 
@@ -242,7 +242,7 @@ function CoinRow({
   price,
   onToast,
 }: {
-  coin: Coin;
+  coin: PricesCoin;
   price: PriceRow | undefined;
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {

@@ -27,8 +27,16 @@ DELETE FROM "permissions" WHERE key = 'modules:prices';
 DELETE FROM "app_settings" WHERE key LIKE 'modules.prices.%';
 
 -- ── 5) Droppa le tabelle (in ordine inverso ai FK) ──────────────────────
+-- Nota: i nomi attuali seguono la convenzione modulare <slug>_<sub>
+-- (vedi project_modular_architecture.md → "Naming tabelle"). Manteniamo
+-- anche i DROP dei nomi pre-rename per disinstallare ambienti che non
+-- hanno ancora applicato M_prices_002_rename_tables.sql.
 DROP TABLE IF EXISTS "prices_sync_runs"     CASCADE;
 DROP TABLE IF EXISTS "prices_source_health" CASCADE;
+DROP TABLE IF EXISTS "prices_history"       CASCADE;
+DROP TABLE IF EXISTS "prices_data"          CASCADE;
+DROP TABLE IF EXISTS "prices_coins"         CASCADE;
+-- Legacy names (pre-002):
 DROP TABLE IF EXISTS "coin_prices"          CASCADE;
 DROP TABLE IF EXISTS "prices"               CASCADE;
 DROP TABLE IF EXISTS "coins"                CASCADE;

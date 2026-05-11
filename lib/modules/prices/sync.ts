@@ -1,9 +1,9 @@
 // lib/prices/sync.ts
 // Orchestrazione del cron-sync: raccolta active universe, chiamata source
 // primaria (CoinGecko), fallback su DexScreener via circuit breaker, upsert
-// in `prices` con delta threshold, log run su `prices_sync_runs`.
+// in `prices_data` con delta threshold, log run su `prices_sync_runs`.
 import { db } from "@/lib/db/drizzle";
-import { coinPrices, prices, pricesSyncRuns } from "@/lib/db/schema";
+import { pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { getActiveUniverse } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
@@ -156,9 +156,9 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   // Carica i prezzi correnti di questi simboli in una singola query
   const symbols = quotes.map((q) => q.symbol);
   const existingRows = await db
-    .select({ symbol: prices.symbol, price: prices.price })
-    .from(prices)
-    .where(inArray(prices.symbol, symbols));
+    .select({ symbol: pricesData.symbol, price: pricesData.price })
+    .from(pricesData)
+    .where(inArray(pricesData.symbol, symbols));
 
   const existing = new Map<string, number>();
   for (const r of existingRows) existing.set(r.symbol, Number(r.price));
@@ -174,7 +174,7 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
     }
 
     await db
-      .insert(prices)
+      .insert(pricesData)
       .values({
         symbol: q.symbol,
         price: String(q.price),
@@ -184,7 +184,7 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
         lastUpdated: now,
       })
       .onConflictDoUpdate({
-        target: prices.symbol,
+        target: pricesData.symbol,
         set: {
           price: String(q.price),
           change24h: q.change24h !== null ? String(q.change24h) : null,
@@ -199,7 +199,7 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
 }
 
 /**
- * Snapshot timeseries: scrive un punto in `coin_prices` per ogni coin che
+ * Snapshot timeseries: scrive un punto in `prices_history` per ogni coin che
  * ha un prezzo corrente. Chiamato dal cron snapshot (default ogni 5 min).
  */
 export async function runPricesSnapshot(force = false): Promise<SyncResult> {
@@ -230,8 +230,8 @@ export async function runPricesSnapshot(force = false): Promise<SyncResult> {
   }
 
   const rows = await db
-    .select({ symbol: prices.symbol, price: prices.price })
-    .from(prices);
+    .select({ symbol: pricesData.symbol, price: pricesData.price })
+    .from(pricesData);
 
   if (rows.length === 0) {
     const r = {
@@ -248,7 +248,7 @@ export async function runPricesSnapshot(force = false): Promise<SyncResult> {
   }
 
   const now = new Date();
-  await db.insert(coinPrices).values(
+  await db.insert(pricesHistory).values(
     rows.map((r) => ({
       symbol: r.symbol,
       ts: now,
@@ -271,7 +271,7 @@ export async function runPricesSnapshot(force = false): Promise<SyncResult> {
 }
 
 /**
- * Cleanup: cancella punti di `coin_prices` più vecchi della retention.
+ * Cleanup: cancella punti di `prices_history` più vecchi della retention.
  */
 export async function runPricesCleanup(): Promise<SyncResult> {
   const started = new Date();
@@ -280,9 +280,9 @@ export async function runPricesCleanup(): Promise<SyncResult> {
   const cutoff = new Date(Date.now() - cfg.retentionDays * 24 * 3600 * 1000);
 
   const deleted = await db
-    .delete(coinPrices)
-    .where(lt(coinPrices.ts, cutoff))
-    .returning({ id: coinPrices.id });
+    .delete(pricesHistory)
+    .where(lt(pricesHistory.ts, cutoff))
+    .returning({ id: pricesHistory.id });
 
   const durationMs = Date.now() - startMs;
   await logRun({

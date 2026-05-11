@@ -2,7 +2,7 @@
 // Query lato app per leggere prezzi e sparkline. Usate dai server components
 // (Spark, CoinBadge, ticker) e dall'admin dashboard.
 import { db } from "@/lib/db/drizzle";
-import { coinPrices, coins, prices, pricesSyncRuns } from "@/lib/db/schema";
+import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
@@ -22,7 +22,7 @@ export interface PriceRow {
 
 export async function getCurrentPrices(symbols: string[]): Promise<Map<string, PriceRow>> {
   if (symbols.length === 0) return new Map();
-  const rows = await db.select().from(prices).where(inArray(prices.symbol, symbols));
+  const rows = await db.select().from(pricesData).where(inArray(pricesData.symbol, symbols));
   const map = new Map<string, PriceRow>();
   for (const r of rows) {
     map.set(r.symbol, {
@@ -49,10 +49,10 @@ export async function getCurrentPrice(symbol: string): Promise<PriceRow | null> 
  */
 export async function getSparklinePoints(symbol: string, points = 24): Promise<number[]> {
   const rows = await db
-    .select({ price: coinPrices.price })
-    .from(coinPrices)
-    .where(eq(coinPrices.symbol, symbol))
-    .orderBy(desc(coinPrices.ts))
+    .select({ price: pricesHistory.price })
+    .from(pricesHistory)
+    .where(eq(pricesHistory.symbol, symbol))
+    .orderBy(desc(pricesHistory.ts))
     .limit(points);
 
   // Reverse: vogliamo dal più vecchio al più recente per il rendering
@@ -82,7 +82,7 @@ export async function getSparklinesBatch(
         symbol,
         price,
         ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY ts DESC) AS rn
-      FROM coin_prices
+      FROM prices_history
       WHERE symbol IN (${symbolsInList})
     ) t
     WHERE rn <= ${points}
@@ -187,5 +187,5 @@ export async function getRecentRuns(limit = 20) {
 }
 
 export async function listCoins() {
-  return await db.select().from(coins).orderBy(desc(coins.marketCap));
+  return await db.select().from(pricesCoins).orderBy(desc(pricesCoins.marketCap));
 }
