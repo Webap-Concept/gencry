@@ -1,10 +1,11 @@
 // app/(onboarding)/onboarding/actions.ts
 //
 // Server actions per il wizard di onboarding.
-// Tre step: username → interessi crypto → done.
-//
-// Ogni step persiste su DB; se l'utente abbandona e torna, il wizard
-// riparte dallo step corretto (gestito in page.tsx).
+// Step:
+//   - username   (solo se manca, OAuth flow)
+//   - coin picks (3..20)
+//   - risk profile + experience
+//   - complete   (UPDATE users.onboarding_completed_at + redirect)
 
 "use server";
 
@@ -18,14 +19,28 @@ import {
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import { userProfiles, users } from "@/lib/db/schema";
+import {
+  COIN_PICKS_MAX,
+  COIN_PICKS_MIN,
+  existingCoinSymbols,
+  getUserCoinPicks,
+  getUserRiskProfile,
+  replaceUserCoinPicks,
+  searchCoins,
+  upsertUserRiskProfile,
+  type CoinOption,
+} from "@/lib/modules/onboarding/queries";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 export type OnboardingActionState =
   | { error?: string; success?: boolean };
 
+const RISK_PROFILES   = new Set(["cauto", "moderato", "aggressivo", "degen"]);
+const EXPERIENCE_KEYS = new Set(["newbie", "1to3y", "over3y"]);
+
 // ---------------------------------------------------------------------------
-// Step 1 — username
+// Step username (solo OAuth)
 // ---------------------------------------------------------------------------
 
 export async function setOnboardingUsername(
@@ -77,67 +92,93 @@ export async function setOnboardingUsername(
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — interessi crypto (mock — implementazione vera in seguito)
+// Step coin picks (3..20)
 // ---------------------------------------------------------------------------
 
-// Lista mock di asset accettati. La validazione server controlla che ogni id
-// scelto sia presente in questa lista (nessuna fiducia nei dati client).
-const ALLOWED_INTEREST_IDS = new Set([
-  "btc", "eth", "sol", "ada", "xrp", "doge",
-  "dot", "matic", "link", "avax", "atom", "near",
-]);
-const MIN_INTERESTS = 3;
-
-export async function setOnboardingInterests(
-  interests: string[],
+export async function setOnboardingCoinPicks(
+  symbols: string[],
 ): Promise<OnboardingActionState> {
   const user = await getUser();
   if (!user) return { error: "Sessione scaduta. Effettua di nuovo il login." };
 
+  // Dedup + uppercase
   const clean = Array.from(
-    new Set(interests.map((i) => i.trim().toLowerCase()).filter(Boolean)),
+    new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean)),
   );
 
-  if (clean.length < MIN_INTERESTS) {
-    return { error: `Scegli almeno ${MIN_INTERESTS} asset.` };
+  if (clean.length < COIN_PICKS_MIN) {
+    return { error: `Scegli almeno ${COIN_PICKS_MIN} coin.` };
+  }
+  if (clean.length > COIN_PICKS_MAX) {
+    return { error: `Massimo ${COIN_PICKS_MAX} coin.` };
   }
 
-  for (const id of clean) {
-    if (!ALLOWED_INTEREST_IDS.has(id)) {
-      return { error: "Selezione non valida." };
-    }
+  // Validazione server-side: ogni simbolo deve esistere ed essere attivo.
+  // Non ci si fida del client (potrebbe inviare simboli arbitrari).
+  const existing = await existingCoinSymbols(clean);
+  const unknown = clean.filter((s) => !existing.has(s));
+  if (unknown.length > 0) {
+    return { error: `Coin non disponibili: ${unknown.slice(0, 5).join(", ")}.` };
   }
 
-  await db
-    .update(userProfiles)
-    .set({ interests: clean, updatedAt: new Date() })
-    .where(eq(userProfiles.userId, user.id));
-
+  await replaceUserCoinPicks(user.id, clean);
   return { success: true };
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — completa l'onboarding e redirect
+// Step risk profile + experience
+// ---------------------------------------------------------------------------
+
+export async function setOnboardingRiskProfile(
+  profile: string,
+  experience: string,
+): Promise<OnboardingActionState> {
+  const user = await getUser();
+  if (!user) return { error: "Sessione scaduta. Effettua di nuovo il login." };
+
+  if (!RISK_PROFILES.has(profile)) {
+    return { error: "Profilo di rischio non valido." };
+  }
+  if (!EXPERIENCE_KEYS.has(experience)) {
+    return { error: "Livello di esperienza non valido." };
+  }
+
+  await upsertUserRiskProfile(user.id, profile, experience);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Search coin server-side (per il picker dello step coin)
+// ---------------------------------------------------------------------------
+
+export async function searchCoinsAction(query: string): Promise<CoinOption[]> {
+  const user = await getUser();
+  if (!user) return [];
+  return searchCoins(query);
+}
+
+// ---------------------------------------------------------------------------
+// Complete: verifica integrità + UPDATE flag + redirect
 // ---------------------------------------------------------------------------
 
 export async function completeOnboarding(): Promise<void> {
   const user = await getUser();
   if (!user) redirect("/sign-in");
 
-  // Sanity check: lo username deve esistere e ci devono essere almeno 3 interessi
+  // Sanity check: il wizard non termina senza tutti gli step completati
   const [profile] = await db
-    .select({
-      username: userProfiles.username,
-      interests: userProfiles.interests,
-    })
+    .select({ username: userProfiles.username })
     .from(userProfiles)
     .where(eq(userProfiles.userId, user.id))
     .limit(1);
 
   if (!profile?.username) redirect("/onboarding");
-  if (!profile?.interests || profile.interests.length < MIN_INTERESTS) {
-    redirect("/onboarding");
-  }
+
+  const picks = await getUserCoinPicks(user.id);
+  if (picks.length < COIN_PICKS_MIN) redirect("/onboarding");
+
+  const risk = await getUserRiskProfile(user.id);
+  if (!risk) redirect("/onboarding");
 
   await db
     .update(users)

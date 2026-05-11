@@ -11,6 +11,7 @@ import {
   pgTable,
   primaryKey,
   serial,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -1392,6 +1393,44 @@ export type NewPricesHistoryRow = typeof pricesHistory.$inferInsert;
 export type PricesSourceHealth = typeof pricesSourceHealth.$inferSelect;
 export type PricesSyncRun      = typeof pricesSyncRuns.$inferSelect;
 export type NewPricesSyncRun   = typeof pricesSyncRuns.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Onboarding module — coin picks + risk profile
+// (vedi migration M_onboarding_002_choices.sql)
+// ---------------------------------------------------------------------------
+
+export const onboardingCoinPicks = pgTable(
+  "onboarding_coin_picks",
+  {
+    userId:     uuid("user_id").notNull()
+                  .references(() => users.id, { onDelete: "cascade" }),
+    coinSymbol: varchar("coin_symbol", { length: 20 }).notNull()
+                  .references(() => pricesCoins.symbol, { onDelete: "cascade" }),
+    position:   smallint("position").notNull().default(0),
+    createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.coinSymbol] }),
+    index("idx_onboarding_coin_picks_user").on(t.userId, t.position),
+    index("idx_onboarding_coin_picks_coin").on(t.coinSymbol),
+  ],
+);
+
+export const onboardingRiskProfile = pgTable("onboarding_risk_profile", {
+  userId:     uuid("user_id").primaryKey()
+                .references(() => users.id, { onDelete: "cascade" }),
+  // CHECK enforced lato DB ('cauto' | 'moderato' | 'aggressivo' | 'degen')
+  profile:    varchar("profile", { length: 20 }).notNull(),
+  // CHECK enforced lato DB ('newbie' | '1to3y' | 'over3y')
+  experience: varchar("experience", { length: 20 }).notNull(),
+  createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type OnboardingCoinPick    = typeof onboardingCoinPicks.$inferSelect;
+export type NewOnboardingCoinPick = typeof onboardingCoinPicks.$inferInsert;
+export type OnboardingRiskProfile = typeof onboardingRiskProfile.$inferSelect;
+export type NewOnboardingRiskProfile = typeof onboardingRiskProfile.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = "SIGN_UP",
