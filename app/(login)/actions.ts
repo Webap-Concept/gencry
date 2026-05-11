@@ -338,11 +338,24 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     };
   }
 
-  if (await isIpBlacklisted(ip)) {
+  // Three blacklist checks in parallel — they hit disjoint sources
+  // (Redis-cached IP list, DB disposable_domains, in-memory blocked
+  // usernames) and have no inter-dependencies. The error-priority
+  // order (IP → domain → username) is preserved by checking the
+  // resolved booleans below in the same sequence — a user sees the
+  // same error message they would have seen with the previous
+  // sequential flow.
+  const [ipBlocked, domainBlocked, usernameBlocked] = await Promise.all([
+    isIpBlacklisted(ip),
+    isDomainBlacklisted(email),
+    isUsernameBlacklisted(username),
+  ]);
+
+  if (ipBlocked) {
     return { error: t("actionErrors.common.ipBlocked"), email, password };
   }
 
-  if (await isDomainBlacklisted(email)) {
+  if (domainBlocked) {
     return {
       error: t("actionErrors.signUp.domainBlocked"),
       email,
@@ -350,7 +363,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     };
   }
 
-  if (await isUsernameBlacklisted(username)) {
+  if (usernameBlocked) {
     return {
       error: t("actionErrors.signUp.usernameBlocked"),
       email,
@@ -435,20 +448,32 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     throw err;
   }
 
-  await addEmailToBloom(createdUser.email);
-  await addUsernameToBloom(username);
-
-  // Append-only consent ledger (GDPR Art. 7(1)). best-effort: errori interni
-  // non bloccano il signup. La cattura di IP/UA segue la strategy configurata
-  // in /admin/compliance/gdpr (ip_strategy, capture_ip, ecc.).
-  await recordSignupConsents({
-    userId: createdUser.id,
-    acceptMarketing: data.acceptMarketing === "on",
-    ip: ip === "unknown" ? null : ip,
-    userAgent: headersList.get("user-agent") ?? null,
-    locale: null,
-    source: "signup",
-  });
+  // All three are best-effort and independent (bloom updates touch
+  // Redis; consent ledger appends a row). Running them in parallel
+  // saves ~2 round-trips on the critical signup path. Promise.allSettled
+  // preserves the original behavior — a failure in one doesn't block
+  // the others (the consent-ledger comment below was already explicit
+  // about this), and we just log rejections in dev for visibility.
+  const sideEffects = await Promise.allSettled([
+    addEmailToBloom(createdUser.email),
+    addUsernameToBloom(username),
+    // Append-only consent ledger (GDPR Art. 7(1)). Best-effort: errori
+    // interni non bloccano il signup. La cattura di IP/UA segue la
+    // strategy configurata in /admin/compliance/gdpr.
+    recordSignupConsents({
+      userId: createdUser.id,
+      acceptMarketing: data.acceptMarketing === "on",
+      ip: ip === "unknown" ? null : ip,
+      userAgent: headersList.get("user-agent") ?? null,
+      locale: null,
+      source: "signup",
+    }),
+  ]);
+  for (const r of sideEffects) {
+    if (r.status === "rejected") {
+      console.warn("[signUp] post-create side-effect failed:", r.reason);
+    }
+  }
 
   const code = await createVerificationCode(createdUser.id);
 

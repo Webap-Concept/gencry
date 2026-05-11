@@ -271,27 +271,32 @@ describe('guards.ts', () => {
 
     it('redirige a /admin/sign-in se non ha admin:access', async () => {
       mockGetUser.mockResolvedValue({ id: 3, role: 'member', isAdmin: false })
-      // can(user,'admin:access'): q1=[], q2=[] → false → redirect sign-in
+      // requireAdminSectionPage ora chiama getUserPermissions (1 sola
+      // volta — 2 query: role perms + overrides). Set vuoto → !has →
+      // redirect sign-in.
       seq([], [])
       const { requireAdminSectionPage } = await import('@/lib/rbac/guards')
-      await expect(requireAdminSectionPage('admin:users')).rejects.toThrow('REDIRECT:/admin/sign-in')
+      // Regex per ancorare il fine stringa: 'toThrow("REDIRECT:/admin")'
+      // matchava anche 'REDIRECT:/admin/sign-in' (substring). Con regex
+      // ancorata distinguiamo le due destinazioni con certezza.
+      await expect(requireAdminSectionPage('admin:users')).rejects.toThrow(/REDIRECT:\/admin\/sign-in$/)
     })
 
     it('redirige a /admin se ha admin:access ma non il permesso della sezione', async () => {
       mockGetUser.mockResolvedValue({ id: 4, role: 'staff', isAdmin: false })
-      // can(user,'admin:access'): q1=[], q2=[{ id:1 }] → true
-      // can(user,'admin:users'):  q1=[], q2=[]         → false → redirect /admin
-      seq([], [{ id: 1 }], [], [])
+      // role perms = [admin:access] → Set = {admin:access}.
+      // overrides vuoti → Set invariato. has(admin:access) ok,
+      // !has(admin:users) → redirect /admin.
+      seq([{ key: 'admin:access' }], [])
       const { requireAdminSectionPage } = await import('@/lib/rbac/guards')
-      await expect(requireAdminSectionPage('admin:users')).rejects.toThrow('REDIRECT:/admin')
+      await expect(requireAdminSectionPage('admin:users')).rejects.toThrow(/REDIRECT:\/admin$/)
     })
 
     it('ritorna utente se ha sia admin:access sia il permesso della sezione', async () => {
       const user = { id: 5, role: 'admin', isAdmin: false }
       mockGetUser.mockResolvedValue(user)
-      // can(user,'admin:access'): q1=[], q2=[{ id:1 }] → true
-      // can(user,'admin:users'):  q1=[], q2=[{ id:2 }] → true
-      seq([], [{ id: 1 }], [], [{ id: 2 }])
+      // role perms = [admin:access, admin:users] → Set ha entrambi.
+      seq([{ key: 'admin:access' }, { key: 'admin:users' }], [])
       const { requireAdminSectionPage } = await import('@/lib/rbac/guards')
       expect(await requireAdminSectionPage('admin:users')).toEqual(user)
     })
