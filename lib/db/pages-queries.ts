@@ -135,6 +135,12 @@ export async function getPageBySystemKey(
  *
  * 60s di TTL come fallback se l'invalidazione viene saltata (es. errore
  * nell'admin action): la pagina si auto-aggiorna comunque entro un minuto.
+ *
+ * Fallback graceful: se la query DB fallisce (es. statement_timeout 57014
+ * sotto burst di bot sulla 404), restituisce undefined invece di propagare
+ * — il caller renderizza i contenuti di default e la 404 non crasha mai.
+ * Il try/catch è FUORI dalla cache così l'errore non viene cachato per
+ * 60s (al prossimo hit si ritenta).
  */
 export async function getCachedPageBySystemKey(
   key: SystemPageKey,
@@ -144,7 +150,15 @@ export async function getCachedPageBySystemKey(
     [`page-by-system-key`, key],
     { revalidate: 60, tags: [`page:system:${key}`] },
   );
-  return cached();
+  try {
+    return await cached();
+  } catch (err) {
+    console.warn(
+      `[getCachedPageBySystemKey] lookup failed for key=${key}, falling back to undefined`,
+      err,
+    );
+    return undefined;
+  }
 }
 
 export async function getPageById(id: number): Promise<Page | undefined> {
