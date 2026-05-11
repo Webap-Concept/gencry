@@ -3028,6 +3028,14 @@
         "pages": "Pagine",
         "settings": "Impostazioni"
       },
+      "operationalMetrics": {
+        "title": "Metriche operative",
+        "description": "Iscrizioni, sessioni, login falliti e alert pendenti a colpo d'occhio.",
+        "signups24h": "Iscrizioni (24h)",
+        "activeSessions": "Sessioni attive",
+        "failedLogins24h": "Login falliti (24h)",
+        "pendingAlerts": "Alert pendenti"
+      },
       "healthServices": {
         "title": "Stato servizi",
         "description": "Stato live dei servizi esterni da cui dipende l'admin.",
