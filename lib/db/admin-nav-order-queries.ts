@@ -20,19 +20,33 @@ export function invalidateNavOrderCache(): void {
  * Ritorna la mappa `itemKey → sortOrder` degli override correnti.
  * Mappa vuota se nessun override è stato salvato (tutti i top-level
  * usano l'ordine del codice).
+ *
+ * Graceful fallback: il caller (admin layout) ne fa Promise.all con
+ * altre query critiche. Su DB hiccup ritorniamo una mappa vuota → la
+ * sidebar usa l'ordine hardcoded del codice. La cache locale resta
+ * NON aggiornata (così il prossimo render riprova), evitiamo di
+ * memoizzare un risultato vuoto come se fosse autorità.
  */
 export async function getNavOrderOverrides(): Promise<Record<string, number>> {
   if (_cache !== null && Date.now() - _cacheAt < CACHE_TTL_MS) {
     return _cache;
   }
-  const rows = await db
-    .select({ itemKey: adminNavOrder.itemKey, sortOrder: adminNavOrder.sortOrder })
-    .from(adminNavOrder);
-  const map: Record<string, number> = {};
-  for (const r of rows) map[r.itemKey] = r.sortOrder;
-  _cache = map;
-  _cacheAt = Date.now();
-  return map;
+  try {
+    const rows = await db
+      .select({ itemKey: adminNavOrder.itemKey, sortOrder: adminNavOrder.sortOrder })
+      .from(adminNavOrder);
+    const map: Record<string, number> = {};
+    for (const r of rows) map[r.itemKey] = r.sortOrder;
+    _cache = map;
+    _cacheAt = Date.now();
+    return map;
+  } catch (err) {
+    console.warn(
+      "[getNavOrderOverrides] lookup failed, returning empty (code-order fallback)",
+      err,
+    );
+    return {};
+  }
 }
 
 /**

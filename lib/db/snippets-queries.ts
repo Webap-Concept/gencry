@@ -6,8 +6,10 @@ import type { SiteSnippet, SnippetPosition } from "@/lib/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
-/** Tutti gli snippet attivi, ordinati per sortOrder. Cache 1h, tag 'snippets'. */
-export const getActiveSnippets = unstable_cache(
+/** Inner cached fetch. The cache wrapper itself can propagate a DB
+ *  exception on cache miss — see the public getActiveSnippets below
+ *  for the graceful wrapper that the root layout actually consumes. */
+const _getActiveSnippets = unstable_cache(
   async (): Promise<SiteSnippet[]> => {
     return db
       .select()
@@ -18,6 +20,25 @@ export const getActiveSnippets = unstable_cache(
   ["active-snippets"],
   { revalidate: 3600, tags: ["snippets"] },
 );
+
+/**
+ * All active snippets, ordered by sortOrder. Cache 1h via the inner
+ * unstable_cache; the outer try/catch returns [] on DB failure so the
+ * root layout (which fans this out next to settings, cookie registry,
+ * etc.) doesn't crash on a transient hiccup. No snippets = analytics
+ * not loaded for that render, but the page renders.
+ */
+export async function getActiveSnippets(): Promise<SiteSnippet[]> {
+  try {
+    return await _getActiveSnippets();
+  } catch (err) {
+    console.warn(
+      "[getActiveSnippets] lookup failed, returning empty snippet list",
+      err,
+    );
+    return [];
+  }
+}
 
 /** Tutti gli snippet (admin) senza cache. */
 export async function getAllSnippets(): Promise<SiteSnippet[]> {
