@@ -9,8 +9,10 @@ import { useEffect, useState } from "react";
 //
 // Rilevati per nome o messaggio perché il tipo concreto varia tra
 // browser/bundler: webpack lancia `ChunkLoadError`, Next 16 con Turbopack
-// lancia `Failed to fetch dynamically imported module`, e i chunk CSS
-// arrivano come `Loading CSS chunk N failed`.
+// lancia `Failed to fetch dynamically imported module` o `module factory
+// is not available` quando il manifest fa riferimento a un chunk
+// vecchio non più presente, e i chunk CSS arrivano come
+// `Loading CSS chunk N failed`.
 function isStaleChunkError(error: Error): boolean {
   const name = error.name || "";
   const msg = error.message || "";
@@ -19,7 +21,9 @@ function isStaleChunkError(error: Error): boolean {
     /Loading chunk [\w-]+ failed/i.test(msg) ||
     /Loading CSS chunk [\w-]+ failed/i.test(msg) ||
     /Failed to fetch dynamically imported module/i.test(msg) ||
-    /Importing a module script failed/i.test(msg)
+    /Importing a module script failed/i.test(msg) ||
+    /module factory is not available/i.test(msg) ||
+    /factoryNotAvailable/i.test(msg)
   );
 }
 
