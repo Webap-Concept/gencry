@@ -43,6 +43,41 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultSize: { w: 6, h: 3 },
   },
   {
+    id: "signups-trend",
+    titleKey: "widgets.signupsTrend.title",
+    descriptionKey: "widgets.signupsTrend.description",
+    defaultEnabled: true,
+    requiredPermission: "admin:users",
+    // Area chart needs horizontal room to read shape; default wide.
+    defaultSize: { w: 12, h: 3 },
+  },
+  {
+    id: "recent-signups",
+    titleKey: "widgets.recentSignups.title",
+    descriptionKey: "widgets.recentSignups.description",
+    defaultEnabled: true,
+    requiredPermission: "admin:users",
+    // 5 rows + header in a compact list.
+    defaultSize: { w: 6, h: 4 },
+  },
+  {
+    id: "suspicious-sessions",
+    titleKey: "widgets.suspiciousSessions.title",
+    descriptionKey: "widgets.suspiciousSessions.description",
+    defaultEnabled: true,
+    requiredPermission: "admin:sessions",
+    defaultSize: { w: 6, h: 3 },
+  },
+  {
+    id: "gdpr-exports",
+    titleKey: "widgets.gdprExports.title",
+    descriptionKey: "widgets.gdprExports.description",
+    // Off by default — only relevant for GDPR-focused admins.
+    defaultEnabled: false,
+    requiredPermission: "admin:gdpr",
+    defaultSize: { w: 6, h: 3 },
+  },
+  {
     id: "sentry-errors",
     titleKey: "widgets.sentryErrors.title",
     descriptionKey: "widgets.sentryErrors.description",

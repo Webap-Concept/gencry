@@ -3055,6 +3055,34 @@
           "missing_config": "Not configured"
         }
       },
+      "signupsTrend": {
+        "title": "Signups trend",
+        "description": "30-day area chart of new user registrations.",
+        "totalLabel": "in the last {days} days"
+      },
+      "recentSignups": {
+        "title": "Recent signups",
+        "description": "Last 5 users that registered.",
+        "empty": "No signups yet.",
+        "providerEmail": "Email registration",
+        "providerOAuth": "via {name}"
+      },
+      "suspiciousSessions": {
+        "title": "Suspicious sessions",
+        "description": "Unacknowledged session alerts from the heuristics detector.",
+        "allClear": "No unacknowledged alerts.",
+        "totalUnacked": "{count, plural, one {# unacknowledged alert} other {# unacknowledged alerts}}"
+      },
+      "gdprExports": {
+        "title": "GDPR exports",
+        "description": "User data export jobs by status.",
+        "status": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "ready": "Ready",
+          "failed": "Failed"
+        }
+      },
       "sentryErrors": {
         "title": "Sentry errors",
         "description": "Last 24h unresolved issues from Sentry.",
