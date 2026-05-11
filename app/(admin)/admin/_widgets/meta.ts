@@ -35,6 +35,14 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultSize: { w: 6, h: 4 },
   },
   {
+    id: "operational-metrics",
+    titleKey: "widgets.operationalMetrics.title",
+    descriptionKey: "widgets.operationalMetrics.description",
+    defaultEnabled: true,
+    // Four stat tiles in a 2×2 grid need ~3 rows to breathe.
+    defaultSize: { w: 6, h: 3 },
+  },
+  {
     id: "sentry-errors",
     titleKey: "widgets.sentryErrors.title",
     descriptionKey: "widgets.sentryErrors.description",

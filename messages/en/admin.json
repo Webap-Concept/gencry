@@ -3028,6 +3028,14 @@
         "pages": "Pages",
         "settings": "Settings"
       },
+      "operationalMetrics": {
+        "title": "Operational metrics",
+        "description": "Signups, sessions, failed logins and pending alerts at a glance.",
+        "signups24h": "Signups (24h)",
+        "activeSessions": "Active sessions",
+        "failedLogins24h": "Failed logins (24h)",
+        "pendingAlerts": "Pending alerts"
+      },
       "healthServices": {
         "title": "Service health",
         "description": "Live status of the external services the admin depends on.",
