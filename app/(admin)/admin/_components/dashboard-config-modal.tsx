@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { Info, LayoutDashboard, RotateCcw, X } from "lucide-react";
 import type {
   WidgetMeta,
@@ -34,6 +35,7 @@ export default function DashboardConfigModal({
   hasUserOverride,
 }: DashboardConfigModalProps) {
   const t = useTranslations("admin.dashboard.configModal");
+  const router = useRouter();
   const [enabled, setEnabled] = useState<Set<string>>(() => new Set(initialEnabled));
   const [openGuides, setOpenGuides] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
@@ -90,6 +92,11 @@ export default function DashboardConfigModal({
         setError(t("errorSaving"));
         return;
       }
+      // The server action invalidates the cache, but Next won't re-run
+      // the page RSC on its own when the URL hasn't changed — without
+      // this refresh the user keeps seeing the pre-save dashboard until
+      // they hit reload.
+      router.refresh();
       onClose();
     });
   }
@@ -102,6 +109,7 @@ export default function DashboardConfigModal({
         setError(t("errorResetting"));
         return;
       }
+      router.refresh();
       onClose();
     });
   }
