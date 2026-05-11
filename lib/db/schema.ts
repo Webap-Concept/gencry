@@ -292,23 +292,18 @@ export const SYSTEM_PAGE_KEYS = [
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
 /**
- * Whitelist delle system pages che hanno lo slug "editorial": il routing
- * CMS serve qualunque slug, quindi l'admin può rinominare (es. /privacy →
- * /privacy-policy) senza rompere niente.
+ * System pages with an editable slug.
  *
- * Tutte le altre system pages hanno lo slug bound a un page handler
- * hardcoded (es. /sign-in → app/(login)/sign-in/page.tsx, /404 → app/
- * not-found.tsx). Rinominare il record in `pages` NON sposta la rotta
- * vera: produrrebbe solo disallineamento tra il container amministrativo
- * e il page handler. Per questo l'input slug è disabilitato lato UI e
- * l'action rifiuta cambi server-side.
+ * Empty by policy: NO system page is slug-editable from the admin UI.
+ * Previously terms/privacy/marketing/cookie were editable because their
+ * routing is served by the CMS catch-all, but uniform "system slug =
+ * canonical English" simplifies UX (locale tab no longer needs to swap
+ * the slug) and ops (slug → page handler mapping is 1:1).
+ *
+ * If you ever need to rename one of these slugs, do it via SQL in the
+ * Supabase editor — and update the page handlers / proxy alongside.
  */
-export const SYSTEM_PAGE_KEYS_EDITABLE_SLUG: readonly SystemPageKey[] = [
-  "terms",
-  "privacy",
-  "marketing",
-  "cookie",
-];
+export const SYSTEM_PAGE_KEYS_EDITABLE_SLUG: readonly SystemPageKey[] = [];
 
 /**
  * Restituisce true se lo slug della pagina può essere modificato.

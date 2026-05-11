@@ -24,7 +24,7 @@ export const NON_PREFIXABLE_PREFIXES = [
   "/staff-invite",
   "/onboarding",
   "/settings",
-  "/profilo",
+  "/profile",
   "/esplora",
   "/notifiche",
   "/unauthorized",

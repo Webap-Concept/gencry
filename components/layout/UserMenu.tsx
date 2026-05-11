@@ -92,7 +92,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   const menuBody = (
     <>
       <MenuItem
-        href="/profilo"
+        href="/profile"
         icon={<UserIcon size={16} strokeWidth={1.6} />}
         label="Il tuo profilo"
         onClick={close}

@@ -36,7 +36,7 @@ export interface MfaPolicy {
  *
  * Cachata con `unstable_cache` (60s, tag MFA_POLICY_TAG) perché viene
  * letta dal `(protected)/layout.tsx` su OGNI navigazione di area loggata
- * — anche frontend (/profilo, /notifiche, /esplora). Senza cache, ogni
+ * — anche frontend (/profile, /notifiche, /esplora). Senza cache, ogni
  * pageload pagava 1 query DB per leggere appSettings. Cambia raramente
  * (solo quando l'admin tocca /admin/security/mfa), quindi 60s di stale
  * sono safe; il save admin chiama `revalidateTag(MFA_POLICY_TAG)` per

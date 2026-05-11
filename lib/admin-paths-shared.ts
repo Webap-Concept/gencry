@@ -34,7 +34,7 @@ export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   "unauthorized",
   // Frontend reserved (gencry)
   "settings",
-  "profilo",
+  "profile",
   "notifiche",
   "esplora",
   "libreria",
