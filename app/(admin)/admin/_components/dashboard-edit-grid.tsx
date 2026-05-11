@@ -90,9 +90,12 @@ export default function DashboardEditGrid({
         <div
           key={it.id}
           style={{
+            // The widget body (with its own card background) provides the
+            // visible surface. We only add the dashed outline to signal
+            // "draggable/resizable" + clip via the same border radius so
+            // the inner h-full card lines up with the dashed frame.
             border: "2px dashed color-mix(in srgb, var(--admin-accent) 50%, transparent)",
             borderRadius: 12,
-            background: "var(--admin-card-bg)",
             overflow: "hidden",
             cursor: "move",
           }}
