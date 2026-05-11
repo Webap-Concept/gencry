@@ -3016,10 +3016,9 @@
     "widgets": {
       "welcome": {
         "title": "Benvenuto",
-        "description": "Saluto personalizzato in cima alla dashboard.",
+        "description": "Saluto personalizzato con data e ora corrente.",
         "greeting": "Bentornato",
-        "greetingNamed": "Bentornato, {name}",
-        "body": "Questa è la tua dashboard di amministrazione. Usa Personalizza per scegliere quali widget vedere."
+        "greetingNamed": "Bentornato, {name}"
       },
       "quickActions": {
         "title": "Azioni rapide",
@@ -3028,6 +3027,25 @@
         "roles": "Ruoli",
         "pages": "Pagine",
         "settings": "Impostazioni"
+      },
+      "healthServices": {
+        "title": "Stato servizi",
+        "description": "Stato live dei servizi esterni da cui dipende l'admin.",
+        "summaryOk": "{ok}/{total} servizi operativi",
+        "summaryDown": "{count, plural, one {# servizio non operativo} other {# servizi non operativi}}",
+        "services": {
+          "database": "Database",
+          "supabase": "Supabase",
+          "redis": "Redis",
+          "resend": "Resend (email)",
+          "cloudflare": "Cloudflare Turnstile",
+          "sentry": "Sentry"
+        },
+        "status": {
+          "ok": "Operativo",
+          "down": "Non operativo",
+          "missing_config": "Non configurato"
+        }
       },
       "sentryErrors": {
         "title": "Errori Sentry",

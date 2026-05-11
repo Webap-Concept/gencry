@@ -27,6 +27,14 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultSize: { w: 6, h: 3 },
   },
   {
+    id: "health-services",
+    titleKey: "widgets.healthServices.title",
+    descriptionKey: "widgets.healthServices.description",
+    defaultEnabled: true,
+    // 6 service rows + summary need a touch more height than the default 2.
+    defaultSize: { w: 6, h: 4 },
+  },
+  {
     id: "sentry-errors",
     titleKey: "widgets.sentryErrors.title",
     descriptionKey: "widgets.sentryErrors.description",

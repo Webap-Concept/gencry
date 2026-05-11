@@ -3016,10 +3016,9 @@
     "widgets": {
       "welcome": {
         "title": "Welcome",
-        "description": "Personalized greeting at the top of your dashboard.",
+        "description": "Personalized greeting plus the current date and time.",
         "greeting": "Welcome back",
-        "greetingNamed": "Welcome back, {name}",
-        "body": "This is your admin dashboard. Use Customize to choose which widgets you want to see."
+        "greetingNamed": "Welcome back, {name}"
       },
       "quickActions": {
         "title": "Quick actions",
@@ -3028,6 +3027,25 @@
         "roles": "Roles",
         "pages": "Pages",
         "settings": "Settings"
+      },
+      "healthServices": {
+        "title": "Service health",
+        "description": "Live status of the external services the admin depends on.",
+        "summaryOk": "{ok}/{total} services healthy",
+        "summaryDown": "{count, plural, one {# service is down} other {# services are down}}",
+        "services": {
+          "database": "Database",
+          "supabase": "Supabase",
+          "redis": "Redis",
+          "resend": "Resend (email)",
+          "cloudflare": "Cloudflare Turnstile",
+          "sentry": "Sentry"
+        },
+        "status": {
+          "ok": "Operational",
+          "down": "Down",
+          "missing_config": "Not configured"
+        }
       },
       "sentryErrors": {
         "title": "Sentry errors",
