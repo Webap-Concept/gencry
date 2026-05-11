@@ -3055,6 +3055,7 @@
         "title": "Service health",
         "description": "Live status of the external services the admin depends on.",
         "summaryOk": "{ok}/{total} services healthy",
+        "summarySlow": "{count, plural, one {# service is slow} other {# services are slow}}",
         "summaryDown": "{count, plural, one {# service is down} other {# services are down}}",
         "services": {
           "database": "Database",
@@ -3066,6 +3067,7 @@
         },
         "status": {
           "ok": "Operational",
+          "slow": "Slow",
           "down": "Down",
           "missing_config": "Not configured"
         }
