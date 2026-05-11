@@ -19,7 +19,7 @@ const SLOTS: (LinkSlot | null)[] = [
   { href: "/esplora", label: "Esplora", icon: Compass },
   null,
   { href: "/notifiche", label: "Notifiche", icon: Bell },
-  { href: "/profilo", label: "Profilo", icon: UserIcon },
+  { href: "/profile", label: "Profilo", icon: UserIcon },
 ];
 
 export function AppBottomNav() {

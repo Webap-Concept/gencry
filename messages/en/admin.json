@@ -1530,7 +1530,14 @@
         "deleteAriaLabel": "Delete permission {label}",
         "deleteDisabledTitle": "System permissions can't be deleted",
         "confirmDeleteTitle": "Confirm deletion",
-        "cancelDeleteTitle": "Cancel"
+        "cancelDeleteTitle": "Cancel",
+        "confirmDeleteAction": "Delete",
+        "confirmDeleteIntro": "You're about to delete <b>{label}</b>. This is irreversible.",
+        "impactLoading": "Computing impact…",
+        "impactLoadFailed": "Could not compute the deletion impact. Try again.",
+        "impactRoles": "{count, plural, =0 {Not assigned to any role} one {Assigned to # role} other {Assigned to # roles}}",
+        "impactOverrides": "{count, plural, =0 {No individual overrides} one {# individual override} other {# individual overrides}}",
+        "impactEffectiveUsers": "{count, plural, =0 {No users will lose access} one {# user will lose access} other {# users will lose access}}"
       },
       "editForm": {
         "heading": "Edit permission",
@@ -1762,18 +1769,18 @@
         "deleteIrreversibleAfter": "."
       },
       "guide": {
-        "intro": "Pages are split into two tabs. <b>Pages</b> hosts the regular CMS content the admin creates from scratch — full content editor, templates, custom fields. <b>System</b> hosts a fixed set of pages that the platform needs for its own routing (auth, error pages, legal docs): they can't be deleted and have a stricter editing surface depending on what each one represents.",
+        "intro": "Pages are split into two tabs. <b>Pages</b> hosts the regular CMS content the admin creates from scratch — full content editor, templates, custom fields. <b>System</b> hosts a fixed set of pages that the platform needs for its own routing (auth, error pages, legal docs): they can't be deleted and have a stricter editing surface.",
         "flavorsHeading": "Two flavors of system pages",
-        "flavorsEditorial": "<b>Editorial CMS</b> (<c>privacy</c>, <c>terms</c>, <c>cookie</c>, <c>marketing</c>) — served from the CMS catch-all router. Content body is editable like a normal page. The slug is editable too: renaming <c>/privacy</c> to <c>/privacy-policy</c> moves the URL and creates an automatic 301 redirect.",
-        "flavorsMetaOnly": "<b>Meta-only</b> (everything else: <c>sign-in</c>, <c>verify-email</c>, <c>404</c>, <c>admin</c>, home, …) — the actual route is served by a hardcoded Next.js page handler. The CMS record is just an admin container so you can edit the title (used in the page list) and the SEO meta. Content body and slug are locked.",
+        "flavorsEditorial": "<b>Content-editable</b> (<c>privacy</c>, <c>terms</c>, <c>cookie</c>, <c>marketing</c>) — served from the CMS catch-all router. Body, title and SEO meta are editable like a normal page.",
+        "flavorsMetaOnly": "<b>Meta-only</b> (everything else: <c>sign-in</c>, <c>verify-email</c>, <c>404</c>, <c>admin</c>, home, …) — the actual route is served by a hardcoded Next.js page handler. The CMS record is just an admin container so you can edit the title (used in the page list) and the SEO meta. Content body is hidden.",
         "editHeading": "What you can edit, where",
         "editTitle": "<b>Title</b> — always editable. It's both the public page title and the admin label in the System tab list.",
-        "editSlug": "<b>Slug</b> — editable only on user pages and on the four editorial system pages above. Disabled with a lock icon on the other system pages.",
-        "editContent": "<b>Content body</b> — full Tiptap editor on user pages and on editorial system pages. Hidden on meta-only system pages.",
+        "editSlug": "<b>Slug</b> — always locked on system pages, regardless of flavor. The slug is the canonical English path and is uniform across every locale (the proxy redirects <c>/{locale}/sign-in</c> to <c>/sign-in</c>). To rename a system slug you have to do it via SQL in Supabase and update the matching page handler / proxy logic.",
+        "editContent": "<b>Content body</b> — full Tiptap editor on user pages and on content-editable system pages. Hidden on meta-only system pages.",
         "editVisibility": "<b>Visibility</b> (Public / Private) — in the <c>Publishing</c> tab. Private pages redirect unauthenticated visitors to <c>/sign-in</c>. Default is Public. (Hidden for meta-only system pages — their auth gate is enforced by the route handler itself.)",
         "editSeo": "<b>SEO meta</b> — in the <c>SEO</c> tab on every page. Title, description, Open Graph, robots, JSON-LD. Stored in the <c>seo_pages</c> table keyed on <c>/'{slug}'</c>.",
-        "lockedHeading": "Why some slugs are locked",
-        "lockedBody": "The CMS catch-all (<c>app/(frontend)/[...slug]/page.tsx</c>) serves any slug the admin creates. But the route <c>/sign-in</c> is not served by the CMS — it's served by <c>app/(login)/sign-in/page.tsx</c>, a hardcoded handler. Renaming the system page from <c>sign-in</c> to e.g. <c>login</c> would move the admin record but leave the real route at <c>/sign-in</c>. The handler and the SEO record would drift apart, so the form rejects the rename both client-side (disabled input) and server-side (action guard).",
+        "lockedHeading": "Why every system slug is locked",
+        "lockedBody": "Some system routes are served by a hardcoded Next.js handler (<c>/sign-in</c> → <c>app/(login)/sign-in/page.tsx</c>, <c>/404</c> → <c>app/not-found.tsx</c>). Renaming the admin record wouldn't move the real route — handler and SEO record would drift. Editorial system pages (<c>privacy</c>, <c>terms</c>, …) could technically rename safely through the CMS catch-all, but we lock them too: it keeps the policy uniform and lets us show the same slug across every locale tab without locale-specific overlays.",
         "placeholdersHeading": "Placeholders in title and meta",
         "placeholdersIntro": "Both the page content and the SEO meta accept a small set of tokens, resolved server-side at render time:",
         "placeholdersAppVars": "<c>'{{appName}}'</c>, <c>'{{appDescription}}'</c>, <c>'{{appDomain}}'</c> — from <c>/admin/settings/general</c>.",
@@ -1783,7 +1790,7 @@
         "dataHeading": "Where the data lives",
         "dataPagesTable": "<c>pages</c> table — title, content, slug, visibility, isSystem flag, systemKey. Source of truth for both the CMS router and <c>proxy.ts</c> visibility check.",
         "dataSeoTable": "<c>seo_pages</c> table — meta tags, keyed by pathname. Written by the SEO tab inside this page editor.",
-        "dataWhitelist": "<c>SYSTEM_PAGE_KEYS_EDITABLE_SLUG</c> in <c>lib/db/schema.ts</c> — whitelist of systemKey values whose slug is editable. Update there if you ever need to promote a meta-only page to editorial.",
+        "dataWhitelist": "<c>SYSTEM_PAGE_KEYS_EDITABLE_SLUG</c> in <c>lib/db/schema.ts</c> — kept as an empty array by policy: every system slug is locked from the UI. Re-populating this list would re-enable per-page slug editing, but the canonical-English-slug rule would no longer hold.",
         "mistakesHeading": "Heads-up",
         "mistakesSeoConflict": "Don't expect changes to <c>/admin/seo/…</c> for a page slug to outrank what you set in this editor's SEO tab — both write to the same row in <c>seo_pages</c>, last write wins.",
         "schemaHeading": "Schema reference",
@@ -1926,7 +1933,8 @@
         "langSlugPlaceholder": "page-name",
         "langSlugHint": "URL: /{locale}/{slug}",
         "langSlugChangedNotice": "A redirect will be created automatically from the old URL.",
-        "langSlugLockedHint": "Locked slug — system pages route on the default-locale path even in other languages."
+        "langSlugLockedHint": "Locked slug — system pages route on the default-locale path even in other languages.",
+        "langSlugSystemHint": "System pages share a single slug across every locale — edit it from the default-language tab if it's editable."
       },
       "errors": {
         "saveError": "Error while saving. Please try again.",

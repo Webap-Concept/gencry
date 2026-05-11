@@ -68,7 +68,7 @@ export const NAV_ITEMS = [
 ] as const;
 
 export const USER_MENU_ITEMS = [
-  { href: "/profilo", label: "Profilo", icon: "User" },
+  { href: "/profile", label: "Profilo", icon: "User" },
   { href: "/account", label: "Impostazioni e privacy", icon: "Settings" },
   { href: "/assistenza", label: "Assistenza", icon: "HelpCircle" },
   { href: "/segnala", label: "Segnala un problema", icon: "AlertTriangle" },

@@ -775,8 +775,13 @@ export default function PageEditor({
   const [status, setStatus] = useState<"draft" | "published">(
     (page?.status as "draft" | "published") ?? "draft",
   );
+  // Defensive cast: pages migrated from the legacy route_registry table
+  // may still carry visibility values like 'admin' or 'auth-only' until
+  // migration 0044 normalizes them. Treat anything that's not in the
+  // canonical set as 'public' so the editor never feeds Zod a value it
+  // will reject at save time.
   const [visibility, setVisibility] = useState<"public" | "private">(
-    (page?.visibility as "public" | "private") ?? "public",
+    page?.visibility === "private" ? "private" : "public",
   );
   const [publishedAt, setPublishedAt] = useState(
     page?.publishedAt ? toDatetimeLocal(page.publishedAt) : "",
@@ -1374,60 +1379,95 @@ export default function PageEditor({
                   <label style={{ ...labelStyle, marginBottom: "0.375rem" }}>
                     {t("langSlugLabel")}
                   </label>
-                  <div className="flex">
-                    <span
-                      className="px-3 py-2 text-sm rounded-l-lg shrink-0 select-none"
-                      style={{
-                        background: "var(--admin-hover-bg)",
-                        border: "1px solid var(--admin-input-border)",
-                        borderRight: "none",
-                        color: "var(--admin-text-muted)",
-                        fontSize: "0.875rem",
-                        fontFamily: "monospace",
-                      }}>
-                      /{activeLang}/
-                    </span>
-                    <input
-                      value={trFields[activeLang]?.slug ?? ""}
-                      onChange={(e) => handleLocaleFieldChange(activeLang, "slug", e.target.value)}
-                      placeholder={t("langSlugPlaceholder")}
-                      disabled={!slugEditable}
-                      style={{
-                        ...inputStyle,
-                        borderRadius: "0 0.5rem 0.5rem 0",
-                        fontFamily: "monospace",
-                        cursor: slugEditable ? undefined : "not-allowed",
-                        opacity: slugEditable ? 1 : 0.7,
-                      }}
-                    />
-                  </div>
-                  {!slugEditable ? (
-                    <p
-                      style={{
-                        ...hintStyle,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}>
-                      <Lock size={11} />
-                      {t("langSlugLockedHint")}
-                    </p>
-                  ) : isEdit && trFields[activeLang]?.slug !== initialTrSlugs[activeLang] && (trFields[activeLang]?.slug || initialTrSlugs[activeLang]) ? (
-                    <div
-                      className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
-                      style={{
-                        background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
-                        border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
-                      }}>
-                      <AlertTriangle size={13} className="mt-0.5 shrink-0" style={{ color: "#f59e0b" }} />
-                      <p className="text-xs leading-relaxed" style={{ color: "var(--admin-text-muted)" }}>
-                        {t("langSlugChangedNotice")}
+                  {isSystem ? (
+                    /* System page — slug is uniform across all locales by
+                       policy. We show the canonical slug as read-only so
+                       the admin always sees the real path; the proxy
+                       handles /{locale}/system-route → /system-route
+                       redirect anyway, but it's confusing to display a
+                       locale-prefixed editable input when the value is
+                       meant to be the same everywhere. */
+                    <>
+                      <div
+                        className="px-3 py-2 text-sm rounded-lg select-text"
+                        style={{
+                          background: "var(--admin-hover-bg)",
+                          border: "1px solid var(--admin-input-border)",
+                          color: "var(--admin-text-muted)",
+                          fontFamily: "monospace",
+                          opacity: 0.85,
+                        }}>
+                        /{slug || t("slugUrlHintFallback")}
+                      </div>
+                      <p
+                        style={{
+                          ...hintStyle,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}>
+                        <Lock size={11} />
+                        {t("langSlugSystemHint")}
                       </p>
-                    </div>
+                    </>
                   ) : (
-                    <p style={hintStyle}>
-                      {t("langSlugHint", { locale: activeLang, slug: trFields[activeLang]?.slug || t("slugUrlHintFallback") })}
-                    </p>
+                    <>
+                      <div className="flex">
+                        <span
+                          className="px-3 py-2 text-sm rounded-l-lg shrink-0 select-none"
+                          style={{
+                            background: "var(--admin-hover-bg)",
+                            border: "1px solid var(--admin-input-border)",
+                            borderRight: "none",
+                            color: "var(--admin-text-muted)",
+                            fontSize: "0.875rem",
+                            fontFamily: "monospace",
+                          }}>
+                          /{activeLang}/
+                        </span>
+                        <input
+                          value={trFields[activeLang]?.slug ?? ""}
+                          onChange={(e) => handleLocaleFieldChange(activeLang, "slug", e.target.value)}
+                          placeholder={t("langSlugPlaceholder")}
+                          disabled={!slugEditable}
+                          style={{
+                            ...inputStyle,
+                            borderRadius: "0 0.5rem 0.5rem 0",
+                            fontFamily: "monospace",
+                            cursor: slugEditable ? undefined : "not-allowed",
+                            opacity: slugEditable ? 1 : 0.7,
+                          }}
+                        />
+                      </div>
+                      {!slugEditable ? (
+                        <p
+                          style={{
+                            ...hintStyle,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}>
+                          <Lock size={11} />
+                          {t("langSlugLockedHint")}
+                        </p>
+                      ) : isEdit && trFields[activeLang]?.slug !== initialTrSlugs[activeLang] && (trFields[activeLang]?.slug || initialTrSlugs[activeLang]) ? (
+                        <div
+                          className="flex items-start gap-2 mt-2 rounded-lg px-3 py-2"
+                          style={{
+                            background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+                            border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                          }}>
+                          <AlertTriangle size={13} className="mt-0.5 shrink-0" style={{ color: "#f59e0b" }} />
+                          <p className="text-xs leading-relaxed" style={{ color: "var(--admin-text-muted)" }}>
+                            {t("langSlugChangedNotice")}
+                          </p>
+                        </div>
+                      ) : (
+                        <p style={hintStyle}>
+                          {t("langSlugHint", { locale: activeLang, slug: trFields[activeLang]?.slug || t("slugUrlHintFallback") })}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

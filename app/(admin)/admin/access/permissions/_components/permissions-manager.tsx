@@ -25,14 +25,24 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import {
   createPermission,
   deletePermission,
+  getPermissionImpact,
   grantPermissionToRole,
   revokePermissionFromRole,
   syncSystemPermissions,
   updatePermission,
 } from "../actions";
+
+type DeleteImpact = {
+  key: string;
+  label: string;
+  roleAssignments: number;
+  userOverrides: number;
+  effectiveUsers: number;
+};
 
 // ─── Types ────────────────────────────────────────────────────────────
 type RolePermission = { roleId: number; permissionId: number };
@@ -496,14 +506,57 @@ function GroupSection({
 }) {
   const t = useTranslations("admin.access.permissions.catalog");
   const [open, setOpen] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [, startTransition] = useTransition();
+  // Permission pending confirmation. We pre-load the impact (roles +
+  // overrides + REAL users affected) before showing the modal so the
+  // admin can read the full blast radius before clicking "Delete".
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: number;
+    impact: DeleteImpact | null;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+  const [deleting, startDeleting] = useTransition();
+
+  async function openDelete(perm: Permission) {
+    setEditingId(null);
+    setPendingDelete({
+      id: perm.id,
+      impact: null,
+      loading: true,
+      error: null,
+    });
+    try {
+      const res = await getPermissionImpact(perm.id);
+      if ("error" in res) {
+        setPendingDelete({
+          id: perm.id,
+          impact: null,
+          loading: false,
+          error: res.error ?? t("impactLoadFailed"),
+        });
+        return;
+      }
+      setPendingDelete({
+        id: perm.id,
+        impact: res as DeleteImpact,
+        loading: false,
+        error: null,
+      });
+    } catch {
+      setPendingDelete({
+        id: perm.id,
+        impact: null,
+        loading: false,
+        error: t("impactLoadFailed"),
+      });
+    }
+  }
 
   function handleDelete(id: number) {
-    startTransition(async () => {
+    startDeleting(async () => {
       await onDelete(id);
-      setDeletingId(null);
+      setPendingDelete(null);
     });
   }
 
@@ -581,11 +634,11 @@ function GroupSection({
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {editingId !== perm.id && deletingId !== perm.id && (
+                  {editingId !== perm.id && (
                     <button
                       onClick={() => {
                         setEditingId(perm.id);
-                        setDeletingId(null);
+                        setPendingDelete(null);
                       }}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: "var(--admin-text-muted)" }}
@@ -601,32 +654,13 @@ function GroupSection({
                       <Pencil size={13} />
                     </button>
                   )}
-                  {deletingId === perm.id ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleDelete(perm.id)}
-                        className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
-                        title={t("confirmDeleteTitle")}>
-                        <Check size={13} />
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="p-1.5 rounded-lg transition-colors"
-                        style={{ color: "var(--admin-text-muted)" }}
-                        title={t("cancelDeleteTitle")}>
-                        <X size={13} />
-                      </button>
-                    </div>
-                  ) : editingId !== perm.id ? (
+                  {editingId !== perm.id ? (
                     (() => {
                       const locked =
                         perm.isSystem && codeSystemKeys.has(perm.key);
                       return (
                         <button
-                          onClick={() => {
-                            setDeletingId(perm.id);
-                            setEditingId(null);
-                          }}
+                          onClick={() => openDelete(perm)}
                           disabled={locked}
                           className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ color: "var(--admin-text-muted)" }}
@@ -679,6 +713,72 @@ function GroupSection({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Delete confirmation — opens after the user clicks the trash
+          icon and the impact has been loaded. Shows roles + overrides
+          AND the count of real users who will lose access (resolved
+          against role membership + latest override per user), so the
+          admin knows the actual blast radius before clicking Delete.
+          Uses the project-wide ConfirmModal per
+          feedback_admin_confirm_modal in memory. */}
+      {pendingDelete && (
+        <ConfirmModal
+          open
+          variant="danger"
+          loading={pendingDelete.loading || deleting}
+          title={t("confirmDeleteTitle")}
+          confirmLabel={t("confirmDeleteAction")}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => handleDelete(pendingDelete.id)}
+          message={
+            pendingDelete.error ? (
+              <span style={{ color: "var(--admin-destructive)" }}>
+                {pendingDelete.error}
+              </span>
+            ) : pendingDelete.loading || !pendingDelete.impact ? (
+              <span>{t("impactLoading")}</span>
+            ) : (
+              <div className="space-y-2">
+                <p>
+                  {t.rich("confirmDeleteIntro", {
+                    label: pendingDelete.impact.label,
+                    b: (chunks) => <strong>{chunks}</strong>,
+                  })}
+                </p>
+                <ul
+                  className="text-[13px] space-y-1"
+                  style={{ color: "var(--admin-text-muted)" }}>
+                  <li>
+                    {t("impactRoles", {
+                      count: pendingDelete.impact.roleAssignments,
+                    })}
+                  </li>
+                  <li>
+                    {t("impactOverrides", {
+                      count: pendingDelete.impact.userOverrides,
+                    })}
+                  </li>
+                  <li
+                    style={{
+                      color:
+                        pendingDelete.impact.effectiveUsers > 0
+                          ? "var(--admin-destructive)"
+                          : undefined,
+                      fontWeight:
+                        pendingDelete.impact.effectiveUsers > 0
+                          ? 600
+                          : undefined,
+                    }}>
+                    {t("impactEffectiveUsers", {
+                      count: pendingDelete.impact.effectiveUsers,
+                    })}
+                  </li>
+                </ul>
+              </div>
+            )
+          }
+        />
       )}
     </div>
   );

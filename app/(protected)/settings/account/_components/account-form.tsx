@@ -218,7 +218,13 @@ function RequestEmailChangeForm({
             id="emailChangePassword"
             name="password"
             type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
+            // autoComplete="off" — questo campo serve come PROVA DI
+            // IDENTITÀ: l'utente deve digitarla. Se il password manager
+            // la pre-compila, basta un attacker con sessione attiva (o
+            // accesso fisico al device) per cambiare email senza
+            // conoscere la password. Lasciamo che lo digiti l'umano.
+            autoComplete="off"
+            data-form-type="other"
             required
             maxLength={100}
             className="pr-10"
@@ -433,7 +439,12 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
               id="currentPassword"
               name="currentPassword"
               type={showCurrent ? "text" : "password"}
-              autoComplete="current-password"
+              // autoComplete="off" — vedi nota nel form cambio email.
+              // Per il "cambio password" il rischio è amplificato: un
+              // attacker con sessione attiva potrebbe reset-are la
+              // password a piacere se il manager fa autofill.
+              autoComplete="off"
+              data-form-type="other"
               required
               maxLength={100}
               className="pr-10"

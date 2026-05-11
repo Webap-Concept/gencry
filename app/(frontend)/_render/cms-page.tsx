@@ -4,8 +4,8 @@ import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fi
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
-import { getSeoPage } from "@/lib/db/seo-queries";
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getCachedSeoPage } from "@/lib/seo";
+import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
@@ -71,16 +71,20 @@ export async function cmsPageMetadata({
 
   const [page, settings] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
-    getAppSettings(),
+    getAppSettingsSafe(),
   ]);
 
   // SEO config è chiavata sul pathname canonico (default-locale).
   // Se la pagina è stata trovata, usiamo `page.slug` (sempre nel default
   // locale). Altrimenti fallback al pathname richiesto per il lookup 404.
-  // Passiamo `locale` a getSeoPage: per locale non-default applica
+  // Passiamo `locale` a getCachedSeoPage: per locale non-default applica
   // l'overlay da seo_page_translations sui 4 campi testuali.
   const seoPathname = page ? `/${page.slug}` : "/" + segments.join("/");
-  const seo = await getSeoPage(seoPathname, locale);
+  // Cached + graceful: 60s TTL keyed on (pathname, locale). Invalidated
+  // by the same revalidateTag("seo") that the admin actions already
+  // call on save. Hot path on every public CMS render — without this
+  // cache, each page render = 1 DB hit on seo_pages.
+  const seo = await getCachedSeoPage(seoPathname, locale);
 
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, settings) : undefined;
@@ -90,7 +94,16 @@ export async function cmsPageMetadata({
     page?.isSystem === true && page?.contentEditable === false;
 
   if (!seo && (isMissing || isMetaOnlySystemPage)) {
-    const fallback = await getSeoPage("/404");
+    // The /404 SEO record is hot under any traffic burst (every 404
+    // hits this path). We use the cached + try/catch-graceful wrapper
+    // from lib/seo so:
+    //   - 60s in-memory cache absorbs the burst → 1 DB hit / minute
+    //     instead of 1 / 404, killing the statement_timeout reports
+    //     Sentry was logging;
+    //   - if the DB still fails for any reason, the wrapper returns
+    //     undefined and we fall back to the hardcoded title/description
+    //     below — the 404 page renders no matter what.
+    const fallback = await getCachedSeoPage("/404");
     return {
       title: resolve(fallback?.title) ?? "404 — Pagina non trovata",
       description:
@@ -146,7 +159,7 @@ export async function CmsPage({
   }
   const [pageData, settings, stylesVersion] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
-    getAppSettings(),
+    getAppSettingsSafe(),
     getCmsStylesVersion(),
   ]);
 

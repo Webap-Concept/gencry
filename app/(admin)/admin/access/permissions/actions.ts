@@ -286,11 +286,21 @@ export async function getPermissionImpact(permissionId: number) {
     .from(userPermissions)
     .where(eq(userPermissions.permissionId, permissionId));
 
+  // Effective count: how many real users will actually lose access.
+  // Roles+overrides on their own undercount the impact (you don't know
+  // how many users carry that role) — this resolves it against the
+  // user table using the same policy as can().
+  const { countEffectiveUsersForPermission } = await import(
+    "@/lib/rbac/permissions-queries"
+  );
+  const effectiveUsers = await countEffectiveUsersForPermission(permissionId);
+
   return {
     key: perm[0].key,
     label: perm[0].label,
     roleAssignments: roleCount.length,
     userOverrides: userCount.length,
+    effectiveUsers,
   };
 }
 
