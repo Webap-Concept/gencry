@@ -31,7 +31,7 @@ export default function AllErrorsModal({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<{ id: string; code: string } | null>(null);
   const [confirm, setConfirm] = useState<SentryIssueSummary | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -48,11 +48,16 @@ export default function AllErrorsModal({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !pendingId && !confirm) onClose();
+      // ESC chiude sempre la modale principale, A MENO che la confirm
+      // nested sia aperta — in quel caso ESC è gestito dalla nested.
+      // Il resolve in corso non blocca: la server action continua
+      // comunque, e router.refresh aggiorna il widget alla prossima
+      // apertura.
+      if (e.key === "Escape" && !confirm) onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, pendingId, confirm]);
+  }, [open, onClose, confirm]);
 
   if (!open) return null;
 
@@ -97,7 +102,7 @@ export default function AllErrorsModal({
   return createPortal(
     <>
       <div
-        onClick={pendingId || isPending ? undefined : onClose}
+        onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -187,7 +192,6 @@ export default function AllErrorsModal({
             <button
               ref={closeRef}
               onClick={onClose}
-              disabled={!!pendingId || isPending}
               style={{
                 width: 28,
                 height: 28,
@@ -195,7 +199,7 @@ export default function AllErrorsModal({
                 background: "transparent",
                 border: "none",
                 color: "var(--admin-text-faint, #5a5957)",
-                cursor: pendingId || isPending ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
