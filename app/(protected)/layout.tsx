@@ -51,28 +51,36 @@ export default async function Layout({
     );
   }
 
-  // MFA enforcement: se la policy admin (cfr. /admin/security/mfa) richiede
-  // l'MFA per l'utente e la deadline del grace period è passata senza che
-  // l'utente lo abbia attivato, redirige a:
-  //   - `/<adminSlug>/security/mfa-enroll` per gli staff (isAdmin) — single
-  //     source of truth per l'enrollment dello staff, evita di mandarli sul
-  //     frontend per attivare l'MFA;
-  //   - `/settings/security` per gli utenti normali (mode required-for-all).
+  // MFA enforcement + re-consent banner. Both are independent reads on
+  // the layout's critical path; running them in parallel saves one
+  // round-trip per page load. Wrapped in a single try/catch so a DB
+  // hiccup in either path degrades gracefully (no MFA redirect, no
+  // banner) instead of crashing the whole logged-in area.
   //
-  // Wrappato in try/catch: un errore qui (DB transitorio, settings stale,
-  // ecc.) non deve bloccare l'intera area loggata. Se il calcolo fallisce,
-  // l'utente continua come se MFA fosse optional — il banner della pagina
-  // di enrollment copre comunque il caso in modo non bloccante.
-  // Il redirect viene calcolato dentro il try ma chiamato FUORI, perché
-  // `redirect()` lancia un'eccezione Next-interna che non va catturata.
+  // Behavior note: previously a `getPendingReconsents` failure would
+  // throw out of the layout (500). Now it's caught here and treated as
+  // "no pending reconsent" — strictly safer.
+  //
+  // `redirect()` for MFA is computed inside the try and called OUTSIDE
+  // it, because `redirect()` throws a Next-internal exception we must
+  // not swallow.
+  const emptyReconsent = {
+    items: [] as Awaited<ReturnType<typeof getPendingReconsents>>["items"],
+    oldestEnqueuedAt: null as Date | null,
+    graceMs: 0,
+  };
   let mfaRedirectTo: string | null = null;
+  let reconsent: Awaited<ReturnType<typeof getPendingReconsents>> = emptyReconsent;
   try {
-    const user = await getUser();
+    const [user, policy, mfaState, reconsentResult] = await Promise.all([
+      getUser(),
+      getMfaPolicy(),
+      getMfaState(session.user.id),
+      getPendingReconsents(session.user.id),
+    ]);
+    reconsent = reconsentResult;
+
     if (user && !user.bannedAt) {
-      const [policy, mfaState] = await Promise.all([
-        getMfaPolicy(),
-        getMfaState(user.id),
-      ]);
       const enforcement = mfaEnforcement(user, policy, mfaState);
       if (enforcement.kind === "blocking") {
         const pathname = (await headers()).get("x-pathname") ?? "";
@@ -89,7 +97,7 @@ export default async function Layout({
       }
     }
   } catch (err) {
-    console.error("[layout/protected] MFA enforcement check failed:", err);
+    console.error("[layout/protected] enforcement/reconsent check failed:", err);
   }
   if (mfaRedirectTo) {
     redirect(mfaRedirectTo);
@@ -98,7 +106,6 @@ export default async function Layout({
   // Re-consent banner: appare se l'utente ha policy obsolete e l'admin ha
   // attivato gdpr.policy.force_reconsent_on_change. Modalità bloccante
   // dopo gdpr.policy.reconsent_grace_days giorni dal bump.
-  const reconsent = await getPendingReconsents(session.user.id);
   const slugsRaw = reconsent.items.length > 0 ? await getSystemPageSlugs() : {};
   const slugs: Partial<Record<PolicyNotificationKey, string>> = {
     terms: slugsRaw.terms,
