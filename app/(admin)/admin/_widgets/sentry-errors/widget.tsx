@@ -3,6 +3,7 @@ import { AlertOctagon, Bug, CheckCircle2 } from "lucide-react";
 import { fetchSentryIssues24h } from "@/lib/sentry/issues";
 import type { WidgetSetupGuide as WidgetSetupGuideData } from "@/lib/admin/dashboard/types";
 import WidgetSetupGuide from "@/app/(admin)/admin/_components/widget-setup-guide";
+import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 import IssuesListClient from "./issues-list-client";
 
 const SETUP_GUIDE_KEY = "widgets.sentryErrors.setupGuide";
@@ -14,7 +15,7 @@ export default async function SentryErrorsWidget() {
   ]);
 
   return (
-    <Shell title={t("widgets.sentryErrors.title")}>
+    <WidgetCard title={t("widgets.sentryErrors.title")} icon={Bug} scrollable>
       {result.ok ? (
         result.total === 0 ? (
           <AllClearState message={t("widgets.sentryErrors.allClear")} />
@@ -40,49 +41,7 @@ export default async function SentryErrorsWidget() {
           }
         />
       )}
-    </Shell>
-  );
-}
-
-// ─── Card shell ───────────────────────────────────────────────────────
-function Shell({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="rounded-xl p-5 h-full flex flex-col"
-      style={{
-        background: "var(--admin-card-bg)",
-        border: "1px solid var(--admin-card-border)",
-      }}
-    >
-      <div className="flex items-center gap-2.5 mb-3 shrink-0">
-        <span
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{
-            background:
-              "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
-            color: "var(--admin-accent)",
-          }}
-        >
-          <Bug size={14} />
-        </span>
-        <h2
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--admin-text-faint)" }}
-        >
-          {title}
-        </h2>
-      </div>
-      {/* min-h-0 lets the inner content shrink below its natural size
-          when the grid cell is tighter than the issues list; the
-          IssuesListClient handles its own internal scroll. */}
-      <div className="flex-1 min-h-0 overflow-auto">{children}</div>
-    </div>
+    </WidgetCard>
   );
 }
 

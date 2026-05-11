@@ -2,6 +2,7 @@ import { getAdminPath } from "@/lib/admin-paths";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Users, ShieldCheck, Settings, FileText } from "lucide-react";
+import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 
 export default async function QuickActionsWidget() {
   const t = await getTranslations("admin.dashboard.widgets.quickActions");
@@ -20,24 +21,11 @@ export default async function QuickActionsWidget() {
     { href: settingsPath, label: t("settings"), Icon: Settings },
   ];
 
+  // Content is fixed-size (4 links), no need to scroll. WidgetCard
+  // owns the header chrome; we only need to lay out the inner grid.
   return (
-    <div
-      className="rounded-xl p-5 h-full flex flex-col"
-      style={{
-        background: "var(--admin-card-bg)",
-        border: "1px solid var(--admin-card-border)",
-      }}
-    >
-      <h2
-        className="text-xs font-semibold uppercase tracking-widest mb-3 shrink-0"
-        style={{ color: "var(--admin-text-faint)" }}
-      >
-        {t("title")}
-      </h2>
-      {/* min-h-0 lets the grid shrink below its content height when the
-          user resizes the widget tighter than 3 rows; overflow-auto
-          keeps the layout from busting out of the card. */}
-      <div className="grid grid-cols-2 gap-2 flex-1 min-h-0 overflow-auto content-start">
+    <WidgetCard title={t("title")}>
+      <div className="grid grid-cols-2 gap-2">
         {actions.map(({ href, label, Icon }) => (
           <Link
             key={href}
@@ -54,6 +42,6 @@ export default async function QuickActionsWidget() {
           </Link>
         ))}
       </div>
-    </div>
+    </WidgetCard>
   );
 }

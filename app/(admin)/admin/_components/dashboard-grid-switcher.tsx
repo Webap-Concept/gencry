@@ -44,10 +44,10 @@ export default function DashboardGridSwitcher({
       {items.map((it) => (
         <div
           key={it.id}
+          className="dashboard-widget-cell"
           style={{
             gridColumn: `${it.x + 1} / span ${it.w}`,
             gridRow: `${it.y + 1} / span ${it.h}`,
-            minWidth: 0, // allow children to truncate
           }}
         >
           {widgetsById[it.id] ?? null}
