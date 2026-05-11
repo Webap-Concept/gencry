@@ -5,6 +5,7 @@ import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getSeoPage } from "@/lib/db/seo-queries";
+import { getCachedSeoPage } from "@/lib/seo";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
@@ -90,7 +91,16 @@ export async function cmsPageMetadata({
     page?.isSystem === true && page?.contentEditable === false;
 
   if (!seo && (isMissing || isMetaOnlySystemPage)) {
-    const fallback = await getSeoPage("/404");
+    // The /404 SEO record is hot under any traffic burst (every 404
+    // hits this path). We use the cached + try/catch-graceful wrapper
+    // from lib/seo so:
+    //   - 60s in-memory cache absorbs the burst → 1 DB hit / minute
+    //     instead of 1 / 404, killing the statement_timeout reports
+    //     Sentry was logging;
+    //   - if the DB still fails for any reason, the wrapper returns
+    //     undefined and we fall back to the hardcoded title/description
+    //     below — the 404 page renders no matter what.
+    const fallback = await getCachedSeoPage("/404");
     return {
       title: resolve(fallback?.title) ?? "404 — Pagina non trovata",
       description:
