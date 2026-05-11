@@ -30,6 +30,11 @@ export interface WidgetCardProps {
   /** When true, the body region becomes a scroll container (used for
    *  widgets with potentially-long content like activity lists). */
   scrollable?: boolean;
+  /** Optional right-aligned slot in the header for per-widget controls
+   *  (gear icon for "customize", refresh button, etc.). Rendered only
+   *  when a title/icon is also present — without a header there's no
+   *  row to anchor it to. */
+  headerActions?: ReactNode;
   children: ReactNode;
 }
 
@@ -37,6 +42,7 @@ export default function WidgetCard({
   title,
   icon: Icon,
   scrollable = false,
+  headerActions,
   children,
 }: WidgetCardProps) {
   const hasHeader = !!title || !!Icon;
@@ -64,6 +70,11 @@ export default function WidgetCard({
             >
               {title}
             </h2>
+          )}
+          {headerActions && (
+            <div className="ml-auto flex items-center gap-1">
+              {headerActions}
+            </div>
           )}
         </div>
       )}

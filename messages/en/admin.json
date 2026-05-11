@@ -3026,7 +3026,21 @@
         "users": "Users",
         "roles": "Roles",
         "pages": "Pages",
-        "settings": "Settings"
+        "settings": "Settings",
+        "customizeAria": "Customize shortcuts",
+        "emptySelection": "No shortcuts selected — click the gear icon to pick some.",
+        "customize": {
+          "title": "Customize Quick Actions",
+          "subtitle": "Pick up to {max} admin shortcuts. Selected: {count}/{max}.",
+          "empty": "No admin sections are available for your role.",
+          "closeAria": "Close",
+          "cancelButton": "Cancel",
+          "saveButton": "Save",
+          "resetButton": "Reset to defaults",
+          "resetTooltip": "Drop your customization and use the built-in defaults.",
+          "errorSaving": "Could not save your shortcuts. Try again.",
+          "errorResetting": "Could not reset. Try again."
+        }
       },
       "operationalMetrics": {
         "title": "Operational metrics",

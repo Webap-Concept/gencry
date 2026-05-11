@@ -1,0 +1,128 @@
+// lib/admin/nav/icon-map.ts
+//
+// String → Lucide component map for the admin nav registry. Lives here
+// (instead of inside sidebar.tsx) because more than one consumer now
+// needs it: the sidebar itself, the dashboard Quick Actions widget and
+// its Customize modal. Keeping a single source of truth means adding a
+// new nav icon is a one-line change.
+//
+// Universal module — safe to import from both server and client. No
+// "server-only" / "use client" pragma on purpose.
+
+import {
+  Activity,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUpDown,
+  BarChart2,
+  Bell,
+  Bug,
+  Boxes,
+  ClipboardList,
+  Clock,
+  Code2,
+  Coins,
+  Cookie,
+  CreditCard,
+  Database,
+  FileText,
+  FlaskConical,
+  GitMerge,
+  Globe,
+  Image as ImageIcon,
+  KeyRound,
+  Languages,
+  Layers,
+  LayoutDashboard,
+  LineChart,
+  Link2,
+  ListFilter,
+  Lock,
+  LogIn,
+  MailOpen,
+  Map,
+  Package,
+  PackageCheck,
+  Palette,
+  PanelTop,
+  Plug,
+  RefreshCcw,
+  Scale,
+  ScrollText,
+  Search,
+  SearchX,
+  Send,
+  Settings,
+  Shield,
+  ShieldAlert,
+  ShieldBan,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserCog,
+  UserX,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
+export const NAV_ICON_MAP: Record<string, LucideIcon> = {
+  Activity,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUpDown,
+  BarChart2,
+  Bell,
+  Bug,
+  Boxes,
+  ClipboardList,
+  Clock,
+  Code2,
+  Coins,
+  Cookie,
+  CreditCard,
+  Database,
+  FileText,
+  FlaskConical,
+  GitMerge,
+  Globe,
+  KeyRound,
+  Languages,
+  Layers,
+  LayoutDashboard,
+  LineChart,
+  Link2,
+  ListFilter,
+  Lock,
+  LogIn,
+  MailOpen,
+  Map,
+  Package,
+  PackageCheck,
+  Palette,
+  PanelTop,
+  Plug,
+  RefreshCcw,
+  Scale,
+  ScrollText,
+  Search,
+  SearchX,
+  Send,
+  Settings,
+  Shield,
+  ShieldAlert,
+  ShieldBan,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserCog,
+  UserX,
+  Users,
+  Image: ImageIcon,
+};
+
+/**
+ * Resolve a nav icon name to its Lucide component, falling back to
+ * `Plug` (a neutral, plugin-shaped icon) when the requested name is
+ * not registered. Modules registering new keys must add the entry here.
+ */
+export function getNavIcon(name: string): LucideIcon {
+  return NAV_ICON_MAP[name] ?? Plug;
+}

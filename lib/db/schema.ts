@@ -1030,6 +1030,9 @@ export const adminUserPreferences = pgTable("admin_user_preferences", {
     | { items: Array<{ id: string; x: number; y: number; w: number; h: number }> }
     | null
   >(),
+  // NULL = user never customized Quick Actions → widget falls back to
+  // QUICK_ACTIONS_DEFAULTS. Stored as text[] of nav-registry keys.
+  quickActions: text("quick_actions").array(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
