@@ -6,8 +6,14 @@ import { unstable_cache } from "next/cache";
 import { connection } from "next/server";
 /**
  * Versione cached di getSeoPage — revalidata ogni 60s o su revalidateTag('seo').
- * Esportata per i call site ad alto traffico (es. `app/not-found.tsx`) che
- * devono evitare un round-trip al DB ad ogni hit.
+ * Esportata per i call site ad alto traffico (es. `app/not-found.tsx` per
+ * la 404, `cms-page.tsx` per ogni page CMS pubblica) che devono evitare
+ * un round-trip al DB ad ogni hit.
+ *
+ * Locale opzionale: cms-page passa il locale corrente per ottenere
+ * l'overlay seo_page_translations sui 4 campi testuali. Cache key
+ * include il locale, quindi `/azienda` IT e `/azienda` EN sono entries
+ * separate (60s ciascuna). Se locale è omesso, cache la riga base.
  *
  * Fallback graceful: se il DB fallisce (statement_timeout 57014 visto su
  * Sentry sotto burst di 404), ritorna undefined invece di propagare —
@@ -15,16 +21,18 @@ import { connection } from "next/server";
  * try/catch sta FUORI dalla cache così non finisce nei 60s di TTL.
  */
 const _cachedSeoPage = unstable_cache(
-  (pathname: string) => _getSeoPage(pathname),
+  (pathname: string, locale?: string) => _getSeoPage(pathname, locale),
   ["seo-page"],
   { revalidate: 60, tags: ["seo"] },
 );
-export async function getCachedSeoPage(pathname: string) {
+export async function getCachedSeoPage(pathname: string, locale?: string) {
   try {
-    return await _cachedSeoPage(pathname);
+    return await _cachedSeoPage(pathname, locale);
   } catch (err) {
     console.warn(
-      `[getCachedSeoPage] lookup failed for ${pathname}, falling back to undefined`,
+      `[getCachedSeoPage] lookup failed for ${pathname}` +
+        (locale ? ` (locale=${locale})` : "") +
+        `, falling back to undefined`,
       err,
     );
     return undefined;

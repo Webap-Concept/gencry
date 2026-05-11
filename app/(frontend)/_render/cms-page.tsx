@@ -4,7 +4,6 @@ import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fi
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
-import { getSeoPage } from "@/lib/db/seo-queries";
 import { getCachedSeoPage } from "@/lib/seo";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
@@ -78,10 +77,14 @@ export async function cmsPageMetadata({
   // SEO config è chiavata sul pathname canonico (default-locale).
   // Se la pagina è stata trovata, usiamo `page.slug` (sempre nel default
   // locale). Altrimenti fallback al pathname richiesto per il lookup 404.
-  // Passiamo `locale` a getSeoPage: per locale non-default applica
+  // Passiamo `locale` a getCachedSeoPage: per locale non-default applica
   // l'overlay da seo_page_translations sui 4 campi testuali.
   const seoPathname = page ? `/${page.slug}` : "/" + segments.join("/");
-  const seo = await getSeoPage(seoPathname, locale);
+  // Cached + graceful: 60s TTL keyed on (pathname, locale). Invalidated
+  // by the same revalidateTag("seo") that the admin actions already
+  // call on save. Hot path on every public CMS render — without this
+  // cache, each page render = 1 DB hit on seo_pages.
+  const seo = await getCachedSeoPage(seoPathname, locale);
 
   const resolve = (text?: string | null) =>
     text ? resolvePlaceholders(text, settings) : undefined;
