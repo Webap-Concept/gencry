@@ -23,7 +23,6 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   // ── Admin — accesso base ─────────────────────────────────────────────
   { key: "admin:access",     label: "Access admin panel",          group: "Admin", isSystem: true },
   { key: "admin:settings",   label: "Edit app settings",           group: "Admin", isSystem: true },
-  { key: "admin:analytics",  label: "View analytics",              group: "Admin", isSystem: true },
 
   // ── Admin — section permissions (used by Nav Registry) ──────────────
   { key: "admin:content",      label: "Access Content section",            group: "Admin", isSystem: true },
@@ -32,7 +31,8 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "admin:staff",        label: "Access Staff section",              group: "Admin", isSystem: true },
   { key: "admin:roles",        label: "Access Roles & Permissions",        group: "Admin", isSystem: true },
   { key: "admin:logs",         label: "Access Activity Logs",              group: "Admin", isSystem: true },
-  { key: "admin:moderation",   label: "Access Moderation section",         group: "Admin", isSystem: true },
+  { key: "admin:security",     label: "Access Security section",           group: "Admin", isSystem: true },
+  { key: "admin:services",     label: "Access Services section",           group: "Admin", isSystem: true },
   // [FUTURE] Billing — sezione non ancora implementata, permessi già registrati
   { key: "admin:billing",      label: "Access Billing & Payments section", group: "Admin", isSystem: true },
   { key: "admin:tests",        label: "Access Test Suite section",         group: "Admin", isSystem: true },
@@ -49,10 +49,6 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "users:ban",               label: "Suspend users",                   group: "Users", isSystem: true },
   { key: "users:role_assign",       label: "Assign roles",                    group: "Users", isSystem: true },
   { key: "users:permission_assign", label: "Assign individual permissions",   group: "Users", isSystem: true },
-
-  // ── Moderation ───────────────────────────────────────────────────────
-  { key: "moderation:read", label: "View reports",   group: "Moderation", isSystem: true },
-  { key: "moderation:act",  label: "Handle reports", group: "Moderation", isSystem: true },
 
   // ── Content ──────────────────────────────────────────────────────────
   { key: "content:read",       label: "Read content",             group: "Content", isSystem: false },
@@ -97,16 +93,15 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
 export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
   admin: [
     // admin panel
-    "admin:access", "admin:settings", "admin:analytics",
+    "admin:access", "admin:settings",
     "admin:content", "admin:seo", "admin:users", "admin:staff",
-    "admin:roles", "admin:logs", "admin:moderation", "admin:billing", "admin:tests",
+    "admin:roles", "admin:logs", "admin:security", "admin:services",
+    "admin:billing", "admin:tests",
     "admin:sessions", "admin:gdpr", "admin:languages",
     "admin:sentry",
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
     "users:role_assign", "users:permission_assign",
-    // moderation
-    "moderation:read", "moderation:act",
     // content
     "content:read", "content:create", "content:edit_own", "content:edit_any",
     "content:delete_own", "content:delete_any", "content:publish",

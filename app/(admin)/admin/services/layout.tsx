@@ -10,6 +10,6 @@ export default async function ServicesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdminSectionPage("admin:settings");
+  await requireAdminSectionPage("admin:services");
   return <div className="space-y-5">{children}</div>;
 }
