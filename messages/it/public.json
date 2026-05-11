@@ -26,12 +26,32 @@
       "submit": "Continua",
       "submitPending": "Salvataggio…"
     },
-    "interests": {
-      "title": "Cosa ti interessa?",
-      "subtitleStart": "Scegli almeno",
-      "subtitleAssets": "asset da seguire.",
-      "subtitleSelectedStart": "Ne hai selezionati",
-      "subtitleSelectedEnd": ".",
+    "coinPicks": {
+      "title": "Scegli le coin che ti interessano",
+      "subtitle": "Seleziona tra {min} e {max} coin da seguire.",
+      "searchPlaceholder": "Cerca per simbolo o nome…",
+      "noResults": "Nessuna coin corrisponde alla ricerca.",
+      "maxReached": "Puoi selezionare al massimo {max} coin.",
+      "back": "Indietro",
+      "submit": "Continua",
+      "submitPending": "Salvataggio…"
+    },
+    "riskProfile": {
+      "title": "Qual è il tuo profilo di rischio?",
+      "subtitle": "Useremo questa informazione per personalizzare il feed.",
+      "profileLabel": "Profilo di rischio",
+      "profileOption": {
+        "cauto": "Cauto",
+        "moderato": "Moderato",
+        "aggressivo": "Aggressivo",
+        "degen": "Degen"
+      },
+      "experienceLabel": "Esperienza nel crypto",
+      "experienceOption": {
+        "newbie": "Newbie",
+        "1to3y": "1–3 anni",
+        "over3y": "Oltre 3 anni"
+      },
       "back": "Indietro",
       "submit": "Continua",
       "submitPending": "Salvataggio…"
