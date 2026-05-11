@@ -308,8 +308,24 @@ export async function deletePermission(permissionId: number) {
     .where(eq(permissions.id, permissionId))
     .limit(1);
 
-  if (!perm || perm.isSystem) {
+  if (!perm) {
     return { error: tErrors("systemCannotDelete") };
+  }
+
+  // System permissions are normally locked: if the key still exists in
+  // permissions-data.ts (the code source of truth) we refuse to delete,
+  // otherwise a careless click could wipe a core key the seed would
+  // immediately reintroduce — confusing for the user. But when a system
+  // key has been removed from the code (e.g. a deprecated section), the
+  // DB row becomes a drifted orphan that the Catalog UI can't otherwise
+  // clean up. Allow deletion in that case.
+  if (perm.isSystem) {
+    const stillInCode = getAllSystemPermissions().some(
+      (p) => p.key === perm.key,
+    );
+    if (stillInCode) {
+      return { error: tErrors("systemCannotDelete") };
+    }
   }
 
   // Cascade: remove role assignments

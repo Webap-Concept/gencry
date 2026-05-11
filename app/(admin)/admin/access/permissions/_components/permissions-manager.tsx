@@ -258,6 +258,12 @@ function PermissionCatalog({
 
   const suggested = systemKeys.find((k) => k.key === keyValue) ?? null;
 
+  // Set of system keys still defined in the code source of truth.
+  // A system permission that lives in the DB but is NO LONGER here is
+  // a drifted orphan — the catalog should let admins delete it. The
+  // delete button below uses this to relax the lock.
+  const codeSystemKeys = new Set(systemKeys.map((k) => k.key));
+
   const grouped = permissions.reduce<Record<string, Permission[]>>((acc, p) => {
     const g = p.group ?? "Other";
     (acc[g] ??= []).push(p);
@@ -454,6 +460,7 @@ function PermissionCatalog({
           key={group}
           group={group}
           perms={perms as Permission[]}
+          codeSystemKeys={codeSystemKeys}
           onDelete={onDelete}
           onUpdate={onUpdate}
         />
@@ -475,11 +482,15 @@ function PermissionCatalog({
 function GroupSection({
   group,
   perms,
+  codeSystemKeys,
   onDelete,
   onUpdate,
 }: {
   group: string;
   perms: Permission[];
+  /** System keys still present in the code (permissions-data.ts). Used
+   *  to relax the delete lock for drifted orphans. */
+  codeSystemKeys: Set<string>;
   onDelete: (id: number) => Promise<void>;
   onUpdate: (id: number, patch: Partial<Permission>) => void;
 }) {
@@ -607,33 +618,39 @@ function GroupSection({
                       </button>
                     </div>
                   ) : editingId !== perm.id ? (
-                    <button
-                      onClick={() => {
-                        setDeletingId(perm.id);
-                        setEditingId(null);
-                      }}
-                      disabled={perm.isSystem}
-                      className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      style={{ color: "var(--admin-text-muted)" }}
-                      onMouseEnter={(e) => {
-                        if (!perm.isSystem)
-                          e.currentTarget.style.background = "#fef2f2";
-                      }}
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
-                      title={
-                        perm.isSystem
-                          ? t("deleteDisabledTitle")
-                          : t("deleteAriaTitle", { label: perm.label })
-                      }
-                      aria-label={
-                        perm.isSystem
-                          ? t("deleteDisabledTitle")
-                          : t("deleteAriaLabel", { label: perm.label })
-                      }>
-                      <Trash2 size={13} />
-                    </button>
+                    (() => {
+                      const locked =
+                        perm.isSystem && codeSystemKeys.has(perm.key);
+                      return (
+                        <button
+                          onClick={() => {
+                            setDeletingId(perm.id);
+                            setEditingId(null);
+                          }}
+                          disabled={locked}
+                          className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          style={{ color: "var(--admin-text-muted)" }}
+                          onMouseEnter={(e) => {
+                            if (!locked)
+                              e.currentTarget.style.background = "#fef2f2";
+                          }}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "transparent")
+                          }
+                          title={
+                            locked
+                              ? t("deleteDisabledTitle")
+                              : t("deleteAriaTitle", { label: perm.label })
+                          }
+                          aria-label={
+                            locked
+                              ? t("deleteDisabledTitle")
+                              : t("deleteAriaLabel", { label: perm.label })
+                          }>
+                          <Trash2 size={13} />
+                        </button>
+                      );
+                    })()
                   ) : (
                     <button
                       onClick={() => setEditingId(null)}
