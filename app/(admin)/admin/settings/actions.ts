@@ -306,14 +306,6 @@ export async function saveUsersSettings(
       "default_role",
       formData.get("default_role") as string,
     );
-    // Toggle "onboarding obbligatorio" — il SettingToggle invia sempre il
-    // valore (true|false), quindi se manca il field assumiamo true (default
-    // conservativo: wizard attivo).
-    const onboardingRaw = (formData.get("onboarding_enabled") as string | null) ?? "true";
-    await updateAppSetting(
-      "onboarding_enabled",
-      onboardingRaw === "false" ? "false" : "true",
-    );
     revalidatePath(await getAdminPath("settings-signin"));
     return { success: t("usersSaved"), timestamp: Date.now() };
   } catch {

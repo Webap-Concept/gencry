@@ -11,8 +11,14 @@
 // M_<slug>_999_uninstall.sql sul DB.
 import type { ModuleManifest } from "./types";
 import { PRICES_MODULE } from "./prices/manifest";
+import { ONBOARDING_MODULE } from "./onboarding/manifest";
 
-export const INSTALLED_MODULES: ModuleManifest[] = [PRICES_MODULE];
+export const INSTALLED_MODULES: ModuleManifest[] = [PRICES_MODULE, ONBOARDING_MODULE];
+
+/** Helper: il modulo con questo slug è installato? */
+export function isModuleInstalled(slug: string): boolean {
+  return INSTALLED_MODULES.some((m) => m.slug === slug);
+}
 
 /** Helper: trova un modulo per slug (utile in route handler / RBAC) */
 export function getModule(slug: string): ModuleManifest | undefined {
