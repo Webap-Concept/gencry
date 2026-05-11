@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { Settings } from "lucide-react";
 
-import CustomizeModal from "./customize-modal";
+// Lazy-load the modal so its body — including the full NAV_ICON_MAP
+// from lucide-react and its grouped option list — doesn't ship in the
+// initial admin home client bundle. The dashboard renders just the
+// gear icon up-front; the modal code is fetched the first time the
+// user actually opens it.
+const CustomizeModal = dynamic(() => import("./customize-modal"), {
+  ssr: false,
+});
 
 export interface QuickActionOptionView {
   key: string;
@@ -68,13 +76,15 @@ export default function CustomizeTrigger({
         }
       `}</style>
 
-      <CustomizeModal
-        open={open}
-        onClose={() => setOpen(false)}
-        available={available}
-        initialSelected={initialSelected}
-        hasUserOverride={hasUserOverride}
-      />
+      {open && (
+        <CustomizeModal
+          open={open}
+          onClose={() => setOpen(false)}
+          available={available}
+          initialSelected={initialSelected}
+          hasUserOverride={hasUserOverride}
+        />
+      )}
     </>
   );
 }
