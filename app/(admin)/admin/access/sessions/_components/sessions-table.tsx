@@ -7,20 +7,21 @@ import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminSessionRow } from "@/lib/db/admin-sessions-queries";
 import {
   AlertCircle,
-  ExternalLink,
   HelpCircle,
   Loader2,
+  LogOut,
   Monitor,
   ShieldOff,
   Smartphone,
   Tablet,
-  X,
+  User,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
+import { AdminTooltip } from "@/app/(admin)/admin/_components/admin-tooltip";
 import {
   revokeAllSessionsForUserAdmin,
   revokeUserSessionAdmin,
@@ -255,29 +256,36 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
 
       <td className="px-4 py-3 whitespace-nowrap text-right">
         <div className="flex items-center justify-end gap-1">
-          <Link
-            href={`${usersBase}/${row.userId}`}
-            className="p-1.5 rounded-md transition-colors hover:bg-[var(--admin-hover-bg)]"
-            title={t("actionViewUser")}
-            style={{ color: "var(--admin-text-muted)" }}>
-            <ExternalLink size={14} />
-          </Link>
+          <AdminTooltip label={t("actionViewUser")}>
+            <Link
+              href={`${usersBase}/${row.userId}`}
+              aria-label={t("actionViewUser")}
+              className="p-1.5 rounded-md transition-colors hover:bg-[var(--admin-hover-bg)]"
+              style={{ color: "var(--admin-text-muted)" }}>
+              <User size={14} />
+            </Link>
+          </AdminTooltip>
 
-          <button
-            type="button"
-            onClick={() => setConfirmRevokeOpen(true)}
-            disabled={!canRevoke || pending}
-            className="p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-red-50"
-            title={
-              canRevoke ? t("actionRevoke") : t("actionAlreadyInactive")
-            }
-            style={{ color: canRevoke ? "#dc2626" : "var(--admin-text-faint)" }}>
-            {pending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <X size={14} />
-            )}
-          </button>
+          <AdminTooltip
+            label={canRevoke ? t("actionRevoke") : t("actionAlreadyInactive")}>
+            <button
+              type="button"
+              onClick={() => setConfirmRevokeOpen(true)}
+              disabled={!canRevoke || pending}
+              aria-label={
+                canRevoke ? t("actionRevoke") : t("actionAlreadyInactive")
+              }
+              className="p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-red-50"
+              style={{
+                color: canRevoke ? "#dc2626" : "var(--admin-text-faint)",
+              }}>
+              {pending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <LogOut size={14} />
+              )}
+            </button>
+          </AdminTooltip>
 
           <ConfirmModal
             open={confirmRevokeOpen}
@@ -294,15 +302,17 @@ function SessionRow({ row }: { row: AdminSessionRow }) {
           />
 
           {!confirmAll ? (
-            <button
-              type="button"
-              onClick={() => setConfirmAll(true)}
-              disabled={pending}
-              className="p-1.5 rounded-md transition-colors hover:bg-red-50 disabled:opacity-40"
-              title={t("actionRevokeAll")}
-              style={{ color: "#b91c1c" }}>
-              <ShieldOff size={14} />
-            </button>
+            <AdminTooltip label={t("actionRevokeAll")}>
+              <button
+                type="button"
+                onClick={() => setConfirmAll(true)}
+                disabled={pending}
+                aria-label={t("actionRevokeAll")}
+                className="p-1.5 rounded-md transition-colors hover:bg-red-50 disabled:opacity-40"
+                style={{ color: "#b91c1c" }}>
+                <ShieldOff size={14} />
+              </button>
+            </AdminTooltip>
           ) : (
             <span className="inline-flex items-center gap-1 ml-1">
               <span
