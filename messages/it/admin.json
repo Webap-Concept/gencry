@@ -1530,7 +1530,14 @@
         "deleteAriaLabel": "Elimina permesso {label}",
         "deleteDisabledTitle": "I permessi di sistema non possono essere eliminati",
         "confirmDeleteTitle": "Conferma eliminazione",
-        "cancelDeleteTitle": "Annulla"
+        "cancelDeleteTitle": "Annulla",
+        "confirmDeleteAction": "Elimina",
+        "confirmDeleteIntro": "Stai per eliminare <b>{label}</b>. L'operazione è irreversibile.",
+        "impactLoading": "Calcolo dell'impatto in corso…",
+        "impactLoadFailed": "Impossibile calcolare l'impatto. Riprova.",
+        "impactRoles": "{count, plural, =0 {Non assegnato a nessun ruolo} one {Assegnato a # ruolo} other {Assegnato a # ruoli}}",
+        "impactOverrides": "{count, plural, =0 {Nessun override individuale} one {# override individuale} other {# override individuali}}",
+        "impactEffectiveUsers": "{count, plural, =0 {Nessun utente perderà l'accesso} one {# utente perderà l'accesso} other {# utenti perderanno l'accesso}}"
       },
       "editForm": {
         "heading": "Modifica permesso",

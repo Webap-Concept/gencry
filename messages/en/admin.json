@@ -1530,7 +1530,14 @@
         "deleteAriaLabel": "Delete permission {label}",
         "deleteDisabledTitle": "System permissions can't be deleted",
         "confirmDeleteTitle": "Confirm deletion",
-        "cancelDeleteTitle": "Cancel"
+        "cancelDeleteTitle": "Cancel",
+        "confirmDeleteAction": "Delete",
+        "confirmDeleteIntro": "You're about to delete <b>{label}</b>. This is irreversible.",
+        "impactLoading": "Computing impact…",
+        "impactLoadFailed": "Could not compute the deletion impact. Try again.",
+        "impactRoles": "{count, plural, =0 {Not assigned to any role} one {Assigned to # role} other {Assigned to # roles}}",
+        "impactOverrides": "{count, plural, =0 {No individual overrides} one {# individual override} other {# individual overrides}}",
+        "impactEffectiveUsers": "{count, plural, =0 {No users will lose access} one {# user will lose access} other {# users will lose access}}"
       },
       "editForm": {
         "heading": "Edit permission",

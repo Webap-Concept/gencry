@@ -117,6 +117,61 @@ export async function getUsersWithPermission(permissionKey: string) {
   return { users: all, truncated, limit: USERS_WITH_PERMISSION_LIMIT };
 }
 
+/**
+ * Counts users who would actually lose access if this permission were
+ * deleted, replicating the exact policy of can() in lib/rbac/can.ts:
+ *
+ *   - super-admins (users.is_admin = true) bypass RBAC entirely, so they
+ *     don't lose anything → excluded.
+ *   - soft-deleted users → excluded (deleted_at IS NOT NULL).
+ *   - for each remaining user, the most recent non-expired override on
+ *     (user, permission) wins:
+ *       · latest override granted=true → user HAS the permission.
+ *       · latest override granted=false → user does NOT have it.
+ *       · no active override → role decides.
+ *
+ * Implemented as a single SQL with a `DISTINCT ON` CTE so we hit the DB
+ * once instead of fanning out to one query per branch. Result is a
+ * precise integer with no row limit — meant for the "X users will lose
+ * access" line in the delete-confirmation dialog.
+ */
+export async function countEffectiveUsersForPermission(
+  permissionId: number,
+): Promise<number> {
+  const result = await db.execute<{ count: number }>(sql`
+    WITH latest_overrides AS (
+      SELECT DISTINCT ON (user_id) user_id, granted
+      FROM user_permissions
+      WHERE permission_id = ${permissionId}
+        AND (expires_at IS NULL OR expires_at > NOW())
+      ORDER BY user_id, created_at DESC
+    ),
+    role_holders AS (
+      SELECT r.name AS role_name
+      FROM roles r
+      INNER JOIN role_permissions rp ON rp.role_id = r.id
+      WHERE rp.permission_id = ${permissionId}
+    )
+    SELECT COUNT(DISTINCT u.id)::int AS count
+    FROM users u
+    LEFT JOIN latest_overrides lo ON lo.user_id = u.id
+    WHERE u.deleted_at IS NULL
+      AND u.is_admin = false
+      AND (
+        lo.granted = true
+        OR (
+          lo.granted IS NULL
+          AND u.role IN (SELECT role_name FROM role_holders)
+        )
+      )
+  `);
+
+  const rows = Array.from(
+    result as unknown as Array<{ count: number }>,
+  );
+  return rows[0]?.count ?? 0;
+}
+
 export async function addPermissionToRole(roleId: number, permissionId: number) {
   return db
     .insert(rolePermissions)
