@@ -88,9 +88,22 @@ export const getInitialBellData = cache(async (): Promise<{
     ? new Set<string>(["__superadmin__"])
     : await getUserPermissions(user);
 
-  const rows = await listActiveNotifications(permissions);
-  const unreadCount = rows.filter((n) => n.readAt === null).length;
-  return { notifications: rows.map(serializeNotification), unreadCount };
+  // Graceful fallback: this runs on every admin request via the root
+  // layout, so a DB hiccup (statement_timeout, connection drop) used
+  // to take the entire admin shell down. We log the error and return
+  // an empty bell — the admin still works, the user just doesn't see
+  // notifications until the next request refresh.
+  try {
+    const rows = await listActiveNotifications(permissions);
+    const unreadCount = rows.filter((n) => n.readAt === null).length;
+    return { notifications: rows.map(serializeNotification), unreadCount };
+  } catch (err) {
+    console.warn(
+      "[getInitialBellData] listActiveNotifications failed, returning empty bell",
+      err,
+    );
+    return { notifications: [], unreadCount: 0 };
+  }
 });
 
 // ---------------------------------------------------------------------------
