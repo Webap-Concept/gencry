@@ -13,7 +13,7 @@ export default async function WelcomeWidget() {
 
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-5 h-full"
       style={{
         background: "var(--admin-card-bg)",
         border: "1px solid var(--admin-card-border)",

@@ -54,13 +54,13 @@ function Shell({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-5 h-full flex flex-col"
       style={{
         background: "var(--admin-card-bg)",
         border: "1px solid var(--admin-card-border)",
       }}
     >
-      <div className="flex items-center gap-2.5 mb-3">
+      <div className="flex items-center gap-2.5 mb-3 shrink-0">
         <span
           className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{
@@ -78,7 +78,10 @@ function Shell({
           {title}
         </h2>
       </div>
-      {children}
+      {/* min-h-0 lets the inner content shrink below its natural size
+          when the grid cell is tighter than the issues list; the
+          IssuesListClient handles its own internal scroll. */}
+      <div className="flex-1 min-h-0 overflow-auto">{children}</div>
     </div>
   );
 }
