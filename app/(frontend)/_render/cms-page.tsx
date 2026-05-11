@@ -5,7 +5,7 @@ import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getPageWithTemplate } from "@/lib/db/pages-queries";
 import { getCachedSeoPage } from "@/lib/seo";
-import { getAppSettings } from "@/lib/db/settings-queries";
+import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
@@ -71,7 +71,7 @@ export async function cmsPageMetadata({
 
   const [page, settings] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
-    getAppSettings(),
+    getAppSettingsSafe(),
   ]);
 
   // SEO config è chiavata sul pathname canonico (default-locale).
@@ -159,7 +159,7 @@ export async function CmsPage({
   }
   const [pageData, settings, stylesVersion] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
-    getAppSettings(),
+    getAppSettingsSafe(),
     getCmsStylesVersion(),
   ]);
 

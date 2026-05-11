@@ -556,6 +556,32 @@ async function fetchAppSettings(): Promise<AppSettings> {
 export const getAppSettings = cache(fetchAppSettings)
 
 /**
+ * "Non bloccante" variant of getAppSettings for public-facing call
+ * sites where a transient DB error should NOT translate into a 500:
+ * the CMS catch-all router (app/(frontend)/_render/cms-page.tsx) is
+ * the main consumer — losing the appName for one render is not great
+ * but is much better than 500 in front of unauthenticated visitors.
+ *
+ * Falls back to DEFAULTS on failure, logs a warning, never throws.
+ *
+ * Do NOT use in authenticated layouts. As the note on
+ * getCachedAppSettings (lib/seo.ts) explains, those paths want the
+ * error boundary, not a silent partial — a fallback admin slug or
+ * MFA toggle could route real admins into an inconsistent state.
+ */
+export async function getAppSettingsSafe(): Promise<AppSettings> {
+  try {
+    return await getAppSettings()
+  } catch (err) {
+    console.warn(
+      '[getAppSettingsSafe] fetchAppSettings failed, returning DEFAULTS',
+      err,
+    )
+    return { ...DEFAULTS }
+  }
+}
+
+/**
  * Batch update: 2 query totali invece di 2×N. Aggiorna updatedAt solo sulle
  * righe che cambiano davvero, preservando il comportamento di updateAppSetting.
  */
