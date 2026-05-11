@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { unstable_cache, updateTag } from "next/cache";
 
 /**
  * Vista pubblica del registry: servizio con nome+description già risolti
@@ -26,38 +27,71 @@ export type CookieRegistry = {
   translations: CookieServiceTranslation[];
 };
 
-// ── Cache module-level ─────────────────────────────────────────────────────
+// ── Cache ──────────────────────────────────────────────────────────────────
 //
-// Il banner pubblico vede questa cache via prefetch del RootLayout. Su
-// Vercel serverless ogni warm istanza condivide il cache → 1 query DB
-// ogni 10min per istanza, anche con migliaia di visitatori al minuto.
-// Le mutate dell'admin chiamano `invalidateCookieRegistryCache()` per
-// invalidare immediatamente.
-const CACHE_TTL_MS = 10 * 60_000;
-let _cache: CookieRegistry | null = null;
-let _cacheAt = 0;
+// Il banner pubblico legge il registry su ogni request del root layout.
+// La versione precedente usava un map in-memory (let _cache; ad hoc
+// TTL): funzionava finché tutte le query andavano a buon fine, ma se
+// il DB sotto burst restituiva un'eccezione (statement_timeout 57014,
+// connection drop) l'errore si propagava al render e prendeva giù
+// l'intero layout pubblico — Sentry ha mostrato proprio quel pattern.
+//
+// Ora usiamo `unstable_cache` (coerente cross-instance su Vercel,
+// invalidazione via `revalidateTag` dagli admin actions) + un wrapper
+// try/catch che ritorna un registry vuoto quando il DB fallisce. Il
+// banner mostrerà "no services" invece di crashare; le mutate admin
+// continuano a chiamare `invalidateCookieRegistryCache()` per
+// propagazione immediata (revalidateTag + reset della cache locale).
+const CACHE_TTL_SECONDS = 600;
+const COOKIE_REGISTRY_TAG = "cookie-registry";
+
+const EMPTY_REGISTRY: CookieRegistry = {
+  categories: [],
+  services: [],
+  translations: [],
+};
+
+const _fetchCookieRegistry = unstable_cache(
+  async (): Promise<CookieRegistry> => {
+    const [categories, services, translations] = await Promise.all([
+      db
+        .select()
+        .from(cookieCategories)
+        .orderBy(asc(cookieCategories.sortOrder)),
+      db
+        .select()
+        .from(cookieServices)
+        .orderBy(
+          asc(cookieServices.categoryId),
+          asc(cookieServices.sortOrder),
+        ),
+      db.select().from(cookieServiceTranslations),
+    ]);
+    return { categories, services, translations };
+  },
+  ["cookie-registry"],
+  { revalidate: CACHE_TTL_SECONDS, tags: [COOKIE_REGISTRY_TAG] },
+);
 
 export function invalidateCookieRegistryCache(): void {
-  _cache = null;
-  _cacheAt = 0;
+  // Next 16: inside a Server Action `updateTag(tag)` is the single-arg
+  // API with read-your-own-writes semantics (see
+  // project_nextjs16_cache_apis memory). Same effect as the old
+  // in-memory reset: the next call after a mutate sees fresh data.
+  updateTag(COOKIE_REGISTRY_TAG);
 }
 
 /** Lettura aggregata cached del registry completo. */
 export async function getCookieRegistry(): Promise<CookieRegistry> {
-  if (_cache && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache;
-
-  const [categories, services, translations] = await Promise.all([
-    db.select().from(cookieCategories).orderBy(asc(cookieCategories.sortOrder)),
-    db
-      .select()
-      .from(cookieServices)
-      .orderBy(asc(cookieServices.categoryId), asc(cookieServices.sortOrder)),
-    db.select().from(cookieServiceTranslations),
-  ]);
-
-  _cache = { categories, services, translations };
-  _cacheAt = Date.now();
-  return _cache;
+  try {
+    return await _fetchCookieRegistry();
+  } catch (err) {
+    console.warn(
+      "[getCookieRegistry] lookup failed, returning empty registry",
+      err,
+    );
+    return EMPTY_REGISTRY;
+  }
 }
 
 /**
