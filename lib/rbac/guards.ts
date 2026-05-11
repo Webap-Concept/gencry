@@ -3,7 +3,7 @@ import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getUser } from "@/lib/db/queries";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { redirect } from "next/navigation";
-import { can } from "@/lib/rbac/can";
+import { can, getUserPermissions } from "@/lib/rbac/can";
 import "server-only";
 
 /** true se l'utente è il super admin (flag di emergenza, bypassa RBAC) */
@@ -59,14 +59,22 @@ export async function requireAdminSectionPage(
 
   if (user.isAdmin) return user;
 
-  const hasAdmin = await can(user, "admin:access");
-  if (!hasAdmin) {
+  // Previously this issued two `can(user, ...)` calls — each costs 2 DB
+  // round-trips (override lookup + role match) for a total of 4 queries
+  // per section layout, and every admin nav has 1–3 stacked section
+  // layouts. We now fetch the user's full permission Set once and do
+  // Set lookups for both checks. `getUserPermissions` is React `cache()`-
+  // wrapped so when the root admin layout has already loaded the Set
+  // for the sidebar render, this resolves to 0 additional DB calls.
+  // Net: 4 queries → 0–2 queries per section layout per request.
+  const perms = await getUserPermissions(user);
+
+  if (!perms.has("admin:access")) {
     const slug = await getAdminUrlSlug();
     redirect(`/${slug}/sign-in`);
   }
 
-  const hasSection = await can(user, permissionKey);
-  if (!hasSection) {
+  if (!perms.has(permissionKey)) {
     const slug = await getAdminUrlSlug();
     redirect(`/${slug}`);
   }
