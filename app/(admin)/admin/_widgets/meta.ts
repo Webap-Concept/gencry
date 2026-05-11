@@ -22,6 +22,9 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     titleKey: "widgets.quickActions.title",
     descriptionKey: "widgets.quickActions.description",
     defaultEnabled: true,
+    // Four shortcuts in a 2×2 grid + header don't fit in the default
+    // 2-row card — bump initial h to 3.
+    defaultSize: { w: 6, h: 3 },
   },
   {
     id: "sentry-errors",
@@ -33,5 +36,8 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultEnabled: false,
     requiredPermission: "admin:sentry",
     setupGuideKey: "widgets.sentryErrors.setupGuide",
+    // Issue list reads better with extra vertical room; users can still
+    // shrink, the body scrolls internally.
+    defaultSize: { w: 6, h: 4 },
   },
 ];
