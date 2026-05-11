@@ -44,7 +44,15 @@ export interface SignupsTrendSummary {
 async function fetchSignupsTrendUncached(
   days: number,
 ): Promise<SignupsTrendSummary> {
-  const since = startOfDayUtc(new Date(Date.now() - days * 86_400_000));
+  // ISO string, not Date — postgres-js rejects Date as a bound param in
+  // raw SQL templates ("ERR_INVALID_ARG_TYPE: Received an instance of
+  // Date"). The driver only auto-serializes Date when drizzle's query
+  // builder owns the column (typed `timestamp`); a raw template tag
+  // bypasses that path, so we pass an ISO string and let Postgres cast
+  // it to timestamptz at the comparison.
+  const since = startOfDayUtc(
+    new Date(Date.now() - days * 86_400_000),
+  ).toISOString();
 
   // A single UNION ALL feeds two FILTER aggregates — Postgres scans the
   // users table at most twice (once per WHERE clause) and merges the
@@ -61,10 +69,10 @@ async function fetchSignupsTrendUncached(
       COUNT(*) FILTER (WHERE k = 'unsub')::int  AS unsubs
     FROM (
       SELECT date_trunc('day', created_at) AS d, 'signup'::text AS k
-      FROM users WHERE created_at >= ${since}
+      FROM users WHERE created_at >= ${since}::timestamptz
       UNION ALL
       SELECT date_trunc('day', deleted_at) AS d, 'unsub'::text AS k
-      FROM users WHERE deleted_at >= ${since}
+      FROM users WHERE deleted_at >= ${since}::timestamptz
     ) events
     GROUP BY d
     ORDER BY d
