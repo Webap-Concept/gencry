@@ -89,7 +89,16 @@ export async function upsertPageAction(
   const tErrors = await getTranslations("admin.content.pages.errors");
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.issues[0]?.message ?? "invalidData";
+    const first = parsed.error.issues[0];
+    const msg = first?.message ?? "invalidData";
+    // Surface the full Zod issues server-side so any unexpected
+    // validation rejection is visible in Vercel/dev logs without
+    // forcing the admin to wade through a generic "invalidData"
+    // toast. Includes both `path` and `received` for context.
+    console.error(
+      "[upsertPageAction] validation failed:",
+      JSON.stringify(parsed.error.issues, null, 2),
+    );
     if (
       msg === "slugRequired" ||
       msg === "slugInvalid" ||
@@ -97,7 +106,13 @@ export async function upsertPageAction(
     ) {
       return { error: tErrors(msg) };
     }
-    return { error: tErrors("invalidData") };
+    // For the catch-all path, append the field name to the generic
+    // message so the admin sees WHICH field tripped validation
+    // (e.g. "Dati non validi — campo: pageType"). The technical Zod
+    // code stays in the server logs.
+    const fieldPath = first?.path?.join(".") || "?";
+    const base = tErrors("invalidData");
+    return { error: `${base} — ${fieldPath}` };
   }
 
   // Estrai i campi di traduzione per locale (tr_<locale>_title, _slug, _content)
