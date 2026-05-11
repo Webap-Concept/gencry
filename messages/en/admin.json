@@ -3072,7 +3072,11 @@
       },
       "signupsTrend": {
         "title": "Signups trend",
-        "description": "30-day area chart of new user registrations.",
+        "description": "30-day area chart of signups vs unsubscribes, with net growth.",
+        "signupsLabel": "signups",
+        "unsubsLabel": "unsubs",
+        "netLabel": "net",
+        "windowLabel": "last {days}d",
         "totalLabel": "in the last {days} days"
       },
       "recentSignups": {
