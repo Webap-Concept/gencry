@@ -22,9 +22,9 @@ export default async function OnboardingPage() {
   if (!user) redirect("/sign-in");
 
   // Se l'admin ha disabilitato il wizard globalmente (toggle in
-  // /admin/settings/signup), saltiamo direttamente in app.
+  // /admin/modules/onboarding), saltiamo direttamente in app.
   const settings = await getAppSettings();
-  if (settings.onboarding_enabled === "false") redirect("/");
+  if (settings["modules.onboarding.enabled"] === "false") redirect("/");
 
   const [profile] = await db
     .select({

@@ -5,8 +5,9 @@
 // punti di redirect (signin form, verify-email, verify-device, mfa, oauth).
 //
 // Regole:
+//   - se il modulo `onboarding` non è installato (manca dal registry), salta
 //   - admin / staff non passano mai dal wizard utente
-//   - se l'admin ha disabilitato la setting `onboarding_enabled`, salta tutti
+//   - se l'admin ha disabilitato la setting `modules.onboarding.enabled`, salta tutti
 //   - altrimenti: required finché `onboardingCompletedAt` non è valorizzato
 //
 // `bypassOnboardingIfNeeded` chiude il flusso quando il wizard è skippato:
@@ -19,16 +20,18 @@ import { generateUniqueUsernameFromEmail } from "@/lib/auth/username-generator";
 import { db } from "@/lib/db/drizzle";
 import { userProfiles, users } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { isModuleInstalled } from "@/lib/modules/registry";
 import { eq, isNull, and } from "drizzle-orm";
 
 export async function isOnboardingRequired(user: {
   role: string;
   onboardingCompletedAt: Date | null;
 }): Promise<boolean> {
+  if (!isModuleInstalled("onboarding")) return false;
   if (user.role === "admin") return false;
   if (user.onboardingCompletedAt) return false;
   const settings = await getAppSettings();
-  return settings.onboarding_enabled !== "false";
+  return settings["modules.onboarding.enabled"] !== "false";
 }
 
 export async function bypassOnboardingIfNeeded(user: {
