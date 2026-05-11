@@ -44,35 +44,40 @@ export interface SignupsTrendSummary {
 async function fetchSignupsTrendUncached(
   days: number,
 ): Promise<SignupsTrendSummary> {
-  // ISO string, not Date — postgres-js rejects Date as a bound param in
-  // raw SQL templates ("ERR_INVALID_ARG_TYPE: Received an instance of
-  // Date"). The driver only auto-serializes Date when drizzle's query
-  // builder owns the column (typed `timestamp`); a raw template tag
-  // bypasses that path, so we pass an ISO string and let Postgres cast
-  // it to timestamptz at the comparison.
-  const since = startOfDayUtc(
-    new Date(Date.now() - days * 86_400_000),
-  ).toISOString();
+  // Lower bound computed server-side as `now() - make_interval(days)`
+  // instead of binding a Date / ISO string. Two reasons:
+  //   1. Removes any chance of the postgres-js driver choking on the
+  //      bound value type (the previous Date and even ISO string casts
+  //      both surfaced edge cases on Vercel cold starts);
+  //   2. Clock authority lives on the DB, so concurrent renders within
+  //      the same second see exactly the same window. The only bound
+  //      parameter is `days` (a plain number), trivially safe.
+  // `now()` here is `transaction_timestamp()` semantics — fine for a
+  // 30-day window where sub-second drift is meaningless.
 
   // A single UNION ALL feeds two FILTER aggregates — Postgres scans the
   // users table at most twice (once per WHERE clause) and merges the
-  // results in memory. Bound parameter is passed via tagged template so
-  // drizzle parameterizes it instead of inlining.
+  // results in memory.
   const result = await db.execute<{
     day: string;
     signups: number;
     unsubs: number;
   }>(sql`
+    WITH window_start AS (
+      SELECT date_trunc('day', now() - make_interval(days => ${days})) AS d
+    )
     SELECT
       to_char(d AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
       COUNT(*) FILTER (WHERE k = 'signup')::int AS signups,
       COUNT(*) FILTER (WHERE k = 'unsub')::int  AS unsubs
     FROM (
       SELECT date_trunc('day', created_at) AS d, 'signup'::text AS k
-      FROM users WHERE created_at >= ${since}::timestamptz
+      FROM users
+      WHERE created_at >= (SELECT d FROM window_start)
       UNION ALL
       SELECT date_trunc('day', deleted_at) AS d, 'unsub'::text AS k
-      FROM users WHERE deleted_at >= ${since}::timestamptz
+      FROM users
+      WHERE deleted_at >= (SELECT d FROM window_start)
     ) events
     GROUP BY d
     ORDER BY d
