@@ -1308,8 +1308,8 @@ export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
 // (vedi migration 0026_prices_engine.sql per il commento architetturale)
 // ---------------------------------------------------------------------------
 
-export const coins = pgTable(
-  "coins",
+export const pricesCoins = pgTable(
+  "prices_coins",
   {
     symbol:       varchar("symbol", { length: 20 }).primaryKey(),
     coingeckoId:  varchar("coingecko_id", { length: 100 }).unique(),
@@ -1323,13 +1323,13 @@ export const coins = pgTable(
     updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("idx_coins_active_mcap").on(t.isActive, t.marketCap),
+    index("idx_prices_coins_active_mcap").on(t.isActive, t.marketCap),
   ],
 );
 
-export const prices = pgTable("prices", {
+export const pricesData = pgTable("prices_data", {
   symbol:       varchar("symbol", { length: 20 }).primaryKey()
-                  .references(() => coins.symbol, { onDelete: "cascade" }),
+                  .references(() => pricesCoins.symbol, { onDelete: "cascade" }),
   price:        numeric("price",      { precision: 24, scale: 8 }).notNull(),
   change24h:    numeric("change_24h", { precision: 10, scale: 4 }),
   volume24h:    numeric("volume_24h", { precision: 24, scale: 2 }),
@@ -1337,17 +1337,17 @@ export const prices = pgTable("prices", {
   lastUpdated:  timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const coinPrices = pgTable(
-  "coin_prices",
+export const pricesHistory = pgTable(
+  "prices_history",
   {
     id:     bigserial("id", { mode: "number" }).primaryKey(),
     symbol: varchar("symbol", { length: 20 }).notNull()
-              .references(() => coins.symbol, { onDelete: "cascade" }),
+              .references(() => pricesCoins.symbol, { onDelete: "cascade" }),
     ts:     timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
     price:  numeric("price", { precision: 24, scale: 8 }).notNull(),
   },
   (t) => [
-    index("idx_coin_prices_symbol_ts").on(t.symbol, t.ts),
+    index("idx_prices_history_symbol_ts").on(t.symbol, t.ts),
   ],
 );
 
@@ -1383,15 +1383,15 @@ export const pricesSyncRuns = pgTable(
   ],
 );
 
-export type Coin              = typeof coins.$inferSelect;
-export type NewCoin           = typeof coins.$inferInsert;
-export type Price             = typeof prices.$inferSelect;
-export type NewPrice          = typeof prices.$inferInsert;
-export type CoinPrice         = typeof coinPrices.$inferSelect;
-export type NewCoinPrice      = typeof coinPrices.$inferInsert;
-export type PriceSourceHealth = typeof pricesSourceHealth.$inferSelect;
-export type PriceSyncRun      = typeof pricesSyncRuns.$inferSelect;
-export type NewPriceSyncRun   = typeof pricesSyncRuns.$inferInsert;
+export type PricesCoin         = typeof pricesCoins.$inferSelect;
+export type NewPricesCoin      = typeof pricesCoins.$inferInsert;
+export type PricesDataRow      = typeof pricesData.$inferSelect;
+export type NewPricesDataRow   = typeof pricesData.$inferInsert;
+export type PricesHistoryRow   = typeof pricesHistory.$inferSelect;
+export type NewPricesHistoryRow = typeof pricesHistory.$inferInsert;
+export type PricesSourceHealth = typeof pricesSourceHealth.$inferSelect;
+export type PricesSyncRun      = typeof pricesSyncRuns.$inferSelect;
+export type NewPricesSyncRun   = typeof pricesSyncRuns.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = "SIGN_UP",

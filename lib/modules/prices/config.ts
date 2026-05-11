@@ -14,7 +14,7 @@ export interface PricesConfig {
   breakerWindowS: number;       // finestra in secondi per il conteggio
   breakerOpenS: number;         // durata apertura breaker
   snapshotMinutes: number;      // intervallo snapshot timeseries
-  retentionDays: number;        // retention coin_prices
+  retentionDays: number;        // retention prices_history
   coingeckoProEnabled: boolean; // se true usa endpoint Pro + header api_key
   coingeckoProApiKey: string | null;
 }

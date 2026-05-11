@@ -2,7 +2,7 @@
 // "Active universe" = set di coin che vale la pena tenere prezzati nel cron.
 //
 // Strategia attuale (Modulo 1, watchlist non ancora esistenti):
-//   - prendiamo tutti i coin in `coins` con is_active=true
+//   - prendiamo tutti i coin in `pricesCoins` con is_active=true
 //   - filtro su last_seen_at >= now - prices_universe_hours (configurabile)
 //   - se la tabella è vuota o non ha coin "freschi", restituiamo tutti gli
 //     attivi (fallback per non lasciare il sistema inerte appena seedato)
@@ -10,7 +10,7 @@
 // Quando arriverà il modulo watchlist (Decisione successiva), la query qui
 // includerà JOIN con watchlist_coins e con i post recenti che referenziano coin.
 import { db } from "@/lib/db/drizzle";
-import { coins } from "@/lib/db/schema";
+import { pricesCoins } from "@/lib/db/schema";
 import { and, eq, gte, inArray, isNotNull } from "drizzle-orm";
 import { getPricesConfig } from "./config";
 
@@ -24,13 +24,13 @@ export async function getActiveUniverse(): Promise<ActiveCoin[]> {
   const cutoff = new Date(Date.now() - cfg.universeHours * 3600 * 1000);
 
   const fresh = await db
-    .select({ symbol: coins.symbol, coingeckoId: coins.coingeckoId })
-    .from(coins)
+    .select({ symbol: pricesCoins.symbol, coingeckoId: pricesCoins.coingeckoId })
+    .from(pricesCoins)
     .where(
       and(
-        eq(coins.isActive, true),
-        gte(coins.lastSeenAt, cutoff),
-        isNotNull(coins.coingeckoId),
+        eq(pricesCoins.isActive, true),
+        gte(pricesCoins.lastSeenAt, cutoff),
+        isNotNull(pricesCoins.coingeckoId),
       ),
     );
 
@@ -40,9 +40,9 @@ export async function getActiveUniverse(): Promise<ActiveCoin[]> {
   // ma la query sopra dovrebbe già includerli. Questo branch copre il caso in
   // cui la finestra sia stata ridotta sotto pochi minuti.
   return await db
-    .select({ symbol: coins.symbol, coingeckoId: coins.coingeckoId })
-    .from(coins)
-    .where(and(eq(coins.isActive, true), isNotNull(coins.coingeckoId)));
+    .select({ symbol: pricesCoins.symbol, coingeckoId: pricesCoins.coingeckoId })
+    .from(pricesCoins)
+    .where(and(eq(pricesCoins.isActive, true), isNotNull(pricesCoins.coingeckoId)));
 }
 
 /**
@@ -54,7 +54,7 @@ export async function touchCoinsSeen(symbols: string[]): Promise<void> {
   if (symbols.length === 0) return;
   const now = new Date();
   await db
-    .update(coins)
+    .update(pricesCoins)
     .set({ lastSeenAt: now, updatedAt: now })
-    .where(and(eq(coins.isActive, true), inArray(coins.symbol, symbols)));
+    .where(and(eq(pricesCoins.isActive, true), inArray(pricesCoins.symbol, symbols)));
 }
