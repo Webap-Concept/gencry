@@ -63,9 +63,12 @@ export default async function SignupsTrendWidget() {
           {t("totalLabel", { days: DAYS })}
         </span>
       </div>
-      {/* minHeight floor keeps the chart legible even on a shrunken
-          1-row card; in normal sizes the flex:1 just fills the body. */}
-      <div style={{ flex: 1, minHeight: 120 }}>
+      {/* Fixed pixel height — recharts' ResponsiveContainer at 100% can
+          race the flex layout and lock onto -1×-1 on first paint. A
+          deterministic height removes the race entirely; the widget
+          itself can still be resized (the bottom whitespace expands)
+          and the chart always renders. */}
+      <div style={{ height: 180, width: "100%" }}>
         <SignupsTrendChart data={series} />
       </div>
     </WidgetCard>

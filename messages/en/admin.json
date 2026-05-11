@@ -3013,6 +3013,7 @@
     },
     "emptyTitle": "No widgets to show",
     "emptyHint": "All widgets are turned off. Click Customize to pick which ones you want on your dashboard.",
+    "widgetError": "Couldn't load this widget.",
     "widgets": {
       "welcome": {
         "title": "Welcome",
