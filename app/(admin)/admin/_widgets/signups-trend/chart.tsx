@@ -35,70 +35,82 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
     return formatShortDate(value, locale);
   }
 
+  // ResponsiveContainer with 100%×100% measures the parent via
+  // getBoundingClientRect on first paint. Inside a flex-column chain
+  // (WidgetCard body → wrapper) the browser can still be mid-layout
+  // and the container reads back -1×-1, then never recovers. The
+  // absolute-inside-relative trick gives ResponsiveContainer a parent
+  // with explicit pixel dimensions (inset:0 = the outer relative box,
+  // already sized by the flex chain) so the first measurement is
+  // always non-zero.
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart
-        data={[...data]}
-        margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
-      >
-        <defs>
-          <linearGradient id="signupsTrendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop
-              offset="0%"
-              stopColor="var(--admin-accent)"
-              stopOpacity={0.45}
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div style={{ position: "absolute", inset: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={[...data]}
+            margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
+          >
+            <defs>
+              <linearGradient id="signupsTrendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor="var(--admin-accent)"
+                  stopOpacity={0.45}
+                />
+                <stop
+                  offset="100%"
+                  stopColor="var(--admin-accent)"
+                  stopOpacity={0.05}
+                />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="day"
+              tickFormatter={formatXTick}
+              tick={{ fontSize: 10, fill: "var(--admin-text-faint)" }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={6}
+              interval={0}
             />
-            <stop
-              offset="100%"
-              stopColor="var(--admin-accent)"
-              stopOpacity={0.05}
+            <YAxis
+              tick={{ fontSize: 10, fill: "var(--admin-text-faint)" }}
+              axisLine={false}
+              tickLine={false}
+              width={30}
+              allowDecimals={false}
             />
-          </linearGradient>
-        </defs>
-        <XAxis
-          dataKey="day"
-          tickFormatter={formatXTick}
-          tick={{ fontSize: 10, fill: "var(--admin-text-faint)" }}
-          axisLine={false}
-          tickLine={false}
-          minTickGap={6}
-          interval={0}
-        />
-        <YAxis
-          tick={{ fontSize: 10, fill: "var(--admin-text-faint)" }}
-          axisLine={false}
-          tickLine={false}
-          width={30}
-          allowDecimals={false}
-        />
-        <Tooltip
-          cursor={{
-            stroke: "var(--admin-accent)",
-            strokeWidth: 1,
-            strokeDasharray: "3 3",
-          }}
-          contentStyle={{
-            background: "var(--admin-card-bg)",
-            border: "1px solid var(--admin-card-border)",
-            borderRadius: 8,
-            fontSize: 12,
-            padding: "6px 10px",
-          }}
-          labelFormatter={(v) =>
-            typeof v === "string" ? formatLongDate(v, locale) : ""
-          }
-          formatter={(v) => [String(v), ""] as [string, string]}
-        />
-        <Area
-          type="monotone"
-          dataKey="value"
-          stroke="var(--admin-accent)"
-          strokeWidth={2}
-          fill="url(#signupsTrendFill)"
-          isAnimationActive={false}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+            <Tooltip
+              cursor={{
+                stroke: "var(--admin-accent)",
+                strokeWidth: 1,
+                strokeDasharray: "3 3",
+              }}
+              contentStyle={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+                borderRadius: 8,
+                fontSize: 12,
+                padding: "6px 10px",
+              }}
+              labelFormatter={(v) =>
+                typeof v === "string" ? formatLongDate(v, locale) : ""
+              }
+              formatter={(v) => [String(v), ""] as [string, string]}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="var(--admin-accent)"
+              strokeWidth={2}
+              fill="url(#signupsTrendFill)"
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }
 
