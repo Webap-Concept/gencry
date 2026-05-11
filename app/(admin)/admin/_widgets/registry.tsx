@@ -2,6 +2,7 @@ import "server-only";
 import type { ComponentType } from "react";
 import WelcomeWidget from "./welcome/widget";
 import QuickActionsWidget from "./quick-actions/widget";
+import HealthServicesWidget from "./health-services/widget";
 import SentryErrorsWidget from "./sentry-errors/widget";
 
 // Server-only mapping from widget id → component. Kept apart from meta.ts
@@ -14,5 +15,6 @@ import SentryErrorsWidget from "./sentry-errors/widget";
 export const WIDGET_COMPONENTS: Record<string, ComponentType> = {
   "welcome": WelcomeWidget,
   "quick-actions": QuickActionsWidget,
+  "health-services": HealthServicesWidget,
   "sentry-errors": SentryErrorsWidget,
 };

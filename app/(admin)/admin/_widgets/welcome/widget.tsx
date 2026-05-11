@@ -2,6 +2,7 @@ import { getUser } from "@/lib/db/queries";
 import { getTranslations } from "next-intl/server";
 import { Sparkles } from "lucide-react";
 import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
+import WelcomeClock from "./clock";
 
 export default async function WelcomeWidget() {
   const [user, t] = await Promise.all([
@@ -12,9 +13,9 @@ export default async function WelcomeWidget() {
   const firstName = user?.firstName?.trim() ?? "";
   const greeting = firstName ? t("greetingNamed", { name: firstName }) : t("greeting");
 
-  // Welcome is a "freeform" card: no uppercase title header, just a
-  // small icon + greeting laid out side-by-side. WidgetCard handles
-  // h-full / padding / scroll-when-needed; we provide the inner body.
+  // Welcome is a "freeform" card: no uppercase title header. We render a
+  // small accent badge + personalized greeting, and hand off the date/time
+  // line to a client component that keeps ticking after mount.
   return (
     <WidgetCard>
       <div className="flex items-start gap-3">
@@ -27,19 +28,14 @@ export default async function WelcomeWidget() {
         >
           <Sparkles size={16} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2
             className="text-sm font-semibold"
             style={{ color: "var(--admin-text)" }}
           >
             {greeting}
           </h2>
-          <p
-            className="text-xs mt-1 leading-relaxed"
-            style={{ color: "var(--admin-text-muted)" }}
-          >
-            {t("body")}
-          </p>
+          <WelcomeClock initialNow={Date.now()} />
         </div>
       </div>
     </WidgetCard>
