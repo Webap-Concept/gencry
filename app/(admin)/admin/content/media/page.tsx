@@ -93,35 +93,41 @@ export default async function MediaPage({
   const dir = parseDir(params.dir, sort);
   const typeFilter = parseTypeFilter(params.type);
 
-  if (currentFolderId !== null) {
-    const folder = await getFolderById(currentFolderId);
-    if (!folder) notFound();
-  }
+  // Phase 1 — parallel fetch everything that doesn't depend on
+  // pagination math. `getAssets` is the only call that needs the
+  // computed `offset` (which itself needs `totalAssets`), so it lives
+  // in phase 2. The folder-existence check still happens before any
+  // rendering work — just after the batch lands.
+  //
+  // Edge case: when the requested folder doesn't exist (URL tampering),
+  // we've already paid for the rest of the batch. That's an exceptional
+  // path; the happy path saves 2 sequential round-trips.
+  const [folder, totalAssets, folders, folderPath, t] = await Promise.all([
+    currentFolderId !== null ? getFolderById(currentFolderId) : Promise.resolve(null),
+    countAssetsInFolder(currentFolderId, typeFilter ?? undefined),
+    getAllFolders(),
+    currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
+    getTranslations("admin.content.media"),
+  ]);
 
-  // Servi prima il count per clamp-are una `?page=999` fuori scala alla
-  // pagina massima reale (così un link stale non mostra una griglia vuota).
-  // Il count rispetta il filtro così la paginazione è coerente con la grid.
-  const totalAssets = await countAssetsInFolder(
-    currentFolderId,
-    typeFilter ?? undefined,
-  );
+  if (currentFolderId !== null && !folder) notFound();
+
+  // Clamp `?page=999` to the actual max — keeps stale links from
+  // landing on an empty grid.
   const totalPages = Math.max(1, Math.ceil(totalAssets / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
   const offset = (currentPage - 1) * PAGE_SIZE;
 
-  const [folders, assets, folderPath, t] = await Promise.all([
-    getAllFolders(),
-    getAssets({
-      folderId: currentFolderId,
-      limit: PAGE_SIZE,
-      offset,
-      sortBy: sort,
-      sortDir: dir,
-      typeFilter: typeFilter ?? undefined,
-    }),
-    currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
-    getTranslations("admin.content.media"),
-  ]);
+  // Phase 2 — assets need the resolved offset, references need the
+  // asset list. These two stay sequential.
+  const assets = await getAssets({
+    folderId: currentFolderId,
+    limit: PAGE_SIZE,
+    offset,
+    sortBy: sort,
+    sortDir: dir,
+    typeFilter: typeFilter ?? undefined,
+  });
 
   // Reference scan in batch (single SELECT pages, scan in JS) — alimenta
   // i badge "usata in: /slug" sotto le thumbnail nella griglia.

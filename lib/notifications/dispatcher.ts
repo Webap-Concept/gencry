@@ -120,27 +120,56 @@ async function upsertCandidate(
  * (es. dopo un save di credenziali).
  */
 export async function runGenerators(): Promise<void> {
+  // Generators read disjoint sources (app_settings, users, prices_sync_runs,
+  // session_alerts, …) with no shared state, so running them serially was
+  // pure latency overhead. Promise.allSettled keeps the previous "one
+  // failed generator doesn't block the rest" semantics — the same try/catch
+  // body just lives in the .reduce below.
+  const generatorResults = await Promise.allSettled(
+    GENERATORS.map(async (gen) => ({
+      gen,
+      candidates: await gen.run(),
+    })),
+  );
+
   const collected: Array<{
     candidate: NotificationCandidate;
     requiredPermission: string;
   }> = [];
 
-  for (const gen of GENERATORS) {
-    try {
-      const candidates = await gen.run();
-      for (const c of candidates) {
-        collected.push({ candidate: c, requiredPermission: gen.requiredPermission });
+  for (let i = 0; i < generatorResults.length; i++) {
+    const r = generatorResults[i];
+    if (r.status === "fulfilled") {
+      for (const c of r.value.candidates) {
+        collected.push({
+          candidate: c,
+          requiredPermission: r.value.gen.requiredPermission,
+        });
       }
-    } catch (e) {
-      console.warn(`[notifications] generator "${gen.type}" failed:`, e);
+    } else {
+      console.warn(
+        `[notifications] generator "${GENERATORS[i].type}" failed:`,
+        r.reason,
+      );
     }
   }
 
-  for (const { candidate, requiredPermission } of collected) {
-    try {
-      await upsertCandidate(candidate, requiredPermission);
-    } catch (e) {
-      console.warn(`[notifications] upsert "${candidate.dedupKey}" failed:`, e);
+  // Upserts are independent atomic INSERT ... ON CONFLICT (dedup_key)
+  // statements — parallelizing them is safe (the conflict resolution
+  // happens at the DB level) and turns N round-trips into max-of-N
+  // round-trips. Failures are isolated per-upsert as before.
+  const upsertResults = await Promise.allSettled(
+    collected.map(({ candidate, requiredPermission }) =>
+      upsertCandidate(candidate, requiredPermission),
+    ),
+  );
+  for (let i = 0; i < upsertResults.length; i++) {
+    const r = upsertResults[i];
+    if (r.status === "rejected") {
+      console.warn(
+        `[notifications] upsert "${collected[i].candidate.dedupKey}" failed:`,
+        r.reason,
+      );
     }
   }
 
