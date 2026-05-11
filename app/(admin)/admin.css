@@ -122,3 +122,42 @@
     grid-row: auto !important;
   }
 }
+
+/* ─── Dashboard widget chrome ─────────────────────────────────────────
+   The card "look" (background, border, radius) lives on the grid cell
+   wrapper, NOT inside each widget. This way:
+     - Every widget gets the same chrome automatically.
+     - Adding a new widget requires zero styling boilerplate.
+     - The chrome can be swapped (edit-mode dashed outline, theme, etc.)
+       without touching widget bodies.
+
+   Both the static grid (.dashboard-widget-cell) and the RGL edit grid
+   (.dashboard-widget-cell-edit) share the base look; edit-only
+   affordances are layered on top of it. */
+.dashboard-widget-cell,
+.dashboard-widget-cell-edit {
+  min-width: 0;
+  background: var(--admin-card-bg);
+  border: 1px solid var(--admin-card-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Edit mode: dashed accent outline INSIDE the card box (via
+   outline-offset: -2px) so it doesn't shift the inner content by a
+   pixel and doesn't compete with the card's own 1px border. */
+.dashboard-widget-cell-edit {
+  outline: 2px dashed
+    color-mix(in srgb, var(--admin-accent) 55%, transparent);
+  outline-offset: -2px;
+  cursor: move;
+}
+
+/* RGL placeholder (the translucent preview shown while dragging or
+   resizing a widget). Default RGL ships a red rectangle — recolored
+   here to the admin accent and rounded to match widget corners. */
+.react-grid-item.react-grid-placeholder {
+  background: color-mix(in srgb, var(--admin-accent) 28%, transparent) !important;
+  opacity: 1 !important;
+  border-radius: 12px;
+}

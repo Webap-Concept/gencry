@@ -110,16 +110,12 @@ export default async function AdminDashboardPage() {
   );
 }
 
+// Card chrome (bg/border/radius) is owned by the grid cell wrapper
+// (see admin.css → .dashboard-widget-cell). The skeleton only paints
+// inner placeholders inside the already-styled cell.
 function WidgetSkeleton() {
   return (
-    <div
-      className="rounded-xl p-5 animate-pulse h-full"
-      style={{
-        background: "var(--admin-card-bg)",
-        border: "1px solid var(--admin-card-border)",
-        minHeight: 120,
-      }}
-    >
+    <div className="h-full p-5 animate-pulse">
       <div
         className="h-4 w-1/3 rounded"
         style={{ background: "var(--admin-hover-bg)" }}

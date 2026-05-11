@@ -89,16 +89,11 @@ export default function DashboardEditGrid({
       {items.map((it) => (
         <div
           key={it.id}
-          style={{
-            // The widget body (with its own card background) provides the
-            // visible surface. We only add the dashed outline to signal
-            // "draggable/resizable" + clip via the same border radius so
-            // the inner h-full card lines up with the dashed frame.
-            border: "2px dashed color-mix(in srgb, var(--admin-accent) 50%, transparent)",
-            borderRadius: 12,
-            overflow: "hidden",
-            cursor: "move",
-          }}
+          // Chrome (bg, border, radius) + dashed outline are defined in
+          // admin.css under .dashboard-widget-cell-edit. Keeping it in
+          // CSS means swapping styles or themes doesn't require a code
+          // change in this file.
+          className="dashboard-widget-cell-edit"
         >
           {widgetsById[it.id] ?? null}
         </div>

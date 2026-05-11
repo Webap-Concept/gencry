@@ -1,6 +1,7 @@
 import { getUser } from "@/lib/db/queries";
 import { getTranslations } from "next-intl/server";
 import { Sparkles } from "lucide-react";
+import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 
 export default async function WelcomeWidget() {
   const [user, t] = await Promise.all([
@@ -11,14 +12,11 @@ export default async function WelcomeWidget() {
   const firstName = user?.firstName?.trim() ?? "";
   const greeting = firstName ? t("greetingNamed", { name: firstName }) : t("greeting");
 
+  // Welcome is a "freeform" card: no uppercase title header, just a
+  // small icon + greeting laid out side-by-side. WidgetCard handles
+  // h-full / padding / scroll-when-needed; we provide the inner body.
   return (
-    <div
-      className="rounded-xl p-5 h-full"
-      style={{
-        background: "var(--admin-card-bg)",
-        border: "1px solid var(--admin-card-border)",
-      }}
-    >
+    <WidgetCard>
       <div className="flex items-start gap-3">
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -44,6 +42,6 @@ export default async function WelcomeWidget() {
           </p>
         </div>
       </div>
-    </div>
+    </WidgetCard>
   );
 }
