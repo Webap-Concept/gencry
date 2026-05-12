@@ -39,14 +39,14 @@ export default async function HomePage() {
       ))}
       {mainTop.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={<SectionSkeleton />}>
+          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>
       ))}
       {main.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={<SectionSkeleton variant="list" />}>
+          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton variant="list" />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>

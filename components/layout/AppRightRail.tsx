@@ -32,14 +32,14 @@ export async function AppRightRail() {
     <aside className="hidden lg:flex flex-col shrink-0 w-72 h-full overflow-y-auto py-6 pl-6 pr-4 gap-4">
       {top.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={<SectionSkeleton height={140} />}>
+          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton height={140} />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>
       ))}
       {middle.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={<SectionSkeleton variant="list" />}>
+          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton variant="list" />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>

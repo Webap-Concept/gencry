@@ -36,6 +36,12 @@ export type HomeSlot =
  * permette di gatare con feature flag, abilitazione modulo, ruolo utente,
  * A/B test, ecc. — viene chiamato per ogni request, quindi mantienilo
  * leggero (idealmente un read da getAppSettings cached).
+ *
+ * `Skeleton` è opzionale: se fornito, viene usato come `<Suspense fallback>`
+ * durante il caricamento iniziale della sezione, dando un placeholder
+ * fedele alla card finale (niente più salti di layout). Se omesso, la home
+ * usa lo skeleton generico (`<SectionSkeleton />`). Best practice: ogni
+ * sezione che fa un server fetch DOVREBBE definire il suo Skeleton.
  */
 export interface HomeSection {
   /** Identificatore univoco — usato come React key e per debug/telemetry. */
@@ -46,6 +52,8 @@ export interface HomeSection {
   order: number;
   /** RSC che renderizza la sezione (incluso il fetch dati). */
   Component: () => Promise<JSX.Element> | JSX.Element;
+  /** Skeleton client-friendly per il fallback di <Suspense>. Opzionale. */
+  Skeleton?: () => JSX.Element;
   /** Gate opzionale; se omesso = sempre visibile. Chiamato ogni resolveSlot. */
   isEnabled?: () => Promise<boolean> | boolean;
 }

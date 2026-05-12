@@ -26,3 +26,20 @@ export function RailAdPlaceholder() {
     </article>
   );
 }
+
+/**
+ * Skeleton "fedele" alla card finale: stessa shape, blocchi grigi animati.
+ * Esempio dimostrativo del pattern HomeSection.Skeleton — ogni futura
+ * sezione del registry dovrebbe definire il suo skeleton così, per non
+ * far saltare il layout durante il loading iniziale.
+ */
+export function RailAdPlaceholderSkeleton() {
+  return (
+    <article className="rounded-gc border border-gc-line bg-gc-bg-2 p-4 flex flex-col gap-2.5 animate-pulse">
+      <div className="h-3 w-32 rounded bg-gc-bg-3" />
+      <div className="h-4 w-40 rounded bg-gc-bg-3 mt-1" />
+      <div className="h-2.5 w-full rounded bg-gc-bg-3" />
+      <div className="h-2.5 w-3/4 rounded bg-gc-bg-3" />
+    </article>
+  );
+}
