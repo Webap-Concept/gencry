@@ -34,7 +34,6 @@ const NAV: NavItem[] = [
   { href: "/", label: "Feed", icon: Home },
   { href: "/esplora", label: "Esplora", icon: Compass },
   { href: "/profile", label: "Profilo", icon: UserIcon },
-  { href: "/notifiche", label: "Notifiche", icon: Bell, hasNotifications: true },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -50,22 +49,38 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
 
   return (
     <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 sticky top-0 h-screen overflow-y-auto px-4 py-6 border-r border-gc-line">
-      {/* Logo dell'app — letto da app_settings.app_logo_url. Se non
-          configurato, fallback testuale con "generazionecrypto" minimale. */}
-      <Link href="/" className="mb-8 inline-block">
-        {appLogoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={appLogoUrl}
-            alt="Home"
-            className="h-10 w-auto object-contain"
+      {/* Header sidebar: logo a sinistra (da app_settings.app_logo_url),
+          icona campana a destra. La campana linka alla pagina /notifiche
+          (per ora; in futuro potrà aprire un drawer inline). Il pallino
+          arancione = unread (hardcoded mockup). */}
+      <div className="mb-8 flex items-center justify-between gap-2">
+        <Link href="/" className="inline-flex items-center min-w-0">
+          {appLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={appLogoUrl}
+              alt="Home"
+              className="h-16 w-auto object-contain"
+            />
+          ) : (
+            <span className="font-medium text-[19px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
+              generazione<span className="text-gc-accent">crypto</span>
+            </span>
+          )}
+        </Link>
+        <Link
+          href="/notifiche"
+          aria-label="Notifiche"
+          className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
+        >
+          <Bell size={18} strokeWidth={1.6} />
+          <span
+            aria-hidden="true"
+            className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
           />
-        ) : (
-          <span className="font-medium text-[19px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
-            generazione<span className="text-gc-accent">crypto</span>
-          </span>
-        )}
-      </Link>
+          <span className="sr-only">— nuove notifiche</span>
+        </Link>
+      </div>
 
       {/* Nav */}
       <nav className="flex flex-col gap-1">
