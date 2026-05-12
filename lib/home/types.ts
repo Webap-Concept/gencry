@@ -54,6 +54,22 @@ export interface HomeSection {
   Component: () => Promise<JSX.Element> | JSX.Element;
   /** Skeleton client-friendly per il fallback di <Suspense>. Obbligatorio. */
   Skeleton: () => JSX.Element;
-  /** Gate opzionale; se omesso = sempre visibile. Chiamato ogni resolveSlot. */
+  /**
+   * Gate opzionale; se omesso = sempre visibile. Chiamato OGNI request
+   * (resolveSlot gira a ogni page load).
+   *
+   * REGOLA: l'implementazione DEVE leggere da una sorgente cached per
+   * request — `getAppSettings()` è già `React.cache()`-ata, quindi una
+   * lettura ad app_settings è 1 sola query DB indipendentemente da
+   * quanti gate la chiamano. NIENTE query DB custom dentro `isEnabled`:
+   * con 5+ moduli che registrano sezioni, si trasforma in N round-trip
+   * per page load.
+   *
+   * Pattern raccomandato: usare l'helper `isEnabledByFlag()` esportato
+   * da `lib/home/gates.ts` quando il gate è "boolean da app_settings".
+   * Per gate più complessi (es. dipende da ruolo utente), implementare
+   * a mano sempre via `getAppSettings()` / `getUser()` (anche getUser
+   * è cached per request).
+   */
   isEnabled?: () => Promise<boolean> | boolean;
 }
