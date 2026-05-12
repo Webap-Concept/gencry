@@ -105,6 +105,12 @@ export async function uploadAvatarToR2(
 
   const ext = extFromMime(mime as AllowedMime);
   const key = avatarKey(userId, ext);
+  // Timeout 15s sul PUT: se R2 non risponde (DNS fail, credenziali fittizie
+  // con endpoint non raggiungibile, ecc.) la action non deve appenderci la
+  // UI in pending state. AbortController + abortSignal → S3 client butta
+  // l'errore in tempo finito e il caller mostra un toast.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
     const client = createAvatarR2Client(cfg);
     await client.send(
@@ -117,10 +123,16 @@ export async function uploadAvatarToR2(
         // la cache-bust è gestita dal `?v=<ts>` sull'URL pubblico.
         CacheControl: "public, max-age=31536000, immutable",
       }),
+      { abortSignal: controller.signal },
     );
   } catch (err) {
     console.error("[r2-avatars] R2 PUT failed:", err);
+    if (err instanceof Error && err.name === "AbortError") {
+      return { error: "Timeout (15s) nel caricamento su R2. Verifica le credenziali in /admin/services/cloudflare." };
+    }
     return { error: "Caricamento R2 fallito. Riprova." };
+  } finally {
+    clearTimeout(timeout);
   }
 
   return { url: `${cfg.publicBaseUrl}/${key}?v=${Date.now()}` };
