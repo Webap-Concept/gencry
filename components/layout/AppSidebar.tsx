@@ -10,6 +10,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import useSWR from "swr";
+import { NotificationsSheet } from "@/components/layout/NotificationsSheet";
 import { UserMenu } from "@/components/layout/UserMenu";
 import type { UserWithProfile } from "@/lib/db/schema";
 
@@ -68,18 +69,20 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
             </span>
           )}
         </Link>
-        <Link
-          href="/notifiche"
-          aria-label="Notifiche"
-          className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
-        >
-          <Bell size={18} strokeWidth={1.6} />
-          <span
-            aria-hidden="true"
-            className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
-          />
-          <span className="sr-only">— nuove notifiche</span>
-        </Link>
+        <NotificationsSheet>
+          <button
+            type="button"
+            aria-label="Notifiche"
+            className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
+          >
+            <Bell size={18} strokeWidth={1.6} />
+            <span
+              aria-hidden="true"
+              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
+            />
+            <span className="sr-only">— nuove notifiche</span>
+          </button>
+        </NotificationsSheet>
       </div>
 
       {/* Nav */}
