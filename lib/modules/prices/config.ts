@@ -5,6 +5,14 @@
 // quindi ogni esecuzione del cron rilegge i valori freschi.
 import { getAppSettings } from "@/lib/db/settings-queries";
 
+export interface PricesR2Config {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  publicBaseUrl: string;        // senza trailing slash, es. "https://coins.example.com"
+}
+
 export interface PricesConfig {
   cronMinutes: number;          // intervallo cron sync prezzi
   universeHours: number;        // finestra "active universe"
@@ -17,6 +25,9 @@ export interface PricesConfig {
   retentionDays: number;        // retention prices_history
   coingeckoProEnabled: boolean; // se true usa endpoint Pro + header api_key
   coingeckoProApiKey: string | null;
+  // R2 storage per coin images. `null` se anche solo una delle 5 chiavi è vuota:
+  // il modulo degrada gracefully (URL CoinGecko salvati come fallback).
+  r2: PricesR2Config | null;
 }
 
 const DEFAULTS: PricesConfig = {
@@ -31,6 +42,7 @@ const DEFAULTS: PricesConfig = {
   retentionDays: 30,
   coingeckoProEnabled: false,
   coingeckoProApiKey: null,
+  r2: null,
 };
 
 function parseInt(raw: string | null | undefined, fallback: number, min = 1, max = 100000): number {
@@ -61,7 +73,24 @@ export async function getPricesConfig(): Promise<PricesConfig> {
     retentionDays:   parseInt(s["modules.prices.retention_days"],   DEFAULTS.retentionDays,   1, 365),
     coingeckoProEnabled: (s["modules.prices.coingecko_pro_enabled"] ?? "false") === "true",
     coingeckoProApiKey:  s["modules.prices.coingecko_pro_api_key"] ?? null,
+    r2: parseR2Config(s),
   };
+}
+
+/**
+ * R2 è "configurato" solo se TUTTE le 5 chiavi sono valorizzate non-vuote.
+ * Manca una sola → ritorna null e il modulo fa graceful degradation.
+ */
+function parseR2Config(s: Awaited<ReturnType<typeof getAppSettings>>): PricesR2Config | null {
+  const accountId       = (s["modules.prices.r2.account_id"]        ?? "").trim();
+  const accessKeyId     = (s["modules.prices.r2.access_key_id"]     ?? "").trim();
+  const secretAccessKey = (s["modules.prices.r2.secret_access_key"] ?? "").trim();
+  const bucket          = (s["modules.prices.r2.bucket"]            ?? "").trim();
+  const publicBaseUrl   = (s["modules.prices.r2.public_base_url"]   ?? "").trim().replace(/\/+$/, "");
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
+    return null;
+  }
+  return { accountId, accessKeyId, secretAccessKey, bucket, publicBaseUrl };
 }
 
 export const PRICES_DEFAULTS = DEFAULTS;

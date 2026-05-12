@@ -8,6 +8,9 @@ export const dynamic = "force-dynamic";
 
 export default async function PricesSettingsPage() {
   const settings = await getAppSettings();
+  // Sicurezza: il secret R2 NON viaggia mai al client. Passiamo solo un boolean
+  // che indica se è valorizzato; la UI mostra "********" come placeholder.
+  const r2SecretIsSet = Boolean(settings["modules.prices.r2.secret_access_key"]);
   return (
     <PricesSettingsForm
       initial={{
@@ -22,6 +25,11 @@ export default async function PricesSettingsPage() {
         "modules.prices.retention_days":         settings["modules.prices.retention_days"],
         "modules.prices.coingecko_pro_enabled":  settings["modules.prices.coingecko_pro_enabled"],
         "modules.prices.coingecko_pro_api_key":  settings["modules.prices.coingecko_pro_api_key"],
+        "modules.prices.r2.account_id":          settings["modules.prices.r2.account_id"],
+        "modules.prices.r2.access_key_id":       settings["modules.prices.r2.access_key_id"],
+        "modules.prices.r2.bucket":              settings["modules.prices.r2.bucket"],
+        "modules.prices.r2.public_base_url":     settings["modules.prices.r2.public_base_url"],
+        r2SecretIsSet,
       }}
     />
   );

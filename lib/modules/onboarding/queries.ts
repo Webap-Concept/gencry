@@ -8,6 +8,7 @@ import {
   onboardingRiskProfile,
   pricesCoins,
 } from "@/lib/db/schema";
+import { getPricesConfig } from "@/lib/modules/prices/config";
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 export interface CoinOption {
@@ -22,18 +23,38 @@ const SEARCH_LIMIT    = 30;
 export const COIN_PICKS_MIN = 3;
 export const COIN_PICKS_MAX = 20;
 
+/**
+ * Filtra l'imageUrl: accetta solo URL del nostro dominio R2 (custom domain
+ * configurato in modules.prices.r2.public_base_url). Per le coin non ancora
+ * migrate via backfill, restituiamo null così il wizard mostra solo iniziali
+ * — niente fetch esterni dal frontend pubblico verso CoinGecko o altri CDN.
+ */
+function sanitizeImageUrl(url: string | null, r2BasePrefix: string | null): string | null {
+  if (!url || !r2BasePrefix) return null;
+  return url.startsWith(r2BasePrefix) ? url : null;
+}
+
+async function getR2BasePrefix(): Promise<string | null> {
+  const cfg = await getPricesConfig();
+  return cfg.r2 ? cfg.r2.publicBaseUrl + "/" : null;
+}
+
 /** Top coin per market cap, attive. Cache server-side via la richiesta. */
 export async function getTopCoins(): Promise<CoinOption[]> {
-  return db
-    .select({
-      symbol:   pricesCoins.symbol,
-      name:     pricesCoins.name,
-      imageUrl: pricesCoins.imageUrl,
-    })
-    .from(pricesCoins)
-    .where(eq(pricesCoins.isActive, true))
-    .orderBy(desc(pricesCoins.marketCap))
-    .limit(TOP_COINS_LIMIT);
+  const [rows, prefix] = await Promise.all([
+    db
+      .select({
+        symbol:   pricesCoins.symbol,
+        name:     pricesCoins.name,
+        imageUrl: pricesCoins.imageUrl,
+      })
+      .from(pricesCoins)
+      .where(eq(pricesCoins.isActive, true))
+      .orderBy(desc(pricesCoins.marketCap))
+      .limit(TOP_COINS_LIMIT),
+    getR2BasePrefix(),
+  ]);
+  return rows.map((r) => ({ ...r, imageUrl: sanitizeImageUrl(r.imageUrl, prefix) }));
 }
 
 /**
@@ -44,21 +65,25 @@ export async function searchCoins(query: string): Promise<CoinOption[]> {
   const q = query.trim();
   if (!q) return getTopCoins();
   const pattern = `%${q}%`;
-  return db
-    .select({
-      symbol:   pricesCoins.symbol,
-      name:     pricesCoins.name,
-      imageUrl: pricesCoins.imageUrl,
-    })
-    .from(pricesCoins)
-    .where(
-      and(
-        eq(pricesCoins.isActive, true),
-        or(ilike(pricesCoins.symbol, pattern), ilike(pricesCoins.name, pattern)),
-      ),
-    )
-    .orderBy(desc(pricesCoins.marketCap))
-    .limit(SEARCH_LIMIT);
+  const [rows, prefix] = await Promise.all([
+    db
+      .select({
+        symbol:   pricesCoins.symbol,
+        name:     pricesCoins.name,
+        imageUrl: pricesCoins.imageUrl,
+      })
+      .from(pricesCoins)
+      .where(
+        and(
+          eq(pricesCoins.isActive, true),
+          or(ilike(pricesCoins.symbol, pattern), ilike(pricesCoins.name, pattern)),
+        ),
+      )
+      .orderBy(desc(pricesCoins.marketCap))
+      .limit(SEARCH_LIMIT),
+    getR2BasePrefix(),
+  ]);
+  return rows.map((r) => ({ ...r, imageUrl: sanitizeImageUrl(r.imageUrl, prefix) }));
 }
 
 /** Coin scelte da un utente, ordinate per position. */

@@ -19,6 +19,15 @@ const nextConfig: NextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      // Cloudflare R2 con custom domain del modulo prices (coin images).
+      // Wildcard sul subdomain del root: il bucket bind si chiama
+      // tipicamente `coins.<root>` ma resta editabile dall'admin in
+      // modules.prices.r2.public_base_url. Le coin images usano
+      // `unoptimized` quindi questo è solo per i casi futuri/altri host.
+      {
+        protocol: "https",
+        hostname: "*.generazionecrypto.com",
+      },
     ],
     // Widths accettati da /_next/image. Next valida `?w=` contro
     // deviceSizes ∪ imageSizes e risponde 400 se il valore non c'è —
@@ -92,8 +101,9 @@ const nextConfig: NextConfig = {
               // Style: 'unsafe-inline' richiesto da Tailwind/CSS-in-JS
               "style-src 'self' 'unsafe-inline'",
               // Immagini: 'self' + Supabase Storage (brand assets caricati
-              // dall'admin in /admin/settings/general → bucket "branding")
-              "img-src 'self' data: blob: https://*.supabase.co",
+              // dall'admin in /admin/settings/general → bucket "branding") +
+              // Cloudflare R2 custom domain del modulo prices (coin images)
+              "img-src 'self' data: blob: https://*.supabase.co https://*.generazionecrypto.com",
               // Font locali
               "font-src 'self'",
               // Stripe JS + Cloudflare Turnstile (iframe widget)
