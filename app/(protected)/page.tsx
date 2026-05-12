@@ -3,7 +3,6 @@ import { generatePageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/auth/session";
 import LandingPage from "@/components/landing-page";
 import { SlotBoundary } from "@/components/feed/SlotBoundary";
-import { SectionSkeleton } from "@/components/feed/SectionSkeleton";
 import { resolveSlot } from "@/lib/home/registry";
 import type { HomeSection } from "@/lib/home/types";
 import type { Metadata } from "next";
@@ -39,14 +38,14 @@ export default async function HomePage() {
       ))}
       {mainTop.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton />}>
+          <Suspense fallback={<s.Skeleton />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>
       ))}
       {main.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton variant="list" />}>
+          <Suspense fallback={<s.Skeleton />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>

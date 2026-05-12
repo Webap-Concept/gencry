@@ -49,12 +49,9 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
   });
 
   return (
-    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 h-full overflow-y-auto px-4 py-6 border-r border-gc-line">
-      {/* Header sidebar: logo a sinistra (da app_settings.app_logo_url),
-          icona campana a destra. La campana linka alla pagina /notifiche
-          (per ora; in futuro potrà aprire un drawer inline). Il pallino
-          arancione = unread (hardcoded mockup). */}
-      <div className="mb-8 flex items-center justify-between gap-2">
+    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 h-full px-4 py-6 border-r border-gc-line">
+      {/* Header sidebar: logo + bell. shrink-0 → sempre visibile in alto. */}
+      <div className="shrink-0 mb-6 flex items-center justify-between gap-2">
         <Link href="/" className="inline-flex items-center min-w-0">
           {appLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -85,48 +82,52 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
         </NotificationsSheet>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-col gap-1">
-        {NAV.map(({ href, label, icon: Icon, hasNotifications }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={[
-                "flex items-center gap-3 px-3 py-2.5 rounded-gc-sm text-[14.5px] transition border",
-                active
-                  ? "bg-gc-bg-2 text-gc-fg font-semibold border-gc-line"
-                  : "text-gc-fg-2 border-transparent hover:bg-gc-bg-2",
-              ].join(" ")}
-            >
-              <Icon size={18} strokeWidth={1.6} />
-              <span className="flex-1">{label}</span>
-              {hasNotifications && (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
-                  />
-                  <span className="sr-only">— nuove notifiche</span>
-                </>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Blocco scrollabile interno: nav + CTA. Scrolla SOLO se eccede
+          (con la nav attuale a 3 voci, mai). Avatar sotto resta sempre
+          visibile fuori da questo blocco. */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <nav className="flex flex-col gap-1">
+          {NAV.map(({ href, label, icon: Icon, hasNotifications }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={[
+                  "flex items-center gap-3 px-3 py-2.5 rounded-gc-sm text-[14.5px] transition border",
+                  active
+                    ? "bg-gc-bg-2 text-gc-fg font-semibold border-gc-line"
+                    : "text-gc-fg-2 border-transparent hover:bg-gc-bg-2",
+                ].join(" ")}
+              >
+                <Icon size={18} strokeWidth={1.6} />
+                <span className="flex-1">{label}</span>
+                {hasNotifications && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
+                    />
+                    <span className="sr-only">— nuove notifiche</span>
+                  </>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
 
-      {/* CTA Nuova watchlist (placeholder, link/handler nel CP successivo) */}
-      <button
-        type="button"
-        className="mt-5 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-gc-accent text-white font-medium text-sm hover:brightness-95 transition"
-      >
-        <Plus size={16} strokeWidth={2.5} />
-        <span>Nuova watchlist</span>
-      </button>
+        <button
+          type="button"
+          className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-gc-accent text-white font-medium text-sm hover:brightness-95 transition"
+        >
+          <Plus size={16} strokeWidth={2.5} />
+          <span>Nuova watchlist</span>
+        </button>
+      </div>
 
-      {/* User menu in fondo (popover che si apre verso l'alto) */}
-      <div className="mt-auto pt-4">
+      {/* User menu in fondo — fuori dal blocco scrollabile, sempre
+          visibile anche se la nav cresce. */}
+      <div className="shrink-0 pt-4">
         {user ? (
           <UserMenu user={user} variant="popover" />
         ) : (

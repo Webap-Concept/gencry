@@ -36,6 +36,44 @@ export const HOME_SECTIONS: HomeSection[] = [
   ...CORE_HOME_SECTIONS,
 ];
 
+// Validazione runtime al boot del modulo: cattura errori di registrazione
+// che TypeScript da solo non vede (key duplicate, slot inesistente, order
+// collision in-slot). Log warning su console, MAI throw — una sezione
+// malformata non deve impedire il render del resto della home.
+(function validateRegistry() {
+  const VALID_SLOTS: HomeSlot[] = [
+    "home.hero",
+    "home.main.top",
+    "home.main",
+    "home.main.bottom",
+    "home.rail.top",
+    "home.rail.middle",
+    "home.rail.bottom",
+  ];
+  const seenKeys = new Set<string>();
+  const seenOrders = new Map<string, Set<number>>(); // slot → set di order
+
+  for (const s of HOME_SECTIONS) {
+    if (seenKeys.has(s.key)) {
+      console.warn(`[home/registry] duplicate key "${s.key}" — React will warn at render.`);
+    }
+    seenKeys.add(s.key);
+
+    if (!VALID_SLOTS.includes(s.slot)) {
+      console.warn(`[home/registry] section "${s.key}" uses unknown slot "${s.slot}". Will never render.`);
+    }
+
+    const slotOrders = seenOrders.get(s.slot) ?? new Set<number>();
+    if (slotOrders.has(s.order)) {
+      console.warn(
+        `[home/registry] section "${s.key}" collides on order=${s.order} in slot "${s.slot}" — render order non-deterministic.`,
+      );
+    }
+    slotOrders.add(s.order);
+    seenOrders.set(s.slot, slotOrders);
+  }
+})();
+
 /**
  * Risolve le sezioni visibili per uno slot. Per ogni candidata applica
  * il gate `isEnabled()` (in parallelo) e ordina per `order`. Ritorna

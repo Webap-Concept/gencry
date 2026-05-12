@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { resolveSlot } from "@/lib/home/registry";
 import type { HomeSection } from "@/lib/home/types";
 import { SlotBoundary } from "@/components/feed/SlotBoundary";
-import { SectionSkeleton } from "@/components/feed/SectionSkeleton";
 
 // Right rail della home loggata. Compone le sezioni registrate negli
 // slot `home.rail.*` — vedi project_home_slot_registry.md.
@@ -24,22 +23,23 @@ export async function AppRightRail() {
     resolveSlot("home.rail.bottom"),
   ]);
 
-  // Niente sezioni registrate → niente rail. Evita di mostrare un'aside
-  // vuota che occuperebbe spazio per nulla.
-  if (top.length + middle.length + bottom.length === 0) return null;
-
+  // Rail SEMPRE renderizzato (anche vuoto) per stabilità del layout
+  // 3-colonne. Quando un modulo registra una sezione `home.rail.*`,
+  // si "incolla" qui senza far saltare il layout. Quando il rail è
+  // vuoto, l'aside resta visivamente trasparente (no border, no bg)
+  // occupando solo lo spazio.
   return (
     <aside className="hidden lg:flex flex-col shrink-0 w-72 h-full overflow-y-auto py-6 pl-6 pr-4 gap-4">
       {top.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton height={140} />}>
+          <Suspense fallback={<s.Skeleton />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>
       ))}
       {middle.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
-          <Suspense fallback={s.Skeleton ? <s.Skeleton /> : <SectionSkeleton variant="list" />}>
+          <Suspense fallback={<s.Skeleton />}>
             <SectionRenderer section={s} />
           </Suspense>
         </SlotBoundary>
