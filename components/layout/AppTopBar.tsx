@@ -20,7 +20,8 @@ export function AppTopBar() {
   });
 
   return (
-    <header className="md:hidden sticky top-0 z-40 h-14 bg-gc-bg/90 backdrop-blur border-b border-gc-line flex items-center justify-between px-4">
+    // z-30 (NAV layer di lib/ui/z-index.ts): sotto banner (z-40) e modali (z-50).
+    <header className="md:hidden sticky top-0 z-30 h-14 bg-gc-bg/90 backdrop-blur border-b border-gc-line flex items-center justify-between px-4">
       <Link
         href="/"
         className="font-medium text-[16px] leading-[1.05] tracking-[-0.01em] text-gc-fg"

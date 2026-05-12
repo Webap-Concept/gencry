@@ -27,7 +27,10 @@ export function AppBottomNav() {
   return (
     <nav
       aria-label="Navigazione principale"
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 h-16 bg-gc-bg-2 border-t border-gc-line flex items-center justify-around px-2"
+      // z-30 (NAV layer di lib/ui/z-index.ts): sopra il main ma sotto
+      // modali/drawer (z-50). Prima era z-50 e si sovrapponeva al
+      // shadcn Sheet drawer.
+      className="md:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-gc-bg-2 border-t border-gc-line flex items-center justify-around px-2"
     >
       {SLOTS.map((slot) => {
         if (!slot) {
