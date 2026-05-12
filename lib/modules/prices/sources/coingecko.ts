@@ -135,6 +135,76 @@ interface CoinDetailResponse {
   categories?: string[];
 }
 
+/**
+ * Fetch top N coin per market cap via /coins/markets. Usato dal bulk import
+ * admin per popolare il registry rapidamente. Una sola call ritorna fino a
+ * 250 coin con id+symbol+name+image+market_cap — niente fetch coin-by-coin
+ * (che esaurirebbe il rate limit free in pochi click).
+ *
+ * Note: `category` NON viene da questo endpoint (serve /coins/{id} per
+ * averla). Lasciata null all'insert; un Refetch metadata successivo (o un
+ * cron futuro) la popola.
+ */
+interface CoinMarketResponse {
+  id: string;
+  symbol: string;
+  name: string;
+  image: string;
+  market_cap?: number;
+  market_cap_rank?: number;
+}
+
+export async function fetchTopCoinsByMarketCap(
+  perPage: number,
+  page: number,
+): Promise<
+  Array<{
+    coingeckoId: string;
+    symbol: string;
+    name: string;
+    imageUrl: string;
+    marketCap: number | null;
+  }>
+> {
+  const endpoint = await resolveEndpoint();
+  const url = new URL(`${endpoint.baseUrl}/coins/markets`);
+  url.searchParams.set("vs_currency", "usd");
+  url.searchParams.set("order", "market_cap_desc");
+  url.searchParams.set("per_page", String(perPage));
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("sparkline", "false");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: endpoint.headers,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (res.status === 429) {
+      throw new CoinGeckoError("CoinGecko rate limit (429)", 429, true);
+    }
+    if (!res.ok) {
+      throw new CoinGeckoError(
+        `CoinGecko HTTP ${res.status}`,
+        res.status,
+        res.status >= 500,
+      );
+    }
+    const data = (await res.json()) as CoinMarketResponse[];
+    return data.map((c) => ({
+      coingeckoId: c.id,
+      symbol: c.symbol.toUpperCase(),
+      name: c.name,
+      imageUrl: c.image,
+      marketCap: typeof c.market_cap === "number" ? c.market_cap : null,
+    }));
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function fetchCoinMetadata(coingeckoId: string): Promise<{
   symbol: string;
   name: string;

@@ -3,11 +3,12 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { PricesCoin } from "@/lib/db/schema";
 import type { PriceRow } from "@/lib/modules/prices/queries";
-import { CloudUpload, ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
+import { CloudUpload, ChevronLeft, ChevronRight, Download, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   addCoinAction,
   backfillCoinImagesAction,
+  bulkImportTopCoinsAction,
   deleteCoinAction,
   refetchCoinAction,
   toggleCoinActiveAction,
@@ -84,7 +85,9 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
           <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--admin-text)" }}>
             Add coin
           </h3>
-          <form action={addAction} className="flex items-end gap-3 max-w-lg">
+          {/* items-start + mt-6 (24px = label height ~18 + mb-1.5 ~6) per
+           *  allineare il button al top dell'input, non al hint sotto. */}
+          <form action={addAction} className="flex items-start gap-3 max-w-lg">
             <div className="flex-1">
               <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
                 CoinGecko ID
@@ -107,13 +110,16 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
             <button
               type="submit"
               disabled={isAdding}
-              className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 px-4 py-2 mt-6 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
               style={{ background: "var(--admin-accent)" }}>
               {isAdding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               {isAdding ? "Adding..." : "Add"}
             </button>
           </form>
         </div>
+
+        {/* Import top coins */}
+        <BulkImportCard onToast={setToast} />
 
         {/* Coins table */}
         <div
@@ -377,6 +383,117 @@ function CoinRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function BulkImportCard({
+  onToast,
+}: {
+  onToast: (t: { message: string; type: "success" | "error" }) => void;
+}) {
+  const [perPage, setPerPage] = useState<number>(50);
+  const [page, setPage] = useState<number>(1);
+  const [updateExisting, setUpdateExisting] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleImport() {
+    startTransition(async () => {
+      const res = await bulkImportTopCoinsAction(perPage, page, updateExisting);
+      if ("success" in res && res.success) onToast({ message: res.success, type: "success" });
+      else if ("error" in res && res.error) onToast({ message: res.error, type: "error" });
+    });
+  }
+
+  const rangeFrom = (page - 1) * perPage + 1;
+  const rangeTo = page * perPage;
+
+  return (
+    <div
+      className="rounded-xl shadow-sm p-6"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
+        Import top coins
+      </h3>
+      <p className="text-[11px] mb-5" style={{ color: "var(--admin-text-faint)" }}>
+        Pull the top N coins by market cap from CoinGecko in one shot (1 API call + mirror to R2).
+        Existing symbols are skipped by default. Currently importing rows{" "}
+        <span className="font-mono" style={{ color: "var(--admin-text-muted)" }}>
+          {rangeFrom}–{rangeTo}
+        </span>{" "}
+        of the global market cap ranking.
+      </p>
+      <div className="flex flex-wrap items-end gap-3 max-w-2xl">
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
+            Top N
+          </label>
+          <select
+            value={perPage}
+            onChange={(e) => setPerPage(Number(e.target.value))}
+            disabled={isPending}
+            className="px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono disabled:opacity-60"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: "var(--admin-text)",
+            }}>
+            {[10, 25, 50, 100, 250].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
+            Page
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={page}
+            onChange={(e) => setPage(Math.max(1, Number(e.target.value) || 1))}
+            disabled={isPending}
+            className="w-20 px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono disabled:opacity-60"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: "var(--admin-text)",
+            }}
+          />
+        </div>
+        <label
+          className="flex items-center gap-2 text-xs cursor-pointer select-none"
+          style={{ color: "var(--admin-text-muted)", marginBottom: 9 }}>
+          <input
+            type="checkbox"
+            checked={updateExisting}
+            onChange={(e) => setUpdateExisting(e.target.checked)}
+            disabled={isPending}
+            className="w-4 h-4 rounded"
+            style={{ accentColor: "var(--admin-accent)" }}
+          />
+          Update existing too
+        </label>
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={isPending}
+          className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ background: "var(--admin-accent)" }}>
+          {isPending ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {isPending ? "Importing..." : "Import"}
+        </button>
+      </div>
+      <p className="text-[11px] mt-3" style={{ color: "var(--admin-text-faint)" }}>
+        Tip: with CoinGecko Pro enabled the rate limits are higher and the call is faster. Without
+        Pro, allow up to ~60s for a batch of 250.
+      </p>
+    </div>
   );
 }
 
