@@ -58,14 +58,19 @@ export function CookieCustomizeModal({
   const [analytics, setAnalytics] = useState(initialPrefs.analytics);
   const [marketing, setMarketing] = useState(initialPrefs.marketing);
 
+  // Le callback sono `async` con `await`: senza, startTransition
+  // considera il transition completato sincronicamente e il router
+  // resta in stato pending per sempre dopo che la Server Action ritorna,
+  // bloccando ogni navigazione successiva (sintomo: i tab di /settings
+  // non cambiano, /admin non si apre fino a hard refresh).
   const handleAcceptAll = () =>
-    startTransition(() => {
-      acceptAllCookiesAction();
+    startTransition(async () => {
+      await acceptAllCookiesAction();
     });
 
   const handleRejectAll = () =>
-    startTransition(() => {
-      rejectAllCookiesAction();
+    startTransition(async () => {
+      await rejectAllCookiesAction();
     });
 
   const handleSaveCustom = () => {
@@ -73,8 +78,8 @@ export function CookieCustomizeModal({
     if (preferences) fd.set("preferences", "on");
     if (analytics) fd.set("analytics", "on");
     if (marketing) fd.set("marketing", "on");
-    startTransition(() => {
-      saveCustomCookiesAction(fd);
+    startTransition(async () => {
+      await saveCustomCookiesAction(fd);
     });
   };
 
