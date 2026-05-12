@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/auth/middleware";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { checkUsernameAction } from "@/app/(login)/actions";
-import { removeAvatar, updateProfile, uploadAvatar } from "../actions";
+import { removeAvatar, updateProfile, uploadAvatar, type UploadAvatarState } from "../actions";
 import { AvatarCropDialog } from "./avatar-crop-dialog";
 
 const BIO_MAX = 160;
@@ -279,8 +279,48 @@ function AvatarSection({
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
-  const [uploading, startUpload] = useTransition();
-  const [removing, startRemove] = useTransition();
+
+  // useActionState è il pattern canonico Next 16 per server actions.
+  // Pattern "useTransition + await action(...)" usato prima fallisce
+  // sul transport interno quando la action ritorna un FormData-driven
+  // payload (la response stream non si chiude correttamente in dev mode).
+  // Vedere lo storico di refactor di sentry-form/prices-settings-form
+  // che hanno la stessa shape.
+  const [uploadState, uploadAction, uploading] = useActionState<
+    UploadAvatarState,
+    FormData
+  >(uploadAvatar, {});
+  const [removeState, removeAction, removing] = useActionState<
+    ActionState,
+    FormData
+  >(removeAvatar, {});
+
+  // Sincronizziamo l'esito delle action col local state (error/upload-callback).
+  // useActionState non ha timestamp built-in, ma le response sono "fresh"
+  // dopo ogni dispatch quindi questo useEffect parte solo quando state cambia.
+  const lastUploadStateRef = useRef(uploadState);
+  useEffect(() => {
+    if (uploadState === lastUploadStateRef.current) return;
+    lastUploadStateRef.current = uploadState;
+    if ("error" in uploadState && uploadState.error) {
+      setError(uploadState.error);
+      setCropSrc(null);
+    } else if ("url" in uploadState && uploadState.url) {
+      onUploaded(uploadState.url);
+      setCropSrc(null);
+    }
+  }, [uploadState, onUploaded]);
+
+  const lastRemoveStateRef = useRef(removeState);
+  useEffect(() => {
+    if (removeState === lastRemoveStateRef.current) return;
+    lastRemoveStateRef.current = removeState;
+    if ("error" in removeState && removeState.error) {
+      setError(removeState.error);
+    } else if ("success" in removeState && removeState.success) {
+      onRemoved();
+    }
+  }, [removeState, onRemoved]);
 
   // Revoca il blob URL precedente quando ne creiamo uno nuovo o quando smontiamo
   useEffect(() => {
@@ -311,29 +351,12 @@ function AvatarSection({
   function handleCropConfirm(cropped: File) {
     const formData = new FormData();
     formData.append("avatar", cropped);
-
-    startUpload(async () => {
-      const result = await uploadAvatar({}, formData);
-      if (result.error) {
-        setError(result.error);
-        setCropSrc(null);
-        return;
-      }
-      if (result.url) onUploaded(result.url);
-      setCropSrc(null);
-    });
+    uploadAction(formData);
   }
 
   function triggerRemove() {
     setError(null);
-    startRemove(async () => {
-      const result = await removeAvatar({}, new FormData());
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onRemoved();
-    });
+    removeAction(new FormData());
   }
 
   const busy = uploading || removing;

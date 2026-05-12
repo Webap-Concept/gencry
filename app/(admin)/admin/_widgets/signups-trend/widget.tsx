@@ -90,13 +90,7 @@ export default async function SignupsTrendWidget() {
         </span>
       </div>
 
-      {/* Fixed pixel height — recharts ResponsiveContainer at 100% can
-          race a flex layout chain and read back -1×-1 on first paint.
-          A pixel height removes the race; the widget body still
-          resizes (the bottom whitespace just grows). */}
-      <div style={{ height: 180, width: "100%" }}>
-        <SignupsTrendChart data={series} />
-      </div>
+      <SignupsTrendChart data={series} />
     </WidgetCard>
   );
 }

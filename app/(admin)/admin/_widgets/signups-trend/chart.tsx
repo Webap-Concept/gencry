@@ -11,11 +11,13 @@ import {
 } from "recharts";
 
 /**
- * Compact 30-day signups vs unsubs area chart. The parent widget
- * passes a fixed pixel height so ResponsiveContainer always has a
- * measurable parent on first paint (a percentage height inside a
- * flex chain can race the layout pass and read back -1×-1 from
- * getBoundingClientRect).
+ * Compact 30-day signups vs unsubs area chart.
+ *
+ * Height NUMERICA (non "100%"): ResponsiveContainer con height="100%"
+ * legge il parent via getBoundingClientRect e in certe race condition
+ * (flex chain non ancora layouted, react-grid-layout edit mode, HMR)
+ * legge 0/−1 → warning "width(-1) and height(-1)". Passandola fissa in
+ * pixel saltiamo del tutto il measure verticale.
  *
  * Two series: signups in green (positive growth) and unsubs in red
  * (churn) — using accent (orange) for signups got visually confused
@@ -25,6 +27,7 @@ import {
  */
 const SIGNUPS_COLOR = "#16a34a";
 const UNSUBS_COLOR = "#ef4444";
+const CHART_HEIGHT = 180;
 export interface SignupsTrendChartProps {
   data: ReadonlyArray<{ day: string; signups: number; unsubs: number }>;
 }
@@ -38,7 +41,7 @@ export default function SignupsTrendChart({ data }: SignupsTrendChartProps) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
       <AreaChart
         data={[...data]}
         margin={{ top: 4, right: 4, left: -28, bottom: 0 }}

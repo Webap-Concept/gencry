@@ -41,6 +41,22 @@ function detectLocaleFromSlug(slug: string[]): {
 }
 
 /**
+ * Slug prefixes che NON sono pagine CMS e devono fallire fast con 404
+ * senza toccare il DB. Tipico esempio: `_vercel/insights/script.js`
+ * iniettato da @vercel/analytics che in dev locale non esiste come
+ * asset → arriva al catch-all → rumore nei log + occasionale crash
+ * `transformAlgorithm` di Next 16 sullo stream della not-found page.
+ *
+ * I path Next-reserved iniziano sempre con underscore (`_next/`,
+ * `_vercel/`, ecc.) — Next li serve internamente dal proprio runtime
+ * o dal /public. Se finiscono qui significa che non sono stati
+ * trovati: notFound() pulito invece di logica DB-bound.
+ */
+function isReservedPathPrefix(pageSlug: string): boolean {
+  return pageSlug.startsWith("_");
+}
+
+/**
  * Helper condivisi per il rendering delle pagine CMS dal DB.
  *
  * Sono usati da:
@@ -68,6 +84,15 @@ export async function cmsPageMetadata({
     : detectLocaleFromSlug(slug);
   const { locale, segments } = resolved;
   const pageSlug = segments.join("/");
+
+  // Reserved framework/asset prefixes never map to CMS pages. Bail out
+  // before touching the DB — avoids log noise from probe requests like
+  // `_vercel/insights/script.js` (auto-injected by @vercel/analytics)
+  // and the "transformAlgorithm is not a function" stream crash that
+  // Next 16 produces when notFound() bubbles through a missing asset.
+  if (isReservedPathPrefix(pageSlug)) {
+    notFound();
+  }
 
   const [page, settings] = await Promise.all([
     getPageWithTemplate(pageSlug, locale),
@@ -155,6 +180,10 @@ export async function CmsPage({
   const pageSlug = segments.join("/");
   if (!pageSlug) {
     console.warn("[cms-page] notFound: empty slug", { rawSlug: slug, locale });
+    notFound();
+  }
+  if (isReservedPathPrefix(pageSlug)) {
+    // See note in generateCmsPageMetadata — same reasoning applies on render.
     notFound();
   }
   const [pageData, settings, stylesVersion] = await Promise.all([

@@ -561,6 +561,75 @@
           "label": "Marketing Policy",
           "description": "Version saved at registration in the accepted_marketing_version field"
         }
+      },
+      "flowDiagram": {
+        "trigger": "View signup flow",
+        "modalTitle": "User signup flow",
+        "intro": "Linear pipeline of every check that runs when a user submits the sign-up form. Each step references the admin section where its behavior is configured.",
+        "groups": {
+          "input": "Input & validation",
+          "security": "Security gates",
+          "db": "Database persistence",
+          "side": "Side effects"
+        },
+        "steps": {
+          "validation": {
+            "label": "Schema validation",
+            "description": "Zod schema validates username (3–50 chars), email format, password (min 8, uppercase, number, special char), and the three consent checkboxes (terms, privacy, marketing)."
+          },
+          "registrationsEnabled": {
+            "label": "Registrations enabled?",
+            "description": "Master switch checked from app_settings. If disabled, the sign-up form errors out immediately."
+          },
+          "turnstile": {
+            "label": "Cloudflare Turnstile verify",
+            "description": "Anti-bot token validated server-side. Silently disabled when keys are not configured."
+          },
+          "rateLimit": {
+            "label": "Sign-up rate limit",
+            "description": "Per-IP throttle: max bf_signup_max attempts in bf_window_minutes. Blocks both abuse and brute-force enumeration."
+          },
+          "blacklists": {
+            "label": "Blacklist gates (parallel)",
+            "description": "Three independent denylists run in parallel: IP (Redis-cached), disposable email domains (Postgres), reserved usernames (in-memory)."
+          },
+          "availability": {
+            "label": "Availability checks (parallel)",
+            "description": "Email + username uniqueness checked via Bloom filter (fast no-network) then DB (authoritative). Cuts most duplicates before touching DB."
+          },
+          "consents": {
+            "label": "Read consent versions",
+            "description": "Latest terms / privacy / marketing versions resolved from CMS pages — saved alongside the user record so audits can prove what they accepted."
+          },
+          "hashPassword": {
+            "label": "Hash password",
+            "description": "bcrypt hash computed server-side. The plaintext never touches the database."
+          },
+          "insertUser": {
+            "label": "Insert users + profiles",
+            "description": "Two related rows in a near-atomic sequence. UNIQUE constraints catch any race condition (rare but real)."
+          },
+          "bloomUpdate": {
+            "label": "Bloom filter update",
+            "description": "Email + username added to the per-process bloom filter so the next sign-up sees them instantly without an extra DB round-trip."
+          },
+          "consentLedger": {
+            "label": "GDPR consent ledger",
+            "description": "Append-only consent record (Art. 7). IP + UA captured per the strategy configured in /admin/compliance/gdpr."
+          },
+          "sendEmail": {
+            "label": "Send verification email",
+            "description": "6-digit code created and sent via Resend. The user lands on the verify-email page after submit."
+          }
+        },
+        "linkLabel": "Configure in",
+        "externalServices": {
+          "heading": "External services involved",
+          "cloudflare": "Cloudflare Turnstile",
+          "redis": "Upstash Redis",
+          "supabase": "Supabase Postgres",
+          "resend": "Resend"
+        }
       }
     }
   },
@@ -572,7 +641,7 @@
     "sections": {
       "cloudflare": {
         "label": "Cloudflare",
-        "description": "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up."
+        "description": "Configure Cloudflare services: Turnstile bot protection and R2 storage for user avatars."
       },
       "github": {
         "label": "GitHub CI",
@@ -714,6 +783,9 @@
       "saving": "Saving..."
     },
     "cloudflare": {
+      "turnstileCardTitle": "Turnstile — bot protection",
+      "turnstileStatusConfigured": "Configured",
+      "turnstileStatusNotConfigured": "Not configured",
       "siteKeyLabel": "Site Key",
       "siteKeyHint": "Cloudflare Dashboard → Turnstile → your site → Site Key",
       "secretKeyLabel": "Secret Key",
@@ -730,7 +802,29 @@
       "saveButton": "Save credentials",
       "savingButton": "Saving…",
       "testButton": "Test Secret Key",
-      "testingButton": "Testing…"
+      "testingButton": "Testing…",
+      "r2Avatar": {
+        "title": "R2 storage — avatars",
+        "description": "User avatars are mirrored to a dedicated R2 bucket so the public app never serves them from Supabase Storage (egress on R2 is $0). When unconfigured, avatar uploads fail with an explicit error — there is no Supabase fallback.",
+        "statusConfigured": "Configured",
+        "statusNotConfigured": "Not configured",
+        "accountIdLabel": "Account ID",
+        "accountIdHint": "Cloudflare account ID (the part before .r2.cloudflarestorage.com in the endpoint).",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "From the R2 token (Account API Token, scoped to this bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensitive. Leave the masked placeholder unchanged to keep the saved value.",
+        "bucketLabel": "Bucket name",
+        "bucketHint": "The bucket dedicated to avatars (e.g. avatars).",
+        "bucketPlaceholder": "avatars",
+        "publicBaseLabel": "Public base URL",
+        "publicBaseHint": "Custom domain bound to the bucket (no trailing slash). Files become <base>/<userId>.<ext>.",
+        "publicBasePlaceholder": "https://avatars.example.com",
+        "saveButton": "Save credentials",
+        "savingButton": "Saving…",
+        "testButton": "Test connection",
+        "testingButton": "Testing…"
+      }
     },
     "redis": {
       "urlLabel": "REST URL",
@@ -1773,7 +1867,7 @@
         "flavorsMetaOnly": "<b>Meta-only</b> (everything else: <c>sign-in</c>, <c>verify-email</c>, <c>404</c>, <c>admin</c>, home, …) — the actual route is served by a hardcoded Next.js page handler. The CMS record is just an admin container so you can edit the title (used in the page list) and the SEO meta. Content body is hidden.",
         "editHeading": "What you can edit, where",
         "editTitle": "<b>Title</b> — always editable. It's both the public page title and the admin label in the System tab list.",
-        "editSlug": "<b>Slug</b> — always locked on system pages, regardless of flavor. The slug is the canonical English path and is uniform across every locale (the proxy redirects <c>/{locale}/sign-in</c> to <c>/sign-in</c>). To rename a system slug you have to do it via SQL in Supabase and update the matching page handler / proxy logic.",
+        "editSlug": "<b>Slug</b> — always locked on system pages, regardless of flavor. The slug is the canonical English path and is uniform across every locale (the proxy redirects <c>/en/sign-in</c> or <c>/it/sign-in</c> to <c>/sign-in</c>). To rename a system slug you have to do it via SQL in Supabase and update the matching page handler / proxy logic.",
         "editContent": "<b>Content body</b> — full Tiptap editor on user pages and on content-editable system pages. Hidden on meta-only system pages.",
         "editVisibility": "<b>Visibility</b> (Public / Private) — in the <c>Publishing</c> tab. Private pages redirect unauthenticated visitors to <c>/sign-in</c>. Default is Public. (Hidden for meta-only system pages — their auth gate is enforced by the route handler itself.)",
         "editSeo": "<b>SEO meta</b> — in the <c>SEO</c> tab on every page. Title, description, Open Graph, robots, JSON-LD. Stored in the <c>seo_pages</c> table keyed on <c>/'{slug}'</c>.",
@@ -3122,7 +3216,7 @@
           "network": "Could not reach Sentry. Will retry on the next refresh.",
           "unknown": "Sentry returned an unexpected response."
         },
-        "showAllButton": "Show all (+{count})",
+        "showAllButton": "{count, plural, =0 {Manage} other {Show all (+#)}}",
         "modalTitle": "All errors (last 24h)",
         "modalSubtitle": "{count, plural, =0 {No remaining issues} one {# unresolved issue} other {# unresolved issues}}",
         "modalCloseAria": "Close",
@@ -3140,7 +3234,7 @@
           "unknown": "Sentry returned an unexpected response."
         },
         "setupGuide": {
-          "intro": "This widget pulls unresolved issues from the Sentry API. It needs three Vercel project env vars (the first two are already used by the build plugin):",
+          "intro": "This widget pulls unresolved issues from the Sentry API. It needs three project environment variables on your hosting platform (the first two are already used by the build plugin):",
           "env": [
             { "name": "SENTRY_ORG", "hint": "Your Sentry organization slug." },
             { "name": "SENTRY_PROJECT", "hint": "Your Sentry project slug." },

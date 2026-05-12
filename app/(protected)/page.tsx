@@ -1,11 +1,10 @@
+import { Suspense } from "react";
 import { generatePageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/auth/session";
 import LandingPage from "@/components/landing-page";
-import { HeroGreeting } from "@/components/feed/HeroGreeting";
-import { Ticker } from "@/components/feed/Ticker";
-import { Moments } from "@/components/feed/Moments";
-import { FeedList } from "@/components/feed/FeedList";
-import { FEED } from "@/lib/feed/mock";
+import { SlotBoundary } from "@/components/feed/SlotBoundary";
+import { resolveSlot } from "@/lib/home/registry";
+import type { HomeSection } from "@/lib/home/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,21 +13,57 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const session = await getSession();
+  if (!session) return <LandingPage />;
 
-  // Guest: landing coming-soon (full-screen, niente AppNav)
-  if (!session) {
-    return <LandingPage />;
-  }
+  // Slot-based registry — vedi project_home_slot_registry.md.
+  // Le sezioni vengono dichiarate in lib/home/core-sections.ts (core) e
+  // in lib/modules/<slug>/home-sections.ts (moduli). Compose in
+  // lib/home/registry.ts.
+  //
+  // NB: AppRightRail risolve i suoi slot autonomamente (home.rail.*),
+  // qui orchestriamo solo gli slot della colonna centrale.
+  const [hero, mainTop, main, mainBottom] = await Promise.all([
+    resolveSlot("home.hero"),
+    resolveSlot("home.main.top"),
+    resolveSlot("home.main"),
+    resolveSlot("home.main.bottom"),
+  ]);
 
-  // Loggato: feed sociale.
-  // Shell 3-colonne e container centrato sono gestiti dal layout (protected).
-  // Qui restano solo le sezioni del feed con l'animazione di mount.
   return (
-    <div className="animate-gc-screen">
-      <HeroGreeting />
-      <Ticker />
-      <Moments />
-      <FeedList initialFeed={FEED} />
+    <div className="animate-gc-screen space-y-6">
+      {hero.map((s) => (
+        <SlotBoundary key={s.key} sectionKey={s.key}>
+          <SectionRenderer section={s} />
+        </SlotBoundary>
+      ))}
+      {mainTop.map((s) => (
+        <SlotBoundary key={s.key} sectionKey={s.key}>
+          <Suspense fallback={<s.Skeleton />}>
+            <SectionRenderer section={s} />
+          </Suspense>
+        </SlotBoundary>
+      ))}
+      {main.map((s) => (
+        <SlotBoundary key={s.key} sectionKey={s.key}>
+          <Suspense fallback={<s.Skeleton />}>
+            <SectionRenderer section={s} />
+          </Suspense>
+        </SlotBoundary>
+      ))}
+      {mainBottom.map((s) => (
+        <SlotBoundary key={s.key} sectionKey={s.key}>
+          <SectionRenderer section={s} />
+        </SlotBoundary>
+      ))}
     </div>
   );
+}
+
+/**
+ * Render-wrapper async: una HomeSection ha `Component: () => JSX | Promise<JSX>`,
+ * non renderizzabile direttamente come `<s.Component />` quando ritorna una
+ * Promise. Questo helper invece await-a (è RSC) e ritorna il JSX risolto.
+ */
+async function SectionRenderer({ section }: { section: HomeSection }) {
+  return await section.Component();
 }

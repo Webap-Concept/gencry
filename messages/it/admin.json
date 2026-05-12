@@ -561,6 +561,75 @@
           "label": "Marketing Policy",
           "description": "Versione salvata alla registrazione nel campo accepted_marketing_version"
         }
+      },
+      "flowDiagram": {
+        "trigger": "Vedi flusso di registrazione",
+        "modalTitle": "Flusso di registrazione utente",
+        "intro": "Pipeline lineare di ogni controllo che parte quando un utente invia il form di registrazione. Ogni step linka alla sezione admin dove si configura il comportamento.",
+        "groups": {
+          "input": "Input & validazione",
+          "security": "Controlli di sicurezza",
+          "db": "Persistenza database",
+          "side": "Effetti collaterali"
+        },
+        "steps": {
+          "validation": {
+            "label": "Validazione schema",
+            "description": "Lo schema Zod valida username (3-50 char), formato email, password (min 8, maiuscola, numero, carattere speciale) e i tre checkbox consensi (terms, privacy, marketing)."
+          },
+          "registrationsEnabled": {
+            "label": "Registrazioni abilitate?",
+            "description": "Master switch letto da app_settings. Se disabilitato, il form di registrazione restituisce errore immediatamente."
+          },
+          "turnstile": {
+            "label": "Verifica Cloudflare Turnstile",
+            "description": "Token anti-bot validato lato server. Se le chiavi non sono configurate, la protezione è silenziosamente disabilitata."
+          },
+          "rateLimit": {
+            "label": "Rate limit registrazione",
+            "description": "Throttle per IP: massimo bf_signup_max tentativi in bf_window_minutes. Blocca sia gli abusi sia gli attacchi di enumerazione."
+          },
+          "blacklists": {
+            "label": "Blacklist (in parallelo)",
+            "description": "Tre denylist indipendenti girano in parallelo: IP (cached su Redis), domini email usa-e-getta (Postgres), username riservati (in-memory)."
+          },
+          "availability": {
+            "label": "Check disponibilità (in parallelo)",
+            "description": "Univocità email + username verificata prima via Bloom filter (no rete) poi DB (autoritativa). Taglia i duplicati prima di toccare il DB."
+          },
+          "consents": {
+            "label": "Lettura versioni consensi",
+            "description": "Versioni terms / privacy / marketing risolte dalle CMS pages — salvate insieme al record utente per provare in audit cosa ha accettato."
+          },
+          "hashPassword": {
+            "label": "Hash password",
+            "description": "Hash bcrypt calcolato lato server. Il plaintext non tocca mai il database."
+          },
+          "insertUser": {
+            "label": "Insert users + profiles",
+            "description": "Due righe correlate in una sequenza quasi atomica. I vincoli UNIQUE catturano eventuali race condition (rare ma reali)."
+          },
+          "bloomUpdate": {
+            "label": "Update Bloom filter",
+            "description": "Email + username aggiunti al Bloom filter del processo così il prossimo signup li vede istantaneamente senza un round-trip DB extra."
+          },
+          "consentLedger": {
+            "label": "Ledger consensi GDPR",
+            "description": "Record append-only dei consensi (Art. 7). IP + UA catturati secondo la strategia configurata in /admin/compliance/gdpr."
+          },
+          "sendEmail": {
+            "label": "Invio email di verifica",
+            "description": "Codice 6-cifre generato e spedito via Resend. L'utente atterra sulla pagina verify-email dopo l'invio."
+          }
+        },
+        "linkLabel": "Configura in",
+        "externalServices": {
+          "heading": "Servizi esterni coinvolti",
+          "cloudflare": "Cloudflare Turnstile",
+          "redis": "Upstash Redis",
+          "supabase": "Supabase Postgres",
+          "resend": "Resend"
+        }
       }
     }
   },
@@ -572,7 +641,7 @@
     "sections": {
       "cloudflare": {
         "label": "Cloudflare",
-        "description": "Configura Cloudflare Turnstile per la protezione anti-bot su sign-in e sign-up."
+        "description": "Configura i servizi Cloudflare: Turnstile per la protezione anti-bot e R2 storage per gli avatar utente."
       },
       "github": {
         "label": "GitHub CI",
@@ -714,6 +783,9 @@
       "saving": "Salvataggio..."
     },
     "cloudflare": {
+      "turnstileCardTitle": "Turnstile — protezione anti-bot",
+      "turnstileStatusConfigured": "Configurato",
+      "turnstileStatusNotConfigured": "Non configurato",
       "siteKeyLabel": "Site Key",
       "siteKeyHint": "Cloudflare Dashboard → Turnstile → il tuo sito → Site Key",
       "secretKeyLabel": "Secret Key",
@@ -730,7 +802,29 @@
       "saveButton": "Salva credenziali",
       "savingButton": "Salvataggio…",
       "testButton": "Testa Secret Key",
-      "testingButton": "Test in corso…"
+      "testingButton": "Test in corso…",
+      "r2Avatar": {
+        "title": "R2 storage — avatar",
+        "description": "Gli avatar utente vengono caricati su un bucket R2 dedicato così l'app pubblica non li serve mai da Supabase Storage (egress su R2 è $0). Se non configurato, l'upload avatar fallisce con un errore esplicito — nessun fallback su Supabase.",
+        "statusConfigured": "Configurato",
+        "statusNotConfigured": "Non configurato",
+        "accountIdLabel": "Account ID",
+        "accountIdHint": "ID account Cloudflare (la parte prima di .r2.cloudflarestorage.com nell'endpoint).",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "Dal token R2 (Account API Token, scoped al bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensibile. Lascia il placeholder mascherato invariato per mantenere il valore salvato.",
+        "bucketLabel": "Nome del bucket",
+        "bucketHint": "Il bucket dedicato agli avatar (es. avatars).",
+        "bucketPlaceholder": "avatars",
+        "publicBaseLabel": "URL pubblico base",
+        "publicBaseHint": "Custom domain bindato al bucket (senza slash finale). I file diventano <base>/<userId>.<ext>.",
+        "publicBasePlaceholder": "https://avatars.example.com",
+        "saveButton": "Salva credenziali",
+        "savingButton": "Salvataggio…",
+        "testButton": "Testa connessione",
+        "testingButton": "Test in corso…"
+      }
     },
     "redis": {
       "urlLabel": "REST URL",
@@ -1773,7 +1867,7 @@
         "flavorsMetaOnly": "<b>Solo meta</b> (tutto il resto: <c>sign-in</c>, <c>verify-email</c>, <c>404</c>, <c>admin</c>, home, …) — la rotta vera è servita da un page handler Next.js hardcoded. Il record CMS è solo un container amministrativo per modificare il titolo (usato nella lista pagine) e i meta SEO. Body nascosto.",
         "editHeading": "Cosa puoi modificare, dove",
         "editTitle": "<b>Titolo</b> — sempre modificabile. È sia il titolo pubblico della pagina sia l'etichetta admin nella lista del tab Sistema.",
-        "editSlug": "<b>Slug</b> — sempre bloccato sulle pagine di sistema, indipendentemente dal tipo. Lo slug è il path canonico inglese ed è uniforme su tutti i locale (il proxy redirige <c>/{locale}/sign-in</c> a <c>/sign-in</c>). Per rinominare uno slug di sistema serve SQL diretto in Supabase più aggiornamento del page handler / logica del proxy.",
+        "editSlug": "<b>Slug</b> — sempre bloccato sulle pagine di sistema, indipendentemente dal tipo. Lo slug è il path canonico inglese ed è uniforme su tutti i locale (il proxy redirige <c>/en/sign-in</c> o <c>/it/sign-in</c> a <c>/sign-in</c>). Per rinominare uno slug di sistema serve SQL diretto in Supabase più aggiornamento del page handler / logica del proxy.",
         "editContent": "<b>Body</b> — editor Tiptap completo sulle pagine utente e sulle pagine di sistema content-editable. Nascosto sulle pagine solo-meta.",
         "editVisibility": "<b>Visibilità</b> (Pubblica / Privata) — nel tab <c>Pubblicazione</c>. Le pagine private redirezionano i visitatori non autenticati a <c>/sign-in</c>. Default: Pubblica. (Nascosto per le pagine solo-meta — il loro auth gate è gestito dal route handler stesso.)",
         "editSeo": "<b>Meta SEO</b> — nel tab <c>SEO</c> di ogni pagina. Title, description, Open Graph, robots, JSON-LD. Salvati nella tabella <c>seo_pages</c> indicizzata su <c>/'{slug}'</c>.",
@@ -3122,7 +3216,7 @@
           "network": "Impossibile raggiungere Sentry. Riproveremo al prossimo refresh.",
           "unknown": "Sentry ha risposto con un formato inatteso."
         },
-        "showAllButton": "Mostra tutti (+{count})",
+        "showAllButton": "{count, plural, =0 {Gestisci} other {Mostra tutti (+#)}}",
         "modalTitle": "Tutti gli errori (ultime 24h)",
         "modalSubtitle": "{count, plural, =0 {Nessuna issue rimasta} one {# issue non risolta} other {# issue non risolte}}",
         "modalCloseAria": "Chiudi",
@@ -3140,7 +3234,7 @@
           "unknown": "Sentry ha risposto con un formato inatteso."
         },
         "setupGuide": {
-          "intro": "Questo widget legge le issue non risolte dall'API Sentry. Servono tre env var del progetto Vercel (le prime due sono già usate dal plugin di build):",
+          "intro": "Questo widget legge le issue non risolte dall'API Sentry. Servono tre variabili d'ambiente di progetto sulla piattaforma di hosting (le prime due sono già usate dal plugin di build):",
           "env": [
             { "name": "SENTRY_ORG", "hint": "Lo slug della tua organizzazione Sentry." },
             { "name": "SENTRY_PROJECT", "hint": "Lo slug del tuo progetto Sentry." },

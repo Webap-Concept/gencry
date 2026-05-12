@@ -218,13 +218,18 @@ function RequestEmailChangeForm({
             id="emailChangePassword"
             name="password"
             type={showPassword ? "text" : "password"}
-            // autoComplete="off" — questo campo serve come PROVA DI
-            // IDENTITÀ: l'utente deve digitarla. Se il password manager
-            // la pre-compila, basta un attacker con sessione attiva (o
-            // accesso fisico al device) per cambiare email senza
-            // conoscere la password. Lasciamo che lo digiti l'umano.
+            // autoComplete="off" + readonly-on-mount: i password manager
+            // moderni IGNORANO autoComplete="off" sui type=password. Il
+            // trucco readonly + remove-on-focus li blocca senza degradare
+            // la UX (l'utente clicca, il field diventa editabile). Questo
+            // campo è una PROVA DI IDENTITÀ: deve essere digitato a mano,
+            // non riempito da un manager (un attacker con sessione attiva
+            // o accesso fisico al device potrebbe cambiare email senza
+            // conoscere la password).
             autoComplete="off"
             data-form-type="other"
+            readOnly
+            onFocus={(e) => e.currentTarget.removeAttribute("readonly")}
             required
             maxLength={100}
             className="pr-10"
@@ -439,12 +444,17 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
               id="currentPassword"
               name="currentPassword"
               type={showCurrent ? "text" : "password"}
-              // autoComplete="off" — vedi nota nel form cambio email.
-              // Per il "cambio password" il rischio è amplificato: un
-              // attacker con sessione attiva potrebbe reset-are la
-              // password a piacere se il manager fa autofill.
+              // autoComplete="off" + readonly-on-mount: i password manager
+              // moderni IGNORANO autoComplete="off" sui type=password. Il
+              // trucco readonly + remove-on-focus li blocca senza degradare
+              // la UX. Vedi nota nel form cambio email — per il "cambio
+              // password" il rischio è amplificato: un attacker con sessione
+              // attiva potrebbe resettare la password a piacere se il manager
+              // fa autofill.
               autoComplete="off"
               data-form-type="other"
+              readOnly
+              onFocus={(e) => e.currentTarget.removeAttribute("readonly")}
               required
               maxLength={100}
               className="pr-10"

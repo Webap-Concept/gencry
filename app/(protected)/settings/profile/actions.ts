@@ -17,7 +17,7 @@ import {
 } from "@/lib/bloom/bloom-filter";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs, ActivityType, userProfiles, users } from "@/lib/db/schema";
-import { uploadAvatarFromBuffer } from "@/lib/storage/avatars";
+import { uploadAvatarToR2 } from "@/lib/storage/r2-avatars";
 import { getUser } from "@/lib/db/queries";
 import { isLocale } from "@/lib/i18n/config";
 import { setLocaleCookie } from "@/lib/i18n/locale-cookie";
@@ -149,7 +149,7 @@ export async function uploadAvatar(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const result = await uploadAvatarFromBuffer(user.id, buffer, file.type);
+  const result = await uploadAvatarToR2(user.id, buffer, file.type);
 
   if ("error" in result) return { error: result.error };
 

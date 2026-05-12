@@ -11,6 +11,7 @@ import { getMfaState } from "@/lib/auth/mfa/queries";
 import { getSession } from "@/lib/auth/session";
 import { getUser } from "@/lib/db/queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { headers } from "next/headers";
@@ -71,6 +72,10 @@ export default async function Layout({
   };
   let mfaRedirectTo: string | null = null;
   let reconsent: Awaited<ReturnType<typeof getPendingReconsents>> = emptyReconsent;
+  // App settings letti in parallelo: serve `app_logo_url` per la sidebar.
+  // `getAppSettingsSafe` non throwa — torna DEFAULTS in caso di errore DB
+  // (più safe per il layout: meglio una sidebar senza logo che un 500).
+  const appSettings = await getAppSettingsSafe();
   try {
     const [user, policy, mfaState, reconsentResult] = await Promise.all([
       getUser(),
@@ -134,7 +139,15 @@ export default async function Layout({
     // → un utente loggato in bosco vede il tema scuro SOLO dentro questo layout.
     // La landing pubblica, /sign-in, le CMS pages restano sempre in sabbia
     // anche se html.gc-dark è attiva (vedi UserMenu/ThemeToggleItem).
-    <div className="gc-app-shell min-h-dvh bg-gc-bg">
+    // App-shell pattern (à la Twitter/Discord):
+    // - Root: `h-dvh` + `flex flex-col` + niente overflow → la pagina non
+    //   scrolla mai a livello documento
+    // - Banner e topbar restano in flow con altezza naturale (qualsiasi)
+    // - Il container 3-colonne usa `flex-1 min-h-0` → prende automaticamente
+    //   l'altezza rimanente dopo banner+topbar, senza calcoli
+    // - Solo il <main> interno ha `overflow-y-auto` → la scrollbar appare
+    //   esclusivamente lì. Sidebar e rail restano statiche/sempre visibili
+    <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
       <PageShowRevalidator />
       {reconsent.items.length > 0 && (
         <PolicyReconsentBanner
@@ -149,9 +162,9 @@ export default async function Layout({
         />
       )}
       <AppTopBar />
-      <div className="mx-auto max-w-[1440px] flex">
-        <AppSidebar />
-        <main className="flex-1 min-w-0 pb-20 md:pb-6">
+      <div className="flex-1 min-h-0 mx-auto w-full max-w-[1440px] flex">
+        <AppSidebar appLogoUrl={appSettings.app_logo_url} />
+        <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-6">
           <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Suspense fallback={null}>{children}</Suspense>
           </div>
