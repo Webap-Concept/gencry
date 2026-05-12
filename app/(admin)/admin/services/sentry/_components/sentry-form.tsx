@@ -166,6 +166,26 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
                 {t("dsnHint")}
               </p>
 
+              <div
+                className="flex gap-3 px-4 py-3 mt-3 rounded-lg text-xs"
+                style={{
+                  background:
+                    "color-mix(in oklch, var(--admin-accent) 6%, var(--admin-card-bg))",
+                  border:
+                    "1px solid color-mix(in oklch, var(--admin-accent) 20%, transparent)",
+                }}>
+                <Info
+                  size={14}
+                  className="shrink-0 mt-0.5"
+                  style={{ color: "var(--admin-accent)" }}
+                />
+                <p
+                  className="leading-relaxed"
+                  style={{ color: "var(--admin-text-muted)" }}>
+                  {t("runtimeInfoBody")}
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={handleTest}
@@ -308,14 +328,14 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
           </div>
         </div>
 
-        {/* ──── Card 3: Source Maps — env vars Vercel ──────────────── */}
+        {/* ──── Card 3: Source Maps — env vars ─────────────────────── */}
         {/* Org / project / auth token NON vivono qui: li legge il plugin
             @sentry/nextjs in next.config.ts a build-time, e quel processo
-            non ha accesso al DB delle app_settings (gira su Vercel prima
-            che la funzione serverless esista). Dobbiamo passarli via env
-            vars del progetto Vercel. Se mancano, il build non crasha ma
-            l'upload source maps è skippato → stack trace minified in
-            produzione. */}
+            non ha accesso al DB delle app_settings (gira prima che la
+            funzione serverless esista). Vanno passati come env vars del
+            progetto sulla piattaforma di hosting. Se mancano, il build
+            non crasha ma l'upload source maps è skippato → stack trace
+            minified in produzione. */}
         <div
           className="rounded-xl shadow-sm p-6"
           style={{
@@ -348,7 +368,7 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
             />
             <div className="space-y-2">
               <p style={{ color: "var(--admin-text-muted)" }}>
-                {t("vercelInfoBody")}
+                {t("envInfoBody")}
               </p>
               <ul
                 className="space-y-1 pl-0 list-none"
@@ -368,14 +388,6 @@ function SentryFormInner({ settings }: { settings: AppSettings }) {
                   </li>
                 ))}
               </ul>
-              <a
-                href="https://vercel.com/docs/environment-variables"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-1"
-                style={{ color: "var(--admin-accent)" }}>
-                {t("vercelInfoLink")} <ExternalLink size={11} />
-              </a>
             </div>
           </div>
         </div>

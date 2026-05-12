@@ -3,27 +3,43 @@
  * con `runtime: "edge"`). Caricato da instrumentation.ts.register() solo
  * quando NEXT_RUNTIME==="edge".
  *
- * L'edge runtime ha API limitata (no fs, no Node net diretto) ma il
- * client `@sentry/nextjs/edge` è già pensato per quei vincoli.
+ * IMPORTANTE: questa config NON legge dal DB.
+ * L'edge runtime non ha accesso a Node `net`/TCP, quindi non può
+ * importare drizzle/postgres-js. Tirare `loadSentryConfig` da qui
+ * romperebbe il bundle edge (proxy crasha all'init).
  *
- * Niente performance tracing in edge: in proxy.ts ci interessa solo
- * intercettare gli errori. Il sample rate ignora sempre traces.
+ * Sorgenti di config per edge — solo env vars:
+ *   SENTRY_DSN              — DSN (stessa stringa che metti in /admin/services/sentry)
+ *   SENTRY_ENVIRONMENT      — environment tag (fallback: VERCEL_ENV)
+ *   SENTRY_SEND_DEFAULT_PII — 'true' per inviare IP/email/headers (default 'false', GDPR)
+ *
+ * Se SENTRY_DSN non è settata → init no-op, nessun overhead, nessun
+ * crash. Gli errori del proxy.ts in quel caso NON finiscono in Sentry,
+ * ma il resto dell'app (Node runtime) continua a usare il DSN dal DB
+ * via sentry.server.config.ts.
+ *
+ * Niente performance tracing in edge: in proxy.ts interessa solo
+ * intercettare gli errori, traces è sempre 0.
  */
 import * as Sentry from "@sentry/nextjs";
-import { loadSentryConfig } from "@/lib/sentry/config";
 
-const cfg = await loadSentryConfig();
+const dsn = process.env.SENTRY_DSN || null;
+const environment =
+  process.env.SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || undefined;
+const sendDefaultPii = process.env.SENTRY_SEND_DEFAULT_PII === "true";
 
-if (cfg.dsn) {
+if (dsn) {
   Sentry.init({
-    dsn: cfg.dsn,
-    environment: cfg.environment ?? process.env.VERCEL_ENV ?? undefined,
+    dsn,
+    environment,
     tracesSampleRate: 0,
-    sendDefaultPii: cfg.sendDefaultPii,
+    sendDefaultPii,
   });
   // eslint-disable-next-line no-console
-  console.info(`[sentry] edge init OK (env=${cfg.environment ?? "auto"})`);
+  console.info(`[sentry] edge init OK (env=${environment ?? "auto"})`);
 } else {
   // eslint-disable-next-line no-console
-  console.info("[sentry] edge init skipped — DSN not configured");
+  console.info(
+    "[sentry] edge init skipped — SENTRY_DSN env var not set (DB-only DSN does not reach edge)",
+  );
 }
