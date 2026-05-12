@@ -38,12 +38,12 @@ export default async function SettingsSignInPage() {
         breadcrumbLabel={t("rootTitle")}
         title={t("sections.signup.label")}
         subtitle={t("sections.signup.description")}
+        infoSlot={
+          <AdminSectionInfo title={tFlow("modalTitle")} ariaLabel={tFlow("trigger")}>
+            <SignupFlowDiagram />
+          </AdminSectionInfo>
+        }
       />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <AdminSectionInfo title={tFlow("modalTitle")} ariaLabel={tFlow("trigger")}>
-          <SignupFlowDiagram />
-        </AdminSectionInfo>
-      </div>
       <SignUpTab settings={settings} roles={allRoles} systemPages={systemPages} />
     </>
   );
