@@ -3122,7 +3122,7 @@
           "network": "Impossibile raggiungere Sentry. Riproveremo al prossimo refresh.",
           "unknown": "Sentry ha risposto con un formato inatteso."
         },
-        "showAllButton": "Mostra tutti (+{count})",
+        "showAllButton": "{count, plural, =0 {Gestisci} other {Mostra tutti (+#)}}",
         "modalTitle": "Tutti gli errori (ultime 24h)",
         "modalSubtitle": "{count, plural, =0 {Nessuna issue rimasta} one {# issue non risolta} other {# issue non risolte}}",
         "modalCloseAria": "Chiudi",
@@ -3140,7 +3140,7 @@
           "unknown": "Sentry ha risposto con un formato inatteso."
         },
         "setupGuide": {
-          "intro": "Questo widget legge le issue non risolte dall'API Sentry. Servono tre env var del progetto Vercel (le prime due sono già usate dal plugin di build):",
+          "intro": "Questo widget legge le issue non risolte dall'API Sentry. Servono tre variabili d'ambiente di progetto sulla piattaforma di hosting (le prime due sono già usate dal plugin di build):",
           "env": [
             { "name": "SENTRY_ORG", "hint": "Lo slug della tua organizzazione Sentry." },
             { "name": "SENTRY_PROJECT", "hint": "Lo slug del tuo progetto Sentry." },

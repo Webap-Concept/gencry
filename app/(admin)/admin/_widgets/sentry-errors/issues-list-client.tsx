@@ -57,30 +57,28 @@ export default function IssuesListClient({
         ))}
       </ul>
 
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "7px 12px",
-            fontSize: 12,
-            fontWeight: 500,
-            borderRadius: 8,
-            border: "1px solid var(--admin-card-border)",
-            background: "var(--admin-page-bg)",
-            color: "var(--admin-text-muted)",
-            cursor: "pointer",
-            alignSelf: "flex-start",
-          }}
-        >
-          <ListPlus size={12} />
-          {t("showAllButton", { count: hiddenCount })}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setModalOpen(true)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          padding: "7px 12px",
+          fontSize: 12,
+          fontWeight: 500,
+          borderRadius: 8,
+          border: "1px solid var(--admin-card-border)",
+          background: "var(--admin-page-bg)",
+          color: "var(--admin-text-muted)",
+          cursor: "pointer",
+          alignSelf: "flex-start",
+        }}
+      >
+        <ListPlus size={12} />
+        {t("showAllButton", { count: hiddenCount })}
+      </button>
 
       <AllErrorsModal
         open={modalOpen}
