@@ -572,7 +572,7 @@
     "sections": {
       "cloudflare": {
         "label": "Cloudflare",
-        "description": "Configure Cloudflare Turnstile for bot protection on sign-in and sign-up."
+        "description": "Configure Cloudflare services: Turnstile bot protection and R2 storage for user avatars."
       },
       "github": {
         "label": "GitHub CI",
@@ -714,6 +714,9 @@
       "saving": "Saving..."
     },
     "cloudflare": {
+      "turnstileCardTitle": "Turnstile — bot protection",
+      "turnstileStatusConfigured": "Configured",
+      "turnstileStatusNotConfigured": "Not configured",
       "siteKeyLabel": "Site Key",
       "siteKeyHint": "Cloudflare Dashboard → Turnstile → your site → Site Key",
       "secretKeyLabel": "Secret Key",
@@ -730,7 +733,29 @@
       "saveButton": "Save credentials",
       "savingButton": "Saving…",
       "testButton": "Test Secret Key",
-      "testingButton": "Testing…"
+      "testingButton": "Testing…",
+      "r2Avatar": {
+        "title": "R2 storage — avatars",
+        "description": "User avatars are mirrored to a dedicated R2 bucket so the public app never serves them from Supabase Storage (egress on R2 is $0). When unconfigured, avatar uploads fail with an explicit error — there is no Supabase fallback.",
+        "statusConfigured": "Configured",
+        "statusNotConfigured": "Not configured",
+        "accountIdLabel": "Account ID",
+        "accountIdHint": "Cloudflare account ID (the part before .r2.cloudflarestorage.com in the endpoint).",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "From the R2 token (Account API Token, scoped to this bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensitive. Leave the masked placeholder unchanged to keep the saved value.",
+        "bucketLabel": "Bucket name",
+        "bucketHint": "The bucket dedicated to avatars (e.g. avatars).",
+        "bucketPlaceholder": "avatars",
+        "publicBaseLabel": "Public base URL",
+        "publicBaseHint": "Custom domain bound to the bucket (no trailing slash). Files become <base>/<userId>.<ext>.",
+        "publicBasePlaceholder": "https://avatars.example.com",
+        "saveButton": "Save credentials",
+        "savingButton": "Saving…",
+        "testButton": "Test connection",
+        "testingButton": "Testing…"
+      }
     },
     "redis": {
       "urlLabel": "REST URL",

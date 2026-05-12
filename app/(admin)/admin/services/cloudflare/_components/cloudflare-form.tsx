@@ -56,6 +56,9 @@ export function CloudflareForm({ settings }: { settings: AppSettings }) {
     ? settings.cf_turnstile_secret_key.slice(0, 6) + "????????????????"
     : "";
 
+  const turnstileFilled =
+    Boolean(settings.cf_turnstile_site_key) && Boolean(settings.cf_turnstile_secret_key);
+
   function handleTest() {
     const fd = new FormData();
     fd.append("cf_turnstile_secret_key", secretKeyRef.current?.value ?? "");
@@ -71,6 +74,25 @@ export function CloudflareForm({ settings }: { settings: AppSettings }) {
             background: "var(--admin-card-bg)",
             border: "1px solid var(--admin-card-border)",
           }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Shield size={16} style={{ color: "var(--admin-accent)" }} />
+              <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
+                {t("turnstileCardTitle")}
+              </h3>
+            </div>
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+              style={{
+                background: turnstileFilled
+                  ? "color-mix(in srgb, var(--gc-pos, #16a34a) 15%, transparent)"
+                  : "color-mix(in srgb, var(--admin-text-faint) 15%, transparent)",
+                color: turnstileFilled ? "var(--gc-pos, #16a34a)" : "var(--admin-text-faint)",
+              }}>
+              {turnstileFilled ? t("turnstileStatusConfigured") : t("turnstileStatusNotConfigured")}
+            </span>
+          </div>
+
           <div className="space-y-1.5">
             <label
               htmlFor="cf_turnstile_site_key"
@@ -241,6 +263,7 @@ function AvatarR2Card({
   settings: AppSettings;
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
+  const t = useTranslations("admin.services.cloudflare.r2Avatar");
   const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
     saveAvatarR2Settings,
     {},
@@ -288,7 +311,7 @@ function AvatarR2Card({
           <div className="flex items-center gap-2">
             <HardDrive size={16} style={{ color: "var(--admin-accent)" }} />
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
-              R2 storage — avatars
+              {t("title")}
             </h3>
           </div>
           <span
@@ -299,51 +322,49 @@ function AvatarR2Card({
                 : "color-mix(in srgb, var(--admin-text-faint) 15%, transparent)",
               color: allFilled ? "var(--gc-pos, #16a34a)" : "var(--admin-text-faint)",
             }}>
-            {allFilled ? "Configured" : "Not configured"}
+            {allFilled ? t("statusConfigured") : t("statusNotConfigured")}
           </span>
         </div>
         <p className="text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-          User avatars are mirrored to a dedicated R2 bucket so the public app never serves them
-          from Supabase Storage (egress on R2 is $0). When unconfigured, avatar uploads fail with
-          an explicit error — there is no Supabase fallback.
+          {t("description")}
         </p>
 
         <div className="space-y-4 max-w-lg">
           <AvatarR2Field
             name="storage.avatar.r2.account_id"
-            label="Account ID"
-            hint="Cloudflare account ID (the part before .r2.cloudflarestorage.com in the endpoint)."
+            label={t("accountIdLabel")}
+            hint={t("accountIdHint")}
             defaultValue={settings["storage.avatar.r2.account_id"] ?? ""}
             placeholder="32 hex chars"
           />
           <AvatarR2Field
             name="storage.avatar.r2.access_key_id"
-            label="Access key ID"
-            hint='From the R2 token (Account API Token, scoped to this bucket, "Object Read & Write").'
+            label={t("accessKeyIdLabel")}
+            hint={t("accessKeyIdHint")}
             defaultValue={settings["storage.avatar.r2.access_key_id"] ?? ""}
             placeholder=""
           />
           <AvatarR2Field
             name="storage.avatar.r2.secret_access_key"
-            label="Secret access key"
-            hint="Sensitive. Leave the masked placeholder unchanged to keep the saved value."
+            label={t("secretLabel")}
+            hint={t("secretHint")}
             defaultValue={r2SecretIsSet ? "********" : ""}
             placeholder=""
             type="password"
           />
           <AvatarR2Field
             name="storage.avatar.r2.bucket"
-            label="Bucket name"
-            hint="The bucket dedicated to avatars (e.g. avatars)."
+            label={t("bucketLabel")}
+            hint={t("bucketHint")}
             defaultValue={settings["storage.avatar.r2.bucket"] ?? ""}
-            placeholder="avatars"
+            placeholder={t("bucketPlaceholder")}
           />
           <AvatarR2Field
             name="storage.avatar.r2.public_base_url"
-            label="Public base URL"
-            hint="Custom domain bound to the bucket (no trailing slash). Files become <base>/<userId>.<ext>."
+            label={t("publicBaseLabel")}
+            hint={t("publicBaseHint")}
             defaultValue={settings["storage.avatar.r2.public_base_url"] ?? ""}
-            placeholder="https://avatars.example.com"
+            placeholder={t("publicBasePlaceholder")}
           />
         </div>
 
@@ -354,7 +375,7 @@ function AvatarR2Card({
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: "var(--admin-accent)" }}>
             {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? t("savingButton") : t("saveButton")}
           </button>
           <button
             type="submit"
@@ -367,7 +388,7 @@ function AvatarR2Card({
               border: "1px solid var(--admin-card-border)",
             }}>
             {isTesting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-            {isTesting ? "Testing..." : "Test connection"}
+            {isTesting ? t("testingButton") : t("testButton")}
           </button>
         </div>
       </div>

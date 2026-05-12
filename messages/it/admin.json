@@ -572,7 +572,7 @@
     "sections": {
       "cloudflare": {
         "label": "Cloudflare",
-        "description": "Configura Cloudflare Turnstile per la protezione anti-bot su sign-in e sign-up."
+        "description": "Configura i servizi Cloudflare: Turnstile per la protezione anti-bot e R2 storage per gli avatar utente."
       },
       "github": {
         "label": "GitHub CI",
@@ -714,6 +714,9 @@
       "saving": "Salvataggio..."
     },
     "cloudflare": {
+      "turnstileCardTitle": "Turnstile — protezione anti-bot",
+      "turnstileStatusConfigured": "Configurato",
+      "turnstileStatusNotConfigured": "Non configurato",
       "siteKeyLabel": "Site Key",
       "siteKeyHint": "Cloudflare Dashboard → Turnstile → il tuo sito → Site Key",
       "secretKeyLabel": "Secret Key",
@@ -730,7 +733,29 @@
       "saveButton": "Salva credenziali",
       "savingButton": "Salvataggio…",
       "testButton": "Testa Secret Key",
-      "testingButton": "Test in corso…"
+      "testingButton": "Test in corso…",
+      "r2Avatar": {
+        "title": "R2 storage — avatar",
+        "description": "Gli avatar utente vengono caricati su un bucket R2 dedicato così l'app pubblica non li serve mai da Supabase Storage (egress su R2 è $0). Se non configurato, l'upload avatar fallisce con un errore esplicito — nessun fallback su Supabase.",
+        "statusConfigured": "Configurato",
+        "statusNotConfigured": "Non configurato",
+        "accountIdLabel": "Account ID",
+        "accountIdHint": "ID account Cloudflare (la parte prima di .r2.cloudflarestorage.com nell'endpoint).",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "Dal token R2 (Account API Token, scoped al bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensibile. Lascia il placeholder mascherato invariato per mantenere il valore salvato.",
+        "bucketLabel": "Nome del bucket",
+        "bucketHint": "Il bucket dedicato agli avatar (es. avatars).",
+        "bucketPlaceholder": "avatars",
+        "publicBaseLabel": "URL pubblico base",
+        "publicBaseHint": "Custom domain bindato al bucket (senza slash finale). I file diventano <base>/<userId>.<ext>.",
+        "publicBasePlaceholder": "https://avatars.example.com",
+        "saveButton": "Salva credenziali",
+        "savingButton": "Salvataggio…",
+        "testButton": "Testa connessione",
+        "testingButton": "Test in corso…"
+      }
     },
     "redis": {
       "urlLabel": "REST URL",
