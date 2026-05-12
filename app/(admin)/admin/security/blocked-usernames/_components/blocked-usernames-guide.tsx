@@ -49,6 +49,7 @@ function Code({ children }: { children: React.ReactNode }) {
 const richTags = {
   b: (chunks: React.ReactNode) => <b>{chunks}</b>,
   c: (chunks: React.ReactNode) => <Code>{chunks}</Code>,
+  i: (chunks: React.ReactNode) => <i>{chunks}</i>,
 };
 
 export async function BlockedUsernamesGuide() {
