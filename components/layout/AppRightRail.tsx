@@ -29,7 +29,7 @@ export async function AppRightRail() {
   if (top.length + middle.length + bottom.length === 0) return null;
 
   return (
-    <aside className="hidden lg:flex flex-col shrink-0 w-72 py-6 pl-6 pr-4 gap-4">
+    <aside className="hidden lg:flex flex-col shrink-0 w-72 h-full overflow-y-auto py-6 pl-6 pr-4 gap-4">
       {top.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
           <Suspense fallback={<SectionSkeleton height={140} />}>

@@ -48,7 +48,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
   });
 
   return (
-    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 sticky top-0 h-screen overflow-y-auto px-4 py-6 border-r border-gc-line">
+    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 h-full overflow-y-auto px-4 py-6 border-r border-gc-line">
       {/* Header sidebar: logo a sinistra (da app_settings.app_logo_url),
           icona campana a destra. La campana linka alla pagina /notifiche
           (per ora; in futuro potrà aprire un drawer inline). Il pallino
