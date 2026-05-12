@@ -14,7 +14,6 @@ interface InitialValues {
   "modules.prices.cron_minutes": string;
   "modules.prices.universe_hours": string;
   "modules.prices.delta_threshold": string;
-  "modules.prices.kv_ttl_seconds": string;
   "modules.prices.breaker_max_err": string;
   "modules.prices.breaker_window_s": string;
   "modules.prices.breaker_open_s": string;
@@ -37,7 +36,6 @@ type NumericFieldName = Extract<
   | "modules.prices.cron_minutes"
   | "modules.prices.universe_hours"
   | "modules.prices.delta_threshold"
-  | "modules.prices.kv_ttl_seconds"
   | "modules.prices.breaker_max_err"
   | "modules.prices.breaker_window_s"
   | "modules.prices.breaker_open_s"
@@ -58,8 +56,8 @@ const FIELDS: Array<{
   // Ingestion
   {
     name: "modules.prices.cron_minutes",
-    label: "Sync interval (minutes)",
-    hint: "How often the cron pulls fresh prices from CoinGecko/DexScreener.",
+    label: "Min sync interval (minutes)",
+    hint: "Lower bound enforced in the route as an early-exit guard. pg_cron is the actual scheduler — to raise the cadence, run cron.alter_job on the price-sync job. Lowering this here lets you slow the sync without touching SQL.",
     group: "ingestion",
     type: "number",
     min: 1,
@@ -83,15 +81,6 @@ const FIELDS: Array<{
     min: 0.00001,
     max: 0.5,
     step: "0.00001",
-  },
-  {
-    name: "modules.prices.kv_ttl_seconds",
-    label: "KV cache TTL (seconds)",
-    hint: "Edge cache TTL for current price reads (when KV is wired in).",
-    group: "ingestion",
-    type: "number",
-    min: 1,
-    max: 3600,
   },
   // Circuit breaker
   {
@@ -124,8 +113,8 @@ const FIELDS: Array<{
   // History
   {
     name: "modules.prices.snapshot_minutes",
-    label: "Snapshot interval (minutes)",
-    hint: "How often a row is written to coin_prices for sparklines.",
+    label: "Min snapshot interval (minutes)",
+    hint: "Lower bound for sparkline snapshots — early-exit guard, same logic as the sync interval. The actual cadence is set in pg_cron.",
     group: "history",
     type: "number",
     min: 1,

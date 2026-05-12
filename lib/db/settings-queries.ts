@@ -170,7 +170,6 @@ export type SettingKey =
   | 'modules.prices.cron_minutes'      // intervallo cron sync prezzi (1..60)
   | 'modules.prices.universe_hours'    // finestra "active universe" (1..168)
   | 'modules.prices.delta_threshold'   // soglia upsert (0..1), es. 0.0005 = 0.05%
-  | 'modules.prices.kv_ttl_seconds'    // TTL cache KV per prezzi correnti
   | 'modules.prices.breaker_max_err'   // errori consecutivi prima di aprire il circuit breaker
   | 'modules.prices.breaker_window_s'  // finestra in secondi per il conteggio errori
   | 'modules.prices.breaker_open_s'    // durata apertura circuit breaker
@@ -361,7 +360,6 @@ export type AppSettings = {
   'modules.prices.cron_minutes': string
   'modules.prices.universe_hours': string
   'modules.prices.delta_threshold': string
-  'modules.prices.kv_ttl_seconds': string
   'modules.prices.breaker_max_err': string
   'modules.prices.breaker_window_s': string
   'modules.prices.breaker_open_s': string
@@ -531,7 +529,6 @@ const DEFAULTS: AppSettings = {
   'modules.prices.cron_minutes': '5',
   'modules.prices.universe_hours': '24',
   'modules.prices.delta_threshold': '0.0005',
-  'modules.prices.kv_ttl_seconds': '30',
   'modules.prices.breaker_max_err': '3',
   'modules.prices.breaker_window_s': '300',
   'modules.prices.breaker_open_s': '600',
