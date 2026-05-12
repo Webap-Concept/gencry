@@ -221,6 +221,16 @@ export type SettingKey =
   | 'sentry.traces_sample_rate'           // '0'..'1' — performance monitoring (default '0' = off)
   | 'sentry.replays_on_error_sample_rate' // '0'..'1' — session replay sull'errore (default '0' = off)
   | 'sentry.send_default_pii'             // 'true'|'false' — invia IP/email/headers utente (default 'false' per GDPR)
+  // R2 storage per avatar utente — core feature (non-modulo). Bucket dedicato
+  // `avatars` (separato dal bucket modulo prices/coins per isolamento token).
+  // Se anche solo una chiave è vuota, l'upload avatar fallisce con errore
+  // esplicito (no fallback Supabase: il refactor 2026-05-12 ha rimosso il
+  // dual-backend per semplicità). Vedi /admin/services/storage-avatar.
+  | 'storage.avatar.r2.account_id'
+  | 'storage.avatar.r2.access_key_id'
+  | 'storage.avatar.r2.secret_access_key'
+  | 'storage.avatar.r2.bucket'
+  | 'storage.avatar.r2.public_base_url'
 
 export type AppSettings = {
   app_name: string
@@ -385,6 +395,12 @@ export type AppSettings = {
   'sentry.traces_sample_rate': string
   'sentry.replays_on_error_sample_rate': string
   'sentry.send_default_pii': string
+  // R2 storage per avatar utente (core feature)
+  'storage.avatar.r2.account_id': string | null
+  'storage.avatar.r2.access_key_id': string | null
+  'storage.avatar.r2.secret_access_key': string | null
+  'storage.avatar.r2.bucket': string | null
+  'storage.avatar.r2.public_base_url': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -556,6 +572,14 @@ const DEFAULTS: AppSettings = {
   'sentry.traces_sample_rate': '0',
   'sentry.replays_on_error_sample_rate': '0',
   'sentry.send_default_pii': 'false',
+  // R2 storage per avatar — null finché l'admin non configura via
+  // /admin/services/storage-avatar. Tutte e 5 le chiavi richieste per
+  // upload funzionante (no fallback Supabase).
+  'storage.avatar.r2.account_id': null,
+  'storage.avatar.r2.access_key_id': null,
+  'storage.avatar.r2.secret_access_key': null,
+  'storage.avatar.r2.bucket': null,
+  'storage.avatar.r2.public_base_url': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
