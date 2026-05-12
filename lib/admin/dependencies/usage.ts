@@ -56,7 +56,13 @@ export async function scanUsageCounts(
   const namesSet = new Set(packageNames);
 
   for (const root of SCAN_ROOTS) {
-    const absRoot = path.join(process.cwd(), root);
+    // turbopackIgnore: senza, il file-tracer vede `path.join(process.cwd(),
+    // <var>)` + fs.readdir/readFile su path dinamici e include "the whole
+    // project" nell'NFT, producendo il warning "Encountered unexpected file
+    // in NFT list" durante `next build`. La scan è intenzionalmente runtime
+    // (gira solo quando admin apre /admin/services/dependencies) e non va
+    // pre-bundlata.
+    const absRoot = path.join(/* turbopackIgnore: true */ process.cwd(), root);
     try {
       await scanDir(absRoot, namesSet, counts);
     } catch {
