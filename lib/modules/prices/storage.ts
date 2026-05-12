@@ -16,7 +16,12 @@
 // Se R2 non è configurato (config.r2 === null), `mirrorCoinImage` ritorna
 // `null` — i caller fanno fallback all'URL sorgente (UX degradata: il
 // frontend pubblico mostra solo iniziali finché R2 non è configurato).
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadBucketCommand,
+} from "@aws-sdk/client-s3";
 import type { PricesR2Config } from "./config";
 
 /** Crea un client S3-compatible puntato a R2 dell'account configurato. */
@@ -77,6 +82,64 @@ export async function mirrorCoinImage(
   );
 
   return `${r2.publicBaseUrl}/${key}`;
+}
+
+/**
+ * Verifica che le credenziali R2 siano valide e che il bucket sia accessibile.
+ * Usato dal bottone "Test connection" nel form admin. HeadBucket è la
+ * primitiva S3 più leggera per validare auth+bucket: 1 request, no body.
+ * Discrimina i casi più comuni (forbidden/not-found/network/timeout) così
+ * la UI può mostrare un messaggio azionabile invece di "errore generico".
+ */
+export type R2ConnectionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "forbidden" | "not_found" | "network" | "timeout" | "unknown";
+      detail?: string;
+    };
+
+export async function checkR2Connection(
+  r2: PricesR2Config,
+): Promise<R2ConnectionResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const client = createR2Client(r2);
+    await client.send(new HeadBucketCommand({ Bucket: r2.bucket }), {
+      abortSignal: controller.signal,
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, reason: "timeout" };
+    }
+    // The S3 SDK wraps HTTP status as a $metadata.httpStatusCode field on
+    // the error. Inspect it without depending on the concrete class.
+    const status =
+      typeof err === "object" && err !== null && "$metadata" in err
+        ? (err as { $metadata?: { httpStatusCode?: number } }).$metadata
+            ?.httpStatusCode
+        : undefined;
+    if (status === 401 || status === 403) {
+      return { ok: false, reason: "forbidden" };
+    }
+    if (status === 404) {
+      return { ok: false, reason: "not_found" };
+    }
+    // Network-level failures (DNS, TLS, refused) surface as fetch TypeError
+    // or AWS SDK NetworkingError before a status is assigned.
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      err instanceof TypeError ||
+      /network|fetch failed|ECONNREFUSED|ENOTFOUND|getaddrinfo/i.test(message)
+    ) {
+      return { ok: false, reason: "network", detail: message };
+    }
+    return { ok: false, reason: "unknown", detail: message };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**

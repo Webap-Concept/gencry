@@ -3,10 +3,14 @@
 import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
-import { updateAppSetting } from "@/lib/db/settings-queries";
+import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { getPricesConfig } from "@/lib/modules/prices/config";
 import { fetchCoinMetadata } from "@/lib/modules/prices/sources/coingecko";
-import { deleteCoinImage, mirrorCoinImage } from "@/lib/modules/prices/storage";
+import {
+  checkR2Connection,
+  deleteCoinImage,
+  mirrorCoinImage,
+} from "@/lib/modules/prices/storage";
 import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/modules/prices/sync";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -135,6 +139,71 @@ export async function testCoinGeckoProAction(
     return { success: "Connected (response OK).", timestamp: Date.now() };
   } catch {
     return { error: "Test failed.", timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// R2 storage — test connection
+// ─────────────────────────────────────────────────────────────────────────
+//
+// HeadBucket verifica auth + esistenza+accesso al bucket in un'unica call.
+// Il form invia il sentinel "********" quando l'utente non tocca il secret;
+// in quel caso recuperiamo il valore reale dal DB così l'admin può testare
+// la combinazione corrente senza dover reincollare il secret.
+export async function testR2Action(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const accountId    = ((formData.get("modules.prices.r2.account_id")        as string) ?? "").trim();
+    const accessKeyId  = ((formData.get("modules.prices.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("modules.prices.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("modules.prices.r2.bucket")            as string) ?? "").trim();
+    const publicBase   = ((formData.get("modules.prices.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    let secretAccessKey = secretRaw;
+    if (!secretAccessKey || secretAccessKey === "********") {
+      const settings = await getAppSettings();
+      secretAccessKey = (settings["modules.prices.r2.secret_access_key"] ?? "").trim();
+    }
+
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBase) {
+      return {
+        error: "Fill in all 5 R2 fields (and save the secret at least once) before testing.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const result = await checkR2Connection({
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      publicBaseUrl: publicBase,
+    });
+
+    if (result.ok) {
+      return {
+        success: `R2 connection OK · bucket "${bucket}" reachable.`,
+        timestamp: Date.now(),
+      };
+    }
+
+    const message =
+      result.reason === "forbidden"
+        ? "Forbidden — the token does not have access to this bucket. Check Account ID, Access Key ID and Secret."
+        : result.reason === "not_found"
+          ? `Bucket "${bucket}" not found on this Cloudflare account.`
+          : result.reason === "network"
+            ? "Network error reaching the R2 endpoint. Check connectivity and Account ID."
+            : result.reason === "timeout"
+              ? "Timeout (10s) reaching R2. The endpoint did not respond in time."
+              : `Unexpected error${result.detail ? `: ${result.detail}` : ""}.`;
+
+    return { error: message, timestamp: Date.now() };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Test failed.";
+    return { error: message, timestamp: Date.now() };
   }
 }
 

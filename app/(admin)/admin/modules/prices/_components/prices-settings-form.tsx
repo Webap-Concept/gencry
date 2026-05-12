@@ -6,6 +6,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import {
   savePricesSettings,
   testCoinGeckoProAction,
+  testR2Action,
   type ActionState,
 } from "../actions";
 
@@ -156,9 +157,14 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
     testCoinGeckoProAction,
     {},
   );
+  const [r2TestState, r2TestAction, isR2Testing] = useActionState<ActionState, FormData>(
+    testR2Action,
+    {},
+  );
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const lastTs = useRef<number>(0);
   const lastTestTs = useRef<number>(0);
+  const lastR2TestTs = useRef<number>(0);
 
   useEffect(() => {
     if (!("timestamp" in state)) return;
@@ -179,6 +185,16 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
     if ("error" in testState && testState.error)
       setToast({ message: testState.error, type: "error" });
   }, [testState]);
+
+  useEffect(() => {
+    if (!("timestamp" in r2TestState)) return;
+    if (r2TestState.timestamp === lastR2TestTs.current) return;
+    lastR2TestTs.current = r2TestState.timestamp;
+    if ("success" in r2TestState && r2TestState.success)
+      setToast({ message: r2TestState.success, type: "success" });
+    if ("error" in r2TestState && r2TestState.error)
+      setToast({ message: r2TestState.error, type: "error" });
+  }, [r2TestState]);
 
   const groups = (["ingestion", "breaker", "history"] as const).map((g) => ({
     key: g,
@@ -317,7 +333,12 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           </div>
         </div>
 
-        <R2StorageCard initial={initial} />
+        <R2StorageCard
+          initial={initial}
+          testAction={r2TestAction}
+          isTesting={isR2Testing}
+          isPending={isPending}
+        />
 
         <div
           className="rounded-xl shadow-sm p-4 text-[11px]"
@@ -355,7 +376,17 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
 // R2 storage card — coin images self-hosted on Cloudflare R2
 // ---------------------------------------------------------------------------
 
-function R2StorageCard({ initial }: { initial: InitialValues }) {
+function R2StorageCard({
+  initial,
+  testAction,
+  isTesting,
+  isPending,
+}: {
+  initial: InitialValues;
+  testAction: (formData: FormData) => void;
+  isTesting: boolean;
+  isPending: boolean;
+}) {
   const allFilled =
     Boolean(initial["modules.prices.r2.account_id"]) &&
     Boolean(initial["modules.prices.r2.access_key_id"]) &&
@@ -428,6 +459,33 @@ function R2StorageCard({ initial }: { initial: InitialValues }) {
           defaultValue={initial["modules.prices.r2.public_base_url"] ?? ""}
           placeholder="https://coins.example.com"
         />
+        <div>
+          {/* formAction overrides the form's main action only for this
+           *  button: validate credentials + bucket via HeadBucket WITHOUT
+           *  saving anything else. The form must still include the secret
+           *  input (or its "********" sentinel — server-side re-reads
+           *  the real value from the DB in that case). */}
+          <button
+            type="submit"
+            formAction={testAction}
+            disabled={isTesting || isPending}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              background: "transparent",
+              color: "var(--admin-text-muted)",
+              border: "1px solid var(--admin-input-border)",
+            }}>
+            {isTesting ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={12} />
+            )}
+            {isTesting ? "Testing..." : "Test connection"}
+          </button>
+          <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
+            Validates credentials + bucket via S3 HeadBucket. Doesn't touch the public URL.
+          </p>
+        </div>
       </div>
     </div>
   );
