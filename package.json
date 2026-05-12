@@ -54,7 +54,7 @@
     "drizzle-orm": "^0.45.2",
     "jose": "^6.0.11",
     "lucide-react": "^1.7.0",
-    "next": "16.2.6",
+    "next": "16.2.2",
     "next-intl": "^4.11.0",
     "otpauth": "^9.5.1",
     "postcss": "^8.5.3",
