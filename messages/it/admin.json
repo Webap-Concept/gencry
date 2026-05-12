@@ -561,6 +561,75 @@
           "label": "Marketing Policy",
           "description": "Versione salvata alla registrazione nel campo accepted_marketing_version"
         }
+      },
+      "flowDiagram": {
+        "trigger": "Vedi flusso di registrazione",
+        "modalTitle": "Flusso di registrazione utente",
+        "intro": "Pipeline lineare di ogni controllo che parte quando un utente invia il form di registrazione. Ogni step linka alla sezione admin dove si configura il comportamento.",
+        "groups": {
+          "input": "Input & validazione",
+          "security": "Controlli di sicurezza",
+          "db": "Persistenza database",
+          "side": "Effetti collaterali"
+        },
+        "steps": {
+          "validation": {
+            "label": "Validazione schema",
+            "description": "Lo schema Zod valida username (3-50 char), formato email, password (min 8, maiuscola, numero, carattere speciale) e i tre checkbox consensi (terms, privacy, marketing)."
+          },
+          "registrationsEnabled": {
+            "label": "Registrazioni abilitate?",
+            "description": "Master switch letto da app_settings. Se disabilitato, il form di registrazione restituisce errore immediatamente."
+          },
+          "turnstile": {
+            "label": "Verifica Cloudflare Turnstile",
+            "description": "Token anti-bot validato lato server. Se le chiavi non sono configurate, la protezione è silenziosamente disabilitata."
+          },
+          "rateLimit": {
+            "label": "Rate limit registrazione",
+            "description": "Throttle per IP: massimo bf_signup_max tentativi in bf_window_minutes. Blocca sia gli abusi sia gli attacchi di enumerazione."
+          },
+          "blacklists": {
+            "label": "Blacklist (in parallelo)",
+            "description": "Tre denylist indipendenti girano in parallelo: IP (cached su Redis), domini email usa-e-getta (Postgres), username riservati (in-memory)."
+          },
+          "availability": {
+            "label": "Check disponibilità (in parallelo)",
+            "description": "Univocità email + username verificata prima via Bloom filter (no rete) poi DB (autoritativa). Taglia i duplicati prima di toccare il DB."
+          },
+          "consents": {
+            "label": "Lettura versioni consensi",
+            "description": "Versioni terms / privacy / marketing risolte dalle CMS pages — salvate insieme al record utente per provare in audit cosa ha accettato."
+          },
+          "hashPassword": {
+            "label": "Hash password",
+            "description": "Hash bcrypt calcolato lato server. Il plaintext non tocca mai il database."
+          },
+          "insertUser": {
+            "label": "Insert users + profiles",
+            "description": "Due righe correlate in una sequenza quasi atomica. I vincoli UNIQUE catturano eventuali race condition (rare ma reali)."
+          },
+          "bloomUpdate": {
+            "label": "Update Bloom filter",
+            "description": "Email + username aggiunti al Bloom filter del processo così il prossimo signup li vede istantaneamente senza un round-trip DB extra."
+          },
+          "consentLedger": {
+            "label": "Ledger consensi GDPR",
+            "description": "Record append-only dei consensi (Art. 7). IP + UA catturati secondo la strategia configurata in /admin/compliance/gdpr."
+          },
+          "sendEmail": {
+            "label": "Invio email di verifica",
+            "description": "Codice 6-cifre generato e spedito via Resend. L'utente atterra sulla pagina verify-email dopo l'invio."
+          }
+        },
+        "linkLabel": "Configura in",
+        "externalServices": {
+          "heading": "Servizi esterni coinvolti",
+          "cloudflare": "Cloudflare Turnstile",
+          "redis": "Upstash Redis",
+          "supabase": "Supabase Postgres",
+          "resend": "Resend"
+        }
       }
     }
   },
