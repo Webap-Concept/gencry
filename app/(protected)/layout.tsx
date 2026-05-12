@@ -11,6 +11,7 @@ import { getMfaState } from "@/lib/auth/mfa/queries";
 import { getSession } from "@/lib/auth/session";
 import { getUser } from "@/lib/db/queries";
 import { getSystemPageSlugs } from "@/lib/db/pages-queries";
+import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { headers } from "next/headers";
@@ -71,6 +72,10 @@ export default async function Layout({
   };
   let mfaRedirectTo: string | null = null;
   let reconsent: Awaited<ReturnType<typeof getPendingReconsents>> = emptyReconsent;
+  // App settings letti in parallelo: serve `app_logo_url` per la sidebar.
+  // `getAppSettingsSafe` non throwa — torna DEFAULTS in caso di errore DB
+  // (più safe per il layout: meglio una sidebar senza logo che un 500).
+  const appSettings = await getAppSettingsSafe();
   try {
     const [user, policy, mfaState, reconsentResult] = await Promise.all([
       getUser(),
@@ -150,7 +155,7 @@ export default async function Layout({
       )}
       <AppTopBar />
       <div className="mx-auto max-w-[1440px] flex">
-        <AppSidebar />
+        <AppSidebar appLogoUrl={appSettings.app_logo_url} />
         <main className="flex-1 min-w-0 pb-20 md:pb-6">
           <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Suspense fallback={null}>{children}</Suspense>

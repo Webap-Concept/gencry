@@ -15,6 +15,12 @@ import type { UserWithProfile } from "@/lib/db/schema";
 
 // Sidebar fissa della home loggata. Visibile da md in su; su mobile la
 // navigazione passa al bottom-nav (vedi AppBottomNav).
+//
+// Layout: l'intero aside è `sticky h-screen` e `overflow-y-auto` —
+// quando i contenuti (logo + nav + button + user-menu in fondo) sono
+// più alti del viewport, lo scroll è INTERNO alla sidebar. Senza
+// l'overflow, il blocco user-menu spinto da `mt-auto` veniva tagliato
+// quando l'utente scrollava in alto fuori dalla finestra visibile.
 
 type NavItem = {
   href: string;
@@ -33,7 +39,7 @@ const NAV: NavItem[] = [
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function AppSidebar() {
+export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
   const pathname = usePathname();
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
     revalidateOnFocus: false,
@@ -43,14 +49,22 @@ export function AppSidebar() {
   });
 
   return (
-    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 sticky top-0 h-screen px-4 py-6 border-r border-gc-line">
-      {/* Logo */}
+    <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 sticky top-0 h-screen overflow-y-auto px-4 py-6 border-r border-gc-line">
+      {/* Logo dell'app — letto da app_settings.app_logo_url. Se non
+          configurato, fallback testuale con "generazionecrypto" minimale. */}
       <Link href="/" className="mb-8 inline-block">
-        <div className="font-medium text-[19px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
-          generazione
-          <br />
-          <span className="text-gc-accent">crypto</span>
-        </div>
+        {appLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={appLogoUrl}
+            alt="Home"
+            className="h-10 w-auto object-contain"
+          />
+        ) : (
+          <span className="font-medium text-[19px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
+            generazione<span className="text-gc-accent">crypto</span>
+          </span>
+        )}
       </Link>
 
       {/* Nav */}
