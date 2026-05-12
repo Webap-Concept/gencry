@@ -14,7 +14,7 @@ export default async function SuspiciousSessionsWidget() {
   // and slicing in JS once volume grows.
   //
   // Reasons share the labels already maintained in
-  // `admin.notifications.rules.*` — fetching that namespace too avoids
+  // `admin.settings.notifications.rules.*` — fetching that namespace too avoids
   // duplicating a 13-entry dictionary in the widget i18n.
   const [totalRows, recent, t, tRules] = await Promise.all([
     db
@@ -33,7 +33,7 @@ export default async function SuspiciousSessionsWidget() {
       .orderBy(desc(sessionAlerts.createdAt))
       .limit(TOP_LIMIT),
     getTranslations("admin.dashboard.widgets.suspiciousSessions"),
-    getTranslations("admin.notifications.rules"),
+    getTranslations("admin.settings.notifications.rules"),
   ]);
 
   const total = totalRows[0]?.value ?? 0;
