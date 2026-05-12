@@ -122,21 +122,26 @@ const nextConfig: NextConfig = {
 
 // Sentry build plugin: si occupa di iniettare le source maps (se
 // SENTRY_AUTH_TOKEN/ORG/PROJECT sono settati come env var Vercel) e di
-// instrumentare il bundle. Quando il token non c'è, il plugin fa skip
-// silenzioso del source maps upload — il build non rompe in dev/CI.
+// instrumentare il bundle.
+//
+// In locale (senza SENTRY_AUTH_TOKEN) il wrapping viene saltato del
+// tutto: il plugin internamente fa trace dell'intero progetto per le
+// source maps e con Turbopack genera il warning "Encountered unexpected
+// file in NFT list" — rumore inutile su una build dev che non uplaod
+// nulla. In CI/Vercel il token c'è ed il plugin si attiva normalmente.
 //
 // I sample rate / DSN runtime non passano da qui: vivono in app_settings
 // e li legge `lib/sentry/config.ts` al cold start (server) o via
 // `window.__SENTRY_CONFIG__` (client, iniettato dal root layout).
-const withSentry = (cfg: NextConfig) =>
-  withSentryConfig(cfg, {
+const withSentry = (cfg: NextConfig): NextConfig => {
+  if (!process.env.SENTRY_AUTH_TOKEN) return cfg;
+  return withSentryConfig(cfg, {
     // Build-time only. In runtime questi valori non hanno effetto.
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     authToken: process.env.SENTRY_AUTH_TOKEN,
     silent: !process.env.CI,
-    // Disabilita upload source maps quando il token non c'è (dev/locale).
-    sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    sourcemaps: { disable: false },
     // Tunnel route: aggira gli ad-blocker (sentry.io spesso bloccato).
     // Niente fetch a sentry.io dal client — passa per /monitoring del
     // tuo dominio. Costo: 1 route extra Next handler.
@@ -144,6 +149,7 @@ const withSentry = (cfg: NextConfig) =>
     // Note: `disableLogger` e `automaticVercelMonitors` ora sono opzioni
     // sotto `webpack.*` ma non supportate da Turbopack (Next 16). I default
     // sono già conservativi, lasciamo che il plugin decida.
-  });
+  }) as NextConfig;
+};
 
 export default withSentry(withNextIntl(nextConfig));
