@@ -4,9 +4,11 @@ import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
 import { updateAppSetting } from "@/lib/db/settings-queries";
+import { getPricesConfig } from "@/lib/modules/prices/config";
 import { fetchCoinMetadata } from "@/lib/modules/prices/sources/coingecko";
+import { deleteCoinImage, mirrorCoinImage } from "@/lib/modules/prices/storage";
 import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/modules/prices/sync";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export type ActionState =
@@ -53,6 +55,27 @@ export async function savePricesSettings(
     );
     const proApiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
     await updateAppSetting("modules.prices.coingecko_pro_api_key", proApiKey || null);
+
+    // R2 storage settings — campi hidden+text dal form. Salviamo l'intera tupla;
+    // il config layer (`getPricesConfig.parseR2Config`) considera R2 attivo solo
+    // se TUTTE e 5 le chiavi sono valorizzate non-vuote.
+    const r2AccountId    = ((formData.get("modules.prices.r2.account_id")        as string) ?? "").trim();
+    const r2AccessKeyId  = ((formData.get("modules.prices.r2.access_key_id")     as string) ?? "").trim();
+    const r2SecretRaw    = ((formData.get("modules.prices.r2.secret_access_key") as string) ?? "").trim();
+    const r2Bucket       = ((formData.get("modules.prices.r2.bucket")            as string) ?? "").trim();
+    const r2PublicBase   = ((formData.get("modules.prices.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    await updateAppSetting("modules.prices.r2.account_id",        r2AccountId    || null);
+    await updateAppSetting("modules.prices.r2.access_key_id",     r2AccessKeyId  || null);
+    // Sentinel "********" significa "non modificare" (la UI mostra il placeholder
+    // mascherato per non rivelare il secret salvato). Aggiorna solo se cambiato.
+    if (r2SecretRaw && r2SecretRaw !== "********") {
+      await updateAppSetting("modules.prices.r2.secret_access_key", r2SecretRaw);
+    } else if (!r2SecretRaw) {
+      await updateAppSetting("modules.prices.r2.secret_access_key", null);
+    }
+    await updateAppSetting("modules.prices.r2.bucket",            r2Bucket       || null);
+    await updateAppSetting("modules.prices.r2.public_base_url",   r2PublicBase   || null);
 
     revalidatePath(await getAdminPath("prices-settings"));
     return { success: "Prices settings saved.", timestamp: Date.now() };
@@ -180,13 +203,24 @@ export async function addCoinAction(
     if (!meta) {
       return { error: `CoinGecko ID "${coingeckoId}" not found.`, timestamp: Date.now() };
     }
+
+    // Mirror dell'image su R2 se configurato — l'URL salvato in DB punta al
+    // nostro custom domain, niente fetch esterni dal frontend pubblico. Se R2
+    // non è configurato, fallback all'URL CoinGecko (graceful degradation).
+    const cfg = await getPricesConfig();
+    const finalImageUrl = await mirrorImageWithFallback(
+      cfg.r2,
+      meta.symbol,
+      meta.imageUrl ?? null,
+    );
+
     await db
       .insert(pricesCoins)
       .values({
         symbol: meta.symbol,
         coingeckoId,
         name: meta.name,
-        imageUrl: meta.imageUrl ?? null,
+        imageUrl: finalImageUrl,
         marketCap: meta.marketCap ?? null,
         category: meta.category ?? null,
         isActive: true,
@@ -196,7 +230,7 @@ export async function addCoinAction(
         set: {
           coingeckoId,
           name: meta.name,
-          imageUrl: meta.imageUrl ?? null,
+          imageUrl: finalImageUrl,
           marketCap: meta.marketCap ?? null,
           category: meta.category ?? null,
           isActive: true,
@@ -221,11 +255,19 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
     if (!meta) {
       return { error: `${symbol}: CoinGecko returned no data.`, timestamp: Date.now() };
     }
+
+    const cfg = await getPricesConfig();
+    const finalImageUrl = await mirrorImageWithFallback(
+      cfg.r2,
+      meta.symbol,
+      meta.imageUrl ?? null,
+    );
+
     await db
       .update(pricesCoins)
       .set({
         name: meta.name,
-        imageUrl: meta.imageUrl ?? null,
+        imageUrl: finalImageUrl,
         marketCap: meta.marketCap ?? null,
         category: meta.category ?? null,
         updatedAt: new Date(),
@@ -259,10 +301,118 @@ export async function toggleCoinActiveAction(
 
 export async function deleteCoinAction(symbol: string): Promise<ActionState> {
   try {
+    // Pulisci R2 prima del delete DB. Se R2 fallisce loggiamo ma proseguiamo:
+    // un orphan in R2 è meno grave di un orphan in DB.
+    const [existing] = await db
+      .select({ imageUrl: pricesCoins.imageUrl })
+      .from(pricesCoins)
+      .where(eq(pricesCoins.symbol, symbol))
+      .limit(1);
+    if (existing?.imageUrl) {
+      const cfg = await getPricesConfig();
+      await deleteCoinImage(cfg.r2, symbol, existing.imageUrl);
+    }
+
     await db.delete(pricesCoins).where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
     return { success: `${symbol} removed.`, timestamp: Date.now() };
   } catch {
     return { error: "Delete failed.", timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Backfill: rimirror su R2 tutte le coin con image_url legacy CoinGecko
+// (URL che non inizia col custom domain R2 configurato). Idempotente:
+// ri-runnabile, salta le coin già migrate.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function backfillCoinImagesAction(): Promise<ActionState> {
+  try {
+    const cfg = await getPricesConfig();
+    if (!cfg.r2) {
+      return {
+        error: "R2 is not configured. Fill in the R2 storage settings first.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const r2Prefix = cfg.r2.publicBaseUrl + "/";
+    const allCoins = await db
+      .select({
+        symbol:      pricesCoins.symbol,
+        imageUrl:    pricesCoins.imageUrl,
+        coingeckoId: pricesCoins.coingeckoId,
+      })
+      .from(pricesCoins)
+      .where(isNotNull(pricesCoins.imageUrl));
+
+    let migrated = 0;
+    let skipped  = 0;
+    let failed   = 0;
+    const failedSymbols: string[] = [];
+
+    for (const coin of allCoins) {
+      const url = coin.imageUrl ?? "";
+      if (url.startsWith(r2Prefix)) {
+        skipped++;
+        continue;
+      }
+      try {
+        const newUrl = await mirrorCoinImage(cfg.r2, coin.symbol, url);
+        if (!newUrl) {
+          failed++;
+          failedSymbols.push(coin.symbol);
+          continue;
+        }
+        await db
+          .update(pricesCoins)
+          .set({ imageUrl: newUrl, updatedAt: new Date() })
+          .where(eq(pricesCoins.symbol, coin.symbol));
+        migrated++;
+      } catch (err) {
+        console.error(`[backfill] ${coin.symbol} failed:`, err);
+        failed++;
+        failedSymbols.push(coin.symbol);
+      }
+    }
+
+    revalidatePath(await getAdminPath("prices-coins"));
+    const detail =
+      failed > 0
+        ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
+        : "";
+    return {
+      success: `Backfill done · migrated ${migrated} · skipped ${skipped} · failed ${failed}${detail}`,
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Backfill failed";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Internals
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tenta il mirror su R2; se R2 non è configurato o il mirror fallisce,
+ * ritorna l'URL sorgente come fallback. Mai throw — i caller non devono
+ * preoccuparsi: `null` se non c'è proprio immagine da salvare.
+ */
+async function mirrorImageWithFallback(
+  r2: Awaited<ReturnType<typeof getPricesConfig>>["r2"],
+  symbol: string,
+  sourceUrl: string | null,
+): Promise<string | null> {
+  if (!sourceUrl) return null;
+  if (!r2) return sourceUrl;
+  try {
+    const mirrored = await mirrorCoinImage(r2, symbol, sourceUrl);
+    return mirrored ?? sourceUrl;
+  } catch (err) {
+    console.error(`[prices/actions] R2 mirror failed for ${symbol}, using source URL:`, err);
+    return sourceUrl;
   }
 }

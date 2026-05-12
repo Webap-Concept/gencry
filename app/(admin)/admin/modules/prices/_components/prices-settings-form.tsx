@@ -21,10 +21,31 @@ interface InitialValues {
   "modules.prices.retention_days": string;
   "modules.prices.coingecko_pro_enabled": string;
   "modules.prices.coingecko_pro_api_key": string | null;
+  // R2 storage. `r2SecretIsSet` viene calcolato server-side: il valore reale
+  // del secret NON viaggia mai al client (sicurezza). La UI mostra il
+  // sentinel "********" come placeholder se il secret è già salvato.
+  "modules.prices.r2.account_id": string | null;
+  "modules.prices.r2.access_key_id": string | null;
+  "modules.prices.r2.bucket": string | null;
+  "modules.prices.r2.public_base_url": string | null;
+  r2SecretIsSet: boolean;
 }
 
+type NumericFieldName = Extract<
+  keyof InitialValues,
+  | "modules.prices.cron_minutes"
+  | "modules.prices.universe_hours"
+  | "modules.prices.delta_threshold"
+  | "modules.prices.kv_ttl_seconds"
+  | "modules.prices.breaker_max_err"
+  | "modules.prices.breaker_window_s"
+  | "modules.prices.breaker_open_s"
+  | "modules.prices.snapshot_minutes"
+  | "modules.prices.retention_days"
+>;
+
 const FIELDS: Array<{
-  name: keyof InitialValues;
+  name: NumericFieldName;
   label: string;
   hint: string;
   group: "ingestion" | "breaker" | "history";
@@ -296,6 +317,8 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           </div>
         </div>
 
+        <R2StorageCard initial={initial} />
+
         <div
           className="rounded-xl shadow-sm p-4 text-[11px]"
           style={{
@@ -325,5 +348,130 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
         <AdminToast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// R2 storage card — coin images self-hosted on Cloudflare R2
+// ---------------------------------------------------------------------------
+
+function R2StorageCard({ initial }: { initial: InitialValues }) {
+  const allFilled =
+    Boolean(initial["modules.prices.r2.account_id"]) &&
+    Boolean(initial["modules.prices.r2.access_key_id"]) &&
+    initial.r2SecretIsSet &&
+    Boolean(initial["modules.prices.r2.bucket"]) &&
+    Boolean(initial["modules.prices.r2.public_base_url"]);
+
+  return (
+    <div
+      className="rounded-xl shadow-sm p-6"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
+          Storage — Cloudflare R2 (coin images)
+        </h3>
+        <span
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+          style={{
+            background: allFilled
+              ? "color-mix(in srgb, var(--gc-pos, #16a34a) 15%, transparent)"
+              : "color-mix(in srgb, var(--admin-text-faint) 15%, transparent)",
+            color: allFilled ? "var(--gc-pos, #16a34a)" : "var(--admin-text-faint)",
+          }}>
+          {allFilled ? "Configured" : "Not configured"}
+        </span>
+      </div>
+      <p className="text-[11px] mb-5" style={{ color: "var(--admin-text-faint)" }}>
+        Coin images are downloaded from CoinGecko and mirrored to a dedicated R2 bucket so the public
+        frontend never fetches from <code className="font-mono">assets.coingecko.com</code>. Egress on R2
+        is $0 — images served via your custom domain. While unconfigured, image URLs in the DB stay on
+        CoinGecko and the public picker shows initials only.
+      </p>
+      <div className="space-y-4 max-w-lg">
+        <R2Field
+          name="modules.prices.r2.account_id"
+          label="Account ID"
+          hint="Cloudflare account ID (the part before .r2.cloudflarestorage.com in the endpoint)."
+          defaultValue={initial["modules.prices.r2.account_id"] ?? ""}
+          placeholder="32 hex chars"
+        />
+        <R2Field
+          name="modules.prices.r2.access_key_id"
+          label="Access key ID"
+          hint='From the R2 token (Account API token, scoped to this bucket, "Object Read & Write").'
+          defaultValue={initial["modules.prices.r2.access_key_id"] ?? ""}
+          placeholder=""
+        />
+        <R2Field
+          name="modules.prices.r2.secret_access_key"
+          label="Secret access key"
+          hint="Sensitive. Leave the masked placeholder unchanged to keep the saved value."
+          defaultValue={initial.r2SecretIsSet ? "********" : ""}
+          placeholder=""
+          type="password"
+        />
+        <R2Field
+          name="modules.prices.r2.bucket"
+          label="Bucket name"
+          hint="The bucket dedicated to coin images (e.g. coins)."
+          defaultValue={initial["modules.prices.r2.bucket"] ?? ""}
+          placeholder="coins"
+        />
+        <R2Field
+          name="modules.prices.r2.public_base_url"
+          label="Public base URL"
+          hint="Custom domain bound to the bucket (no trailing slash). Files become <base>/<symbol>.png."
+          defaultValue={initial["modules.prices.r2.public_base_url"] ?? ""}
+          placeholder="https://coins.example.com"
+        />
+      </div>
+    </div>
+  );
+}
+
+function R2Field({
+  name,
+  label,
+  hint,
+  defaultValue,
+  placeholder,
+  type = "text",
+}: {
+  name: string;
+  label: string;
+  hint: string;
+  defaultValue: string;
+  placeholder: string;
+  type?: "text" | "password";
+}) {
+  return (
+    <div>
+      <label
+        className="block text-xs font-medium mb-1.5"
+        style={{ color: "var(--admin-text-muted)" }}>
+        {label}
+      </label>
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        autoComplete="off"
+        spellCheck={false}
+        className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
+        style={{
+          background: "var(--admin-page-bg)",
+          border: "1px solid var(--admin-input-border)",
+          color: "var(--admin-text)",
+        }}
+      />
+      <p className="text-[11px] mt-1" style={{ color: "var(--admin-text-faint)" }}>
+        {hint}
+      </p>
+    </div>
   );
 }

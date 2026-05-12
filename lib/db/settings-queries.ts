@@ -178,6 +178,12 @@ export type SettingKey =
   | 'modules.prices.retention_days'    // retention coin_prices in giorni
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
+  // R2 storage per coin images (un bucket dedicato per modulo, vedi project_social_storage_r2.md)
+  | 'modules.prices.r2.account_id'
+  | 'modules.prices.r2.access_key_id'
+  | 'modules.prices.r2.secret_access_key'
+  | 'modules.prices.r2.bucket'
+  | 'modules.prices.r2.public_base_url'
   // MFA policy (vedi /<adminSlug>/security/mfa)
   | 'mfa.enabled'             // 'true'|'false' — master switch della feature MFA
   | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
@@ -353,6 +359,11 @@ export type AppSettings = {
   'modules.prices.retention_days': string
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
+  'modules.prices.r2.account_id': string | null
+  'modules.prices.r2.access_key_id': string | null
+  'modules.prices.r2.secret_access_key': string | null
+  'modules.prices.r2.bucket': string | null
+  'modules.prices.r2.public_base_url': string | null
   // Suspicious sessions / admin alerts
   'notifications.alerts_config': string | null
   'notifications.alerts_last_digest_at': string | null
@@ -512,6 +523,11 @@ const DEFAULTS: AppSettings = {
   'modules.prices.retention_days': '30',
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
+  'modules.prices.r2.account_id': null,
+  'modules.prices.r2.access_key_id': null,
+  'modules.prices.r2.secret_access_key': null,
+  'modules.prices.r2.bucket': null,
+  'modules.prices.r2.public_base_url': null,
   // Suspicious sessions: la chiave è null finché l'admin non salva una
   // configurazione dalla UI; il loader applica i defaults Zod-side.
   'notifications.alerts_config': null,

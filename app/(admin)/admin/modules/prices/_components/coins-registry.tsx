@@ -3,10 +3,11 @@
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { PricesCoin } from "@/lib/db/schema";
 import type { PriceRow } from "@/lib/modules/prices/queries";
-import { ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
+import { CloudUpload, ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   addCoinAction,
+  backfillCoinImagesAction,
   deleteCoinAction,
   refetchCoinAction,
   toggleCoinActiveAction,
@@ -23,7 +24,16 @@ const PAGE_SIZE = 20;
 export function CoinsRegistry({ coins, priceMap }: Props) {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
+  const [isBackfilling, startBackfill] = useTransition();
   const lastTs = useRef<number>(0);
+
+  function handleBackfill() {
+    startBackfill(async () => {
+      const res = await backfillCoinImagesAction();
+      if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
+      if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
+    });
+  }
 
   // Search + pagination (client-side: la lista in admin sta tipicamente sotto
   // i 200 elementi, niente bisogno di paginazione server-side per ora).
@@ -123,6 +133,20 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
                 <span className="font-normal" style={{ color: "var(--admin-text-faint)" }}> ({coins.length})</span>
               )}
             </h3>
+            <button
+              type="button"
+              onClick={handleBackfill}
+              disabled={isBackfilling}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                background: "transparent",
+                color: "var(--admin-text-muted)",
+                border: "1px solid var(--admin-input-border)",
+              }}
+              title="Re-mirror all coin images from CoinGecko to R2 (skips coins already on R2)">
+              {isBackfilling ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
+              {isBackfilling ? "Backfilling..." : "Backfill images to R2"}
+            </button>
             <div className="relative w-full max-w-sm">
               <Search
                 size={13}
