@@ -378,7 +378,11 @@ const fetchHistoryFromDb = async (
   range: HistoryRange,
 ): Promise<HistoryPoint[]> => {
   const { days, bucket } = RANGE_CONFIG[range];
-  const windowStart = new Date(Date.now() - days * 24 * 3600 * 1000);
+  // toISOString(): db.execute() passa raw alla pg-js, che non binda Date
+  // come timestamp (TypeError "Received an instance of Date"). Postgres
+  // accetta la stringa ISO e la castiamo a timestamptz inline per
+  // sicurezza tipi.
+  const windowStartIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
 
   // `bucket` deve essere inlined come literal SQL, NON come parametro
   // bindato: Postgres confronta le espressioni di DISTINCT ON e ORDER BY
@@ -395,7 +399,7 @@ const fetchHistoryFromDb = async (
       price::text AS price
     FROM prices_history
     WHERE symbol = ${symbol}
-      AND ts >= ${windowStart}
+      AND ts >= ${windowStartIso}::timestamptz
     ORDER BY ${bucketExpr} ASC, ts DESC
   `);
 
