@@ -138,7 +138,15 @@ export function CoinChart({
           })}
         </div>
         <span className="text-[10px] uppercase tracking-wide text-gc-fg-3">
-          {series.source === "coingecko" ? "Fonte: CoinGecko" : "Storico interno"}
+          Source:{" "}
+          <a
+            href="https://www.coingecko.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gc-fg-2 transition-colors"
+          >
+            CoinGecko
+          </a>
         </span>
       </div>
 
