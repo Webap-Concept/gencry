@@ -38,6 +38,8 @@ interface MarketsResponseItem {
   current_price?: number;
   price_change_percentage_24h?: number;
   total_volume?: number;
+  market_cap?: number;
+  market_cap_rank?: number;
   sparkline_in_7d?: { price?: number[] };
 }
 
@@ -143,6 +145,9 @@ export async function fetchCoinGeckoPrices(
             : null,
         volume24h: typeof item.total_volume === "number" ? item.total_volume : null,
         sparkline7d: downsampleSparkline(item.sparkline_in_7d?.price),
+        marketCap: typeof item.market_cap === "number" ? item.market_cap : null,
+        marketCapRank:
+          typeof item.market_cap_rank === "number" ? item.market_cap_rank : null,
       });
     }
   }

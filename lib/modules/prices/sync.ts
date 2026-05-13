@@ -3,8 +3,8 @@
 // primaria (CoinGecko), fallback su DexScreener via circuit breaker, upsert
 // in `prices_data` con delta threshold, log run su `prices_sync_runs`.
 import { db } from "@/lib/db/drizzle";
-import { pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { getActiveUniverse } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
 import { getPricesConfig } from "./config";
@@ -125,6 +125,15 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   // fornisce: per quei coin la sparkline resta al valore precedente.
   const updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
 
+  // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
+  // Best-effort: errori qui non degradano il run, gli update mancati
+  // verranno recuperati al prossimo tick.
+  try {
+    await syncMasterData(Array.from(collected.values()));
+  } catch {
+    // swallow
+  }
+
   const ok = collected.size > 0 || universe.length === 0;
   const durationMs = Date.now() - startMs;
 
@@ -212,6 +221,43 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   }
 
   return updatedCount;
+}
+
+/**
+ * Aggiorna i campi master-data su `prices_coins` (market_cap, market_cap_rank)
+ * dai quote raccolti. Eseguito in una singola UPDATE FROM VALUES per evitare
+ * N round-trip DB. Vengono toccati SOLO i coin di cui abbiamo dati nuovi
+ * (CoinGecko popola entrambi i campi; DexScreener no → skippati).
+ */
+async function syncMasterData(quotes: PriceQuote[]): Promise<void> {
+  const rows = quotes.filter(
+    (q) => q.marketCap !== null || q.marketCapRank !== null,
+  );
+  if (rows.length === 0) return;
+
+  // Costruiamo una VALUES list (symbol, market_cap, market_cap_rank) e
+  // facciamo un singolo UPDATE FROM. Drizzle non ha helper diretto per
+  // VALUES → usiamo sql template.
+  const values = sql.join(
+    rows.map(
+      (q) => sql`(
+        ${q.symbol},
+        ${q.marketCap}::bigint,
+        ${q.marketCapRank}::integer
+      )`,
+    ),
+    sql`, `,
+  );
+
+  await db.execute(sql`
+    UPDATE prices_coins AS c
+    SET
+      market_cap      = COALESCE(v.market_cap, c.market_cap),
+      market_cap_rank = COALESCE(v.market_cap_rank, c.market_cap_rank),
+      updated_at      = NOW()
+    FROM (VALUES ${values}) AS v(symbol, market_cap, market_cap_rank)
+    WHERE c.symbol = v.symbol
+  `);
 }
 
 /**

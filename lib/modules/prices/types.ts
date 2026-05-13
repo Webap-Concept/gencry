@@ -10,6 +10,11 @@ export interface PriceQuote {
   /** Sparkline 7gg downsampled a 21 punti (3 al giorno, oldest→newest).
    *  Null se la source non la fornisce (es. DexScreener). */
   sparkline7d: number[] | null;
+  /** Market cap USD. Null se la source non lo fornisce. */
+  marketCap: number | null;
+  /** Posizione globale per market cap (1 = top). Null se la source non lo
+   *  fornisce (DexScreener). Aggiornato su `prices_coins` dal sync. */
+  marketCapRank: number | null;
 }
 
 export interface CoinMetadata {

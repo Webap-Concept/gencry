@@ -209,6 +209,8 @@ export interface CoinView {
   name: string;
   imageUrl: string | null;
   marketCap: number | null;
+  /** Posizione globale per market cap (1 = top). Null se mai popolato dal sync. */
+  marketCapRank: number | null;
   category: string | null;
   price: number;
   change24h: number | null;
@@ -219,19 +221,23 @@ export interface CoinView {
 }
 
 /**
- * Top coin per market cap con prezzo + sparkline in 1 query.
+ * Pool top coin per market cap con prezzo + sparkline in 1 query.
  *
- * Cache 60s con tag `PRICES_DATA_TAG`: il sync cron CoinGecko propaga i
- * nuovi prezzi al massimo dopo 60s di stale (lui invaliderà il tag in
- * futuro, ora va a TTL).
+ * Cachato una volta solo (cap fisso TOP_POOL_SIZE), poi i consumer fanno
+ * slice in memoria con `getTopCoinsForCards(limit)`. Così evitiamo entry di
+ * cache separate per ogni `limit` distinto (home=4, esplora=20, lista=50,
+ * ecc.). Cache 60s con tag `PRICES_DATA_TAG`.
  */
-const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
+const TOP_POOL_SIZE = 200;
+
+const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]> => {
   const rows = await db
     .select({
       symbol: pricesCoins.symbol,
       name: pricesCoins.name,
       imageUrl: pricesCoins.imageUrl,
       marketCap: pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
       category: pricesCoins.category,
       price: pricesData.price,
       change24h: pricesData.change24h,
@@ -250,6 +256,7 @@ const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
     name: r.name,
     imageUrl: r.imageUrl,
     marketCap: r.marketCap,
+    marketCapRank: r.marketCapRank,
     category: r.category,
     price: Number(r.price),
     change24h: r.change24h !== null ? Number(r.change24h) : null,
@@ -259,14 +266,16 @@ const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
   }));
 };
 
-const fetchTopCoinsForCardsCached = unstable_cache(
-  fetchTopCoinsForCards,
-  ["prices-top-coins-cards"],
+const fetchTopPoolCached = unstable_cache(
+  () => fetchTopCoinsForCards(TOP_POOL_SIZE),
+  ["prices-top-coins-pool"],
   { revalidate: 60, tags: [PRICES_DATA_TAG] },
 );
 
 export async function getTopCoinsForCards(limit = 50): Promise<CoinView[]> {
-  return fetchTopCoinsForCardsCached(limit);
+  const pool = await fetchTopPoolCached();
+  if (limit >= pool.length) return pool;
+  return pool.slice(0, limit);
 }
 
 /**
@@ -282,6 +291,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
       name: pricesCoins.name,
       imageUrl: pricesCoins.imageUrl,
       marketCap: pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
       category: pricesCoins.category,
       price: pricesData.price,
       change24h: pricesData.change24h,
@@ -301,6 +311,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
     name: r.name,
     imageUrl: r.imageUrl,
     marketCap: r.marketCap,
+    marketCapRank: r.marketCapRank,
     category: r.category,
     price: Number(r.price),
     change24h: r.change24h !== null ? Number(r.change24h) : null,

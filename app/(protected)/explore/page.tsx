@@ -22,5 +22,5 @@ async function BitcoinDemoCard() {
       </div>
     );
   }
-  return <CoinCard coin={coin} rank={1} />;
+  return <CoinCard coin={coin} rank={coin.marketCapRank} />;
 }
