@@ -3,8 +3,16 @@
 import { signOut } from "@/app/(login)/actions";
 import type { ActionState } from "@/lib/auth/middleware";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
-import { AlertTriangle, ExternalLink, X } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { acceptUpdatedConsentsAction } from "./policy-reconsent-actions";
 
 type PendingItem = {
@@ -143,52 +151,45 @@ function ReconsentModal({
     (!hasTerms || acceptedTerms) && (!hasPrivacy || acceptedPrivacy);
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-50 bg-gc-overlay"
-        style={{ backdropFilter: "blur(2px)" }}
-        onClick={onClose ?? undefined}
-      />
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        // shadcn Dialog chiama questo con `false` quando user preme ESC o
+        // clicca outside. Se la modal è bloccante (isBlocking), ignoriamo —
+        // l'utente DEVE accettare.
+        if (!o && onClose) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-lg p-0 max-h-[85vh] flex flex-col"
+        showCloseButton={!!onClose}
+        onEscapeKeyDown={(e) => {
+          if (!onClose) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (!onClose) e.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <span
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
+            <AlertTriangle size={16} />
+          </span>
+          <DialogTitle>Conferma le policy aggiornate</DialogTitle>
+        </DialogHeader>
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reconsent-title"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className="rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg flex flex-col bg-gc-modal-bg border border-gc-modal-border"
-          style={{ maxHeight: "85vh" }}>
-          {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-gc-modal-border">
-            <span
-              className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
-              <AlertTriangle size={16} />
-            </span>
-            <h2
-              id="reconsent-title"
-              className="flex-1 text-base font-semibold text-gc-fg">
-              Conferma le policy aggiornate
-            </h2>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Chiudi"
-                className="w-7 h-7 rounded-md hover:bg-gc-bg-3 flex items-center justify-center text-gc-fg-3">
-                <X size={16} />
-              </button>
-            )}
-          </div>
+        {/* Body */}
+        <form
+          action={formAction}
+          data-reconsent-form
+          className="flex-1 overflow-auto px-5 py-4">
+          <DialogDescription className="mb-4">
+            Abbiamo aggiornato le policy che hai accettato in passato.
+            Spunta le caselle per confermare la nuova versione. I link
+            aprono il testo completo in una nuova scheda.
+          </DialogDescription>
 
-          {/* Body */}
-          <form action={formAction} className="flex-1 overflow-auto px-5 py-4">
-            <p className="text-sm mb-4 text-gc-fg-2">
-              Abbiamo aggiornato le policy che hai accettato in passato.
-              Spunta le caselle per confermare la nuova versione. I link
-              aprono il testo completo in una nuova scheda.
-            </p>
-
-            <ul className="space-y-3">
+          <ul className="space-y-3">
               {items.map((it) => {
                 const slug = slugs[it.policyKey];
                 const isMarketing = it.policyKey === "marketing";
@@ -260,37 +261,40 @@ function ReconsentModal({
               <p className="mt-3 text-xs text-gc-success-fg">{state.success}</p>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-2 mt-5">
-              {isBlocking ? (
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
-                  disabled={isPending}>
-                  Esci
-                </button>
-              ) : (
-                onClose && (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
-                    disabled={isPending}>
-                    Decidi più tardi
-                  </button>
-                )
-              )}
+        </form>
+
+        <DialogFooter>
+          {isBlocking ? (
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
+              disabled={isPending}>
+              Esci
+            </button>
+          ) : (
+            onClose && (
               <button
-                type="submit"
-                disabled={!requiredOk || isPending}
-                className="text-sm font-medium px-4 py-2 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {isPending ? "Salvataggio…" : "Accetta e continua"}
+                type="button"
+                onClick={onClose}
+                className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
+                disabled={isPending}>
+                Decidi più tardi
               </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </>
+            )
+          )}
+          <button
+            type="button"
+            disabled={!requiredOk || isPending}
+            onClick={() => {
+              const form = document.querySelector("form[data-reconsent-form]") as HTMLFormElement | null;
+              form?.requestSubmit();
+            }}
+            className="text-sm font-medium px-4 py-2 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {isPending ? "Salvataggio…" : "Accetta e continua"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
