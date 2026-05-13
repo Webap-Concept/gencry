@@ -4,6 +4,7 @@ import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries"
 import { Cookie, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -217,27 +218,29 @@ export function CookieCustomizeModal({
         </div>
 
         <DialogFooter>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleRejectAll}
-            disabled={isPending}
-            className="text-xs font-medium px-3 py-2 rounded-md transition-colors disabled:opacity-50 bg-gc-button-secondary-bg text-gc-button-secondary-fg">
+            disabled={isPending}>
             {t("rejectAll")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleSaveCustom}
-            disabled={isPending}
-            className="text-xs font-semibold px-3 py-2 rounded-md transition-colors disabled:opacity-50 bg-gc-fg text-gc-bg">
+            disabled={isPending}>
             {isPending ? t("savingPending") : t("saveSelection")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
             onClick={handleAcceptAll}
-            disabled={isPending}
-            className="text-xs font-semibold px-3 py-2 rounded-md text-white transition-colors disabled:opacity-50 bg-gc-warning-fg">
+            disabled={isPending}>
             {t("acceptAll")}
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

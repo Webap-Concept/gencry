@@ -4,6 +4,7 @@ import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries"
 import { Cookie, Settings2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   acceptAllCookiesAction,
   rejectAllCookiesAction,
@@ -79,28 +80,30 @@ export function CookieBanner({ policyUrl, services }: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowCustomize(true)}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 bg-gc-button-secondary-bg text-gc-button-secondary-fg">
+                disabled={isPending}>
                 <Settings2 size={14} />
                 {t("customize")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleRejectAll}
-                disabled={isPending}
-                className="text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 bg-gc-button-secondary-bg text-gc-button-secondary-fg">
+                disabled={isPending}>
                 {t("rejectAll")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="sm"
                 onClick={handleAcceptAll}
-                disabled={isPending}
-                className="text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-50 bg-gc-warning-fg">
+                disabled={isPending}>
                 {t("acceptAll")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

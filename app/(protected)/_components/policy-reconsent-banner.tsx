@@ -5,6 +5,7 @@ import type { ActionState } from "@/lib/auth/middleware";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -91,12 +92,13 @@ export function PolicyReconsentBanner({
               : "Riaccetta oggi per continuare a usare il servizio."}
           </span>
         )}
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => setModalOpen(true)}
-          className="ml-auto text-xs font-semibold px-3 py-1 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors">
+          className="ml-auto">
           {isBlocking ? "Rivedi e accetta" : "Rivedi"}
-        </button>
+        </Button>
       </div>
 
       {modalOpen && (
@@ -265,34 +267,36 @@ function ReconsentModal({
 
         <DialogFooter>
           {isBlocking ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => signOut()}
-              className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
               disabled={isPending}>
               Esci
-            </button>
+            </Button>
           ) : (
             onClose && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={onClose}
-                className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
                 disabled={isPending}>
                 Decidi più tardi
-              </button>
+              </Button>
             )
           )}
-          <button
+          <Button
             type="button"
+            size="sm"
             disabled={!requiredOk || isPending}
             onClick={() => {
               const form = document.querySelector("form[data-reconsent-form]") as HTMLFormElement | null;
               form?.requestSubmit();
-            }}
-            className="text-sm font-medium px-4 py-2 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            }}>
             {isPending ? "Salvataggio…" : "Accetta e continua"}
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
