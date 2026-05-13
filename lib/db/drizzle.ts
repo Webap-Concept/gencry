@@ -58,10 +58,18 @@ export const client =
     //   revalidatePath("/") → router invalidation → Next pre-fetch dei
     //   link visibili (sidebar + bottom-nav + tabs) → 10-15 request HTTP
     //   parallele → ogni request render layout protected (5 query) +
-    //   page (6 query) = 80+ query parallele. Con max=10 il pool satura,
-    //   le request restano in coda 10-15s, browser fa retry → spirale,
-    //   stream RSC della Server Action response non chiude mai.
-    // 30 dà margine generoso senza avvicinarsi al cap Supabase (200).
+    //   page (6 query) = 80+ query parallele.
+    //
+    // Sweet spot empirico (load test 2026-05-13): `max=30`. Test con
+    // `max=50` ha PEGGIORATO p99 su 3 scenari su 4 (+373ms/+673ms/+792ms)
+    // perché Supabase Supavisor ha un `default_pool_size` di ~15 conn
+    // reali verso Postgres: aprire più client connections del pooler
+    // crea solo coda extra senza aumentare la concorrenza reale.
+    //
+    // Per aumentare DAVVERO la throughput sotto load, alza
+    // `default_pool_size` nel dashboard Supabase (Settings → Database →
+    // Connection Pooling) — solo dopo ha senso bumppare anche `max`
+    // qui per matchare il nuovo pool size.
     // In dev: cap 1 conn per pool (vedi commento sopra sul singleton).
     max: isDev ? 1 : 30,
   });

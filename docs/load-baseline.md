@@ -52,6 +52,21 @@ Note operative:
 **Bug critico scoperto e fixato in questo run** (`8d96f90`):
 La factory `getSnapshotStorage` leggeva le credenziali R2 dal DB ad **ogni request**, vanificando la cache. Sotto load = N×50 query DB → saturazione + EPIPE/CONNECTION_CLOSED cascade. Fixato con fast-path cache che check il client S3 PRIMA di toccare il DB.
 
+### 2026-05-13 — pool sizing experiment
+
+A/B test rapido di `postgres-js max` per validare la teoria che il vero bottleneck è il `default_pool_size` del pooler Supabase (~15 conn reali verso Postgres), non il client side.
+
+| Scenario          | Conn | max=30 p99 | max=50 p99 | Δ      |
+|-------------------|-----:|-----------:|-----------:|-------:|
+| Home (logged out) |  100 |     3895ms |     4687ms | +792ms |
+| Home (logged in)  |   50 |      957ms |     1330ms | +373ms |
+| Settings privacy  |   50 |     1216ms |     1889ms | +673ms |
+| Admin dashboard   |   50 |     1256ms |     1069ms | -187ms |
+
+**Conclusione**: `max=50` PEGGIORA 3 scenari su 4. Confermata l'ipotesi: aprire più client connections del `default_pool_size` Supavisor crea solo coda extra senza aumentare la concorrenza reale. **Optimal lato client = 30** (vicino al 2× del pool reale, lascia margine per i picchi senza overhead).
+
+**Prossimo step per migliorare davvero**: alzare `default_pool_size` su Supabase dashboard. Solo dopo ha senso bumppare anche `max` lato client.
+
 ## Threshold interpretativi
 
 - **p99 < 1s** = OK
