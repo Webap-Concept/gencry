@@ -122,8 +122,8 @@ const FIELDS: Array<{
   },
   {
     name: "modules.prices.retention_days",
-    label: "Sparkline retention (days)",
-    hint: "Older points are deleted by the daily cleanup cron.",
+    label: "History retention (days)",
+    hint: "Daily cleanup cron deletes prices_history points older than this. Affects the interactive chart (1d/1w/1m/1y) — beyond this window the chart falls back to CoinGecko.",
     group: "history",
     type: "number",
     min: 1,
