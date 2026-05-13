@@ -145,11 +145,8 @@ function ReconsentModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-50"
-        style={{
-          background: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(2px)",
-        }}
+        className="fixed inset-0 z-50 bg-gc-overlay"
+        style={{ backdropFilter: "blur(2px)" }}
         onClick={onClose ?? undefined}
       />
 
@@ -159,24 +156,17 @@ function ReconsentModal({
         aria-labelledby="reconsent-title"
         className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg flex flex-col"
-          style={{
-            background: "var(--gc-surface, #fff)",
-            border: "1px solid var(--gc-border, #e5e7eb)",
-            maxHeight: "85vh",
-          }}>
+          className="rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg flex flex-col bg-gc-modal-bg border border-gc-modal-border"
+          style={{ maxHeight: "85vh" }}>
           {/* Header */}
-          <div
-            className="flex items-center gap-3 px-5 py-4"
-            style={{ borderBottom: "1px solid var(--gc-border, #e5e7eb)" }}>
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-gc-modal-border">
             <span
               className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
               <AlertTriangle size={16} />
             </span>
             <h2
               id="reconsent-title"
-              className="flex-1 text-base font-semibold"
-              style={{ color: "var(--gc-text, #111827)" }}>
+              className="flex-1 text-base font-semibold text-gc-fg">
               Conferma le policy aggiornate
             </h2>
             {onClose && (
@@ -184,7 +174,7 @@ function ReconsentModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Chiudi"
-                className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500">
+                className="w-7 h-7 rounded-md hover:bg-gc-bg-3 flex items-center justify-center text-gc-fg-3">
                 <X size={16} />
               </button>
             )}
@@ -192,9 +182,7 @@ function ReconsentModal({
 
           {/* Body */}
           <form action={formAction} className="flex-1 overflow-auto px-5 py-4">
-            <p
-              className="text-sm mb-4"
-              style={{ color: "var(--gc-text-muted, #4b5563)" }}>
+            <p className="text-sm mb-4 text-gc-fg-2">
               Abbiamo aggiornato le policy che hai accettato in passato.
               Spunta le caselle per confermare la nuova versione. I link
               aprono il testo completo in una nuova scheda.
@@ -219,11 +207,7 @@ function ReconsentModal({
                 return (
                   <li
                     key={it.policyKey}
-                    className="rounded-lg p-3 flex items-start gap-3"
-                    style={{
-                      background: "var(--gc-bg, #f9fafb)",
-                      border: "1px solid var(--gc-border, #e5e7eb)",
-                    }}>
+                    className="rounded-lg p-3 flex items-start gap-3 bg-gc-bg-3 border border-gc-line">
                     <input
                       type="checkbox"
                       name={it.policyKey}
@@ -232,24 +216,24 @@ function ReconsentModal({
                       className="mt-0.5 w-4 h-4 cursor-pointer accent-gc-accent"
                     />
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="text-sm font-medium"
-                        style={{ color: "var(--gc-text, #111827)" }}>
+                      <div className="text-sm font-medium text-gc-fg">
                         {POLICY_LABELS[it.policyKey]}
                         {!isMarketing && (
-                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-red-100 text-red-700">
+                          <span
+                            className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide text-gc-neg"
+                            style={{
+                              background: "color-mix(in srgb, var(--gc-neg) 18%, transparent)",
+                            }}>
                             Obbligatorio
                           </span>
                         )}
                         {isMarketing && (
-                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-slate-200 text-slate-700">
+                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-gc-line text-gc-fg-2">
                             Opzionale
                           </span>
                         )}
                       </div>
-                      <div
-                        className="text-[11px] mt-0.5"
-                        style={{ color: "var(--gc-text-muted, #6b7280)" }}>
+                      <div className="text-[11px] mt-0.5 text-gc-fg-3">
                         Versione precedente: {it.acceptedVersion} → nuova:{" "}
                         {it.newVersion}
                       </div>
@@ -270,10 +254,10 @@ function ReconsentModal({
             </ul>
 
             {state.error && (
-              <p className="mt-3 text-xs text-red-600">{state.error}</p>
+              <p className="mt-3 text-xs text-gc-neg">{state.error}</p>
             )}
             {state.success && (
-              <p className="mt-3 text-xs text-emerald-700">{state.success}</p>
+              <p className="mt-3 text-xs text-gc-success-fg">{state.success}</p>
             )}
 
             {/* Footer */}
@@ -282,7 +266,7 @@ function ReconsentModal({
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  className="text-xs font-medium px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
+                  className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
                   disabled={isPending}>
                   Esci
                 </button>
@@ -291,7 +275,7 @@ function ReconsentModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="text-xs font-medium px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
+                    className="text-xs font-medium px-3 py-2 rounded-md text-gc-fg-2 hover:bg-gc-bg-3"
                     disabled={isPending}>
                     Decidi più tardi
                   </button>
