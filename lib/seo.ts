@@ -130,15 +130,16 @@ export async function generatePageMetadata(
   const ogImage = row?.ogImage ?? defaults?.image;
 
   // metadataBase: serve a Next per risolvere URL relativi (es. l'OG image
-  // colocated `opengraph-image.tsx`) in URL assoluti. Senza, fallback a
-  // http://localhost:3000 + warning. Usiamo siteUrl del setting; in dev
-  // se è vuoto, lasciamo che Next usi il fallback localhost.
-  const metadataBase = siteUrl ? new URL(siteUrl) : undefined;
+  // colocated `opengraph-image.tsx`) in URL assoluti. Settandolo
+  // esplicitamente (con fallback localhost in dev) silenziamo il warning
+  // di Next ed evitiamo che l'OG image in produzione sia risolta a
+  // localhost se app_domain è momentaneamente vuoto.
+  const metadataBase = new URL(siteUrl || "http://localhost:3000");
 
   return {
     title,
     description,
-    ...(metadataBase ? { metadataBase } : {}),
+    metadataBase,
     ...(canonical ? { alternates: { canonical } } : {}),
     ...(robots ? { robots } : {}),
     openGraph: {

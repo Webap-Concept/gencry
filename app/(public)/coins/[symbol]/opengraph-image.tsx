@@ -242,13 +242,14 @@ export default async function CoinOgImage({
           </div>
           <div
             style={{
+              display: "flex",
               marginTop: 8,
               fontSize: 36,
               fontWeight: 600,
               color: trend,
             }}
           >
-            {formatChange(coin.change24h)} (24h)
+            {`${formatChange(coin.change24h)} (24h)`}
           </div>
         </div>
 

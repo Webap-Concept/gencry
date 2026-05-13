@@ -159,7 +159,7 @@ export function CoinChart({
             Storico non ancora disponibile per questa finestra.
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart
               data={series.points}
               margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
