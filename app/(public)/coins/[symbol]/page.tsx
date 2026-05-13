@@ -56,11 +56,15 @@ export async function generateMetadata({
   // vecchio valore per giorni/settimane).
   const ogDescription = `${coin.name} (${coin.symbol}) — prezzo, grafico storico, market cap e volume 24h aggiornati in tempo reale.`;
 
+  // NB: non passiamo `image` qui → lasciamo che Next colleghi
+  // automaticamente l'OG image dinamica generata da
+  // `opengraph-image.tsx` (card 1200x630 con prezzo, sparkline, logo,
+  // claim). Passare un'image custom sovrascriverebbe quella card con
+  // la sola icona R2 quadrata, sprecando il lavoro fatto.
   return generatePageMetadata(pathname, {
     title,
     description,
     ogDescription,
-    image: coin.imageUrl ?? undefined,
   });
 }
 
