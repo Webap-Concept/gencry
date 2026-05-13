@@ -63,7 +63,7 @@ export const ADMIN_SIGNIN_ROUTE = "/admin/sign-in" as const;
 
 export const NAV_ITEMS = [
   { href: "/", label: "Home", icon: "Home" },
-  { href: "/esplora", label: "Esplora", icon: "Search" },
+  { href: "/explore", label: "Explore", icon: "Search" },
   { href: "/libreria", label: "Libreria", icon: "BookOpen" },
 ] as const;
 

@@ -265,3 +265,52 @@ const fetchTopCoinsForCardsCached = unstable_cache(
 export async function getTopCoinsForCards(limit = 50): Promise<CoinView[]> {
   return fetchTopCoinsForCardsCached(limit);
 }
+
+/**
+ * Singolo coin per la card (preview / hero / inline). Case-insensitive sul
+ * simbolo. Restituisce null se il coin non esiste o non ha ancora un
+ * prezzo registrato in `prices_data`. Cache 60s con tag PRICES_DATA_TAG.
+ */
+const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
+  const upper = symbol.toUpperCase();
+  const rows = await db
+    .select({
+      symbol: pricesCoins.symbol,
+      name: pricesCoins.name,
+      imageUrl: pricesCoins.imageUrl,
+      marketCap: pricesCoins.marketCap,
+      price: pricesData.price,
+      change24h: pricesData.change24h,
+      volume24h: pricesData.volume24h,
+      weeklySparkline: pricesData.weeklySparkline,
+      lastUpdated: pricesData.lastUpdated,
+    })
+    .from(pricesCoins)
+    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    symbol: r.symbol,
+    name: r.name,
+    imageUrl: r.imageUrl,
+    marketCap: r.marketCap,
+    price: Number(r.price),
+    change24h: r.change24h !== null ? Number(r.change24h) : null,
+    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
+    weeklySparkline: r.weeklySparkline,
+    lastUpdated: r.lastUpdated,
+  };
+};
+
+const fetchCoinForCardCached = unstable_cache(
+  fetchCoinForCard,
+  ["prices-coin-for-card"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
+  return fetchCoinForCardCached(symbol);
+}

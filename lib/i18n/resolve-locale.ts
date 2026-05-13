@@ -25,7 +25,7 @@ export const NON_PREFIXABLE_PREFIXES = [
   "/onboarding",
   "/settings",
   "/profile",
-  "/esplora",
+  "/explore",
   "/notifiche",
   "/unauthorized",
 ] as const;
