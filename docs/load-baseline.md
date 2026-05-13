@@ -86,6 +86,18 @@ I numeri di latenza misurati oggi sono quindi vicini al **limite hardware** del 
 
 **Test in produzione reale**: i numeri locali sono pessimistici perché paghi la WAN dev → Supabase EU (~30-50ms RTT). In Vercel EU production, RTT crolla a ~5ms → estrapolazione: p99 si dimezza/dimezzo abbondante anche su Nano. Eseguire `pnpm run test:load -- --url=https://<vercel-preview>.vercel.app` prima del go-live.
 
+### 2026-05-13 — post Fase 6 (CMS page cache)
+
+Validazione del fix `getCachedPageWithTemplate` (commit `6b1dc94`). Test su una CMS page CMS-catch-all reale (la home `/` logged-out usa `<LandingPage />` client component e NON passa per il CMS, quindi il fix non si applica lì).
+
+| Endpoint   | Conn | Req/s | p50    | p95    | p99    | Avg    | err | Note |
+|------------|-----:|------:|-------:|-------:|-------:|-------:|----:|------|
+| /privacy   |   50 |    63 |  766ms | 1135ms | 1441ms |  781ms |   0 | CMS page cached |
+
+**Lettura**: p50 e p99 a fattore 2x (no tail bomb). Le 4-5 query sequenziali di `getPageWithTemplate` (page + translation + template + fields) ora costano 1 cache hit ~1ms invece di multipli RTT DB. La latency ~800ms rimanente è dominata dalla WAN dev locale → Supabase EU e dal rendering RSC stesso. Estrapolazione produzione EU-EU: p99 ~300-500ms.
+
+**Analisi falso bersaglio scoperta**: la home `/` logged-out NON usa il CMS catch-all. Per la home pubblica abbiamo `app/(protected)/page.tsx` che fa render-condition: `if (!session) return <LandingPage />` (componente client, zero DB). I 4s di p99 sulla home guest a 100 conn sono overhead cumulato (RSC serialization, Suspense streaming, cache lookups, single-process limit dev locale), NON una singola query lenta.
+
 ## Threshold interpretativi
 
 - **p99 < 1s** = OK
