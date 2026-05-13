@@ -67,6 +67,25 @@ A/B test rapido di `postgres-js max` per validare la teoria che il vero bottlene
 
 **Prossimo step per migliorare davvero**: alzare `default_pool_size` su Supabase dashboard. Solo dopo ha senso bumppare anche `max` lato client.
 
+### Limiti hardware Supabase Free tier (Nano)
+
+Verificato il 13/05/26 dal dashboard:
+- **Pool size**: 15 connessioni reali Postgres (default per compute Nano, modifica limitata)
+- **Max client connections**: 200 (FISSO al piano Nano, non modificabile)
+
+I numeri di latenza misurati oggi sono quindi vicini al **limite hardware** del piano free. Per scalare seriamente:
+
+| Compute Supabase | Pool size default | Max client | Costo approx |
+|------------------|------------------:|-----------:|-------------:|
+| Nano (free)      | 15                | 200        | $0           |
+| Micro            | 30                | 200        | ~$10/mese    |
+| Small            | 60                | 200        | ~$25/mese    |
+| Medium           | 90                | 400        | ~$60/mese    |
+
+**Raccomandazione**: pre-launch social, valuta upgrade a Micro (~$10/mese). Sul Free, la baseline attuale è il top raggiungibile lato infrastruttura DB.
+
+**Test in produzione reale**: i numeri locali sono pessimistici perché paghi la WAN dev → Supabase EU (~30-50ms RTT). In Vercel EU production, RTT crolla a ~5ms → estrapolazione: p99 si dimezza/dimezzo abbondante anche su Nano. Eseguire `pnpm run test:load -- --url=https://<vercel-preview>.vercel.app` prima del go-live.
+
 ## Threshold interpretativi
 
 - **p99 < 1s** = OK
