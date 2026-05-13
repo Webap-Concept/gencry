@@ -31,6 +31,7 @@ export function SettingsNav() {
             <Link
               key={href}
               href={href}
+              prefetch={false}
               aria-current={active ? "page" : undefined}
               className={[
                 "inline-flex items-center gap-2 px-3 py-2.5 text-[13.5px] font-medium whitespace-nowrap border-b-2 transition",

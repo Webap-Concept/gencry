@@ -225,11 +225,21 @@ export type SettingKey =
   // Se anche solo una chiave è vuota, l'upload avatar fallisce con errore
   // esplicito (no fallback Supabase: il refactor 2026-05-12 ha rimosso il
   // dual-backend per semplicità). Vedi /admin/services/storage-avatar.
-  | 'storage.avatar.r2.account_id'
+  // R2 storage core — account Cloudflare globale + bucket dedicati per
+  // servizio (token separati per isolamento di security). Vedi
+  // /admin/services/cloudflare card "R2 Storage". Moduli (es. prices)
+  // gestiscono il proprio R2 isolatamente sotto `modules.<slug>.r2.*`.
+  | 'storage.r2.account_id'
+  // Avatars bucket (user profile images)
   | 'storage.avatar.r2.access_key_id'
   | 'storage.avatar.r2.secret_access_key'
   | 'storage.avatar.r2.bucket'
   | 'storage.avatar.r2.public_base_url'
+  // Config snapshot bucket — JSON di configurazione globale.
+  // Vedi lib/config/snapshot-storage/. Niente public_base_url: S3 API privata.
+  | 'storage.config.r2.access_key_id'
+  | 'storage.config.r2.secret_access_key'
+  | 'storage.config.r2.bucket'
 
 export type AppSettings = {
   app_name: string
@@ -394,11 +404,14 @@ export type AppSettings = {
   'sentry.replays_on_error_sample_rate': string
   'sentry.send_default_pii': string
   // R2 storage per avatar utente (core feature)
-  'storage.avatar.r2.account_id': string | null
+  'storage.r2.account_id': string | null
   'storage.avatar.r2.access_key_id': string | null
   'storage.avatar.r2.secret_access_key': string | null
   'storage.avatar.r2.bucket': string | null
   'storage.avatar.r2.public_base_url': string | null
+  'storage.config.r2.access_key_id': string | null
+  'storage.config.r2.secret_access_key': string | null
+  'storage.config.r2.bucket': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -572,11 +585,17 @@ const DEFAULTS: AppSettings = {
   // R2 storage per avatar — null finché l'admin non configura via
   // /admin/services/storage-avatar. Tutte e 5 le chiavi richieste per
   // upload funzionante (no fallback Supabase).
-  'storage.avatar.r2.account_id': null,
+  'storage.r2.account_id': null,
   'storage.avatar.r2.access_key_id': null,
   'storage.avatar.r2.secret_access_key': null,
   'storage.avatar.r2.bucket': null,
   'storage.avatar.r2.public_base_url': null,
+  // Config snapshot R2 — bucket dedicato per i file JSON di configurazione
+  // (app_settings, system page slugs, ...). Vedi lib/config/.
+  // Nessun `public_base_url` perché l'accesso è S3 API privata, mai pubblico.
+  'storage.config.r2.access_key_id': null,
+  'storage.config.r2.secret_access_key': null,
+  'storage.config.r2.bucket': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
@@ -590,7 +609,55 @@ async function fetchAppSettings(): Promise<AppSettings> {
   return result
 }
 
-export const getAppSettings = cache(fetchAppSettings)
+/**
+ * Lettura RAW da DB senza passare per il sistema snapshot. Esiste solo per
+ * spezzare il chicken-egg del snapshot system: per LEGGERE lo snapshot R2
+ * servono le credenziali R2, e quelle credenziali stanno nei settings →
+ * loop. Le funzioni del layer `lib/config/snapshot-storage/` chiamano QUESTA
+ * (mai `getAppSettings`) per caricare la propria config R2.
+ *
+ * NON usare nei caller applicativi normali: paga 1 query DB ogni volta,
+ * non è cached. Tutto il resto del codice usa `getAppSettings`.
+ */
+export const fetchAppSettingsRaw = fetchAppSettings;
+
+/**
+ * Hot path "global" — cached via React `cache()` per request E (quando R2
+ * snapshot è configurato) servito da file JSON in R2 invece che da DB. Vedi
+ * lib/config/snapshots/app-settings.ts per la strategia di cache cross-
+ * request, ETag check e bootstrap.
+ *
+ * Fallback chain:
+ *   1. R2 configurato + snapshot OK → letti da R2 (~1-2ms, no DB)
+ *   2. R2 non configurato → fallback DB (comportamento legacy, backward compat)
+ *   3. R2 configurato ma errore → log + fallback DB
+ */
+async function getAppSettingsImpl(): Promise<AppSettings> {
+  // Lazy import per evitare circular dependency: snapshot-storage importa
+  // fetchAppSettingsRaw da QUESTO modulo.
+  const { readAppSettingsSnapshot, SnapshotUnavailableError } = await import(
+    "@/lib/config/snapshots"
+  );
+  try {
+    return await readAppSettingsSnapshot();
+  } catch (err) {
+    if (err instanceof SnapshotUnavailableError) {
+      // R2 non configurato: comportamento legacy, lettura diretta DB.
+      // Nessun log: è il caso supportato per chi non ha ancora configurato R2.
+      return fetchAppSettings();
+    }
+    // R2 configurato ma read fallita: log + fallback DB. NON throwa così
+    // l'app continua a funzionare anche con R2 down.
+    // eslint-disable-next-line no-console
+    console.error(
+      "[settings] snapshot read failed, falling back to DB",
+      err,
+    );
+    return fetchAppSettings();
+  }
+}
+
+export const getAppSettings = cache(getAppSettingsImpl);
 
 /**
  * "Non bloccante" variant of getAppSettings for public-facing call
@@ -619,8 +686,88 @@ export async function getAppSettingsSafe(): Promise<AppSettings> {
 }
 
 /**
+ * Postgres advisory lock ID per serializzare le scritture su app_settings.
+ * Numero arbitrario unico nel progetto (~1000 = "app_settings"). Se serve
+ * un secondo lock altrove, usa un numero diverso.
+ *
+ * Perché serializzare:
+ *   A → UPDATE("app_name") commit, SYNC R2 in volo
+ *   B → UPDATE("logo") commit, SYNC R2 (legge A+B, scrive)
+ *   A → SYNC R2 termina (scrive snapshot CON SOLO A) ← perdita di B!
+ * Con il lock, A finisce TUTTO (UPDATE + SYNC R2) prima che B inizi.
+ */
+const APP_SETTINGS_LOCK_ID = 1001;
+
+/**
+ * Sync dello snapshot dentro la transaction corrente. Riceve la transazione
+ * (`tx`) per leggere lo stato fresco senza uscire dal lock.
+ *
+ * Speciale per credenziali R2 stesse: se l'admin modifica
+ * `storage.config.r2.*`, invalidiamo anche lo storage cache prima del sync,
+ * così le nuove credenziali sono usate immediatamente.
+ */
+// Drizzle's transaction callback passes a PgTransaction, which exposes
+// the same query builder API as `db` but with a different TypeScript type.
+// We accept it via a structural type with the methods we need.
+type SettingsTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function syncSnapshotAfterMutationInTx(
+  tx: SettingsTx,
+  changedKeys: SettingKey[],
+): Promise<void> {
+  try {
+    const r2KeysChanged = changedKeys.some((k) =>
+      k.startsWith("storage.config.r2.") || k === "storage.r2.account_id",
+    );
+    if (r2KeysChanged) {
+      const { invalidateSnapshotStorageCache } = await import(
+        "@/lib/config/snapshot-storage"
+      );
+      invalidateSnapshotStorageCache();
+    }
+    // Leggi il fresh state direttamente dalla transaction (vede le UPDATE
+    // appena committed/staged della stessa transaction, evita 2ª query DB
+    // e soprattutto evita race con altre lambda).
+    const rows = await tx.select().from(appSettings);
+    const data = { ...DEFAULTS } as AppSettings;
+    for (const row of rows) {
+      if (row.key in data && row.value !== null) {
+        ;(data as Record<string, string | null>)[row.key] = row.value;
+      }
+    }
+    const { syncAppSettingsSnapshotWithData } = await import(
+      "@/lib/config/snapshots"
+    );
+    await syncAppSettingsSnapshotWithData(data, null);
+  } catch (err) {
+    // R2 down o config mancante: log e continua. Il DB resta sorgente di
+    // verità, quindi i caller che fallback DB vedono comunque il dato fresco.
+    // eslint-disable-next-line no-console
+    console.error("[settings] snapshot sync failed after mutation", err);
+  }
+}
+
+/**
+ * Wrapper per esecuzione di mutation con advisory lock. Garantisce che 2+
+ * save admin concorrenti si serializzino: la seconda aspetta che la prima
+ * abbia completato UPDATE + sync R2 (entrambi dentro la stessa transaction).
+ */
+async function withSettingsLock<T>(
+  fn: (tx: SettingsTx) => Promise<T>,
+): Promise<T> {
+  return await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${APP_SETTINGS_LOCK_ID})`);
+    return await fn(tx);
+  });
+}
+
+/**
  * Batch update: 2 query totali invece di 2×N. Aggiorna updatedAt solo sulle
  * righe che cambiano davvero, preservando il comportamento di updateAppSetting.
+ *
+ * Atomicità: tutto dentro `withSettingsLock` → la sync R2 vede i dati
+ * DELLA STESSA transaction (post-UPDATE) e nessuna altra save admin può
+ * intercalarsi finché qui non termina.
  */
 export async function batchUpdateAppSettings(
   updates: Partial<Record<SettingKey, string | null>>,
@@ -628,45 +775,54 @@ export async function batchUpdateAppSettings(
   const entries = Object.entries(updates) as [SettingKey, string | null][];
   if (entries.length === 0) return;
 
-  const keys = entries.map(([k]) => k) as string[];
-  const existing = await db
-    .select({ key: appSettings.key, value: appSettings.value })
-    .from(appSettings)
-    .where(inArray(appSettings.key, keys));
+  await withSettingsLock(async (tx) => {
+    const keys = entries.map(([k]) => k) as string[];
+    const existing = await tx
+      .select({ key: appSettings.key, value: appSettings.value })
+      .from(appSettings)
+      .where(inArray(appSettings.key, keys));
 
-  const existingMap = new Map(existing.map((r) => [r.key, r.value]));
-  const changed = entries.filter(([key, value]) => existingMap.get(key) !== value);
-  if (changed.length === 0) return;
+    const existingMap = new Map(existing.map((r) => [r.key, r.value]));
+    const changed = entries.filter(([key, value]) => existingMap.get(key) !== value);
+    if (changed.length === 0) return;
 
-  const now = new Date();
-  await db
-    .insert(appSettings)
-    .values(changed.map(([key, value]) => ({ key, value, updatedAt: now })))
-    .onConflictDoUpdate({
-      target: appSettings.key,
-      set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
-    });
+    const now = new Date();
+    await tx
+      .insert(appSettings)
+      .values(changed.map(([key, value]) => ({ key, value, updatedAt: now })))
+      .onConflictDoUpdate({
+        target: appSettings.key,
+        set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
+      });
+
+    await syncSnapshotAfterMutationInTx(tx, changed.map(([k]) => k));
+  });
 }
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {
-  // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
-  // un Save "a vuoto" del form admin azzera il timer di rotazione delle
-  // chiavi (il sistema notifiche usa updated_at come "last rotated at").
-  const existing = await db
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, key))
-    .limit(1)
+  await withSettingsLock(async (tx) => {
+    // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
+    // un Save "a vuoto" del form admin azzera il timer di rotazione delle
+    // chiavi (il sistema notifiche usa updated_at come "last rotated at").
+    const existing = await tx
+      .select({ value: appSettings.value })
+      .from(appSettings)
+      .where(eq(appSettings.key, key))
+      .limit(1);
 
-  if (existing.length === 0) {
-    await db.insert(appSettings).values({ key, value, updatedAt: new Date() })
-    return
-  }
+    if (existing.length === 0) {
+      await tx.insert(appSettings).values({ key, value, updatedAt: new Date() });
+      await syncSnapshotAfterMutationInTx(tx, [key]);
+      return;
+    }
 
-  if (existing[0].value === value) return // no-op: niente bump di updated_at
+    if (existing[0].value === value) return; // no-op: niente bump di updated_at
 
-  await db
-    .update(appSettings)
-    .set({ value, updatedAt: new Date() })
-    .where(eq(appSettings.key, key))
+    await tx
+      .update(appSettings)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(appSettings.key, key));
+
+    await syncSnapshotAfterMutationInTx(tx, [key]);
+  });
 }

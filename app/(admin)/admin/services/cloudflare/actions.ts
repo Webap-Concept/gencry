@@ -3,6 +3,10 @@
 import { getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { checkAvatarsR2Connection } from "@/lib/storage/r2-avatars";
+import {
+  createConfigR2Client,
+} from "@/lib/config/snapshot-storage/r2";
+import { HeadBucketCommand } from "@aws-sdk/client-s3";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
@@ -10,6 +14,10 @@ export type ActionState =
   | {}
   | { success: string; timestamp: number }
   | { error: string; timestamp: number };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Turnstile (CAPTCHA) — niente a che vedere con R2.
+// ─────────────────────────────────────────────────────────────────────────
 
 export async function saveCloudflareSettings(
   _prev: ActionState,
@@ -42,10 +50,6 @@ export async function testCloudflareSettings(
       return { error: t("cloudflareTestSecretRequired"), timestamp: Date.now() };
     }
 
-    // Verifica la secret key con un token volutamente invalido.
-    // Cloudflare risponde con success:false e error-codes contenenti
-    // "invalid-input-secret" se la chiave non è valida,
-    // oppure "invalid-input-response" se la chiave è corretta ma il token è sbagliato.
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -70,13 +74,6 @@ export async function testCloudflareSettings(
       return { error: t("cloudflareTestInvalidSecret"), timestamp: Date.now() };
     }
 
-    if (
-      errorCodes.includes("invalid-input-response") ||
-      errorCodes.includes("timeout-or-duplicate")
-    ) {
-      return { success: t("cloudflareTestOk"), timestamp: Date.now() };
-    }
-
     return { success: t("cloudflareTestOk"), timestamp: Date.now() };
   } catch {
     return { error: t("cloudflareTestNetworkFailed"), timestamp: Date.now() };
@@ -84,28 +81,135 @@ export async function testCloudflareSettings(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// R2 storage per avatar utente — separate settings, separate token
+// R2 Account ID — chiave globale `storage.r2.account_id`.
+// Vive una sola volta perché il Cloudflare account è unico per cliente;
+// i singoli bucket (avatar / config / future) hanno invece il proprio token.
 // ─────────────────────────────────────────────────────────────────────────
-//
-// Vive nella stessa pagina admin (/admin/services/cloudflare) perché R2 è
-// un servizio Cloudflare, ma settings + token sono completamente isolati
-// dal modulo prices (`modules.prices.r2.*`). Vedi project_avatar_r2_refactor_todo.md
-// per il razionale (isolamento moduli + token scoped per bucket).
+
+export async function saveR2AccountId(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const accountId = ((formData.get("storage.r2.account_id") as string) ?? "").trim();
+    await updateAppSetting("storage.r2.account_id", accountId || null);
+    revalidatePath(await getAdminPath("services-cloudflare"));
+    return { success: "Cloudflare account ID saved.", timestamp: Date.now() };
+  } catch {
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// R2 storage — Config snapshot bucket (NUOVO).
+// JSON di configurazione globale (vedi lib/config/snapshot-storage/).
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function saveConfigR2Settings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const accessKeyId  = ((formData.get("storage.config.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("storage.config.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("storage.config.r2.bucket")            as string) ?? "").trim();
+
+    await updateAppSetting("storage.config.r2.access_key_id", accessKeyId || null);
+    // Sentinel "********": non modificare. Stringa vuota: clear.
+    if (secretRaw && secretRaw !== "********") {
+      await updateAppSetting("storage.config.r2.secret_access_key", secretRaw);
+    } else if (!secretRaw) {
+      await updateAppSetting("storage.config.r2.secret_access_key", null);
+    }
+    await updateAppSetting("storage.config.r2.bucket", bucket || null);
+
+    revalidatePath(await getAdminPath("services-cloudflare"));
+    return { success: "Config snapshot R2 settings saved.", timestamp: Date.now() };
+  } catch {
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+export async function testConfigR2(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const settings = await getAppSettings();
+    const accountId = (settings["storage.r2.account_id"] ?? "").trim();
+    if (!accountId) {
+      return {
+        error: "Fill in and save the Cloudflare Account ID first.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const accessKeyId = ((formData.get("storage.config.r2.access_key_id") as string) ?? "").trim();
+    const secretRaw   = ((formData.get("storage.config.r2.secret_access_key") as string) ?? "").trim();
+    const bucket      = ((formData.get("storage.config.r2.bucket") as string) ?? "").trim();
+
+    let secretAccessKey = secretRaw;
+    if (!secretAccessKey || secretAccessKey === "********") {
+      secretAccessKey = (settings["storage.config.r2.secret_access_key"] ?? "").trim();
+    }
+
+    if (!accessKeyId || !secretAccessKey || !bucket) {
+      return {
+        error: "Fill in Access Key, Secret and Bucket (save the secret at least once) before testing.",
+        timestamp: Date.now(),
+      };
+    }
+
+    // Probe: HeadBucket — il modo più leggero per verificare credenziali +
+    // permessi sul bucket specifico.
+    const client = createConfigR2Client({ accountId, accessKeyId, secretAccessKey, bucket });
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }));
+      return {
+        success: `R2 connection OK · bucket "${bucket}" reachable.`,
+        timestamp: Date.now(),
+      };
+    } catch (err: unknown) {
+      const code =
+        (err as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } })?.name ??
+        (err as { Code?: string })?.Code;
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      if (status === 403 || code === "Forbidden") {
+        return {
+          error: "Forbidden — token does not have access to this bucket.",
+          timestamp: Date.now(),
+        };
+      }
+      if (status === 404 || code === "NoSuchBucket" || code === "NotFound") {
+        return {
+          error: `Bucket "${bucket}" not found on this Cloudflare account.`,
+          timestamp: Date.now(),
+        };
+      }
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      return { error: message, timestamp: Date.now() };
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Test failed.";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// R2 storage — Avatars bucket (user profile images).
+// ─────────────────────────────────────────────────────────────────────────
+
 export async function saveAvatarR2Settings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    const accountId    = ((formData.get("storage.avatar.r2.account_id")        as string) ?? "").trim();
     const accessKeyId  = ((formData.get("storage.avatar.r2.access_key_id")     as string) ?? "").trim();
     const secretRaw    = ((formData.get("storage.avatar.r2.secret_access_key") as string) ?? "").trim();
     const bucket       = ((formData.get("storage.avatar.r2.bucket")            as string) ?? "").trim();
     const publicBase   = ((formData.get("storage.avatar.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
 
-    await updateAppSetting("storage.avatar.r2.account_id",        accountId   || null);
-    await updateAppSetting("storage.avatar.r2.access_key_id",     accessKeyId || null);
-    // Sentinel "********" significa "non modificare" (la UI mostra il
-    // placeholder mascherato per non rivelare il secret salvato).
+    await updateAppSetting("storage.avatar.r2.access_key_id", accessKeyId || null);
     if (secretRaw && secretRaw !== "********") {
       await updateAppSetting("storage.avatar.r2.secret_access_key", secretRaw);
     } else if (!secretRaw) {
@@ -126,7 +230,15 @@ export async function testAvatarR2(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    const accountId    = ((formData.get("storage.avatar.r2.account_id")        as string) ?? "").trim();
+    const settings = await getAppSettings();
+    const accountId = (settings["storage.r2.account_id"] ?? "").trim();
+    if (!accountId) {
+      return {
+        error: "Fill in and save the Cloudflare Account ID first.",
+        timestamp: Date.now(),
+      };
+    }
+
     const accessKeyId  = ((formData.get("storage.avatar.r2.access_key_id")     as string) ?? "").trim();
     const secretRaw    = ((formData.get("storage.avatar.r2.secret_access_key") as string) ?? "").trim();
     const bucket       = ((formData.get("storage.avatar.r2.bucket")            as string) ?? "").trim();
@@ -134,13 +246,12 @@ export async function testAvatarR2(
 
     let secretAccessKey = secretRaw;
     if (!secretAccessKey || secretAccessKey === "********") {
-      const settings = await getAppSettings();
       secretAccessKey = (settings["storage.avatar.r2.secret_access_key"] ?? "").trim();
     }
 
-    if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBase) {
+    if (!accessKeyId || !secretAccessKey || !bucket || !publicBase) {
       return {
-        error: "Fill in all 5 R2 fields (and save the secret at least once) before testing.",
+        error: "Fill in all 4 R2 fields (and save the secret at least once) before testing.",
         timestamp: Date.now(),
       };
     }

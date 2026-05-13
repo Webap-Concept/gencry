@@ -38,10 +38,14 @@ export interface AvatarR2Config {
  * Legge la config R2 avatar da app_settings. Ritorna null se anche solo una
  * delle 5 chiavi è vuota — il caller deve restituire un errore esplicito,
  * NON fallbackare a Supabase.
+ *
+ * `accountId` viene dalla chiave GLOBAL `storage.r2.account_id` (account
+ * Cloudflare unico per cliente). Le altre 4 chiavi sono specifiche del bucket
+ * avatar perché ogni bucket ha il proprio token (isolamento security).
  */
 export async function loadAvatarR2Config(): Promise<AvatarR2Config | null> {
   const s = await getAppSettings();
-  const accountId       = (s["storage.avatar.r2.account_id"]        ?? "").trim();
+  const accountId       = (s["storage.r2.account_id"]               ?? "").trim();
   const accessKeyId     = (s["storage.avatar.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["storage.avatar.r2.secret_access_key"] ?? "").trim();
   const bucket          = (s["storage.avatar.r2.bucket"]            ?? "").trim();

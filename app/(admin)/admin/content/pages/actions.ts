@@ -9,7 +9,7 @@ import {
   getPageById,
   getPageBySlug,
   getPageTranslationsForPage,
-  invalidateNavigablePagesCache,
+  invalidatePageCachesAndSync,
   reorderPages,
   togglePageStatus,
   upsertPage,
@@ -423,7 +423,7 @@ export async function upsertPageAction(
     // ~60s il proxy può ancora vedere lo slug vecchio o la visibility
     // precedente. Importante quando si cambia status (draft↔published)
     // o visibility (public↔private).
-    invalidateNavigablePagesCache();
+    await invalidatePageCachesAndSync();
 
     // ── Activity log ──────────────────────────────────────────────────────────
     const uid = editor?.id ?? null;
@@ -471,7 +471,7 @@ export async function deletePageAction(
     revalidatePath(await getAdminPath("seo-meta"));
     // La SEO è stata appena cancellata: invalida la cache `seo` tag.
     updateTag("seo");
-    invalidateNavigablePagesCache();
+    await invalidatePageCachesAndSync();
 
     const user = await getUser();
     await logContentActivity(
@@ -509,7 +509,7 @@ export async function reorderPagesAction(
   try {
     await reorderPages(updates);
     revalidatePath(await getAdminPath("content-pages"));
-    invalidateNavigablePagesCache();
+    await invalidatePageCachesAndSync();
   } catch (err) {
     console.error("[reorderPagesAction] error:", err);
     return { error: tErrors("saveError") };
@@ -525,7 +525,7 @@ export async function togglePageStatusAction(
   try {
     await togglePageStatus(id, currentStatus);
     revalidatePath(await getAdminPath("content-pages"));
-    invalidateNavigablePagesCache();
+    await invalidatePageCachesAndSync();
 
     const user = await getUser();
     const nextStatus = currentStatus === "published" ? "draft" : "published";

@@ -52,7 +52,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
     <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 h-full px-4 py-6 border-r border-gc-line">
       {/* Header sidebar: logo + bell. shrink-0 → sempre visibile in alto. */}
       <div className="shrink-0 mb-6 flex items-center justify-between gap-2">
-        <Link href="/" className="inline-flex items-center min-w-0">
+        <Link href="/" prefetch={false} className="inline-flex items-center min-w-0">
           {appLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -93,6 +93,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 className={[
                   "flex items-center gap-3 px-3 py-2.5 rounded-gc-sm text-[14.5px] transition border",
                   active

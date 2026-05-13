@@ -79,6 +79,18 @@ export function buildOptimizedImageUrl(
   width: number,
   quality = 75,
 ): string {
+  // SVG bypass: Next image optimizer rifiuta gli SVG (default
+  // `dangerouslyAllowSVG: false`, per security) e l'errore esplode il
+  // TransformStream RSC ("controller[kState].transformAlgorithm is not a
+  // function"), cascando in tutto il render. Gli SVG sono già responsive
+  // per natura, quindi optimization è no-op: ritorniamo l'URL raw e il
+  // tag `<img>` lo carica direttamente.
+  // Anche Supabase mode lo benefit: il transform Supabase su SVG fa
+  // raster output (PNG) che è semanticamente sbagliato per un logo SVG.
+  if (publicUrl.toLowerCase().includes(".svg")) {
+    return publicUrl;
+  }
+
   const mode = getOptimizerMode();
 
   if (mode === "supabase") {
