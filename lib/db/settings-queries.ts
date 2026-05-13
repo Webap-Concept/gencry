@@ -225,14 +225,18 @@ export type SettingKey =
   // Se anche solo una chiave è vuota, l'upload avatar fallisce con errore
   // esplicito (no fallback Supabase: il refactor 2026-05-12 ha rimosso il
   // dual-backend per semplicità). Vedi /admin/services/storage-avatar.
-  | 'storage.avatar.r2.account_id'
+  // R2 storage core — account Cloudflare globale + bucket dedicati per
+  // servizio (token separati per isolamento di security). Vedi
+  // /admin/services/cloudflare card "R2 Storage". Moduli (es. prices)
+  // gestiscono il proprio R2 isolatamente sotto `modules.<slug>.r2.*`.
+  | 'storage.r2.account_id'
+  // Avatars bucket (user profile images)
   | 'storage.avatar.r2.access_key_id'
   | 'storage.avatar.r2.secret_access_key'
   | 'storage.avatar.r2.bucket'
   | 'storage.avatar.r2.public_base_url'
-  // Config snapshot R2 — bucket dedicato per i JSON di configurazione globale.
+  // Config snapshot bucket — JSON di configurazione globale.
   // Vedi lib/config/snapshot-storage/. Niente public_base_url: S3 API privata.
-  | 'storage.config.r2.account_id'
   | 'storage.config.r2.access_key_id'
   | 'storage.config.r2.secret_access_key'
   | 'storage.config.r2.bucket'
@@ -400,12 +404,11 @@ export type AppSettings = {
   'sentry.replays_on_error_sample_rate': string
   'sentry.send_default_pii': string
   // R2 storage per avatar utente (core feature)
-  'storage.avatar.r2.account_id': string | null
+  'storage.r2.account_id': string | null
   'storage.avatar.r2.access_key_id': string | null
   'storage.avatar.r2.secret_access_key': string | null
   'storage.avatar.r2.bucket': string | null
   'storage.avatar.r2.public_base_url': string | null
-  'storage.config.r2.account_id': string | null
   'storage.config.r2.access_key_id': string | null
   'storage.config.r2.secret_access_key': string | null
   'storage.config.r2.bucket': string | null
@@ -582,7 +585,7 @@ const DEFAULTS: AppSettings = {
   // R2 storage per avatar — null finché l'admin non configura via
   // /admin/services/storage-avatar. Tutte e 5 le chiavi richieste per
   // upload funzionante (no fallback Supabase).
-  'storage.avatar.r2.account_id': null,
+  'storage.r2.account_id': null,
   'storage.avatar.r2.access_key_id': null,
   'storage.avatar.r2.secret_access_key': null,
   'storage.avatar.r2.bucket': null,
@@ -590,7 +593,6 @@ const DEFAULTS: AppSettings = {
   // Config snapshot R2 — bucket dedicato per i file JSON di configurazione
   // (app_settings, system page slugs, ...). Vedi lib/config/.
   // Nessun `public_base_url` perché l'accesso è S3 API privata, mai pubblico.
-  'storage.config.r2.account_id': null,
   'storage.config.r2.access_key_id': null,
   'storage.config.r2.secret_access_key': null,
   'storage.config.r2.bucket': null,

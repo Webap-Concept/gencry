@@ -25,10 +25,14 @@ export { SnapshotStorageError } from "./types";
  * Legge la config R2 dedicata snapshot direttamente dal DB.
  * Ritorna null se anche solo una delle 4 chiavi è vuota — il caller decide
  * il fallback (di solito: lettura diretta DB, comportamento legacy).
+ *
+ * `accountId` viene dalla chiave GLOBAL `storage.r2.account_id` (account
+ * Cloudflare unico). `access_key_id` / `secret_access_key` / `bucket` sono
+ * specifici di QUESTO bucket per isolamento di security.
  */
 export async function loadSnapshotR2Config(): Promise<ConfigR2Config | null> {
   const s = await fetchAppSettingsRaw();
-  const accountId       = (s["storage.config.r2.account_id"]        ?? "").trim();
+  const accountId       = (s["storage.r2.account_id"]               ?? "").trim();
   const accessKeyId     = (s["storage.config.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["storage.config.r2.secret_access_key"] ?? "").trim();
   const bucket          = (s["storage.config.r2.bucket"]            ?? "").trim();
