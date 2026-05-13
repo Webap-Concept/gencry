@@ -2,6 +2,7 @@
 // Card coin: icona + nome + simbolo + categoria + chip rank + prezzo +
 // variazione 24h + sparkline 21pt + footer "In Nk watchlist" (mockup).
 // Pure presentational, server-component compatibile.
+import Link from "next/link";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { cn } from "@/lib/utils";
 import { CoinIcon } from "./coin-icon";
@@ -13,6 +14,7 @@ export function CoinCard({
   coin,
   rank,
   watchlistCount,
+  href,
   className,
 }: {
   coin: CoinView;
@@ -22,18 +24,33 @@ export function CoinCard({
    *  generato un mockup deterministico (la feature reale non esiste
    *  ancora). Quando la query reale arriverà, basterà passarla qui. */
   watchlistCount?: number | null;
+  /** Destinazione del click sulla card. Default `/coins/<symbol>`. Passa
+   *  `null` per renderla non-cliccabile (es. preview admin). */
+  href?: string | null;
   className?: string;
 }) {
   const wlCount = watchlistCount ?? mockWatchlistCount(coin.symbol);
+  const resolvedHref =
+    href === null ? null : (href ?? `/coins/${coin.symbol.toLowerCase()}`);
 
   return (
     <article
       className={cn(
-        "rounded-2xl p-4 bg-gc-bg-2 border border-gc-line transition-colors hover:border-gc-line-2",
+        "relative rounded-2xl p-4 bg-gc-bg-2 border border-gc-line transition-colors",
+        resolvedHref &&
+          "hover:border-gc-line-2 focus-within:border-gc-line-2",
         className,
       )}
       aria-label={`${coin.name} (${coin.symbol})`}
     >
+      {resolvedHref && (
+        <Link
+          href={resolvedHref}
+          prefetch={false}
+          className="absolute inset-0 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
+          aria-label={`Dettagli ${coin.name}`}
+        />
+      )}
       {/* Header */}
       <header className="flex items-start gap-3 min-w-0">
         <CoinIcon symbol={coin.symbol} imageUrl={coin.imageUrl} size="lg" />

@@ -37,6 +37,7 @@ export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   "profile",
   "notifiche",
   "explore",
+  "coins",
   "libreria",
   "feed",
   // Static files served as routes
