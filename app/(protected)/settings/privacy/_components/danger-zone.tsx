@@ -198,7 +198,7 @@ function OtpConfirmForm({
       />
 
       {sendStateMessage && (
-        <p className="text-[12.5px] text-emerald-700">{sendStateMessage}</p>
+        <p className="text-[12.5px] text-gc-success-fg">{sendStateMessage}</p>
       )}
 
       <div className="space-y-1.5">

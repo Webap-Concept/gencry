@@ -205,7 +205,7 @@ function RequestEmailChangeForm({
             <X className="h-3 w-3" /> {emailError}
           </p>
         ) : emailAvailable ? (
-          <p className="text-[11.5px] flex items-center gap-1 text-emerald-700 px-1">
+          <p className="text-[11.5px] flex items-center gap-1 text-gc-success-fg px-1">
             <Check className="h-3 w-3" /> Email disponibile
           </p>
         ) : null}
@@ -252,7 +252,7 @@ function RequestEmailChangeForm({
 
       {state.error && <p className="text-[13px] text-gc-neg">{state.error}</p>}
       {state.success && (
-        <p className="text-[13px] text-emerald-700">{state.success}</p>
+        <p className="text-[13px] text-gc-success-fg">{state.success}</p>
       )}
 
       <div className="flex justify-end">
@@ -333,7 +333,7 @@ function ConfirmEmailChangeForm({
           <p className="text-[13px] text-gc-neg">{confirmState.error}</p>
         )}
         {confirmState.success && (
-          <p className="text-[13px] text-emerald-700">{confirmState.success}</p>
+          <p className="text-[13px] text-gc-success-fg">{confirmState.success}</p>
         )}
 
         <div className="flex justify-end">
@@ -514,7 +514,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
 
         {state.error && <p className="text-[13px] text-gc-neg">{state.error}</p>}
         {state.success && (
-          <p className="text-[13px] text-emerald-700">{state.success}</p>
+          <p className="text-[13px] text-gc-success-fg">{state.success}</p>
         )}
 
         <div className="flex justify-end">
@@ -557,7 +557,7 @@ function PasswordRulesList({ password }: { password: string }) {
             key={rule.id}
             className={`text-[11.5px] flex items-center gap-1 transition-colors ${
               passed
-                ? "text-emerald-700"
+                ? "text-gc-success-fg"
                 : isEmpty
                   ? "text-gc-fg-3"
                   : "text-gc-neg"

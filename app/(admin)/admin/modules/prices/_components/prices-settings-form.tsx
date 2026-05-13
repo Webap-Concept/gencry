@@ -122,8 +122,8 @@ const FIELDS: Array<{
   },
   {
     name: "modules.prices.retention_days",
-    label: "Sparkline retention (days)",
-    hint: "Older points are deleted by the daily cleanup cron.",
+    label: "History retention (days)",
+    hint: "Daily cleanup cron deletes prices_history points older than this. Affects the interactive chart (1d/1w/1m/1y) — beyond this window the chart falls back to CoinGecko.",
     group: "history",
     type: "number",
     min: 1,
@@ -194,6 +194,9 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
   return (
     <>
       <form action={formAction} className="space-y-5">
+        {/* Cards principali: 2 per riga su md+, stack su mobile. Save +
+            nota schedule restano full-width sotto la grid. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
         {groups.map((group) => (
           <div
             key={group.key}
@@ -328,6 +331,7 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           isTesting={isR2Testing}
           isPending={isPending}
         />
+        </div>
 
         <div
           className="rounded-xl shadow-sm p-4 text-[11px]"

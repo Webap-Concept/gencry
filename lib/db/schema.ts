@@ -1312,13 +1312,14 @@ export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
 export const pricesCoins = pgTable(
   "prices_coins",
   {
-    symbol:       varchar("symbol", { length: 20 }).primaryKey(),
-    coingeckoId:  varchar("coingecko_id", { length: 100 }).unique(),
-    name:         varchar("name", { length: 120 }).notNull(),
-    imageUrl:     text("image_url"),
-    marketCap:    bigint("market_cap", { mode: "number" }),
-    category:     varchar("category", { length: 50 }),
-    isActive:     boolean("is_active").notNull().default(true),
+    symbol:         varchar("symbol", { length: 20 }).primaryKey(),
+    coingeckoId:    varchar("coingecko_id", { length: 100 }).unique(),
+    name:           varchar("name", { length: 120 }).notNull(),
+    imageUrl:       text("image_url"),
+    marketCap:      bigint("market_cap", { mode: "number" }),
+    marketCapRank:  integer("market_cap_rank"),
+    category:       varchar("category", { length: 50 }),
+    isActive:       boolean("is_active").notNull().default(true),
     lastSeenAt:   timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
     updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),
@@ -1336,6 +1337,11 @@ export const pricesData = pgTable("prices_data", {
   volume24h:    numeric("volume_24h", { precision: 24, scale: 2 }),
   source:       varchar("source", { length: 20 }).notNull().default("coingecko"),
   lastUpdated:  timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
+  // Sparkline settimanale pre-aggregata: 7 prezzi giornalieri dal più vecchio
+  // al più recente (oggi). Aggiornata dentro runPricesSync se l'ultima
+  // computazione è > 24h fa. Decorativa, non trading-grade.
+  weeklySparkline:   jsonb("weekly_sparkline").$type<number[] | null>(),
+  weeklySparklineAt: timestamp("weekly_sparkline_at", { withTimezone: true }),
 });
 
 export const pricesHistory = pgTable(

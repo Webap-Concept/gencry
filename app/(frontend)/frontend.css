@@ -130,15 +130,40 @@
   --gc-pos: #2d8659; /* prezzi in salita */
   --gc-neg: #c2553f; /* prezzi in discesa */
   --gc-green: #7dbe9e; /* verde brand (badge, indicatori live) */
+
+  /* ── semantic tokens ──────────────────────────────────
+     Estensione del set base per casi comuni che altrimenti finiscono
+     hardcoded (hex inline). Quando aggiungi un componente nuovo che
+     ha bisogno di un colore "tipico" (input bg, modal bg, warning, ...)
+     prima cerca qui — se manca, AGGIUNGI un token qui invece di hardcodare. */
+  --gc-input-bg: #ffffff;        /* sfondo input/textarea su card */
+  --gc-input-border: #d4ccba;    /* alias --gc-line-2 per chiarezza semantica */
+  --gc-input-focus: #fa8b1e;     /* alias --gc-accent per chiarezza */
+  --gc-input-placeholder: #94897a; /* alias --gc-fg-3 */
+  --gc-modal-bg: #ffffff;        /* sfondo modale/dropdown */
+  --gc-modal-border: #e6dfd0;    /* alias --gc-line */
+  --gc-overlay: rgba(18, 57, 40, 0.45); /* backdrop modali, oscuramento background */
+  --gc-card-bg: #fdfaf4;         /* alias --gc-bg-2 (chiarezza naming) */
+  --gc-card-border: #e6dfd0;     /* alias --gc-line */
+  --gc-warning-bg: #fef3c7;      /* badge/info warning soft */
+  --gc-warning-fg: #b45309;      /* testo su warning-bg */
+  --gc-success-bg: #d1fae5;      /* badge/info success soft (emerald-100) */
+  --gc-success-fg: #047857;      /* testo su success-bg (emerald-700) */
+  --gc-button-secondary-bg: #f3f4f6; /* bottoni neutri "cancel"/"close" */
+  --gc-button-secondary-fg: #374151; /* testo su button-secondary-bg */
 }
 
 /* ---------------------------------------------------------------------------
-   Tema BOSCO (dark) — attivo solo dentro `.gc-app-shell` quando html ha
-   la classe `.gc-dark`. Lo scope è chirurgico: l utente loggato in bosco
-   vede il tema scuro nelle pagine autenticate (layout (protected)), ma
-   landing pubblica / sign-in / CMS pages restano in sabbia. Il toggle è
-   in `components/layout/UserMenu.tsx` (ThemeToggleItem), persiste in
-   localStorage `gc-theme`.
+   Tema BOSCO (dark) — attivo quando html ha la classe `.gc-dark`. Solo
+   utenti LOGGATI possono attivarlo via UserMenu (anonimi non vedono il
+   toggle), quindi landing/sign-in/sign-up restano sempre in sabbia per
+   inheritance (l'html anonimo non ha mai .gc-dark).
+
+   13/05/26: scope cambiato da `.gc-dark .gc-app-shell` a `.gc-dark` per
+   far rispondere al tema anche le UI che vivono FUORI dallo shell —
+   modali portalate (Radix Dialog renderizza in body), Toast, banner
+   fixed in fondo, tooltip. Prima quei componenti vedevano sempre i
+   token light.
 
    Convenzione: invertiamo solo i livelli di sfondo / testo / linea.
    `--gc-accent`, `--gc-pos`, `--gc-neg`, `--gc-green` sono colori
@@ -149,20 +174,43 @@
    restano (sono brand colors fissi).
    --------------------------------------------------------------------------- */
 
-.gc-dark .gc-app-shell {
-  /* Background levels — verde notte profondo → leggermente più chiaro per card → ancora un po per item */
+.gc-dark {
+  /* Background levels — bilanciati per contrasto chiaro tra page / card / item.
+     Pre-13/05/26: bg-2 e bg-3 erano troppo simili a bg → card invisibili.
+     Rebalance: bg resta scuro identitario, bg-2 e bg-3 saltano +5-8% lightness. */
   --gc-bg: #0e1a14;
-  --gc-bg-2: #14241c;
-  --gc-bg-3: #1a2e25;
+  --gc-bg-2: #1d3327;
+  --gc-bg-3: #243d30;
 
-  /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata */
+  /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata.
+     fg-3 schiarito 13/05/26 da #7a7468 → #928c80 per migliore leggibilità dei metadata
+     su sfondo verde scuro. */
   --gc-fg: #e6e1d2;
   --gc-fg-2: #b5b0a3;
-  --gc-fg-3: #7a7468;
+  --gc-fg-3: #928c80;
 
-  /* Linee — toni del bg ma un click più chiari */
-  --gc-line: #25342c;
-  --gc-line-2: #364841;
+  /* Linee — devono essere VISIBILI su bg-2 (card). Pre-13/05/26: line
+     troppo simile a bg-2 → bottoni outline invisibili. */
+  --gc-line: #38503e;
+  --gc-line-2: #455b50;
+
+  /* Semantic tokens — override per dark (vedi versione light in :root sopra
+     per il commento di scopo). Mantengono lo stesso ruolo, solo valori adattati. */
+  --gc-input-bg: #1d3327;        /* match bg-2: input visibili su card */
+  --gc-input-border: #455b50;    /* alias line-2 dark */
+  --gc-input-focus: #fa8b1e;     /* accent invariato */
+  --gc-input-placeholder: #7a7468; /* alias fg-3 dark */
+  --gc-modal-bg: #1d3327;        /* match bg-2 dark */
+  --gc-modal-border: #38503e;    /* alias line dark */
+  --gc-overlay: rgba(0, 0, 0, 0.65); /* più scuro in dark */
+  --gc-card-bg: #1d3327;         /* alias bg-2 dark */
+  --gc-card-border: #38503e;     /* alias line dark */
+  --gc-warning-bg: rgba(250, 139, 30, 0.15); /* warning più sobrio in dark */
+  --gc-warning-fg: #fa8b1e;       /* accent come testo warning */
+  --gc-success-bg: rgba(125, 190, 158, 0.18); /* success soft, alias visual gc-green */
+  --gc-success-fg: #7dbe9e;       /* gc-green per testo success in dark */
+  --gc-button-secondary-bg: #243d30; /* alias bg-3 dark */
+  --gc-button-secondary-fg: #e6e1d2; /* alias fg dark */
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
 
@@ -178,6 +226,42 @@
   --brand-error-bg: #3a1a18;
   /* --brand-primary, --brand-accent, --brand-destructive,
      --brand-error-border, --brand-border-focus: invariati (brand colors) */
+}
+
+/* ---------------------------------------------------------------------------
+   Scrollbar — colorate sui token gc-*, theme-aware automaticamente.
+   Light: scrollbar cream con thumb sabbia scura. Dark: scrollbar verde scuro
+   con thumb più chiaro. Stile thin per non rubare spazio al contenuto.
+   --------------------------------------------------------------------------- */
+
+/* Firefox + browser moderni (CSS Working Group standard) */
+* {
+  scrollbar-color: var(--gc-line-2) transparent;
+  scrollbar-width: thin;
+}
+
+/* WebKit (Chrome, Safari, Edge) — controllo fine del look */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--gc-line-2);
+  border-radius: 5px;
+  /* Border trasparente con background-clip: content-box → effetto "padding"
+     visivo intorno al thumb, più elegante della scrollbar piena. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gc-fg-3);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ---------------------------------------------------------------------------

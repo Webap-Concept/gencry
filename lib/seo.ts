@@ -79,10 +79,27 @@ function mapRobots(robots?: string | null): Metadata["robots"] | undefined {
 /**
  * Genera metadata per una pagina leggendo da DB (con cache), con fallback sensati.
  * Il nome dell'app viene letto dinamicamente dalle impostazioni — mai hardcoded.
+ *
+ * `defaults.image` permette ai chiamanti dinamici (es. la pagina coin
+ * `/coins/[symbol]`) di passare un'immagine OG/Twitter senza dover
+ * registrare una riga in `seo_pages` per ogni record: se l'admin
+ * inserisce un override in DB, quello vince; altrimenti si usa il
+ * default passato dal call site.
  */
 export async function generatePageMetadata(
   pathname: string,
-  defaults?: { title?: string; description?: string },
+  defaults?: {
+    title?: string;
+    description?: string;
+    image?: string;
+    /** OG/Twitter overrides separati dalla `description` SERP. Utile quando
+     *  la description SERP contiene dati dinamici (es. prezzo live per le
+     *  coin) ma vuoi che gli share social mostrino una versione statica
+     *  per evitare card "stale" cachate da Twitter/FB. Se omessi, ricadono
+     *  rispettivamente su `title` e `description`. */
+    ogTitle?: string;
+    ogDescription?: string;
+  },
 ): Promise<Metadata> {
   await connection();
   const [row, settings, siteUrl] = await Promise.all([
@@ -100,28 +117,45 @@ export async function generatePageMetadata(
   const description = resolve(
     row?.description || defaults?.description || `Welcome to ${appName}.`,
   );
-  const ogTitle = resolve(row?.ogTitle || title);
-  const ogDescription = resolve(row?.ogDescription || description);
+  // OG/Twitter: DB override > default caller > description SERP.
+  const ogTitle = resolve(row?.ogTitle || defaults?.ogTitle || title);
+  const ogDescription = resolve(
+    row?.ogDescription || defaults?.ogDescription || description,
+  );
 
   const canonical = siteUrl ? `${siteUrl}${pathname}` : undefined;
   const robots = mapRobots(row?.robots);
 
+  // OG image: DB override vince, altrimenti default passato dal caller.
+  const ogImage = row?.ogImage ?? defaults?.image;
+
+  // metadataBase: serve a Next per risolvere URL relativi (es. l'OG image
+  // colocated `opengraph-image.tsx`) in URL assoluti. Settandolo
+  // esplicitamente (con fallback localhost in dev) silenziamo il warning
+  // di Next ed evitiamo che l'OG image in produzione sia risolta a
+  // localhost se app_domain è momentaneamente vuoto.
+  const metadataBase = new URL(siteUrl || "http://localhost:3000");
+
   return {
     title,
     description,
+    metadataBase,
     ...(canonical ? { alternates: { canonical } } : {}),
     ...(robots ? { robots } : {}),
     openGraph: {
       title: ogTitle,
       description: ogDescription,
       ...(canonical ? { url: canonical } : {}),
-      ...(row?.ogImage ? { images: [{ url: row.ogImage }] } : {}),
+      siteName: appName,
+      type: "website",
+      locale: "it_IT",
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description: ogDescription,
-      ...(row?.ogImage ? { images: [row.ogImage] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }

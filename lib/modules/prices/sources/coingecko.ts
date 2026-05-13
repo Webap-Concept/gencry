@@ -33,12 +33,33 @@ async function resolveEndpoint(): Promise<CoinGeckoEndpoint> {
   return { baseUrl: COINGECKO_FREE_BASE, headers: { Accept: "application/json" } };
 }
 
-interface SimplePriceResponse {
-  [coingeckoId: string]: {
-    usd?: number;
-    usd_24h_change?: number;
-    usd_24h_vol?: number;
-  };
+interface MarketsResponseItem {
+  id: string;
+  current_price?: number;
+  price_change_percentage_24h?: number;
+  total_volume?: number;
+  market_cap?: number;
+  market_cap_rank?: number;
+  sparkline_in_7d?: { price?: number[] };
+}
+
+/** Downsample 168 punti orari → 21 punti (3 al giorno). Prendiamo l'ultimo
+ *  punto di ogni finestra 8h (indici 7, 15, 23, …, 167). Se la sparkline
+ *  ha meno di 168 punti (può capitare per coin recenti), ricalibriamo lo
+ *  step proporzionalmente. */
+function downsampleSparkline(points: number[] | undefined): number[] | null {
+  if (!points || points.length < 2) return null;
+  const target = 21;
+  if (points.length <= target) return points.filter((n) => Number.isFinite(n));
+  const step = points.length / target;
+  const out: number[] = [];
+  for (let i = 1; i <= target; i++) {
+    // Indice dell'ultimo punto di ogni finestra
+    const idx = Math.min(points.length - 1, Math.floor(i * step) - 1);
+    const v = points[idx];
+    if (Number.isFinite(v)) out.push(v);
+  }
+  return out.length >= 2 ? out : null;
 }
 
 export class CoinGeckoError extends Error {
@@ -69,14 +90,25 @@ export async function fetchCoinGeckoPrices(
   const quotes = new Map<string, PriceQuote>();
   const endpoint = await resolveEndpoint();
 
-  // Batching: l'endpoint accetta CSV di ID, max ~250 per call
+  // Batching: /coins/markets accetta `ids` CSV con max ~250 per page.
+  // Usiamo questo endpoint invece di /simple/price perché ritorna ANCHE la
+  // sparkline 7d (sparkline_in_7d.price = 168 punti orari), che il
+  // sync downsampla a 21 punti (3/giorno) per `prices_data.weekly_sparkline`.
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
-    const url = new URL(`${endpoint.baseUrl}/simple/price`);
+    const url = new URL(`${endpoint.baseUrl}/coins/markets`);
+    url.searchParams.set("vs_currency", "usd");
     url.searchParams.set("ids", batch.join(","));
-    url.searchParams.set("vs_currencies", "usd");
-    url.searchParams.set("include_24hr_change", "true");
-    url.searchParams.set("include_24hr_vol", "true");
+    url.searchParams.set("per_page", String(BATCH_SIZE));
+    url.searchParams.set("page", "1");
+    url.searchParams.set("sparkline", "true");
+    url.searchParams.set("price_change_percentage", "24h");
+    // CRITICO: senza `precision=full`, `/coins/markets` arrotonda
+    // `current_price` all'intero per asset >$1 ("$79733" invece di
+    // "$79733.05"). `/simple/price` non aveva questo problema, ma noi
+    // abbiamo migrato a `/coins/markets` per la sparkline. Vedi:
+    // https://docs.coingecko.com/reference/coins-markets
+    url.searchParams.set("precision", "full");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -106,15 +138,22 @@ export async function fetchCoinGeckoPrices(
       );
     }
 
-    const data = (await response.json()) as SimplePriceResponse;
-    for (const [coingeckoId, payload] of Object.entries(data)) {
-      const symbol = idToSymbol.get(coingeckoId);
-      if (!symbol || typeof payload.usd !== "number") continue;
+    const data = (await response.json()) as MarketsResponseItem[];
+    for (const item of data) {
+      const symbol = idToSymbol.get(item.id);
+      if (!symbol || typeof item.current_price !== "number") continue;
       quotes.set(symbol, {
         symbol,
-        price: payload.usd,
-        change24h: typeof payload.usd_24h_change === "number" ? payload.usd_24h_change : null,
-        volume24h: typeof payload.usd_24h_vol === "number" ? payload.usd_24h_vol : null,
+        price: item.current_price,
+        change24h:
+          typeof item.price_change_percentage_24h === "number"
+            ? item.price_change_percentage_24h
+            : null,
+        volume24h: typeof item.total_volume === "number" ? item.total_volume : null,
+        sparkline7d: downsampleSparkline(item.sparkline_in_7d?.price),
+        marketCap: typeof item.market_cap === "number" ? item.market_cap : null,
+        marketCapRank:
+          typeof item.market_cap_rank === "number" ? item.market_cap_rank : null,
       });
     }
   }
@@ -231,6 +270,58 @@ export async function fetchCoinMetadata(coingeckoId: string): Promise<{
       marketCap: data.market_data?.market_cap?.usd,
       category: data.categories?.[0] ?? undefined,
     };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Market chart (storico per il grafico interattivo)
+// ---------------------------------------------------------------------------
+
+interface MarketChartResponse {
+  /** Array di [timestamp_ms, price] sortato dal più vecchio al più recente. */
+  prices: [number, number][];
+}
+
+/**
+ * Fetch dello storico prezzi USD per il grafico interattivo. Usato come
+ * fallback quando `prices_history` non copre la finestra richiesta (es. 1y
+ * quando il modulo è attivo da poche settimane).
+ *
+ * CoinGecko sceglie automaticamente la granularità in base a `days`:
+ *   - 1 → 5 minuti
+ *   - 2-90 → 1 ora
+ *   - >90 → 1 giorno
+ *
+ * Ritorna null su errore (404, rate limit, network) — il caller mostra
+ * un fallback graceful invece di un crash.
+ */
+export async function fetchCoinGeckoMarketChart(
+  coingeckoId: string,
+  days: number,
+): Promise<Array<{ ts: Date; price: number }> | null> {
+  const endpoint = await resolveEndpoint();
+  const url = new URL(`${endpoint.baseUrl}/coins/${encodeURIComponent(coingeckoId)}/market_chart`);
+  url.searchParams.set("vs_currency", "usd");
+  url.searchParams.set("days", String(days));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: endpoint.headers,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as MarketChartResponse;
+    if (!Array.isArray(data.prices)) return null;
+    return data.prices
+      .filter(([t, p]) => Number.isFinite(t) && Number.isFinite(p))
+      .map(([t, p]) => ({ ts: new Date(t), price: p }));
   } catch {
     return null;
   } finally {

@@ -75,6 +75,8 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
   return (
     <>
       <div className="space-y-5">
+        {/* Add coin + Import top coins: side by side su md+, stack mobile. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
         {/* Add coin */}
         <div
           className="rounded-xl shadow-sm p-6"
@@ -120,6 +122,7 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
 
         {/* Import top coins */}
         <BulkImportCard onToast={setToast} />
+        </div>
 
         {/* Coins table */}
         <div

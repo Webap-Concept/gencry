@@ -162,7 +162,7 @@ export function ProfileForm({
               <X className="h-3 w-3" /> {usernameError}
             </p>
           ) : usernameAvailable ? (
-            <p className="text-[11.5px] flex items-center gap-1 text-emerald-700 px-1">
+            <p className="text-[11.5px] flex items-center gap-1 text-gc-success-fg px-1">
               <Check className="h-3 w-3" /> Username disponibile
             </p>
           ) : (
@@ -229,7 +229,7 @@ export function ProfileForm({
           <p className="text-[13px] text-gc-neg">{profileState.error}</p>
         )}
         {profileState.success && (
-          <p className="text-[13px] text-emerald-700">{profileState.success}</p>
+          <p className="text-[13px] text-gc-success-fg">{profileState.success}</p>
         )}
 
         <div className="flex justify-end">

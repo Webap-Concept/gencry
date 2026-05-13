@@ -89,7 +89,7 @@ function ConsentCard({
               </span>
             )}
             {!consent.isCurrent && consent.acceptedVersion && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+              <span className="rounded-full bg-gc-warning-bg px-2 py-0.5 text-[11px] font-medium text-gc-warning-fg">
                 Versione aggiornata disponibile
               </span>
             )}

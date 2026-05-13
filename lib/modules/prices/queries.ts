@@ -11,6 +11,11 @@ import { unstable_cache } from "next/cache";
  * comunque ogni 60s — accettabile dato che il cron sync gira ogni ~5 min. */
 export const PRICES_HEALTH_TAG = "prices-health";
 
+/** Tag per i dati prezzi user-facing (card coin, ticker, ecc). Invalidalo
+ * a fine sync per propagare i nuovi prezzi senza aspettare il revalidate
+ * 60s. */
+export const PRICES_DATA_TAG = "prices-data";
+
 export interface PriceRow {
   symbol: string;
   price: number;
@@ -188,4 +193,321 @@ export async function getRecentRuns(limit = 20) {
 
 export async function listCoins() {
   return await db.select().from(pricesCoins).orderBy(desc(pricesCoins.marketCap));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Coin cards (frontend)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Vista denormalizzata che alimenta le card coin del frontend: metadata
+ * (nome, simbolo, icona) + prezzo live + variazione 24h + sparkline
+ * settimanale pre-aggregata. Una sola riga = card pronta.
+ */
+export interface CoinView {
+  symbol: string;
+  name: string;
+  imageUrl: string | null;
+  marketCap: number | null;
+  /** Posizione globale per market cap (1 = top). Null se mai popolato dal sync. */
+  marketCapRank: number | null;
+  category: string | null;
+  price: number;
+  change24h: number | null;
+  volume24h: number | null;
+  /** 21 punti settimanali oldest → newest (3/giorno). null se mai computata. */
+  weeklySparkline: number[] | null;
+  lastUpdated: Date;
+}
+
+/**
+ * Pool top coin per market cap con prezzo + sparkline in 1 query.
+ *
+ * Cachato una volta solo (cap fisso TOP_POOL_SIZE), poi i consumer fanno
+ * slice in memoria con `getTopCoinsForCards(limit)`. Così evitiamo entry di
+ * cache separate per ogni `limit` distinto (home=4, esplora=20, lista=50,
+ * ecc.). Cache 60s con tag `PRICES_DATA_TAG`.
+ */
+const TOP_POOL_SIZE = 200;
+
+const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]> => {
+  const rows = await db
+    .select({
+      symbol: pricesCoins.symbol,
+      name: pricesCoins.name,
+      imageUrl: pricesCoins.imageUrl,
+      marketCap: pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
+      category: pricesCoins.category,
+      price: pricesData.price,
+      change24h: pricesData.change24h,
+      volume24h: pricesData.volume24h,
+      weeklySparkline: pricesData.weeklySparkline,
+      lastUpdated: pricesData.lastUpdated,
+    })
+    .from(pricesCoins)
+    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
+    .where(eq(pricesCoins.isActive, true))
+    .orderBy(desc(pricesCoins.marketCap))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    name: r.name,
+    imageUrl: r.imageUrl,
+    marketCap: r.marketCap,
+    marketCapRank: r.marketCapRank,
+    category: r.category,
+    price: Number(r.price),
+    change24h: r.change24h !== null ? Number(r.change24h) : null,
+    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
+    weeklySparkline: r.weeklySparkline,
+    lastUpdated: r.lastUpdated,
+  }));
+};
+
+const fetchTopPoolCached = unstable_cache(
+  () => fetchTopCoinsForCards(TOP_POOL_SIZE),
+  ["prices-top-coins-pool"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getTopCoinsForCards(limit = 50): Promise<CoinView[]> {
+  const pool = await fetchTopPoolCached();
+  if (limit >= pool.length) return pool;
+  return pool.slice(0, limit);
+}
+
+/**
+ * Singolo coin per la card (preview / hero / inline). Case-insensitive sul
+ * simbolo. Restituisce null se il coin non esiste o non ha ancora un
+ * prezzo registrato in `prices_data`. Cache 60s con tag PRICES_DATA_TAG.
+ */
+const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
+  const upper = symbol.toUpperCase();
+  const rows = await db
+    .select({
+      symbol: pricesCoins.symbol,
+      name: pricesCoins.name,
+      imageUrl: pricesCoins.imageUrl,
+      marketCap: pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
+      category: pricesCoins.category,
+      price: pricesData.price,
+      change24h: pricesData.change24h,
+      volume24h: pricesData.volume24h,
+      weeklySparkline: pricesData.weeklySparkline,
+      lastUpdated: pricesData.lastUpdated,
+    })
+    .from(pricesCoins)
+    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    symbol: r.symbol,
+    name: r.name,
+    imageUrl: r.imageUrl,
+    marketCap: r.marketCap,
+    marketCapRank: r.marketCapRank,
+    category: r.category,
+    price: Number(r.price),
+    change24h: r.change24h !== null ? Number(r.change24h) : null,
+    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
+    weeklySparkline: r.weeklySparkline,
+    lastUpdated: r.lastUpdated,
+  };
+};
+
+const fetchCoinForCardCached = unstable_cache(
+  fetchCoinForCard,
+  ["prices-coin-for-card"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
+  return fetchCoinForCardCached(symbol);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// History series (chart interattivo)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type HistoryRange = "1d" | "1w" | "1m" | "1y";
+
+export interface HistoryPoint {
+  /** Timestamp ms (più piccolo del Date object, friendly per Recharts). */
+  ts: number;
+  price: number;
+}
+
+export interface HistorySeries {
+  range: HistoryRange;
+  /** Da dove arrivano i punti: nostra DB o fallback CoinGecko. */
+  source: "db" | "coingecko";
+  points: HistoryPoint[];
+}
+
+/** Mappa finestra → giorni + granularità di bucket SQL.
+ *  La granularità è scelta per produrre ~24–365 punti, abbastanza
+ *  morbidi per Recharts senza appesantire la response. */
+const RANGE_CONFIG: Record<
+  HistoryRange,
+  {
+    days: number;
+    bucket: "minute" | "hour" | "day";
+    /** TTL cache server-side (s). 1d sta dietro al cron 5min. */
+    revalidate: number;
+  }
+> = {
+  "1d": { days: 1, bucket: "hour", revalidate: 60 },
+  "1w": { days: 7, bucket: "hour", revalidate: 300 },
+  "1m": { days: 30, bucket: "day", revalidate: 1800 },
+  "1y": { days: 365, bucket: "day", revalidate: 3600 },
+};
+
+/**
+ * Legge i punti dalla nostra `prices_history` con downsampling SQL
+ * (close-price per bucket via DISTINCT ON). Ritorna sempre i punti
+ * disponibili — il caller decide se sono sufficienti per la finestra.
+ */
+const fetchHistoryFromDb = async (
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistoryPoint[]> => {
+  const { days, bucket } = RANGE_CONFIG[range];
+  // toISOString(): db.execute() passa raw alla pg-js, che non binda Date
+  // come timestamp (TypeError "Received an instance of Date"). Postgres
+  // accetta la stringa ISO e la castiamo a timestamptz inline per
+  // sicurezza tipi.
+  const windowStartIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+
+  // `bucket` deve essere inlined come literal SQL, NON come parametro
+  // bindato: Postgres confronta le espressioni di DISTINCT ON e ORDER BY
+  // testualmente — `date_trunc($1, ts)` e `date_trunc($5, ts)` sono
+  // espressioni diverse anche se i parametri hanno lo stesso valore
+  // ("SELECT DISTINCT ON expressions must match initial ORDER BY"
+  // error 42P10). Bucket è una whitelist hard-coded di 3 valori, nessun
+  // rischio injection.
+  const bucketExpr = sql.raw(`date_trunc('${bucket}', ts)`);
+
+  const rows = await db.execute<{ ts: string; price: string }>(sql`
+    SELECT DISTINCT ON (${bucketExpr})
+      ${bucketExpr}::text AS ts,
+      price::text AS price
+    FROM prices_history
+    WHERE symbol = ${symbol}
+      AND ts >= ${windowStartIso}::timestamptz
+    ORDER BY ${bucketExpr} ASC, ts DESC
+  `);
+
+  return rows
+    .map((r) => ({ ts: new Date(r.ts).getTime(), price: Number(r.price) }))
+    .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.price));
+};
+
+/**
+ * Restituisce il timestamp del primo punto disponibile per il symbol —
+ * usato per decidere se la finestra richiesta è coperta dalla nostra DB
+ * o se serve fallback CoinGecko.
+ */
+const fetchEarliestHistoryTsCached = unstable_cache(
+  async (symbol: string): Promise<number | null> => {
+    const rows = await db
+      .select({ ts: pricesHistory.ts })
+      .from(pricesHistory)
+      .where(eq(pricesHistory.symbol, symbol))
+      .orderBy(pricesHistory.ts)
+      .limit(1);
+    return rows[0]?.ts.getTime() ?? null;
+  },
+  ["prices-earliest-history-ts"],
+  { revalidate: 300, tags: [PRICES_DATA_TAG] },
+);
+
+/**
+ * Helper "ha abbastanza storia per coprire la finestra?": se l'inizio
+ * della finestra richiesta è prima del primo punto in DB, fallback.
+ * Margine di 10% per evitare flicker DB ↔ CoinGecko ai bordi.
+ */
+async function hasSufficientHistory(
+  symbol: string,
+  range: HistoryRange,
+): Promise<boolean> {
+  const earliest = await fetchEarliestHistoryTsCached(symbol);
+  if (earliest === null) return false;
+  const { days } = RANGE_CONFIG[range];
+  const windowStart = Date.now() - days * 24 * 3600 * 1000;
+  const margin = days * 24 * 3600 * 1000 * 0.1;
+  return earliest <= windowStart + margin;
+}
+
+/**
+ * Carica la serie storica per il chart interattivo.
+ *
+ *   1. Prova nostra DB (downsampling SQL per bucket).
+ *   2. Se la finestra non è coperta (history troppo recente) → fallback
+ *      CoinGecko `/coins/{id}/market_chart`.
+ *   3. Se anche CoinGecko fallisce → ritorna comunque quello che c'è in DB.
+ *
+ * Cache stratificata per (symbol, range): TTL diverso per finestra
+ * (1d=60s vicino al cron, 1y=1h dati storici stabili).
+ */
+const fetchHistorySeries = async (
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistorySeries> => {
+  const upper = symbol.toUpperCase();
+  const sufficient = await hasSufficientHistory(upper, range);
+
+  if (sufficient) {
+    const points = await fetchHistoryFromDb(upper, range);
+    if (points.length >= 2) {
+      return { range, source: "db", points };
+    }
+  }
+
+  // Fallback CoinGecko: serve il coingeckoId del coin.
+  const [coinRow] = await db
+    .select({ coingeckoId: pricesCoins.coingeckoId })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  if (coinRow?.coingeckoId) {
+    const { fetchCoinGeckoMarketChart } = await import(
+      "./sources/coingecko"
+    );
+    const cgPoints = await fetchCoinGeckoMarketChart(
+      coinRow.coingeckoId,
+      RANGE_CONFIG[range].days,
+    );
+    if (cgPoints && cgPoints.length >= 2) {
+      return {
+        range,
+        source: "coingecko",
+        points: cgPoints.map((p) => ({ ts: p.ts.getTime(), price: p.price })),
+      };
+    }
+  }
+
+  // Ultimo fallback: torna quel poco che c'è in DB (anche < 2 punti).
+  const dbFallback = await fetchHistoryFromDb(upper, range);
+  return { range, source: "db", points: dbFallback };
+};
+
+export async function getHistorySeries(
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistorySeries> {
+  // Cache key derivata da (symbol, range). Drizzle/unstable_cache combina
+  // gli argomenti nella chiave automaticamente. TTL dinamico per range.
+  const cached = unstable_cache(
+    () => fetchHistorySeries(symbol, range),
+    ["prices-history-series", symbol.toUpperCase(), range],
+    { revalidate: RANGE_CONFIG[range].revalidate, tags: [PRICES_DATA_TAG] },
+  );
+  return cached();
 }

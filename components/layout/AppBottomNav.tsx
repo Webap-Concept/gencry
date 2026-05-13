@@ -16,7 +16,7 @@ type LinkSlot = {
 // `null` = slot del bottone +Nuova watchlist (centrale, non navigabile)
 const SLOTS: (LinkSlot | null)[] = [
   { href: "/", label: "Feed", icon: Home },
-  { href: "/esplora", label: "Esplora", icon: Compass },
+  { href: "/explore", label: "Explore", icon: Compass },
   null,
   { href: "/notifiche", label: "Notifiche", icon: Bell },
   { href: "/profile", label: "Profilo", icon: UserIcon },

@@ -3,8 +3,17 @@
 import { signOut } from "@/app/(login)/actions";
 import type { ActionState } from "@/lib/auth/middleware";
 import type { PolicyNotificationKey } from "@/lib/db/schema";
-import { AlertTriangle, ExternalLink, X } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { acceptUpdatedConsentsAction } from "./policy-reconsent-actions";
 
 type PendingItem = {
@@ -68,12 +77,11 @@ export function PolicyReconsentBanner({
         aria-live="polite"
         className="sticky top-0 z-40 px-4 py-2.5 text-sm flex items-center gap-3 flex-wrap"
         style={{
-          background: "color-mix(in srgb, #f59e0b 14%, var(--gc-bg, #fff))",
-          borderBottom:
-            "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
-          color: "var(--gc-text, #1f2937)",
+          background: "var(--gc-warning-bg)",
+          borderBottom: "1px solid color-mix(in srgb, var(--gc-warning-fg) 35%, transparent)",
+          color: "var(--gc-fg)",
         }}>
-        <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+        <AlertTriangle size={16} className="text-gc-warning-fg shrink-0" />
         <span className="font-medium">{bannerLabel}</span>
         {!isBlocking && daysRemaining !== null && (
           <span
@@ -84,12 +92,13 @@ export function PolicyReconsentBanner({
               : "Riaccetta oggi per continuare a usare il servizio."}
           </span>
         )}
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => setModalOpen(true)}
-          className="ml-auto text-xs font-semibold px-3 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors">
+          className="ml-auto">
           {isBlocking ? "Rivedi e accetta" : "Rivedi"}
-        </button>
+        </Button>
       </div>
 
       {modalOpen && (
@@ -144,64 +153,45 @@ function ReconsentModal({
     (!hasTerms || acceptedTerms) && (!hasPrivacy || acceptedPrivacy);
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-50"
-        style={{
-          background: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(2px)",
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        // shadcn Dialog chiama questo con `false` quando user preme ESC o
+        // clicca outside. Se la modal è bloccante (isBlocking), ignoriamo —
+        // l'utente DEVE accettare.
+        if (!o && onClose) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-lg p-0 max-h-[85vh] flex flex-col"
+        showCloseButton={!!onClose}
+        onEscapeKeyDown={(e) => {
+          if (!onClose) e.preventDefault();
         }}
-        onClick={onClose ?? undefined}
-      />
+        onInteractOutside={(e) => {
+          if (!onClose) e.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <span
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
+            <AlertTriangle size={16} />
+          </span>
+          <DialogTitle>Conferma le policy aggiornate</DialogTitle>
+        </DialogHeader>
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reconsent-title"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className="rounded-2xl shadow-xl pointer-events-auto w-full max-w-lg flex flex-col"
-          style={{
-            background: "var(--gc-surface, #fff)",
-            border: "1px solid var(--gc-border, #e5e7eb)",
-            maxHeight: "85vh",
-          }}>
-          {/* Header */}
-          <div
-            className="flex items-center gap-3 px-5 py-4"
-            style={{ borderBottom: "1px solid var(--gc-border, #e5e7eb)" }}>
-            <span
-              className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700 shrink-0">
-              <AlertTriangle size={16} />
-            </span>
-            <h2
-              id="reconsent-title"
-              className="flex-1 text-base font-semibold"
-              style={{ color: "var(--gc-text, #111827)" }}>
-              Conferma le policy aggiornate
-            </h2>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Chiudi"
-                className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500">
-                <X size={16} />
-              </button>
-            )}
-          </div>
+        {/* Body */}
+        <form
+          action={formAction}
+          data-reconsent-form
+          className="flex-1 overflow-auto px-5 py-4">
+          <DialogDescription className="mb-4">
+            Abbiamo aggiornato le policy che hai accettato in passato.
+            Spunta le caselle per confermare la nuova versione. I link
+            aprono il testo completo in una nuova scheda.
+          </DialogDescription>
 
-          {/* Body */}
-          <form action={formAction} className="flex-1 overflow-auto px-5 py-4">
-            <p
-              className="text-sm mb-4"
-              style={{ color: "var(--gc-text-muted, #4b5563)" }}>
-              Abbiamo aggiornato le policy che hai accettato in passato.
-              Spunta le caselle per confermare la nuova versione. I link
-              aprono il testo completo in una nuova scheda.
-            </p>
-
-            <ul className="space-y-3">
+          <ul className="space-y-3">
               {items.map((it) => {
                 const slug = slugs[it.policyKey];
                 const isMarketing = it.policyKey === "marketing";
@@ -220,37 +210,33 @@ function ReconsentModal({
                 return (
                   <li
                     key={it.policyKey}
-                    className="rounded-lg p-3 flex items-start gap-3"
-                    style={{
-                      background: "var(--gc-bg, #f9fafb)",
-                      border: "1px solid var(--gc-border, #e5e7eb)",
-                    }}>
+                    className="rounded-lg p-3 flex items-start gap-3 bg-gc-bg-3 border border-gc-line">
                     <input
                       type="checkbox"
                       name={it.policyKey}
                       checked={checked}
                       onChange={(e) => setChecked(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-600"
+                      className="mt-0.5 w-4 h-4 cursor-pointer accent-gc-accent"
                     />
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="text-sm font-medium"
-                        style={{ color: "var(--gc-text, #111827)" }}>
+                      <div className="text-sm font-medium text-gc-fg">
                         {POLICY_LABELS[it.policyKey]}
                         {!isMarketing && (
-                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-red-100 text-red-700">
+                          <span
+                            className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide text-gc-neg"
+                            style={{
+                              background: "color-mix(in srgb, var(--gc-neg) 18%, transparent)",
+                            }}>
                             Obbligatorio
                           </span>
                         )}
                         {isMarketing && (
-                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-slate-200 text-slate-700">
+                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide bg-gc-line text-gc-fg-2">
                             Opzionale
                           </span>
                         )}
                       </div>
-                      <div
-                        className="text-[11px] mt-0.5"
-                        style={{ color: "var(--gc-text-muted, #6b7280)" }}>
+                      <div className="text-[11px] mt-0.5 text-gc-fg-3">
                         Versione precedente: {it.acceptedVersion} → nuova:{" "}
                         {it.newVersion}
                       </div>
@@ -259,7 +245,7 @@ function ReconsentModal({
                           href={`/${slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs mt-1.5 text-amber-700 hover:underline">
+                          className="inline-flex items-center gap-1 text-xs mt-1.5 text-gc-warning-fg hover:underline">
                           Apri il testo completo
                           <ExternalLink size={11} />
                         </a>
@@ -271,43 +257,48 @@ function ReconsentModal({
             </ul>
 
             {state.error && (
-              <p className="mt-3 text-xs text-red-600">{state.error}</p>
+              <p className="mt-3 text-xs text-gc-neg">{state.error}</p>
             )}
             {state.success && (
-              <p className="mt-3 text-xs text-emerald-700">{state.success}</p>
+              <p className="mt-3 text-xs text-gc-success-fg">{state.success}</p>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-2 mt-5">
-              {isBlocking ? (
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="text-xs font-medium px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
-                  disabled={isPending}>
-                  Esci
-                </button>
-              ) : (
-                onClose && (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="text-xs font-medium px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
-                    disabled={isPending}>
-                    Decidi più tardi
-                  </button>
-                )
-              )}
-              <button
-                type="submit"
-                disabled={!requiredOk || isPending}
-                className="text-sm font-medium px-4 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {isPending ? "Salvataggio…" : "Accetta e continua"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </>
+        </form>
+
+        <DialogFooter>
+          {isBlocking ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut()}
+              disabled={isPending}>
+              Esci
+            </Button>
+          ) : (
+            onClose && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                disabled={isPending}>
+                Decidi più tardi
+              </Button>
+            )
+          )}
+          <Button
+            type="button"
+            size="sm"
+            disabled={!requiredOk || isPending}
+            onClick={() => {
+              const form = document.querySelector("form[data-reconsent-form]") as HTMLFormElement | null;
+              form?.requestSubmit();
+            }}>
+            {isPending ? "Salvataggio…" : "Accetta e continua"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
