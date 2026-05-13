@@ -79,10 +79,16 @@ function mapRobots(robots?: string | null): Metadata["robots"] | undefined {
 /**
  * Genera metadata per una pagina leggendo da DB (con cache), con fallback sensati.
  * Il nome dell'app viene letto dinamicamente dalle impostazioni — mai hardcoded.
+ *
+ * `defaults.image` permette ai chiamanti dinamici (es. la pagina coin
+ * `/coins/[symbol]`) di passare un'immagine OG/Twitter senza dover
+ * registrare una riga in `seo_pages` per ogni record: se l'admin
+ * inserisce un override in DB, quello vince; altrimenti si usa il
+ * default passato dal call site.
  */
 export async function generatePageMetadata(
   pathname: string,
-  defaults?: { title?: string; description?: string },
+  defaults?: { title?: string; description?: string; image?: string },
 ): Promise<Metadata> {
   await connection();
   const [row, settings, siteUrl] = await Promise.all([
@@ -106,6 +112,9 @@ export async function generatePageMetadata(
   const canonical = siteUrl ? `${siteUrl}${pathname}` : undefined;
   const robots = mapRobots(row?.robots);
 
+  // OG image: DB override vince, altrimenti default passato dal caller.
+  const ogImage = row?.ogImage ?? defaults?.image;
+
   return {
     title,
     description,
@@ -115,13 +124,14 @@ export async function generatePageMetadata(
       title: ogTitle,
       description: ogDescription,
       ...(canonical ? { url: canonical } : {}),
-      ...(row?.ogImage ? { images: [{ url: row.ogImage }] } : {}),
+      siteName: appName,
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description: ogDescription,
-      ...(row?.ogImage ? { images: [row.ogImage] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }

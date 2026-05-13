@@ -14,20 +14,58 @@ import {
 import { getSession } from "@/lib/auth/session";
 import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
+import { generatePageMetadata, getSiteUrl } from "@/lib/seo";
+import type { Metadata } from "next";
 
 // ---------------------------------------------------------------------------
 // Metadata
 // ---------------------------------------------------------------------------
 
+/**
+ * Riusa `generatePageMetadata` come tutte le pagine CMS pubbliche: l'admin
+ * può overridare title/description/og/robots per uno specifico coin
+ * inserendo una riga in `seo_pages` con pathname `/coins/btc` ecc. Senza
+ * override, usiamo i defaults dinamici qui sotto (nome + prezzo live +
+ * rank), così ogni coin ha già metadata utili out of the box.
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ symbol: string }>;
-}) {
+}): Promise<Metadata> {
   const { symbol } = await params;
   const coin = await getCoinForCard(symbol);
   if (!coin) return { title: "Coin non trovato" };
-  return { title: `${coin.name} (${coin.symbol})` };
+
+  const pathname = `/coins/${coin.symbol.toLowerCase()}`;
+  const priceStr = formatPriceSeo(coin.price);
+  const changeStr =
+    coin.change24h !== null && Number.isFinite(coin.change24h)
+      ? ` Variazione 24h: ${coin.change24h > 0 ? "+" : ""}${coin.change24h.toFixed(2)}%.`
+      : "";
+  const rankStr =
+    typeof coin.marketCapRank === "number" && coin.marketCapRank > 0
+      ? ` Rank #${coin.marketCapRank} per market cap.`
+      : "";
+
+  const title = `${coin.name} (${coin.symbol}) — Prezzo, grafico e dati`;
+  const description = `${coin.name} (${coin.symbol}) prezzo live ${priceStr} USD.${changeStr}${rankStr} Grafico storico, market cap, volume 24h.`;
+
+  return generatePageMetadata(pathname, {
+    title,
+    description,
+    image: coin.imageUrl ?? undefined,
+  });
+}
+
+function formatPriceSeo(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "$0";
+  const abs = Math.abs(value);
+  if (abs < 0.01) return `$${value.toPrecision(4)}`;
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,12 +92,13 @@ async function CoinDetailBody({
   params: Promise<{ symbol: string }>;
 }) {
   const { symbol } = await params;
-  const [coin, session, initialSeries] = await Promise.all([
+  const [coin, session, initialSeries, siteUrl] = await Promise.all([
     getCoinForCard(symbol),
     getSession(),
     // SSR del range default "1w" — il client può switchare a 1d/1m/1y
     // chiamando l'endpoint /api/modules/prices/<symbol>/history.
     getHistorySeries(symbol, "1w"),
+    getSiteUrl(),
   ]);
   if (!coin) notFound();
 
@@ -67,6 +106,7 @@ async function CoinDetailBody({
 
   return (
     <>
+      <CoinJsonLd coin={coin} siteUrl={siteUrl} />
       {isAuthed && (
         <Link
           href="/explore"
@@ -262,6 +302,46 @@ function formatCompactCurrency(value: number): string {
   if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
   if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
   return `$${value.toFixed(0)}`;
+}
+
+// ---------------------------------------------------------------------------
+// JSON-LD
+// ---------------------------------------------------------------------------
+
+/**
+ * Structured data per la coin page. Type `FinancialProduct` di schema.org
+ * (Google riconosce, anche se non c'è un type "Cryptocurrency" canonico).
+ * Pure server component: emette UN <script type="application/ld+json">
+ * con prezzo live al render. Niente import client.
+ */
+function CoinJsonLd({ coin, siteUrl }: { coin: CoinView; siteUrl: string }) {
+  const url = siteUrl
+    ? `${siteUrl}/coins/${coin.symbol.toLowerCase()}`
+    : undefined;
+
+  const data: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "FinancialProduct",
+    name: coin.name,
+    alternateName: coin.symbol,
+    category: "Cryptocurrency",
+    ...(coin.imageUrl ? { image: coin.imageUrl } : {}),
+    ...(url ? { url } : {}),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "USD",
+      price: coin.price.toString(),
+      availability: "https://schema.org/InStock",
+      seller: { "@type": "Organization", name: "CoinGecko" },
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
