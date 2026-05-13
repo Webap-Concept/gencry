@@ -129,9 +129,16 @@ export async function generatePageMetadata(
   // OG image: DB override vince, altrimenti default passato dal caller.
   const ogImage = row?.ogImage ?? defaults?.image;
 
+  // metadataBase: serve a Next per risolvere URL relativi (es. l'OG image
+  // colocated `opengraph-image.tsx`) in URL assoluti. Senza, fallback a
+  // http://localhost:3000 + warning. Usiamo siteUrl del setting; in dev
+  // se è vuoto, lasciamo che Next usi il fallback localhost.
+  const metadataBase = siteUrl ? new URL(siteUrl) : undefined;
+
   return {
     title,
     description,
+    ...(metadataBase ? { metadataBase } : {}),
     ...(canonical ? { alternates: { canonical } } : {}),
     ...(robots ? { robots } : {}),
     openGraph: {

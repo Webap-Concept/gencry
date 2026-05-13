@@ -150,8 +150,10 @@ export function CoinChart({
         </span>
       </div>
 
-      {/* Chart */}
-      <div className="aspect-[16/7] w-full">
+      {/* Chart — height fissa: aspect-ratio a volte risolve a 0 al primo
+          render (Recharts width=-1 warning), un'altezza esplicita evita
+          il problema senza compromettere la responsiveness. */}
+      <div className="w-full h-[280px] sm:h-[320px] md:h-[360px]">
         {series.points.length < 2 ? (
           <div className="h-full flex items-center justify-center text-xs text-gc-fg-3">
             Storico non ancora disponibile per questa finestra.

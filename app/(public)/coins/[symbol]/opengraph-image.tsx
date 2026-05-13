@@ -210,6 +210,7 @@ export default async function CoinOgImage({
             </div>
             <div
               style={{
+                display: "flex",
                 marginTop: 8,
                 fontSize: 28,
                 color: FG_3,
@@ -217,11 +218,11 @@ export default async function CoinOgImage({
                 textTransform: "uppercase",
               }}
             >
-              {coin.symbol}
-              {coin.category ? `  ·  ${coin.category}` : ""}
-              {typeof coin.marketCapRank === "number" && coin.marketCapRank > 0
-                ? `  ·  #${coin.marketCapRank}`
-                : ""}
+              {`${coin.symbol}${coin.category ? `  ·  ${coin.category}` : ""}${
+                typeof coin.marketCapRank === "number" && coin.marketCapRank > 0
+                  ? `  ·  #${coin.marketCapRank}`
+                  : ""
+              }`}
             </div>
           </div>
         </div>
@@ -286,13 +287,15 @@ export default async function CoinOgImage({
             ) : (
               <div
                 style={{
+                  display: "flex",
                   fontSize: 28,
                   fontWeight: 500,
                   color: FG,
                   letterSpacing: "-0.01em",
                 }}
               >
-                generazione<span style={{ color: BRAND_ORANGE }}>crypto</span>
+                <span>generazione</span>
+                <span style={{ color: BRAND_ORANGE }}>crypto</span>
               </div>
             )}
           </div>
