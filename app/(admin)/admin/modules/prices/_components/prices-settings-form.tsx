@@ -194,6 +194,9 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
   return (
     <>
       <form action={formAction} className="space-y-5">
+        {/* Cards principali: 2 per riga su md+, stack su mobile. Save +
+            nota schedule restano full-width sotto la grid. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
         {groups.map((group) => (
           <div
             key={group.key}
@@ -328,6 +331,7 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           isTesting={isR2Testing}
           isPending={isPending}
         />
+        </div>
 
         <div
           className="rounded-xl shadow-sm p-4 text-[11px]"
