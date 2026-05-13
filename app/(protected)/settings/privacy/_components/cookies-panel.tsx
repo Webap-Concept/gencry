@@ -163,7 +163,7 @@ export function CookiesPanel({
                   <span
                     className={
                       active
-                        ? "inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800 shrink-0"
+                        ? "inline-flex items-center gap-1 rounded-full bg-gc-success-bg px-2 py-0.5 text-[11px] font-medium text-gc-success-fg shrink-0"
                         : "inline-flex items-center gap-1 rounded-full bg-gc-bg px-2 py-0.5 text-[11px] font-medium text-gc-fg-3 shrink-0"
                     }>
                     {active ? (

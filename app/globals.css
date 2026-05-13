@@ -283,6 +283,8 @@
   --color-gc-card-border: var(--gc-card-border);
   --color-gc-warning-bg: var(--gc-warning-bg);
   --color-gc-warning-fg: var(--gc-warning-fg);
+  --color-gc-success-bg: var(--gc-success-bg);
+  --color-gc-success-fg: var(--gc-success-fg);
   --color-gc-button-secondary-bg: var(--gc-button-secondary-bg);
   --color-gc-button-secondary-fg: var(--gc-button-secondary-fg);
 

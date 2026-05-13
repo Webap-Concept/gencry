@@ -101,7 +101,7 @@ function DeviceRow({ device }: { device: DeviceVM }) {
               {device.label}
             </span>
             {device.isCurrent && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+              <span className="rounded-full bg-gc-success-bg px-2 py-0.5 text-[11px] font-medium text-gc-success-fg">
                 Questo dispositivo
               </span>
             )}
@@ -176,7 +176,7 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
           Revoca tutti gli altri dispositivi
         </Button>
         {state.success && (
-          <p className="text-[12.5px] text-emerald-700">{state.success}</p>
+          <p className="text-[12.5px] text-gc-success-fg">{state.success}</p>
         )}
       </div>
     );

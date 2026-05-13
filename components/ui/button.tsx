@@ -15,11 +15,11 @@ const buttonVariants = cva(
         // Verde menta — azioni secondarie positive
         accent:
           "bg-accent text-white hover:bg-accent-hover focus-visible:ring-accent/40",
-        // Outline sabbia — azioni secondarie neutre
+        // Outline — azioni secondarie neutre. Token-based per theme-awareness.
         outline:
-          "border border-border bg-surface text-[#2C2416] hover:bg-[#F5F0E8] focus-visible:ring-border",
-        // Ghost — azioni terziarie
-        ghost: "text-label hover:bg-[#F5F0E8] focus-visible:ring-border",
+          "border border-gc-line bg-gc-bg-2 text-gc-fg hover:bg-gc-bg-3 focus-visible:ring-gc-line",
+        // Ghost — azioni terziarie. Hover usa il token bg-3 (più chiaro) per dare feedback visivo in entrambi i temi.
+        ghost: "text-gc-fg hover:bg-gc-bg-3 focus-visible:ring-gc-line",
         // Destructive — azioni pericolose. Usa il token gc-neg perché
         // var(--destructive) è in formato HSL space-separated e in alcuni
         // contesti non viene wrappato in hsl(), risultando trasparente.

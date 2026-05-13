@@ -105,7 +105,7 @@ function RequestExportCard({ hasActiveJob }: { hasActiveJob: boolean }) {
               <p className="mt-2 text-[12.5px] text-gc-neg">{state.error}</p>
             )}
             {state.success && (
-              <p className="mt-2 text-[12.5px] text-emerald-700">
+              <p className="mt-2 text-[12.5px] text-gc-success-fg">
                 {state.success}
               </p>
             )}
@@ -183,13 +183,13 @@ function StatusIcon({ status }: { status: ExportJobVM["status"] }) {
     case "pending":
     case "processing":
       return (
-        <div className={cn(className, "bg-amber-100 text-amber-800")}>
+        <div className={cn(className, "bg-gc-warning-bg text-gc-warning-fg")}>
           <Clock size={18} strokeWidth={1.7} />
         </div>
       );
     case "ready":
       return (
-        <div className={cn(className, "bg-emerald-100 text-emerald-700")}>
+        <div className={cn(className, "bg-gc-success-bg text-gc-success-fg")}>
           <CheckCircle2 size={18} strokeWidth={1.7} />
         </div>
       );

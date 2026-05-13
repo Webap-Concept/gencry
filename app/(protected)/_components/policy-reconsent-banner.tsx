@@ -68,12 +68,11 @@ export function PolicyReconsentBanner({
         aria-live="polite"
         className="sticky top-0 z-40 px-4 py-2.5 text-sm flex items-center gap-3 flex-wrap"
         style={{
-          background: "color-mix(in srgb, #f59e0b 14%, var(--gc-bg, #fff))",
-          borderBottom:
-            "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
-          color: "var(--gc-text, #1f2937)",
+          background: "var(--gc-warning-bg)",
+          borderBottom: "1px solid color-mix(in srgb, var(--gc-warning-fg) 35%, transparent)",
+          color: "var(--gc-fg)",
         }}>
-        <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+        <AlertTriangle size={16} className="text-gc-warning-fg shrink-0" />
         <span className="font-medium">{bannerLabel}</span>
         {!isBlocking && daysRemaining !== null && (
           <span
@@ -87,7 +86,7 @@ export function PolicyReconsentBanner({
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="ml-auto text-xs font-semibold px-3 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors">
+          className="ml-auto text-xs font-semibold px-3 py-1 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors">
           {isBlocking ? "Rivedi e accetta" : "Rivedi"}
         </button>
       </div>
@@ -171,7 +170,7 @@ function ReconsentModal({
             className="flex items-center gap-3 px-5 py-4"
             style={{ borderBottom: "1px solid var(--gc-border, #e5e7eb)" }}>
             <span
-              className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700 shrink-0">
+              className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
               <AlertTriangle size={16} />
             </span>
             <h2
@@ -230,7 +229,7 @@ function ReconsentModal({
                       name={it.policyKey}
                       checked={checked}
                       onChange={(e) => setChecked(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-600"
+                      className="mt-0.5 w-4 h-4 cursor-pointer accent-gc-accent"
                     />
                     <div className="flex-1 min-w-0">
                       <div
@@ -259,7 +258,7 @@ function ReconsentModal({
                           href={`/${slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs mt-1.5 text-amber-700 hover:underline">
+                          className="inline-flex items-center gap-1 text-xs mt-1.5 text-gc-warning-fg hover:underline">
                           Apri il testo completo
                           <ExternalLink size={11} />
                         </a>
@@ -301,7 +300,7 @@ function ReconsentModal({
               <button
                 type="submit"
                 disabled={!requiredOk || isPending}
-                className="text-sm font-medium px-4 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                className="text-sm font-medium px-4 py-2 rounded-md bg-gc-warning-fg text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {isPending ? "Salvataggio…" : "Accetta e continua"}
               </button>
             </div>

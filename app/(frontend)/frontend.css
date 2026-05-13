@@ -147,6 +147,8 @@
   --gc-card-border: #e6dfd0;     /* alias --gc-line */
   --gc-warning-bg: #fef3c7;      /* badge/info warning soft */
   --gc-warning-fg: #b45309;      /* testo su warning-bg */
+  --gc-success-bg: #d1fae5;      /* badge/info success soft (emerald-100) */
+  --gc-success-fg: #047857;      /* testo su success-bg (emerald-700) */
   --gc-button-secondary-bg: #f3f4f6; /* bottoni neutri "cancel"/"close" */
   --gc-button-secondary-fg: #374151; /* testo su button-secondary-bg */
 }
@@ -169,34 +171,39 @@
    --------------------------------------------------------------------------- */
 
 .gc-dark .gc-app-shell {
-  /* Background levels — verde notte profondo → leggermente più chiaro per card → ancora un po per item */
+  /* Background levels — bilanciati per contrasto chiaro tra page / card / item.
+     Pre-13/05/26: bg-2 e bg-3 erano troppo simili a bg → card invisibili.
+     Rebalance: bg resta scuro identitario, bg-2 e bg-3 saltano +5-8% lightness. */
   --gc-bg: #0e1a14;
-  --gc-bg-2: #14241c;
-  --gc-bg-3: #1a2e25;
+  --gc-bg-2: #1d3327;
+  --gc-bg-3: #243d30;
 
   /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata */
   --gc-fg: #e6e1d2;
   --gc-fg-2: #b5b0a3;
   --gc-fg-3: #7a7468;
 
-  /* Linee — toni del bg ma un click più chiari */
-  --gc-line: #25342c;
-  --gc-line-2: #364841;
+  /* Linee — devono essere VISIBILI su bg-2 (card). Pre-13/05/26: line
+     troppo simile a bg-2 → bottoni outline invisibili. */
+  --gc-line: #38503e;
+  --gc-line-2: #455b50;
 
   /* Semantic tokens — override per dark (vedi versione light in :root sopra
      per il commento di scopo). Mantengono lo stesso ruolo, solo valori adattati. */
-  --gc-input-bg: #14241c;        /* match bg-2: input visibili su card */
-  --gc-input-border: #364841;    /* alias line-2 dark */
+  --gc-input-bg: #1d3327;        /* match bg-2: input visibili su card */
+  --gc-input-border: #455b50;    /* alias line-2 dark */
   --gc-input-focus: #fa8b1e;     /* accent invariato */
   --gc-input-placeholder: #7a7468; /* alias fg-3 dark */
-  --gc-modal-bg: #14241c;        /* match bg-2 dark */
-  --gc-modal-border: #25342c;    /* alias line dark */
+  --gc-modal-bg: #1d3327;        /* match bg-2 dark */
+  --gc-modal-border: #38503e;    /* alias line dark */
   --gc-overlay: rgba(0, 0, 0, 0.65); /* più scuro in dark */
-  --gc-card-bg: #14241c;         /* alias bg-2 dark */
-  --gc-card-border: #25342c;     /* alias line dark */
+  --gc-card-bg: #1d3327;         /* alias bg-2 dark */
+  --gc-card-border: #38503e;     /* alias line dark */
   --gc-warning-bg: rgba(250, 139, 30, 0.15); /* warning più sobrio in dark */
   --gc-warning-fg: #fa8b1e;       /* accent come testo warning */
-  --gc-button-secondary-bg: #1a2e25; /* alias bg-3 dark */
+  --gc-success-bg: rgba(125, 190, 158, 0.18); /* success soft, alias visual gc-green */
+  --gc-success-fg: #7dbe9e;       /* gc-green per testo success in dark */
+  --gc-button-secondary-bg: #243d30; /* alias bg-3 dark */
   --gc-button-secondary-fg: #e6e1d2; /* alias fg dark */
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
