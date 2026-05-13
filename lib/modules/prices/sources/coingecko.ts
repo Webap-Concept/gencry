@@ -103,6 +103,12 @@ export async function fetchCoinGeckoPrices(
     url.searchParams.set("page", "1");
     url.searchParams.set("sparkline", "true");
     url.searchParams.set("price_change_percentage", "24h");
+    // CRITICO: senza `precision=full`, `/coins/markets` arrotonda
+    // `current_price` all'intero per asset >$1 ("$79733" invece di
+    // "$79733.05"). `/simple/price` non aveva questo problema, ma noi
+    // abbiamo migrato a `/coins/markets` per la sparkline. Vedi:
+    // https://docs.coingecko.com/reference/coins-markets
+    url.searchParams.set("precision", "full");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
