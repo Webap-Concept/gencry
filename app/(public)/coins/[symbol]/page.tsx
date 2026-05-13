@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   CoinIcon,
   CoinPriceLabel,
@@ -9,6 +10,7 @@ import {
   formatCompactCount,
   mockWatchlistCount,
 } from "@/components/modules/coins";
+import { getSession } from "@/lib/auth/session";
 import { getCoinForCard } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 
@@ -38,15 +40,6 @@ export default function CoinDetailPage({
 }) {
   return (
     <div className="space-y-6 max-w-4xl">
-      <Link
-        href="/explore"
-        prefetch={false}
-        className="inline-flex items-center gap-1.5 text-xs text-gc-fg-3 hover:text-gc-fg-2 transition-colors"
-      >
-        <ArrowLeft size={14} />
-        Esplora
-      </Link>
-
       <Suspense fallback={<CoinDetailSkeleton />}>
         <CoinDetailBody params={params} />
       </Suspense>
@@ -60,14 +53,34 @@ async function CoinDetailBody({
   params: Promise<{ symbol: string }>;
 }) {
   const { symbol } = await params;
-  const coin = await getCoinForCard(symbol);
+  const [coin, session] = await Promise.all([
+    getCoinForCard(symbol),
+    getSession(),
+  ]);
   if (!coin) notFound();
+
+  const isAuthed = Boolean(session);
 
   return (
     <>
-      <CoinHeader coin={coin} />
+      {isAuthed && (
+        <Link
+          href="/explore"
+          prefetch={false}
+          className="inline-flex items-center gap-1.5 text-xs text-gc-fg-3 hover:text-gc-fg-2 transition-colors"
+        >
+          <ArrowLeft size={14} />
+          Esplora
+        </Link>
+      )}
+      <CoinHeader coin={coin} actions={<HeaderActions isAuthed={isAuthed} />} />
       <ChartPlaceholder />
       <StatsGrid coin={coin} />
+      {isAuthed ? (
+        <AuthedActionsRow />
+      ) : (
+        <AnonymousCta coinName={coin.name} />
+      )}
     </>
   );
 }
@@ -76,7 +89,13 @@ async function CoinDetailBody({
 // Sections
 // ---------------------------------------------------------------------------
 
-function CoinHeader({ coin }: { coin: CoinView }) {
+function CoinHeader({
+  coin,
+  actions,
+}: {
+  coin: CoinView;
+  actions?: React.ReactNode;
+}) {
   return (
     <header className="flex items-start gap-4 flex-wrap">
       <CoinIcon symbol={coin.symbol} imageUrl={coin.imageUrl} size="xl" />
@@ -106,13 +125,70 @@ function CoinHeader({ coin }: { coin: CoinView }) {
           />
         </div>
       </div>
-      <MiniSparkline
-        id={coin.symbol}
-        points={coin.weeklySparkline}
-        width={180}
-        height={60}
-      />
+      <div className="flex flex-col items-end gap-3">
+        <MiniSparkline
+          id={coin.symbol}
+          points={coin.weeklySparkline}
+          width={180}
+          height={60}
+        />
+        {actions}
+      </div>
     </header>
+  );
+}
+
+function HeaderActions({ isAuthed }: { isAuthed: boolean }) {
+  if (!isAuthed) return null;
+  // Placeholder finché le feature reali non esistono. Disabled per non
+  // fingere interattività; reso visibile per dare anteprima visiva.
+  return (
+    <div className="flex items-center gap-2">
+      <Button type="button" size="sm" variant="outline" disabled>
+        <BookmarkPlus size={14} />
+        Watchlist
+      </Button>
+      <Button type="button" size="sm" variant="ghost" disabled aria-label="Condividi">
+        <Share2 size={14} />
+      </Button>
+    </div>
+  );
+}
+
+function AuthedActionsRow() {
+  return (
+    <section className="rounded-2xl p-4 bg-gc-bg-2 border border-gc-line text-xs text-gc-fg-3">
+      Commenti, sentiment e watchlist arrivano con i prossimi moduli social.
+    </section>
+  );
+}
+
+function AnonymousCta({ coinName }: { coinName: string }) {
+  return (
+    <section className="rounded-2xl p-5 bg-gc-bg-2 border border-gc-line flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="flex-1 min-w-0">
+        <h2 className="text-base font-semibold text-gc-fg">
+          Segui {coinName} sulla community
+        </h2>
+        <p className="text-xs text-gc-fg-3 mt-1">
+          Iscriviti per aggiungere {coinName} alla tua watchlist, ricevere
+          alert e leggere cosa pensa la community.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/sign-in" prefetch={false}>
+            Accedi
+          </Link>
+        </Button>
+        <Button asChild size="sm">
+          <Link href="/sign-up" prefetch={false}>
+            <MessageCircle size={14} />
+            Iscriviti
+          </Link>
+        </Button>
+      </div>
+    </section>
   );
 }
 

@@ -1,7 +1,4 @@
-import { AppBottomNav } from "@/components/layout/AppBottomNav";
-import { AppRightRail } from "@/components/layout/AppRightRail";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { AppTopBar } from "@/components/layout/AppTopBar";
+import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getPendingReconsents } from "@/lib/account/policy-reconsent";
@@ -133,21 +130,8 @@ export default async function Layout({
     }
   }
 
-  return (
-    // `gc-app-shell`: marker per scope-are le regole `.gc-dark` del tema bosco.
-    // Le definizioni in frontend.css sono `.gc-dark .gc-app-shell { --gc-*: ... }`
-    // → un utente loggato in bosco vede il tema scuro SOLO dentro questo layout.
-    // La landing pubblica, /sign-in, le CMS pages restano sempre in sabbia
-    // anche se html.gc-dark è attiva (vedi UserMenu/ThemeToggleItem).
-    // App-shell pattern (à la Twitter/Discord):
-    // - Root: `h-dvh` + `flex flex-col` + niente overflow → la pagina non
-    //   scrolla mai a livello documento
-    // - Banner e topbar restano in flow con altezza naturale (qualsiasi)
-    // - Il container 3-colonne usa `flex-1 min-h-0` → prende automaticamente
-    //   l'altezza rimanente dopo banner+topbar, senza calcoli
-    // - Solo il <main> interno ha `overflow-y-auto` → la scrollbar appare
-    //   esclusivamente lì. Sidebar e rail restano statiche/sempre visibili
-    <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
+  const banner = (
+    <>
       <PageShowRevalidator />
       {reconsent.items.length > 0 && (
         <PolicyReconsentBanner
@@ -161,17 +145,12 @@ export default async function Layout({
           daysRemaining={daysRemaining}
         />
       )}
-      <AppTopBar />
-      <div className="flex-1 min-h-0 mx-auto w-full max-w-[1440px] flex">
-        <AppSidebar appLogoUrl={appSettings.app_logo_url} />
-        <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-6">
-          <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <Suspense fallback={null}>{children}</Suspense>
-          </div>
-        </main>
-        <AppRightRail />
-      </div>
-      <AppBottomNav />
-    </div>
+    </>
+  );
+
+  return (
+    <ProtectedShell appLogoUrl={appSettings.app_logo_url} banner={banner}>
+      <Suspense fallback={null}>{children}</Suspense>
+    </ProtectedShell>
   );
 }
