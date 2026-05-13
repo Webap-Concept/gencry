@@ -25,12 +25,13 @@ const RANGES: { value: HistoryRange; label: string }[] = [
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
-  if (value === 0) return "$0";
+  if (value === 0) return "$0.00";
   const abs = Math.abs(value);
   if (abs < 0.01) return `$${value.toPrecision(4)}`;
-  if (abs < 1) return `$${value.toFixed(4)}`;
-  if (abs < 100) return `$${value.toFixed(2)}`;
-  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatAxisDate(ts: number, range: HistoryRange): string {

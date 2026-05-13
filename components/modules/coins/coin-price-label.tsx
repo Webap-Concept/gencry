@@ -4,13 +4,17 @@ import { cn } from "@/lib/utils";
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
-  if (value === 0) return "$0";
+  if (value === 0) return "$0.00";
   const abs = Math.abs(value);
-  // Coin "frazionari" (es. SHIB): più decimali per non mostrare 0
+  // Sotto 0.01 (SHIB, PEPE…): 2 decimali fissi produrrebbe "$0.00" e
+  // perderemmo l'info. Fallback a cifre significative.
   if (abs < 0.01) return `$${value.toPrecision(4)}`;
-  if (abs < 1) return `$${value.toFixed(4)}`;
-  if (abs < 100) return `$${value.toFixed(2)}`;
-  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  // Tutto il resto: sempre 2 decimali con separatore migliaia.
+  // BTC $79,637.42, ETH $3,123.45, DOGE $0.12.
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatChange(value: number | null): string {
