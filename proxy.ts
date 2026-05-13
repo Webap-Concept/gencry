@@ -79,6 +79,29 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("session");
 
+  // Short-circuit per path Vercel/well-known reserved che il browser
+  // auto-richiede (es. `/_vercel/insights/script.js` iniettato da
+  // @vercel/analytics, `/.well-known/...` per Chrome DevTools, ecc.).
+  // Senza questo, queste richieste cadono nel catch-all CMS
+  // `/[locale]/[...slug]` che chiama notFound() → render della 404 page
+  // in streaming RSC. Next 16.2.x ha un bug noto in cui notFound() dentro
+  // un async child crasha il TransformStream RSC (transformAlgorithm
+  // exception), lasciando il router client in stato pending per sempre
+  // — sintomo: ogni bottone di salvataggio resta in "saving…" finché
+  // un hard refresh. Rispondiamo 404 secco prima di entrare nel routing.
+  if (
+    pathname.startsWith("/_vercel/") ||
+    pathname.startsWith("/.well-known/")
+  ) {
+    // Content-Type esplicito: senza, X-Content-Type-Options:nosniff
+    // (settato nei security headers) blocca la response come "corrupted"
+    // e il browser logga errori inutili in console.
+    return new NextResponse("", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
 

@@ -23,6 +23,13 @@ if (cfg.dsn) {
     tracesSampleRate: cfg.tracesSampleRate,
     // PII: per GDPR l'admin sceglie esplicitamente di attivarlo.
     sendDefaultPii: cfg.sendDefaultPii,
+    // Opt-out della fetch instrumentation di undici. Sentry instrumenta
+    // ogni outbound fetch (Supabase, R2, ecc.) creando un overhead per
+    // request che non utilizziamo (non guardiamo le traces outbound).
+    // Disabilitarla riduce CPU + memoria per request senza perdere
+    // l'error capture su Sentry — perdiamo solo l'auto-tracing fetch.
+    integrations: (defaults) =>
+      defaults.filter((i) => i.name !== "NodeFetch"),
     // Filtra qui errori noti che NON vogliamo in Sentry. Esempio: il
     // pooler timeout su last_seen update è già demoted a warn nel
     // codice; lo lasciamo passare se mai diventasse un errore reale.

@@ -27,14 +27,19 @@ export function CookieBanner({ policyUrl, services }: Props) {
   const [isPending, startTransition] = useTransition();
   const [showCustomize, setShowCustomize] = useState(false);
 
+  // Le callback sono `async` con `await`: senza, startTransition
+  // considera il transition completato sincronicamente e il router
+  // resta in stato pending per sempre dopo che la Server Action ritorna,
+  // bloccando ogni navigazione successiva (sintomo: tab non cambiano,
+  // /admin non si apre fino a hard refresh).
   const handleAcceptAll = () =>
-    startTransition(() => {
-      acceptAllCookiesAction();
+    startTransition(async () => {
+      await acceptAllCookiesAction();
     });
 
   const handleRejectAll = () =>
-    startTransition(() => {
-      rejectAllCookiesAction();
+    startTransition(async () => {
+      await rejectAllCookiesAction();
     });
 
   return (
