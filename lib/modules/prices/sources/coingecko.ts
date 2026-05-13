@@ -270,3 +270,55 @@ export async function fetchCoinMetadata(coingeckoId: string): Promise<{
     clearTimeout(timeout);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Market chart (storico per il grafico interattivo)
+// ---------------------------------------------------------------------------
+
+interface MarketChartResponse {
+  /** Array di [timestamp_ms, price] sortato dal più vecchio al più recente. */
+  prices: [number, number][];
+}
+
+/**
+ * Fetch dello storico prezzi USD per il grafico interattivo. Usato come
+ * fallback quando `prices_history` non copre la finestra richiesta (es. 1y
+ * quando il modulo è attivo da poche settimane).
+ *
+ * CoinGecko sceglie automaticamente la granularità in base a `days`:
+ *   - 1 → 5 minuti
+ *   - 2-90 → 1 ora
+ *   - >90 → 1 giorno
+ *
+ * Ritorna null su errore (404, rate limit, network) — il caller mostra
+ * un fallback graceful invece di un crash.
+ */
+export async function fetchCoinGeckoMarketChart(
+  coingeckoId: string,
+  days: number,
+): Promise<Array<{ ts: Date; price: number }> | null> {
+  const endpoint = await resolveEndpoint();
+  const url = new URL(`${endpoint.baseUrl}/coins/${encodeURIComponent(coingeckoId)}/market_chart`);
+  url.searchParams.set("vs_currency", "usd");
+  url.searchParams.set("days", String(days));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: endpoint.headers,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as MarketChartResponse;
+    if (!Array.isArray(data.prices)) return null;
+    return data.prices
+      .filter(([t, p]) => Number.isFinite(t) && Number.isFinite(p))
+      .map(([t, p]) => ({ ts: new Date(t), price: p }));
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}

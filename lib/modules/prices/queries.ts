@@ -330,3 +330,171 @@ const fetchCoinForCardCached = unstable_cache(
 export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
   return fetchCoinForCardCached(symbol);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// History series (chart interattivo)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type HistoryRange = "1d" | "1w" | "1m" | "1y";
+
+export interface HistoryPoint {
+  /** Timestamp ms (più piccolo del Date object, friendly per Recharts). */
+  ts: number;
+  price: number;
+}
+
+export interface HistorySeries {
+  range: HistoryRange;
+  /** Da dove arrivano i punti: nostra DB o fallback CoinGecko. */
+  source: "db" | "coingecko";
+  points: HistoryPoint[];
+}
+
+/** Mappa finestra → giorni + granularità di bucket SQL.
+ *  La granularità è scelta per produrre ~24–365 punti, abbastanza
+ *  morbidi per Recharts senza appesantire la response. */
+const RANGE_CONFIG: Record<
+  HistoryRange,
+  {
+    days: number;
+    bucket: "minute" | "hour" | "day";
+    /** TTL cache server-side (s). 1d sta dietro al cron 5min. */
+    revalidate: number;
+  }
+> = {
+  "1d": { days: 1, bucket: "hour", revalidate: 60 },
+  "1w": { days: 7, bucket: "hour", revalidate: 300 },
+  "1m": { days: 30, bucket: "day", revalidate: 1800 },
+  "1y": { days: 365, bucket: "day", revalidate: 3600 },
+};
+
+/**
+ * Legge i punti dalla nostra `prices_history` con downsampling SQL
+ * (close-price per bucket via DISTINCT ON). Ritorna sempre i punti
+ * disponibili — il caller decide se sono sufficienti per la finestra.
+ */
+const fetchHistoryFromDb = async (
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistoryPoint[]> => {
+  const { days, bucket } = RANGE_CONFIG[range];
+  const windowStart = new Date(Date.now() - days * 24 * 3600 * 1000);
+
+  const rows = await db.execute<{ ts: string; price: string }>(sql`
+    SELECT DISTINCT ON (date_trunc(${bucket}, ts))
+      date_trunc(${bucket}, ts)::text AS ts,
+      price::text AS price
+    FROM prices_history
+    WHERE symbol = ${symbol}
+      AND ts >= ${windowStart}
+    ORDER BY date_trunc(${bucket}, ts) ASC, ts DESC
+  `);
+
+  return rows
+    .map((r) => ({ ts: new Date(r.ts).getTime(), price: Number(r.price) }))
+    .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.price));
+};
+
+/**
+ * Restituisce il timestamp del primo punto disponibile per il symbol —
+ * usato per decidere se la finestra richiesta è coperta dalla nostra DB
+ * o se serve fallback CoinGecko.
+ */
+const fetchEarliestHistoryTsCached = unstable_cache(
+  async (symbol: string): Promise<number | null> => {
+    const rows = await db
+      .select({ ts: pricesHistory.ts })
+      .from(pricesHistory)
+      .where(eq(pricesHistory.symbol, symbol))
+      .orderBy(pricesHistory.ts)
+      .limit(1);
+    return rows[0]?.ts.getTime() ?? null;
+  },
+  ["prices-earliest-history-ts"],
+  { revalidate: 300, tags: [PRICES_DATA_TAG] },
+);
+
+/**
+ * Helper "ha abbastanza storia per coprire la finestra?": se l'inizio
+ * della finestra richiesta è prima del primo punto in DB, fallback.
+ * Margine di 10% per evitare flicker DB ↔ CoinGecko ai bordi.
+ */
+async function hasSufficientHistory(
+  symbol: string,
+  range: HistoryRange,
+): Promise<boolean> {
+  const earliest = await fetchEarliestHistoryTsCached(symbol);
+  if (earliest === null) return false;
+  const { days } = RANGE_CONFIG[range];
+  const windowStart = Date.now() - days * 24 * 3600 * 1000;
+  const margin = days * 24 * 3600 * 1000 * 0.1;
+  return earliest <= windowStart + margin;
+}
+
+/**
+ * Carica la serie storica per il chart interattivo.
+ *
+ *   1. Prova nostra DB (downsampling SQL per bucket).
+ *   2. Se la finestra non è coperta (history troppo recente) → fallback
+ *      CoinGecko `/coins/{id}/market_chart`.
+ *   3. Se anche CoinGecko fallisce → ritorna comunque quello che c'è in DB.
+ *
+ * Cache stratificata per (symbol, range): TTL diverso per finestra
+ * (1d=60s vicino al cron, 1y=1h dati storici stabili).
+ */
+const fetchHistorySeries = async (
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistorySeries> => {
+  const upper = symbol.toUpperCase();
+  const sufficient = await hasSufficientHistory(upper, range);
+
+  if (sufficient) {
+    const points = await fetchHistoryFromDb(upper, range);
+    if (points.length >= 2) {
+      return { range, source: "db", points };
+    }
+  }
+
+  // Fallback CoinGecko: serve il coingeckoId del coin.
+  const [coinRow] = await db
+    .select({ coingeckoId: pricesCoins.coingeckoId })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  if (coinRow?.coingeckoId) {
+    const { fetchCoinGeckoMarketChart } = await import(
+      "./sources/coingecko"
+    );
+    const cgPoints = await fetchCoinGeckoMarketChart(
+      coinRow.coingeckoId,
+      RANGE_CONFIG[range].days,
+    );
+    if (cgPoints && cgPoints.length >= 2) {
+      return {
+        range,
+        source: "coingecko",
+        points: cgPoints.map((p) => ({ ts: p.ts.getTime(), price: p.price })),
+      };
+    }
+  }
+
+  // Ultimo fallback: torna quel poco che c'è in DB (anche < 2 punti).
+  const dbFallback = await fetchHistoryFromDb(upper, range);
+  return { range, source: "db", points: dbFallback };
+};
+
+export async function getHistorySeries(
+  symbol: string,
+  range: HistoryRange,
+): Promise<HistorySeries> {
+  // Cache key derivata da (symbol, range). Drizzle/unstable_cache combina
+  // gli argomenti nella chiave automaticamente. TTL dinamico per range.
+  const cached = unstable_cache(
+    () => fetchHistorySeries(symbol, range),
+    ["prices-history-series", symbol.toUpperCase(), range],
+    { revalidate: RANGE_CONFIG[range].revalidate, tags: [PRICES_DATA_TAG] },
+  );
+  return cached();
+}

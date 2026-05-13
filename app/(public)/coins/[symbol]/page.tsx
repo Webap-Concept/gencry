@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  CoinChart,
   CoinIcon,
   CoinPriceLabel,
   MiniSparkline,
@@ -11,7 +12,7 @@ import {
   mockWatchlistCount,
 } from "@/components/modules/coins";
 import { getSession } from "@/lib/auth/session";
-import { getCoinForCard } from "@/lib/modules/prices/queries";
+import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 
 // ---------------------------------------------------------------------------
@@ -53,9 +54,12 @@ async function CoinDetailBody({
   params: Promise<{ symbol: string }>;
 }) {
   const { symbol } = await params;
-  const [coin, session] = await Promise.all([
+  const [coin, session, initialSeries] = await Promise.all([
     getCoinForCard(symbol),
     getSession(),
+    // SSR del range default "1w" — il client può switchare a 1d/1m/1y
+    // chiamando l'endpoint /api/modules/prices/<symbol>/history.
+    getHistorySeries(symbol, "1w"),
   ]);
   if (!coin) notFound();
 
@@ -74,7 +78,7 @@ async function CoinDetailBody({
         </Link>
       )}
       <CoinHeader coin={coin} actions={<HeaderActions isAuthed={isAuthed} />} />
-      <ChartPlaceholder />
+      <CoinChart symbol={coin.symbol} initialSeries={initialSeries} />
       <StatsGrid coin={coin} />
       {isAuthed ? (
         <AuthedActionsRow />
@@ -187,24 +191,6 @@ function AnonymousCta({ coinName }: { coinName: string }) {
             Iscriviti
           </Link>
         </Button>
-      </div>
-    </section>
-  );
-}
-
-function ChartPlaceholder() {
-  return (
-    <section
-      aria-label="Grafico interattivo (in arrivo)"
-      className="rounded-2xl bg-gc-bg-2 border border-dashed border-gc-line aspect-[16/7] flex items-center justify-center"
-    >
-      <div className="text-center px-6">
-        <p className="text-sm font-semibold text-gc-fg-2">
-          Grafico interattivo
-        </p>
-        <p className="text-xs text-gc-fg-3 mt-1">
-          In arrivo — visualizzazione completa con finestre 1g / 1w / 1m / 1y.
-        </p>
       </div>
     </section>
   );
