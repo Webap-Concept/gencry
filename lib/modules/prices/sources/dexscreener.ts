@@ -59,6 +59,7 @@ async function fetchSingle(symbol: string): Promise<PriceQuote | null> {
       price,
       change24h: typeof best.priceChange?.h24 === "number" ? best.priceChange.h24 : null,
       volume24h: typeof best.volume?.h24 === "number" ? best.volume.h24 : null,
+      sparkline7d: null,
     };
   } catch (err) {
     if (err instanceof DexScreenerError) throw err;

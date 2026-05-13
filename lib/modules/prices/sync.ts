@@ -4,7 +4,7 @@
 // in `prices_data` con delta threshold, log run su `prices_sync_runs`.
 import { db } from "@/lib/db/drizzle";
 import { pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { getActiveUniverse } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
 import { getPricesConfig } from "./config";
@@ -120,17 +120,10 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   }
 
   // ── 3) Upsert con delta threshold ────────────────────────────────────
+  // La sparkline 7gg viene salvata dentro l'upsert quando la quote arriva
+  // da CoinGecko (`/coins/markets?sparkline=true`). DexScreener non la
+  // fornisce: per quei coin la sparkline resta al valore precedente.
   const updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
-
-  // ── 4) Weekly sparkline refresh (best-effort, non blocca il sync) ────
-  // Decorativa per le card coin del frontend: 7 prezzi giornalieri (oggi
-  // + 6 indietro). Skip se l'ultimo refresh è < 24h fa per coin. Errori
-  // qui non degradano il sync run.
-  try {
-    await refreshWeeklySparklines();
-  } catch {
-    // swallow: sparkline è puro decoro
-  }
 
   const ok = collected.size > 0 || universe.length === 0;
   const durationMs = Date.now() - startMs;
@@ -177,11 +170,22 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   const now = new Date();
 
   for (const q of quotes) {
-    const prev = existing.get(q.symbol);
-    if (prev !== undefined) {
-      const diff = Math.abs(q.price - prev) / Math.max(prev, 1e-12);
-      if (diff < delta) continue;
+    const hasSparkline = q.sparkline7d !== null && q.sparkline7d.length >= 2;
+
+    // Delta threshold: skippa l'update solo se NON abbiamo nuova sparkline da
+    // scrivere. Se la quote viene da CoinGecko (sparkline fresca), scriviamo
+    // sempre per non perdere il refresh decorativo.
+    if (!hasSparkline) {
+      const prev = existing.get(q.symbol);
+      if (prev !== undefined) {
+        const diff = Math.abs(q.price - prev) / Math.max(prev, 1e-12);
+        if (diff < delta) continue;
+      }
     }
+
+    const sparklineSet = hasSparkline
+      ? { weeklySparkline: q.sparkline7d, weeklySparklineAt: now }
+      : {};
 
     await db
       .insert(pricesData)
@@ -192,6 +196,7 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
         volume24h: q.volume24h !== null ? String(q.volume24h) : null,
         source: "coingecko",
         lastUpdated: now,
+        ...sparklineSet,
       })
       .onConflictDoUpdate({
         target: pricesData.symbol,
@@ -200,75 +205,13 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
           change24h: q.change24h !== null ? String(q.change24h) : null,
           volume24h: q.volume24h !== null ? String(q.volume24h) : null,
           lastUpdated: now,
+          ...sparklineSet,
         },
       });
     updatedCount++;
   }
 
   return updatedCount;
-}
-
-/**
- * Aggiorna la sparkline settimanale (7 prezzi giornalieri, oggi + 6 indietro)
- * per i coin con `weekly_sparkline_at` null o > 24h fa. Decorativa: alimenta
- * il mini-grafico sulle card coin del frontend in 1 read da `prices_data`.
- *
- * Per ogni giorno della finestra prendiamo l'ULTIMO punto di `prices_history`
- * in quel giorno UTC (DISTINCT ON (date_trunc('day', ts))). I giorni senza
- * punti restano null lato API — la UI rendera quei buchi come gap.
- */
-async function refreshWeeklySparklines(): Promise<number> {
-  const staleCutoff = new Date(Date.now() - 24 * 3600 * 1000);
-  const stale = await db
-    .select({ symbol: pricesData.symbol })
-    .from(pricesData)
-    .where(
-      or(
-        isNull(pricesData.weeklySparklineAt),
-        lt(pricesData.weeklySparklineAt, staleCutoff),
-      ),
-    );
-
-  if (stale.length === 0) return 0;
-
-  const windowStart = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  let updated = 0;
-
-  for (const { symbol } of stale) {
-    const rows = await db.execute<{ day: string; price: string }>(sql`
-      SELECT DISTINCT ON (date_trunc('day', ts))
-             date_trunc('day', ts)::date::text AS day,
-             price::text AS price
-      FROM prices_history
-      WHERE symbol = ${symbol}
-        AND ts >= ${windowStart}
-      ORDER BY date_trunc('day', ts) DESC, ts DESC
-      LIMIT 7
-    `);
-
-    if (rows.length === 0) continue;
-
-    // rows è dal giorno più recente al più vecchio: invertiamo per avere
-    // oldest → newest come si aspetta il consumer della sparkline.
-    const points = rows
-      .slice()
-      .reverse()
-      .map((r) => Number(r.price))
-      .filter((n) => Number.isFinite(n));
-
-    if (points.length === 0) continue;
-
-    await db
-      .update(pricesData)
-      .set({
-        weeklySparkline: points,
-        weeklySparklineAt: new Date(),
-      })
-      .where(eq(pricesData.symbol, symbol));
-    updated++;
-  }
-
-  return updated;
 }
 
 /**

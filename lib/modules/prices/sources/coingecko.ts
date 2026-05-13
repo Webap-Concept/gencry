@@ -33,12 +33,31 @@ async function resolveEndpoint(): Promise<CoinGeckoEndpoint> {
   return { baseUrl: COINGECKO_FREE_BASE, headers: { Accept: "application/json" } };
 }
 
-interface SimplePriceResponse {
-  [coingeckoId: string]: {
-    usd?: number;
-    usd_24h_change?: number;
-    usd_24h_vol?: number;
-  };
+interface MarketsResponseItem {
+  id: string;
+  current_price?: number;
+  price_change_percentage_24h?: number;
+  total_volume?: number;
+  sparkline_in_7d?: { price?: number[] };
+}
+
+/** Downsample 168 punti orari → 21 punti (3 al giorno). Prendiamo l'ultimo
+ *  punto di ogni finestra 8h (indici 7, 15, 23, …, 167). Se la sparkline
+ *  ha meno di 168 punti (può capitare per coin recenti), ricalibriamo lo
+ *  step proporzionalmente. */
+function downsampleSparkline(points: number[] | undefined): number[] | null {
+  if (!points || points.length < 2) return null;
+  const target = 21;
+  if (points.length <= target) return points.filter((n) => Number.isFinite(n));
+  const step = points.length / target;
+  const out: number[] = [];
+  for (let i = 1; i <= target; i++) {
+    // Indice dell'ultimo punto di ogni finestra
+    const idx = Math.min(points.length - 1, Math.floor(i * step) - 1);
+    const v = points[idx];
+    if (Number.isFinite(v)) out.push(v);
+  }
+  return out.length >= 2 ? out : null;
 }
 
 export class CoinGeckoError extends Error {
@@ -69,14 +88,19 @@ export async function fetchCoinGeckoPrices(
   const quotes = new Map<string, PriceQuote>();
   const endpoint = await resolveEndpoint();
 
-  // Batching: l'endpoint accetta CSV di ID, max ~250 per call
+  // Batching: /coins/markets accetta `ids` CSV con max ~250 per page.
+  // Usiamo questo endpoint invece di /simple/price perché ritorna ANCHE la
+  // sparkline 7d (sparkline_in_7d.price = 168 punti orari), che il
+  // sync downsampla a 21 punti (3/giorno) per `prices_data.weekly_sparkline`.
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
-    const url = new URL(`${endpoint.baseUrl}/simple/price`);
+    const url = new URL(`${endpoint.baseUrl}/coins/markets`);
+    url.searchParams.set("vs_currency", "usd");
     url.searchParams.set("ids", batch.join(","));
-    url.searchParams.set("vs_currencies", "usd");
-    url.searchParams.set("include_24hr_change", "true");
-    url.searchParams.set("include_24hr_vol", "true");
+    url.searchParams.set("per_page", String(BATCH_SIZE));
+    url.searchParams.set("page", "1");
+    url.searchParams.set("sparkline", "true");
+    url.searchParams.set("price_change_percentage", "24h");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -106,15 +130,19 @@ export async function fetchCoinGeckoPrices(
       );
     }
 
-    const data = (await response.json()) as SimplePriceResponse;
-    for (const [coingeckoId, payload] of Object.entries(data)) {
-      const symbol = idToSymbol.get(coingeckoId);
-      if (!symbol || typeof payload.usd !== "number") continue;
+    const data = (await response.json()) as MarketsResponseItem[];
+    for (const item of data) {
+      const symbol = idToSymbol.get(item.id);
+      if (!symbol || typeof item.current_price !== "number") continue;
       quotes.set(symbol, {
         symbol,
-        price: payload.usd,
-        change24h: typeof payload.usd_24h_change === "number" ? payload.usd_24h_change : null,
-        volume24h: typeof payload.usd_24h_vol === "number" ? payload.usd_24h_vol : null,
+        price: item.current_price,
+        change24h:
+          typeof item.price_change_percentage_24h === "number"
+            ? item.price_change_percentage_24h
+            : null,
+        volume24h: typeof item.total_volume === "number" ? item.total_volume : null,
+        sparkline7d: downsampleSparkline(item.sparkline_in_7d?.price),
       });
     }
   }
