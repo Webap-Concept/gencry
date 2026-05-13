@@ -238,7 +238,7 @@ export default async function RootLayout({
   return (
     <html
       lang={lang}
-      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${satoshi.variable} ${instrumentSerif.variable}`}>
+      className={`${satoshi.variable} ${instrumentSerif.variable}`}>
       <head>
         {/*
          * Anti-flash theme bootstrap — DEVE essere il primo elemento dentro
@@ -295,7 +295,7 @@ export default async function RootLayout({
         </Suspense>
         <HeadSnippets snippets={headSnippets} />
       </head>
-      <body className="min-h-[100dvh] bg-gray-50">
+      <body className="min-h-[100dvh] bg-gc-bg text-gc-fg">
         <NextIntlClientProvider locale={lang} messages={messages}>
           {isMaintenance ? (
             <MaintenancePage />
