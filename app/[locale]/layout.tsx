@@ -1,4 +1,6 @@
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicHeader } from "@/components/layout/PublicHeader";
+import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
@@ -25,7 +27,7 @@ import "@/app/(frontend)/frontend.css";
  * Questo layout NON deve `notFound()` su locale invalido — sennò spara
  * 404 a tutte le pagine CMS pubbliche default-locale. Si limita a
  * settare `setRequestLocale` con il valore corretto e a wrappare lo
- * shell pubblico (footer + provider).
+ * shell pubblico (header + footer + provider).
  */
 export default async function LocaleLayout({
   children,
@@ -42,9 +44,12 @@ export default async function LocaleLayout({
   // e copre tutte le route della app.
   setRequestLocale(effectiveLocale);
 
+  const appSettings = await getAppSettingsSafe();
+
   return (
-    <div className="flex min-h-[100dvh] flex-col">
-      <div className="flex-1">{children}</div>
+    <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
+      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
+      <div className="flex flex-1 flex-col">{children}</div>
       <Suspense fallback={null}>
         <PublicFooter />
       </Suspense>
