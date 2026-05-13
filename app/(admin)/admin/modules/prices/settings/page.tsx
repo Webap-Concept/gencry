@@ -49,6 +49,7 @@ export default async function PricesSettingsPage() {
           "modules.prices.retention_days":         settings["modules.prices.retention_days"],
           "modules.prices.coingecko_pro_enabled":  settings["modules.prices.coingecko_pro_enabled"],
           "modules.prices.coingecko_pro_api_key":  settings["modules.prices.coingecko_pro_api_key"],
+          "modules.prices.cryptocompare_api_key":  settings["modules.prices.cryptocompare_api_key"],
           "modules.prices.r2.account_id":          settings["modules.prices.r2.account_id"],
           "modules.prices.r2.access_key_id":       settings["modules.prices.r2.access_key_id"],
           "modules.prices.r2.bucket":              settings["modules.prices.r2.bucket"],

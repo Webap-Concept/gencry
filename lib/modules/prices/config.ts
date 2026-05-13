@@ -24,6 +24,10 @@ export interface PricesConfig {
   retentionDays: number;        // retention prices_history
   coingeckoProEnabled: boolean; // se true usa endpoint Pro + header api_key
   coingeckoProApiKey: string | null;
+  /** API key CryptoCompare (free su cryptocompare.com). Opzionale: senza
+   *  chiave gli endpoint pubblici funzionano comunque con rate limit più
+   *  basso. Usata solo dal backfill storico, non dal cron sync. */
+  cryptocompareApiKey: string | null;
   // R2 storage per coin images. `null` se anche solo una delle 5 chiavi è vuota:
   // il modulo degrada gracefully (URL CoinGecko salvati come fallback).
   r2: PricesR2Config | null;
@@ -40,6 +44,7 @@ const DEFAULTS: PricesConfig = {
   retentionDays: 30,
   coingeckoProEnabled: false,
   coingeckoProApiKey: null,
+  cryptocompareApiKey: null,
   r2: null,
 };
 
@@ -70,6 +75,7 @@ export async function getPricesConfig(): Promise<PricesConfig> {
     retentionDays:   parseInt(s["modules.prices.retention_days"],   DEFAULTS.retentionDays,   1, 365),
     coingeckoProEnabled: (s["modules.prices.coingecko_pro_enabled"] ?? "false") === "true",
     coingeckoProApiKey:  s["modules.prices.coingecko_pro_api_key"] ?? null,
+    cryptocompareApiKey: s["modules.prices.cryptocompare_api_key"] ?? null,
     r2: parseR2Config(s),
   };
 }

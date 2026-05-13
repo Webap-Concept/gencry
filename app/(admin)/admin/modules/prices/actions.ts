@@ -2,7 +2,7 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins } from "@/lib/db/schema";
+import { pricesCoins, pricesHistory } from "@/lib/db/schema";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { getPricesConfig } from "@/lib/modules/prices/config";
 import {
@@ -10,12 +10,16 @@ import {
   fetchTopCoinsByMarketCap,
 } from "@/lib/modules/prices/sources/coingecko";
 import {
+  fetchCryptoCompareHistorical,
+  type CryptoComparePoint,
+} from "@/lib/modules/prices/sources/cryptocompare";
+import {
   checkR2Connection,
   deleteCoinImage,
   mirrorCoinImage,
 } from "@/lib/modules/prices/storage";
 import { runPricesCleanup, runPricesSync } from "@/lib/modules/prices/sync";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export type ActionState =
@@ -61,6 +65,10 @@ export async function savePricesSettings(
     );
     const proApiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
     await updateAppSetting("modules.prices.coingecko_pro_api_key", proApiKey || null);
+
+    // CryptoCompare (opzionale, usata solo dal backfill)
+    const ccApiKey = ((formData.get("modules.prices.cryptocompare_api_key") as string) ?? "").trim();
+    await updateAppSetting("modules.prices.cryptocompare_api_key", ccApiKey || null);
 
     // R2 storage settings — campi hidden+text dal form. Salviamo l'intera tupla;
     // il config layer (`getPricesConfig.parseR2Config`) considera R2 attivo solo
@@ -685,5 +693,140 @@ async function mirrorImageWithFallback(
   } catch (err) {
     console.error(`[prices/actions] R2 mirror failed for ${symbol}, using source URL:`, err);
     return sourceUrl;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Backfill storico da CryptoCompare
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Backfill di `prices_history` da CryptoCompare per tutti i coin attivi.
+ *
+ * Strategia mista per coprire 365gg minimizzando le righe:
+ *   - finestra recente (`hourDays`) → bucket orari (granularità fine per
+ *     i chart 1d/1w/1m)
+ *   - resto fino a `totalDays` → bucket giornalieri (chart 1y)
+ *
+ * Concorrenza 5-wide. Idempotente: l'INSERT usa
+ *   ON CONFLICT (symbol, ts) DO UPDATE SET price = EXCLUDED.price
+ *   WHERE prices_history.price = trunc(prices_history.price)
+ * → rimpiazza SOLO i punti vecchi "arrotondati" (eredità del path che
+ * copiava prices_data settled). I punti con decimali (post-fix
+ * precision=full) restano intatti.
+ *
+ * @param totalDays  giorni totali coperti (max 365 per stare entro
+ *                   l'horizon di histoday limit=2000).
+ * @param hourDays   sotto-finestra recente con granularità oraria
+ *                   (max ~83gg per stare entro histohour limit=2000).
+ */
+export async function backfillHistoryAction(
+  totalDays = 365,
+  hourDays = 30,
+): Promise<ActionState> {
+  try {
+    const safeTotal = Math.max(7, Math.min(365, Math.trunc(totalDays) || 365));
+    const safeHour = Math.max(0, Math.min(83, Math.trunc(hourDays) || 30));
+
+    const coins = await db
+      .select({ symbol: pricesCoins.symbol })
+      .from(pricesCoins)
+      .where(eq(pricesCoins.isActive, true));
+
+    if (coins.length === 0) {
+      return { error: "No active coins to backfill.", timestamp: Date.now() };
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    const failedSymbols: string[] = [];
+
+    // Concorrenza 5-wide: CryptoCompare free con chiave consente burst
+    // confortevole, ma teniamo basso per non saturare il pool DB.
+    const CONCURRENCY = 5;
+    for (let i = 0; i < coins.length; i += CONCURRENCY) {
+      const slice = coins.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        slice.map(async ({ symbol }) => {
+          // 1) Punti orari per la finestra recente.
+          const hourly: CryptoComparePoint[] =
+            safeHour > 0
+              ? await fetchCryptoCompareHistorical(symbol, "hour", safeHour * 24)
+              : [];
+
+          // 2) Punti giornalieri per il resto. Per evitare doppioni con
+          //    la finestra oraria, prendiamo `totalDays - hourDays` giorni
+          //    e filtriamo via i bucket che ricadono dentro la finestra
+          //    oraria.
+          const dayLimit = safeTotal;
+          const dayPoints =
+            dayLimit > safeHour
+              ? await fetchCryptoCompareHistorical(symbol, "day", dayLimit)
+              : [];
+
+          const hourlyCutoff = safeHour > 0
+            ? new Date(Date.now() - safeHour * 24 * 3600 * 1000)
+            : null;
+          const dailyFiltered = hourlyCutoff
+            ? dayPoints.filter((p) => p.ts < hourlyCutoff)
+            : dayPoints;
+
+          const all = [...dailyFiltered, ...hourly];
+          if (all.length === 0) {
+            failedSymbols.push(symbol);
+            return { ok: false };
+          }
+
+          // INSERT con ON CONFLICT: rimpiazza solo se il valore esistente
+          // è arrotondato (trunc(price) == price). Lascia i valori con
+          // decimali intatti. `setWhere` di drizzle si traduce in:
+          //   ON CONFLICT (symbol, ts) DO UPDATE SET price = EXCLUDED.price
+          //     WHERE prices_history.price = trunc(prices_history.price)
+          //
+          // Chunking 500 per evitare di superare il limit di bind params
+          // di Postgres (~65k per query).
+          const CHUNK = 500;
+          for (let j = 0; j < all.length; j += CHUNK) {
+            const slice = all.slice(j, j + CHUNK);
+            await db
+              .insert(pricesHistory)
+              .values(
+                slice.map((p) => ({
+                  symbol,
+                  ts: p.ts,
+                  price: p.price.toString(),
+                })),
+              )
+              .onConflictDoUpdate({
+                target: [pricesHistory.symbol, pricesHistory.ts],
+                set: { price: sql`EXCLUDED.price` },
+                setWhere: sql`prices_history.price = trunc(prices_history.price)`,
+              });
+          }
+
+          return { ok: true, count: all.length };
+        }),
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.ok) {
+          inserted += r.value.count ?? 0;
+        } else {
+          skipped++;
+        }
+      }
+    }
+
+    revalidatePath(await getAdminPath("prices-overview"));
+    const detail = failedSymbols.length > 0
+      ? ` · no data on CC: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
+      : "";
+    return {
+      success: `Backfill done · ${inserted} rows upserted across ${coins.length - skipped} coins${detail}`,
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Backfill failed";
+    return { error: message, timestamp: Date.now() };
   }
 }

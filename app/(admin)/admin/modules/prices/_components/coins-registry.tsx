@@ -8,6 +8,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import {
   addCoinAction,
   backfillCoinImagesAction,
+  backfillHistoryAction,
   bulkImportTopCoinsAction,
   deleteCoinAction,
   refetchAllCoinsAction,
@@ -28,6 +29,8 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
   const [isBackfilling, startBackfill] = useTransition();
   const [isRefreshingAll, startRefreshAll] = useTransition();
+  const [isBackfillingHistory, startBackfillHistory] = useTransition();
+  const [historyDays, setHistoryDays] = useState<number>(365);
   const lastTs = useRef<number>(0);
 
   function handleBackfill() {
@@ -47,6 +50,24 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
       return;
     startRefreshAll(async () => {
       const res = await refetchAllCoinsAction();
+      if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
+      if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
+    });
+  }
+
+  function handleBackfillHistory() {
+    if (
+      !window.confirm(
+        `Backfill ${historyDays}gg di storico prezzi da CryptoCompare per ogni coin? ` +
+          `Sovrascrive solo i punti vecchi arrotondati (con decimali = 0). ` +
+          `Può richiedere alcuni minuti.`,
+      )
+    )
+      return;
+    startBackfillHistory(async () => {
+      // Granularità mista: ultimi 30gg orari, il resto giornaliero.
+      const hourDays = Math.min(30, historyDays);
+      const res = await backfillHistoryAction(historyDays, hourDays);
       if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
       if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
     });
@@ -186,6 +207,42 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
               {isRefreshingAll ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
               {isRefreshingAll ? "Refreshing..." : "Refresh metadata + images"}
             </button>
+            <div className="flex items-stretch gap-1">
+              <select
+                value={historyDays}
+                onChange={(e) => setHistoryDays(Number(e.target.value))}
+                disabled={isBackfillingHistory}
+                className="px-2 text-xs rounded-lg focus:outline-none transition-colors font-mono disabled:opacity-60"
+                style={{
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
+                  color: "var(--admin-text)",
+                }}>
+                {[30, 90, 180, 365].map((n) => (
+                  <option key={n} value={n}>
+                    {n}gg
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleBackfillHistory}
+                disabled={isBackfillingHistory}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{
+                  background: "transparent",
+                  color: "var(--admin-text-muted)",
+                  border: "1px solid var(--admin-input-border)",
+                }}
+                title="Backfill price history from CryptoCompare. Replaces only rounded (integer) values from the legacy snapshot path; rows with decimals are preserved.">
+                {isBackfillingHistory ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Download size={12} />
+                )}
+                {isBackfillingHistory ? "Backfilling..." : "Backfill price history"}
+              </button>
+            </div>
             <div className="relative w-full max-w-sm">
               <Search
                 size={13}

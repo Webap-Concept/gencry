@@ -177,6 +177,7 @@ export type SettingKey =
   | 'modules.prices.retention_days'    // retention coin_prices in giorni
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
+  | 'modules.prices.cryptocompare_api_key' // API key CryptoCompare (free, opzionale)
   // R2 storage per coin images (un bucket dedicato per modulo, vedi project_social_storage_r2.md)
   | 'modules.prices.r2.account_id'
   | 'modules.prices.r2.access_key_id'
@@ -377,6 +378,7 @@ export type AppSettings = {
   'modules.prices.retention_days': string
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
+  'modules.prices.cryptocompare_api_key': string | null
   'modules.prices.r2.account_id': string | null
   'modules.prices.r2.access_key_id': string | null
   'modules.prices.r2.secret_access_key': string | null
@@ -549,6 +551,7 @@ const DEFAULTS: AppSettings = {
   'modules.prices.retention_days': '30',
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
+  'modules.prices.cryptocompare_api_key': null,
   'modules.prices.r2.account_id': null,
   'modules.prices.r2.access_key_id': null,
   'modules.prices.r2.secret_access_key': null,
