@@ -109,6 +109,40 @@ export default async function CoinOgImage({
   // Next 16: anche le OG image hanno params come Promise.
   params: Promise<{ symbol: string }>;
 }) {
+  try {
+    return await renderCoinOgImage(params);
+  } catch (err) {
+    // Vercel ha mostrato 500 con log vuoto perché Satori crashava prima
+    // del nostro logger. Catturiamo, logghiamo esplicitamente, e
+    // serviamo una card minimal di fallback così lo share funziona
+    // comunque (anche se senza dati coin).
+    console.error("[opengraph-image] render failed:", err);
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f0e8",
+            color: "#123928",
+            fontSize: 48,
+            fontFamily: "sans-serif",
+          }}
+        >
+          Generazione Crypto
+        </div>
+      ),
+      { ...size },
+    );
+  }
+}
+
+async function renderCoinOgImage(
+  params: Promise<{ symbol: string }>,
+): Promise<ImageResponse> {
   const { symbol } = await params;
   const [coin, settings] = await Promise.all([
     getCoinForCard(symbol),
@@ -116,7 +150,19 @@ export default async function CoinOgImage({
   ]);
 
   const appName = settings.app_name?.trim() || "Generazione Crypto";
-  const appLogoUrl = settings.app_logo_url ?? null;
+  // ImageResponse (Vercel Satori) NON sa renderizzare SVG dentro <img>:
+  // crash "svgload_buffer: SVG rendering failed". Skippiamo gli SVG e
+  // cadiamo sul fallback (letter circle per la coin, lettering testuale
+  // per il logo brand).
+  const isSafeImage = (url: string | null | undefined): url is string =>
+    typeof url === "string" &&
+    url.length > 0 &&
+    !url.toLowerCase().split("?")[0].endsWith(".svg");
+  const coinImageUrl =
+    coin && isSafeImage(coin.imageUrl) ? coin.imageUrl : null;
+  const appLogoUrl = isSafeImage(settings.app_logo_url)
+    ? settings.app_logo_url
+    : null;
   const claim = "La community italiana delle crypto.";
 
   // Fallback: coin non trovato → card generica
@@ -167,9 +213,9 @@ export default async function CoinOgImage({
             gap: 32,
           }}
         >
-          {coin.imageUrl ? (
+          {coinImageUrl ? (
             <img
-              src={coin.imageUrl}
+              src={coinImageUrl}
               alt=""
               width={120}
               height={120}
