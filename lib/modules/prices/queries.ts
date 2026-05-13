@@ -380,14 +380,23 @@ const fetchHistoryFromDb = async (
   const { days, bucket } = RANGE_CONFIG[range];
   const windowStart = new Date(Date.now() - days * 24 * 3600 * 1000);
 
+  // `bucket` deve essere inlined come literal SQL, NON come parametro
+  // bindato: Postgres confronta le espressioni di DISTINCT ON e ORDER BY
+  // testualmente — `date_trunc($1, ts)` e `date_trunc($5, ts)` sono
+  // espressioni diverse anche se i parametri hanno lo stesso valore
+  // ("SELECT DISTINCT ON expressions must match initial ORDER BY"
+  // error 42P10). Bucket è una whitelist hard-coded di 3 valori, nessun
+  // rischio injection.
+  const bucketExpr = sql.raw(`date_trunc('${bucket}', ts)`);
+
   const rows = await db.execute<{ ts: string; price: string }>(sql`
-    SELECT DISTINCT ON (date_trunc(${bucket}, ts))
-      date_trunc(${bucket}, ts)::text AS ts,
+    SELECT DISTINCT ON (${bucketExpr})
+      ${bucketExpr}::text AS ts,
       price::text AS price
     FROM prices_history
     WHERE symbol = ${symbol}
       AND ts >= ${windowStart}
-    ORDER BY date_trunc(${bucket}, ts) ASC, ts DESC
+    ORDER BY ${bucketExpr} ASC, ts DESC
   `);
 
   return rows
