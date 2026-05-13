@@ -1,9 +1,16 @@
 // components/modules/coins/mini-sparkline.tsx
-// Mini-grafico SVG hand-made: 7 punti settimanali, no Recharts.
+// Mini-grafico SVG hand-made: 21 punti settimanali, no Recharts.
 // Pure presentational — il colore (pos/neg) deriva dalla differenza tra
 // primo e ultimo punto, NON da change24h (che misura un periodo diverso:
 // ultimo prezzo vs 24h fa, mentre la sparkline copre 7gg).
 import { cn } from "@/lib/utils";
+
+// Counter modulo-local per assicurare id <linearGradient> unici quando N
+// sparkline sono renderizzate sulla stessa pagina senza prop `id`. Il
+// componente è server-side, quindi il counter incrementa una volta per
+// render-tree. Per usi più rigorosi (hydration warnings su pagine miste)
+// il consumer può passare `id` esplicito (es. coin.symbol).
+let _gradientCounter = 0;
 
 type Trend = "up" | "down" | "flat";
 
@@ -23,11 +30,15 @@ export function MiniSparkline({
   width = 120,
   height = 40,
   className,
+  id,
 }: {
   points: number[] | null;
   width?: number;
   height?: number;
   className?: string;
+  /** Id usato per il <linearGradient>. Deve essere unico nella pagina.
+   *  Se omesso, viene auto-generato da un counter modulo-local. */
+  id?: string;
 }) {
   if (!points || points.length < 2) {
     return (
@@ -69,14 +80,16 @@ export function MiniSparkline({
 
   const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(2)} ${height} L ${coords[0].x.toFixed(2)} ${height} Z`;
 
-  const gradientId = `spark-grad-${trend}`;
+  const gradientId = id
+    ? `spark-grad-${id}`
+    : `spark-grad-${++_gradientCounter}`;
 
   return (
     <svg
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      className={cn("overflow-visible", className)}
+      className={className}
       role="img"
       aria-label="Andamento ultimi 7 giorni"
     >

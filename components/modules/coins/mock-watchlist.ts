@@ -12,7 +12,8 @@ function hash32(str: string): number {
   for (let i = 0; i < str.length; i++) {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   }
-  return Math.abs(h);
+  // `>>> 0` converte a unsigned 32-bit: evita l'edge-case di Math.abs(MIN_INT)
+  return h >>> 0;
 }
 
 const MIN = 100;

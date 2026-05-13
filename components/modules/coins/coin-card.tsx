@@ -12,14 +12,19 @@ import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
 export function CoinCard({
   coin,
   rank,
+  watchlistCount,
   className,
 }: {
   coin: CoinView;
   /** Posizione per market cap. Se null/undefined la chip non si mostra. */
   rank?: number | null;
+  /** Numero di watchlist in cui appare il coin. Se omesso, viene
+   *  generato un mockup deterministico (la feature reale non esiste
+   *  ancora). Quando la query reale arriverà, basterà passarla qui. */
+  watchlistCount?: number | null;
   className?: string;
 }) {
-  const watchlistCount = mockWatchlistCount(coin.symbol);
+  const wlCount = watchlistCount ?? mockWatchlistCount(coin.symbol);
 
   return (
     <article
@@ -66,17 +71,18 @@ export function CoinCard({
           size="md"
         />
         <MiniSparkline
+          id={coin.symbol}
           points={coin.weeklySparkline}
           width={120}
           height={40}
         />
       </div>
 
-      {/* Footer — mockup watchlist count */}
+      {/* Footer — watchlist count (mockup finché la feature reale non esiste) */}
       <footer className="mt-3 pt-3 border-t border-gc-line text-[11px] text-gc-fg-3">
         In{" "}
         <span className="font-semibold text-gc-fg-2 tabular-nums">
-          {formatCompactCount(watchlistCount)}
+          {formatCompactCount(wlCount)}
         </span>{" "}
         watchlist
       </footer>

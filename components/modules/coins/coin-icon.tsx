@@ -1,13 +1,18 @@
+"use client";
+
 // components/modules/coins/coin-icon.tsx
 // Icona coin: img su R2 con fallback alla prima lettera del simbolo.
-// Pure presentational, riusabile in card / list / inline.
+// Pure presentational, riusabile in card / list / inline. È `use client`
+// per gestire il fallback se l'<img> 404 a runtime (R2 perso, asset
+// cancellato): senza, l'utente vedrebbe la broken-icon del browser.
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const SIZE_MAP = {
-  sm: { box: "w-6 h-6", text: "text-[10px]" },
-  md: { box: "w-8 h-8", text: "text-xs" },
-  lg: { box: "w-10 h-10", text: "text-sm" },
-  xl: { box: "w-14 h-14", text: "text-lg" },
+  sm: { box: "w-6 h-6", text: "text-[10px]", px: 24 },
+  md: { box: "w-8 h-8", text: "text-xs", px: 32 },
+  lg: { box: "w-10 h-10", text: "text-sm", px: 40 },
+  xl: { box: "w-14 h-14", text: "text-lg", px: 56 },
 } as const;
 
 export function CoinIcon({
@@ -21,9 +26,10 @@ export function CoinIcon({
   size?: keyof typeof SIZE_MAP;
   className?: string;
 }) {
-  const { box, text } = SIZE_MAP[size];
+  const { box, text, px } = SIZE_MAP[size];
+  const [errored, setErrored] = useState(false);
 
-  if (!imageUrl) {
+  if (!imageUrl || errored) {
     return (
       <span
         className={cn(
@@ -43,9 +49,13 @@ export function CoinIcon({
     <img
       src={imageUrl}
       alt=""
+      aria-hidden
+      width={px}
+      height={px}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
+      onError={() => setErrored(true)}
       className={cn(box, "rounded-full shrink-0 object-cover", className)}
     />
   );
