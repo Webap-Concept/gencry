@@ -154,12 +154,16 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Tema BOSCO (dark) — attivo solo dentro `.gc-app-shell` quando html ha
-   la classe `.gc-dark`. Lo scope è chirurgico: l utente loggato in bosco
-   vede il tema scuro nelle pagine autenticate (layout (protected)), ma
-   landing pubblica / sign-in / CMS pages restano in sabbia. Il toggle è
-   in `components/layout/UserMenu.tsx` (ThemeToggleItem), persiste in
-   localStorage `gc-theme`.
+   Tema BOSCO (dark) — attivo quando html ha la classe `.gc-dark`. Solo
+   utenti LOGGATI possono attivarlo via UserMenu (anonimi non vedono il
+   toggle), quindi landing/sign-in/sign-up restano sempre in sabbia per
+   inheritance (l'html anonimo non ha mai .gc-dark).
+
+   13/05/26: scope cambiato da `.gc-dark .gc-app-shell` a `.gc-dark` per
+   far rispondere al tema anche le UI che vivono FUORI dallo shell —
+   modali portalate (Radix Dialog renderizza in body), Toast, banner
+   fixed in fondo, tooltip. Prima quei componenti vedevano sempre i
+   token light.
 
    Convenzione: invertiamo solo i livelli di sfondo / testo / linea.
    `--gc-accent`, `--gc-pos`, `--gc-neg`, `--gc-green` sono colori
@@ -170,7 +174,7 @@
    restano (sono brand colors fissi).
    --------------------------------------------------------------------------- */
 
-.gc-dark .gc-app-shell {
+.gc-dark {
   /* Background levels — bilanciati per contrasto chiaro tra page / card / item.
      Pre-13/05/26: bg-2 e bg-3 erano troppo simili a bg → card invisibili.
      Rebalance: bg resta scuro identitario, bg-2 e bg-3 saltano +5-8% lightness. */
