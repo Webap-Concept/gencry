@@ -88,7 +88,18 @@ function mapRobots(robots?: string | null): Metadata["robots"] | undefined {
  */
 export async function generatePageMetadata(
   pathname: string,
-  defaults?: { title?: string; description?: string; image?: string },
+  defaults?: {
+    title?: string;
+    description?: string;
+    image?: string;
+    /** OG/Twitter overrides separati dalla `description` SERP. Utile quando
+     *  la description SERP contiene dati dinamici (es. prezzo live per le
+     *  coin) ma vuoi che gli share social mostrino una versione statica
+     *  per evitare card "stale" cachate da Twitter/FB. Se omessi, ricadono
+     *  rispettivamente su `title` e `description`. */
+    ogTitle?: string;
+    ogDescription?: string;
+  },
 ): Promise<Metadata> {
   await connection();
   const [row, settings, siteUrl] = await Promise.all([
@@ -106,8 +117,11 @@ export async function generatePageMetadata(
   const description = resolve(
     row?.description || defaults?.description || `Welcome to ${appName}.`,
   );
-  const ogTitle = resolve(row?.ogTitle || title);
-  const ogDescription = resolve(row?.ogDescription || description);
+  // OG/Twitter: DB override > default caller > description SERP.
+  const ogTitle = resolve(row?.ogTitle || defaults?.ogTitle || title);
+  const ogDescription = resolve(
+    row?.ogDescription || defaults?.ogDescription || description,
+  );
 
   const canonical = siteUrl ? `${siteUrl}${pathname}` : undefined;
   const robots = mapRobots(row?.robots);

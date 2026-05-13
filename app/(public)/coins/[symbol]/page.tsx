@@ -49,11 +49,17 @@ export async function generateMetadata({
       : "";
 
   const title = `${coin.name} (${coin.symbol}) — Prezzo, grafico e dati`;
-  const description = `${coin.name} (${coin.symbol}) prezzo live ${priceStr} USD.${changeStr}${rankStr} Grafico storico, market cap, volume 24h.`;
+  // SERP: prezzo dinamico (CTR migliore, Google ricrawla periodicamente).
+  const description = `Prezzo live di ${coin.name} (${coin.symbol}): ${priceStr} USD.${changeStr}${rankStr} Grafico storico, market cap e volume 24h.`;
+  // OG/Twitter: statica per evitare card "stale" cachate da Twitter/FB
+  // quando il prezzo è cambiato (lo share continuerebbe a mostrare il
+  // vecchio valore per giorni/settimane).
+  const ogDescription = `${coin.name} (${coin.symbol}) — prezzo, grafico storico, market cap e volume 24h aggiornati in tempo reale.`;
 
   return generatePageMetadata(pathname, {
     title,
     description,
+    ogDescription,
     image: coin.imageUrl ?? undefined,
   });
 }
