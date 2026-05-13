@@ -6,3 +6,4 @@ export { MiniSparkline } from "./mini-sparkline";
 export { CoinCard } from "./coin-card";
 export { CoinCardSkeleton } from "./coin-card-skeleton";
 export { CoinCardGrid, CoinCardGridSkeleton } from "./coin-card-grid";
+export { mockWatchlistCount, formatCompactCount } from "./mock-watchlist";

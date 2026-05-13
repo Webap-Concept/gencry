@@ -209,10 +209,11 @@ export interface CoinView {
   name: string;
   imageUrl: string | null;
   marketCap: number | null;
+  category: string | null;
   price: number;
   change24h: number | null;
   volume24h: number | null;
-  /** 7 prezzi giornalieri oldest → newest. null se mai computata. */
+  /** 21 punti settimanali oldest → newest (3/giorno). null se mai computata. */
   weeklySparkline: number[] | null;
   lastUpdated: Date;
 }
@@ -231,6 +232,7 @@ const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
       name: pricesCoins.name,
       imageUrl: pricesCoins.imageUrl,
       marketCap: pricesCoins.marketCap,
+      category: pricesCoins.category,
       price: pricesData.price,
       change24h: pricesData.change24h,
       volume24h: pricesData.volume24h,
@@ -248,6 +250,7 @@ const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
     name: r.name,
     imageUrl: r.imageUrl,
     marketCap: r.marketCap,
+    category: r.category,
     price: Number(r.price),
     change24h: r.change24h !== null ? Number(r.change24h) : null,
     volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
@@ -279,6 +282,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
       name: pricesCoins.name,
       imageUrl: pricesCoins.imageUrl,
       marketCap: pricesCoins.marketCap,
+      category: pricesCoins.category,
       price: pricesData.price,
       change24h: pricesData.change24h,
       volume24h: pricesData.volume24h,
@@ -297,6 +301,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
     name: r.name,
     imageUrl: r.imageUrl,
     marketCap: r.marketCap,
+    category: r.category,
     price: Number(r.price),
     change24h: r.change24h !== null ? Number(r.change24h) : null,
     volume24h: r.volume24h !== null ? Number(r.volume24h) : null,

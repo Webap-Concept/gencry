@@ -31,8 +31,8 @@ export async function CoinCardGrid({
         className,
       )}
     >
-      {coins.map((coin) => (
-        <CoinCard key={coin.symbol} coin={coin} />
+      {coins.map((coin, i) => (
+        <CoinCard key={coin.symbol} coin={coin} rank={i + 1} />
       ))}
     </div>
   );

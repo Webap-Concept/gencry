@@ -20,8 +20,8 @@ function computeTrend(points: number[]): Trend {
 
 export function MiniSparkline({
   points,
-  width = 96,
-  height = 32,
+  width = 120,
+  height = 40,
   className,
 }: {
   points: number[] | null;

@@ -1,22 +1,26 @@
 // components/modules/coins/coin-card.tsx
-// Card coin: icona + nome + simbolo + prezzo + variazione 24h + sparkline 7gg.
+// Card coin: icona + nome + simbolo + categoria + chip rank + prezzo +
+// variazione 24h + sparkline 21pt + footer "In Nk watchlist" (mockup).
 // Pure presentational, server-component compatibile.
-//
-// Layout responsive: su mobile la sparkline scende sotto il blocco prezzo
-// per evitare overflow; da sm: in poi torna affiancata.
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { cn } from "@/lib/utils";
 import { CoinIcon } from "./coin-icon";
 import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
+import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
 
 export function CoinCard({
   coin,
+  rank,
   className,
 }: {
   coin: CoinView;
+  /** Posizione per market cap. Se null/undefined la chip non si mostra. */
+  rank?: number | null;
   className?: string;
 }) {
+  const watchlistCount = mockWatchlistCount(coin.symbol);
+
   return (
     <article
       className={cn(
@@ -25,21 +29,37 @@ export function CoinCard({
       )}
       aria-label={`${coin.name} (${coin.symbol})`}
     >
-      {/* Header: icona + nome + simbolo */}
+      {/* Header */}
       <header className="flex items-start gap-3 min-w-0">
         <CoinIcon symbol={coin.symbol} imageUrl={coin.imageUrl} size="lg" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-gc-fg truncate">
             {coin.name}
           </div>
-          <div className="text-[11px] uppercase tracking-wide text-gc-fg-3">
-            {coin.symbol}
+          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+            <span>{coin.symbol}</span>
+            {coin.category && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="truncate normal-case tracking-normal">
+                  {coin.category}
+                </span>
+              </>
+            )}
           </div>
         </div>
+        {typeof rank === "number" && rank > 0 && (
+          <span
+            className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gc-bg-3 border border-gc-line text-gc-fg-2 tabular-nums"
+            aria-label={`Posizione market cap: ${rank}`}
+          >
+            #{rank}
+          </span>
+        )}
       </header>
 
-      {/* Body: prezzo + sparkline */}
-      <div className="mt-3 flex items-end justify-between gap-3 flex-wrap">
+      {/* Body */}
+      <div className="mt-4 flex items-end justify-between gap-3 flex-wrap">
         <CoinPriceLabel
           price={coin.price}
           change24h={coin.change24h}
@@ -47,10 +67,19 @@ export function CoinCard({
         />
         <MiniSparkline
           points={coin.weeklySparkline}
-          width={96}
-          height={32}
+          width={120}
+          height={40}
         />
       </div>
+
+      {/* Footer — mockup watchlist count */}
+      <footer className="mt-3 pt-3 border-t border-gc-line text-[11px] text-gc-fg-3">
+        In{" "}
+        <span className="font-semibold text-gc-fg-2 tabular-nums">
+          {formatCompactCount(watchlistCount)}
+        </span>{" "}
+        watchlist
+      </footer>
     </article>
   );
 }
