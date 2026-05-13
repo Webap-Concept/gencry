@@ -3193,7 +3193,9 @@
         "labelLastSync": "Ultimo sync",
         "labelEtag": "ETag",
         "resyncButton": "Re-sync",
-        "resyncBusy": "Sync in corso…"
+        "resyncBusy": "Sync in corso…",
+        "serviceLabel": "Cloudflare R2",
+        "configureLink": "Configura"
       },
       "healthServices": {
         "title": "Stato servizi",

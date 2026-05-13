@@ -1,21 +1,25 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import {
   AlertTriangle,
+  ArrowUpRight,
   CheckCircle2,
   Database,
   FileWarning,
   HelpCircle,
 } from "lucide-react";
+import Link from "next/link";
 
 import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
+import { buildAdminPath } from "@/lib/admin-paths";
 import { getAppSettingsSnapshotHealth } from "@/lib/config/snapshots";
 import { ResyncButton } from "./resync-button";
 
 export default async function ConfigSnapshotWidget() {
-  const [health, t, locale] = await Promise.all([
+  const [health, t, locale, configurePath] = await Promise.all([
     getAppSettingsSnapshotHealth(),
     getTranslations("admin.dashboard.widgets.configSnapshot"),
     getLocale(),
+    buildAdminPath("/services/cloudflare"),
   ]);
 
   return (
@@ -28,11 +32,35 @@ export default async function ConfigSnapshotWidget() {
         ) : null
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-3 flex flex-col h-full">
         <StatusBanner health={health} t={t} />
         {health.status === "ok" && (
           <MetaGrid health={health} t={t} locale={locale} />
         )}
+        {/* Footer "Powered by R2" — chiarisce che il backing store del
+            snapshot è Cloudflare R2 e linka alla pagina admin dove si
+            configura. Stays mt-auto così resta agganciato in fondo anche
+            quando il widget è espanso verticalmente nel grid. */}
+        <div
+          className="flex items-center justify-between gap-2 text-[11px] pt-2 mt-auto"
+          style={{
+            borderTop: "1px solid var(--admin-divider)",
+            color: "var(--admin-text-muted)",
+          }}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Database size={11} style={{ color: "var(--admin-text-faint)" }} />
+            {t("serviceLabel")}
+          </span>
+          <Link
+            href={configurePath}
+            className="inline-flex items-center gap-1 hover:underline"
+            style={{ color: "var(--admin-accent)" }}
+          >
+            {t("configureLink")}
+            <ArrowUpRight size={11} />
+          </Link>
+        </div>
       </div>
     </WidgetCard>
   );
