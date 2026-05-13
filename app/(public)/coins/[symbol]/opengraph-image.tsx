@@ -163,6 +163,13 @@ async function renderCoinOgImage(
   const appLogoUrl = isSafeImage(settings.app_logo_url)
     ? settings.app_logo_url
     : null;
+  // Dominio "display-only" senza protocollo né trailing slash: lo
+  // mostriamo sotto il logo nel footer per riconoscibilità immediata
+  // dello share. Se app_domain non è settato (dev), nascosto.
+  const domainDisplay = (settings.app_domain ?? "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/$/, "");
   const claim = "La community italiana delle crypto.";
 
   // Fallback: coin non trovato → card generica
@@ -323,26 +330,39 @@ async function renderCoinOgImage(
             borderTop: `1px solid ${LINE}`,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {appLogoUrl ? (
-              <img
-                src={appLogoUrl}
-                alt=""
-                height={56}
-                style={{ width: "auto" }}
-              />
-            ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {appLogoUrl ? (
+                <img
+                  src={appLogoUrl}
+                  alt=""
+                  height={56}
+                  style={{ width: "auto" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 28,
+                    fontWeight: 500,
+                    color: FG,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  <span>generazione</span>
+                  <span style={{ color: BRAND_ORANGE }}>crypto</span>
+                </div>
+              )}
+            </div>
+            {domainDisplay && (
               <div
                 style={{
-                  display: "flex",
-                  fontSize: 28,
-                  fontWeight: 500,
-                  color: FG,
-                  letterSpacing: "-0.01em",
+                  fontSize: 20,
+                  color: FG_3,
+                  letterSpacing: "0.02em",
                 }}
               >
-                <span>generazione</span>
-                <span style={{ color: BRAND_ORANGE }}>crypto</span>
+                {domainDisplay}
               </div>
             )}
           </div>
