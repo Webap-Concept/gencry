@@ -10,8 +10,10 @@
 export {
   readAppSettingsSnapshot,
   syncAppSettingsSnapshot,
+  syncAppSettingsSnapshotWithData,
   getAppSettingsSnapshotHealth,
   SnapshotUnavailableError,
   SnapshotStorageError,
   type SnapshotHealth,
+  type SnapshotMeta,
 } from "./app-settings";

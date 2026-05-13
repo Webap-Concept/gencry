@@ -686,22 +686,38 @@ export async function getAppSettingsSafe(): Promise<AppSettings> {
 }
 
 /**
- * Sync best-effort dello snapshot R2 dopo una mutation. Lazy import per
- * evitare circular dependency. Await: se R2 è configurato e raggiungibile,
- * l'admin aspetta la propagazione prima di vedere "salvato" — questo
- * elimina la finestra di inconsistency con altre lambda. Se R2 down, log
- * + continua (non blocca il save admin).
+ * Postgres advisory lock ID per serializzare le scritture su app_settings.
+ * Numero arbitrario unico nel progetto (~1000 = "app_settings"). Se serve
+ * un secondo lock altrove, usa un numero diverso.
+ *
+ * Perché serializzare:
+ *   A → UPDATE("app_name") commit, SYNC R2 in volo
+ *   B → UPDATE("logo") commit, SYNC R2 (legge A+B, scrive)
+ *   A → SYNC R2 termina (scrive snapshot CON SOLO A) ← perdita di B!
+ * Con il lock, A finisce TUTTO (UPDATE + SYNC R2) prima che B inizi.
+ */
+const APP_SETTINGS_LOCK_ID = 1001;
+
+/**
+ * Sync dello snapshot dentro la transaction corrente. Riceve la transazione
+ * (`tx`) per leggere lo stato fresco senza uscire dal lock.
  *
  * Speciale per credenziali R2 stesse: se l'admin modifica
  * `storage.config.r2.*`, invalidiamo anche lo storage cache prima del sync,
  * così le nuove credenziali sono usate immediatamente.
  */
-async function syncSnapshotAfterMutation(
+// Drizzle's transaction callback passes a PgTransaction, which exposes
+// the same query builder API as `db` but with a different TypeScript type.
+// We accept it via a structural type with the methods we need.
+type SettingsTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function syncSnapshotAfterMutationInTx(
+  tx: SettingsTx,
   changedKeys: SettingKey[],
 ): Promise<void> {
   try {
     const r2KeysChanged = changedKeys.some((k) =>
-      k.startsWith("storage.config.r2."),
+      k.startsWith("storage.config.r2.") || k === "storage.r2.account_id",
     );
     if (r2KeysChanged) {
       const { invalidateSnapshotStorageCache } = await import(
@@ -709,10 +725,20 @@ async function syncSnapshotAfterMutation(
       );
       invalidateSnapshotStorageCache();
     }
-    const { syncAppSettingsSnapshot } = await import(
+    // Leggi il fresh state direttamente dalla transaction (vede le UPDATE
+    // appena committed/staged della stessa transaction, evita 2ª query DB
+    // e soprattutto evita race con altre lambda).
+    const rows = await tx.select().from(appSettings);
+    const data = { ...DEFAULTS } as AppSettings;
+    for (const row of rows) {
+      if (row.key in data && row.value !== null) {
+        ;(data as Record<string, string | null>)[row.key] = row.value;
+      }
+    }
+    const { syncAppSettingsSnapshotWithData } = await import(
       "@/lib/config/snapshots"
     );
-    await syncAppSettingsSnapshot();
+    await syncAppSettingsSnapshotWithData(data, null);
   } catch (err) {
     // R2 down o config mancante: log e continua. Il DB resta sorgente di
     // verità, quindi i caller che fallback DB vedono comunque il dato fresco.
@@ -722,8 +748,26 @@ async function syncSnapshotAfterMutation(
 }
 
 /**
+ * Wrapper per esecuzione di mutation con advisory lock. Garantisce che 2+
+ * save admin concorrenti si serializzino: la seconda aspetta che la prima
+ * abbia completato UPDATE + sync R2 (entrambi dentro la stessa transaction).
+ */
+async function withSettingsLock<T>(
+  fn: (tx: SettingsTx) => Promise<T>,
+): Promise<T> {
+  return await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${APP_SETTINGS_LOCK_ID})`);
+    return await fn(tx);
+  });
+}
+
+/**
  * Batch update: 2 query totali invece di 2×N. Aggiorna updatedAt solo sulle
  * righe che cambiano davvero, preservando il comportamento di updateAppSetting.
+ *
+ * Atomicità: tutto dentro `withSettingsLock` → la sync R2 vede i dati
+ * DELLA STESSA transaction (post-UPDATE) e nessuna altra save admin può
+ * intercalarsi finché qui non termina.
  */
 export async function batchUpdateAppSettings(
   updates: Partial<Record<SettingKey, string | null>>,
@@ -731,50 +775,54 @@ export async function batchUpdateAppSettings(
   const entries = Object.entries(updates) as [SettingKey, string | null][];
   if (entries.length === 0) return;
 
-  const keys = entries.map(([k]) => k) as string[];
-  const existing = await db
-    .select({ key: appSettings.key, value: appSettings.value })
-    .from(appSettings)
-    .where(inArray(appSettings.key, keys));
+  await withSettingsLock(async (tx) => {
+    const keys = entries.map(([k]) => k) as string[];
+    const existing = await tx
+      .select({ key: appSettings.key, value: appSettings.value })
+      .from(appSettings)
+      .where(inArray(appSettings.key, keys));
 
-  const existingMap = new Map(existing.map((r) => [r.key, r.value]));
-  const changed = entries.filter(([key, value]) => existingMap.get(key) !== value);
-  if (changed.length === 0) return;
+    const existingMap = new Map(existing.map((r) => [r.key, r.value]));
+    const changed = entries.filter(([key, value]) => existingMap.get(key) !== value);
+    if (changed.length === 0) return;
 
-  const now = new Date();
-  await db
-    .insert(appSettings)
-    .values(changed.map(([key, value]) => ({ key, value, updatedAt: now })))
-    .onConflictDoUpdate({
-      target: appSettings.key,
-      set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
-    });
+    const now = new Date();
+    await tx
+      .insert(appSettings)
+      .values(changed.map(([key, value]) => ({ key, value, updatedAt: now })))
+      .onConflictDoUpdate({
+        target: appSettings.key,
+        set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
+      });
 
-  await syncSnapshotAfterMutation(changed.map(([k]) => k));
+    await syncSnapshotAfterMutationInTx(tx, changed.map(([k]) => k));
+  });
 }
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {
-  // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
-  // un Save "a vuoto" del form admin azzera il timer di rotazione delle
-  // chiavi (il sistema notifiche usa updated_at come "last rotated at").
-  const existing = await db
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, key))
-    .limit(1)
+  await withSettingsLock(async (tx) => {
+    // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
+    // un Save "a vuoto" del form admin azzera il timer di rotazione delle
+    // chiavi (il sistema notifiche usa updated_at come "last rotated at").
+    const existing = await tx
+      .select({ value: appSettings.value })
+      .from(appSettings)
+      .where(eq(appSettings.key, key))
+      .limit(1);
 
-  if (existing.length === 0) {
-    await db.insert(appSettings).values({ key, value, updatedAt: new Date() })
-    await syncSnapshotAfterMutation([key])
-    return
-  }
+    if (existing.length === 0) {
+      await tx.insert(appSettings).values({ key, value, updatedAt: new Date() });
+      await syncSnapshotAfterMutationInTx(tx, [key]);
+      return;
+    }
 
-  if (existing[0].value === value) return // no-op: niente bump di updated_at
+    if (existing[0].value === value) return; // no-op: niente bump di updated_at
 
-  await db
-    .update(appSettings)
-    .set({ value, updatedAt: new Date() })
-    .where(eq(appSettings.key, key))
+    await tx
+      .update(appSettings)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(appSettings.key, key));
 
-  await syncSnapshotAfterMutation([key])
+    await syncSnapshotAfterMutationInTx(tx, [key]);
+  });
 }

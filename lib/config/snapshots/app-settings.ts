@@ -24,6 +24,45 @@ import {
 
 const SNAPSHOT_KEY = "app-settings.json";
 
+/**
+ * Metadata serializzato nel file snapshot. Permette di:
+ *  - tracciare la versione del file (incrementale, utile per debug/UI)
+ *  - vedere quando è stato scritto l'ultimo sync e da chi (audit minimo)
+ *  - alimentare il widget admin "Config snapshot health"
+ *
+ * NON è usato per concurrency control: la serializzazione delle write
+ * è garantita dal pg_advisory_xact_lock in updateAppSetting/batch (vedi
+ * lib/db/settings-queries.ts). Il `version` serve solo a fini informativi.
+ */
+export interface SnapshotMeta {
+  /** Counter incrementale, +1 ad ogni sync. Inizia da 1. */
+  version: number;
+  /** Timestamp ISO della write. */
+  writtenAt: string;
+  /** userId dell'admin che ha triggherato la write. null se sconosciuto. */
+  writtenBy: string | null;
+}
+
+/**
+ * Formato file R2: data dei settings + metadata. Estesto al posto di
+ * salvare il raw AppSettings così possiamo aggiungere campi senza
+ * breaking changes a chi legge.
+ */
+interface SnapshotFile {
+  _meta: SnapshotMeta;
+  data: AppSettings;
+}
+
+/** Detection legacy format (raw AppSettings senza wrapper). */
+function isSnapshotFile(parsed: unknown): parsed is SnapshotFile {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "_meta" in parsed &&
+    "data" in parsed
+  );
+}
+
 // Frequenza massima del HEAD check (ETag verification). Sotto questa soglia
 // si serve sempre dalla cache locale senza toccare R2. Sopra, una HEAD viene
 // fatta per validare. Tradeoff:
@@ -35,11 +74,28 @@ const ETAG_CHECK_INTERVAL_MS = 30_000;
 
 type CacheEntry = {
   data: AppSettings;
+  meta: SnapshotMeta;
   etag: string;
   lastEtagCheckAt: number;
 };
 
 let _cache: CacheEntry | null = null;
+
+/**
+ * Normalizza il body letto da R2: supporta il nuovo formato `SnapshotFile`
+ * E il formato legacy (raw AppSettings senza wrapper, generato dai primi
+ * snapshot prima di questa migration). Per il legacy, sintetizza un
+ * `_meta` minimo — il prossimo sync sovrascriverà col formato nuovo.
+ */
+function normalizeSnapshotBody(parsed: unknown): { data: AppSettings; meta: SnapshotMeta } {
+  if (isSnapshotFile(parsed)) {
+    return { data: parsed.data, meta: parsed._meta };
+  }
+  return {
+    data: parsed as AppSettings,
+    meta: { version: 0, writtenAt: new Date(0).toISOString(), writtenBy: null },
+  };
+}
 
 /**
  * Read app settings dallo snapshot. Hot path: chiamato da `getAppSettings`
@@ -86,24 +142,33 @@ export async function readAppSettingsSnapshot(): Promise<AppSettings> {
   }
 
   // No cache o ETag mismatch: full read
-  const fresh = await storage.read<AppSettings>(SNAPSHOT_KEY);
+  const fresh = await storage.read<unknown>(SNAPSHOT_KEY);
   if (fresh) {
+    const normalized = normalizeSnapshotBody(fresh.data);
     _cache = {
-      data: fresh.data,
+      data: normalized.data,
+      meta: normalized.meta,
       etag: fresh.etag,
       lastEtagCheckAt: now,
     };
-    return fresh.data;
+    return normalized.data;
   }
 
   // Snapshot non esiste → bootstrap: leggi da DB e scrivi il primo file
   // eslint-disable-next-line no-console
   console.info("[snapshot/app-settings] bootstrap — writing first snapshot from DB");
   const dbData = await fetchAppSettingsRaw();
+  const bootstrapMeta: SnapshotMeta = {
+    version: 1,
+    writtenAt: new Date().toISOString(),
+    writtenBy: null,
+  };
+  const bootstrapFile: SnapshotFile = { _meta: bootstrapMeta, data: dbData };
   try {
-    const written = await storage.write(SNAPSHOT_KEY, dbData);
+    const written = await storage.write(SNAPSHOT_KEY, bootstrapFile);
     _cache = {
       data: dbData,
+      meta: bootstrapMeta,
       etag: written.etag,
       lastEtagCheckAt: now,
     };
@@ -123,20 +188,63 @@ export async function readAppSettingsSnapshot(): Promise<AppSettings> {
  * Pattern: **await** (sync mode). L'admin aspetta che lo snapshot sia
  * propagato prima di vedere "saved". Più lento (~200-500ms extra) ma
  * elimina inconsistency window con altre lambda.
+ *
+ * Concurrency: la serializzazione delle write concorrenti è garantita dal
+ * pg_advisory_xact_lock in updateAppSetting (vedi settings-queries.ts).
+ * Questa funzione dà per scontato di essere chiamata dentro quel lock —
+ * tra commit DB e fine lock — quindi NON ci sono due sync in volo
+ * contemporanee sulla stessa instance/Vercel-project.
  */
-export async function syncAppSettingsSnapshot(): Promise<void> {
+export async function syncAppSettingsSnapshot(
+  writtenBy: string | null = null,
+): Promise<void> {
+  const data = await fetchAppSettingsRaw();
+  await syncAppSettingsSnapshotWithData(data, writtenBy);
+}
+
+/**
+ * Variante che riceve già i dati (utile da dentro una transaction DB:
+ * legge dalla transaction stessa, poi passa qui senza fare seconda query).
+ */
+export async function syncAppSettingsSnapshotWithData(
+  data: AppSettings,
+  writtenBy: string | null = null,
+): Promise<void> {
   const storage = await getSnapshotStorage();
   if (!storage) {
     // R2 non configurato: nessun sync, ma non è un errore — il caller
     // continua a leggere da DB direttamente.
     return;
   }
-  const data = await fetchAppSettingsRaw();
-  const written = await storage.write(SNAPSHOT_KEY, data);
+
+  // Determina la prossima version: leggi l'attuale se esiste, altrimenti 1.
+  // Costa 1 HEAD/GET — trascurabile perché admin save sono rari.
+  let nextVersion = 1;
+  try {
+    const current = await storage.read<unknown>(SNAPSHOT_KEY);
+    if (current) {
+      const normalized = normalizeSnapshotBody(current.data);
+      nextVersion = normalized.meta.version + 1;
+    }
+  } catch {
+    // Se non riusciamo a leggere il file precedente, partiamo da 1.
+    // Il sync DEVE riuscire anche se la version è imprecisa.
+    nextVersion = 1;
+  }
+
+  const meta: SnapshotMeta = {
+    version: nextVersion,
+    writtenAt: new Date().toISOString(),
+    writtenBy,
+  };
+  const file: SnapshotFile = { _meta: meta, data };
+  const written = await storage.write(SNAPSHOT_KEY, file);
+
   // Aggiorna cache locale per la lambda che ha appena salvato. Altre lambda
   // vedranno il cambio al prossimo ETag check (max ETAG_CHECK_INTERVAL_MS).
   _cache = {
     data,
+    meta,
     etag: written.etag,
     lastEtagCheckAt: Date.now(),
   };
@@ -147,8 +255,13 @@ export async function syncAppSettingsSnapshot(): Promise<void> {
  */
 export type SnapshotHealth =
   | { status: "disabled"; reason: "r2-not-configured" }
-  | { status: "ok"; etag: string; sizeBytes: number; lastSyncedAt: Date | null }
-  | { status: "missing"; message: "snapshot file does not exist yet" }
+  | {
+      status: "ok";
+      etag: string;
+      sizeBytes: number;
+      meta: SnapshotMeta;
+    }
+  | { status: "missing"; message: string }
   | { status: "error"; message: string };
 
 export async function getAppSettingsSnapshotHealth(): Promise<SnapshotHealth> {
@@ -157,17 +270,24 @@ export async function getAppSettingsSnapshotHealth(): Promise<SnapshotHealth> {
     if (!storage) {
       return { status: "disabled", reason: "r2-not-configured" };
     }
-    const result = await storage.read<AppSettings>(SNAPSHOT_KEY);
+    const result = await storage.read<unknown>(SNAPSHOT_KEY);
     if (!result) {
-      return { status: "missing", message: "snapshot file does not exist yet" };
+      return {
+        status: "missing",
+        message: "Snapshot file not found — save any admin setting to create it.",
+      };
     }
+    const normalized = normalizeSnapshotBody(result.data);
     // Stime: JSON.stringify per misurare la dimensione effettiva del file.
-    const sizeBytes = JSON.stringify(result.data).length;
+    const sizeBytes = JSON.stringify({
+      _meta: normalized.meta,
+      data: normalized.data,
+    }).length;
     return {
       status: "ok",
       etag: result.etag,
       sizeBytes,
-      lastSyncedAt: null, // TODO: estrarre LastModified da R2 se serve
+      meta: normalized.meta,
     };
   } catch (err) {
     return {
