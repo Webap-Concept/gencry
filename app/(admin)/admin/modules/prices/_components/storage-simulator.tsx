@@ -126,6 +126,25 @@ export function StorageSimulator({
           variabili. Modifica i campi qui per fare "what-if" senza salvare.
           Per applicare davvero, usa il form sopra.
         </p>
+        <div
+          style={{
+            marginTop: 8,
+            padding: "8px 10px",
+            background: "var(--admin-bg-2, #f3f4f6)",
+            border: "1px solid var(--admin-line, #e5e7eb)",
+            borderRadius: 8,
+            fontSize: 11,
+            color: "var(--admin-fg-2, #374151)",
+            lineHeight: 1.5,
+          }}
+        >
+          <strong>Nota:</strong> il cron <code>sync</code> ogni{" "}
+          <code>cron_minutes</code> (es. 5 min) <em>non</em> influenza queste
+          cifre. Quello scrive solo in <code>prices_data</code> con UPSERT (1
+          riga fissa per coin, storage costante ~50KB). L'unica tabella che
+          cresce è <code>prices_history</code>, alimentata dal gate{" "}
+          <code>snapshot_minutes</code>.
+        </div>
       </header>
 
       <div
