@@ -46,37 +46,42 @@ export async function loadSnapshotR2Config(): Promise<ConfigR2Config | null> {
  * Costruisce e ritorna lo storage attivo. Null se R2 non configurato — il
  * caller fallback a read DB (backward compat).
  *
- * Cache il client S3 a livello di modulo: re-istanziarlo per ogni request
- * non serve, e il S3Client tiene un pool di TCP connections interno.
+ * FAST PATH: se lo storage è già cached, ritorniamo subito SENZA toccare
+ * il DB. Questo è critico perché `loadSnapshotR2Config` legge da
+ * `app_settings` con `fetchAppSettingsRaw` — una query DB. Senza il
+ * fast-path, ogni `getAppSettings()` paga 1 query DB anche quando lo
+ * snapshot è perfettamente cached → vanifica l'intera architettura.
+ *
+ * COLD PATH: la prima call dopo cold-start (o dopo
+ * `invalidateSnapshotStorageCache`) paga 1 query DB per leggere le
+ * credenziali R2, poi cachata per il resto del lifecycle lambda.
+ *
+ * Tradeoff accettato: se l'admin ruota le credenziali R2 in produzione
+ * mentre altre lambda sono warm, quelle continueranno a usare le vecchie
+ * credenziali fino al loro restart (~15 min di TTL lambda Vercel). La
+ * lambda che ha effettivamente fatto il save invalida la cache via
+ * `invalidateSnapshotStorageCache` nel flow di mutation.
  */
 let _cachedStorage: SnapshotStorage | null = null;
-let _cachedConfigKey: string | null = null;
 
 export async function getSnapshotStorage(): Promise<SnapshotStorage | null> {
+  // Fast path: cache hit, NO DB call
+  if (_cachedStorage) return _cachedStorage;
+
+  // Cold path: load config from DB once, cache result
   const cfg = await loadSnapshotR2Config();
-  if (!cfg) {
-    // Invalidate eventuale storage precedente se la config è stata rimossa
-    _cachedStorage = null;
-    _cachedConfigKey = null;
-    return null;
-  }
-  // Cache key: se cambiano credenziali (rotation admin), re-istanziare
-  const configKey = `${cfg.accountId}/${cfg.bucket}/${cfg.accessKeyId}`;
-  if (_cachedStorage && _cachedConfigKey === configKey) {
-    return _cachedStorage;
-  }
+  if (!cfg) return null;
+
   const client = createConfigR2Client(cfg);
   _cachedStorage = new R2SnapshotStorage(client, cfg.bucket);
-  _cachedConfigKey = configKey;
   return _cachedStorage;
 }
 
 /**
  * Invalida lo storage cached. Chiamato dalle admin actions che modificano
- * `storage.config.r2.*` per forzare il prossimo factory call a leggere
- * le credenziali fresche.
+ * `storage.config.r2.*` o `storage.r2.account_id` per forzare il prossimo
+ * factory call a leggere le credenziali fresche.
  */
 export function invalidateSnapshotStorageCache(): void {
   _cachedStorage = null;
-  _cachedConfigKey = null;
 }
