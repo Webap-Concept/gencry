@@ -172,6 +172,7 @@ export default function AdminHeaderRight({
               <Link
                 href={`/${adminSlug}/security/mfa-enroll`}
                 onClick={closeMenu}
+                prefetch={false}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
                 style={{ color: "var(--admin-text)" }}
                 onMouseEnter={(e) =>
@@ -186,6 +187,7 @@ export default function AdminHeaderRight({
               <Link
                 href="/settings"
                 onClick={closeMenu}
+                prefetch={false}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors"
                 style={{ color: "var(--admin-text)" }}
                 onMouseEnter={(e) =>

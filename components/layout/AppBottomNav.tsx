@@ -51,6 +51,7 @@ export function AppBottomNav() {
           <Link
             key={href}
             href={href}
+            prefetch={false}
             aria-current={active ? "page" : undefined}
             className={`flex flex-col items-center gap-0.5 px-2 py-1 transition ${
               active ? "text-gc-accent" : "text-gc-fg-3 hover:text-gc-fg"

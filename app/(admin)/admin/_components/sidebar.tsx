@@ -337,6 +337,7 @@ export default function AdminSidebar({
       <Link
         href={prefixHref(href)}
         onClick={onClose}
+        prefetch={false}
         className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${
           sub ? "px-3 py-2 ml-3" : "px-3 py-2.5"
         }`}
@@ -1022,6 +1023,7 @@ export default function AdminSidebar({
           <>
             <Link
               href="/"
+              prefetch={false}
               className="text-xs transition-colors"
               style={{ color: "var(--admin-sidebar-text-faint)" }}>
               ← Back to the App
