@@ -1336,6 +1336,11 @@ export const pricesData = pgTable("prices_data", {
   volume24h:    numeric("volume_24h", { precision: 24, scale: 2 }),
   source:       varchar("source", { length: 20 }).notNull().default("coingecko"),
   lastUpdated:  timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
+  // Sparkline settimanale pre-aggregata: 7 prezzi giornalieri dal più vecchio
+  // al più recente (oggi). Aggiornata dentro runPricesSync se l'ultima
+  // computazione è > 24h fa. Decorativa, non trading-grade.
+  weeklySparkline:   jsonb("weekly_sparkline").$type<number[] | null>(),
+  weeklySparklineAt: timestamp("weekly_sparkline_at", { withTimezone: true }),
 });
 
 export const pricesHistory = pgTable(
