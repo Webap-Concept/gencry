@@ -1,3 +1,4 @@
+import type React from "react";
 import { describe, expect, it } from "vitest";
 import { resolveSlotFrom, validateSections } from "@/lib/home/registry-utils";
 import type { HomeSection } from "@/lib/home/types";
@@ -8,8 +9,8 @@ function section(overrides: Partial<HomeSection>): HomeSection {
     key: "test.section",
     slot: "home.main",
     order: 10,
-    Component: () => null as unknown as JSX.Element,
-    Skeleton: () => null as unknown as JSX.Element,
+    Component: () => null as unknown as React.ReactElement,
+    Skeleton: () => null as unknown as React.ReactElement,
     ...overrides,
   };
 }
