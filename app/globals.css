@@ -269,6 +269,23 @@
   --color-gc-neg: var(--gc-neg);
   --color-gc-green: var(--gc-green);
 
+  /* Semantic tokens — vedono override automatico in .gc-dark .gc-app-shell.
+     Permettono classi tipo bg-gc-input-bg, border-gc-input-border, ecc.
+     Vedi feedback_theming_guidelines per quando aggiungere nuovi token. */
+  --color-gc-input-bg: var(--gc-input-bg);
+  --color-gc-input-border: var(--gc-input-border);
+  --color-gc-input-focus: var(--gc-input-focus);
+  --color-gc-input-placeholder: var(--gc-input-placeholder);
+  --color-gc-modal-bg: var(--gc-modal-bg);
+  --color-gc-modal-border: var(--gc-modal-border);
+  --color-gc-overlay: var(--gc-overlay);
+  --color-gc-card-bg: var(--gc-card-bg);
+  --color-gc-card-border: var(--gc-card-border);
+  --color-gc-warning-bg: var(--gc-warning-bg);
+  --color-gc-warning-fg: var(--gc-warning-fg);
+  --color-gc-button-secondary-bg: var(--gc-button-secondary-bg);
+  --color-gc-button-secondary-fg: var(--gc-button-secondary-fg);
+
   /* Radii custom GC */
   --radius-gc: 14px;
   --radius-gc-sm: 10px;

@@ -130,6 +130,25 @@
   --gc-pos: #2d8659; /* prezzi in salita */
   --gc-neg: #c2553f; /* prezzi in discesa */
   --gc-green: #7dbe9e; /* verde brand (badge, indicatori live) */
+
+  /* ── semantic tokens ──────────────────────────────────
+     Estensione del set base per casi comuni che altrimenti finiscono
+     hardcoded (hex inline). Quando aggiungi un componente nuovo che
+     ha bisogno di un colore "tipico" (input bg, modal bg, warning, ...)
+     prima cerca qui — se manca, AGGIUNGI un token qui invece di hardcodare. */
+  --gc-input-bg: #ffffff;        /* sfondo input/textarea su card */
+  --gc-input-border: #d4ccba;    /* alias --gc-line-2 per chiarezza semantica */
+  --gc-input-focus: #fa8b1e;     /* alias --gc-accent per chiarezza */
+  --gc-input-placeholder: #94897a; /* alias --gc-fg-3 */
+  --gc-modal-bg: #ffffff;        /* sfondo modale/dropdown */
+  --gc-modal-border: #e6dfd0;    /* alias --gc-line */
+  --gc-overlay: rgba(18, 57, 40, 0.45); /* backdrop modali, oscuramento background */
+  --gc-card-bg: #fdfaf4;         /* alias --gc-bg-2 (chiarezza naming) */
+  --gc-card-border: #e6dfd0;     /* alias --gc-line */
+  --gc-warning-bg: #fef3c7;      /* badge/info warning soft */
+  --gc-warning-fg: #b45309;      /* testo su warning-bg */
+  --gc-button-secondary-bg: #f3f4f6; /* bottoni neutri "cancel"/"close" */
+  --gc-button-secondary-fg: #374151; /* testo su button-secondary-bg */
 }
 
 /* ---------------------------------------------------------------------------
@@ -163,6 +182,22 @@
   /* Linee — toni del bg ma un click più chiari */
   --gc-line: #25342c;
   --gc-line-2: #364841;
+
+  /* Semantic tokens — override per dark (vedi versione light in :root sopra
+     per il commento di scopo). Mantengono lo stesso ruolo, solo valori adattati. */
+  --gc-input-bg: #14241c;        /* match bg-2: input visibili su card */
+  --gc-input-border: #364841;    /* alias line-2 dark */
+  --gc-input-focus: #fa8b1e;     /* accent invariato */
+  --gc-input-placeholder: #7a7468; /* alias fg-3 dark */
+  --gc-modal-bg: #14241c;        /* match bg-2 dark */
+  --gc-modal-border: #25342c;    /* alias line dark */
+  --gc-overlay: rgba(0, 0, 0, 0.65); /* più scuro in dark */
+  --gc-card-bg: #14241c;         /* alias bg-2 dark */
+  --gc-card-border: #25342c;     /* alias line dark */
+  --gc-warning-bg: rgba(250, 139, 30, 0.15); /* warning più sobrio in dark */
+  --gc-warning-fg: #fa8b1e;       /* accent come testo warning */
+  --gc-button-secondary-bg: #1a2e25; /* alias bg-3 dark */
+  --gc-button-secondary-fg: #e6e1d2; /* alias fg dark */
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
 
