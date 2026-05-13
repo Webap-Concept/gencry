@@ -23,35 +23,34 @@ Livelli connessioni: 10 / 50 / 100 / 200 (più 500 sullo scenario guest). Durati
 
 ## Baseline storica
 
-### 2026-05-13 — post Scale Prep Fase 1+2 (R2 snapshot + prefetch off)
+### 2026-05-13 — post Scale Prep Fase 1+2 (R2 snapshot + prefetch off) — `--quick`
 
-> Aggiungi qui i risultati dopo aver eseguito il primo `pnpm run test:load` con tutti i fix attivi.
+Smoke test a livello singolo (50 conn × 30s tranne Home logged-out a 100 conn).
+Dopo il fix critico `8d96f90` (fast-path cache sullo snapshot storage).
 
-```
-| Scenario          | Conn | Req/s | p50  | p95  | p99  | err | non2xx |
-|-------------------|-----:|------:|-----:|-----:|-----:|----:|-------:|
-| Home (logged out) |   10 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged out) |  100 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged out) |  500 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged in)  |   10 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged in)  |   50 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged in)  |  100 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Home (logged in)  |  200 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Settings privacy  |   10 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Settings privacy  |   50 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Settings privacy  |  100 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Settings privacy  |  200 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Admin dashboard   |   10 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Admin dashboard   |   50 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Admin dashboard   |  100 |    -- |   -- |   -- |   -- |  -- |     -- |
-| Admin dashboard   |  200 |    -- |   -- |   -- |   -- |  -- |     -- |
-```
+| Scenario          | Conn | Req/s | p50    | p95    | p99    | err | non2xx |
+|-------------------|-----:|------:|-------:|-------:|-------:|----:|-------:|
+| Home (logged out) |  100 |    65 | 1410ms | 3360ms | 3895ms |   0 |      0 |
+| Home (logged in)  |   50 |    73 |  663ms |  932ms |  957ms |   0 |      0 |
+| Settings privacy  |   50 |    71 |  681ms | 1026ms | 1216ms |   0 |      0 |
+| Admin dashboard   |   50 |    74 |  656ms |  960ms | 1256ms |   0 |      0 |
 
-Note operative dell'esecuzione (compila dopo il run):
-- Hardware: ___ (es. Windows 10 / 16 GB / dev locale)
-- Pool DB attuale: max=30
-- R2 snapshot: ✓ attivo / ✗ fallback DB
-- Latenza DB Supabase: ~_ms baseline
+Note operative:
+- Hardware: dev locale Windows / Node 24
+- Pool DB: max=30 (postgres-js)
+- R2 snapshot: ✓ attivo per `app_settings`, ✓ attivo per `system-pages`
+- Server: `pnpm start` (production build)
+- Admin URL slug: `businessmanager` (passato via `LOAD_TEST_ADMIN_SLUG`)
+- Test run: `LOAD_TEST_SESSION_COOKIE=... LOAD_TEST_ADMIN_SLUG=businessmanager pnpm run test:load -- --quick`
+
+**Conclusioni**:
+- 0 errori / 0 non2xx su tutti gli scenari = pool DB **non si satura** più a 50-100 conn
+- Le pagine "pesanti" loggate (home / settings / admin) sono comparable: ~70 req/s, p99 ~1-1.3s
+- **Home pubblica @ 100 conn è il punto più lento** (p99 ~4s) — il CMS catch-all `[...slug]` è il bottleneck adesso, non il pool DB. Candidato Fase 6 (cache CMS lookups)
+- Confronto col precedente run con bug: 0 req/s + 100% errors → 70 req/s + 0% errors
+
+**Bug critico scoperto e fixato in questo run** (`8d96f90`):
+La factory `getSnapshotStorage` leggeva le credenziali R2 dal DB ad **ogni request**, vanificando la cache. Sotto load = N×50 query DB → saturazione + EPIPE/CONNECTION_CLOSED cascade. Fixato con fast-path cache che check il client S3 PRIMA di toccare il DB.
 
 ## Threshold interpretativi
 

@@ -8,6 +8,8 @@
 //   pnpm run test:load                       # locale, scenari pubblici soltanto
 //   LOAD_TEST_SESSION_COOKIE="session=..." pnpm run test:load
 //                                            # tutti gli scenari (incluso loggati)
+//   LOAD_TEST_ADMIN_SLUG="businessmanager" pnpm run test:load
+//                                            # se admin URL non è "/admin"
 //   pnpm run test:load -- --quick            # solo livello 50 connections (smoke)
 //   pnpm run test:load -- --url=https://...  # contro un'altra base URL
 //
@@ -82,6 +84,9 @@ const QUICK_LEVELS = [50];
 
 function getScenarios(args: Args): Scenario[] {
   const levels = args.quick ? QUICK_LEVELS : FULL_LEVELS;
+  // Admin URL slug è runtime-configurabile in /admin/services/admin-url:
+  // l'env var permette di puntare al vero path quando lo slug non è "admin".
+  const adminSlug = (process.env.LOAD_TEST_ADMIN_SLUG ?? "admin").replace(/^\/+|\/+$/g, "");
   return [
     {
       name: "Home (logged out)",
@@ -112,7 +117,7 @@ function getScenarios(args: Args): Scenario[] {
     },
     {
       name: "Admin dashboard",
-      url: "/admin",
+      url: `/${adminSlug}`,
       requireAuth: true,
       // ~9 widget server-rendered in parallelo. Stress sulle query
       // dashboard (gdpr, signups, suspicious sessions, ecc.).
@@ -141,9 +146,9 @@ async function runScenario(
     // Tieni le request pipelined a 1: il prefetch RSC le moltiplica naturalmente,
     // pipelining aggressivo distorcerebbe la simulazione.
     pipelining: 1,
-    // Disabilita la barra di progresso (autocannon usa terminal control codes
-    // che spezzano l'output quando si scrive a file/CI).
-    workers: undefined,
+    // Timeout per request esplicito (15s). Senza, autocannon usa un default
+    // che in alcuni casi calcola un valore negativo → warning + 0 req/s.
+    timeout: 15,
   });
 
   return {
