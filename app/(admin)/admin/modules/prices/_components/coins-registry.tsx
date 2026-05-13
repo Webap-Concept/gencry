@@ -10,6 +10,7 @@ import {
   backfillCoinImagesAction,
   bulkImportTopCoinsAction,
   deleteCoinAction,
+  refetchAllCoinsAction,
   refetchCoinAction,
   toggleCoinActiveAction,
   type ActionState,
@@ -26,11 +27,26 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
   const [isBackfilling, startBackfill] = useTransition();
+  const [isRefreshingAll, startRefreshAll] = useTransition();
   const lastTs = useRef<number>(0);
 
   function handleBackfill() {
     startBackfill(async () => {
       const res = await backfillCoinImagesAction();
+      if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
+      if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
+    });
+  }
+
+  function handleRefreshAll() {
+    if (
+      !window.confirm(
+        "Re-fetch metadata + images for every coin? Takes ~1.5s per coin (CoinGecko rate limit).",
+      )
+    )
+      return;
+    startRefreshAll(async () => {
+      const res = await refetchAllCoinsAction();
       if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
       if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
     });
@@ -155,6 +171,20 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
               title="Re-mirror all coin images from CoinGecko to R2 (skips coins already on R2)">
               {isBackfilling ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
               {isBackfilling ? "Backfilling..." : "Backfill images to R2"}
+            </button>
+            <button
+              type="button"
+              onClick={handleRefreshAll}
+              disabled={isRefreshingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                background: "transparent",
+                color: "var(--admin-text-muted)",
+                border: "1px solid var(--admin-input-border)",
+              }}
+              title="Re-fetch metadata + images from CoinGecko for every coin (uses image.large 200px for retina sharpness). ~1.5s per coin.">
+              {isRefreshingAll ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              {isRefreshingAll ? "Refreshing..." : "Refresh metadata + images"}
             </button>
             <div className="relative w-full max-w-sm">
               <Search

@@ -441,6 +441,81 @@ export async function bulkImportTopCoinsAction(
   }
 }
 
+/**
+ * Re-fetch metadata + ri-mirror immagine per TUTTI i coin con
+ * `coingecko_id`. Serial con sleep 1.5s tra le chiamate per restare
+ * sotto i 30 req/min di CoinGecko Free.
+ *
+ * Use case: dopo aver cambiato il source `fetchCoinMetadata` da
+ * `image.small` a `image.large` (per immagini retina), i coin
+ * esistenti hanno ancora URL R2 mirror-ati dalla versione 50px.
+ * Questa action li aggiorna in bulk a 200px.
+ */
+export async function refetchAllCoinsAction(): Promise<ActionState> {
+  try {
+    const coins = await db
+      .select({
+        symbol: pricesCoins.symbol,
+        coingeckoId: pricesCoins.coingeckoId,
+      })
+      .from(pricesCoins)
+      .where(isNotNull(pricesCoins.coingeckoId));
+
+    if (coins.length === 0) {
+      return { error: "No coins with CoinGecko ID to refresh.", timestamp: Date.now() };
+    }
+
+    const cfg = await getPricesConfig();
+    let updated = 0;
+    let failed = 0;
+    const failedSymbols: string[] = [];
+
+    for (const c of coins) {
+      try {
+        const meta = await fetchCoinMetadata(c.coingeckoId!);
+        if (!meta) {
+          failed++;
+          failedSymbols.push(c.symbol);
+        } else {
+          const finalImageUrl = await mirrorImageWithFallback(
+            cfg.r2,
+            c.symbol,
+            meta.imageUrl ?? null,
+          );
+          await db
+            .update(pricesCoins)
+            .set({
+              name: meta.name,
+              imageUrl: finalImageUrl,
+              marketCap: meta.marketCap ?? null,
+              category: meta.category ?? null,
+              updatedAt: new Date(),
+            })
+            .where(eq(pricesCoins.symbol, c.symbol));
+          updated++;
+        }
+      } catch {
+        failed++;
+        failedSymbols.push(c.symbol);
+      }
+      // Rate limit: ~40 req/min con 1.5s tra le call (sotto i 30/min
+      // del Free tier per consentire al cron sync di passare in
+      // mezzo). Più lento ma safe.
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    revalidatePath(await getAdminPath("prices-coins"));
+    const detail = failedSymbols.length > 0 ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}` : "";
+    return {
+      success: `Refreshed ${updated} coins · failed ${failed}${detail}`,
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Bulk refresh failed";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
 export async function refetchCoinAction(symbol: string): Promise<ActionState> {
   try {
     const row = await db.select().from(pricesCoins).where(eq(pricesCoins.symbol, symbol)).limit(1);

@@ -169,7 +169,7 @@ interface CoinDetailResponse {
   id: string;
   symbol: string;
   name: string;
-  image?: { small?: string; thumb?: string };
+  image?: { large?: string; small?: string; thumb?: string };
   market_data?: { market_cap?: { usd?: number } };
   categories?: string[];
 }
@@ -266,7 +266,11 @@ export async function fetchCoinMetadata(coingeckoId: string): Promise<{
     return {
       symbol: data.symbol.toUpperCase(),
       name: data.name,
-      imageUrl: data.image?.small ?? data.image?.thumb,
+      // Preferiamo `large` (~200x200): le icone vengono renderizzate a
+      // 40-56 CSS, quindi su display retina 2x/3x un sorgente 200px
+      // risulta nitido. `small` (~50px) veniva up-scalato e appariva
+      // sgranato. Fallback small → thumb solo se large mancante.
+      imageUrl: data.image?.large ?? data.image?.small ?? data.image?.thumb,
       marketCap: data.market_data?.market_cap?.usd,
       category: data.categories?.[0] ?? undefined,
     };
