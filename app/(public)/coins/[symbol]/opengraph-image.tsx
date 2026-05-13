@@ -106,10 +106,12 @@ function buildSparklinePath(
 export default async function CoinOgImage({
   params,
 }: {
-  params: { symbol: string };
+  // Next 16: anche le OG image hanno params come Promise.
+  params: Promise<{ symbol: string }>;
 }) {
+  const { symbol } = await params;
   const [coin, settings] = await Promise.all([
-    getCoinForCard(params.symbol),
+    getCoinForCard(symbol),
     getCachedAppSettings(),
   ]);
 
