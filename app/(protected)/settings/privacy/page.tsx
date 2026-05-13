@@ -53,17 +53,38 @@ export default async function PrivacySettingsPage() {
   const privacy = consents.privacy;
   const marketing = consents.marketing;
 
-  const exportJobsVM: ExportJobVM[] = exportJobs.map((j) => ({
-    id: j.id,
-    status: j.status,
-    requestedAt: j.requestedAt.toISOString(),
-    completedAt: j.completedAt?.toISOString() ?? null,
-    expiresAt: j.expiresAt?.toISOString() ?? null,
-    canDownload:
-      j.status === "ready" &&
-      j.hasFile &&
-      (j.expiresAt === null || j.expiresAt.getTime() > Date.now()),
-  }));
+  // Robustezza: il tipo dice Date ma in alcuni path di runtime (cold cache,
+  // post-revalidate streaming RSC) i timestamp di Drizzle/postgres-js sono
+  // arrivati come string e `.toISOString()` esplodeva, rompendo lo stream
+  // della response e bloccando i bottoni di salvataggio downstream.
+  const toIso = (v: Date | string | null): string | null => {
+    if (v == null) return null;
+    if (v instanceof Date) return v.toISOString();
+    // string ISO o altro: ricostruisci Date e ri-serializza per format consistente.
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  const expiresMs = (v: Date | string | null): number | null => {
+    if (v == null) return null;
+    if (v instanceof Date) return v.getTime();
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  };
+
+  const exportJobsVM: ExportJobVM[] = exportJobs.map((j) => {
+    const expMs = expiresMs(j.expiresAt);
+    return {
+      id: j.id,
+      status: j.status,
+      requestedAt: toIso(j.requestedAt) ?? new Date(0).toISOString(),
+      completedAt: toIso(j.completedAt),
+      expiresAt: toIso(j.expiresAt),
+      canDownload:
+        j.status === "ready" &&
+        j.hasFile &&
+        (expMs === null || expMs > Date.now()),
+    };
+  });
 
   return (
     <div className="space-y-12">

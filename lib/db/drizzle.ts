@@ -53,8 +53,17 @@ export const client =
     prepare: false,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
-    // In dev: cap 1 conn per pool. In prod: default postgres-js (10).
-    ...(isDev ? { max: 1 } : {}),
+    // Pool sizing: il default postgres-js di 10 è troppo piccolo per il
+    // fan-out di un re-render Next 16 con prefetch RSC.
+    //   revalidatePath("/") → router invalidation → Next pre-fetch dei
+    //   link visibili (sidebar + bottom-nav + tabs) → 10-15 request HTTP
+    //   parallele → ogni request render layout protected (5 query) +
+    //   page (6 query) = 80+ query parallele. Con max=10 il pool satura,
+    //   le request restano in coda 10-15s, browser fa retry → spirale,
+    //   stream RSC della Server Action response non chiude mai.
+    // 30 dà margine generoso senza avvicinarsi al cap Supabase (200).
+    // In dev: cap 1 conn per pool (vedi commento sopra sul singleton).
+    max: isDev ? 1 : 30,
   });
 
 if (isDev) {

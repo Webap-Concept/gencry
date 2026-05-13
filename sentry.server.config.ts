@@ -23,14 +23,11 @@ if (cfg.dsn) {
     tracesSampleRate: cfg.tracesSampleRate,
     // PII: per GDPR l'admin sceglie esplicitamente di attivarlo.
     sendDefaultPii: cfg.sendDefaultPii,
-    // Opt-out della fetch instrumentation di undici. Su Next 16 + Node 22
-    // la `nativeNodeFetchIntegration` di Sentry monkey-patcha il
-    // TransformStream interno usato dalle Server Action response, e in
-    // alcuni flussi rompe lo stream con:
-    //   TypeError: controller[kState].transformAlgorithm is not a function
-    // Il sintomo lato client è che ogni bottone di salvataggio resta in
-    // stato pending per sempre. Errori e tracing custom continuano a
-    // funzionare — perdiamo solo l'auto-tracing delle fetch outbound.
+    // Opt-out della fetch instrumentation di undici. Sentry instrumenta
+    // ogni outbound fetch (Supabase, R2, ecc.) creando un overhead per
+    // request che non utilizziamo (non guardiamo le traces outbound).
+    // Disabilitarla riduce CPU + memoria per request senza perdere
+    // l'error capture su Sentry — perdiamo solo l'auto-tracing fetch.
     integrations: (defaults) =>
       defaults.filter((i) => i.name !== "NodeFetch"),
     // Filtra qui errori noti che NON vogliamo in Sentry. Esempio: il
