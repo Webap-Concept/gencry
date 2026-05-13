@@ -36,7 +36,7 @@ const DEFAULTS: PricesConfig = {
   breakerMaxErr: 3,
   breakerWindowS: 300,
   breakerOpenS: 600,
-  snapshotMinutes: 5,
+  snapshotMinutes: 30,
   retentionDays: 30,
   coingeckoProEnabled: false,
   coingeckoProApiKey: null,

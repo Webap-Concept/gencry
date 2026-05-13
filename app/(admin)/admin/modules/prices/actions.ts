@@ -14,7 +14,7 @@ import {
   deleteCoinImage,
   mirrorCoinImage,
 } from "@/lib/modules/prices/storage";
-import { runPricesCleanup, runPricesSnapshot, runPricesSync } from "@/lib/modules/prices/sync";
+import { runPricesCleanup, runPricesSync } from "@/lib/modules/prices/sync";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -231,10 +231,14 @@ export async function triggerSyncNowAction(): Promise<ActionState> {
 
 export async function triggerSnapshotNowAction(): Promise<ActionState> {
   try {
-    const result = await runPricesSnapshot(true);
+    // Snapshot ora vive dentro runPricesSync: forziamo un sync run, che
+    // include la scrittura di prices_history con i prezzi freschi. Voce
+    // "Trigger snapshot now" dell'admin mantenuta per backward compat
+    // ma sotto il cofano fa esattamente lo stesso del trigger sync.
+    const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
     return {
-      success: `Snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
+      success: `Sync+snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
       timestamp: Date.now(),
     };
   } catch (err) {

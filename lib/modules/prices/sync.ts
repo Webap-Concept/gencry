@@ -134,6 +134,21 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     // swallow
   }
 
+  // ── 5) Snapshot in prices_history (best-effort, gated da snapshotMinutes) ──
+  // Scriviamo qui con il prezzo FRESCO appena raccolto, NON copiando da
+  // prices_data: quest'ultima resta "settled" col delta threshold e darebbe
+  // linee piatte nel chart. Gate `snapshotMinutes` evita scritture ogni
+  // sync run quando l'admin vuole granularità più lassa (es. 30/60 min).
+  try {
+    await writeSnapshotIfDue(
+      Array.from(collected.values()),
+      cfg.snapshotMinutes,
+      started,
+    );
+  } catch {
+    // swallow: lo storico è decorativo per il chart, non blocca il sync
+  }
+
   const ok = collected.size > 0 || universe.length === 0;
   const durationMs = Date.now() - startMs;
 
@@ -261,75 +276,74 @@ async function syncMasterData(quotes: PriceQuote[]): Promise<void> {
 }
 
 /**
- * Snapshot timeseries: scrive un punto in `prices_history` per ogni coin che
- * ha un prezzo corrente. Chiamato dal cron snapshot (default ogni 5 min).
+ * Scrive un punto in `prices_history` per ogni coin che ha un prezzo nuovo
+ * dai quotes raccolti dal sync. Gated da `snapshotMinutes`: skippa la
+ * scrittura se l'ultimo snapshot run è < snapshotMinutes - grace fa.
+ *
+ * Sostituisce il vecchio cron snapshot separato che copiava da prices_data
+ * (causa "linea piatta" quando il delta threshold skippava l'upsert).
  */
-export async function runPricesSnapshot(force = false): Promise<SyncResult> {
-  const started = new Date();
-  const startMs = Date.now();
-  const cfg = await getPricesConfig();
+async function writeSnapshotIfDue(
+  quotes: PriceQuote[],
+  snapshotMinutes: number,
+  nowDate: Date,
+): Promise<void> {
+  if (quotes.length === 0) return;
 
-  if (!force) {
-    const last = await db
-      .select({ startedAt: pricesSyncRuns.startedAt })
-      .from(pricesSyncRuns)
-      .where(and(eq(pricesSyncRuns.kind, "snapshot"), eq(pricesSyncRuns.ok, true)))
-      .orderBy(desc(pricesSyncRuns.startedAt))
-      .limit(1);
-    if (last[0]) {
-      const minIntervalMs = cfg.snapshotMinutes * 60_000 - 30_000;
-      const elapsed = Date.now() - last[0].startedAt.getTime();
-      if (elapsed < minIntervalMs) {
-        return {
-          ok: true,
-          coinsTotal: 0,
-          coinsUpdated: 0,
-          sourceUsed: null,
-          durationMs: 0,
-        };
-      }
-    }
+  // Check ultimo run snapshot riuscito. Grace di 30s per non saltare un
+  // tick borderline (stesso pattern di runPricesSync).
+  const last = await db
+    .select({ startedAt: pricesSyncRuns.startedAt })
+    .from(pricesSyncRuns)
+    .where(and(eq(pricesSyncRuns.kind, "snapshot"), eq(pricesSyncRuns.ok, true)))
+    .orderBy(desc(pricesSyncRuns.startedAt))
+    .limit(1);
+  if (last[0]) {
+    const minIntervalMs = snapshotMinutes * 60_000 - 30_000;
+    const elapsed = Date.now() - last[0].startedAt.getTime();
+    if (elapsed < minIntervalMs) return;
   }
 
-  const rows = await db
-    .select({ symbol: pricesData.symbol, price: pricesData.price })
-    .from(pricesData);
+  const validQuotes = quotes.filter((q) => Number.isFinite(q.price));
+  if (validQuotes.length === 0) return;
 
-  if (rows.length === 0) {
-    const r = {
-      kind: "snapshot" as const,
-      startedAt: started,
-      durationMs: Date.now() - startMs,
-      coinsTotal: 0,
-      coinsUpdated: 0,
-      sourceUsed: null,
-      ok: true,
-    };
-    await logRun(r);
-    return { ok: true, coinsTotal: 0, coinsUpdated: 0, sourceUsed: null, durationMs: r.durationMs };
-  }
-
-  const now = new Date();
   await db.insert(pricesHistory).values(
-    rows.map((r) => ({
-      symbol: r.symbol,
-      ts: now,
-      price: r.price,
+    validQuotes.map((q) => ({
+      symbol: q.symbol,
+      ts: nowDate,
+      price: String(q.price),
     })),
   );
 
-  const durationMs = Date.now() - startMs;
   await logRun({
     kind: "snapshot",
-    startedAt: started,
-    durationMs,
-    coinsTotal: rows.length,
-    coinsUpdated: rows.length,
+    startedAt: nowDate,
+    durationMs: Date.now() - nowDate.getTime(),
+    coinsTotal: validQuotes.length,
+    coinsUpdated: validQuotes.length,
     sourceUsed: null,
     ok: true,
   });
+}
 
-  return { ok: true, coinsTotal: rows.length, coinsUpdated: rows.length, sourceUsed: null, durationMs };
+/**
+ * Snapshot timeseries — entry point legacy del cron snapshot dedicato.
+ *
+ * La scrittura di `prices_history` ora avviene INSIDE `runPricesSync` con
+ * i quotes freschi raccolti da CoinGecko (vedi `writeSnapshotIfDue`), per
+ * evitare il bug "linea piatta": il vecchio path copiava da `prices_data`
+ * che resta "settled" con `delta_threshold`, scrivendo lo stesso prezzo a
+ * ogni tick. Manteniamo l'endpoint come no-op per non rompere il cron
+ * registrato finché non viene rimosso dal manifest/vercel.json.
+ */
+export async function runPricesSnapshot(): Promise<SyncResult> {
+  return {
+    ok: true,
+    coinsTotal: 0,
+    coinsUpdated: 0,
+    sourceUsed: null,
+    durationMs: 0,
+  };
 }
 
 /**
