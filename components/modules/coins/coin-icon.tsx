@@ -20,14 +20,20 @@ export function CoinIcon({
   imageUrl,
   size = "md",
   className,
+  /** Nome esteso per `alt` accessibile + SEO immagini. Se omesso, il
+   *  fallback è "<SYMBOL> logo". Quando il chiamante ha il `name` del
+   *  coin lo passa per un alt più ricco ("Bitcoin logo"). */
+  name,
 }: {
   symbol: string;
   imageUrl: string | null;
   size?: keyof typeof SIZE_MAP;
   className?: string;
+  name?: string;
 }) {
   const { box, text, px } = SIZE_MAP[size];
   const [errored, setErrored] = useState(false);
+  const altText = `${name ?? symbol} logo`;
 
   if (!imageUrl || errored) {
     return (
@@ -38,7 +44,8 @@ export function CoinIcon({
           "inline-flex items-center justify-center rounded-full font-semibold uppercase shrink-0 bg-gc-bg-3 text-gc-fg-2 border border-gc-line",
           className,
         )}
-        aria-hidden>
+        role="img"
+        aria-label={altText}>
         {symbol.charAt(0)}
       </span>
     );
@@ -48,8 +55,7 @@ export function CoinIcon({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={imageUrl}
-      alt=""
-      aria-hidden
+      alt={altText}
       width={px}
       height={px}
       loading="lazy"

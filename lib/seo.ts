@@ -139,6 +139,8 @@ export async function generatePageMetadata(
       description: ogDescription,
       ...(canonical ? { url: canonical } : {}),
       siteName: appName,
+      type: "website",
+      locale: "it_IT",
       ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {

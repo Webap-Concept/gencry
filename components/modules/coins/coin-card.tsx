@@ -53,7 +53,12 @@ export function CoinCard({
       )}
       {/* Header */}
       <header className="flex items-start gap-3 min-w-0">
-        <CoinIcon symbol={coin.symbol} imageUrl={coin.imageUrl} size="lg" />
+        <CoinIcon
+          symbol={coin.symbol}
+          name={coin.name}
+          imageUrl={coin.imageUrl}
+          size="lg"
+        />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-gc-fg truncate">
             {coin.name}

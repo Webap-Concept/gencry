@@ -148,7 +148,12 @@ function CoinHeader({
 }) {
   return (
     <header className="flex items-start gap-4 flex-wrap">
-      <CoinIcon symbol={coin.symbol} imageUrl={coin.imageUrl} size="xl" />
+      <CoinIcon
+        symbol={coin.symbol}
+        name={coin.name}
+        imageUrl={coin.imageUrl}
+        size="xl"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <h1 className="text-2xl font-semibold text-gc-fg">{coin.name}</h1>
@@ -325,7 +330,7 @@ function CoinJsonLd({ coin, siteUrl }: { coin: CoinView; siteUrl: string }) {
     ? `${siteUrl}/coins/${coin.symbol.toLowerCase()}`
     : undefined;
 
-  const data: Record<string, unknown> = {
+  const financialProduct: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "FinancialProduct",
     name: coin.name,
@@ -342,11 +347,50 @@ function CoinJsonLd({ coin, siteUrl }: { coin: CoinView; siteUrl: string }) {
     },
   };
 
+  // BreadcrumbList: rich snippet "Home › Coins › Bitcoin" sui SERP
+  // Google. Niente effetto se siteUrl è vuoto (nessun item ha URL).
+  const breadcrumbs: Record<string, unknown> | null = siteUrl
+    ? {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: siteUrl,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Coins",
+            item: `${siteUrl}/coins`,
+          },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: `${coin.name} (${coin.symbol})`,
+            item: url,
+          },
+        ],
+      }
+    : null;
+
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(financialProduct),
+        }}
+      />
+      {breadcrumbs && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+        />
+      )}
+    </>
   );
 }
 
