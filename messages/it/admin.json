@@ -3179,6 +3179,22 @@
         "failedLogins24h": "Login falliti (24h)",
         "pendingAlerts": "Alert pendenti"
       },
+      "configSnapshot": {
+        "title": "Config snapshot",
+        "description": "Stato del config snapshot su R2. Status, versione, ultimo sync — e re-sync con un click.",
+        "statusOkTitle": "Snapshot in sync",
+        "statusOkHint": "Il runtime legge la config da R2 — il pool DB resta libero per il traffico live.",
+        "statusDisabledTitle": "R2 non configurato",
+        "statusDisabledHint": "Configura il bucket R2 in Servizi → Cloudflare per abilitare lo snapshot.",
+        "statusMissingTitle": "File snapshot mancante",
+        "statusErrorTitle": "Errore lettura snapshot",
+        "labelVersion": "Versione",
+        "labelSize": "Dimensione",
+        "labelLastSync": "Ultimo sync",
+        "labelEtag": "ETag",
+        "resyncButton": "Re-sync",
+        "resyncBusy": "Sync in corso…"
+      },
       "healthServices": {
         "title": "Stato servizi",
         "description": "Stato live dei servizi esterni da cui dipende l'admin.",

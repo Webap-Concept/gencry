@@ -27,6 +27,14 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultSize: { w: 6, h: 3 },
   },
   {
+    id: "config-snapshot",
+    titleKey: "widgets.configSnapshot.title",
+    descriptionKey: "widgets.configSnapshot.description",
+    defaultEnabled: true,
+    // Status banner + 2x2 meta grid + resync action → 3 rows of breathing room.
+    defaultSize: { w: 6, h: 3 },
+  },
+  {
     id: "health-services",
     titleKey: "widgets.healthServices.title",
     descriptionKey: "widgets.healthServices.description",
