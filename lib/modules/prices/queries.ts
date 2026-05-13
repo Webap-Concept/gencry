@@ -11,6 +11,11 @@ import { unstable_cache } from "next/cache";
  * comunque ogni 60s — accettabile dato che il cron sync gira ogni ~5 min. */
 export const PRICES_HEALTH_TAG = "prices-health";
 
+/** Tag per i dati prezzi user-facing (card coin, ticker, ecc). Invalidalo
+ * a fine sync per propagare i nuovi prezzi senza aspettare il revalidate
+ * 60s. */
+export const PRICES_DATA_TAG = "prices-data";
+
 export interface PriceRow {
   symbol: string;
   price: number;
@@ -188,4 +193,75 @@ export async function getRecentRuns(limit = 20) {
 
 export async function listCoins() {
   return await db.select().from(pricesCoins).orderBy(desc(pricesCoins.marketCap));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Coin cards (frontend)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Vista denormalizzata che alimenta le card coin del frontend: metadata
+ * (nome, simbolo, icona) + prezzo live + variazione 24h + sparkline
+ * settimanale pre-aggregata. Una sola riga = card pronta.
+ */
+export interface CoinView {
+  symbol: string;
+  name: string;
+  imageUrl: string | null;
+  marketCap: number | null;
+  price: number;
+  change24h: number | null;
+  volume24h: number | null;
+  /** 7 prezzi giornalieri oldest → newest. null se mai computata. */
+  weeklySparkline: number[] | null;
+  lastUpdated: Date;
+}
+
+/**
+ * Top coin per market cap con prezzo + sparkline in 1 query.
+ *
+ * Cache 60s con tag `PRICES_DATA_TAG`: il sync cron CoinGecko propaga i
+ * nuovi prezzi al massimo dopo 60s di stale (lui invaliderà il tag in
+ * futuro, ora va a TTL).
+ */
+const fetchTopCoinsForCards = async (limit = 50): Promise<CoinView[]> => {
+  const rows = await db
+    .select({
+      symbol: pricesCoins.symbol,
+      name: pricesCoins.name,
+      imageUrl: pricesCoins.imageUrl,
+      marketCap: pricesCoins.marketCap,
+      price: pricesData.price,
+      change24h: pricesData.change24h,
+      volume24h: pricesData.volume24h,
+      weeklySparkline: pricesData.weeklySparkline,
+      lastUpdated: pricesData.lastUpdated,
+    })
+    .from(pricesCoins)
+    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
+    .where(eq(pricesCoins.isActive, true))
+    .orderBy(desc(pricesCoins.marketCap))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    name: r.name,
+    imageUrl: r.imageUrl,
+    marketCap: r.marketCap,
+    price: Number(r.price),
+    change24h: r.change24h !== null ? Number(r.change24h) : null,
+    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
+    weeklySparkline: r.weeklySparkline,
+    lastUpdated: r.lastUpdated,
+  }));
+};
+
+const fetchTopCoinsForCardsCached = unstable_cache(
+  fetchTopCoinsForCards,
+  ["prices-top-coins-cards"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getTopCoinsForCards(limit = 50): Promise<CoinView[]> {
+  return fetchTopCoinsForCardsCached(limit);
 }
