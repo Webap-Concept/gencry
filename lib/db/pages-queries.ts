@@ -37,6 +37,26 @@ export function invalidateNavigablePagesCache() {
 }
 
 /**
+ * One-shot helper per le admin actions: invalida la cache module-level dei
+ * navigable pages E sincronizza lo snapshot R2 dei system page slugs.
+ * Pattern: ogni admin action che muta la tabella `pages` chiama questo.
+ *
+ * Await: la sync R2 viene attesa così l'admin vede "saved" solo a
+ * snapshot propagato (coerenza forte con altre lambda). Se R2 down,
+ * il sync logga + continua, il save admin NON fallisce.
+ */
+export async function invalidatePageCachesAndSync(): Promise<void> {
+  invalidateNavigablePagesCache();
+  try {
+    const { syncSystemPageSlugsSnapshot } = await import("@/lib/config/snapshots");
+    await syncSystemPageSlugsSnapshot();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[pages] system-pages snapshot sync failed", err);
+  }
+}
+
+/**
  * Restituisce tutte le pages pubblicate sotto forma di {pathname, visibility},
  * pronte per il pattern matching del proxy. Una page con slug "" diventa "/",
  * uno slug "esplora" diventa "/esplora".
@@ -347,8 +367,39 @@ export async function getEnabledLocales(): Promise<AppLocale[]> {
  *
  * Esempio di ritorno:
  *   { terms: "termini-e-condizioni", privacy: "privacy-policy", marketing: "marketing-comunicazioni" }
+ *
+ * Hot path (chiamato dal protected layout cond. + /settings/privacy + admin):
+ * quando R2 config snapshot è configurato, serviamo dal file JSON in R2
+ * (~1ms via CDN), altrimenti fallback DB (~50-100ms). I dati cambiano solo
+ * quando l'admin edita uno slug system → frequenza ~1×anno.
  */
 export async function getSystemPageSlugs(): Promise<Record<string, string>> {
+  try {
+    const { readSystemPageSlugsSnapshot, SnapshotUnavailableError } =
+      await import("@/lib/config/snapshots");
+    try {
+      return await readSystemPageSlugsSnapshot();
+    } catch (err) {
+      if (err instanceof SnapshotUnavailableError) {
+        return fetchSystemPageSlugsRaw();
+      }
+      // eslint-disable-next-line no-console
+      console.error("[pages] snapshot read failed, falling back to DB", err);
+      return fetchSystemPageSlugsRaw();
+    }
+  } catch {
+    // Import del module snapshots fallito (improbabile): fallback DB.
+    return fetchSystemPageSlugsRaw();
+  }
+}
+
+/**
+ * Lettura RAW da DB senza passare per il snapshot. Esportata per il caller
+ * del layer `lib/config/snapshots/system-pages.ts` che deve scrivere il file
+ * con dati freschi al sync (chicken-egg protection, vedi pattern di
+ * settings-queries.ts/fetchAppSettingsRaw).
+ */
+export async function fetchSystemPageSlugsRaw(): Promise<Record<string, string>> {
   const systemPages = await db
     .select({ systemKey: pages.systemKey, slug: pages.slug })
     .from(pages)
