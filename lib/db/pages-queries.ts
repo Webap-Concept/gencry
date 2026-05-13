@@ -47,6 +47,21 @@ export function invalidateNavigablePagesCache() {
  */
 export async function invalidatePageCachesAndSync(): Promise<void> {
   invalidateNavigablePagesCache();
+  // Invalida le cache cross-request delle page CMS (tag `pages`).
+  // Vedi `getCachedPageWithTemplate` — qualunque admin mutation invalida
+  // TUTTE le page cached. Il fan-out è accettabile perché admin save
+  // sono rari e i call site downstream sono solo ~12 path attivi.
+  //
+  // `updateTag` (Next 16 single-arg variant) invece di `revalidateTag`:
+  // siamo sempre dentro una Server Action quando questa fn viene chiamata,
+  // quindi updateTag è il pattern corretto (read-your-own-writes semantics).
+  try {
+    const { updateTag } = await import("next/cache");
+    updateTag("pages");
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[pages] updateTag('pages') failed", err);
+  }
   try {
     const { syncSystemPageSlugsSnapshot } = await import("@/lib/config/snapshots");
     await syncSystemPageSlugsSnapshot();
@@ -266,6 +281,44 @@ export async function getPageWithTemplate(
     .orderBy(asc(templateFields.sortOrder));
 
   return { ...overlaid, template: { ...template, fields }, translation };
+}
+
+/**
+ * Versione cached di `getPageWithTemplate` per il hot path del CMS catch-all.
+ * Senza, ogni request alla home pubblica / pagine CMS paga 4-5 query DB
+ * sequenziali (page lookup → translation → template → fields). Sotto carico
+ * il load test ha mostrato p99 ~4s a 100 conn — questo lo abbatte.
+ *
+ * Cache key include slug+locale → ogni combinazione ha la propria cache.
+ * Tag `pages` (generico) viene invalidato dalle admin actions di pages
+ * (upsert/delete/reorder/toggleStatus) via `invalidatePageCachesAndSync`,
+ * quindi un cambio admin si propaga immediatamente a TUTTE le pagine
+ * cached. Comportamento accettabile perché admin save sono rari (~10/giorno).
+ *
+ * Fallback graceful: se la query DB throwa (statement_timeout, network,
+ * ...), il try/catch FUORI dalla cache impedisce che l'errore venga cached
+ * per 60s → al prossimo hit si ritenta.
+ */
+export async function getCachedPageWithTemplate(
+  slug: string,
+  locale: string = DEFAULT_LOCALE,
+): Promise<Awaited<ReturnType<typeof getPageWithTemplate>>> {
+  const cached = unstable_cache(
+    () => getPageWithTemplate(slug, locale),
+    [`page-with-template`, slug, locale],
+    { revalidate: 60, tags: ["pages"] },
+  );
+  try {
+    return await cached();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[getCachedPageWithTemplate] lookup failed for slug=${slug} locale=${locale}, retrying direct DB`,
+      err,
+    );
+    // Retry direct DB: se anche questo fallisce, propaga (è un errore reale)
+    return getPageWithTemplate(slug, locale);
+  }
 }
 
 /** Restituisce tutti gli URL alternativi di una pagina (per hreflang). */

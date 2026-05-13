@@ -3,7 +3,7 @@ import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
 import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fields";
 import { parseCustomFields } from "@/app/(frontend)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
-import { getPageWithTemplate } from "@/lib/db/pages-queries";
+import { getCachedPageWithTemplate } from "@/lib/db/pages-queries";
 import { getCachedSeoPage } from "@/lib/seo";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
@@ -95,7 +95,7 @@ export async function cmsPageMetadata({
   }
 
   const [page, settings] = await Promise.all([
-    getPageWithTemplate(pageSlug, locale),
+    getCachedPageWithTemplate(pageSlug, locale),
     getAppSettingsSafe(),
   ]);
 
@@ -187,7 +187,7 @@ export async function CmsPage({
     notFound();
   }
   const [pageData, settings, stylesVersion] = await Promise.all([
-    getPageWithTemplate(pageSlug, locale),
+    getCachedPageWithTemplate(pageSlug, locale),
     getAppSettingsSafe(),
     getCmsStylesVersion(),
   ]);
