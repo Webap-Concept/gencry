@@ -230,6 +230,12 @@ export type SettingKey =
   | 'storage.avatar.r2.secret_access_key'
   | 'storage.avatar.r2.bucket'
   | 'storage.avatar.r2.public_base_url'
+  // Config snapshot R2 — bucket dedicato per i JSON di configurazione globale.
+  // Vedi lib/config/snapshot-storage/. Niente public_base_url: S3 API privata.
+  | 'storage.config.r2.account_id'
+  | 'storage.config.r2.access_key_id'
+  | 'storage.config.r2.secret_access_key'
+  | 'storage.config.r2.bucket'
 
 export type AppSettings = {
   app_name: string
@@ -399,6 +405,10 @@ export type AppSettings = {
   'storage.avatar.r2.secret_access_key': string | null
   'storage.avatar.r2.bucket': string | null
   'storage.avatar.r2.public_base_url': string | null
+  'storage.config.r2.account_id': string | null
+  'storage.config.r2.access_key_id': string | null
+  'storage.config.r2.secret_access_key': string | null
+  'storage.config.r2.bucket': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -577,6 +587,13 @@ const DEFAULTS: AppSettings = {
   'storage.avatar.r2.secret_access_key': null,
   'storage.avatar.r2.bucket': null,
   'storage.avatar.r2.public_base_url': null,
+  // Config snapshot R2 — bucket dedicato per i file JSON di configurazione
+  // (app_settings, system page slugs, ...). Vedi lib/config/.
+  // Nessun `public_base_url` perché l'accesso è S3 API privata, mai pubblico.
+  'storage.config.r2.account_id': null,
+  'storage.config.r2.access_key_id': null,
+  'storage.config.r2.secret_access_key': null,
+  'storage.config.r2.bucket': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
@@ -590,7 +607,55 @@ async function fetchAppSettings(): Promise<AppSettings> {
   return result
 }
 
-export const getAppSettings = cache(fetchAppSettings)
+/**
+ * Lettura RAW da DB senza passare per il sistema snapshot. Esiste solo per
+ * spezzare il chicken-egg del snapshot system: per LEGGERE lo snapshot R2
+ * servono le credenziali R2, e quelle credenziali stanno nei settings →
+ * loop. Le funzioni del layer `lib/config/snapshot-storage/` chiamano QUESTA
+ * (mai `getAppSettings`) per caricare la propria config R2.
+ *
+ * NON usare nei caller applicativi normali: paga 1 query DB ogni volta,
+ * non è cached. Tutto il resto del codice usa `getAppSettings`.
+ */
+export const fetchAppSettingsRaw = fetchAppSettings;
+
+/**
+ * Hot path "global" — cached via React `cache()` per request E (quando R2
+ * snapshot è configurato) servito da file JSON in R2 invece che da DB. Vedi
+ * lib/config/snapshots/app-settings.ts per la strategia di cache cross-
+ * request, ETag check e bootstrap.
+ *
+ * Fallback chain:
+ *   1. R2 configurato + snapshot OK → letti da R2 (~1-2ms, no DB)
+ *   2. R2 non configurato → fallback DB (comportamento legacy, backward compat)
+ *   3. R2 configurato ma errore → log + fallback DB
+ */
+async function getAppSettingsImpl(): Promise<AppSettings> {
+  // Lazy import per evitare circular dependency: snapshot-storage importa
+  // fetchAppSettingsRaw da QUESTO modulo.
+  const { readAppSettingsSnapshot, SnapshotUnavailableError } = await import(
+    "@/lib/config/snapshots"
+  );
+  try {
+    return await readAppSettingsSnapshot();
+  } catch (err) {
+    if (err instanceof SnapshotUnavailableError) {
+      // R2 non configurato: comportamento legacy, lettura diretta DB.
+      // Nessun log: è il caso supportato per chi non ha ancora configurato R2.
+      return fetchAppSettings();
+    }
+    // R2 configurato ma read fallita: log + fallback DB. NON throwa così
+    // l'app continua a funzionare anche con R2 down.
+    // eslint-disable-next-line no-console
+    console.error(
+      "[settings] snapshot read failed, falling back to DB",
+      err,
+    );
+    return fetchAppSettings();
+  }
+}
+
+export const getAppSettings = cache(getAppSettingsImpl);
 
 /**
  * "Non bloccante" variant of getAppSettings for public-facing call
@@ -615,6 +680,42 @@ export async function getAppSettingsSafe(): Promise<AppSettings> {
       err,
     )
     return { ...DEFAULTS }
+  }
+}
+
+/**
+ * Sync best-effort dello snapshot R2 dopo una mutation. Lazy import per
+ * evitare circular dependency. Await: se R2 è configurato e raggiungibile,
+ * l'admin aspetta la propagazione prima di vedere "salvato" — questo
+ * elimina la finestra di inconsistency con altre lambda. Se R2 down, log
+ * + continua (non blocca il save admin).
+ *
+ * Speciale per credenziali R2 stesse: se l'admin modifica
+ * `storage.config.r2.*`, invalidiamo anche lo storage cache prima del sync,
+ * così le nuove credenziali sono usate immediatamente.
+ */
+async function syncSnapshotAfterMutation(
+  changedKeys: SettingKey[],
+): Promise<void> {
+  try {
+    const r2KeysChanged = changedKeys.some((k) =>
+      k.startsWith("storage.config.r2."),
+    );
+    if (r2KeysChanged) {
+      const { invalidateSnapshotStorageCache } = await import(
+        "@/lib/config/snapshot-storage"
+      );
+      invalidateSnapshotStorageCache();
+    }
+    const { syncAppSettingsSnapshot } = await import(
+      "@/lib/config/snapshots"
+    );
+    await syncAppSettingsSnapshot();
+  } catch (err) {
+    // R2 down o config mancante: log e continua. Il DB resta sorgente di
+    // verità, quindi i caller che fallback DB vedono comunque il dato fresco.
+    // eslint-disable-next-line no-console
+    console.error("[settings] snapshot sync failed after mutation", err);
   }
 }
 
@@ -646,6 +747,8 @@ export async function batchUpdateAppSettings(
       target: appSettings.key,
       set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
     });
+
+  await syncSnapshotAfterMutation(changed.map(([k]) => k));
 }
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {
@@ -660,6 +763,7 @@ export async function updateAppSetting(key: SettingKey, value: string | null) {
 
   if (existing.length === 0) {
     await db.insert(appSettings).values({ key, value, updatedAt: new Date() })
+    await syncSnapshotAfterMutation([key])
     return
   }
 
@@ -669,4 +773,6 @@ export async function updateAppSetting(key: SettingKey, value: string | null) {
     .update(appSettings)
     .set({ value, updatedAt: new Date() })
     .where(eq(appSettings.key, key))
+
+  await syncSnapshotAfterMutation([key])
 }
