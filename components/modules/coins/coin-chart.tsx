@@ -4,7 +4,14 @@
 // Grafico interattivo della pagina dettaglio coin. Recharts AreaChart con
 // switcher finestre 1g/1w/1m/1y. SSR del range default (passato come
 // `initialSeries`); il cambio range fetcha l'endpoint server-side cachato.
-import { useCallback, useId, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import {
   Area,
   AreaChart,
@@ -72,6 +79,12 @@ export function CoinChart({
   const reactId = useId();
   const [series, setSeries] = useState<HistorySeries>(initialSeries);
   const [isPending, startTransition] = useTransition();
+  // Recharts + SSR (Next 16/Turbopack): ResponsiveContainer misura -1
+  // sul primo render server. Niente errore funzionale ma logga warning
+  // costanti. Gate del rendering al post-mount client → SSR mostra lo
+  // skeleton, dopo idratazione il chart compare.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const handleRangeChange = useCallback(
     (next: HistoryRange) => {
@@ -158,6 +171,10 @@ export function CoinChart({
           <div className="h-full flex items-center justify-center text-xs text-gc-fg-3">
             Storico non ancora disponibile per questa finestra.
           </div>
+        ) : !mounted ? (
+          // Skeleton SSR: stesso ingombro del chart, niente Recharts che
+          // si lamenta del width=-1 finché non siamo client-side.
+          <div className="h-full rounded-xl bg-gc-bg-3/50 animate-pulse" />
         ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart
