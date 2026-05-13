@@ -178,10 +178,12 @@
   --gc-bg-2: #1d3327;
   --gc-bg-3: #243d30;
 
-  /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata */
+  /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata.
+     fg-3 schiarito 13/05/26 da #7a7468 → #928c80 per migliore leggibilità dei metadata
+     su sfondo verde scuro. */
   --gc-fg: #e6e1d2;
   --gc-fg-2: #b5b0a3;
-  --gc-fg-3: #7a7468;
+  --gc-fg-3: #928c80;
 
   /* Linee — devono essere VISIBILI su bg-2 (card). Pre-13/05/26: line
      troppo simile a bg-2 → bottoni outline invisibili. */
@@ -220,6 +222,42 @@
   --brand-error-bg: #3a1a18;
   /* --brand-primary, --brand-accent, --brand-destructive,
      --brand-error-border, --brand-border-focus: invariati (brand colors) */
+}
+
+/* ---------------------------------------------------------------------------
+   Scrollbar — colorate sui token gc-*, theme-aware automaticamente.
+   Light: scrollbar cream con thumb sabbia scura. Dark: scrollbar verde scuro
+   con thumb più chiaro. Stile thin per non rubare spazio al contenuto.
+   --------------------------------------------------------------------------- */
+
+/* Firefox + browser moderni (CSS Working Group standard) */
+* {
+  scrollbar-color: var(--gc-line-2) transparent;
+  scrollbar-width: thin;
+}
+
+/* WebKit (Chrome, Safari, Edge) — controllo fine del look */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--gc-line-2);
+  border-radius: 5px;
+  /* Border trasparente con background-clip: content-box → effetto "padding"
+     visivo intorno al thumb, più elegante della scrollbar piena. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gc-fg-3);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ---------------------------------------------------------------------------
