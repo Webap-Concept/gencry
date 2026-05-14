@@ -1,17 +1,18 @@
 "use client";
 // components/modules/posts/PostMediaGallery.tsx
 //
-// Gallery responsive per i media di un post + lightbox fullscreen
-// con navigation (frecce on-screen + keyboard ←/→ + swipe mobile).
+// Gallery dei media nel feed. Strategia "carousel sempre 2 visibili"
+// (decisione 2026-05-14 per crypto-focus social, immagini complementari
+// al testo, NO grid massive):
 //
-// Layout grid:
-//   1 img  → full width, aspect 16/10 (caps max-h 480px)
-//   2 imgs → 2 colonne 1:1
-//   3 imgs → 2 cols, prima alta su 2 righe + 2 stacked
-//   4 imgs → 2x2 1:1
+//   1 img  → full-width, aspect 16/10, max-h 480px
+//   2+ img → carousel orizzontale CSS-snap, ogni tile 50% width
+//            aspect-square, scrollbar nascosta, dots indicator sotto.
+//            Click su tile → lightbox con keyboard/swipe nav.
 //
-// Click → Dialog shadcn fullscreen con fullUrl. Loop wrap-around
-// (dal 4 al 1, dal 1 al 4) — pattern Instagram/X.
+// Pure CSS-snap per lo scroll (zero JS state per la posizione,
+// browser-native su mobile/desktop). IntersectionObserver osserva
+// quali tile sono visibili per accendere il dot corrispondente.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -21,21 +22,128 @@ import {
 } from "@/components/ui/dialog";
 import type { PostMediaPublic } from "@/lib/modules/posts/types";
 
+const MAX_VISIBLE_GRID = 4; // safety cap, server limita a 4
+
 export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-
   if (media.length === 0) return null;
-  const items = media.slice(0, 4); // safety cap
+  const items = media.slice(0, MAX_VISIBLE_GRID);
 
   return (
     <>
-      <div className={layoutFor(items.length)}>
+      {items.length === 1 ? (
+        <SinglePhoto item={items[0]} onClick={() => setOpenIndex(0)} />
+      ) : (
+        <Carousel items={items} onPick={setOpenIndex} />
+      )}
+
+      <Lightbox
+        items={items}
+        openIndex={openIndex}
+        onClose={() => setOpenIndex(null)}
+        onChange={setOpenIndex}
+      />
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Single photo: full width, aspect 16/10, max-h capped
+// ─────────────────────────────────────────────────────────────────────────
+
+function SinglePhoto({
+  item,
+  onClick,
+}: {
+  item: PostMediaPublic;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-3 relative w-full overflow-hidden rounded-gc-sm border border-gc-line/60 bg-gc-bg-3 aspect-[16/10] max-h-[480px]"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.thumbUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+      />
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Carousel: 2 visibili contemporaneamente, snap, swipe-native
+// ─────────────────────────────────────────────────────────────────────────
+
+function Carousel({
+  items,
+  onPick,
+}: {
+  items: PostMediaPublic[];
+  onPick: (i: number) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // IntersectionObserver: il dot attivo è la tile con la maggiore
+  // intersectionRatio. Soglia 0.6 = "tile principalmente visibile".
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Tra tutte le entry visibili scegliamo quella con ratio max
+        let best: { index: number; ratio: number } | null = null;
+        for (const entry of entries) {
+          const idx = tileRefs.current.findIndex((el) => el === entry.target);
+          if (idx === -1) continue;
+          if (entry.isIntersecting && entry.intersectionRatio > 0) {
+            if (!best || entry.intersectionRatio > best.ratio) {
+              best = { index: idx, ratio: entry.intersectionRatio };
+            }
+          }
+        }
+        if (best) setActiveIndex(best.index);
+      },
+      { root: container, threshold: [0.3, 0.6, 0.9] },
+    );
+    for (const el of tileRefs.current) if (el) observer.observe(el);
+    return () => observer.disconnect();
+  }, [items.length]);
+
+  const scrollByOne = useCallback((dir: 1 | -1) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const firstTile = tileRefs.current[0];
+    if (!firstTile) return;
+    const tileWidth = firstTile.getBoundingClientRect().width;
+    container.scrollBy({ left: dir * tileWidth, behavior: "smooth" });
+  }, []);
+
+  return (
+    <div className="mt-3 relative">
+      <div
+        ref={containerRef}
+        className="flex gap-1 overflow-x-auto snap-x snap-mandatory rounded-gc-sm border border-gc-line/60 bg-gc-line/40 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {items.map((m, i) => (
           <button
             key={m.id}
             type="button"
-            onClick={() => setOpenIndex(i)}
-            className={`relative overflow-hidden bg-gc-bg-3 ${tileClass(items.length, i)}`}
+            ref={(el) => {
+              tileRefs.current[i] = el;
+            }}
+            onClick={() => onPick(i)}
+            // 50% del container meno la metà del gap (gap=4px → -2px),
+            // così 2 tile + gap = 100% width.
+            className="snap-start shrink-0 basis-[calc(50%-2px)] aspect-square overflow-hidden bg-gc-bg-3"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -50,18 +158,52 @@ export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
         ))}
       </div>
 
-      <Lightbox
-        items={items}
-        openIndex={openIndex}
-        onClose={() => setOpenIndex(null)}
-        onChange={setOpenIndex}
-      />
-    </>
+      {/* Frecce on-screen su desktop quando ci sono >2 tile (su 2 vedi
+          già tutto, su 3+ servono per scrollare). Su mobile lo swipe
+          è già nativo, lo nascondiamo per non occupare spazio. */}
+      {items.length > 2 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => scrollByOne(-1)}
+            aria-label="Scorri a sinistra"
+            className="hidden md:flex absolute left-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollByOne(1)}
+            aria-label="Scorri a destra"
+            className="hidden md:flex absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </>
+      ) : null}
+
+      {/* Dots indicator — solo se >2 (con 2 sono entrambe sempre visibili). */}
+      {items.length > 2 ? (
+        <div className="flex justify-center gap-1.5 mt-2">
+          {items.map((m, i) => (
+            <span
+              key={m.id}
+              aria-hidden="true"
+              className={`h-1.5 rounded-full transition-all ${
+                i === activeIndex
+                  ? "w-4 bg-gc-accent"
+                  : "w-1.5 bg-gc-line"
+              }`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Lightbox con navigation
+// Lightbox (riusa il pattern di prima: frecce + ←/→ + swipe + counter)
 // ─────────────────────────────────────────────────────────────────────────
 
 const SWIPE_THRESHOLD = 50;
@@ -90,7 +232,6 @@ function Lightbox({
     onChange((openIndex + 1) % total);
   }, [openIndex, total, onChange]);
 
-  // Keyboard navigation (←/→). ESC è gestito dal Dialog di shadcn.
   useEffect(() => {
     if (openIndex === null || !hasNav) return;
     const onKey = (e: KeyboardEvent) => {
@@ -159,9 +300,6 @@ function Lightbox({
                 >
                   <ChevronRight size={22} />
                 </button>
-
-                {/* Counter "n / total" in alto. Lascio offset orizzontale
-                    per non collidere con la X close-button. */}
                 <span className="absolute top-3 left-1/2 -translate-x-1/2 text-xs text-white/80 bg-black/40 px-2 py-1 rounded-full pointer-events-none">
                   {openIndex + 1} / {total}
                 </span>
@@ -172,28 +310,4 @@ function Lightbox({
       </DialogContent>
     </Dialog>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Layout helpers
-// ─────────────────────────────────────────────────────────────────────────
-
-function layoutFor(n: number): string {
-  const base =
-    "mt-3 rounded-gc-sm overflow-hidden border border-gc-line/60 grid gap-0.5 bg-gc-line/60";
-  if (n === 1) return `${base} grid-cols-1`;
-  if (n === 2) return `${base} grid-cols-2`;
-  if (n === 3) return `${base} grid-cols-2 grid-rows-2`;
-  return `${base} grid-cols-2 grid-rows-2`;
-}
-
-function tileClass(n: number, i: number): string {
-  if (n === 1) return "aspect-[16/10] max-h-[480px]";
-  if (n === 2) return "aspect-square";
-  if (n === 3) {
-    if (i === 0) return "row-span-2 aspect-[1/2]";
-    return "aspect-square";
-  }
-  // n === 4
-  return "aspect-square";
 }
