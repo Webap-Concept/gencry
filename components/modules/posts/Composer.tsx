@@ -81,60 +81,69 @@ export function Composer({ user, maxBodyLength = 2000, onPublished, autoFocus }:
 
   return (
     <div className="flex flex-col">
-      {/* Header utente + visibility dropdown */}
-      <div className="flex items-start gap-3 px-5 pt-5">
-        {user.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.avatarUrl}
-            alt=""
-            className="w-11 h-11 rounded-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-11 h-11 rounded-full bg-gc-line flex items-center justify-center text-sm font-medium text-gc-fg-muted">
-            {initials(user)}
-          </div>
-        )}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="font-medium text-gc-fg leading-none">
-            {displayHandle(user)}
-          </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="self-start inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-gc-line text-xs text-gc-fg-muted hover:bg-gc-bg-3"
-                aria-label="Cambia visibilità"
-              >
-                <ActiveIcon size={12} strokeWidth={2} />
-                <span>{VISIBILITY_META[visibility].label}</span>
-                <span aria-hidden="true">▾</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[220px]">
-              {POST_VISIBILITIES.map((v) => {
-                const meta = VISIBILITY_META[v];
-                const Icon = meta.Icon;
-                return (
-                  <DropdownMenuItem
-                    key={v}
-                    onSelect={() => setVisibility(v)}
-                    className="flex items-start gap-2.5 py-2"
-                  >
-                    <Icon size={16} strokeWidth={1.75} className="mt-0.5" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm">{meta.label}</span>
-                      <span className="text-xs text-gc-fg-muted">
-                        {meta.description}
-                      </span>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      {/* Header utente — l'INTERO blocco (avatar + username + stato)
+          è il trigger della dropdown visibility. Niente pill bottone
+          attorno allo stato: solo icona+testo come label inline. */}
+      <div className="px-5 pt-5">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Cambia visibilità"
+              className="flex items-start gap-3 rounded-lg -m-1 p-1 hover:bg-gc-bg-3/60 transition text-left"
+            >
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="w-11 h-11 rounded-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-full bg-gc-line flex items-center justify-center text-sm font-medium text-gc-fg-muted">
+                  {initials(user)}
+                </div>
+              )}
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="font-medium text-gc-fg leading-none">
+                  {displayHandle(user)}
+                </span>
+                <div className="flex items-center gap-1.5 text-xs text-gc-fg-muted">
+                  <ActiveIcon size={12} strokeWidth={2} />
+                  <span>{VISIBILITY_META[visibility].label}</span>
+                </div>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-[240px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
+          >
+            {POST_VISIBILITIES.map((v) => {
+              const meta = VISIBILITY_META[v];
+              const Icon = meta.Icon;
+              const active = v === visibility;
+              return (
+                <DropdownMenuItem
+                  key={v}
+                  onSelect={() => setVisibility(v)}
+                  className={`flex items-start gap-2.5 py-2 ${
+                    active ? "bg-gc-bg-3" : ""
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={1.75} className="mt-0.5" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm">{meta.label}</span>
+                    <span className="text-xs text-gc-fg-muted">
+                      {meta.description}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Textarea blended: stesso bg della modale, no border, padding identico ai bordi */}
