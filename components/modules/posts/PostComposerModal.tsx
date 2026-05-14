@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PostVisibility } from "@/lib/db/schema";
-import { Composer } from "./Composer";
+import { Composer, type ComposerPublishedPayload } from "./Composer";
 
 type ComposerUser = {
   id: string;
@@ -29,7 +29,11 @@ type EditPayload = {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPublished: (postId: string) => void;
+  /**
+   * `edited` è popolato solo in mode EDIT (con i nuovi body/visibility),
+   * permette al parent di fare optimistic display update senza refetch.
+   */
+  onPublished: (postId: string, edited?: ComposerPublishedPayload) => void;
   user: ComposerUser | null;
   maxBodyLength?: number;
   /** Se presente, la modale è in mode EDIT su questo post. Altrimenti CREATE. */
@@ -68,8 +72,8 @@ export function PostComposerModal({
                   }
                 : { kind: "create" }
             }
-            onPublished={(postId) => {
-              onPublished(postId);
+            onPublished={(postId, edited) => {
+              onPublished(postId, edited);
               onOpenChange(false);
             }}
           />

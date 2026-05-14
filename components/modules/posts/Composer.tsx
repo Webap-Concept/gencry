@@ -71,10 +71,20 @@ type EditMode = {
   initialVisibility: PostVisibility;
 };
 
+/**
+ * Su create il secondo arg è omesso. Su edit contiene i nuovi
+ * valori così il parent può fare optimistic-display update senza
+ * un refetch del post.
+ */
+export type ComposerPublishedPayload = {
+  body: string;
+  visibility: PostVisibility;
+};
+
 type Props = {
   user: ComposerUser;
   maxBodyLength?: number;
-  onPublished?: (postId: string) => void;
+  onPublished?: (postId: string, edited?: ComposerPublishedPayload) => void;
   autoFocus?: boolean;
   mode?: CreateMode | EditMode;
 };
@@ -110,7 +120,7 @@ export function Composer({
           visibility,
         });
         if (res.ok) {
-          onPublished?.(mode.postId);
+          onPublished?.(mode.postId, { body, visibility });
         } else {
           setError(res.error);
         }

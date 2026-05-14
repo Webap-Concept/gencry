@@ -113,6 +113,18 @@ export function PostCard({
   variant = "feed",
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
 }: Props) {
+  // Optimistic display state per body/visibility/editedAt: dopo
+  // edit successo aggiorniamo questi 3 senza dover ri-fetchare il
+  // post dal server. Il modal in riapertura usa displayedBody come
+  // initial (non più post.body) così non vede mai contenuto stale.
+  const [displayedBody, setDisplayedBody] = useState(post.body);
+  const [displayedVisibility, setDisplayedVisibility] = useState(
+    post.visibility,
+  );
+  const [displayedEditedAt, setDisplayedEditedAt] = useState<Date | null>(
+    post.editedAt,
+  );
+
   const [bookmarked, setBookmarked] = useOptimistic(
     post.viewer?.bookmarked ?? false,
   );
@@ -282,17 +294,17 @@ export function PostCard({
                   {formatRelativeTime(post.createdAt)}
                 </time>
               </Link>
-              {post.editedAt ? (
+              {displayedEditedAt ? (
                 <span
                   className="text-xs text-gc-fg-muted"
-                  title={String(post.editedAt)}
+                  title={String(displayedEditedAt)}
                 >
                   · modificato
                 </span>
               ) : null}
-              {post.visibility !== "public" ? (
+              {displayedVisibility !== "public" ? (
                 <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
-                  {VISIBILITY_LABEL[post.visibility]}
+                  {VISIBILITY_LABEL[displayedVisibility]}
                 </span>
               ) : null}
             </div>
@@ -360,7 +372,7 @@ export function PostCard({
             "vuoto" cada sull'overlay link verso /post/{id}. I Link
             interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
             e catturano da soli il click. */}
-        <PostBody body={post.body} />
+        <PostBody body={displayedBody} />
 
         {/* Media gallery: SI interactiveClass — le tile sono <button>
             e click apre il lightbox, non deve navigare al post. */}
@@ -435,18 +447,21 @@ export function PostCard({
         <PostComposerModal
           open={editOpen}
           onOpenChange={setEditOpen}
-          onPublished={() => {
+          onPublished={(_postId, edited) => {
+            if (edited) {
+              // Optimistic-display: aggiorna lo state locale così
+              // l'UI riflette subito i nuovi valori senza refresh.
+              setDisplayedBody(edited.body);
+              setDisplayedVisibility(edited.visibility);
+              setDisplayedEditedAt(new Date());
+            }
             setEditOpen(false);
-            // Niente router.refresh qui per non far ri-renderare TUTTO
-            // il feed. La card mostrerà i nuovi body/visibility quando
-            // l'utente farà refresh naturale (o quando arriverà
-            // Realtime + cache invalidation, PR-7).
           }}
           user={currentUser ?? null}
           editPayload={{
             postId: post.id,
-            initialBody: post.body,
-            initialVisibility: post.visibility,
+            initialBody: displayedBody,
+            initialVisibility: displayedVisibility,
           }}
         />
       ) : null}
