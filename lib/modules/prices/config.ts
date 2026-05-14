@@ -66,7 +66,10 @@ export async function getPricesConfig(): Promise<PricesConfig> {
   const s = await getAppSettings();
   return {
     cronMinutes:     parseInt(s["modules.prices.cron_minutes"],     DEFAULTS.cronMinutes,     1, 60),
-    universeHours:   parseInt(s["modules.prices.universe_hours"],   DEFAULTS.universeHours,   1, 168),
+    // Max alzato a 8760h (1 anno) perché finché il modulo social non
+    // popola last_seen_at via post/watchlist, il filtro 7gg taglia fuori
+    // i coin importati ma "freddi".
+    universeHours:   parseInt(s["modules.prices.universe_hours"],   DEFAULTS.universeHours,   1, 8760),
     deltaThreshold:  parseFloat01(s["modules.prices.delta_threshold"], DEFAULTS.deltaThreshold),
     breakerMaxErr:   parseInt(s["modules.prices.breaker_max_err"],  DEFAULTS.breakerMaxErr,   1, 100),
     breakerWindowS:  parseInt(s["modules.prices.breaker_window_s"], DEFAULTS.breakerWindowS,  10, 86400),

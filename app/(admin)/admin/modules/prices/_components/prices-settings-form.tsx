@@ -67,11 +67,11 @@ const FIELDS: Array<{
   {
     name: "modules.prices.universe_hours",
     label: "Active universe window (hours)",
-    hint: "Coins last seen within this window are kept refreshed by the cron.",
+    hint: "Coins last seen within this window are kept refreshed by the cron. Until the social module updates last_seen_at via posts/watchlists, set this high enough to cover your full registry (e.g. 720 = 30gg, 8760 = 1y).",
     group: "ingestion",
     type: "number",
     min: 1,
-    max: 168,
+    max: 8760,
   },
   {
     name: "modules.prices.delta_threshold",

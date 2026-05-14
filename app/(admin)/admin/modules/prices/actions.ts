@@ -50,7 +50,7 @@ export async function savePricesSettings(
 ): Promise<ActionState> {
   try {
     await updateAppSetting("modules.prices.cron_minutes",     clampInt(formData.get("modules.prices.cron_minutes"),     1, 60,    5));
-    await updateAppSetting("modules.prices.universe_hours",   clampInt(formData.get("modules.prices.universe_hours"),   1, 168,   24));
+    await updateAppSetting("modules.prices.universe_hours",   clampInt(formData.get("modules.prices.universe_hours"),   1, 8760,   24));
     await updateAppSetting("modules.prices.delta_threshold",  clampFloat01(formData.get("modules.prices.delta_threshold"), 0.0005));
     await updateAppSetting("modules.prices.breaker_max_err",  clampInt(formData.get("modules.prices.breaker_max_err"),  1, 100,   3));
     await updateAppSetting("modules.prices.breaker_window_s", clampInt(formData.get("modules.prices.breaker_window_s"), 10, 86400, 300));
