@@ -40,13 +40,29 @@ export interface PostsR2Config {
   publicBaseUrl: string; // senza trailing slash
 }
 
+/**
+ * Normalizza un public base URL admin-inserito. Aggiunge `https://`
+ * se manca lo schema così l'utente può scrivere "media.example.com"
+ * tanto quanto "https://media.example.com" senza rompere l'output di
+ * getPostMediaPublicUrl. Strip dei trailing slashes per uniformità.
+ *
+ * Esportata perché la save action la riusa per persistire una
+ * versione canonica in DB (vedi savePostsR2Settings).
+ */
+export function normalizePublicBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 export async function loadPostsR2Config(): Promise<PostsR2Config | null> {
   const s = await getAppSettings();
   const accountId       = (s["modules.posts.r2.account_id"]        ?? "").trim();
   const accessKeyId     = (s["modules.posts.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["modules.posts.r2.secret_access_key"] ?? "").trim();
   const bucket          = (s["modules.posts.r2.bucket"]            ?? "").trim();
-  const publicBaseUrl   = (s["modules.posts.r2.public_base_url"]   ?? "").trim().replace(/\/+$/, "");
+  const publicBaseUrl   = normalizePublicBaseUrl(s["modules.posts.r2.public_base_url"] ?? "");
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
     return null;
   }

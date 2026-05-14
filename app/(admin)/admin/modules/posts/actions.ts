@@ -13,6 +13,7 @@ import { updateAppSetting } from "@/lib/db/settings-queries";
 import {
   checkPostsR2Connection,
   loadPostsR2Config,
+  normalizePublicBaseUrl,
   type PostsR2ConnectionResult,
 } from "@/lib/modules/posts/storage";
 
@@ -36,7 +37,11 @@ export async function savePostsR2Settings(
   const accountId       = input.accountId.trim();
   const accessKeyId     = input.accessKeyId.trim();
   const bucket          = input.bucket.trim();
-  const publicBaseUrl   = input.publicBaseUrl.trim().replace(/\/+$/, "");
+  // normalizePublicBaseUrl: prepend https:// se l'admin scrive solo
+  // "media.example.com" senza schema. Senza questo l'<img src> nel
+  // frontend risulta un relative path e il browser lo manda a
+  // localhost/media.example.com/... finendo nel catch-all CMS.
+  const publicBaseUrl   = normalizePublicBaseUrl(input.publicBaseUrl);
 
   await updateAppSetting("modules.posts.r2.account_id",      accountId);
   await updateAppSetting("modules.posts.r2.access_key_id",   accessKeyId);
