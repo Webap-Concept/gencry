@@ -1,31 +1,29 @@
 "use client";
 // components/modules/posts/FeedList.tsx
 //
-// Lista dei post + tabs Discover/Following + load-more cursor-based.
-// La first page arriva server-rendered (RSC) → niente flash di
-// scheletro al primo paint. Le pagine successive sono caricate via la
-// Server Action `loadMoreFeed`.
+// Lista dei post nella Home loggata. Decisione UX 2026-05-14: solo
+// 1 stream (Following), niente più tabs Discover/Following. Per la
+// discoverability dei contenuti pubblici → pagina /explore separata
+// (futuro).
 //
-// Tab persistence: localStorage `posts.feed.tab`. Default = la tab che
-// il server ha già renderizzato (così niente flicker al mount).
-import { useEffect, useState, useTransition } from "react";
+// La first page arriva server-rendered (RSC) → niente flash di
+// scheletro al primo paint. Le pagine successive sono caricate via
+// la Server Action `loadMoreFeed`.
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { PostCardData } from "@/lib/modules/posts/types";
-import type { FeedTab } from "@/lib/modules/posts/queries";
 import { PostCard } from "./PostCard";
 
 type Props = {
-  initialTab: FeedTab;
   initialPosts: PostCardData[];
   initialNextCursor: string | null;
   /** ID utente loggato. Necessario per marcare `isAuthor` sulle proprie card. */
   viewerUserId: string;
 };
 
-const STORAGE_KEY = "posts.feed.tab";
-
 export function FeedList(props: Props) {
-  const [tab, setTab] = useState<FeedTab>(props.initialTab);
   const [posts, setPosts] = useState<PostCardData[]>(props.initialPosts);
   const [nextCursor, setNextCursor] = useState<string | null>(
     props.initialNextCursor,
@@ -33,53 +31,11 @@ export function FeedList(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Restore tab preference dopo il primo mount. NON cambia la prima
-  // pagina renderizzata dal server (per evitare flicker); se l'utente
-  // preferiva l'altra tab, mostra un pulsante "Switch" come hint, o
-  // semplicemente verrà rispettata al prossimo navigate. Per la v1
-  // teniamo semplice: salviamo SOLO al click, non switchiamo al mount.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY) as FeedTab | null;
-      if (saved && saved !== tab && (saved === "discover" || saved === "following")) {
-        // Switch silenzioso al mount: re-fetch la prima pagina della tab salvata.
-        switchTab(saved, /* resetting */ true);
-      }
-    } catch {
-      // localStorage può throw in browser con private mode su Safari, no-op.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const switchTab = (next: FeedTab, resetting = false) => {
-    if (!resetting && next === tab) return;
-    setTab(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // no-op
-    }
-    setError(null);
-    setPosts([]);
-    setNextCursor(null);
-    startTransition(async () => {
-      // `cursor: null` = prima pagina; loadMoreFeed → getFeedIds senza
-      // cursor → top of the timeline. Pulito.
-      const res = await loadMoreFeed({ tab: next, cursor: null });
-      if (res.ok) {
-        setPosts(res.data.posts);
-        setNextCursor(res.data.nextCursor);
-      } else {
-        setError(res.error);
-      }
-    });
-  };
-
   const onLoadMore = () => {
     if (!nextCursor || isPending) return;
     setError(null);
     startTransition(async () => {
-      const res = await loadMoreFeed({ tab, cursor: nextCursor });
+      const res = await loadMoreFeed({ tab: "following", cursor: nextCursor });
       if (res.ok) {
         setPosts((prev) => [...prev, ...res.data.posts]);
         setNextCursor(res.data.nextCursor);
@@ -91,22 +47,9 @@ export function FeedList(props: Props) {
 
   return (
     <section aria-label="Feed">
-      <div className="flex gap-1 mb-3 border-b border-gc-line">
-        <TabButton
-          active={tab === "discover"}
-          onClick={() => switchTab("discover")}
-          label="Discover"
-        />
-        <TabButton
-          active={tab === "following"}
-          onClick={() => switchTab("following")}
-          label="Following"
-        />
-      </div>
-
       <div className="space-y-3">
         {posts.length === 0 && !isPending ? (
-          <EmptyState tab={tab} />
+          <FollowingEmptyState />
         ) : (
           posts.map((p) => (
             <PostCard
@@ -144,50 +87,28 @@ export function FeedList(props: Props) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
+function FollowingEmptyState() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      role="tab"
-      aria-selected={active}
-      className={`px-3 py-2 text-sm relative ${
-        active
-          ? "text-gc-fg font-medium"
-          : "text-gc-fg-muted hover:text-gc-fg"
-      }`}
-    >
-      {label}
-      {active ? (
-        <span className="absolute left-3 right-3 -bottom-px h-[2px] bg-gc-accent rounded-full" />
-      ) : null}
-    </button>
-  );
-}
-
-function EmptyState({ tab }: { tab: FeedTab }) {
-  if (tab === "following") {
-    return (
-      <div className="text-center py-12 text-gc-fg-muted">
-        <p className="text-sm">Non segui ancora nessuno.</p>
-        <p className="text-xs mt-1">
-          Esplora Discover per trovare persone interessanti.
+    <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-8 flex flex-col items-center text-center gap-3">
+      <div
+        aria-hidden
+        className="w-12 h-12 rounded-full bg-gc-accent/10 flex items-center justify-center text-gc-accent"
+      >
+        <Compass size={22} strokeWidth={1.75} />
+      </div>
+      <div>
+        <p className="text-gc-fg font-medium">La tua home è vuota</p>
+        <p className="text-sm text-gc-fg-muted mt-1 max-w-sm">
+          Qui vedrai i post delle persone che segui. Inizia a esplorare per
+          trovare profili e contenuti che ti interessano.
         </p>
       </div>
-    );
-  }
-  return (
-    <div className="text-center py-12 text-gc-fg-muted text-sm">
-      Nessun post ancora. Sii il primo a scriverne uno.
+      <Link
+        href="/explore"
+        className="mt-2 px-4 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium hover:brightness-95 transition"
+      >
+        Vai su Esplora
+      </Link>
     </div>
   );
 }
-

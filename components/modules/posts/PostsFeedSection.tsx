@@ -1,12 +1,13 @@
 // components/modules/posts/PostsFeedSection.tsx
 //
-// RSC che renderizza Composer + FeedList per la home loggata. È la
-// sezione registrata nello slot `home.main` (vedi
-// lib/modules/posts/home-sections.ts).
+// RSC della Home loggata. Decisione UX 2026-05-14: la Home mostra
+// SOLO il feed personalizzato (chi seguo). Discoverability di
+// contenuti pubblici si fa in /explore (pagina separata, futuro).
+// Niente più "Discover/Following" tabs nella home.
 //
-// Pull dei dati lato server: getUser + getFeedIds(discover) +
-// getPostsByIds(...). Il client riceve `initialPosts` già hydratato e
-// niente skeleton al primo paint.
+// Fino al modulo `follows` l'array seguiti è vuoto → la home mostra
+// un empty-state con CTA verso /explore. Comportamento standard di
+// tutti i social per nuovi utenti (Twitter, IG, Bluesky).
 import "server-only";
 import { getUser } from "@/lib/db/queries";
 import { getFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
@@ -14,24 +15,21 @@ import { FeedList } from "./FeedList";
 
 export async function PostsFeedSection() {
   const user = await getUser();
-  // Defense-in-depth: il gate dell'HomeSection (isEnabled) già filtra
-  // gli anonimi PRIMA di renderizzare questa sezione. Se arriviamo qui
-  // senza user, throw — il resolver del registry tratta la sezione come
-  // disabilitata invece di crashare tutta la home.
   if (!user) {
     throw new Error("PostsFeedSection rendered without authenticated user");
   }
 
-  const initialTab = "discover" as const;
+  // Home = Following only. `getFeedIds({ tab: 'following' })` oggi
+  // ritorna sempre [] (stub fino al modulo follows). Il backend Discover
+  // resta vivo e sarà usato da /explore.
   const page = await getFeedIds({
-    tab: initialTab,
+    tab: "following",
     viewerUserId: user.id,
   });
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
 
   return (
     <FeedList
-      initialTab={initialTab}
       initialPosts={initialPosts}
       initialNextCursor={page.nextCursor}
       viewerUserId={user.id}
