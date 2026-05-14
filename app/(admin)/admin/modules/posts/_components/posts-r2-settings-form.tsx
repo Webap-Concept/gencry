@@ -82,12 +82,12 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
   };
 
   return (
-    <div className="rounded-lg border border-[var(--admin-line)] bg-[var(--admin-bg-2)] p-5 space-y-4 max-w-[640px]">
+    <div className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 space-y-4 max-w-[640px]">
       <header>
-        <h2 className="text-lg font-semibold text-[var(--admin-fg)]">
+        <h2 className="text-lg font-semibold text-[var(--admin-text)]">
           Cloudflare R2 — bucket per le immagini dei post
         </h2>
-        <p className="text-sm text-[var(--admin-fg-2)] mt-1">
+        <p className="text-sm text-[var(--admin-text-muted)] mt-1">
           Pre-req operativo: crea un bucket Cloudflare (consigliato:{" "}
           <code>social-media</code>), un API token con scope{" "}
           <em>Object Read + Write</em> su quel bucket, e collega un custom
@@ -147,17 +147,19 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
           type="button"
           onClick={onTest}
           disabled={isTesting}
-          className="px-4 py-1.5 rounded-md border border-[var(--admin-line)] text-sm text-[var(--admin-fg)] disabled:opacity-50"
+          className="px-4 py-1.5 rounded-md border border-[var(--admin-card-border)] text-sm text-[var(--admin-text)] disabled:opacity-50"
         >
           {isTesting ? "Test in corso…" : "Test connessione"}
         </button>
         {message ? (
           <span
-            className={`text-sm ${
-              message.type === "ok"
-                ? "text-[var(--admin-success)]"
-                : "text-[var(--admin-danger)]"
-            }`}
+            className="text-sm"
+            style={{
+              color:
+                message.type === "ok"
+                  ? "#059669"
+                  : "var(--admin-destructive)",
+            }}
           >
             {message.text}
           </span>
@@ -186,7 +188,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-xs text-[var(--admin-fg-2)] block mb-1">
+      <span className="text-xs text-[var(--admin-text-muted)] block mb-1">
         {label}
       </span>
       <input
@@ -195,10 +197,10 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         placeholder={placeholder}
-        className="w-full bg-[var(--admin-bg-1)] border border-[var(--admin-line)] rounded-md px-3 py-2 text-sm text-[var(--admin-fg)] outline-none focus:border-[var(--admin-accent)]"
+        className="w-full bg-[var(--admin-input-bg)] border border-[var(--admin-card-border)] rounded-md px-3 py-2 text-sm text-[var(--admin-text)] outline-none focus:border-[var(--admin-accent)]"
       />
       {hint ? (
-        <span className="text-xs text-[var(--admin-fg-3)] block mt-1">
+        <span className="text-xs text-[var(--admin-text-faint)] block mt-1">
           {hint}
         </span>
       ) : null}

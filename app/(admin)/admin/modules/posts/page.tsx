@@ -30,7 +30,7 @@ export default async function PostsAdminOverviewPage() {
           tone={r2 ? "ok" : "warn"}
         />
       </div>
-      <p className="text-sm text-[var(--admin-fg-2)]">
+      <p className="text-sm text-[var(--admin-text-muted)]">
         Configura le credenziali Cloudflare R2 in{" "}
         <strong>Settings</strong> per abilitare l&apos;upload immagini ai
         post.
@@ -49,15 +49,15 @@ function Stat({
   tone?: "ok" | "warn";
 }) {
   return (
-    <div className="rounded-lg border border-[var(--admin-line)] bg-[var(--admin-bg-2)] p-4">
-      <div className="text-xs uppercase tracking-wider text-[var(--admin-fg-3)]">
+    <div className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-4">
+      <div className="text-xs uppercase tracking-wider text-[var(--admin-text-faint)]">
         {label}
       </div>
       <div
         className={`mt-1 text-2xl font-semibold ${
           tone === "warn"
-            ? "text-[var(--admin-danger)]"
-            : "text-[var(--admin-fg)]"
+            ? "text-[var(--admin-destructive)]"
+            : "text-[var(--admin-text)]"
         }`}
       >
         {value}
