@@ -25,6 +25,22 @@ export const POSTS_MODULE: ModuleManifest = {
       description: "Soft-delete posts, manage reports queue (NOT auto-granted to admin).",
     },
   ],
-  navChildren: [],
+  navChildren: [
+    {
+      key: "posts-overview",
+      href: "/modules/posts",
+      label: "Overview",
+      icon: "Activity",
+      permission: "modules:posts",
+      exact: true,
+    },
+    {
+      key: "posts-settings",
+      href: "/modules/posts/settings",
+      label: "Settings",
+      icon: "Settings",
+      permission: "modules:posts",
+    },
+  ],
   cronJobs: [],
 };

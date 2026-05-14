@@ -35,6 +35,7 @@ import { getUser } from "@/lib/db/queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   posts,
+  postsMedia,
   postsTickers,
   postsMentions,
   postsReports,
@@ -109,6 +110,12 @@ const UuidSchema = z.string().uuid();
 const CreatePostInputSchema = z.object({
   body: z.string(),
   visibility: VisibilitySchema.default("public"),
+  /**
+   * IDs dei posts_media già caricati & confirmed via la pipeline
+   * createPostMediaTicket → confirmPostMediaUpload. Vengono claimati
+   * (UPDATE post_id) dentro la transaction del createPost.
+   */
+  mediaIds: z.array(UuidSchema).max(10).optional(),
 });
 
 const EditPostInputSchema = z.object({
@@ -271,6 +278,20 @@ export async function createPost(
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
     await syncTickersAndMentions(tx, inserted.id, bodyCheck.body, inserted.createdAt);
+
+    // Claim dei media draft (atomic: o vanno tutti o nessuno via
+    // rollback della transaction). Filtro WHERE garantisce ownership.
+    const mediaIds = parsed.data.mediaIds ?? [];
+    if (mediaIds.length > 0) {
+      await tx
+        .update(postsMedia)
+        .set({ postId: inserted.id })
+        .where(
+          sql`${postsMedia.id} IN (${sql.join(mediaIds.map((id) => sql`${id}`), sql`, `)})
+              AND ${postsMedia.authorId} = ${user.id}
+              AND ${postsMedia.postId} IS NULL`,
+        );
+    }
     return inserted.id;
   });
 
