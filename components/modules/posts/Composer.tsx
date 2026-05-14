@@ -221,7 +221,7 @@ export function Composer({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Cosa pensi del mercato?"
+        placeholder="Inizia a scrivere…"
         rows={6}
         maxLength={maxBodyLength + 100}
         className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
