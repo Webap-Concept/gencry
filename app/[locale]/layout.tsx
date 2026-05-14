@@ -1,3 +1,4 @@
+import { AppRightRail } from "@/components/layout/AppRightRail";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
@@ -49,7 +50,14 @@ export default async function LocaleLayout({
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
       <PublicHeader appLogoUrl={appSettings.app_logo_url} />
-      <div className="flex flex-1 flex-col">{children}</div>
+      <div className="flex-1">
+        <div className="mx-auto w-full max-w-7xl flex">
+          <main className="flex flex-1 flex-col min-w-0">{children}</main>
+          <Suspense fallback={null}>
+            <AppRightRail />
+          </Suspense>
+        </div>
+      </div>
       <Suspense fallback={null}>
         <PublicFooter />
       </Suspense>

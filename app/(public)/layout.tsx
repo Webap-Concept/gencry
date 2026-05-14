@@ -2,11 +2,14 @@
  * Layout adattivo per rotte pubbliche (SEO-friendly) che cambiano
  * presentazione in base allo stato utente.
  *
- *   - Loggato → riusa `ProtectedShell` (sidebar + topbar + bottom nav)
- *     così l'utente non perde la navigazione quando visita una pagina
- *     pubblica come `/coins/btc`.
- *   - Anonimo → header marketing semplice (logo + Accedi / Iscriviti) +
- *     footer pubblico. Niente sidebar.
+ *   - Loggato → riusa `ProtectedShell` (sidebar + topbar + bottom nav +
+ *     right rail) così l'utente non perde la navigazione quando visita
+ *     una pagina pubblica come `/coins/btc`.
+ *   - Anonimo → header marketing (logo + Accedi / Iscriviti) +
+ *     `AppRightRail` (su lg+ — riusa lo stesso slot registry del shell
+ *     loggato così gli adv/sponsor montati nei rail.* slot sono visibili
+ *     anche ai visitatori non loggati, importante per monetization) +
+ *     footer pubblico.
  *
  * Le pagine dentro questo gruppo NON devono assumere lo stato utente:
  * fanno SSR sempre, branching condizionale dentro il loro corpo
@@ -17,6 +20,7 @@
  * social, le azioni gated (es. "aggiungi a watchlist") fanno il check
  * al momento del click — visualizzare il contenuto è sempre concesso.
  */
+import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
@@ -48,12 +52,19 @@ export default async function PublicLayout({
     );
   }
 
+  // Layout anonimo: header + (content centrale + right rail su lg+) + footer.
+  // Il rail flue con la pagina come nello shell loggato (una sola scrollbar).
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
       <PublicHeader appLogoUrl={appSettings.app_logo_url} />
       <div className="flex-1">
-        <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
-          <Suspense fallback={null}>{children}</Suspense>
+        <div className="mx-auto w-full max-w-7xl flex">
+          <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6">
+            <Suspense fallback={null}>{children}</Suspense>
+          </main>
+          <Suspense fallback={null}>
+            <AppRightRail />
+          </Suspense>
         </div>
       </div>
       <Suspense fallback={null}>
