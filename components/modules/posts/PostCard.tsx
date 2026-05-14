@@ -25,6 +25,7 @@
 //    Repost    → solo conteggio in v1 (UI quote-repost rinviata)
 import { startTransition, useOptimistic, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
@@ -81,9 +82,17 @@ type Props = {
   post: PostCardData;
   /** True quando viewer === author: sblocca Modifica/Elimina nel menu. */
   isAuthor?: boolean;
+  /**
+   * "feed"   — la card è clickable verso /post/{id}, la gallery è
+   *            il carousel "max 2 visibili" (default).
+   * "single" — la card è NON clickable (siamo già su /post/{id}) e
+   *            la gallery è uno stack verticale con tutte le foto.
+   */
+  variant?: "feed" | "single";
 };
 
-export function PostCard({ post, isAuthor }: Props) {
+export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
+  const router = useRouter();
   const [bookmarked, setBookmarked] = useOptimistic(
     post.viewer?.bookmarked ?? false,
   );
@@ -150,8 +159,28 @@ export function PostCard({ post, isAuthor }: Props) {
   // ricomputato a render time — già aggregato in PostCounts.reactionsTotal).
   const reactionsTotal = post.counts.reactionsTotal;
 
+  // Card-level click → naviga al single-post. Solo variant=feed.
+  // Skippa la nav se il click ha colpito un elemento interattivo
+  // (a, button, input, label, summary, [role=button]). Così avatar
+  // Link, reactions popover, dropdown ⋯, X hide, gallery tiles, ecc.
+  // continuano a fare il loro job.
+  const cardClickable = variant === "feed";
+  const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!cardClickable) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("a, button, input, label, summary, [role='button'], [role='menuitem']")) return;
+    // Solo click sinistro senza modifier (let cmd+click open new tab fail-safe).
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    router.push(`/post/${post.id}`);
+  };
+
   return (
-    <article className="bg-gc-bg-2 border border-gc-line rounded-gc p-5">
+    <article
+      onClick={onCardClick}
+      className={`bg-gc-bg-2 border border-gc-line rounded-gc p-5 ${
+        cardClickable ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors" : ""
+      }`}
+    >
       {/* Header: autore + time + visibility */}
       <header className="flex items-start gap-3 mb-3">
         <Link
@@ -262,7 +291,9 @@ export function PostCard({ post, isAuthor }: Props) {
       <PostBody body={post.body} />
 
       {/* Media gallery */}
-      {post.media.length > 0 ? <PostMediaGallery media={post.media} /> : null}
+      {post.media.length > 0 ? (
+        <PostMediaGallery media={post.media} variant={variant} />
+      ) : null}
 
       {/* Ticker chips */}
       {post.tickers.length > 0 ? (

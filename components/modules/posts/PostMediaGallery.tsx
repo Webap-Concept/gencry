@@ -1,18 +1,20 @@
 "use client";
 // components/modules/posts/PostMediaGallery.tsx
 //
-// Gallery dei media nel feed. Strategia "carousel sempre 2 visibili"
-// (decisione 2026-05-14 per crypto-focus social, immagini complementari
-// al testo, NO grid massive):
+// Gallery dei media. Due varianti:
 //
-//   1 img  → full-width, aspect 16/10, max-h 480px
-//   2+ img → carousel orizzontale CSS-snap, ogni tile 50% width
-//            aspect-square, scrollbar nascosta, dots indicator sotto.
-//            Click su tile → lightbox con keyboard/swipe nav.
+//   variant="feed" (default) — strategia "max 2 visibili + slide":
+//     - 1 img  → full-width, aspect 16/10, max-h 480px
+//     - 2+ img → carousel CSS-snap, ogni tile 50% width aspect-square,
+//                scrollbar nascosta (.no-scrollbar), dots cliccabili
+//                + frecce ChevronLeft/Right sui lati su md+.
 //
-// Pure CSS-snap per lo scroll (zero JS state per la posizione,
-// browser-native su mobile/desktop). IntersectionObserver osserva
-// quali tile sono visibili per accendere il dot corrispondente.
+//   variant="single" — pagina /post/[id]:
+//     - tutte le foto in stack verticale, ognuna full-width aspect
+//       16/10 max-h 480px. No carousel, no dots, no frecce — l'utente
+//       è "dentro al post" e vuole vedere tutto a colpo d'occhio.
+//
+// Click su tile → lightbox con keyboard ←/→, swipe, frecce, counter.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -22,16 +24,26 @@ import {
 } from "@/components/ui/dialog";
 import type { PostMediaPublic } from "@/lib/modules/posts/types";
 
-const MAX_VISIBLE_GRID = 4; // safety cap, server limita a 4
+const MAX_VISIBLE = 4;
 
-export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
+export type PostMediaGalleryVariant = "feed" | "single";
+
+export function PostMediaGallery({
+  media,
+  variant = "feed",
+}: {
+  media: PostMediaPublic[];
+  variant?: PostMediaGalleryVariant;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   if (media.length === 0) return null;
-  const items = media.slice(0, MAX_VISIBLE_GRID);
+  const items = media.slice(0, MAX_VISIBLE);
 
   return (
     <>
-      {items.length === 1 ? (
+      {variant === "single" ? (
+        <StackVertical items={items} onPick={setOpenIndex} />
+      ) : items.length === 1 ? (
         <SinglePhoto item={items[0]} onClick={() => setOpenIndex(0)} />
       ) : (
         <Carousel items={items} onPick={setOpenIndex} />
@@ -48,7 +60,42 @@ export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Single photo: full width, aspect 16/10, max-h capped
+// Variant "single": stack verticale, tutte visibili
+// ─────────────────────────────────────────────────────────────────────────
+
+function StackVertical({
+  items,
+  onPick,
+}: {
+  items: PostMediaPublic[];
+  onPick: (i: number) => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {items.map((m, i) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onPick(i)}
+          className="relative w-full overflow-hidden rounded-gc-sm border border-gc-line/60 bg-gc-bg-3 aspect-[16/10] max-h-[480px]"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={m.thumbUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover transition-transform duration-200 hover:scale-[1.02]"
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Variant "feed", 1 foto: full-width singolo
 // ─────────────────────────────────────────────────────────────────────────
 
 function SinglePhoto({
@@ -78,7 +125,7 @@ function SinglePhoto({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Carousel: 2 visibili contemporaneamente, snap, swipe-native
+// Variant "feed", 2+ foto: carousel
 // ─────────────────────────────────────────────────────────────────────────
 
 function Carousel({
@@ -91,15 +138,15 @@ function Carousel({
   const containerRef = useRef<HTMLDivElement>(null);
   const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const showDots = items.length > 2;
+  const showArrows = items.length > 2;
 
-  // IntersectionObserver: il dot attivo è la tile con la maggiore
-  // intersectionRatio. Soglia 0.6 = "tile principalmente visibile".
+  // IntersectionObserver per il dot attivo (la tile più visibile).
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        // Tra tutte le entry visibili scegliamo quella con ratio max
         let best: { index: number; ratio: number } | null = null;
         for (const entry of entries) {
           const idx = tileRefs.current.findIndex((el) => el === entry.target);
@@ -118,6 +165,12 @@ function Carousel({
     return () => observer.disconnect();
   }, [items.length]);
 
+  const scrollToIndex = useCallback((idx: number) => {
+    const tile = tileRefs.current[idx];
+    if (!tile) return;
+    tile.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  }, []);
+
   const scrollByOne = useCallback((dir: 1 | -1) => {
     const container = containerRef.current;
     if (!container) return;
@@ -131,7 +184,7 @@ function Carousel({
     <div className="mt-3 relative">
       <div
         ref={containerRef}
-        className="flex gap-1 overflow-x-auto snap-x snap-mandatory rounded-gc-sm border border-gc-line/60 bg-gc-line/40 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="no-scrollbar flex gap-1 overflow-x-auto snap-x snap-mandatory rounded-gc-sm border border-gc-line/60 bg-gc-line/40"
       >
         {items.map((m, i) => (
           <button
@@ -141,8 +194,6 @@ function Carousel({
               tileRefs.current[i] = el;
             }}
             onClick={() => onPick(i)}
-            // 50% del container meno la metà del gap (gap=4px → -2px),
-            // così 2 tile + gap = 100% width.
             className="snap-start shrink-0 basis-[calc(50%-2px)] aspect-square overflow-hidden bg-gc-bg-3"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,10 +209,7 @@ function Carousel({
         ))}
       </div>
 
-      {/* Frecce on-screen su desktop quando ci sono >2 tile (su 2 vedi
-          già tutto, su 3+ servono per scrollare). Su mobile lo swipe
-          è già nativo, lo nascondiamo per non occupare spazio. */}
-      {items.length > 2 ? (
+      {showArrows ? (
         <>
           <button
             type="button"
@@ -182,17 +230,17 @@ function Carousel({
         </>
       ) : null}
 
-      {/* Dots indicator — solo se >2 (con 2 sono entrambe sempre visibili). */}
-      {items.length > 2 ? (
+      {showDots ? (
         <div className="flex justify-center gap-1.5 mt-2">
           {items.map((m, i) => (
-            <span
+            <button
               key={m.id}
-              aria-hidden="true"
-              className={`h-1.5 rounded-full transition-all ${
-                i === activeIndex
-                  ? "w-4 bg-gc-accent"
-                  : "w-1.5 bg-gc-line"
+              type="button"
+              onClick={() => scrollToIndex(i)}
+              aria-label={`Vai all'immagine ${i + 1}`}
+              aria-current={i === activeIndex ? "true" : undefined}
+              className={`h-1.5 rounded-full transition-all hover:bg-gc-fg-muted ${
+                i === activeIndex ? "w-4 bg-gc-accent" : "w-1.5 bg-gc-line"
               }`}
             />
           ))}
@@ -203,7 +251,7 @@ function Carousel({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Lightbox (riusa il pattern di prima: frecce + ←/→ + swipe + counter)
+// Lightbox: frecce + ←/→ + swipe + counter (loop wrap-around)
 // ─────────────────────────────────────────────────────────────────────────
 
 const SWIPE_THRESHOLD = 50;
