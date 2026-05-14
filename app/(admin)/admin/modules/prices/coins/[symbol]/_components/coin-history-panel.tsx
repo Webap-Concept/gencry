@@ -4,6 +4,7 @@
 import type { HistoryPage } from "@/lib/modules/prices/queries";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { LocalDateTime } from "./local-datetime";
 
 function formatPriceFull(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -15,16 +16,6 @@ function formatPriceFull(value: number): string {
   })}`;
 }
 
-function formatTs(d: Date): string {
-  return d.toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
 
 function isRounded(value: number): boolean {
   return Number.isFinite(value) && value === Math.trunc(value);
@@ -118,7 +109,7 @@ export function CoinHistoryPanel({
                         : "transparent",
                     }}>
                     <td className="py-1.5 px-3 font-mono tabular-nums" style={{ color: "var(--admin-text-muted)" }}>
-                      {formatTs(r.ts)}
+                      <LocalDateTime value={r.ts} />
                     </td>
                     <td className="py-1.5 px-3 font-mono tabular-nums text-right">
                       {formatPriceFull(r.price)}

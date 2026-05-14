@@ -3,17 +3,15 @@
 // Aiuta a capire se la coin ha storia sufficiente per i chart e se serve
 // un backfill.
 import type { CoinHistoryStats, CoinView } from "@/lib/modules/prices/queries";
+import { LocalDateTime } from "./local-datetime";
 
-function formatDate(d: Date | null): string {
-  if (!d) return "—";
-  return d.toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const DATE_FMT: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+};
 
 function daysBetween(a: Date | null, b: Date | null): string {
   if (!a || !b) return "—";
@@ -54,12 +52,12 @@ export function CoinStatsCards({
         />
         <Stat
           label="Primo punto"
-          value={formatDate(stats.firstTs)}
+          value={stats.firstTs ? <LocalDateTime value={stats.firstTs} options={DATE_FMT} /> : "—"}
           mono
         />
         <Stat
           label="Ultimo punto"
-          value={formatDate(stats.lastTs)}
+          value={stats.lastTs ? <LocalDateTime value={stats.lastTs} options={DATE_FMT} /> : "—"}
           mono
         />
         <Stat
@@ -97,7 +95,7 @@ function Stat({
   tone,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   mono?: boolean;
   tone?: "ok" | "warn";
 }) {
