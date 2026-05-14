@@ -9,10 +9,7 @@
 // Tab persistence: localStorage `posts.feed.tab`. Default = la tab che
 // il server ha già renderizzato (così niente flicker al mount).
 import { useEffect, useState, useTransition } from "react";
-import {
-  loadMoreFeed,
-  type LoadMoreFeedInput,
-} from "@/lib/modules/posts/feed-actions";
+import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { FeedTab } from "@/lib/modules/posts/queries";
 import { PostCard } from "./PostCard";
@@ -66,11 +63,9 @@ export function FeedList(props: Props) {
     setPosts([]);
     setNextCursor(null);
     startTransition(async () => {
-      // Per la tab Following carichiamo da zero (la first page server era
-      // della tab iniziale). Riusiamo loadMoreFeed con cursor vuoto? No,
-      // ha bisogno di cursor. Semplifichiamo: lasciamo che il primo
-      // batch arrivi via load-more con cursor null = sentinel "prima pagina".
-      const res = await callLoadMore({ tab: next, cursor: "" });
+      // `cursor: null` = prima pagina; loadMoreFeed → getFeedIds senza
+      // cursor → top of the timeline. Pulito.
+      const res = await loadMoreFeed({ tab: next, cursor: null });
       if (res.ok) {
         setPosts(res.data.posts);
         setNextCursor(res.data.nextCursor);
@@ -84,7 +79,7 @@ export function FeedList(props: Props) {
     if (!nextCursor || isPending) return;
     setError(null);
     startTransition(async () => {
-      const res = await callLoadMore({ tab, cursor: nextCursor });
+      const res = await loadMoreFeed({ tab, cursor: nextCursor });
       if (res.ok) {
         setPosts((prev) => [...prev, ...res.data.posts]);
         setNextCursor(res.data.nextCursor);
@@ -196,23 +191,3 @@ function EmptyState({ tab }: { tab: FeedTab }) {
   );
 }
 
-/**
- * loadMoreFeed accetta solo cursor non-empty; per il "primo batch dopo
- * tab switch" usiamo cursor="" come sentinel e qui lo traduciamo a
- * "prima pagina" via una chiamata client→server alternativa.
- *
- * Implementazione: se cursor="", chiamiamo loadMoreFeed con un cursor
- * fittizio molto avanti nel tempo (effettivamente "tutto prima di now")
- * — workaround temporaneo. Lo correggiamo in PR-7 quando aggiungiamo
- * un endpoint dedicato "first-page-fetch" per il tab switch.
- */
-async function callLoadMore(input: LoadMoreFeedInput) {
-  if (input.cursor !== "") return loadMoreFeed(input);
-  // Cursor fittizio molto avanti nel tempo → keyset clause non filtra
-  // niente, ritorna la prima pagina cronologica. ms = anno 9999.
-  const farFuture = btoa(`${253402300799000}:00000000-0000-0000-0000-000000000000`)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-  return loadMoreFeed({ tab: input.tab, cursor: farFuture });
-}

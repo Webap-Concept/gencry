@@ -16,7 +16,11 @@ import type { PostCardData } from "./types";
 
 export type LoadMoreFeedInput = {
   tab: FeedTab;
-  cursor: string;
+  /**
+   * Cursor encoded base64. `null` = prima pagina (utile dopo un tab
+   * switch). Stringa non-vuota = pagina successiva al cursor.
+   */
+  cursor: string | null;
 };
 
 export type LoadMoreFeedResult =
@@ -29,26 +33,18 @@ export type LoadMoreFeedResult =
     }
   | { ok: false; error: string };
 
-/**
- * Carica la pagina successiva del feed. Il `cursor` arriva dal client
- * (encoded base64). Visibility/auth applicati lato server come per la
- * first page.
- */
 export async function loadMoreFeed(
   input: LoadMoreFeedInput,
 ): Promise<LoadMoreFeedResult> {
   if (input.tab !== "discover" && input.tab !== "following") {
     return { ok: false, error: "posts.feed.invalid_tab" };
   }
-  if (!input.cursor || typeof input.cursor !== "string") {
-    return { ok: false, error: "posts.feed.missing_cursor" };
-  }
 
   const user = await getUser();
   const page = await getFeedIds({
     tab: input.tab,
     viewerUserId: user?.id,
-    cursor: input.cursor,
+    cursor: input.cursor ?? undefined,
   });
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
 

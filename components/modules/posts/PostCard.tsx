@@ -4,28 +4,28 @@
 // Card presentational riusabile di un post. Riceve PostCardData
 // hydratato (vedi lib/modules/posts/types.ts).
 //
-// Layout (v2 dopo manual UX review):
+// Layout v3 (2026-05-14, post-audit):
+//   - Card-level click NON usa più e.target.closest() blacklist.
+//     Pattern "stretched-link": un <Link> assoluto inset-0 sotto i
+//     contenuti cattura il click sui pixel "vuoti" della card. Gli
+//     elementi interattivi (avatar, username, dropdown, X, gallery,
+//     reactions, ecc.) sono `relative z-[1]` SOPRA l'overlay e
+//     ricevono il click per primi → no escape via closest().
+//   - Autore può Modificare (entro edit_window_minutes) via menu ⋯
+//     che apre PostComposerModal in mode "edit", body+visibility
+//     pre-popolati. Visibility cambiabile solo verso più restrittivo.
 //
-//   ┌────────────────────────────────────────────┐
-//   │ [Avatar] @user · time · 🌐    [X] [⋯]     │
-//   │                                            │
-//   │ body con $TICKER / @mention auto-linkati   │
-//   │ ticker chips, quote-repost embed, ...      │
-//   │                                            │
-//   │ [😀 12]   [💬 3]   [↗ 1]                    │
-//   └────────────────────────────────────────────┘
-//
-//  Top-right:
-//    X    → nasconde la card per la sessione (no DB call)
-//    ⋯    → DropdownMenu con azioni context-aware (autore:
-//           Modifica/Elimina; viewer: Salva/Segnala/Nascondi)
-//  Footer:
-//    Reactions → popover 6 emoji (hover desktop, click mobile)
-//    Commenta  → link a /post/{id}
-//    Repost    → solo conteggio in v1 (UI quote-repost rinviata)
-import { startTransition, useOptimistic, useState } from "react";
+//  Variant:
+//   "feed"   — overlay link attivo, gallery=carousel
+//   "single" — niente overlay (siamo già su /post/{id}), gallery=grid
+import {
+  startTransition,
+  useEffect,
+  useOptimistic,
+  useState,
+} from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
 import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
 import { PostMediaGallery } from "./PostMediaGallery";
+import { PostComposerModal } from "./PostComposerModal";
 import { ReactionPopover } from "./ReactionPopover";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
@@ -60,8 +61,7 @@ function authorDisplayName(author: PostCardData["author"]): string {
 }
 
 function authorInitial(author: PostCardData["author"]): string {
-  const f =
-    (author.username ?? author.firstName ?? "?")[0] ?? "?";
+  const f = (author.username ?? author.firstName ?? "?")[0] ?? "?";
   return f.toUpperCase();
 }
 
@@ -78,35 +78,49 @@ function formatRelativeTime(date: Date): string {
   });
 }
 
-type Props = {
-  post: PostCardData;
-  /** True quando viewer === author: sblocca Modifica/Elimina nel menu. */
-  isAuthor?: boolean;
-  /**
-   * "feed"   — la card è clickable verso /post/{id}, la gallery è
-   *            il carousel "max 2 visibili" (default).
-   * "single" — la card è NON clickable (siamo già su /post/{id}) e
-   *            la gallery è uno stack verticale con tutte le foto.
-   */
-  variant?: "feed" | "single";
+type CurrentUser = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
 };
 
-export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
-  const router = useRouter();
+const userFetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const EDIT_WINDOW_MS_DEFAULT = 10 * 60 * 1000;
+
+type Props = {
+  post: PostCardData;
+  /** True quando viewer === author. */
+  isAuthor?: boolean;
+  /**
+   * "feed"   — overlay link verso /post/{id}, gallery carousel
+   * "single" — niente overlay (no nav su sé stessi), gallery stack
+   */
+  variant?: "feed" | "single";
+  /**
+   * Edit window in millisecondi (default 10min). Il PostsFeedSection
+   * potrà in futuro passare il valore da app_settings; per ora il
+   * default basta perché matcha modules.posts.edit_window_minutes.
+   */
+  editWindowMs?: number;
+};
+
+export function PostCard({
+  post,
+  isAuthor,
+  variant = "feed",
+  editWindowMs = EDIT_WINDOW_MS_DEFAULT,
+}: Props) {
   const [bookmarked, setBookmarked] = useOptimistic(
     post.viewer?.bookmarked ?? false,
   );
-  // Server returns ownReactions[] for backwards-compat, ma per regola
-  // applicativa "1 utente → 1 reaction" prendiamo solo il primo.
   const initialOwnReaction: PostReactionKind | null =
     post.viewer?.ownReactions?.[0] ?? null;
   const [ownReaction, setOwnReaction] = useOptimistic<PostReactionKind | null>(
     initialOwnReaction,
   );
-  // Counters ottimistici. Reducer applica -1 sulla `remove` (vecchia
-  // reaction dell'utente) e +1 sulla `add` (nuova) in sintonia con i
-  // trigger DB; così l'UI risponde subito al click invece di
-  // aspettare il refresh.
   const [optimisticCounts, applyCountsDelta] = useOptimistic<
     PostReactionCounts,
     { remove?: PostReactionKind; add?: PostReactionKind }
@@ -116,7 +130,7 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
     if (delta.add) next[delta.add] = next[delta.add] + 1;
     return next;
   });
-  const reactionsTotalOptimistic =
+  const reactionsTotal =
     optimisticCounts.like +
     optimisticCounts.rocket +
     optimisticCounts.bull +
@@ -125,6 +139,24 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
     optimisticCounts.diamond;
   const [hidden, setHidden] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  // Edit-window è dinamico: la finestra può scadere mentre l'utente
+  // sta guardando la card. Forza re-render ogni 30s così "Modifica"
+  // sparisce al passaggio del minuto 10.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isAuthor) return;
+    const t = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [isAuthor]);
+
+  // User per il composer in edit: fetch solo se l'utente è autore (non
+  // serve a non-autori). useSWR cachato globale ⇒ 1 sola fetch per N card.
+  const { data: currentUser } = useSWR<CurrentUser>(
+    isAuthor ? "/api/user" : null,
+    userFetcher,
+    { revalidateOnFocus: false, keepPreviousData: true },
+  );
 
   if (hidden || deleted) return null;
 
@@ -132,7 +164,6 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
     const wasActive = ownReaction === kind;
     const previousOwn = ownReaction;
     startTransition(async () => {
-      // Optimistic: stessa kind → off, diversa → switch
       setOwnReaction(wasActive ? null : kind);
       applyCountsDelta({
         remove: previousOwn ?? undefined,
@@ -140,9 +171,6 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
       });
       const res = await toggleReaction({ postId: post.id, reaction: kind });
       if (!res.ok) setOwnReaction(initialOwnReaction);
-      // Niente reset esplicito di applyCountsDelta in caso d'errore:
-      // useOptimistic ricomputa da post.counts.reactions ad ogni
-      // commit, quindi al refresh torna allineato.
     });
   };
 
@@ -186,205 +214,242 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
     });
   };
 
-  // Reactions total: usa il valore ottimistico così riflette il
-  // toggle dell'utente PRIMA che la Server Action concluda. La somma
-  // è O(6), trascurabile.
-  const reactionsTotal = reactionsTotalOptimistic;
+  // Edit-window check: postedAt + 10min > now?
+  const ageMs = nowTick - new Date(post.createdAt).getTime();
+  const canEdit = Boolean(isAuthor) && ageMs < editWindowMs;
 
-  // Card-level click → naviga al single-post. Solo variant=feed.
-  // Skippa la nav se il click ha colpito un elemento interattivo
-  // (a, button, input, label, summary, [role=button]). Così avatar
-  // Link, reactions popover, dropdown ⋯, X hide, gallery tiles, ecc.
-  // continuano a fare il loro job.
-  const cardClickable = variant === "feed";
-  const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
-    if (!cardClickable) return;
-    const target = e.target as HTMLElement;
-    if (target.closest("a, button, input, label, summary, [role='button'], [role='menuitem']")) return;
-    // Solo click sinistro senza modifier (let cmd+click open new tab fail-safe).
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    router.push(`/post/${post.id}`);
-  };
+  // Stretched-link overlay attivo solo su variant="feed".
+  const showOverlayLink = variant === "feed";
+  // I figli interattivi devono essere SOPRA l'overlay (z-[1]).
+  // I figli non-interattivi (body, ticker text container) restano
+  // sotto z-1 e ricevono il click → l'overlay fa la nav.
+  const interactiveClass = "relative z-[1]";
 
   return (
-    <article
-      onClick={onCardClick}
-      className={`bg-gc-bg-2 border border-gc-line rounded-gc p-5 ${
-        cardClickable ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors" : ""
-      }`}
-    >
-      {/* Header: autore + time + visibility */}
-      <header className="flex items-start gap-3 mb-3">
-        <Link
-          href={`/profile/${post.author.username ?? post.author.id}`}
-          className="shrink-0"
-        >
-          {post.author.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={post.author.avatarUrl}
-              alt=""
-              className="w-10 h-10 rounded-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
-              {authorInitial(post.author)}
+    <>
+      <article
+        className={`relative bg-gc-bg-2 border border-gc-line rounded-gc p-5 ${
+          showOverlayLink
+            ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors"
+            : ""
+        }`}
+      >
+        {/* Stretched-link overlay: cattura i click sui pixel "vuoti"
+            della card. È visivamente sotto i figli interattivi (z-[1])
+            ma sopra il body (che resta z-auto). */}
+        {showOverlayLink ? (
+          <Link
+            href={`/post/${post.id}`}
+            aria-label="Apri post"
+            className="absolute inset-0 rounded-gc"
+          />
+        ) : null}
+
+        {/* Header: autore + time + visibility */}
+        <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
+          <Link
+            href={`/profile/${post.author.username ?? post.author.id}`}
+            className="shrink-0"
+          >
+            {post.author.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={post.author.avatarUrl}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
+                {authorInitial(post.author)}
+              </div>
+            )}
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <Link
+                href={`/profile/${post.author.username ?? post.author.id}`}
+                className="font-medium text-gc-fg hover:underline"
+              >
+                {authorDisplayName(post.author)}
+              </Link>
+              <span className="text-xs text-gc-fg-muted">·</span>
+              <Link
+                href={`/post/${post.id}`}
+                className="text-xs text-gc-fg-muted hover:underline"
+              >
+                <time dateTime={String(post.createdAt)}>
+                  {formatRelativeTime(post.createdAt)}
+                </time>
+              </Link>
+              {post.editedAt ? (
+                <span
+                  className="text-xs text-gc-fg-muted"
+                  title={String(post.editedAt)}
+                >
+                  · modificato
+                </span>
+              ) : null}
+              {post.visibility !== "public" ? (
+                <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
+                  {VISIBILITY_LABEL[post.visibility]}
+                </span>
+              ) : null}
             </div>
-          )}
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <Link
-              href={`/profile/${post.author.username ?? post.author.id}`}
-              className="font-medium text-gc-fg hover:underline"
-            >
-              {authorDisplayName(post.author)}
-            </Link>
-            <span className="text-xs text-gc-fg-muted">·</span>
-            <Link
-              href={`/post/${post.id}`}
-              className="text-xs text-gc-fg-muted hover:underline"
-            >
-              <time dateTime={String(post.createdAt)}>
-                {formatRelativeTime(post.createdAt)}
-              </time>
-            </Link>
-            {post.editedAt ? (
-              <span
-                className="text-xs text-gc-fg-muted"
-                title={String(post.editedAt)}
-              >
-                · modificato
-              </span>
-            ) : null}
-            {post.visibility !== "public" ? (
-              <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
-                {VISIBILITY_LABEL[post.visibility]}
-              </span>
-            ) : null}
           </div>
-        </div>
-        {/* Top-right toolbar */}
-        <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Opzioni post"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+          {/* Top-right toolbar */}
+          <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Opzioni post"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
               >
-                <MoreHorizontal size={18} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
+                <DropdownMenuItem onSelect={onToggleBookmark}>
+                  {bookmarked ? "Rimuovi dai salvati" : "Salva post"}
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/post/${post.id}`}>Apri post</Link>
+                </DropdownMenuItem>
+                {canEdit ? (
+                  <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                    Modifica post
+                  </DropdownMenuItem>
+                ) : null}
+                {!isAuthor ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onReport}>
+                      Segnala
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {isAuthor ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={onDelete}
+                      className="text-gc-danger focus:text-gc-danger"
+                    >
+                      Elimina post
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              type="button"
+              onClick={() => setHidden(true)}
+              aria-label="Nascondi post"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
             >
-              <DropdownMenuItem onSelect={onToggleBookmark}>
-                {bookmarked ? "Rimuovi dai salvati" : "Salva post"}
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/post/${post.id}`}>Apri post</Link>
-              </DropdownMenuItem>
-              {!isAuthor ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={onReport}>
-                    Segnala
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-              {isAuthor ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={onDelete}
-                    className="text-gc-danger focus:text-gc-danger"
-                  >
-                    Elimina post
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <X size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* Body: NON interactiveClass — vogliamo che click su testo
+            "vuoto" cada sull'overlay link verso /post/{id}. I Link
+            interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
+            e catturano da soli il click. */}
+        <PostBody body={post.body} />
+
+        {/* Media gallery: SI interactiveClass — le tile sono <button>
+            e click apre il lightbox, non deve navigare al post. */}
+        {post.media.length > 0 ? (
+          <div className={interactiveClass}>
+            <PostMediaGallery media={post.media} variant={variant} />
+          </div>
+        ) : null}
+
+        {/* Ticker chips: SI interactiveClass — sono <Link> a /explore */}
+        {post.tickers.length > 0 ? (
+          <div className={`${interactiveClass} flex flex-wrap gap-1.5 mt-3`}>
+            {post.tickers.map((t) => (
+              <Link
+                key={t}
+                href={`/explore?ticker=${t}`}
+                className="text-[11px] px-2 py-0.5 rounded-full bg-gc-line/40 text-gc-fg hover:bg-gc-line/60"
+              >
+                ${t}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Quote repost embed: lo lasciamo SOTTO l'overlay così click
+            su area "vuota" dell'embed naviga al post repostante. Se in
+            futuro vorremo che cliccare l'embed apra il TARGET, basta
+            aggiungere un <Link> stretched dentro l'embed con z-[1]. */}
+        {post.repostOf ? (
+          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
+            <div className="text-xs text-gc-fg-muted mb-1">
+              ↪ {authorDisplayName(post.repostOf.author)}
+            </div>
+            <PostBody body={post.repostOf.body} />
+          </div>
+        ) : post.repostOfTombstone ? (
+          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
+            Post originale rimosso
+          </div>
+        ) : null}
+
+        {/* Footer: 3 azioni — tutte interattive sopra l'overlay */}
+        <footer className={`${interactiveClass} mt-4 flex items-center gap-1`}>
+          <ReactionPopover
+            ownReaction={ownReaction}
+            counts={optimisticCounts}
+            totalCount={reactionsTotal}
+            onToggle={onToggleReaction}
+          />
+          <Link
+            href={`/post/${post.id}`}
+            aria-label={`Commenti${post.counts.comments > 0 ? `, ${post.counts.comments}` : ""}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
+          >
+            <MessageCircle size={18} strokeWidth={1.75} />
+            {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
+          </Link>
           <button
             type="button"
-            onClick={() => setHidden(true)}
-            aria-label="Nascondi post"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+            aria-label={`Repost${post.counts.reposts > 0 ? `, ${post.counts.reposts}` : ""}`}
+            disabled
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
           >
-            <X size={16} />
+            <Repeat2 size={18} strokeWidth={1.75} />
+            {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
           </button>
-        </div>
-      </header>
+        </footer>
+      </article>
 
-      {/* Body */}
-      <PostBody body={post.body} />
-
-      {/* Media gallery */}
-      {post.media.length > 0 ? (
-        <PostMediaGallery media={post.media} variant={variant} />
-      ) : null}
-
-      {/* Ticker chips */}
-      {post.tickers.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {post.tickers.map((t) => (
-            <Link
-              key={t}
-              href={`/explore?ticker=${t}`}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-gc-line/40 text-gc-fg hover:bg-gc-line/60"
-            >
-              ${t}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Quote repost embed (depth 1) */}
-      {post.repostOf ? (
-        <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
-          <div className="text-xs text-gc-fg-muted mb-1">
-            ↪ {authorDisplayName(post.repostOf.author)}
-          </div>
-          <PostBody body={post.repostOf.body} />
-        </div>
-      ) : post.repostOfTombstone ? (
-        <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
-          Post originale rimosso
-        </div>
-      ) : null}
-
-      {/* Footer: 3 azioni — Reactions / Commenta / Repost */}
-      <footer className="mt-4 flex items-center gap-1">
-        <ReactionPopover
-          ownReaction={ownReaction}
-          counts={optimisticCounts}
-          totalCount={reactionsTotal}
-          onToggle={onToggleReaction}
+      {/* Edit modal: mounted solo se autore + edit aperto. */}
+      {canEdit ? (
+        <PostComposerModal
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onPublished={() => {
+            setEditOpen(false);
+            // Niente router.refresh qui per non far ri-renderare TUTTO
+            // il feed. La card mostrerà i nuovi body/visibility quando
+            // l'utente farà refresh naturale (o quando arriverà
+            // Realtime + cache invalidation, PR-7).
+          }}
+          user={currentUser ?? null}
+          editPayload={{
+            postId: post.id,
+            initialBody: post.body,
+            initialVisibility: post.visibility,
+          }}
         />
-        <Link
-          href={`/post/${post.id}`}
-          aria-label={`Commenti${post.counts.comments > 0 ? `, ${post.counts.comments}` : ""}`}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
-        >
-          <MessageCircle size={18} strokeWidth={1.75} />
-          {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
-        </Link>
-        <button
-          type="button"
-          aria-label={`Repost${post.counts.reposts > 0 ? `, ${post.counts.reposts}` : ""}`}
-          // L'azione quote-repost arriverà in una PR successiva: per ora
-          // mostriamo solo il count. Click no-op (cursor-default) per
-          // non confondere l'utente.
-          disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
-        >
-          <Repeat2 size={18} strokeWidth={1.75} />
-          {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
-        </button>
-      </footer>
-    </article>
+      ) : null}
+    </>
   );
 }
