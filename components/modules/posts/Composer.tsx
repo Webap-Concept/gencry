@@ -1,30 +1,58 @@
 "use client";
 // components/modules/posts/Composer.tsx
 //
-// Form puro per la creazione di un post. Niente router.refresh() interno:
-// il parent decide cosa fare on success (toast, chiusura modal, refresh).
-// Niente media in v1 (arriverà con PR-6).
+// Form per la creazione di un post — design LinkedIn-style: textarea
+// che si blenda con la modale (no border, no bg differente), header
+// con avatar utente + username + visibility selector come dropdown
+// inline. Il parent owns il post-success (toast, close).
 import { useState, useTransition } from "react";
+import { Globe, Lock, UserCheck, Users } from "lucide-react";
 import { createPost } from "@/lib/modules/posts/actions";
 import { POST_VISIBILITIES, type PostVisibility } from "@/lib/db/schema";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const VISIBILITY_LABEL: Record<PostVisibility, string> = {
-  public: "Tutti",
-  members: "Community",
-  followers: "Chi mi segue",
-  private: "Solo io",
+type ComposerUser = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
 };
 
+const VISIBILITY_META: Record<
+  PostVisibility,
+  { label: string; description: string; Icon: typeof Globe }
+> = {
+  public:    { label: "Pubblico",       description: "Tutti possono vedere",       Icon: Globe },
+  members:   { label: "Community",      description: "Solo utenti loggati",         Icon: Users },
+  followers: { label: "Chi mi segue",   description: "Solo i tuoi follower",        Icon: UserCheck },
+  private:   { label: "Solo io",        description: "Visibile solo a te",          Icon: Lock },
+};
+
+function displayHandle(user: ComposerUser): string {
+  if (user.username) return `@${user.username}`;
+  const full = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return full || "Utente";
+}
+
+function initials(user: ComposerUser): string {
+  const f = (user.firstName ?? user.username ?? "?")[0] ?? "?";
+  return f.toUpperCase();
+}
+
 type Props = {
-  /** Soglia caratteri letta dalle settings; default safe = 2000. */
+  user: ComposerUser;
   maxBodyLength?: number;
-  /** Callback dopo publish riuscito. Il parent gestisce toast/close/refresh. */
   onPublished?: (postId: string) => void;
-  /** Auto-focus della textarea al mount (utile dentro Dialog). */
   autoFocus?: boolean;
 };
 
-export function Composer({ maxBodyLength = 2000, onPublished, autoFocus }: Props) {
+export function Composer({ user, maxBodyLength = 2000, onPublished, autoFocus }: Props) {
   const [body, setBody] = useState("");
   const [visibility, setVisibility] = useState<PostVisibility>("public");
   const [error, setError] = useState<string | null>(null);
@@ -49,35 +77,81 @@ export function Composer({ maxBodyLength = 2000, onPublished, autoFocus }: Props
     });
   };
 
+  const ActiveIcon = VISIBILITY_META[visibility].Icon;
+
   return (
-    <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-4">
+    <div className="flex flex-col">
+      {/* Header utente + visibility dropdown */}
+      <div className="flex items-start gap-3 px-5 pt-5">
+        {user.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.avatarUrl}
+            alt=""
+            className="w-11 h-11 rounded-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-11 h-11 rounded-full bg-gc-line flex items-center justify-center text-sm font-medium text-gc-fg-muted">
+            {initials(user)}
+          </div>
+        )}
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="font-medium text-gc-fg leading-none">
+            {displayHandle(user)}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="self-start inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-gc-line text-xs text-gc-fg-muted hover:bg-gc-bg-3"
+                aria-label="Cambia visibilità"
+              >
+                <ActiveIcon size={12} strokeWidth={2} />
+                <span>{VISIBILITY_META[visibility].label}</span>
+                <span aria-hidden="true">▾</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[220px]">
+              {POST_VISIBILITIES.map((v) => {
+                const meta = VISIBILITY_META[v];
+                const Icon = meta.Icon;
+                return (
+                  <DropdownMenuItem
+                    key={v}
+                    onSelect={() => setVisibility(v)}
+                    className="flex items-start gap-2.5 py-2"
+                  >
+                    <Icon size={16} strokeWidth={1.75} className="mt-0.5" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm">{meta.label}</span>
+                      <span className="text-xs text-gc-fg-muted">
+                        {meta.description}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Textarea blended: stesso bg della modale, no border, padding identico ai bordi */}
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Cosa pensi del mercato?"
-        rows={5}
-        maxLength={maxBodyLength + 100} // slack visivo, validazione vera lato server
-        className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted resize-y outline-none text-[15px]"
+        rows={6}
+        maxLength={maxBodyLength + 100}
+        className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
         aria-label="Testo del post"
         disabled={isPending}
         autoFocus={autoFocus}
       />
-      <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <label className="text-xs text-gc-fg-muted">
-          Visibile a
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as PostVisibility)}
-            disabled={isPending}
-            className="ml-2 bg-gc-bg-1 border border-gc-line rounded-gc-sm px-2 py-1 text-gc-fg"
-          >
-            {POST_VISIBILITIES.map((v) => (
-              <option key={v} value={v}>
-                {VISIBILITY_LABEL[v]}
-              </option>
-            ))}
-          </select>
-        </label>
+
+      {/* Footer: counter + submit */}
+      <div className="flex items-center gap-3 px-5 pb-4">
         <span
           className={`text-xs ${remaining < 0 ? "text-gc-danger" : "text-gc-fg-muted"}`}
         >
@@ -88,13 +162,14 @@ export function Composer({ maxBodyLength = 2000, onPublished, autoFocus }: Props
           type="button"
           onClick={submit}
           disabled={!canSubmit}
-          className="px-4 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-5 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isPending ? "Pubblico…" : "Pubblica"}
         </button>
       </div>
+
       {error ? (
-        <p className="mt-2 text-xs text-gc-danger" role="alert">
+        <p className="px-5 pb-4 text-xs text-gc-danger" role="alert">
           {error}
         </p>
       ) : null}
