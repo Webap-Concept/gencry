@@ -18,17 +18,16 @@
 //     sembra costoso. Strategia: aggiornare la versione cached IN PLACE
 //     (write-through) invece di invalidare, oppure tollerare drift di
 //     pochi secondi (counter denormalizzati sono UX, non ledger).
-import type { Post } from "@/lib/db/schema";
+import type { PostCardData } from "../types";
 
 /**
- * Forma minima del post cacheato. Le query reali (PR-4) ritorneranno
- * un superset (con author info, media, ecc.) — questo type marca solo
- * cosa ci si aspetta di trovare in cache per il post stesso.
- *
- * Tenuto generico (`Post` da Drizzle) per ora: PR-4 raffinerà con un
- * `PostCardData` più ricco e separato dal layer DB.
+ * Forma cacheata = lo stesso DTO che la UI consuma (PostCardData), così
+ * la cache può essere servita "as-is" senza riassemblare lato consumer.
+ * Includiamo author + media + tickers (già parte di PostCardData), MA
+ * non lo stato viewer-specific (ownReactions/bookmarked) — quello va
+ * unito al ritorno dal chiamante perché varia per utente.
  */
-export type CachedPost = Post;
+export type CachedPost = PostCardData;
 
 /**
  * Hydration batch con cache-aside. Il chiamante fornisce gli `ids` e una
