@@ -5,6 +5,8 @@ import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
+import { getAppSettings } from "@/lib/db/settings-queries";
+import { getUpstashClient } from "@/lib/kv/upstash";
 
 /** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
  * fresche (es. al termine di un cron run). Senza revalidate la cache scade
@@ -25,19 +27,99 @@ export interface PriceRow {
   lastUpdated: Date;
 }
 
+// Upstash KV key per il bundle "all prices". Strategia all-in-one
+// (non per-symbol MGET): la tabella pricesData ha <500 row sempre,
+// ~50KB JSON serializzato, una GET KV è più rapida di N parse client.
+// TTL = modules.prices.kv_ttl_seconds (default 30s, vedi roadmap KV).
+const KV_PRICES_ALL = "prices:current:all";
+
+type CachedPriceRow = {
+  symbol: string;
+  price: number;
+  change24h: number | null;
+  volume24h: number | null;
+  source: string;
+  lastUpdated: string; // ISO 8601 (JSON-safe)
+};
+
+async function fetchAllPricesFromDB(): Promise<PriceRow[]> {
+  const rows = await db.select().from(pricesData);
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    price: Number(r.price),
+    change24h: r.change24h !== null ? Number(r.change24h) : null,
+    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
+    source: r.source,
+    lastUpdated: r.lastUpdated,
+  }));
+}
+
+/**
+ * Cache-aside attorno alla tabella prices_data. Se Upstash non è
+ * configurato (`getUpstashClient()` → null) → fallback DB diretto,
+ * NESSUN errore. Qualsiasi errore KV durante GET/SET è loggato e
+ * trattato come miss/no-op — la query non deve mai fallire perché
+ * il KV è giù.
+ */
+async function getAllPricesCached(): Promise<PriceRow[]> {
+  const client = await getUpstashClient();
+  if (!client) return fetchAllPricesFromDB();
+
+  // Cache HIT?
+  try {
+    const cached = await client.get<CachedPriceRow[]>(KV_PRICES_ALL);
+    if (cached && Array.isArray(cached)) {
+      return cached.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
+    }
+  } catch (err) {
+    console.warn("[prices/cache] KV GET failed, fallback DB:", err);
+  }
+
+  // Miss → fetch DB + write-through
+  const fresh = await fetchAllPricesFromDB();
+
+  try {
+    const settings = await getAppSettings();
+    const ttl =
+      parseInt(settings["modules.prices.kv_ttl_seconds"], 10) || 30;
+    const serialized: CachedPriceRow[] = fresh.map((r) => ({
+      ...r,
+      lastUpdated: r.lastUpdated.toISOString(),
+    }));
+    await client.set(KV_PRICES_ALL, serialized, { ex: ttl });
+  } catch (err) {
+    console.warn("[prices/cache] KV SET failed (best-effort, ignored):", err);
+  }
+
+  return fresh;
+}
+
+/**
+ * Invalidazione esplicita della cache. Chiamare a fine sync così i
+ * prezzi appena scritti sono visibili immediatamente invece di
+ * aspettare il TTL (~30s). No-op se Upstash non configurato.
+ */
+export async function invalidatePricesCache(): Promise<void> {
+  const client = await getUpstashClient();
+  if (!client) return;
+  try {
+    await client.del(KV_PRICES_ALL);
+  } catch (err) {
+    console.warn("[prices/cache] KV DEL failed (ignored):", err);
+  }
+}
+
 export async function getCurrentPrices(symbols: string[]): Promise<Map<string, PriceRow>> {
   if (symbols.length === 0) return new Map();
-  const rows = await db.select().from(pricesData).where(inArray(pricesData.symbol, symbols));
+  // Cache-aside: 1 GET KV (o 1 fetch DB) per TUTTI i prezzi, poi
+  // filter client. A 30s TTL il cron sync scrive la tabella e la
+  // cache si riallinea naturalmente; con `invalidatePricesCache()`
+  // a fine sync l'allineamento è immediato.
+  const all = await getAllPricesCached();
+  const wanted = new Set(symbols);
   const map = new Map<string, PriceRow>();
-  for (const r of rows) {
-    map.set(r.symbol, {
-      symbol: r.symbol,
-      price: Number(r.price),
-      change24h: r.change24h !== null ? Number(r.change24h) : null,
-      volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
-      source: r.source,
-      lastUpdated: r.lastUpdated,
-    });
+  for (const r of all) {
+    if (wanted.has(r.symbol)) map.set(r.symbol, r);
   }
   return map;
 }
