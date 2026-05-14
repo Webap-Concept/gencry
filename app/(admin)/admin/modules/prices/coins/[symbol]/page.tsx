@@ -70,6 +70,7 @@ export default async function CoinDrilldownPage({
         symbol={upper}
         historyPage={historyPage}
         roundedRows={stats.rounded}
+        adminCoinsPath={coinsBack}
       />
     </div>
   );

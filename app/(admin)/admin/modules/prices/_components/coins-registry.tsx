@@ -710,7 +710,7 @@ function MaintenanceMenu({
             e.preventDefault();
             onBackfillImages();
           }}
-          className="flex-col items-start gap-1 py-2.5">
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
           <div className="flex items-center gap-2 font-medium">
             {isBackfilling ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
             Backfill immagini su R2
@@ -726,7 +726,7 @@ function MaintenanceMenu({
             e.preventDefault();
             onRefreshMetadata();
           }}
-          className="flex-col items-start gap-1 py-2.5">
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
           <div className="flex items-center gap-2 font-medium">
             {isRefreshingAll ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Refresh metadata + immagini
@@ -767,7 +767,7 @@ function MaintenanceMenu({
             e.preventDefault();
             onBackfillHistory();
           }}
-          className="flex-col items-start gap-1 py-2.5">
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
           <div className="flex items-center gap-2 font-medium">
             {isBackfillingHistory ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
             Backfill prezzi storici

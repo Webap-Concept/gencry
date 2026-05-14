@@ -34,15 +34,19 @@ export function CoinHistoryPanel({
   symbol,
   historyPage,
   roundedRows,
+  adminCoinsPath,
 }: {
   symbol: string;
   historyPage: HistoryPage;
   roundedRows: number;
+  /** Path admin base (es. /<slug>/modules/prices/coins). Risolto dalla
+   *  page server con `getAdminPath("prices-coins")`. */
+  adminCoinsPath: string;
 }) {
   const { rows, total, page, pageSize } = historyPage;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const baseUrl = `/admin/modules/prices/coins/${symbol.toLowerCase()}`;
+  const baseUrl = `${adminCoinsPath}/${symbol.toLowerCase()}`;
 
   return (
     <section

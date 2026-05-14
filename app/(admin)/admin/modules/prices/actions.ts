@@ -777,11 +777,9 @@ export async function backfillHistoryAction(
             return { ok: false };
           }
 
-          // INSERT con ON CONFLICT: rimpiazza solo se il valore esistente
-          // è arrotondato (trunc(price) == price). Lascia i valori con
-          // decimali intatti. `setWhere` di drizzle si traduce in:
-          //   ON CONFLICT (symbol, ts) DO UPDATE SET price = EXCLUDED.price
-          //     WHERE prices_history.price = trunc(prices_history.price)
+          // 1) INSERT con ON CONFLICT: rimpiazza solo se il valore esistente
+          //    è arrotondato (trunc(price) == price). Lascia i valori con
+          //    decimali intatti.
           //
           // Chunking 500 per evitare di superare il limit di bind params
           // di Postgres (~65k per query).
@@ -803,6 +801,50 @@ export async function backfillHistoryAction(
                 setWhere: sql`prices_history.price = trunc(prices_history.price)`,
               });
           }
+
+          // 2) Cleanup: l'ON CONFLICT scatta solo se il timestamp coincide
+          //    al microsecondo. I punti vecchi arrotondati con ts diverso
+          //    (es. 18:00:01.5 vs il punto CC 18:00:00.0) restano in DB.
+          //    Cancelliamo le righe arrotondate nella finestra coperta dal
+          //    backfill che hanno almeno un "vicino" precedente nello
+          //    stesso bucket orario — quello vicino è il nuovo punto CC,
+          //    quindi il vecchio è ormai ridondante.
+          const windowStart = new Date(
+            Date.now() - safeTotal * 24 * 3600 * 1000,
+          );
+          const hourCutoff = safeHour > 0
+            ? new Date(Date.now() - safeHour * 24 * 3600 * 1000)
+            : null;
+
+          // Bucket orario per la finestra recente (safeHour gg)
+          if (hourCutoff) {
+            await db.execute(sql`
+              DELETE FROM prices_history old
+              WHERE old.symbol = ${symbol}
+                AND old.price = trunc(old.price)
+                AND old.ts >= ${hourCutoff.toISOString()}::timestamptz
+                AND EXISTS (
+                  SELECT 1 FROM prices_history neighbour
+                  WHERE neighbour.symbol = old.symbol
+                    AND neighbour.price <> trunc(neighbour.price)
+                    AND date_trunc('hour', neighbour.ts) = date_trunc('hour', old.ts)
+                )
+            `);
+          }
+          // Bucket giornaliero per il resto della finestra
+          await db.execute(sql`
+            DELETE FROM prices_history old
+            WHERE old.symbol = ${symbol}
+              AND old.price = trunc(old.price)
+              AND old.ts >= ${windowStart.toISOString()}::timestamptz
+              ${hourCutoff ? sql`AND old.ts < ${hourCutoff.toISOString()}::timestamptz` : sql``}
+              AND EXISTS (
+                SELECT 1 FROM prices_history neighbour
+                WHERE neighbour.symbol = old.symbol
+                  AND neighbour.price <> trunc(neighbour.price)
+                  AND date_trunc('day', neighbour.ts) = date_trunc('day', old.ts)
+              )
+          `);
 
           return { ok: true, count: all.length };
         }),
