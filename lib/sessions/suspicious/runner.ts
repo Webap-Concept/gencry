@@ -1,34 +1,33 @@
 // lib/sessions/suspicious/runner.ts
 //
-// End-to-end orchestrator: load config → detect → persist (idempotent) →
-// (optionally) email digest → return a summary for telemetry.
+// Detection + persist orchestrator per i suspicious-session alerts.
 //
-// Email throttling: based on `config.schedule` and the timestamp stored in
-// `app_settings.notifications.alerts_last_digest_at`. The cron route can
-// safely tick every 15 min — the runner won't email more often than the
-// schedule permits.
+// CHANGED 2026-05-14: l'email digest NON è più gestito da qui. Il
+// runner si limita a detect + persist su `sessionAlerts` + popolare
+// `admin_notifications` con `type=session_suspicious` (metadata
+// contiene lo snapshot del DigestAlert). Il dispatcher email generico
+// (`lib/notifications/email-channel/dispatcher.ts`) prende da lì,
+// rispetta lo schedule per source, e invia.
 
 import "server-only";
 import { db } from "@/lib/db/drizzle";
-import { sessionAlerts, users } from "@/lib/db/schema";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  adminNotifications,
+  sessionAlerts,
+} from "@/lib/db/schema";
+import { and, asc, inArray, isNull } from "drizzle-orm";
 import {
   type AlertsConfig,
   getAlertsConfig,
-  getLastDigestAt,
-  setLastDigestAt,
 } from "./config";
 import { runAllDetectors } from "./detectors";
-import { sendSuspiciousAlertsDigest } from "@/lib/email/templates/admin-suspicious-alerts";
 import { meetsThreshold } from "./types";
-import { permissions, rolePermissions, roles } from "@/lib/db/schema";
 
 export type RunnerResult = {
   detected: number;
   inserted: number;
-  emailedCount: number;
-  emailSent: boolean;
-  emailReason: string | null;
+  /** Quante notifiche admin emesse in admin_notifications da questo run. */
+  notified: number;
   dryRun: boolean;
 };
 
@@ -39,14 +38,10 @@ export type RunnerResult = {
 /** Inserts candidates into `session_alerts`, idempotent on `dedup_key`. */
 async function persistCandidates(
   config: AlertsConfig,
-  candidates: ReturnType<typeof Array.prototype.slice> extends never
-    ? never
-    : Awaited<ReturnType<typeof runAllDetectors>>,
+  candidates: Awaited<ReturnType<typeof runAllDetectors>>,
 ): Promise<{ insertedIds: number[] }> {
   if (candidates.length === 0) return { insertedIds: [] };
 
-  // Bulk insert with ON CONFLICT DO NOTHING. RETURNING gives us only the
-  // rows that were actually inserted (PG behaviour with ON CONFLICT).
   const inserted = await db
     .insert(sessionAlerts)
     .values(
@@ -62,14 +57,11 @@ async function persistCandidates(
     .onConflictDoNothing({ target: sessionAlerts.dedupKey })
     .returning({ id: sessionAlerts.id, severity: sessionAlerts.severity });
 
-  // Mark below-threshold alerts as silently acknowledged so they don't
-  // drag the panel notification or appear in the digest. They stay in the
-  // table for audit.
+  // Below-threshold acknowledged silently per non riempire la queue admin.
+  // Threshold ora vive in `config.sources.sessions.severityThreshold`.
+  const threshold = config.sources.sessions.severityThreshold;
   const belowThreshold = inserted.filter(
-    (r) => !meetsThreshold(
-      r.severity as AlertsConfig["severityThreshold"],
-      config.severityThreshold,
-    ),
+    (r) => !meetsThreshold(r.severity as never, threshold),
   );
   if (belowThreshold.length > 0) {
     await db
@@ -87,54 +79,100 @@ async function persistCandidates(
 }
 
 // ---------------------------------------------------------------------------
-// Schedule helpers
+// Bridge: sessionAlerts → admin_notifications
 // ---------------------------------------------------------------------------
 
-function shouldEmailNow(
-  schedule: AlertsConfig["schedule"],
-  lastSentAt: Date | null,
-  now: Date,
-): { ok: true } | { ok: false; reason: string } {
-  if (schedule === "off") return { ok: false, reason: "schedule=off" };
-  if (schedule === "instant") return { ok: true };
-  if (!lastSentAt) return { ok: true };
+const REASON_TITLE: Record<string, string> = {
+  multiple_ips: "Multiple IPs for one user",
+  concurrent_devices: "Many concurrent devices",
+  burst_creation: "Burst of new sessions",
+  bot_user_agent: "Bot / scraper User-Agent",
+  long_idle_resurrect: "Old session reactivated after long idle",
+  failed_then_success: "Successful login after failed-attempt burst",
+  sensitive_action_new_ip: "Sensitive action from a new IP",
+  new_subnet: "Login from a never-seen subnet",
+  ua_churn: "Many different user-agents in short window",
+  cross_user_campaign: "Same IP attacking multiple users",
+  off_baseline_hours: "Login outside the user's typical hours",
+  admin_off_hours: "Admin login outside business hours",
+  trusted_device_from_fresh_session:
+    "Trusted device added right after fresh session",
+};
 
-  const elapsedMs = now.getTime() - lastSentAt.getTime();
-  if (schedule === "hourly_digest" && elapsedMs < 60 * 60 * 1000) {
-    return { ok: false, reason: "hourly_throttle" };
+/**
+ * Crea (o aggiorna) le righe `admin_notifications` di tipo
+ * `session_suspicious` per i nuovi `sessionAlerts` sopra soglia. Il
+ * `metadata.snapshot` contiene il payload completo del DigestAlert
+ * così l'email-channel renderer non deve fare join al rendering.
+ *
+ * dedupKey deriva dal sessionAlerts.dedupKey (1:1 con lo stesso alert).
+ */
+async function bridgeToAdminNotifications(
+  config: AlertsConfig,
+  alertIds: number[],
+): Promise<{ notified: number }> {
+  if (alertIds.length === 0) return { notified: 0 };
+  const threshold = config.sources.sessions.severityThreshold;
+
+  // Pull dei record completi + dedupKey originale dalla tabella sessionAlerts
+  const rows = await db
+    .select({
+      id: sessionAlerts.id,
+      reason: sessionAlerts.reason,
+      severity: sessionAlerts.severity,
+      createdAt: sessionAlerts.createdAt,
+      userId: sessionAlerts.userId,
+      sessionId: sessionAlerts.sessionId,
+      details: sessionAlerts.details,
+      dedupKey: sessionAlerts.dedupKey,
+      acknowledgedAt: sessionAlerts.acknowledgedAt,
+    })
+    .from(sessionAlerts)
+    .where(
+      and(
+        inArray(sessionAlerts.id, alertIds),
+        isNull(sessionAlerts.acknowledgedAt), // already-acked = sotto-soglia, skip
+      ),
+    )
+    .orderBy(asc(sessionAlerts.createdAt));
+
+  if (rows.length === 0) return { notified: 0 };
+
+  let notified = 0;
+  for (const a of rows) {
+    if (!meetsThreshold(a.severity as never, threshold)) continue;
+    const title = REASON_TITLE[a.reason] ?? a.reason;
+    const dedupKey = `session_suspicious:${a.dedupKey}`;
+    try {
+      await db
+        .insert(adminNotifications)
+        .values({
+          type: "session_suspicious",
+          severity: a.severity,
+          title,
+          body: null,
+          link: null,
+          dedupKey,
+          requiredPermission: "admin:access",
+          metadata: {
+            snapshot: {
+              id: a.id,
+              reason: a.reason,
+              severity: a.severity,
+              createdAt: a.createdAt.toISOString(),
+              userId: a.userId,
+              sessionId: a.sessionId,
+              details: a.details ?? {},
+            },
+          },
+        })
+        .onConflictDoNothing({ target: adminNotifications.dedupKey });
+      notified++;
+    } catch (err) {
+      console.error("[suspicious/runner] admin_notifications upsert failed:", err);
+    }
   }
-  if (schedule === "daily_digest" && elapsedMs < 24 * 60 * 60 * 1000) {
-    return { ok: false, reason: "daily_throttle" };
-  }
-  return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
-// Recipient resolution
-// ---------------------------------------------------------------------------
-
-async function resolveRecipients(config: AlertsConfig): Promise<string[]> {
-  const set = new Set<string>(config.recipients.emails);
-
-  if (config.recipients.includeAdminUsers) {
-    // Pull email of users with `admin:access` (via role) or super-admin flag.
-    const rows = await db
-      .select({ email: users.email })
-      .from(users)
-      .leftJoin(roles, eq(roles.name, users.role))
-      .leftJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-      .leftJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(
-        and(
-          isNull(users.deletedAt),
-          isNull(users.bannedAt),
-          sql`(${users.isAdmin} = true OR ${permissions.key} = 'admin:access')`,
-        ),
-      );
-    for (const r of rows) set.add(r.email);
-  }
-
-  return [...set];
+  return { notified };
 }
 
 // ---------------------------------------------------------------------------
@@ -142,8 +180,9 @@ async function resolveRecipients(config: AlertsConfig): Promise<string[]> {
 // ---------------------------------------------------------------------------
 
 /**
- * Single end-to-end pass. Always idempotent: safe to invoke from cron, an
- * admin "run now" button, or a test.
+ * Single end-to-end pass. Detection + persist + bridge ad
+ * admin_notifications. Idempotente: safe per cron, "run now" admin, test.
+ * L'email send è delegato al dispatcher email generico.
  */
 export async function runSuspiciousDetection(): Promise<RunnerResult> {
   const config = await getAlertsConfig();
@@ -152,124 +191,22 @@ export async function runSuspiciousDetection(): Promise<RunnerResult> {
   const candidates = await runAllDetectors(config, now);
   const { insertedIds } = await persistCandidates(config, candidates);
 
-  // Pending = inserted in this run AND severity meets threshold AND not
-  // already emailed in a previous tick.
-  const pendingForEmail =
-    insertedIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: sessionAlerts.id,
-            reason: sessionAlerts.reason,
-            severity: sessionAlerts.severity,
-            createdAt: sessionAlerts.createdAt,
-            details: sessionAlerts.details,
-            userId: sessionAlerts.userId,
-            sessionId: sessionAlerts.sessionId,
-          })
-          .from(sessionAlerts)
-          .where(
-            and(
-              inArray(sessionAlerts.id, insertedIds),
-              isNull(sessionAlerts.emailSentAt),
-              isNull(sessionAlerts.acknowledgedAt),
-            ),
-          )
-          .orderBy(asc(sessionAlerts.createdAt));
-
-  // Dry-run short-circuits AFTER persistence — alerts still get logged so
-  // an admin can review them in the panel before flipping the switch.
   if (config.dryRun) {
     return {
       detected: candidates.length,
       inserted: insertedIds.length,
-      emailedCount: 0,
-      emailSent: false,
-      emailReason: "dry_run",
+      notified: 0,
       dryRun: true,
     };
   }
 
-  if (pendingForEmail.length === 0) {
-    return {
-      detected: candidates.length,
-      inserted: insertedIds.length,
-      emailedCount: 0,
-      emailSent: false,
-      emailReason: "no_pending",
-      dryRun: false,
-    };
-  }
+  const { notified } = await bridgeToAdminNotifications(config, insertedIds);
+  void now;
 
-  const lastSent = await getLastDigestAt();
-  const decision = shouldEmailNow(config.schedule, lastSent, now);
-  if (!decision.ok) {
-    return {
-      detected: candidates.length,
-      inserted: insertedIds.length,
-      emailedCount: 0,
-      emailSent: false,
-      emailReason: decision.reason,
-      dryRun: false,
-    };
-  }
-
-  const recipients = await resolveRecipients(config);
-  if (recipients.length === 0) {
-    return {
-      detected: candidates.length,
-      inserted: insertedIds.length,
-      emailedCount: 0,
-      emailSent: false,
-      emailReason: "no_recipients",
-      dryRun: false,
-    };
-  }
-
-  try {
-    await sendSuspiciousAlertsDigest({
-      recipients,
-      alerts: pendingForEmail.map((a) => ({
-        id: a.id,
-        reason: a.reason,
-        severity: a.severity,
-        createdAt: a.createdAt,
-        userId: a.userId,
-        sessionId: a.sessionId,
-        details: (a.details ?? {}) as Record<string, unknown>,
-      })),
-      schedule: config.schedule,
-    });
-
-    await db
-      .update(sessionAlerts)
-      .set({ emailSentAt: now })
-      .where(
-        inArray(
-          sessionAlerts.id,
-          pendingForEmail.map((a) => a.id),
-        ),
-      );
-    await setLastDigestAt(now);
-
-    return {
-      detected: candidates.length,
-      inserted: insertedIds.length,
-      emailedCount: pendingForEmail.length,
-      emailSent: true,
-      emailReason: null,
-      dryRun: false,
-    };
-  } catch (err) {
-    console.error("[suspicious/runner] email digest failed:", err);
-    return {
-      detected: candidates.length,
-      inserted: insertedIds.length,
-      emailedCount: 0,
-      emailSent: false,
-      emailReason:
-        err instanceof Error ? `email_error:${err.message}` : "email_error",
-      dryRun: false,
-    };
-  }
+  return {
+    detected: candidates.length,
+    inserted: insertedIds.length,
+    notified,
+    dryRun: false,
+  };
 }

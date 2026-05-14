@@ -1136,6 +1136,12 @@ export const adminNotifications = pgTable(
     snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
     dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    // Email dispatch tracking (vedi lib/notifications/email-channel).
+    // Source of truth dello stato "inviata via email" per il dispatcher
+    // generico. NULL = non ancora inviata (candidata se sopra threshold).
+    emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+    emailSendAttempts: integer("email_send_attempts").notNull().default(0),
+    lastEmailError: text("last_email_error"),
   },
   (t) => ({
     activeIdx: index("idx_admin_notifications_active").on(

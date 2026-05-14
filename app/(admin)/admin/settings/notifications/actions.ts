@@ -64,22 +64,31 @@ export async function saveNotificationsConfigAction(
   await requireAdminSectionPage("admin:settings");
 
   const defaults = DEFAULT_ALERTS_CONFIG;
-  const rules = defaults.rules;
+  const rules = defaults.sources.sessions.rules;
+  const cronDefaults = defaults.sources.cron;
+  const sessionsDefaults = defaults.sources.sessions;
 
   const next: AlertsConfig = {
     recipients: {
       emails: emailListFrom(formData.get("recipients_emails")),
       includeAdminUsers: bool(formData.get("recipients_include_admin_users")),
     },
-    schedule: strOr(formData.get("schedule"), SCHEDULES, defaults.schedule),
-    severityThreshold: strOr(
-      formData.get("severity_threshold"),
-      SEVERITIES,
-      defaults.severityThreshold,
-    ),
     dryRun: bool(formData.get("dry_run")),
-    rules: {
-      multiple_ips: {
+    sources: {
+      sessions: {
+        enabled: true, // sessions toggle non esposto in UI v1 (sempre attivo finché lasciate rules abilitate)
+        schedule: strOr(
+          formData.get("sessions_schedule"),
+          SCHEDULES,
+          sessionsDefaults.schedule,
+        ),
+        severityThreshold: strOr(
+          formData.get("sessions_severity_threshold"),
+          SEVERITIES,
+          sessionsDefaults.severityThreshold,
+        ),
+        rules: {
+          multiple_ips: {
         enabled: bool(formData.get("rule_multiple_ips_enabled")),
         severity: strOr(
           formData.get("rule_multiple_ips_severity"),
@@ -275,7 +284,26 @@ export async function saveNotificationsConfigAction(
           rules.trusted_device_from_fresh_session.withinMinutes,
         ),
       },
-    },
+        }, // close rules
+      }, // close sources.sessions
+      cron: {
+        enabled: bool(formData.get("cron_enabled")),
+        schedule: strOr(
+          formData.get("cron_schedule"),
+          SCHEDULES,
+          cronDefaults.schedule,
+        ),
+        severityThreshold: strOr(
+          formData.get("cron_severity_threshold"),
+          SEVERITIES,
+          cronDefaults.severityThreshold,
+        ),
+        escalateAfterFailures: intOr(
+          formData.get("cron_escalate_after"),
+          cronDefaults.escalateAfterFailures,
+        ),
+      }, // close sources.cron
+    }, // close sources
   };
 
   const t = await getTranslations("admin.settings.actionMessages");
@@ -319,7 +347,7 @@ export async function runDetectionNowAction(
       success: t("notificationsRunComplete", {
         detected: result.detected,
         inserted: result.inserted,
-        emailed: result.emailedCount,
+        emailed: result.notified,
         dryRun: result.dryRun ? "true" : "false",
       }),
       timestamp: Date.now(),
