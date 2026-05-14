@@ -90,9 +90,16 @@ export async function createPostMediaTicket(
   const cfg = await loadPostsR2Config();
   if (!cfg) return { ok: false, error: I18N.notConfigured };
 
-  // Limite "max 4 draft pending per utente" (allineato con la max
-  // images_per_post). Evita che un utente generi ticket all'infinito
-  // senza mai publicare → bloat orphan.
+  // Limite "max N draft pending RECENTI per utente" (default 4, da
+  // settings modules.posts.max_images_per_post). Evita che un utente
+  // generi ticket all'infinito senza mai publicare → bloat orphan.
+  //
+  // Window: solo i draft creati negli ultimi 15 minuti — i più vecchi
+  // sono effettivamente "abbandonati" (upload fallito, modal chiusa,
+  // browser crashed) e li ignoriamo qui, lasciando al cron
+  // orphan-cleanup (PR-7) di rimuoverli fisicamente da R2+DB. Senza
+  // questa finestra ogni utente con un test fallito si ritrovava
+  // permanentemente bloccato a "too_many_per_post".
   const settings = await getAppSettings();
   const maxPerPost =
     parseInt(settings["modules.posts.max_images_per_post"], 10) || 4;
@@ -100,7 +107,10 @@ export async function createPostMediaTicket(
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(postsMedia)
     .where(
-      sql`${postsMedia.authorId} = ${user.id} AND ${postsMedia.postId} IS NULL AND ${postsMedia.confirmedAt} IS NULL`,
+      sql`${postsMedia.authorId} = ${user.id}
+          AND ${postsMedia.postId} IS NULL
+          AND ${postsMedia.confirmedAt} IS NULL
+          AND ${postsMedia.createdAt} > NOW() - INTERVAL '15 minutes'`,
     );
   if ((pendingCount[0]?.count ?? 0) >= maxPerPost) {
     return { ok: false, error: I18N.tooMany };
