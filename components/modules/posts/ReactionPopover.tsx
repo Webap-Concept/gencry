@@ -131,12 +131,12 @@ export function ReactionPopover({
         {top.length === 0 ? (
           <Smile size={18} strokeWidth={1.75} />
         ) : (
-          <span className="flex items-center -space-x-1.5" aria-hidden="true">
+          <span className="flex items-center -space-x-1" aria-hidden="true">
             {top.map((kind, i) => (
               <span
                 key={kind}
                 style={{ zIndex: top.length - i }}
-                className="w-5 h-5 rounded-full bg-gc-bg-1 border border-gc-line shadow-sm flex items-center justify-center text-[12px] leading-none"
+                className="w-5 h-5 flex items-center justify-center text-[14px] leading-none"
               >
                 {REACTION_EMOJI[kind]}
               </span>

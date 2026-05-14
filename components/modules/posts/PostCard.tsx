@@ -27,7 +27,7 @@ import { startTransition, useOptimistic, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
-import type { PostCardData } from "@/lib/modules/posts/types";
+import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import {
   reportPost,
@@ -103,6 +103,26 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
   const [ownReaction, setOwnReaction] = useOptimistic<PostReactionKind | null>(
     initialOwnReaction,
   );
+  // Counters ottimistici. Reducer applica -1 sulla `remove` (vecchia
+  // reaction dell'utente) e +1 sulla `add` (nuova) in sintonia con i
+  // trigger DB; così l'UI risponde subito al click invece di
+  // aspettare il refresh.
+  const [optimisticCounts, applyCountsDelta] = useOptimistic<
+    PostReactionCounts,
+    { remove?: PostReactionKind; add?: PostReactionKind }
+  >(post.counts.reactions, (state, delta) => {
+    const next = { ...state };
+    if (delta.remove) next[delta.remove] = Math.max(0, next[delta.remove] - 1);
+    if (delta.add) next[delta.add] = next[delta.add] + 1;
+    return next;
+  });
+  const reactionsTotalOptimistic =
+    optimisticCounts.like +
+    optimisticCounts.rocket +
+    optimisticCounts.bull +
+    optimisticCounts.bear +
+    optimisticCounts.dump +
+    optimisticCounts.diamond;
   const [hidden, setHidden] = useState(false);
   const [deleted, setDeleted] = useState(false);
 
@@ -110,11 +130,19 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
 
   const onToggleReaction = (kind: PostReactionKind) => {
     const wasActive = ownReaction === kind;
+    const previousOwn = ownReaction;
     startTransition(async () => {
       // Optimistic: stessa kind → off, diversa → switch
       setOwnReaction(wasActive ? null : kind);
+      applyCountsDelta({
+        remove: previousOwn ?? undefined,
+        add: wasActive ? undefined : kind,
+      });
       const res = await toggleReaction({ postId: post.id, reaction: kind });
       if (!res.ok) setOwnReaction(initialOwnReaction);
+      // Niente reset esplicito di applyCountsDelta in caso d'errore:
+      // useOptimistic ricomputa da post.counts.reactions ad ogni
+      // commit, quindi al refresh torna allineato.
     });
   };
 
@@ -158,9 +186,10 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
     });
   };
 
-  // Reactions total da counters denormalizzati (1 lettura, niente sum
-  // ricomputato a render time — già aggregato in PostCounts.reactionsTotal).
-  const reactionsTotal = post.counts.reactionsTotal;
+  // Reactions total: usa il valore ottimistico così riflette il
+  // toggle dell'utente PRIMA che la Server Action concluda. La somma
+  // è O(6), trascurabile.
+  const reactionsTotal = reactionsTotalOptimistic;
 
   // Card-level click → naviga al single-post. Solo variant=feed.
   // Skippa la nav se il click ha colpito un elemento interattivo
@@ -331,7 +360,7 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
       <footer className="mt-4 flex items-center gap-1">
         <ReactionPopover
           ownReaction={ownReaction}
-          counts={post.counts.reactions}
+          counts={optimisticCounts}
           totalCount={reactionsTotal}
           onToggle={onToggleReaction}
         />
