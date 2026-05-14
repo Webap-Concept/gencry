@@ -60,7 +60,75 @@
     "noRunsBadge": "No runs",
     "runStatusSucceeded": "Succeeded",
     "runStatusFailed": "Failed",
-    "failedToLoadRuns": "Failed to load runs"
+    "failedToLoadRuns": "Failed to load runs",
+    "guideTitle": "How to change a cron",
+    "guideTriggerAria": "Open cron guide",
+    "guideIntro": "The actual cron schedule is owned by Supabase pg_cron, not by the app. To change frequency or disable a job, run a SQL command in the Supabase SQL Editor.",
+    "guideAlterTitle": "Change job frequency",
+    "guideAlterIntro": "Example: switch from every 5 minutes to every minute.",
+    "guideUnscheduleTitle": "Remove a job",
+    "guideUnscheduleIntro": "Drop the job from pg_cron entirely.",
+    "guideTipsTitle": "Quick tips",
+    "guideTip1": "Cron schedules use standard crontab syntax: minute, hour, day of month, month, day of week.",
+    "guideTip2": "Run every minute: \"* * * * *\". Every 5 min: \"*/5 * * * *\". Top of every hour: \"0 * * * *\".",
+    "guideTip3": "After alter_job, the table above will reflect the new schedule on the next page refresh."
+  },
+  "cronJobs": {
+    "gdpr-export-worker": {
+      "label": "GDPR Export Worker",
+      "description": "Processes pending GDPR data-export jobs (max 5 per run) and deletes export files whose expires_at is past.",
+      "purpose": "Required by GDPR. Users can request a copy of their data from /settings/privacy; this cron generates the ZIP, emails the link to the user, and later cleans up expired files."
+    },
+    "sessions-cleanup": {
+      "label": "Sessions Cleanup",
+      "description": "Deletes server-side session rows that are expired or have been revoked more than the grace window ago.",
+      "purpose": "Keeps the sessions table bounded and removes stale records of logged-out / expired devices. Backs the active-sessions UI in /settings/security and the auto-logout-elsewhere flow."
+    },
+    "soft-deleted-purge": {
+      "label": "Soft-deleted Account Purge",
+      "description": "Hard-deletes user rows that have been soft-deleted (deleted_at IS NOT NULL) for more than 30 days.",
+      "purpose": "Implements the GDPR 30-day grace window after an account-deletion request. Within 30 days the user can still recover the account; after that the row is purged and FK ON DELETE SET NULL preserves audit trails."
+    },
+    "notifications-dispatch": {
+      "label": "Admin Notifications Dispatch",
+      "description": "Runs all notification generators (cron failures, secret rotation, …) and reconciles admin_notifications: inserts new alerts, refreshes severity, auto-resolves conditions that have cleared.",
+      "purpose": "Ensures admin alerts (e.g. a cron going into failure) appear within minutes instead of waiting for an admin to navigate the panel. The layout-render trigger still acts as a fallback if pg_cron is not running."
+    },
+    "sessions-suspicious-detection": {
+      "label": "Suspicious Sessions Detection",
+      "description": "Runs the configured Tier-1 heuristics (multiple IPs, concurrent devices, bot UA, failed→success login, sensitive action on new IP, …) over recent sessions / login_attempts / activity_logs and persists candidates into session_alerts. Sends an email digest to admins when the schedule allows.",
+      "purpose": "Surfaces compromised or hijacked sessions early. Detect-only by default — alerts appear in /admin/access/sessions and trigger an admin notification + email digest, but do not auto-revoke sessions. Tunable from /admin/settings/notifications."
+    },
+    "policy-change-notifications": {
+      "label": "Policy Change Notifications",
+      "description": "Selects up to 50 distinct users with pending rows in policy_change_notifications and emails each one a single digest of all their out-of-date policies (terms, privacy, marketing). Marks rows sent/failed with retry logic (max 3 attempts).",
+      "purpose": "Required by GDPR re-consent flow. When an admin bumps a system policy version, all affected users get a row in policy_change_notifications; this cron delivers the email so they know to re-accept on the next login. Frequency tunable via gdpr.policy.notifications_cron_minutes (default 60)."
+    },
+    "consent-records-cleanup": {
+      "label": "Consent Records Retention Cleanup",
+      "description": "Deletes rows from consent_records older than gdpr.consent_log.retention_after_deletion_days (default 5 years), in batches of 5000 with a 20-batch cap per run (~100k rows max per execution). Backlog drains across subsequent runs.",
+      "purpose": "Bounds the append-only consent ledger so it doesn't grow indefinitely. The retention window matches the typical GDPR Art. 7(1) demonstrability period; older rows have no probative value and can be dropped. Cron suggested daily at 03:00 UTC; set retention to 0 to disable."
+    },
+    "ip-rules-maintenance": {
+      "label": "IP Rules Maintenance",
+      "description": "Two jobs in one: deletes expired ip_rules rows older than 30 days, and flushes per-rule hit counters from Redis (GETDEL on ip-rule:hits:<id>) into the hit_count column.",
+      "purpose": "Keeps the manual IP rules table tidy (auto-purge of long-stale expired entries) and persists analytics counters that are written fire-and-forget at request time. Without this cron, the dashboard would show zero hits even for rules that matched many times. Suggested every 15 minutes."
+    },
+    "modules-prices-sync": {
+      "label": "Prices Sync",
+      "description": "Fetches the latest prices for the active coin universe from CoinGecko / fallback sources and updates the live KV cache.",
+      "purpose": "Keeps live prices fresh on the frontend (markets table, watchlists, charts)."
+    },
+    "modules-prices-snapshot": {
+      "label": "Prices Snapshot",
+      "description": "Persists a periodic snapshot of prices into the time-series table for historical charts.",
+      "purpose": "Powers historical charts and delta computations (24h, 7d)."
+    },
+    "modules-prices-cleanup": {
+      "label": "Prices Cleanup",
+      "description": "Deletes price snapshots older than the configured retention window from the time-series table.",
+      "purpose": "Keeps DB size bounded and respects the retention policy in module settings."
+    }
   },
   "signIn": {
     "eyebrow": "Administration Panel",

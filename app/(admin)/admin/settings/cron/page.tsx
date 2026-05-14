@@ -11,11 +11,13 @@
  * sono gestiti nella pagina del rispettivo modulo
  * (es. /admin/modules/prices/cron).
  */
+import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
 import {
   CronJobsTable,
   type CronRow,
 } from "@/app/(admin)/admin/_components/cron-jobs-table";
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { buildAdminPath } from "@/lib/admin-paths";
 import {
   buildExpectedCommandBody,
@@ -106,6 +108,11 @@ export default async function SettingsCronPage() {
         breadcrumbLabel={tHeader("rootTitle")}
         title={tHeader("sections.cron.label")}
         subtitle={tHeader("sections.cron.description")}
+        infoSlot={
+          <AdminSectionInfo title={t("guideTitle")} ariaLabel={t("guideTriggerAria")}>
+            <CronAdminGuide />
+          </AdminSectionInfo>
+        }
       />
       {dbError && (
         <div
