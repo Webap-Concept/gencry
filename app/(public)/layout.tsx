@@ -20,6 +20,7 @@
  * social, le azioni gated (es. "aggiungi a watchlist") fanno il check
  * al momento del click — visualizzare il contenuto è sempre concesso.
  */
+import { PolicyReconsentSlot } from "@/app/(protected)/_components/policy-reconsent-slot";
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
@@ -45,8 +46,16 @@ export default async function PublicLayout({
   ]);
 
   if (session) {
+    // Banner re-consent globale anche per le pagine pubbliche viste
+    // dal loggato (vedi (protected)/layout.tsx per il path "vero" gated
+    // con MFA enforcement — qui solo il banner UI, niente redirect).
+    const banner = (
+      <Suspense fallback={null}>
+        <PolicyReconsentSlot userId={session.user.id} />
+      </Suspense>
+    );
     return (
-      <ProtectedShell appLogoUrl={appSettings.app_logo_url}>
+      <ProtectedShell appLogoUrl={appSettings.app_logo_url} banner={banner}>
         <Suspense fallback={null}>{children}</Suspense>
       </ProtectedShell>
     );

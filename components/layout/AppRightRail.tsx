@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { resolveSlot } from "@/lib/home/registry";
 import type { HomeSection } from "@/lib/home/types";
 import { SlotBoundary } from "@/components/feed/SlotBoundary";
+import { RailLegalFooter } from "./RailLegalFooter";
 
 // Right rail della home loggata. Compone le sezioni registrate negli
 // slot `home.rail.*` — vedi project_home_slot_registry.md.
@@ -16,7 +17,15 @@ import { SlotBoundary } from "@/components/feed/SlotBoundary";
 // `home.rail.top/middle/bottom` — il rail la prende su senza modifiche
 // a questo file.
 
-export async function AppRightRail() {
+export async function AppRightRail({
+  /** Mostra in fondo al rail il mini-footer con link legali +
+   *  "Pubblicità". Attivo per gli utenti loggati che NON vedono il
+   *  PublicFooter sotto (ProtectedShell è full-height). Default false
+   *  così i layout pubblici anonimi non duplicano il footer. */
+  showLegalFooter = false,
+}: {
+  showLegalFooter?: boolean;
+} = {}) {
   const [top, middle, bottom] = await Promise.all([
     resolveSlot("home.rail.top"),
     resolveSlot("home.rail.middle"),
@@ -49,6 +58,11 @@ export async function AppRightRail() {
           <SectionRenderer section={s} />
         </SlotBoundary>
       ))}
+      {showLegalFooter && (
+        <Suspense fallback={null}>
+          <RailLegalFooter />
+        </Suspense>
+      )}
     </aside>
   );
 }
