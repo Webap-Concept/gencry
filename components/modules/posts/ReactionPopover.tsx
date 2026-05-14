@@ -15,6 +15,15 @@
 // Niente nuove dipendenze: implementato a mano con useState +
 // onMouseEnter/Leave + click. Posizione popover absolute sopra il
 // trigger, container con `relative` per posizionamento corretto.
+//
+// Animazione entrance: i 6 item entrano in cascata (stagger 30ms ×
+// index) con scale-from-95 + translate-from-bottom-2, hover su
+// singola emoji = scale-150 + lift. Tutto pure CSS via Tailwind
+// `animate-in` (plugin tailwindcss-animate, già nel core).
+//
+// TODO(art): sostituire le emoji nativi con un set di SVG custom
+// (modulo `components/modules/posts/icons/`) — per ora si usa il
+// fallback Unicode che dipende dal font emoji del sistema operativo.
 import { useEffect, useRef, useState } from "react";
 import { Smile } from "lucide-react";
 import { POST_REACTION_KINDS, type PostReactionKind } from "@/lib/db/schema";
@@ -113,9 +122,10 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
         <div
           role="menu"
           aria-label="Scegli reazione"
-          className="absolute z-50 left-0 -top-2 -translate-y-full bg-gc-modal-bg border border-gc-modal-border rounded-full shadow-lg px-1.5 py-1 flex items-center gap-0.5"
+          data-state="open"
+          className="absolute z-50 left-0 -top-2 -translate-y-full origin-bottom-left bg-gc-modal-bg border border-gc-modal-border rounded-full shadow-xl px-1.5 py-1 flex items-center gap-0.5 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 duration-200"
         >
-          {POST_REACTION_KINDS.map((kind) => {
+          {POST_REACTION_KINDS.map((kind, i) => {
             const active = ownReactions.includes(kind);
             return (
               <button
@@ -125,8 +135,11 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
                 onClick={() => onPick(kind)}
                 aria-label={REACTION_LABEL[kind]}
                 title={REACTION_LABEL[kind]}
-                className={`text-xl leading-none w-9 h-9 rounded-full flex items-center justify-center transition hover:scale-125 ${
-                  active ? "bg-gc-accent/15" : "hover:bg-gc-bg-3"
+                style={{ animationDelay: `${i * 30}ms` }}
+                className={`text-xl leading-none w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-1 hover:scale-150 hover:drop-shadow-md active:scale-95 ${
+                  active
+                    ? "bg-gc-accent/15 ring-2 ring-gc-accent/40"
+                    : "hover:bg-gc-bg-3/60"
                 }`}
               >
                 {REACTION_EMOJI[kind]}
