@@ -1,33 +1,31 @@
 "use client";
 // components/modules/posts/ReactionPopover.tsx
 //
-// Bottone reazione + popover delle 6 emoji. Pattern Twitter/Instagram:
-//   - desktop: hover apre il popover, mouse-leave lo chiude (con delay
-//     così l'utente ha tempo di muovere il cursore sulle emoji)
-//   - mobile: click apre/chiude (no hover su touch)
+// Bottone reazione + popover delle 6 emoji.
 //
-// Il bottone trigger mostra:
-//   - emoji della propria reaction più recente, SE l'utente ne ha
-//     almeno una sul post (UX Instagram-style)
-//   - altrimenti icona generica (Smile)
-// Count totale sempre a destra (somma di tutti i counter reactions_*).
+// Regola (2026-05-14): 1 utente → 1 sola reaction sul post. Cliccare
+// una emoji diversa SOSTITUISCE la propria precedente; cliccare la
+// stessa la rimuove.
 //
-// Niente nuove dipendenze: implementato a mano con useState +
-// onMouseEnter/Leave + click. Posizione popover absolute sopra il
-// trigger, container con `relative` per posizionamento corretto.
+// Trigger: mostra le top-2 reaction types presenti sul post
+// accavallate in cerchio + counter formattato (42, 999, 1k+, 12k+).
+// Se 0 reaction → icona Smile neutra. La propria reaction attiva ha
+// il bottone evidenziato (colore accent + ring).
 //
-// Animazione entrance: i 6 item entrano in cascata (stagger 30ms ×
-// index) con scale-from-95 + translate-from-bottom-2, hover su
-// singola emoji = scale-150 + lift. Tutto pure CSS via Tailwind
-// `animate-in` (plugin tailwindcss-animate, già nel core).
-//
-// TODO(art): sostituire le emoji nativi con un set di SVG custom
-// (modulo `components/modules/posts/icons/`) — per ora si usa il
-// fallback Unicode che dipende dal font emoji del sistema operativo.
+// TODO(future): la `onShowDetails` callback opzionale aprirà una modale
+// "chi ha reagito" raggruppando per emoji. Già esposta come prop per
+// non rompere la firma quando arriverà.
 import { useEffect, useRef, useState } from "react";
 import { Smile } from "lucide-react";
 import { POST_REACTION_KINDS, type PostReactionKind } from "@/lib/db/schema";
+import type { PostReactionCounts } from "@/lib/modules/posts/types";
+import {
+  formatReactionCount,
+  topReactions,
+} from "@/lib/modules/posts/lib/reactions-format";
 
+// TODO(art): sostituire emoji native con SVG custom in
+// components/modules/posts/icons/ (pattern modulare).
 const REACTION_EMOJI: Record<PostReactionKind, string> = {
   like: "❤️",
   rocket: "🚀",
@@ -50,12 +48,24 @@ const HOVER_OPEN_DELAY = 200;
 const HOVER_CLOSE_DELAY = 250;
 
 type Props = {
-  ownReactions: PostReactionKind[];
+  /** La reaction dell'utente sul post (null se non ha reagito). */
+  ownReaction: PostReactionKind | null;
+  /** Counter per ogni kind, usato per top-2 + total. */
+  counts: PostReactionCounts;
   totalCount: number;
+  /** Toggle: stessa kind → off, diversa → switch. */
   onToggle: (kind: PostReactionKind) => void;
+  /** OPZIONALE: callback per future modale "chi ha reagito". */
+  onShowDetails?: () => void;
 };
 
-export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
+export function ReactionPopover({
+  ownReaction,
+  counts,
+  totalCount,
+  onToggle,
+  onShowDetails,
+}: Props) {
   const [open, setOpen] = useState(false);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,7 +76,6 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
     openTimer.current = null;
     closeTimer.current = null;
   };
-
   useEffect(() => () => clearTimers(), []);
 
   const scheduleOpen = () => {
@@ -78,8 +87,9 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
     closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY);
   };
 
-  const primary = ownReactions[ownReactions.length - 1]; // ultima reaction messa
-  const isActive = ownReactions.length > 0;
+  const isActive = ownReaction !== null;
+  const top = topReactions(counts, 2);
+  const formatted = formatReactionCount(totalCount);
 
   const onPick = (kind: PostReactionKind) => {
     onToggle(kind);
@@ -97,8 +107,16 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
       <button
         type="button"
         onClick={() => {
-          // Tap mobile: toggle popover. Su desktop, l'hover lo apre già;
-          // il click come fallback (es. da keyboard).
+          // Sul desktop l'hover già lo apre; click anche per
+          // tastiera/mobile. Se onShowDetails è fornito e il count>0,
+          // priorità su quello (è l'azione "show who reacted"). Nota:
+          // qui resta toggle del popover finché la modal details
+          // non è implementata; il `if onShowDetails` è il punto in
+          // cui in futuro chiameremo invece la modale.
+          if (onShowDetails && totalCount > 0) {
+            onShowDetails();
+            return;
+          }
           setOpen((prev) => !prev);
         }}
         aria-haspopup="true"
@@ -110,12 +128,22 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
             : "text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
         }`}
       >
-        {primary ? (
-          <span aria-hidden="true">{REACTION_EMOJI[primary]}</span>
-        ) : (
+        {top.length === 0 ? (
           <Smile size={18} strokeWidth={1.75} />
+        ) : (
+          <span className="flex items-center -space-x-1.5" aria-hidden="true">
+            {top.map((kind, i) => (
+              <span
+                key={kind}
+                style={{ zIndex: top.length - i }}
+                className="w-5 h-5 rounded-full bg-gc-bg-1 border border-gc-line shadow-sm flex items-center justify-center text-[12px] leading-none"
+              >
+                {REACTION_EMOJI[kind]}
+              </span>
+            ))}
+          </span>
         )}
-        {totalCount > 0 ? <span>{totalCount}</span> : null}
+        {formatted ? <span>{formatted}</span> : null}
       </button>
 
       {open ? (
@@ -126,7 +154,7 @@ export function ReactionPopover({ ownReactions, totalCount, onToggle }: Props) {
           className="absolute z-50 left-0 -top-2 -translate-y-full origin-bottom-left bg-gc-modal-bg border border-gc-modal-border rounded-full shadow-xl px-1.5 py-1 flex items-center gap-0.5 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 duration-200"
         >
           {POST_REACTION_KINDS.map((kind, i) => {
-            const active = ownReactions.includes(kind);
+            const active = ownReaction === kind;
             return (
               <button
                 key={kind}

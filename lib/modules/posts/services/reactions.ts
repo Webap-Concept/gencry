@@ -11,7 +11,7 @@
 //   - enqueue su Upstash QStash per fan-out notifiche più aggressivo
 //   - applicare circuit-breaking se il DB è saturo
 // senza che il chiamante della Server Action debba cambiare nulla.
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import {
   postsReactions,
@@ -19,27 +19,48 @@ import {
 } from "@/lib/db/schema";
 
 /**
- * Aggiunge la reazione `kind` dell'utente `userId` al post `postId`.
- * Idempotente (PK su (post_id, user_id, reaction) + ON CONFLICT DO NOTHING).
+ * Imposta `kind` come reaction unica dell'utente sul post. Se l'utente
+ * aveva una reaction diversa, viene rimossa atomicamente nella stessa
+ * transaction (i counter denormalizzati sul row `posts` si riequilibrano
+ * via trigger DB: -1 sulla vecchia, +1 sulla nuova).
  *
- * Ritorna `true` se è stata effettivamente inserita una nuova riga, `false`
- * se l'utente aveva già messo quella reazione (in tal caso il trigger NON
- * è scattato e il counter non è cambiato).
+ * Decisione 2026-05-14: 1 utente → 1 reaction (pattern Twitter/Facebook).
+ * La PK dello schema resta (post_id, user_id, reaction) per zero
+ * migration; la regola "1 sola" è enforced applicativamente qui.
  */
 export async function addReaction(
   postId: string,
   userId: string,
   kind: PostReactionKind,
 ): Promise<{ inserted: boolean }> {
-  const result = await db
-    .insert(postsReactions)
-    .values({ postId, userId, reaction: kind })
-    .onConflictDoNothing({
-      target: [postsReactions.postId, postsReactions.userId, postsReactions.reaction],
-    })
-    .returning({ postId: postsReactions.postId });
+  return await db.transaction(async (tx) => {
+    // Rimuove le altre reaction dell'utente sullo stesso post (se ce ne
+    // sono). NB: filtra `reaction != kind` così se l'utente cliccasse
+    // la stessa che ha già non vediamo un blip di "rimosso poi rimesso".
+    await tx
+      .delete(postsReactions)
+      .where(
+        and(
+          eq(postsReactions.postId, postId),
+          eq(postsReactions.userId, userId),
+          ne(postsReactions.reaction, kind),
+        ),
+      );
 
-  return { inserted: result.length > 0 };
+    const inserted = await tx
+      .insert(postsReactions)
+      .values({ postId, userId, reaction: kind })
+      .onConflictDoNothing({
+        target: [
+          postsReactions.postId,
+          postsReactions.userId,
+          postsReactions.reaction,
+        ],
+      })
+      .returning({ postId: postsReactions.postId });
+
+    return { inserted: inserted.length > 0 };
+  });
 }
 
 /**
@@ -66,12 +87,13 @@ export async function removeReaction(
 }
 
 /**
- * Convenience: toggle. Se l'utente aveva già la reazione la rimuove,
- * altrimenti la aggiunge. Ritorna lo stato finale.
+ * Convenience: toggle. Se l'utente aveva GIÀ esattamente quella
+ * reaction → la rimuove (toggle off). Altrimenti → setta quella
+ * (rimpiazzando l'eventuale reaction diversa, vedi addReaction).
  *
- * NB: non atomico fra check e write. Va bene per UI optimistic; la
- * unique constraint impedisce comunque inconsistenze (al massimo l'utente
- * vede un blip di stato che si rapidamente riallinea al refetch).
+ * NB: non atomico fra remove e addReaction. Va bene per UI optimistic;
+ * il PK constraint + i trigger DB tengono i counter coerenti anche su
+ * race conditions.
  */
 export async function toggleReaction(
   postId: string,

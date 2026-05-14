@@ -96,8 +96,12 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
   const [bookmarked, setBookmarked] = useOptimistic(
     post.viewer?.bookmarked ?? false,
   );
-  const [ownReactions, setOwnReactions] = useOptimistic<PostReactionKind[]>(
-    post.viewer?.ownReactions ?? [],
+  // Server returns ownReactions[] for backwards-compat, ma per regola
+  // applicativa "1 utente → 1 reaction" prendiamo solo il primo.
+  const initialOwnReaction: PostReactionKind | null =
+    post.viewer?.ownReactions?.[0] ?? null;
+  const [ownReaction, setOwnReaction] = useOptimistic<PostReactionKind | null>(
+    initialOwnReaction,
   );
   const [hidden, setHidden] = useState(false);
   const [deleted, setDeleted] = useState(false);
@@ -105,13 +109,12 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
   if (hidden || deleted) return null;
 
   const onToggleReaction = (kind: PostReactionKind) => {
-    const wasActive = ownReactions.includes(kind);
+    const wasActive = ownReaction === kind;
     startTransition(async () => {
-      setOwnReactions(
-        wasActive ? ownReactions.filter((r) => r !== kind) : [...ownReactions, kind],
-      );
+      // Optimistic: stessa kind → off, diversa → switch
+      setOwnReaction(wasActive ? null : kind);
       const res = await toggleReaction({ postId: post.id, reaction: kind });
-      if (!res.ok) setOwnReactions(post.viewer?.ownReactions ?? []);
+      if (!res.ok) setOwnReaction(initialOwnReaction);
     });
   };
 
@@ -327,7 +330,8 @@ export function PostCard({ post, isAuthor, variant = "feed" }: Props) {
       {/* Footer: 3 azioni — Reactions / Commenta / Repost */}
       <footer className="mt-4 flex items-center gap-1">
         <ReactionPopover
-          ownReactions={ownReactions}
+          ownReaction={ownReaction}
+          counts={post.counts.reactions}
           totalCount={reactionsTotal}
           onToggle={onToggleReaction}
         />
