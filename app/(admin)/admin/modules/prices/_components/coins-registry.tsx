@@ -1,15 +1,43 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { AdminTooltip } from "@/app/(admin)/admin/_components/admin-tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { PricesCoin } from "@/lib/db/schema";
 import type { PriceRow } from "@/lib/modules/prices/queries";
-import { CloudUpload, ChevronLeft, ChevronRight, Download, Loader2, Plus, RefreshCw, Search, ToggleLeft, ToggleRight, Trash2, X } from "lucide-react";
+import {
+  CloudUpload,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  X,
+} from "lucide-react";
+import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   addCoinAction,
   backfillCoinImagesAction,
+  backfillHistoryAction,
   bulkImportTopCoinsAction,
   deleteCoinAction,
+  refetchAllCoinsAction,
   refetchCoinAction,
   toggleCoinActiveAction,
   type ActionState,
@@ -18,19 +46,57 @@ import {
 interface Props {
   coins: PricesCoin[];
   priceMap: Record<string, PriceRow>;
+  /** Path admin base per la registry (dipende dallo slug admin configurabile,
+   *  es. `/control-panel/modules/prices/coins`). Calcolato server-side. */
+  adminCoinsPath: string;
 }
 
 const PAGE_SIZE = 20;
 
-export function CoinsRegistry({ coins, priceMap }: Props) {
+export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
   const [isBackfilling, startBackfill] = useTransition();
+  const [isRefreshingAll, startRefreshAll] = useTransition();
+  const [isBackfillingHistory, startBackfillHistory] = useTransition();
+  const [historyDays, setHistoryDays] = useState<number>(365);
   const lastTs = useRef<number>(0);
 
   function handleBackfill() {
     startBackfill(async () => {
       const res = await backfillCoinImagesAction();
+      if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
+      if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
+    });
+  }
+
+  function handleRefreshAll() {
+    if (
+      !window.confirm(
+        "Re-fetch metadata + images for every coin? Takes ~1.5s per coin (CoinGecko rate limit).",
+      )
+    )
+      return;
+    startRefreshAll(async () => {
+      const res = await refetchAllCoinsAction();
+      if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
+      if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
+    });
+  }
+
+  function handleBackfillHistory() {
+    if (
+      !window.confirm(
+        `Backfill ${historyDays}gg di storico prezzi da CryptoCompare per ogni coin? ` +
+          `Sovrascrive solo i punti vecchi arrotondati (con decimali = 0). ` +
+          `Può richiedere alcuni minuti.`,
+      )
+    )
+      return;
+    startBackfillHistory(async () => {
+      // Granularità mista: ultimi 30gg orari, il resto giornaliero.
+      const hourDays = Math.min(30, historyDays);
+      const res = await backfillHistoryAction(historyDays, hourDays);
       if ("success" in res && res.success) setToast({ message: res.success, type: "success" });
       if ("error" in res && res.error) setToast({ message: res.error, type: "error" });
     });
@@ -142,20 +208,16 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
                 <span className="font-normal" style={{ color: "var(--admin-text-faint)" }}> ({coins.length})</span>
               )}
             </h3>
-            <button
-              type="button"
-              onClick={handleBackfill}
-              disabled={isBackfilling}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{
-                background: "transparent",
-                color: "var(--admin-text-muted)",
-                border: "1px solid var(--admin-input-border)",
-              }}
-              title="Re-mirror all coin images from CoinGecko to R2 (skips coins already on R2)">
-              {isBackfilling ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
-              {isBackfilling ? "Backfilling..." : "Backfill images to R2"}
-            </button>
+            <MaintenanceMenu
+              isBackfilling={isBackfilling}
+              isRefreshingAll={isRefreshingAll}
+              isBackfillingHistory={isBackfillingHistory}
+              historyDays={historyDays}
+              onHistoryDaysChange={setHistoryDays}
+              onBackfillImages={handleBackfill}
+              onRefreshMetadata={handleRefreshAll}
+              onBackfillHistory={handleBackfillHistory}
+            />
             <div className="relative w-full max-w-sm">
               <Search
                 size={13}
@@ -219,6 +281,7 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
                       key={c.symbol}
                       coin={c}
                       price={priceMap[c.symbol]}
+                      adminCoinsPath={adminCoinsPath}
                       onToast={setToast}
                     />
                   ))
@@ -273,10 +336,12 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
 function CoinRow({
   coin,
   price,
+  adminCoinsPath,
   onToast,
 }: {
   coin: PricesCoin;
   price: PriceRow | undefined;
+  adminCoinsPath: string;
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -313,20 +378,33 @@ function CoinRow({
   const change = price?.change24h ?? null;
   const changeColor = change === null ? "var(--admin-text-faint)" : change >= 0 ? "var(--gc-pos, #16a34a)" : "var(--gc-neg, #dc2626)";
 
+  const drilldownHref = `${adminCoinsPath}/${coin.symbol.toLowerCase()}`;
+
   return (
-    <tr style={{ borderTop: "1px solid var(--admin-input-border)" }}>
+    <tr
+      style={{ borderTop: "1px solid var(--admin-input-border)" }}
+      className="hover:bg-[color-mix(in_srgb,var(--admin-page-bg)_60%,transparent)] transition-colors">
       <td className="py-2 px-2">
-        <div className="flex items-center gap-2">
+        <Link href={drilldownHref} className="flex items-center gap-2 group">
           {coin.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={coin.imageUrl} alt={coin.symbol} className="w-5 h-5 rounded-full" />
+            <img src={coin.imageUrl} alt={`${coin.name} logo`} className="w-5 h-5 rounded-full" />
           )}
-          <span className="font-mono font-semibold" style={{ color: "var(--admin-text)" }}>
+          <span
+            className="font-mono font-semibold group-hover:underline"
+            style={{ color: "var(--admin-text)" }}>
             {coin.symbol}
           </span>
-        </div>
+        </Link>
       </td>
-      <td className="py-2 px-2" style={{ color: "var(--admin-text-muted)" }}>{coin.name}</td>
+      <td className="py-2 px-2">
+        <Link
+          href={drilldownHref}
+          className="hover:underline"
+          style={{ color: "var(--admin-text-muted)" }}>
+          {coin.name}
+        </Link>
+      </td>
       <td className="py-2 px-2 text-right font-mono" style={{ color: "var(--admin-text-muted)" }}>
         {coin.marketCap !== null ? formatCompact(coin.marketCap) : "—"}
       </td>
@@ -340,49 +418,69 @@ function CoinRow({
         {coin.lastSeenAt.toLocaleString()}
       </td>
       <td className="py-2 px-2 text-center">
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={isPending}
-          className="inline-flex items-center transition-colors disabled:opacity-60"
-          title={coin.isActive ? "Click to deactivate" : "Click to activate"}>
-          {busyAction === "toggle" ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : coin.isActive ? (
-            <ToggleRight size={18} style={{ color: "var(--gc-pos, #16a34a)" }} />
-          ) : (
-            <ToggleLeft size={18} style={{ color: "var(--admin-text-faint)" }} />
-          )}
-        </button>
+        <AdminTooltip
+          label={
+            coin.isActive
+              ? "Disattiva (esclude dal cron sync)"
+              : "Attiva (include nel cron sync)"
+          }>
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={isPending}
+            aria-label={coin.isActive ? "Disattiva coin" : "Attiva coin"}
+            className="inline-flex items-center transition-colors disabled:opacity-60">
+            {busyAction === "toggle" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : coin.isActive ? (
+              <ToggleRight size={18} style={{ color: "var(--gc-pos, #16a34a)" }} />
+            ) : (
+              <ToggleLeft size={18} style={{ color: "var(--admin-text-faint)" }} />
+            )}
+          </button>
+        </AdminTooltip>
       </td>
       <td className="py-2 px-2 text-right">
         <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={refetch}
-            disabled={isPending}
-            className="p-1.5 rounded transition-colors disabled:opacity-60"
-            style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}
-            title="Refresh metadata from CoinGecko">
-            {busyAction === "refetch" ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <RefreshCw size={12} />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={isPending}
-            className="p-1.5 rounded transition-colors disabled:opacity-60"
-            style={{ border: "1px solid var(--admin-input-border)", color: "var(--gc-neg, #dc2626)" }}
-            title="Delete coin">
-            {busyAction === "delete" ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <Trash2 size={12} />
-            )}
-          </button>
+          <AdminTooltip label="Apri dettaglio (storico, stats, gap)">
+            <Link
+              href={drilldownHref}
+              aria-label="Apri dettaglio coin"
+              className="p-1.5 rounded transition-colors inline-flex items-center"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
+              <ExternalLink size={12} />
+            </Link>
+          </AdminTooltip>
+          <AdminTooltip label="Refresh metadata da CoinGecko">
+            <button
+              type="button"
+              onClick={refetch}
+              disabled={isPending}
+              aria-label="Refresh metadata da CoinGecko"
+              className="p-1.5 rounded transition-colors disabled:opacity-60"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
+              {busyAction === "refetch" ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+            </button>
+          </AdminTooltip>
+          <AdminTooltip label="Elimina dal registry (cancella anche lo storico)">
+            <button
+              type="button"
+              onClick={remove}
+              disabled={isPending}
+              aria-label="Elimina coin"
+              className="p-1.5 rounded transition-colors disabled:opacity-60"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--gc-neg, #dc2626)" }}>
+              {busyAction === "delete" ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Trash2 size={12} />
+              )}
+            </button>
+          </AdminTooltip>
         </div>
       </td>
     </tr>
@@ -396,12 +494,12 @@ function BulkImportCard({
 }) {
   const [perPage, setPerPage] = useState<number>(50);
   const [page, setPage] = useState<number>(1);
-  const [updateExisting, setUpdateExisting] = useState(false);
+  const [mode, setMode] = useState<"skip" | "update">("skip");
   const [isPending, startTransition] = useTransition();
 
   function handleImport() {
     startTransition(async () => {
-      const res = await bulkImportTopCoinsAction(perPage, page, updateExisting);
+      const res = await bulkImportTopCoinsAction(perPage, page, mode === "update");
       if ("success" in res && res.success) onToast({ message: res.success, type: "success" });
       else if ("error" in res && res.error) onToast({ message: res.error, type: "error" });
     });
@@ -421,13 +519,10 @@ function BulkImportCard({
         Import top coins
       </h3>
       <p className="text-[11px] mb-5" style={{ color: "var(--admin-text-faint)" }}>
-        Pull the top N coins by market cap from CoinGecko in one shot (1 API call + mirror to R2).
-        Existing symbols are skipped by default. Currently importing rows{" "}
-        <span className="font-mono" style={{ color: "var(--admin-text-muted)" }}>
-          {rangeFrom}–{rangeTo}
-        </span>{" "}
-        of the global market cap ranking.
+        Importa N coin dalla classifica market cap di CoinGecko. Scegli la
+        posizione iniziale e il numero di coin. Idempotente: ri-eseguibile.
       </p>
+
       <div className="flex flex-wrap items-end gap-3 max-w-2xl">
         <div>
           <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
@@ -452,7 +547,7 @@ function BulkImportCard({
         </div>
         <div>
           <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
-            Page
+            Pagina
           </label>
           <input
             type="number"
@@ -469,19 +564,63 @@ function BulkImportCard({
             }}
           />
         </div>
-        <label
-          className="flex items-center gap-2 text-xs cursor-pointer select-none"
-          style={{ color: "var(--admin-text-muted)", marginBottom: 9 }}>
-          <input
-            type="checkbox"
-            checked={updateExisting}
-            onChange={(e) => setUpdateExisting(e.target.checked)}
-            disabled={isPending}
-            className="w-4 h-4 rounded"
-            style={{ accentColor: "var(--admin-accent)" }}
-          />
-          Update existing too
-        </label>
+      </div>
+
+      <div className="mt-4">
+        <div
+          className="text-xs font-medium mb-2"
+          style={{ color: "var(--admin-text-muted)" }}>
+          Se il coin esiste già nel registry
+        </div>
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => setMode(v as "skip" | "update")}
+          disabled={isPending}
+          className="flex flex-col gap-2">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <RadioGroupItem value="skip" id="import-mode-skip" className="mt-0.5" />
+            <span className="text-xs" style={{ color: "var(--admin-text)" }}>
+              <span className="font-medium">Skip existing</span>{" "}
+              <span style={{ color: "var(--admin-text-faint)" }}>
+                — non modifica i coin già presenti, importa solo i nuovi
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <RadioGroupItem value="update" id="import-mode-update" className="mt-0.5" />
+            <span className="text-xs" style={{ color: "var(--admin-text)" }}>
+              <span className="font-medium">Update existing</span>{" "}
+              <span style={{ color: "var(--admin-text-faint)" }}>
+                — sovrascrive nome, market cap, immagine dei coin già presenti
+              </span>
+            </span>
+          </label>
+        </RadioGroup>
+      </div>
+
+      {/* Summary dinamico */}
+      <div
+        className="mt-4 px-3 py-2 rounded-lg text-[11px]"
+        style={{
+          background: "var(--admin-page-bg)",
+          border: "1px solid var(--admin-input-border)",
+          color: "var(--admin-text-muted)",
+        }}>
+        Cliccando <strong style={{ color: "var(--admin-text)" }}>Import</strong>:
+        importerai le posizioni{" "}
+        <span className="font-mono" style={{ color: "var(--admin-text)" }}>
+          #{rangeFrom}-#{rangeTo}
+        </span>{" "}
+        della classifica globale CoinGecko. I simboli{" "}
+        <strong style={{ color: "var(--admin-text)" }}>nuovi</strong> verranno
+        inseriti; quelli{" "}
+        <strong style={{ color: "var(--admin-text)" }}>già nel registry</strong>{" "}
+        {mode === "skip"
+          ? "saranno skippati."
+          : "saranno aggiornati (nome, market cap, immagine)."}
+      </div>
+
+      <div className="mt-4">
         <button
           type="button"
           onClick={handleImport}
@@ -492,11 +631,141 @@ function BulkImportCard({
           {isPending ? "Importing..." : "Import"}
         </button>
       </div>
-      <p className="text-[11px] mt-3" style={{ color: "var(--admin-text-faint)" }}>
-        Tip: with CoinGecko Pro enabled the rate limits are higher and the call is faster. Without
-        Pro, allow up to ~60s for a batch of 250.
-      </p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance dropdown
+// ---------------------------------------------------------------------------
+
+function MaintenanceMenu({
+  isBackfilling,
+  isRefreshingAll,
+  isBackfillingHistory,
+  historyDays,
+  onHistoryDaysChange,
+  onBackfillImages,
+  onRefreshMetadata,
+  onBackfillHistory,
+}: {
+  isBackfilling: boolean;
+  isRefreshingAll: boolean;
+  isBackfillingHistory: boolean;
+  historyDays: number;
+  onHistoryDaysChange: (n: number) => void;
+  onBackfillImages: () => void;
+  onRefreshMetadata: () => void;
+  onBackfillHistory: () => void;
+}) {
+  const isAnyRunning = isBackfilling || isRefreshingAll || isBackfillingHistory;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={isAnyRunning}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{
+            background: "transparent",
+            color: "var(--admin-text-muted)",
+            border: "1px solid var(--admin-input-border)",
+          }}>
+          {isAnyRunning ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Settings2 size={12} />
+          )}
+          Manutenzione
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-[340px]"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+          color: "var(--admin-text)",
+        }}>
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wide">
+          Azioni bulk
+        </DropdownMenuLabel>
+        <DropdownMenuItem
+          disabled={isBackfilling}
+          onSelect={(e) => {
+            e.preventDefault();
+            onBackfillImages();
+          }}
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
+          <div className="flex items-center gap-2 font-medium">
+            {isBackfilling ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
+            Backfill immagini su R2
+          </div>
+          <div className="text-[11px] opacity-70">
+            Quando: attivi R2 per la prima volta. Sposta tutte le icone da
+            CoinGecko CDN al tuo bucket R2. Skip coin già su R2.
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={isRefreshingAll}
+          onSelect={(e) => {
+            e.preventDefault();
+            onRefreshMetadata();
+          }}
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
+          <div className="flex items-center gap-2 font-medium">
+            {isRefreshingAll ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            Refresh metadata + immagini
+          </div>
+          <div className="text-[11px] opacity-70">
+            Quando: dopo aver cambiato la sorgente immagini (es. su retina/large).
+            Re-fetcha da CoinGecko nome, market cap, immagine. ~1.5s per coin.
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wide">
+          Backfill storico (CryptoCompare)
+        </DropdownMenuLabel>
+        <div className="px-2 pb-2 flex items-center gap-2">
+          <label className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>
+            Giorni:
+          </label>
+          <select
+            value={historyDays}
+            onChange={(e) => onHistoryDaysChange(Number(e.target.value))}
+            disabled={isBackfillingHistory}
+            className="flex-1 px-2 py-1 text-xs rounded font-mono disabled:opacity-60"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: "var(--admin-text)",
+            }}>
+            {[30, 90, 180, 365].map((n) => (
+              <option key={n} value={n}>
+                {n}gg
+              </option>
+            ))}
+          </select>
+        </div>
+        <DropdownMenuItem
+          disabled={isBackfillingHistory}
+          onSelect={(e) => {
+            e.preventDefault();
+            onBackfillHistory();
+          }}
+          className="flex-col items-start gap-1 py-2.5 cursor-pointer focus:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)] data-[highlighted]:bg-[color-mix(in_srgb,var(--admin-accent)_10%,transparent)]">
+          <div className="flex items-center gap-2 font-medium">
+            {isBackfillingHistory ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+            Backfill prezzi storici
+          </div>
+          <div className="text-[11px] opacity-70">
+            Quando: dopo l'attivazione del modulo o se vedi punti arrotondati
+            (vecchio path snapshot). Rimpiazza solo i prezzi senza decimali,
+            lascia intatti quelli post-fix.
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

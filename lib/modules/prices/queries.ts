@@ -511,3 +511,124 @@ export async function getHistorySeries(
   );
   return cached();
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Admin drill-down per coin singolo
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CoinHistoryStats {
+  total: number;
+  /** Quanti punti hanno il prezzo "tondo" (delta dal vecchio path
+   *  snapshot copia-da-prices_data). Indicatore che serve un backfill. */
+  rounded: number;
+  firstTs: Date | null;
+  lastTs: Date | null;
+  /** Numero di "gap" (intervalli senza punti) >2× lo step medio. */
+  gaps: number;
+}
+
+/**
+ * Statistiche aggregate su `prices_history` per il symbol. Una sola
+ * query, niente cache (questa pagina è admin-only).
+ */
+export async function getCoinHistoryStats(symbol: string): Promise<CoinHistoryStats> {
+  const upper = symbol.toUpperCase();
+  const rows = await db.execute<{
+    total: string;
+    rounded: string;
+    first_ts: string | null;
+    last_ts: string | null;
+  }>(sql`
+    SELECT
+      COUNT(*)::text                                              AS total,
+      COUNT(*) FILTER (WHERE price = trunc(price))::text          AS rounded,
+      MIN(ts)::text                                               AS first_ts,
+      MAX(ts)::text                                               AS last_ts
+    FROM prices_history
+    WHERE symbol = ${upper}
+  `);
+  const r = rows[0];
+  if (!r) return { total: 0, rounded: 0, firstTs: null, lastTs: null, gaps: 0 };
+
+  // Gap detection: distanze tra punti consecutivi, conta quanti
+  // intervalli sono >2x lo step mediano. Cheap su qualche migliaio
+  // di righe.
+  const gapsRow = await db.execute<{ gaps: string }>(sql`
+    WITH d AS (
+      SELECT EXTRACT(EPOCH FROM (ts - LAG(ts) OVER (ORDER BY ts))) AS dt
+      FROM prices_history
+      WHERE symbol = ${upper}
+    ),
+    s AS (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY dt) AS p50 FROM d WHERE dt IS NOT NULL)
+    SELECT COUNT(*)::text AS gaps
+    FROM d, s
+    WHERE d.dt > s.p50 * 2
+  `);
+  const gaps = Number(gapsRow[0]?.gaps ?? 0);
+
+  return {
+    total: Number(r.total),
+    rounded: Number(r.rounded),
+    firstTs: r.first_ts ? new Date(r.first_ts) : null,
+    lastTs: r.last_ts ? new Date(r.last_ts) : null,
+    gaps: Number.isFinite(gaps) ? gaps : 0,
+  };
+}
+
+export interface HistoryPageRow {
+  id: number;
+  ts: Date;
+  price: number;
+}
+
+export interface HistoryPage {
+  rows: HistoryPageRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Pagina di `prices_history` per il symbol, ordinata desc per ts.
+ * `pageSize` clampato 10-200.
+ */
+export async function getCoinHistoryPage(
+  symbol: string,
+  page: number,
+  pageSize: number,
+): Promise<HistoryPage> {
+  const upper = symbol.toUpperCase();
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const safePageSize = Math.max(10, Math.min(200, Math.trunc(pageSize) || 50));
+  const offset = (safePage - 1) * safePageSize;
+
+  const [rowsRaw, countRow] = await Promise.all([
+    db
+      .select({
+        id: pricesHistory.id,
+        ts: pricesHistory.ts,
+        price: pricesHistory.price,
+      })
+      .from(pricesHistory)
+      .where(eq(pricesHistory.symbol, upper))
+      .orderBy(desc(pricesHistory.ts))
+      .limit(safePageSize)
+      .offset(offset),
+    db.execute<{ total: string }>(sql`
+      SELECT COUNT(*)::text AS total
+      FROM prices_history
+      WHERE symbol = ${upper}
+    `),
+  ]);
+
+  return {
+    rows: rowsRaw.map((r) => ({
+      id: r.id,
+      ts: r.ts,
+      price: Number(r.price),
+    })),
+    total: Number(countRow[0]?.total ?? 0),
+    page: safePage,
+    pageSize: safePageSize,
+  };
+}

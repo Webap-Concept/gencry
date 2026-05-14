@@ -21,6 +21,7 @@ interface InitialValues {
   "modules.prices.retention_days": string;
   "modules.prices.coingecko_pro_enabled": string;
   "modules.prices.coingecko_pro_api_key": string | null;
+  "modules.prices.cryptocompare_api_key": string | null;
   // R2 storage. `r2SecretIsSet` viene calcolato server-side: il valore reale
   // del secret NON viaggia mai al client (sicurezza). La UI mostra il
   // sentinel "********" come placeholder se il secret è già salvato.
@@ -66,11 +67,11 @@ const FIELDS: Array<{
   {
     name: "modules.prices.universe_hours",
     label: "Active universe window (hours)",
-    hint: "Coins last seen within this window are kept refreshed by the cron.",
+    hint: "Coins last seen within this window are kept refreshed by the cron. Until the social module updates last_seen_at via posts/watchlists, set this high enough to cover your full registry (e.g. 720 = 30gg, 8760 = 1y).",
     group: "ingestion",
     type: "number",
     min: 1,
-    max: 168,
+    max: 8760,
   },
   {
     name: "modules.prices.delta_threshold",
@@ -331,6 +332,47 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
           isTesting={isR2Testing}
           isPending={isPending}
         />
+
+        {/* CryptoCompare API key card — usata solo dal backfill storico,
+            non dal cron sync. Chiave opzionale (free su cryptocompare.com),
+            senza si usa il tier pubblico più conservativo. */}
+        <div
+          className="rounded-xl shadow-sm p-6"
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
+            Source — CryptoCompare
+          </h3>
+          <p className="text-[11px] mb-5" style={{ color: "var(--admin-text-faint)" }}>
+            Usata solo dal pulsante <em>Backfill price history</em> in Coins
+            registry. Free su <code className="font-mono">cryptocompare.com</code>:
+            250k req/mese con chiave, ~10 req/s senza. Vuota = endpoint pubblico
+            (più lento ma comunque funzionante).
+          </p>
+          <div className="max-w-lg">
+            <label
+              className="block text-xs font-medium mb-1.5"
+              style={{ color: "var(--admin-text-muted)" }}>
+              CryptoCompare API key
+            </label>
+            <input
+              name="modules.prices.cryptocompare_api_key"
+              type="password"
+              defaultValue={initial["modules.prices.cryptocompare_api_key"] ?? ""}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Lascia vuoto per usare il tier pubblico"
+              className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors font-mono"
+              style={{
+                background: "var(--admin-page-bg)",
+                border: "1px solid var(--admin-input-border)",
+                color: "var(--admin-text)",
+              }}
+            />
+          </div>
+        </div>
         </div>
 
         <div

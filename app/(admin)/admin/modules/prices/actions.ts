@@ -2,21 +2,26 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins } from "@/lib/db/schema";
+import { pricesCoins, pricesHistory } from "@/lib/db/schema";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { getPricesConfig } from "@/lib/modules/prices/config";
+import { PRICES_DATA_TAG, PRICES_HEALTH_TAG } from "@/lib/modules/prices/queries";
 import {
   fetchCoinMetadata,
   fetchTopCoinsByMarketCap,
 } from "@/lib/modules/prices/sources/coingecko";
+import {
+  fetchCryptoCompareHistorical,
+  type CryptoComparePoint,
+} from "@/lib/modules/prices/sources/cryptocompare";
 import {
   checkR2Connection,
   deleteCoinImage,
   mirrorCoinImage,
 } from "@/lib/modules/prices/storage";
 import { runPricesCleanup, runPricesSync } from "@/lib/modules/prices/sync";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { revalidatePath, updateTag } from "next/cache";
 
 export type ActionState =
   | {}
@@ -45,7 +50,7 @@ export async function savePricesSettings(
 ): Promise<ActionState> {
   try {
     await updateAppSetting("modules.prices.cron_minutes",     clampInt(formData.get("modules.prices.cron_minutes"),     1, 60,    5));
-    await updateAppSetting("modules.prices.universe_hours",   clampInt(formData.get("modules.prices.universe_hours"),   1, 168,   24));
+    await updateAppSetting("modules.prices.universe_hours",   clampInt(formData.get("modules.prices.universe_hours"),   1, 8760,   24));
     await updateAppSetting("modules.prices.delta_threshold",  clampFloat01(formData.get("modules.prices.delta_threshold"), 0.0005));
     await updateAppSetting("modules.prices.breaker_max_err",  clampInt(formData.get("modules.prices.breaker_max_err"),  1, 100,   3));
     await updateAppSetting("modules.prices.breaker_window_s", clampInt(formData.get("modules.prices.breaker_window_s"), 10, 86400, 300));
@@ -61,6 +66,10 @@ export async function savePricesSettings(
     );
     const proApiKey = ((formData.get("modules.prices.coingecko_pro_api_key") as string) ?? "").trim();
     await updateAppSetting("modules.prices.coingecko_pro_api_key", proApiKey || null);
+
+    // CryptoCompare (opzionale, usata solo dal backfill)
+    const ccApiKey = ((formData.get("modules.prices.cryptocompare_api_key") as string) ?? "").trim();
+    await updateAppSetting("modules.prices.cryptocompare_api_key", ccApiKey || null);
 
     // R2 storage settings — campi hidden+text dal form. Salviamo l'intera tupla;
     // il config layer (`getPricesConfig.parseR2Config`) considera R2 attivo solo
@@ -217,6 +226,8 @@ export async function triggerSyncNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: result.ok
         ? `Sync OK · ${result.coinsUpdated}/${result.coinsTotal} coins · ${result.durationMs}ms`
@@ -237,6 +248,8 @@ export async function triggerSnapshotNowAction(): Promise<ActionState> {
     // ma sotto il cofano fa esattamente lo stesso del trigger sync.
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: `Sync+snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -251,6 +264,8 @@ export async function triggerCleanupNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesCleanup();
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: `Cleanup OK · ${result.coinsUpdated} rows deleted · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -313,6 +328,7 @@ export async function addCoinAction(
         },
       });
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${meta.symbol} (${meta.name}) added.`, timestamp: Date.now() };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Add coin failed";
@@ -427,6 +443,7 @@ export async function bulkImportTopCoinsAction(
     }
 
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     const detail =
       failed > 0
         ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
@@ -437,6 +454,82 @@ export async function bulkImportTopCoinsAction(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bulk import failed";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+/**
+ * Re-fetch metadata + ri-mirror immagine per TUTTI i coin con
+ * `coingecko_id`. Serial con sleep 1.5s tra le chiamate per restare
+ * sotto i 30 req/min di CoinGecko Free.
+ *
+ * Use case: dopo aver cambiato il source `fetchCoinMetadata` da
+ * `image.small` a `image.large` (per immagini retina), i coin
+ * esistenti hanno ancora URL R2 mirror-ati dalla versione 50px.
+ * Questa action li aggiorna in bulk a 200px.
+ */
+export async function refetchAllCoinsAction(): Promise<ActionState> {
+  try {
+    const coins = await db
+      .select({
+        symbol: pricesCoins.symbol,
+        coingeckoId: pricesCoins.coingeckoId,
+      })
+      .from(pricesCoins)
+      .where(isNotNull(pricesCoins.coingeckoId));
+
+    if (coins.length === 0) {
+      return { error: "No coins with CoinGecko ID to refresh.", timestamp: Date.now() };
+    }
+
+    const cfg = await getPricesConfig();
+    let updated = 0;
+    let failed = 0;
+    const failedSymbols: string[] = [];
+
+    for (const c of coins) {
+      try {
+        const meta = await fetchCoinMetadata(c.coingeckoId!);
+        if (!meta) {
+          failed++;
+          failedSymbols.push(c.symbol);
+        } else {
+          const finalImageUrl = await mirrorImageWithFallback(
+            cfg.r2,
+            c.symbol,
+            meta.imageUrl ?? null,
+          );
+          await db
+            .update(pricesCoins)
+            .set({
+              name: meta.name,
+              imageUrl: finalImageUrl,
+              marketCap: meta.marketCap ?? null,
+              category: meta.category ?? null,
+              updatedAt: new Date(),
+            })
+            .where(eq(pricesCoins.symbol, c.symbol));
+          updated++;
+        }
+      } catch {
+        failed++;
+        failedSymbols.push(c.symbol);
+      }
+      // Rate limit: ~40 req/min con 1.5s tra le call (sotto i 30/min
+      // del Free tier per consentire al cron sync di passare in
+      // mezzo). Più lento ma safe.
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
+    const detail = failedSymbols.length > 0 ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}` : "";
+    return {
+      success: `Refreshed ${updated} coins · failed ${failed}${detail}`,
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Bulk refresh failed";
     return { error: message, timestamp: Date.now() };
   }
 }
@@ -470,6 +563,7 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
       })
       .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${symbol} metadata refreshed.`, timestamp: Date.now() };
   } catch {
     return { error: "Refetch failed.", timestamp: Date.now() };
@@ -486,6 +580,7 @@ export async function toggleCoinActiveAction(
       .set({ isActive, updatedAt: new Date() })
       .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return {
       success: `${symbol} ${isActive ? "activated" : "deactivated"}.`,
       timestamp: Date.now(),
@@ -511,6 +606,7 @@ export async function deleteCoinAction(symbol: string): Promise<ActionState> {
 
     await db.delete(pricesCoins).where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${symbol} removed.`, timestamp: Date.now() };
   } catch {
     return { error: "Delete failed.", timestamp: Date.now() };
@@ -574,6 +670,7 @@ export async function backfillCoinImagesAction(): Promise<ActionState> {
     }
 
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     const detail =
       failed > 0
         ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
@@ -610,5 +707,184 @@ async function mirrorImageWithFallback(
   } catch (err) {
     console.error(`[prices/actions] R2 mirror failed for ${symbol}, using source URL:`, err);
     return sourceUrl;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Backfill storico da CryptoCompare
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Backfill di `prices_history` da CryptoCompare per tutti i coin attivi.
+ *
+ * Strategia mista per coprire 365gg minimizzando le righe:
+ *   - finestra recente (`hourDays`) → bucket orari (granularità fine per
+ *     i chart 1d/1w/1m)
+ *   - resto fino a `totalDays` → bucket giornalieri (chart 1y)
+ *
+ * Concorrenza 5-wide. Idempotente: l'INSERT usa
+ *   ON CONFLICT (symbol, ts) DO UPDATE SET price = EXCLUDED.price
+ *   WHERE prices_history.price = trunc(prices_history.price)
+ * → rimpiazza SOLO i punti vecchi "arrotondati" (eredità del path che
+ * copiava prices_data settled). I punti con decimali (post-fix
+ * precision=full) restano intatti.
+ *
+ * @param totalDays  giorni totali coperti (max 365 per stare entro
+ *                   l'horizon di histoday limit=2000).
+ * @param hourDays   sotto-finestra recente con granularità oraria
+ *                   (max ~83gg per stare entro histohour limit=2000).
+ */
+export async function backfillHistoryAction(
+  totalDays = 365,
+  hourDays = 30,
+): Promise<ActionState> {
+  try {
+    const safeTotal = Math.max(7, Math.min(365, Math.trunc(totalDays) || 365));
+    const safeHour = Math.max(0, Math.min(83, Math.trunc(hourDays) || 30));
+
+    const coins = await db
+      .select({ symbol: pricesCoins.symbol })
+      .from(pricesCoins)
+      .where(eq(pricesCoins.isActive, true));
+
+    if (coins.length === 0) {
+      return { error: "No active coins to backfill.", timestamp: Date.now() };
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    const failedSymbols: string[] = [];
+
+    // Concorrenza 5-wide: CryptoCompare free con chiave consente burst
+    // confortevole, ma teniamo basso per non saturare il pool DB.
+    const CONCURRENCY = 5;
+    for (let i = 0; i < coins.length; i += CONCURRENCY) {
+      const slice = coins.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        slice.map(async ({ symbol }) => {
+          // 1) Punti orari per la finestra recente.
+          const hourly: CryptoComparePoint[] =
+            safeHour > 0
+              ? await fetchCryptoCompareHistorical(symbol, "hour", safeHour * 24)
+              : [];
+
+          // 2) Punti giornalieri per il resto. Per evitare doppioni con
+          //    la finestra oraria, prendiamo `totalDays - hourDays` giorni
+          //    e filtriamo via i bucket che ricadono dentro la finestra
+          //    oraria.
+          const dayLimit = safeTotal;
+          const dayPoints =
+            dayLimit > safeHour
+              ? await fetchCryptoCompareHistorical(symbol, "day", dayLimit)
+              : [];
+
+          const hourlyCutoff = safeHour > 0
+            ? new Date(Date.now() - safeHour * 24 * 3600 * 1000)
+            : null;
+          const dailyFiltered = hourlyCutoff
+            ? dayPoints.filter((p) => p.ts < hourlyCutoff)
+            : dayPoints;
+
+          const all = [...dailyFiltered, ...hourly];
+          if (all.length === 0) {
+            failedSymbols.push(symbol);
+            return { ok: false };
+          }
+
+          // 1) INSERT con ON CONFLICT: rimpiazza solo se il valore esistente
+          //    è arrotondato (trunc(price) == price). Lascia i valori con
+          //    decimali intatti.
+          //
+          // Chunking 500 per evitare di superare il limit di bind params
+          // di Postgres (~65k per query).
+          const CHUNK = 500;
+          for (let j = 0; j < all.length; j += CHUNK) {
+            const slice = all.slice(j, j + CHUNK);
+            await db
+              .insert(pricesHistory)
+              .values(
+                slice.map((p) => ({
+                  symbol,
+                  ts: p.ts,
+                  price: p.price.toString(),
+                })),
+              )
+              .onConflictDoUpdate({
+                target: [pricesHistory.symbol, pricesHistory.ts],
+                set: { price: sql`EXCLUDED.price` },
+                setWhere: sql`prices_history.price = trunc(prices_history.price)`,
+              });
+          }
+
+          // 2) Cleanup: l'ON CONFLICT scatta solo se il timestamp coincide
+          //    al microsecondo. I punti vecchi arrotondati con ts diverso
+          //    (es. 18:00:01.5 vs il punto CC 18:00:00.0) restano in DB.
+          //    Cancelliamo le righe arrotondate nella finestra coperta dal
+          //    backfill che hanno almeno un "vicino" precedente nello
+          //    stesso bucket orario — quello vicino è il nuovo punto CC,
+          //    quindi il vecchio è ormai ridondante.
+          const windowStart = new Date(
+            Date.now() - safeTotal * 24 * 3600 * 1000,
+          );
+          const hourCutoff = safeHour > 0
+            ? new Date(Date.now() - safeHour * 24 * 3600 * 1000)
+            : null;
+
+          // Bucket orario per la finestra recente (safeHour gg)
+          if (hourCutoff) {
+            await db.execute(sql`
+              DELETE FROM prices_history old
+              WHERE old.symbol = ${symbol}
+                AND old.price = trunc(old.price)
+                AND old.ts >= ${hourCutoff.toISOString()}::timestamptz
+                AND EXISTS (
+                  SELECT 1 FROM prices_history neighbour
+                  WHERE neighbour.symbol = old.symbol
+                    AND neighbour.price <> trunc(neighbour.price)
+                    AND date_trunc('hour', neighbour.ts) = date_trunc('hour', old.ts)
+                )
+            `);
+          }
+          // Bucket giornaliero per il resto della finestra
+          await db.execute(sql`
+            DELETE FROM prices_history old
+            WHERE old.symbol = ${symbol}
+              AND old.price = trunc(old.price)
+              AND old.ts >= ${windowStart.toISOString()}::timestamptz
+              ${hourCutoff ? sql`AND old.ts < ${hourCutoff.toISOString()}::timestamptz` : sql``}
+              AND EXISTS (
+                SELECT 1 FROM prices_history neighbour
+                WHERE neighbour.symbol = old.symbol
+                  AND neighbour.price <> trunc(neighbour.price)
+                  AND date_trunc('day', neighbour.ts) = date_trunc('day', old.ts)
+              )
+          `);
+
+          return { ok: true, count: all.length };
+        }),
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.ok) {
+          inserted += r.value.count ?? 0;
+        } else {
+          skipped++;
+        }
+      }
+    }
+
+    revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
+    const detail = failedSymbols.length > 0
+      ? ` · no data on CC: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
+      : "";
+    return {
+      success: `Backfill done · ${inserted} rows upserted across ${coins.length - skipped} coins${detail}`,
+      timestamp: Date.now(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Backfill failed";
+    return { error: message, timestamp: Date.now() };
   }
 }

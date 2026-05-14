@@ -123,15 +123,28 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   // La sparkline 7gg viene salvata dentro l'upsert quando la quote arriva
   // da CoinGecko (`/coins/markets?sparkline=true`). DexScreener non la
   // fornisce: per quei coin la sparkline resta al valore precedente.
-  const updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
+  //
+  // Try/catch CRITICO: se l'upsert fallisce (es. colonna mancante per
+  // migration non applicata), senza questo wrapper recordSuccess sarebbe
+  // già stato chiamato sul source ma logRun NON verrebbe mai eseguito —
+  // risultato: "Last success" recente, "Recent runs" vecchio di ore,
+  // niente errore visibile.
+  let updated = 0;
+  let upsertError: string | undefined;
+  try {
+    updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
+  } catch (err) {
+    upsertError = err instanceof Error ? err.message : "upsert failed";
+    console.error("[runPricesSync] upsertPrices failed:", err);
+  }
 
   // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
   // Best-effort: errori qui non degradano il run, gli update mancati
   // verranno recuperati al prossimo tick.
   try {
     await syncMasterData(Array.from(collected.values()));
-  } catch {
-    // swallow
+  } catch (err) {
+    console.error("[runPricesSync] syncMasterData failed:", err);
   }
 
   // ── 5) Snapshot in prices_history (best-effort, gated da snapshotMinutes) ──
@@ -145,12 +158,13 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
       cfg.snapshotMinutes,
       started,
     );
-  } catch {
-    // swallow: lo storico è decorativo per il chart, non blocca il sync
+  } catch (err) {
+    console.error("[runPricesSync] writeSnapshotIfDue failed:", err);
   }
 
-  const ok = collected.size > 0 || universe.length === 0;
+  const ok = !upsertError && (collected.size > 0 || universe.length === 0);
   const durationMs = Date.now() - startMs;
+  const errorMessage = upsertError ?? (ok ? undefined : lastError);
 
   await logRun({
     kind: "sync",
@@ -160,7 +174,7 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     coinsUpdated: updated,
     sourceUsed,
     ok,
-    error: ok ? undefined : lastError,
+    error: errorMessage,
   });
 
   return {
@@ -290,12 +304,16 @@ async function writeSnapshotIfDue(
 ): Promise<void> {
   if (quotes.length === 0) return;
 
-  // Check ultimo run snapshot riuscito. Grace di 30s per non saltare un
-  // tick borderline (stesso pattern di runPricesSync).
+  // Check ultimo run snapshot. Grace di 30s per non saltare un tick
+  // borderline. NB: filtriamo solo per kind, NON anche per ok=true: se
+  // l'ultimo tentativo è fallito non vogliamo riproporre subito un
+  // INSERT identico in loop infinito — meglio aspettare il prossimo
+  // intervallo regolare. La riga di errore resta visibile nella Health
+  // dashboard per la diagnosi.
   const last = await db
     .select({ startedAt: pricesSyncRuns.startedAt })
     .from(pricesSyncRuns)
-    .where(and(eq(pricesSyncRuns.kind, "snapshot"), eq(pricesSyncRuns.ok, true)))
+    .where(eq(pricesSyncRuns.kind, "snapshot"))
     .orderBy(desc(pricesSyncRuns.startedAt))
     .limit(1);
   if (last[0]) {
@@ -307,23 +325,41 @@ async function writeSnapshotIfDue(
   const validQuotes = quotes.filter((q) => Number.isFinite(q.price));
   if (validQuotes.length === 0) return;
 
-  await db.insert(pricesHistory).values(
-    validQuotes.map((q) => ({
-      symbol: q.symbol,
-      ts: nowDate,
-      price: String(q.price),
-    })),
-  );
-
-  await logRun({
-    kind: "snapshot",
-    startedAt: nowDate,
-    durationMs: Date.now() - nowDate.getTime(),
-    coinsTotal: validQuotes.length,
-    coinsUpdated: validQuotes.length,
-    sourceUsed: null,
-    ok: true,
-  });
+  // Insert + log: SE l'insert fallisce, registriamo comunque un run
+  // kind=snapshot con ok=false e l'errore così la Health dashboard
+  // mostra una riga rossa invece di un silent swallow.
+  try {
+    await db.insert(pricesHistory).values(
+      validQuotes.map((q) => ({
+        symbol: q.symbol,
+        ts: nowDate,
+        price: String(q.price),
+      })),
+    );
+    await logRun({
+      kind: "snapshot",
+      startedAt: nowDate,
+      durationMs: Date.now() - nowDate.getTime(),
+      coinsTotal: validQuotes.length,
+      coinsUpdated: validQuotes.length,
+      sourceUsed: null,
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "snapshot insert failed";
+    console.error("[writeSnapshotIfDue] INSERT failed:", err);
+    await logRun({
+      kind: "snapshot",
+      startedAt: nowDate,
+      durationMs: Date.now() - nowDate.getTime(),
+      coinsTotal: validQuotes.length,
+      coinsUpdated: 0,
+      sourceUsed: null,
+      ok: false,
+      error: message,
+    });
+    throw err; // propaga così il try/catch del caller logga + swallow
+  }
 }
 
 /**

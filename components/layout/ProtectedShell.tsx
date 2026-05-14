@@ -35,7 +35,7 @@ export function ProtectedShell({
             {children}
           </div>
         </main>
-        <AppRightRail />
+        <AppRightRail showLegalFooter />
       </div>
       <AppBottomNav />
     </div>

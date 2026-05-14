@@ -426,6 +426,33 @@ export async function getEnabledLocales(): Promise<AppLocale[]> {
  * (~1ms via CDN), altrimenti fallback DB (~50-100ms). I dati cambiano solo
  * quando l'admin edita uno slug system → frequenza ~1×anno.
  */
+/**
+ * System page keys che corrispondono a documenti legali (privacy, terms,
+ * cookie). Le pagine renderizzate da TemplateLegals per questi slug NON
+ * devono mostrare il right rail (adv/sponsor) — sono documenti legali,
+ * l'attenzione deve restare sul testo. Consumato dai layout pubblici.
+ */
+const LEGALS_SYSTEM_KEYS = ["privacy", "terms", "cookie"] as const;
+
+/**
+ * Ritorna true se il pathname corrisponde a una pagina legale renderizzata
+ * dal CMS. Il primo path segment viene confrontato con gli slug delle
+ * system pages "legals".
+ */
+export function isLegalsPathname(
+  pathname: string,
+  systemSlugs: Record<string, string>,
+): boolean {
+  if (!pathname) return false;
+  const firstSegment = pathname.replace(/^\/+/, "").split("/")[0]?.toLowerCase();
+  if (!firstSegment) return false;
+  for (const key of LEGALS_SYSTEM_KEYS) {
+    const slug = systemSlugs[key]?.toLowerCase();
+    if (slug && slug === firstSegment) return true;
+  }
+  return false;
+}
+
 export async function getSystemPageSlugs(): Promise<Record<string, string>> {
   try {
     const { readSystemPageSlugsSnapshot, SnapshotUnavailableError } =
