@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Compass, Home, Plus, User as UserIcon } from "lucide-react";
+import { Bell, Compass, Home, User as UserIcon } from "lucide-react";
+import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
-// 5 slot con il "+" centrale enfatizzato (CTA Nuova watchlist).
+// 5 slot con il "+" centrale enfatizzato (CTA Nuovo post).
 
 type LinkSlot = {
   href: string;
@@ -13,7 +14,7 @@ type LinkSlot = {
   icon: typeof Home;
 };
 
-// `null` = slot del bottone +Nuova watchlist (centrale, non navigabile)
+// `null` = slot del bottone +Nuovo post (centrale, non navigabile)
 const SLOTS: (LinkSlot | null)[] = [
   { href: "/", label: "Feed", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
@@ -34,16 +35,7 @@ export function AppBottomNav() {
     >
       {SLOTS.map((slot) => {
         if (!slot) {
-          return (
-            <button
-              key="new-watchlist"
-              type="button"
-              aria-label="Nuova watchlist"
-              className="w-12 h-12 rounded-full bg-gc-accent text-white flex items-center justify-center -mt-3 shadow-md hover:brightness-95 transition"
-            >
-              <Plus size={22} strokeWidth={2.5} />
-            </button>
-          );
+          return <NewPostButton key="new-post" variant="fab" />;
         }
         const { href, label, icon: Icon } = slot;
         const active = pathname === href;

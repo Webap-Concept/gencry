@@ -1,14 +1,10 @@
 "use client";
 // components/modules/posts/Composer.tsx
 //
-// Form per creare un nuovo post. Niente media in v1 (arriverà con PR-6).
-//
-// Pattern: useTransition + Server Action createPost + router.refresh()
-// per ri-renderizzare RSC e far comparire il post nel feed. Niente
-// scroll a top — il nuovo post compare in cima al feed naturalmente per
-// l'ordine cronologico inverso.
+// Form puro per la creazione di un post. Niente router.refresh() interno:
+// il parent decide cosa fare on success (toast, chiusura modal, refresh).
+// Niente media in v1 (arriverà con PR-6).
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { createPost } from "@/lib/modules/posts/actions";
 import { POST_VISIBILITIES, type PostVisibility } from "@/lib/db/schema";
 
@@ -22,14 +18,17 @@ const VISIBILITY_LABEL: Record<PostVisibility, string> = {
 type Props = {
   /** Soglia caratteri letta dalle settings; default safe = 2000. */
   maxBodyLength?: number;
+  /** Callback dopo publish riuscito. Il parent gestisce toast/close/refresh. */
+  onPublished?: (postId: string) => void;
+  /** Auto-focus della textarea al mount (utile dentro Dialog). */
+  autoFocus?: boolean;
 };
 
-export function Composer({ maxBodyLength = 2000 }: Props) {
+export function Composer({ maxBodyLength = 2000, onPublished, autoFocus }: Props) {
   const [body, setBody] = useState("");
   const [visibility, setVisibility] = useState<PostVisibility>("public");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   const remaining = maxBodyLength - body.length;
   const trimmedLen = body.trim().length;
@@ -43,7 +42,7 @@ export function Composer({ maxBodyLength = 2000 }: Props) {
       if (res.ok) {
         setBody("");
         setVisibility("public");
-        router.refresh();
+        onPublished?.(res.data!.postId);
       } else {
         setError(res.error);
       }
@@ -56,11 +55,12 @@ export function Composer({ maxBodyLength = 2000 }: Props) {
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Cosa pensi del mercato?"
-        rows={3}
+        rows={5}
         maxLength={maxBodyLength + 100} // slack visivo, validazione vera lato server
         className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted resize-y outline-none text-[15px]"
         aria-label="Testo del post"
         disabled={isPending}
+        autoFocus={autoFocus}
       />
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <label className="text-xs text-gc-fg-muted">

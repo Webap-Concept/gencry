@@ -6,12 +6,12 @@ import {
   Bell,
   Compass,
   Home,
-  Plus,
   User as UserIcon,
 } from "lucide-react";
 import useSWR from "swr";
 import { NotificationsSheet } from "@/components/layout/NotificationsSheet";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 import type { UserWithProfile } from "@/lib/db/schema";
 
 // Sidebar fissa della home loggata. Visibile da md in su; su mobile la
@@ -117,13 +117,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
           })}
         </nav>
 
-        <button
-          type="button"
-          className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-gc-accent text-white font-medium text-sm hover:brightness-95 transition"
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          <span>Nuova watchlist</span>
-        </button>
+        <NewPostButton variant="sidebar" />
       </div>
 
       {/* User menu in fondo — fuori dal blocco scrollabile, sempre
