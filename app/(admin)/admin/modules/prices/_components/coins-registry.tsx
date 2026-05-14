@@ -440,7 +440,13 @@ function CoinRow({
               )}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">
+          <TooltipContent
+            side="top"
+            style={{
+              background: "var(--admin-card-bg)",
+              border: "1px solid var(--admin-card-border)",
+              color: "var(--admin-text)",
+            }}>
             {coin.isActive ? "Disattiva (esclude dal cron sync)" : "Attiva (include nel cron sync)"}
           </TooltipContent>
         </Tooltip>
@@ -457,7 +463,15 @@ function CoinRow({
                 <ExternalLink size={12} />
               </Link>
             </TooltipTrigger>
-            <TooltipContent side="top">Apri dettaglio (storico, stats, gap)</TooltipContent>
+            <TooltipContent
+              side="top"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+                color: "var(--admin-text)",
+              }}>
+              Apri dettaglio (storico, stats, gap)
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -475,7 +489,15 @@ function CoinRow({
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">Refresh metadata da CoinGecko</TooltipContent>
+            <TooltipContent
+              side="top"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+                color: "var(--admin-text)",
+              }}>
+              Refresh metadata da CoinGecko
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -493,7 +515,15 @@ function CoinRow({
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">Elimina dal registry (cancella anche lo storico)</TooltipContent>
+            <TooltipContent
+              side="top"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+                color: "var(--admin-text)",
+              }}>
+              Elimina dal registry (cancella anche lo storico)
+            </TooltipContent>
           </Tooltip>
         </div>
       </td>
