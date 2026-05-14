@@ -1,28 +1,48 @@
-import Link from "next/link";
+// Server component: risolve l'admin slug a runtime così le tab non
+// usano `/admin/` hardcoded ma il valore in app_settings.admin.url_slug.
+import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { MessageSquare } from "lucide-react";
+import { ModuleAdminTabs } from "@/app/(admin)/admin/_components/module-admin-tabs";
 
-const TABS = [
-  { href: "/admin/modules/posts",          label: "Overview" },
-  { href: "/admin/modules/posts/settings", label: "Settings" },
-] as const;
+export async function PostsHeader() {
+  const slug = await getAdminUrlSlug();
+  const base = `/${slug}/modules/posts`;
 
-export function PostsHeader() {
   return (
     <header>
-      <h1 className="text-2xl font-semibold text-[var(--admin-text)]">Posts</h1>
-      <p className="text-sm text-[var(--admin-text-muted)] mt-1">
-        Modulo social feed — composer, reactions, comments, moderation.
-      </p>
-      <nav className="mt-4 flex gap-1 border-b border-[var(--admin-card-border)]">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className="px-3 py-2 text-sm text-[var(--admin-text-muted)] hover:text-[var(--admin-text)] border-b-2 border-transparent hover:border-[var(--admin-card-border)]"
+      <div className="flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background:
+              "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
+            border:
+              "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
+          }}
+        >
+          <MessageSquare size={18} style={{ color: "var(--admin-accent)" }} />
+        </div>
+        <div>
+          <h2
+            className="text-lg font-bold"
+            style={{ color: "var(--admin-text)" }}
           >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+            Posts
+          </h2>
+          <p
+            className="text-sm mt-0.5"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            Modulo social feed — composer, reactions, comments, moderation.
+          </p>
+        </div>
+      </div>
+      <ModuleAdminTabs
+        tabs={[
+          { href: base,              label: "Overview", exact: true },
+          { href: `${base}/settings`, label: "Settings" },
+        ]}
+      />
     </header>
   );
 }

@@ -11,6 +11,7 @@ import {
   savePostsR2Settings,
   testPostsR2Connection,
 } from "../actions";
+import { AdminToast, type ToastType } from "@/app/(admin)/admin/_components/toast";
 
 type Initial = {
   accountId: string;
@@ -31,16 +32,14 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
   const [bucket, setBucket] = useState(initial.bucket || "social-media");
   const [publicBaseUrl, setPublicBaseUrl] = useState(initial.publicBaseUrl);
 
-  const [message, setMessage] = useState<
-    | { type: "ok"; text: string }
-    | { type: "error"; text: string }
-    | null
-  >(null);
+  const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(
+    null,
+  );
   const [isSaving, startSaving] = useTransition();
   const [isTesting, startTesting] = useTransition();
 
   const onSave = () => {
-    setMessage(null);
+    setToast(null);
     startSaving(async () => {
       const res = await savePostsR2Settings({
         accountId,
@@ -50,23 +49,26 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
         publicBaseUrl,
       });
       if (res.ok) {
-        setMessage({ type: "ok", text: "Impostazioni salvate." });
+        setToast({ type: "success", message: "Impostazioni salvate." });
         if (secret !== SECRET_SENTINEL && secret.length > 0) {
           // Dopo il save, il secret è ora "set": ritorna al sentinel.
           setSecret(SECRET_SENTINEL);
         }
       } else {
-        setMessage({ type: "error", text: res.error });
+        setToast({ type: "error", message: res.error });
       }
     });
   };
 
   const onTest = () => {
-    setMessage(null);
+    setToast(null);
     startTesting(async () => {
       const res = await testPostsR2Connection();
       if (res.ok) {
-        setMessage({ type: "ok", text: "Connessione R2 ok — bucket raggiungibile." });
+        setToast({
+          type: "success",
+          message: "Connessione R2 ok — bucket raggiungibile.",
+        });
       } else {
         const map: Record<string, string> = {
           missing_config: "Config incompleta: salva prima le 5 chiavi.",
@@ -76,12 +78,20 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
           timeout:        "Timeout (10s) contattando R2.",
           unknown:        `Errore sconosciuto${res.detail ? ": " + res.detail : ""}.`,
         };
-        setMessage({ type: "error", text: map[res.reason] ?? "Errore." });
+        setToast({ type: "error", message: map[res.reason] ?? "Errore." });
       }
     });
   };
 
   return (
+    <>
+      {toast ? (
+        <AdminToast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      ) : null}
     <div className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 space-y-4 max-w-[640px]">
       <header>
         <h2 className="text-lg font-semibold text-[var(--admin-text)]">
@@ -151,21 +161,9 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
         >
           {isTesting ? "Test in corso…" : "Test connessione"}
         </button>
-        {message ? (
-          <span
-            className="text-sm"
-            style={{
-              color:
-                message.type === "ok"
-                  ? "#059669"
-                  : "var(--admin-destructive)",
-            }}
-          >
-            {message.text}
-          </span>
-        ) : null}
       </div>
     </div>
+    </>
   );
 }
 
