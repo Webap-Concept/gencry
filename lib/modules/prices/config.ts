@@ -88,7 +88,11 @@ export async function getPricesConfig(): Promise<PricesConfig> {
  * Manca una sola → ritorna null e il modulo fa graceful degradation.
  */
 function parseR2Config(s: Awaited<ReturnType<typeof getAppSettings>>): PricesR2Config | null {
-  const accountId       = (s["modules.prices.r2.account_id"]        ?? "").trim();
+  // accountId è TENANT-GLOBAL: vive in `storage.r2.account_id`, non
+  // più duplicato per modulo. Le altre 4 chiavi restano per-modulo
+  // (token scoped al bucket del modulo). Vedi
+  // project_modular_architecture §"Per-modulo vs globale".
+  const accountId       = (s["storage.r2.account_id"]               ?? "").trim();
   const accessKeyId     = (s["modules.prices.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["modules.prices.r2.secret_access_key"] ?? "").trim();
   const bucket          = (s["modules.prices.r2.bucket"]            ?? "").trim();

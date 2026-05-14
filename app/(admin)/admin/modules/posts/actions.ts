@@ -22,7 +22,8 @@ const SECRET_SENTINEL = "********";
 type ActionResult = { ok: true } | { ok: false; error: string };
 
 export type SavePostsR2SettingsInput = {
-  accountId: string;
+  // accountId NON è più nel payload: è gestito globalmente in
+  // storage.r2.account_id via /admin/services/cloudflare.
   accessKeyId: string;
   secretAccessKey: string; // SECRET_SENTINEL = "non cambiare"
   bucket: string;
@@ -34,7 +35,6 @@ export async function savePostsR2Settings(
 ): Promise<ActionResult> {
   await requireAdmin();
 
-  const accountId       = input.accountId.trim();
   const accessKeyId     = input.accessKeyId.trim();
   const bucket          = input.bucket.trim();
   // normalizePublicBaseUrl: prepend https:// se l'admin scrive solo
@@ -43,7 +43,6 @@ export async function savePostsR2Settings(
   // localhost/media.example.com/... finendo nel catch-all CMS.
   const publicBaseUrl   = normalizePublicBaseUrl(input.publicBaseUrl);
 
-  await updateAppSetting("modules.posts.r2.account_id",      accountId);
   await updateAppSetting("modules.posts.r2.access_key_id",   accessKeyId);
   await updateAppSetting("modules.posts.r2.bucket",          bucket || "social-media");
   await updateAppSetting("modules.posts.r2.public_base_url", publicBaseUrl);

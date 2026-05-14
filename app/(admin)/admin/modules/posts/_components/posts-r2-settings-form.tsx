@@ -12,19 +12,28 @@ import {
   testPostsR2Connection,
 } from "../actions";
 import { AdminToast, type ToastType } from "@/app/(admin)/admin/_components/toast";
+import { R2GlobalAccountInfo } from "@/app/(admin)/admin/_components/r2-global-account-info";
 
 type Initial = {
-  accountId: string;
   accessKeyId: string;
   bucket: string;
   publicBaseUrl: string;
   r2SecretIsSet: boolean;
 };
 
+type Props = {
+  initial: Initial;
+  globalAccountId: string | null;
+  cloudflareSettingsHref: string;
+};
+
 const SECRET_SENTINEL = "********";
 
-export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
-  const [accountId, setAccountId] = useState(initial.accountId);
+export function PostsR2SettingsForm({
+  initial,
+  globalAccountId,
+  cloudflareSettingsHref,
+}: Props) {
   const [accessKeyId, setAccessKeyId] = useState(initial.accessKeyId);
   const [secret, setSecret] = useState(
     initial.r2SecretIsSet ? SECRET_SENTINEL : "",
@@ -42,7 +51,6 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
     setToast(null);
     startSaving(async () => {
       const res = await savePostsR2Settings({
-        accountId,
         accessKeyId,
         secretAccessKey: secret,
         bucket,
@@ -105,12 +113,11 @@ export function PostsR2SettingsForm({ initial }: { initial: Initial }) {
         </p>
       </header>
 
-      <Field
-        label="Account ID Cloudflare"
-        value={accountId}
-        onChange={setAccountId}
-        autoComplete="off"
+      <R2GlobalAccountInfo
+        accountId={globalAccountId}
+        cloudflareSettingsHref={cloudflareSettingsHref}
       />
+
       <Field
         label="Access Key ID"
         value={accessKeyId}

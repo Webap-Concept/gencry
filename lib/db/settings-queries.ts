@@ -179,8 +179,9 @@ export type SettingKey =
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
   | 'modules.prices.cryptocompare_api_key' // API key CryptoCompare (free, opzionale)
-  // R2 storage per coin images (un bucket dedicato per modulo, vedi project_social_storage_r2.md)
-  | 'modules.prices.r2.account_id'
+  // R2 storage per coin images. NB: account_id NON è qui — è tenant-global
+  // in `storage.r2.account_id` (vedi project_modular_architecture
+  // §"Per-modulo vs globale"). Token + bucket + URL restano per-modulo.
   | 'modules.prices.r2.access_key_id'
   | 'modules.prices.r2.secret_access_key'
   | 'modules.prices.r2.bucket'
@@ -198,8 +199,8 @@ export type SettingKey =
   | 'modules.posts.link_preview_cache_days'      // re-fetch OG > N giorni
   | 'modules.posts.outbox_retention_days'        // cleanup posts_outbox processed_at < now()-N
   | 'modules.posts.orphan_media_grace_hours'     // cleanup R2 posts_media confirmed_at IS NULL > N ore
-  // R2 storage dedicato modulo posts (bucket `social-media`)
-  | 'modules.posts.r2.account_id'
+  // R2 storage dedicato modulo posts (bucket `social-media`).
+  // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
   | 'modules.posts.r2.secret_access_key'
   | 'modules.posts.r2.bucket'
@@ -400,7 +401,6 @@ export type AppSettings = {
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
   'modules.prices.cryptocompare_api_key': string | null
-  'modules.prices.r2.account_id': string | null
   'modules.prices.r2.access_key_id': string | null
   'modules.prices.r2.secret_access_key': string | null
   'modules.prices.r2.bucket': string | null
@@ -418,7 +418,6 @@ export type AppSettings = {
   'modules.posts.link_preview_cache_days': string
   'modules.posts.outbox_retention_days': string
   'modules.posts.orphan_media_grace_hours': string
-  'modules.posts.r2.account_id': string | null
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -592,7 +591,6 @@ const DEFAULTS: AppSettings = {
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
   'modules.prices.cryptocompare_api_key': null,
-  'modules.prices.r2.account_id': null,
   'modules.prices.r2.access_key_id': null,
   'modules.prices.r2.secret_access_key': null,
   'modules.prices.r2.bucket': null,
@@ -610,7 +608,6 @@ const DEFAULTS: AppSettings = {
   'modules.posts.link_preview_cache_days': '30',
   'modules.posts.outbox_retention_days': '30',
   'modules.posts.orphan_media_grace_hours': '24',
-  'modules.posts.r2.account_id': null,
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',

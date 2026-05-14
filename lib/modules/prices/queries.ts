@@ -6,7 +6,7 @@ import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { getUpstashClient } from "@/lib/kv/upstash";
+import { isUpstashConfigured, redisCmd } from "@/lib/kv/raw";
 
 /** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
  * fresche (es. al termine di un cron run). Senza revalidate la cache scade
@@ -56,20 +56,26 @@ async function fetchAllPricesFromDB(): Promise<PriceRow[]> {
 
 /**
  * Cache-aside attorno alla tabella prices_data. Se Upstash non è
- * configurato (`getUpstashClient()` → null) → fallback DB diretto,
- * NESSUN errore. Qualsiasi errore KV durante GET/SET è loggato e
- * trattato come miss/no-op — la query non deve mai fallire perché
- * il KV è giù.
+ * configurato → fallback DB diretto, NESSUN errore. Qualsiasi errore
+ * KV durante GET/SET è loggato e trattato come miss/no-op — la query
+ * non deve mai fallire perché il KV è giù.
+ *
+ * Pattern fetch-raw via `redisCmd` (no SDK) per allinearsi al resto
+ * del codebase (lib/auth/rate-limit-redis, lib/bloom). Upstash REST
+ * ritorna i valori SET con argomento JSON come stringhe — facciamo
+ * JSON.stringify/parse manualmente.
  */
 async function getAllPricesCached(): Promise<PriceRow[]> {
-  const client = await getUpstashClient();
-  if (!client) return fetchAllPricesFromDB();
+  if (!(await isUpstashConfigured())) return fetchAllPricesFromDB();
 
   // Cache HIT?
   try {
-    const cached = await client.get<CachedPriceRow[]>(KV_PRICES_ALL);
-    if (cached && Array.isArray(cached)) {
-      return cached.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
+    const cached = await redisCmd<string | null>(["GET", KV_PRICES_ALL]);
+    if (cached) {
+      const parsed = JSON.parse(cached) as CachedPriceRow[];
+      if (Array.isArray(parsed)) {
+        return parsed.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
+      }
     }
   } catch (err) {
     console.warn("[prices/cache] KV GET failed, fallback DB:", err);
@@ -80,13 +86,13 @@ async function getAllPricesCached(): Promise<PriceRow[]> {
 
   try {
     const settings = await getAppSettings();
-    const ttl =
-      parseInt(settings["modules.prices.kv_ttl_seconds"], 10) || 30;
+    const ttl = parseInt(settings["modules.prices.kv_ttl_seconds"], 10) || 30;
     const serialized: CachedPriceRow[] = fresh.map((r) => ({
       ...r,
       lastUpdated: r.lastUpdated.toISOString(),
     }));
-    await client.set(KV_PRICES_ALL, serialized, { ex: ttl });
+    // SET key value EX ttl
+    await redisCmd(["SET", KV_PRICES_ALL, JSON.stringify(serialized), "EX", ttl]);
   } catch (err) {
     console.warn("[prices/cache] KV SET failed (best-effort, ignored):", err);
   }
@@ -100,10 +106,9 @@ async function getAllPricesCached(): Promise<PriceRow[]> {
  * aspettare il TTL (~30s). No-op se Upstash non configurato.
  */
 export async function invalidatePricesCache(): Promise<void> {
-  const client = await getUpstashClient();
-  if (!client) return;
+  if (!(await isUpstashConfigured())) return;
   try {
-    await client.del(KV_PRICES_ALL);
+    await redisCmd(["DEL", KV_PRICES_ALL]);
   } catch (err) {
     console.warn("[prices/cache] KV DEL failed (ignored):", err);
   }

@@ -58,7 +58,10 @@ export function normalizePublicBaseUrl(raw: string): string {
 
 export async function loadPostsR2Config(): Promise<PostsR2Config | null> {
   const s = await getAppSettings();
-  const accountId       = (s["modules.posts.r2.account_id"]        ?? "").trim();
+  // accountId è TENANT-GLOBAL (vedi project_modular_architecture
+  // §"Per-modulo vs globale"). Letto da `storage.r2.account_id`,
+  // condiviso con il bucket avatars del core e con il modulo prices.
+  const accountId       = (s["storage.r2.account_id"]              ?? "").trim();
   const accessKeyId     = (s["modules.posts.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["modules.posts.r2.secret_access_key"] ?? "").trim();
   const bucket          = (s["modules.posts.r2.bucket"]            ?? "").trim();

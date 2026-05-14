@@ -2,6 +2,11 @@ import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { PRICES_DEFAULTS } from "@/lib/modules/prices/config";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
+import {
+  loadGlobalR2AccountId,
+  R2_ACCOUNT_ADMIN_PATH,
+} from "@/lib/storage/r2-account";
 import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { PricesSettingsForm } from "../_components/prices-settings-form";
@@ -12,7 +17,11 @@ export const metadata: Metadata = { title: "Prices / Settings" };
 export const dynamic = "force-dynamic";
 
 export default async function PricesSettingsPage() {
-  const settings = await getAppSettings();
+  const [settings, globalAccountId, adminSlug] = await Promise.all([
+    getAppSettings(),
+    loadGlobalR2AccountId(),
+    getAdminUrlSlug(),
+  ]);
 
   // Numero coin attivi: serve come baseline iniziale per il simulator.
   const [activeRow] = await db
@@ -50,12 +59,13 @@ export default async function PricesSettingsPage() {
           "modules.prices.coingecko_pro_enabled":  settings["modules.prices.coingecko_pro_enabled"],
           "modules.prices.coingecko_pro_api_key":  settings["modules.prices.coingecko_pro_api_key"],
           "modules.prices.cryptocompare_api_key":  settings["modules.prices.cryptocompare_api_key"],
-          "modules.prices.r2.account_id":          settings["modules.prices.r2.account_id"],
           "modules.prices.r2.access_key_id":       settings["modules.prices.r2.access_key_id"],
           "modules.prices.r2.bucket":              settings["modules.prices.r2.bucket"],
           "modules.prices.r2.public_base_url":     settings["modules.prices.r2.public_base_url"],
           r2SecretIsSet,
         }}
+        globalAccountId={globalAccountId}
+        cloudflareSettingsHref={`/${adminSlug}${R2_ACCOUNT_ADMIN_PATH}`}
       />
 
       <StorageSimulator

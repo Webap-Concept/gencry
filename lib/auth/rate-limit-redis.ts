@@ -12,87 +12,13 @@
 //
 // Il layer Redis è always-first: se Redis è down il chiamante fa fallback
 // trasparente al DB esistente — nessuna interruzione del servizio.
+//
+// REFACTOR 2026-05-14: `redisCmd` + `redisPipeline` + `getRedisConfig`
+// estratti in lib/kv/raw.ts per riuso cross-module. Questo file re-export
+// per backward compat dei call site interni di lib/auth/.
 
-import { getAppSettings } from "@/lib/db/settings-queries";
-
-// ---------------------------------------------------------------------------
-// Redis REST client (cache TTL 60s per le credenziali)
-// ---------------------------------------------------------------------------
-
-let _cachedConfig: { url: string; token: string } | null = null;
-let _cacheExpiry = 0;
-
-export function invalidateRedisConfigCache(): void {
-  _cachedConfig = null;
-  _cacheExpiry = 0;
-}
-
-async function getRedisConfig(): Promise<{ url: string; token: string }> {
-  const now = Date.now();
-  if (_cachedConfig && now < _cacheExpiry) return _cachedConfig;
-
-  const settings = await getAppSettings();
-  const url = settings.upstash_redis_rest_url;
-  const token = settings.upstash_redis_rest_token;
-
-  if (!url || !token) {
-    throw new Error("[rate-limit-redis] Missing Upstash credentials in app settings");
-  }
-
-  _cachedConfig = { url, token };
-  _cacheExpiry = now + 60_000;
-  return _cachedConfig;
-}
-
-// Esportato per essere riusato dalla cache sessions (lib/auth/sessions-cache.ts).
-// Resta interno al namespace `lib/auth/` per coerenza: l'unica altra utenza
-// possibile in futuro è altra logica di auth/cache.
-export async function redisCmd<T = unknown>(command: (string | number)[]): Promise<T> {
-  const { url, token } = await getRedisConfig();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-    signal: AbortSignal.timeout(2000),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`[rate-limit-redis] HTTP ${res.status}: ${text}`);
-  }
-  const json = (await res.json()) as { result: T; error?: string };
-  if (json.error) throw new Error(`[rate-limit-redis] ${json.error}`);
-  return json.result;
-}
-
-/**
- * Batches N commands into a single Upstash REST round-trip via the
- * `/pipeline` endpoint. Returns the raw result for each command in
- * the same order. Use this any time you'd otherwise loop `redisCmd`
- * — at scale the round-trip count is the dominant cost.
- */
-export async function redisPipeline(
-  commands: (string | number)[][],
-): Promise<unknown[]> {
-  const { url, token } = await getRedisConfig();
-  const res = await fetch(`${url}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(commands),
-    signal: AbortSignal.timeout(2000),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`[rate-limit-redis] pipeline HTTP ${res.status}: ${text}`);
-  }
-  const json = (await res.json()) as { result: unknown; error?: string }[];
-  return json.map((r) => r.result);
-}
+import { redisCmd, redisPipeline, invalidateRedisConfigCache } from "@/lib/kv/raw";
+export { redisCmd, redisPipeline, invalidateRedisConfigCache };
 
 // ---------------------------------------------------------------------------
 // Key builders

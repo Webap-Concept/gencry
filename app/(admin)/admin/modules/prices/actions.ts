@@ -74,13 +74,13 @@ export async function savePricesSettings(
     // R2 storage settings — campi hidden+text dal form. Salviamo l'intera tupla;
     // il config layer (`getPricesConfig.parseR2Config`) considera R2 attivo solo
     // se TUTTE e 5 le chiavi sono valorizzate non-vuote.
-    const r2AccountId    = ((formData.get("modules.prices.r2.account_id")        as string) ?? "").trim();
+    // accountId è ora tenant-globale (storage.r2.account_id) e NON viene
+    // più letto da questo form. Gestito in /admin/services/cloudflare.
     const r2AccessKeyId  = ((formData.get("modules.prices.r2.access_key_id")     as string) ?? "").trim();
     const r2SecretRaw    = ((formData.get("modules.prices.r2.secret_access_key") as string) ?? "").trim();
     const r2Bucket       = ((formData.get("modules.prices.r2.bucket")            as string) ?? "").trim();
     const r2PublicBase   = ((formData.get("modules.prices.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
 
-    await updateAppSetting("modules.prices.r2.account_id",        r2AccountId    || null);
     await updateAppSetting("modules.prices.r2.access_key_id",     r2AccessKeyId  || null);
     // Sentinel "********" significa "non modificare" (la UI mostra il placeholder
     // mascherato per non rivelare il secret salvato). Aggiorna solo se cambiato.
@@ -166,7 +166,6 @@ export async function testR2Action(
   formData: FormData,
 ): Promise<ActionState> {
   try {
-    const accountId    = ((formData.get("modules.prices.r2.account_id")        as string) ?? "").trim();
     const accessKeyId  = ((formData.get("modules.prices.r2.access_key_id")     as string) ?? "").trim();
     const secretRaw    = ((formData.get("modules.prices.r2.secret_access_key") as string) ?? "").trim();
     const bucket       = ((formData.get("modules.prices.r2.bucket")            as string) ?? "").trim();
@@ -178,9 +177,13 @@ export async function testR2Action(
       secretAccessKey = (settings["modules.prices.r2.secret_access_key"] ?? "").trim();
     }
 
+    // accountId tenant-globale (storage.r2.account_id), letto dalle settings.
+    const settings = await getAppSettings();
+    const accountId = (settings["storage.r2.account_id"] ?? "").trim();
+
     if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBase) {
       return {
-        error: "Fill in all 5 R2 fields (and save the secret at least once) before testing.",
+        error: "Fill in the 4 module R2 fields (and save the secret at least once) + configure the global Cloudflare Account ID in /services/cloudflare before testing.",
         timestamp: Date.now(),
       };
     }
