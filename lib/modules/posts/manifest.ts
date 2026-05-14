@@ -42,5 +42,26 @@ export const POSTS_MODULE: ModuleManifest = {
       permission: "modules:posts",
     },
   ],
-  cronJobs: [],
+  cronJobs: [
+    {
+      jobname: "modules-posts-orphan-media-cleanup",
+      path: "/api/cron/modules/posts/cleanup-orphan-media",
+      schedule: "0 3 * * *",
+      label: "Posts Orphan Media Cleanup",
+      description:
+        "Deletes posts_media rows that were uploaded to R2 but never attached to a published post (e.g. user closed the tab during compose). DELETEs R2 objects (original + thumb + full variants) + DB row.",
+      purpose:
+        "Closes the 'hard navigation' gap where the in-component cleanup couldn't run. Keeps R2 storage bounded.",
+    },
+    {
+      jobname: "modules-posts-outbox-cleanup",
+      path: "/api/cron/modules/posts/cleanup-outbox",
+      schedule: "0 4 * * *",
+      label: "Posts Outbox Cleanup",
+      description:
+        "Removes posts_outbox rows whose processed_at is older than modules.posts.outbox_retention_days (default 30d).",
+      purpose:
+        "Keeps the outbox table bounded after the notifications consumer marks events as processed.",
+    },
+  ],
 };

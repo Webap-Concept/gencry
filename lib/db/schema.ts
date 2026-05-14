@@ -1640,6 +1640,26 @@ export type NewPostLinkPreview    = typeof postsLinkPreviews.$inferInsert;
 export type PostOutboxEvent       = typeof postsOutbox.$inferSelect;
 export type NewPostOutboxEvent    = typeof postsOutbox.$inferInsert;
 
+export const postsCronRuns = pgTable(
+  "posts_cron_runs",
+  {
+    id:             bigserial("id", { mode: "number" }).primaryKey(),
+    kind:           varchar("kind", { length: 40 }).notNull(),
+    startedAt:      timestamp("started_at",  { withTimezone: true }).notNull().defaultNow(),
+    finishedAt:     timestamp("finished_at", { withTimezone: true }),
+    durationMs:     integer("duration_ms"),
+    itemsProcessed: integer("items_processed").notNull().default(0),
+    ok:             boolean("ok").notNull().default(false),
+    error:          text("error"),
+  },
+  (t) => [
+    index("idx_posts_cron_runs_kind_started").on(t.kind, t.startedAt),
+  ],
+);
+
+export type PostsCronRun    = typeof postsCronRuns.$inferSelect;
+export type NewPostsCronRun = typeof postsCronRuns.$inferInsert;
+
 /**
  * Set di reaction supportate (allineato al CHECK SQL su posts_reactions.reaction).
  * Mantenere in sync con la migration e con i counter columns su `posts`.
