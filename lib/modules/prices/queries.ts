@@ -6,7 +6,7 @@ import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { isUpstashConfigured, redisCmd } from "@/lib/kv/raw";
+import { getRedisClient } from "@/lib/kv/sdk";
 
 /** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
  * fresche (es. al termine di un cron run). Senza revalidate la cache scade
@@ -60,22 +60,19 @@ async function fetchAllPricesFromDB(): Promise<PriceRow[]> {
  * KV durante GET/SET è loggato e trattato come miss/no-op — la query
  * non deve mai fallire perché il KV è giù.
  *
- * Pattern fetch-raw via `redisCmd` (no SDK) per allinearsi al resto
- * del codebase (lib/auth/rate-limit-redis, lib/bloom). Upstash REST
- * ritorna i valori SET con argomento JSON come stringhe — facciamo
- * JSON.stringify/parse manualmente.
+ * SDK `@upstash/redis`: auto-JSON encode/decode (niente
+ * JSON.stringify/parse manuale), type-safe con il generic `<T>` su
+ * client.get().
  */
 async function getAllPricesCached(): Promise<PriceRow[]> {
-  if (!(await isUpstashConfigured())) return fetchAllPricesFromDB();
+  const redis = await getRedisClient();
+  if (!redis) return fetchAllPricesFromDB();
 
   // Cache HIT?
   try {
-    const cached = await redisCmd<string | null>(["GET", KV_PRICES_ALL]);
-    if (cached) {
-      const parsed = JSON.parse(cached) as CachedPriceRow[];
-      if (Array.isArray(parsed)) {
-        return parsed.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
-      }
+    const cached = await redis.get<CachedPriceRow[]>(KV_PRICES_ALL);
+    if (cached && Array.isArray(cached)) {
+      return cached.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
     }
   } catch (err) {
     console.warn("[prices/cache] KV GET failed, fallback DB:", err);
@@ -91,8 +88,8 @@ async function getAllPricesCached(): Promise<PriceRow[]> {
       ...r,
       lastUpdated: r.lastUpdated.toISOString(),
     }));
-    // SET key value EX ttl
-    await redisCmd(["SET", KV_PRICES_ALL, JSON.stringify(serialized), "EX", ttl]);
+    // SDK auto-stringifies l'array → JSON in Redis.
+    await redis.set(KV_PRICES_ALL, serialized, { ex: ttl });
   } catch (err) {
     console.warn("[prices/cache] KV SET failed (best-effort, ignored):", err);
   }
@@ -106,9 +103,10 @@ async function getAllPricesCached(): Promise<PriceRow[]> {
  * aspettare il TTL (~30s). No-op se Upstash non configurato.
  */
 export async function invalidatePricesCache(): Promise<void> {
-  if (!(await isUpstashConfigured())) return;
+  const redis = await getRedisClient();
+  if (!redis) return;
   try {
-    await redisCmd(["DEL", KV_PRICES_ALL]);
+    await redis.del(KV_PRICES_ALL);
   } catch (err) {
     console.warn("[prices/cache] KV DEL failed (ignored):", err);
   }
