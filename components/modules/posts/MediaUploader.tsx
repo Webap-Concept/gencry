@@ -17,7 +17,7 @@
 // Lo unmount del componente fa cleanup di TUTTI i draft non ancora
 // claim-ati (utile su modal close senza submit).
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { AlertCircle, ImagePlus, Loader2, X } from "lucide-react";
 import {
   confirmPostMediaUpload,
   createPostMediaTicket,
@@ -306,8 +306,12 @@ function ItemTile({
         </div>
       ) : null}
       {item.status === "error" ? (
-        <div className="absolute inset-0 bg-gc-danger/80 flex items-center justify-center p-1">
-          <span className="text-[10px] text-white text-center leading-tight">
+        <div
+          className="absolute inset-0 bg-red-600 flex flex-col items-center justify-center gap-1 p-1"
+          title={item.error}
+        >
+          <AlertCircle size={16} className="text-white shrink-0" />
+          <span className="text-[10px] text-white text-center leading-tight line-clamp-3">
             {item.error}
           </span>
         </div>
