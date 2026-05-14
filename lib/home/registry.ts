@@ -17,6 +17,7 @@
 
 import "server-only";
 import { CORE_HOME_SECTIONS } from "./core-sections";
+import { POSTS_HOME_SECTIONS } from "@/lib/modules/posts/home-sections";
 import { resolveSlotFrom, validateSections } from "./registry-utils";
 import type { HomeSection, HomeSlot } from "./types";
 
@@ -38,6 +39,7 @@ import type { HomeSection, HomeSlot } from "./types";
  */
 export const HOME_SECTIONS: HomeSection[] = [
   ...CORE_HOME_SECTIONS,
+  ...POSTS_HOME_SECTIONS,
 ];
 
 // Validazione runtime al boot del modulo: cattura errori di registrazione
