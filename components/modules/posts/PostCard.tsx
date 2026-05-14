@@ -1,33 +1,48 @@
 "use client";
 // components/modules/posts/PostCard.tsx
 //
-// Card presentational riusabile di un post nel feed. Riceve PostCardData
-// già hydratato (vedi lib/modules/posts/types.ts) — niente fetch interni,
-// niente accesso DB.
+// Card presentational riusabile di un post. Riceve PostCardData
+// hydratato (vedi lib/modules/posts/types.ts).
 //
-// Le interazioni (toggle reaction / bookmark, soft-delete) sono delegate
-// alle Server Actions del modulo (lib/modules/posts/actions.ts) tramite
-// `startTransition` + `useOptimistic` — la UI si aggiorna immediatamente
-// e si riallinea al refetch se l'azione fallisce.
+// Layout (v2 dopo manual UX review):
+//
+//   ┌────────────────────────────────────────────┐
+//   │ [Avatar] @user · time · 🌐    [X] [⋯]     │
+//   │                                            │
+//   │ body con $TICKER / @mention auto-linkati   │
+//   │ ticker chips, quote-repost embed, ...      │
+//   │                                            │
+//   │ [😀 12]   [💬 3]   [↗ 1]                    │
+//   └────────────────────────────────────────────┘
+//
+//  Top-right:
+//    X    → nasconde la card per la sessione (no DB call)
+//    ⋯    → DropdownMenu con azioni context-aware (autore:
+//           Modifica/Elimina; viewer: Salva/Segnala/Nascondi)
+//  Footer:
+//    Reactions → popover 6 emoji (hover desktop, click mobile)
+//    Commenta  → link a /post/{id}
+//    Repost    → solo conteggio in v1 (UI quote-repost rinviata)
 import { startTransition, useOptimistic, useState } from "react";
 import Link from "next/link";
+import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
 import type { PostCardData } from "@/lib/modules/posts/types";
-import { POST_REACTION_KINDS, type PostReactionKind } from "@/lib/db/schema";
+import type { PostReactionKind } from "@/lib/db/schema";
 import {
+  reportPost,
   softDeletePost,
   toggleBookmark,
   toggleReaction,
 } from "@/lib/modules/posts/actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
-
-const REACTION_EMOJI: Record<PostReactionKind, string> = {
-  like: "❤️",
-  rocket: "🚀",
-  bull: "🐂",
-  bear: "🐻",
-  dump: "📉",
-  diamond: "💎",
-};
+import { ReactionPopover } from "./ReactionPopover";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
   public: "Tutti",
@@ -42,6 +57,12 @@ function authorDisplayName(author: PostCardData["author"]): string {
   return full || "Utente";
 }
 
+function authorInitial(author: PostCardData["author"]): string {
+  const f =
+    (author.username ?? author.firstName ?? "?")[0] ?? "?";
+  return f.toUpperCase();
+}
+
 function formatRelativeTime(date: Date): string {
   const diffMs = Date.now() - new Date(date).getTime();
   const sec = Math.floor(diffMs / 1000);
@@ -49,12 +70,15 @@ function formatRelativeTime(date: Date): string {
   if (sec < 3600) return `${Math.floor(sec / 60)}m`;
   if (sec < 86_400) return `${Math.floor(sec / 3600)}h`;
   if (sec < 604_800) return `${Math.floor(sec / 86_400)}g`;
-  return new Date(date).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  return new Date(date).toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 type Props = {
   post: PostCardData;
-  /** True quando viewer === author: abilita azioni come soft-delete. */
+  /** True quando viewer === author: sblocca Modifica/Elimina nel menu. */
   isAuthor?: boolean;
 };
 
@@ -66,14 +90,9 @@ export function PostCard({ post, isAuthor }: Props) {
     post.viewer?.ownReactions ?? [],
   );
   const [hidden, setHidden] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
-  if (hidden) {
-    return (
-      <div className="border border-gc-line/60 rounded-gc bg-gc-bg-2 p-4 text-sm text-gc-fg-muted">
-        Post rimosso.
-      </div>
-    );
-  }
+  if (hidden || deleted) return null;
 
   const onToggleReaction = (kind: PostReactionKind) => {
     const wasActive = ownReactions.includes(kind);
@@ -82,10 +101,7 @@ export function PostCard({ post, isAuthor }: Props) {
         wasActive ? ownReactions.filter((r) => r !== kind) : [...ownReactions, kind],
       );
       const res = await toggleReaction({ postId: post.id, reaction: kind });
-      if (!res.ok) {
-        // riallinea con server
-        setOwnReactions(post.viewer?.ownReactions ?? []);
-      }
+      if (!res.ok) setOwnReactions(post.viewer?.ownReactions ?? []);
     });
   };
 
@@ -97,19 +113,45 @@ export function PostCard({ post, isAuthor }: Props) {
     });
   };
 
-  const onSoftDelete = () => {
+  const onDelete = () => {
     if (!isAuthor) return;
     if (!window.confirm("Eliminare questo post? L'azione non è annullabile.")) return;
     startTransition(async () => {
-      setHidden(true);
+      setDeleted(true);
       const res = await softDeletePost({ postId: post.id });
-      if (!res.ok) setHidden(false);
+      if (!res.ok) setDeleted(false);
     });
   };
 
+  const onReport = () => {
+    const reasonInput = window.prompt(
+      "Motivo del report (spam, scam, abuse, other):",
+      "spam",
+    );
+    if (!reasonInput) return;
+    const reason = reasonInput.toLowerCase().trim() as
+      | "spam"
+      | "scam"
+      | "abuse"
+      | "other";
+    if (!["spam", "scam", "abuse", "other"].includes(reason)) {
+      window.alert("Motivo non valido.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await reportPost({ postId: post.id, reason });
+      if (res.ok) window.alert("Grazie, il report è stato inviato.");
+      else window.alert("Impossibile inviare il report.");
+    });
+  };
+
+  // Reactions total da counters denormalizzati (1 lettura, niente sum
+  // ricomputato a render time — già aggregato in PostCounts.reactionsTotal).
+  const reactionsTotal = post.counts.reactionsTotal;
+
   return (
     <article className="bg-gc-bg-2 border border-gc-line rounded-gc p-5">
-      {/* Header: avatar, autore, time, visibility */}
+      {/* Header: autore + time + visibility */}
       <header className="flex items-start gap-3 mb-3">
         <Link
           href={`/profile/${post.author.username ?? post.author.id}`}
@@ -125,7 +167,7 @@ export function PostCard({ post, isAuthor }: Props) {
             />
           ) : (
             <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
-              {authorDisplayName(post.author).charAt(1)?.toUpperCase() || "?"}
+              {authorInitial(post.author)}
             </div>
           )}
         </Link>
@@ -138,11 +180,19 @@ export function PostCard({ post, isAuthor }: Props) {
               {authorDisplayName(post.author)}
             </Link>
             <span className="text-xs text-gc-fg-muted">·</span>
-            <time className="text-xs text-gc-fg-muted" dateTime={post.createdAt.toString()}>
-              {formatRelativeTime(post.createdAt)}
-            </time>
+            <Link
+              href={`/post/${post.id}`}
+              className="text-xs text-gc-fg-muted hover:underline"
+            >
+              <time dateTime={String(post.createdAt)}>
+                {formatRelativeTime(post.createdAt)}
+              </time>
+            </Link>
             {post.editedAt ? (
-              <span className="text-xs text-gc-fg-muted" title={String(post.editedAt)}>
+              <span
+                className="text-xs text-gc-fg-muted"
+                title={String(post.editedAt)}
+              >
                 · modificato
               </span>
             ) : null}
@@ -153,16 +203,58 @@ export function PostCard({ post, isAuthor }: Props) {
             ) : null}
           </div>
         </div>
-        {isAuthor ? (
+        {/* Top-right toolbar */}
+        <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Opzioni post"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
+            >
+              <DropdownMenuItem onSelect={onToggleBookmark}>
+                {bookmarked ? "Rimuovi dai salvati" : "Salva post"}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/post/${post.id}`}>Apri post</Link>
+              </DropdownMenuItem>
+              {!isAuthor ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={onReport}>
+                    Segnala
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+              {isAuthor ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={onDelete}
+                    className="text-gc-danger focus:text-gc-danger"
+                  >
+                    Elimina post
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
-            onClick={onSoftDelete}
-            className="text-xs text-gc-fg-muted hover:text-gc-danger px-2"
-            aria-label="Elimina post"
             type="button"
+            onClick={() => setHidden(true)}
+            aria-label="Nascondi post"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
           >
-            Elimina
+            <X size={16} />
           </button>
-        ) : null}
+        </div>
       </header>
 
       {/* Body */}
@@ -197,49 +289,32 @@ export function PostCard({ post, isAuthor }: Props) {
         </div>
       ) : null}
 
-      {/* Footer: reaction toolbar + counts */}
-      <footer className="mt-4 flex items-center gap-1.5 flex-wrap">
-        {POST_REACTION_KINDS.map((kind) => {
-          const active = ownReactions.includes(kind);
-          const count = post.counts.reactions[kind];
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => onToggleReaction(kind)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                active
-                  ? "bg-gc-accent/15 text-gc-accent"
-                  : "bg-transparent text-gc-fg-muted hover:bg-gc-line/40"
-              }`}
-              aria-pressed={active}
-              aria-label={`Reaction ${kind}${count > 0 ? `, ${count}` : ""}`}
-            >
-              <span>{REACTION_EMOJI[kind]}</span>
-              {count > 0 ? <span>{count}</span> : null}
-            </button>
-          );
-        })}
-        <div className="flex-1" />
+      {/* Footer: 3 azioni — Reactions / Commenta / Repost */}
+      <footer className="mt-4 flex items-center gap-1">
+        <ReactionPopover
+          ownReactions={ownReactions}
+          totalCount={reactionsTotal}
+          onToggle={onToggleReaction}
+        />
         <Link
           href={`/post/${post.id}`}
-          className="text-xs text-gc-fg-muted hover:text-gc-fg px-2 py-1"
+          aria-label={`Commenti${post.counts.comments > 0 ? `, ${post.counts.comments}` : ""}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
         >
-          💬 {post.counts.comments > 0 ? post.counts.comments : ""}
+          <MessageCircle size={18} strokeWidth={1.75} />
+          {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
         </Link>
-        <span className="text-xs text-gc-fg-muted px-2 py-1">
-          ↗ {post.counts.reposts > 0 ? post.counts.reposts : ""}
-        </span>
         <button
           type="button"
-          onClick={onToggleBookmark}
-          className={`text-xs px-2 py-1 rounded-full ${
-            bookmarked ? "text-gc-accent" : "text-gc-fg-muted hover:text-gc-fg"
-          }`}
-          aria-pressed={bookmarked}
-          aria-label="Bookmark"
+          aria-label={`Repost${post.counts.reposts > 0 ? `, ${post.counts.reposts}` : ""}`}
+          // L'azione quote-repost arriverà in una PR successiva: per ora
+          // mostriamo solo il count. Click no-op (cursor-default) per
+          // non confondere l'utente.
+          disabled
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
         >
-          {bookmarked ? "🔖" : "📑"}
+          <Repeat2 size={18} strokeWidth={1.75} />
+          {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
         </button>
       </footer>
     </article>
