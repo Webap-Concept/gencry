@@ -5,6 +5,7 @@ import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesHistory } from "@/lib/db/schema";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { getPricesConfig } from "@/lib/modules/prices/config";
+import { PRICES_DATA_TAG } from "@/lib/modules/prices/queries";
 import {
   fetchCoinMetadata,
   fetchTopCoinsByMarketCap,
@@ -20,7 +21,7 @@ import {
 } from "@/lib/modules/prices/storage";
 import { runPricesCleanup, runPricesSync } from "@/lib/modules/prices/sync";
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 export type ActionState =
   | {}
@@ -225,6 +226,7 @@ export async function triggerSyncNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
     return {
       success: result.ok
         ? `Sync OK · ${result.coinsUpdated}/${result.coinsTotal} coins · ${result.durationMs}ms`
@@ -245,6 +247,7 @@ export async function triggerSnapshotNowAction(): Promise<ActionState> {
     // ma sotto il cofano fa esattamente lo stesso del trigger sync.
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
     return {
       success: `Sync+snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -259,6 +262,7 @@ export async function triggerCleanupNowAction(): Promise<ActionState> {
   try {
     const result = await runPricesCleanup();
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
     return {
       success: `Cleanup OK · ${result.coinsUpdated} rows deleted · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -321,6 +325,7 @@ export async function addCoinAction(
         },
       });
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${meta.symbol} (${meta.name}) added.`, timestamp: Date.now() };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Add coin failed";
@@ -435,6 +440,7 @@ export async function bulkImportTopCoinsAction(
     }
 
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     const detail =
       failed > 0
         ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
@@ -513,6 +519,7 @@ export async function refetchAllCoinsAction(): Promise<ActionState> {
     }
 
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     const detail = failedSymbols.length > 0 ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}` : "";
     return {
       success: `Refreshed ${updated} coins · failed ${failed}${detail}`,
@@ -553,6 +560,7 @@ export async function refetchCoinAction(symbol: string): Promise<ActionState> {
       })
       .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${symbol} metadata refreshed.`, timestamp: Date.now() };
   } catch {
     return { error: "Refetch failed.", timestamp: Date.now() };
@@ -569,6 +577,7 @@ export async function toggleCoinActiveAction(
       .set({ isActive, updatedAt: new Date() })
       .where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return {
       success: `${symbol} ${isActive ? "activated" : "deactivated"}.`,
       timestamp: Date.now(),
@@ -594,6 +603,7 @@ export async function deleteCoinAction(symbol: string): Promise<ActionState> {
 
     await db.delete(pricesCoins).where(eq(pricesCoins.symbol, symbol));
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     return { success: `${symbol} removed.`, timestamp: Date.now() };
   } catch {
     return { error: "Delete failed.", timestamp: Date.now() };
@@ -657,6 +667,7 @@ export async function backfillCoinImagesAction(): Promise<ActionState> {
     }
 
     revalidatePath(await getAdminPath("prices-coins"));
+    updateTag(PRICES_DATA_TAG);
     const detail =
       failed > 0
         ? ` · failed: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
@@ -860,6 +871,7 @@ export async function backfillHistoryAction(
     }
 
     revalidatePath(await getAdminPath("prices-overview"));
+    updateTag(PRICES_DATA_TAG);
     const detail = failedSymbols.length > 0
       ? ` · no data on CC: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
       : "";

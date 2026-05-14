@@ -1,5 +1,7 @@
 import { isAuthorizedCron } from "@/lib/modules/prices/cron-auth";
+import { PRICES_DATA_TAG } from "@/lib/modules/prices/queries";
 import { runPricesSync } from "@/lib/modules/prices/sync";
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -11,6 +13,12 @@ export async function GET(req: Request) {
   }
   try {
     const result = await runPricesSync();
+    // Invalida la cache `unstable_cache` dei consumer (card coin,
+    // chart, top-coins pool). Senza, il tier router cache mostra il
+    // prezzo precedente per fino al revalidate naturale (60s-1h).
+    if (result.ok) {
+      revalidateTag(PRICES_DATA_TAG, "max");
+    }
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
