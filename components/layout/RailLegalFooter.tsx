@@ -19,7 +19,7 @@ export async function RailLegalFooter() {
 
   const items: Array<{ href: string; label: string; external?: boolean }> = [];
   if (slugs.terms) items.push({ href: `/${slugs.terms}`, label: t("terms") });
-  if (slugs.cookie) items.push({ href: `/${slugs.cookie}`, label: t("cookie") });
+  if (slugs.cookie) items.push({ href: `/${slugs.cookie}`, label: t("cookiePolicy") });
   if (slugs.privacy) items.push({ href: `/${slugs.privacy}`, label: t("privacy") });
 
   // "Pubblicità": link a una potenziale pagina dedicata se l'admin la
