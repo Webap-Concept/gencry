@@ -12,8 +12,13 @@
 import type { ModuleManifest } from "./types";
 import { PRICES_MODULE } from "./prices/manifest";
 import { ONBOARDING_MODULE } from "./onboarding/manifest";
+import { POSTS_MODULE } from "./posts/manifest";
 
-export const INSTALLED_MODULES: ModuleManifest[] = [PRICES_MODULE, ONBOARDING_MODULE];
+export const INSTALLED_MODULES: ModuleManifest[] = [
+  PRICES_MODULE,
+  ONBOARDING_MODULE,
+  POSTS_MODULE,
+];
 
 /** Helper: il modulo con questo slug è installato? */
 export function isModuleInstalled(slug: string): boolean {

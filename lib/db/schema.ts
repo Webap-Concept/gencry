@@ -1438,6 +1438,234 @@ export type NewOnboardingCoinPick = typeof onboardingCoinPicks.$inferInsert;
 export type OnboardingRiskProfile = typeof onboardingRiskProfile.$inferSelect;
 export type NewOnboardingRiskProfile = typeof onboardingRiskProfile.$inferInsert;
 
+// ---------------------------------------------------------------------------
+// Posts module — social feed root + media/reactions/comments/bookmarks/reports
+// + tickers/mentions lookup + link previews + outbox
+// (vedi migration M_posts_001_init.sql, design in
+//  project_module_posts_architecture.md)
+//
+// ID = UUID v7 (time-ordered, funzione SQL `uuid_generate_v7()`).
+// Enum modellati come varchar + CHECK SQL (coerente col resto del repo).
+// I trigger DB per counter/outbox arrivano in M_posts_002_*.sql (PR-2).
+// ---------------------------------------------------------------------------
+
+export const posts = pgTable(
+  "posts",
+  {
+    id:               uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    authorId:         uuid("author_id").notNull()
+                        .references(() => users.id, { onDelete: "cascade" }),
+    body:             text("body").notNull().default(""),
+    // 'public' | 'members' | 'followers' | 'private' (CHECK SQL)
+    visibility:       varchar("visibility", { length: 16 }).notNull().default("public"),
+    repostOfId:       uuid("repost_of_id"),  // self-FK, dichiarato a livello SQL
+    editedAt:         timestamp("edited_at",  { withTimezone: true }),
+    deletedAt:        timestamp("deleted_at", { withTimezone: true }),
+    createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Counter denormalizzati (aggiornati da trigger in PR-2)
+    reactionsLike:    integer("reactions_like").notNull().default(0),
+    reactionsRocket:  integer("reactions_rocket").notNull().default(0),
+    reactionsBull:    integer("reactions_bull").notNull().default(0),
+    reactionsBear:    integer("reactions_bear").notNull().default(0),
+    reactionsDump:    integer("reactions_dump").notNull().default(0),
+    reactionsDiamond: integer("reactions_diamond").notNull().default(0),
+    commentsCount:    integer("comments_count").notNull().default(0),
+    repostsCount:     integer("reposts_count").notNull().default(0),
+    bookmarksCount:   integer("bookmarks_count").notNull().default(0),
+    // body_tsv: GENERATED ALWAYS, gestito a livello SQL — non esposto via Drizzle
+  },
+);
+
+export const postsMedia = pgTable(
+  "posts_media",
+  {
+    id:           uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    postId:       uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
+    authorId:     uuid("author_id").notNull()
+                    .references(() => users.id, { onDelete: "cascade" }),
+    storageKey:   text("storage_key").notNull().unique(),
+    fullUrl:      text("full_url"),
+    thumbUrl:     text("thumb_url"),
+    mimeType:     varchar("mime_type", { length: 50 }).notNull(),
+    width:        integer("width"),
+    height:       integer("height"),
+    sizeBytes:    bigint("size_bytes", { mode: "number" }).notNull(),
+    position:     smallint("position").notNull().default(0),
+    confirmedAt:  timestamp("confirmed_at", { withTimezone: true }),
+    createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const postsReactions = pgTable(
+  "posts_reactions",
+  {
+    postId:    uuid("post_id").notNull()
+                 .references(() => posts.id, { onDelete: "cascade" }),
+    userId:    uuid("user_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    // 'like' | 'rocket' | 'bull' | 'bear' | 'dump' | 'diamond'
+    reaction:  varchar("reaction", { length: 16 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.postId, t.userId, t.reaction] }),
+    index("idx_posts_reactions_post_kind").on(t.postId, t.reaction),
+    index("idx_posts_reactions_user_recent").on(t.userId, t.createdAt),
+  ],
+);
+
+export const postsComments = pgTable(
+  "posts_comments",
+  {
+    id:               uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    postId:           uuid("post_id").notNull()
+                        .references(() => posts.id, { onDelete: "cascade" }),
+    authorId:         uuid("author_id").notNull()
+                        .references(() => users.id, { onDelete: "cascade" }),
+    parentCommentId:  uuid("parent_comment_id"),  // self-FK, dichiarato a livello SQL
+    body:             text("body").notNull(),
+    editedAt:         timestamp("edited_at",  { withTimezone: true }),
+    deletedAt:        timestamp("deleted_at", { withTimezone: true }),
+    createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const postsBookmarks = pgTable(
+  "posts_bookmarks",
+  {
+    userId:    uuid("user_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    postId:    uuid("post_id").notNull()
+                 .references(() => posts.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.postId] }),
+    index("idx_posts_bookmarks_user_recent").on(t.userId, t.createdAt),
+  ],
+);
+
+export const postsReports = pgTable(
+  "posts_reports",
+  {
+    id:          uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    postId:      uuid("post_id").notNull()
+                   .references(() => posts.id, { onDelete: "cascade" }),
+    reporterId:  uuid("reporter_id").notNull()
+                   .references(() => users.id, { onDelete: "cascade" }),
+    // 'spam' | 'scam' | 'abuse' | 'other'
+    reason:      varchar("reason", { length: 16 }).notNull(),
+    details:     text("details"),
+    // 'open' | 'reviewed' | 'dismissed' | 'actioned'
+    status:      varchar("status", { length: 16 }).notNull().default("open"),
+    reviewedBy:  uuid("reviewed_by")
+                   .references(() => users.id, { onDelete: "set null" }),
+    reviewedAt:  timestamp("reviewed_at", { withTimezone: true }),
+    createdAt:   timestamp("created_at",  { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const postsTickers = pgTable(
+  "posts_tickers",
+  {
+    postId:    uuid("post_id").notNull()
+                 .references(() => posts.id, { onDelete: "cascade" }),
+    ticker:    varchar("ticker", { length: 20 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.postId, t.ticker] }),
+    index("idx_posts_tickers_feed").on(t.ticker, t.createdAt),
+  ],
+);
+
+export const postsMentions = pgTable(
+  "posts_mentions",
+  {
+    postId:           uuid("post_id").notNull()
+                        .references(() => posts.id, { onDelete: "cascade" }),
+    mentionedUserId:  uuid("mentioned_user_id").notNull()
+                        .references(() => users.id, { onDelete: "cascade" }),
+    createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.postId, t.mentionedUserId] }),
+    index("idx_posts_mentions_user").on(t.mentionedUserId, t.createdAt),
+  ],
+);
+
+export const postsLinkPreviews = pgTable(
+  "posts_link_previews",
+  {
+    url:          text("url").primaryKey(),
+    title:        text("title"),
+    description:  text("description"),
+    imageUrl:     text("image_url"),
+    siteName:     text("site_name"),
+    // 'ok' | 'failed' | 'pending'
+    fetchStatus:  varchar("fetch_status", { length: 16 }).notNull().default("pending"),
+    fetchedAt:    timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const postsOutbox = pgTable(
+  "posts_outbox",
+  {
+    id:           uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    eventType:    varchar("event_type", { length: 64 }).notNull(),
+    payload:      jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    processedAt:  timestamp("processed_at", { withTimezone: true }),
+    createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export type Post                  = typeof posts.$inferSelect;
+export type NewPost               = typeof posts.$inferInsert;
+export type PostMedia             = typeof postsMedia.$inferSelect;
+export type NewPostMedia          = typeof postsMedia.$inferInsert;
+export type PostReaction          = typeof postsReactions.$inferSelect;
+export type NewPostReaction       = typeof postsReactions.$inferInsert;
+export type PostComment           = typeof postsComments.$inferSelect;
+export type NewPostComment        = typeof postsComments.$inferInsert;
+export type PostBookmark          = typeof postsBookmarks.$inferSelect;
+export type NewPostBookmark       = typeof postsBookmarks.$inferInsert;
+export type PostReport            = typeof postsReports.$inferSelect;
+export type NewPostReport         = typeof postsReports.$inferInsert;
+export type PostTicker            = typeof postsTickers.$inferSelect;
+export type NewPostTicker         = typeof postsTickers.$inferInsert;
+export type PostMention           = typeof postsMentions.$inferSelect;
+export type NewPostMention        = typeof postsMentions.$inferInsert;
+export type PostLinkPreview       = typeof postsLinkPreviews.$inferSelect;
+export type NewPostLinkPreview    = typeof postsLinkPreviews.$inferInsert;
+export type PostOutboxEvent       = typeof postsOutbox.$inferSelect;
+export type NewPostOutboxEvent    = typeof postsOutbox.$inferInsert;
+
+/**
+ * Set di reaction supportate (allineato al CHECK SQL su posts_reactions.reaction).
+ * Mantenere in sync con la migration e con i counter columns su `posts`.
+ */
+export const POST_REACTION_KINDS = [
+  "like",
+  "rocket",
+  "bull",
+  "bear",
+  "dump",
+  "diamond",
+] as const;
+export type PostReactionKind = (typeof POST_REACTION_KINDS)[number];
+
+/**
+ * Visibility valida per un post. Allineato al CHECK SQL su posts.visibility.
+ * Vedi project_module_posts §Visibility per il significato di ciascun valore.
+ */
+export const POST_VISIBILITIES = [
+  "public",
+  "members",
+  "followers",
+  "private",
+] as const;
+export type PostVisibility = (typeof POST_VISIBILITIES)[number];
+
 export enum ActivityType {
   SIGN_UP = "SIGN_UP",
   SIGN_IN = "SIGN_IN",

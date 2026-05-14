@@ -184,6 +184,25 @@ export type SettingKey =
   | 'modules.prices.r2.secret_access_key'
   | 'modules.prices.r2.bucket'
   | 'modules.prices.r2.public_base_url'
+  // Posts module — social feed (vedi project_module_posts_architecture)
+  | 'modules.posts.max_body_length'              // lunghezza max body post (1..5000)
+  | 'modules.posts.max_images_per_post'          // max immagini per post (1..10)
+  | 'modules.posts.edit_window_minutes'          // finestra edit testo dopo create (0..1440, 0=disabilitato)
+  | 'modules.posts.rate_limit_post_per_hour'     // sliding window KV — post creation
+  | 'modules.posts.rate_limit_reaction_per_min'  // sliding window KV — reactions toggle
+  | 'modules.posts.rate_limit_comment_per_min'   // sliding window KV — comment creation
+  | 'modules.posts.rate_limit_repost_per_hour'   // sliding window KV — quote repost
+  | 'modules.posts.rate_limit_report_per_hour'   // sliding window KV — abuse reports
+  | 'modules.posts.rate_limit_media_per_hour'    // sliding window KV — media upload ticket
+  | 'modules.posts.link_preview_cache_days'      // re-fetch OG > N giorni
+  | 'modules.posts.outbox_retention_days'        // cleanup posts_outbox processed_at < now()-N
+  | 'modules.posts.orphan_media_grace_hours'     // cleanup R2 posts_media confirmed_at IS NULL > N ore
+  // R2 storage dedicato modulo posts (bucket `social-media`)
+  | 'modules.posts.r2.account_id'
+  | 'modules.posts.r2.access_key_id'
+  | 'modules.posts.r2.secret_access_key'
+  | 'modules.posts.r2.bucket'
+  | 'modules.posts.r2.public_base_url'
   // MFA policy (vedi /<adminSlug>/security/mfa)
   | 'mfa.enabled'             // 'true'|'false' — master switch della feature MFA
   | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
@@ -384,6 +403,24 @@ export type AppSettings = {
   'modules.prices.r2.secret_access_key': string | null
   'modules.prices.r2.bucket': string | null
   'modules.prices.r2.public_base_url': string | null
+  // Modules — Posts (social feed)
+  'modules.posts.max_body_length': string
+  'modules.posts.max_images_per_post': string
+  'modules.posts.edit_window_minutes': string
+  'modules.posts.rate_limit_post_per_hour': string
+  'modules.posts.rate_limit_reaction_per_min': string
+  'modules.posts.rate_limit_comment_per_min': string
+  'modules.posts.rate_limit_repost_per_hour': string
+  'modules.posts.rate_limit_report_per_hour': string
+  'modules.posts.rate_limit_media_per_hour': string
+  'modules.posts.link_preview_cache_days': string
+  'modules.posts.outbox_retention_days': string
+  'modules.posts.orphan_media_grace_hours': string
+  'modules.posts.r2.account_id': string | null
+  'modules.posts.r2.access_key_id': string | null
+  'modules.posts.r2.secret_access_key': string | null
+  'modules.posts.r2.bucket': string | null
+  'modules.posts.r2.public_base_url': string | null
   // Suspicious sessions / admin alerts
   'notifications.alerts_config': string | null
   'notifications.alerts_last_digest_at': string | null
@@ -557,6 +594,24 @@ const DEFAULTS: AppSettings = {
   'modules.prices.r2.secret_access_key': null,
   'modules.prices.r2.bucket': null,
   'modules.prices.r2.public_base_url': null,
+  // Modules — Posts (social feed). Duplicano i defaults della migration M_posts_001.
+  'modules.posts.max_body_length': '2000',
+  'modules.posts.max_images_per_post': '4',
+  'modules.posts.edit_window_minutes': '10',
+  'modules.posts.rate_limit_post_per_hour': '10',
+  'modules.posts.rate_limit_reaction_per_min': '60',
+  'modules.posts.rate_limit_comment_per_min': '30',
+  'modules.posts.rate_limit_repost_per_hour': '5',
+  'modules.posts.rate_limit_report_per_hour': '5',
+  'modules.posts.rate_limit_media_per_hour': '20',
+  'modules.posts.link_preview_cache_days': '30',
+  'modules.posts.outbox_retention_days': '30',
+  'modules.posts.orphan_media_grace_hours': '24',
+  'modules.posts.r2.account_id': null,
+  'modules.posts.r2.access_key_id': null,
+  'modules.posts.r2.secret_access_key': null,
+  'modules.posts.r2.bucket': 'social-media',
+  'modules.posts.r2.public_base_url': null,
   // Suspicious sessions: la chiave è null finché l'admin non salva una
   // configurazione dalla UI; il loader applica i defaults Zod-side.
   'notifications.alerts_config': null,
