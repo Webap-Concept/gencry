@@ -304,12 +304,16 @@ async function writeSnapshotIfDue(
 ): Promise<void> {
   if (quotes.length === 0) return;
 
-  // Check ultimo run snapshot riuscito. Grace di 30s per non saltare un
-  // tick borderline (stesso pattern di runPricesSync).
+  // Check ultimo run snapshot. Grace di 30s per non saltare un tick
+  // borderline. NB: filtriamo solo per kind, NON anche per ok=true: se
+  // l'ultimo tentativo è fallito non vogliamo riproporre subito un
+  // INSERT identico in loop infinito — meglio aspettare il prossimo
+  // intervallo regolare. La riga di errore resta visibile nella Health
+  // dashboard per la diagnosi.
   const last = await db
     .select({ startedAt: pricesSyncRuns.startedAt })
     .from(pricesSyncRuns)
-    .where(and(eq(pricesSyncRuns.kind, "snapshot"), eq(pricesSyncRuns.ok, true)))
+    .where(eq(pricesSyncRuns.kind, "snapshot"))
     .orderBy(desc(pricesSyncRuns.startedAt))
     .limit(1);
   if (last[0]) {
@@ -321,23 +325,41 @@ async function writeSnapshotIfDue(
   const validQuotes = quotes.filter((q) => Number.isFinite(q.price));
   if (validQuotes.length === 0) return;
 
-  await db.insert(pricesHistory).values(
-    validQuotes.map((q) => ({
-      symbol: q.symbol,
-      ts: nowDate,
-      price: String(q.price),
-    })),
-  );
-
-  await logRun({
-    kind: "snapshot",
-    startedAt: nowDate,
-    durationMs: Date.now() - nowDate.getTime(),
-    coinsTotal: validQuotes.length,
-    coinsUpdated: validQuotes.length,
-    sourceUsed: null,
-    ok: true,
-  });
+  // Insert + log: SE l'insert fallisce, registriamo comunque un run
+  // kind=snapshot con ok=false e l'errore così la Health dashboard
+  // mostra una riga rossa invece di un silent swallow.
+  try {
+    await db.insert(pricesHistory).values(
+      validQuotes.map((q) => ({
+        symbol: q.symbol,
+        ts: nowDate,
+        price: String(q.price),
+      })),
+    );
+    await logRun({
+      kind: "snapshot",
+      startedAt: nowDate,
+      durationMs: Date.now() - nowDate.getTime(),
+      coinsTotal: validQuotes.length,
+      coinsUpdated: validQuotes.length,
+      sourceUsed: null,
+      ok: true,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "snapshot insert failed";
+    console.error("[writeSnapshotIfDue] INSERT failed:", err);
+    await logRun({
+      kind: "snapshot",
+      startedAt: nowDate,
+      durationMs: Date.now() - nowDate.getTime(),
+      coinsTotal: validQuotes.length,
+      coinsUpdated: 0,
+      sourceUsed: null,
+      ok: false,
+      error: message,
+    });
+    throw err; // propaga così il try/catch del caller logga + swallow
+  }
 }
 
 /**
