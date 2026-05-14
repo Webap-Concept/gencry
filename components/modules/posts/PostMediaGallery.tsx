@@ -10,9 +10,12 @@
 //                + frecce ChevronLeft/Right sui lati su md+.
 //
 //   variant="single" — pagina /post/[id]:
-//     - tutte le foto in stack verticale, ognuna full-width aspect
-//       16/10 max-h 480px. No carousel, no dots, no frecce — l'utente
-//       è "dentro al post" e vuole vedere tutto a colpo d'occhio.
+//     - 1 img  → full-width aspect 16/10 max-h 480px
+//     - 2 imgs → grid 2-col 1:1
+//     - 3 imgs → 2 cols, prima alta + 2 stacked
+//     - 4 imgs → grid 2x2 1:1
+//     No carousel, no dots, no frecce: l'utente è "dentro al post"
+//     e vede tutte le foto a colpo d'occhio (pattern Twitter-like).
 //
 // Click su tile → lightbox con keyboard ←/→, swipe, frecce, counter.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -42,7 +45,11 @@ export function PostMediaGallery({
   return (
     <>
       {variant === "single" ? (
-        <StackVertical items={items} onPick={setOpenIndex} />
+        items.length === 1 ? (
+          <SinglePhoto item={items[0]} onClick={() => setOpenIndex(0)} />
+        ) : (
+          <GridLayout items={items} onPick={setOpenIndex} />
+        )
       ) : items.length === 1 ? (
         <SinglePhoto item={items[0]} onClick={() => setOpenIndex(0)} />
       ) : (
@@ -60,24 +67,31 @@ export function PostMediaGallery({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Variant "single": stack verticale, tutte visibili
+// Variant "single", 2+ foto: grid Twitter-like (1+2+3+4 layouts)
 // ─────────────────────────────────────────────────────────────────────────
 
-function StackVertical({
+function GridLayout({
   items,
   onPick,
 }: {
   items: PostMediaPublic[];
   onPick: (i: number) => void;
 }) {
+  const containerClass =
+    "mt-3 rounded-gc-sm overflow-hidden border border-gc-line/60 grid gap-0.5 bg-gc-line/60 grid-cols-2 grid-rows-2";
+  const tileFor = (n: number, i: number): string => {
+    if (n === 2) return "aspect-square row-span-2";
+    if (n === 3) return i === 0 ? "row-span-2 aspect-[1/2]" : "aspect-square";
+    return "aspect-square"; // n === 4
+  };
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    <div className={containerClass}>
       {items.map((m, i) => (
         <button
           key={m.id}
           type="button"
           onClick={() => onPick(i)}
-          className="relative w-full overflow-hidden rounded-gc-sm border border-gc-line/60 bg-gc-bg-3 aspect-[16/10] max-h-[480px]"
+          className={`relative overflow-hidden bg-gc-bg-3 ${tileFor(items.length, i)}`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
