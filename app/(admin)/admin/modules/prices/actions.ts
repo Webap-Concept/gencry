@@ -5,7 +5,7 @@ import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesHistory } from "@/lib/db/schema";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { getPricesConfig } from "@/lib/modules/prices/config";
-import { PRICES_DATA_TAG } from "@/lib/modules/prices/queries";
+import { PRICES_DATA_TAG, PRICES_HEALTH_TAG } from "@/lib/modules/prices/queries";
 import {
   fetchCoinMetadata,
   fetchTopCoinsByMarketCap,
@@ -227,6 +227,7 @@ export async function triggerSyncNowAction(): Promise<ActionState> {
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
     updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: result.ok
         ? `Sync OK · ${result.coinsUpdated}/${result.coinsTotal} coins · ${result.durationMs}ms`
@@ -248,6 +249,7 @@ export async function triggerSnapshotNowAction(): Promise<ActionState> {
     const result = await runPricesSync(true);
     revalidatePath(await getAdminPath("prices-overview"));
     updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: `Sync+snapshot OK · ${result.coinsUpdated} coins · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -263,6 +265,7 @@ export async function triggerCleanupNowAction(): Promise<ActionState> {
     const result = await runPricesCleanup();
     revalidatePath(await getAdminPath("prices-overview"));
     updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     return {
       success: `Cleanup OK · ${result.coinsUpdated} rows deleted · ${result.durationMs}ms`,
       timestamp: Date.now(),
@@ -872,6 +875,7 @@ export async function backfillHistoryAction(
 
     revalidatePath(await getAdminPath("prices-overview"));
     updateTag(PRICES_DATA_TAG);
+    updateTag(PRICES_HEALTH_TAG);
     const detail = failedSymbols.length > 0
       ? ` · no data on CC: ${failedSymbols.slice(0, 5).join(", ")}${failedSymbols.length > 5 ? "…" : ""}`
       : "";

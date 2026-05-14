@@ -123,15 +123,28 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   // La sparkline 7gg viene salvata dentro l'upsert quando la quote arriva
   // da CoinGecko (`/coins/markets?sparkline=true`). DexScreener non la
   // fornisce: per quei coin la sparkline resta al valore precedente.
-  const updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
+  //
+  // Try/catch CRITICO: se l'upsert fallisce (es. colonna mancante per
+  // migration non applicata), senza questo wrapper recordSuccess sarebbe
+  // già stato chiamato sul source ma logRun NON verrebbe mai eseguito —
+  // risultato: "Last success" recente, "Recent runs" vecchio di ore,
+  // niente errore visibile.
+  let updated = 0;
+  let upsertError: string | undefined;
+  try {
+    updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
+  } catch (err) {
+    upsertError = err instanceof Error ? err.message : "upsert failed";
+    console.error("[runPricesSync] upsertPrices failed:", err);
+  }
 
   // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
   // Best-effort: errori qui non degradano il run, gli update mancati
   // verranno recuperati al prossimo tick.
   try {
     await syncMasterData(Array.from(collected.values()));
-  } catch {
-    // swallow
+  } catch (err) {
+    console.error("[runPricesSync] syncMasterData failed:", err);
   }
 
   // ── 5) Snapshot in prices_history (best-effort, gated da snapshotMinutes) ──
@@ -145,12 +158,13 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
       cfg.snapshotMinutes,
       started,
     );
-  } catch {
-    // swallow: lo storico è decorativo per il chart, non blocca il sync
+  } catch (err) {
+    console.error("[runPricesSync] writeSnapshotIfDue failed:", err);
   }
 
-  const ok = collected.size > 0 || universe.length === 0;
+  const ok = !upsertError && (collected.size > 0 || universe.length === 0);
   const durationMs = Date.now() - startMs;
+  const errorMessage = upsertError ?? (ok ? undefined : lastError);
 
   await logRun({
     kind: "sync",
@@ -160,7 +174,7 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     coinsUpdated: updated,
     sourceUsed,
     ok,
-    error: ok ? undefined : lastError,
+    error: errorMessage,
   });
 
   return {
