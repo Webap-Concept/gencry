@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { AdminTooltip } from "@/app/(admin)/admin/_components/admin-tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,12 +11,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { PricesCoin } from "@/lib/db/schema";
 import type { PriceRow } from "@/lib/modules/prices/queries";
 import {
@@ -144,7 +139,7 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
   }, [addState]);
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <>
       <div className="space-y-5">
         {/* Add coin + Import top coins: side by side su md+, stack mobile. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
@@ -334,7 +329,7 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
       </div>
 
       {toast && <AdminToast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
-    </TooltipProvider>
+    </>
   );
 }
 
@@ -423,108 +418,69 @@ function CoinRow({
         {coin.lastSeenAt.toLocaleString()}
       </td>
       <td className="py-2 px-2 text-center">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={toggle}
-              disabled={isPending}
-              aria-label={coin.isActive ? "Disattiva coin" : "Attiva coin"}
-              className="inline-flex items-center transition-colors disabled:opacity-60">
-              {busyAction === "toggle" ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : coin.isActive ? (
-                <ToggleRight size={18} style={{ color: "var(--gc-pos, #16a34a)" }} />
-              ) : (
-                <ToggleLeft size={18} style={{ color: "var(--admin-text-faint)" }} />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            style={{
-              background: "var(--admin-card-bg)",
-              border: "1px solid var(--admin-card-border)",
-              color: "var(--admin-text)",
-            }}>
-            {coin.isActive ? "Disattiva (esclude dal cron sync)" : "Attiva (include nel cron sync)"}
-          </TooltipContent>
-        </Tooltip>
+        <AdminTooltip
+          label={
+            coin.isActive
+              ? "Disattiva (esclude dal cron sync)"
+              : "Attiva (include nel cron sync)"
+          }>
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={isPending}
+            aria-label={coin.isActive ? "Disattiva coin" : "Attiva coin"}
+            className="inline-flex items-center transition-colors disabled:opacity-60">
+            {busyAction === "toggle" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : coin.isActive ? (
+              <ToggleRight size={18} style={{ color: "var(--gc-pos, #16a34a)" }} />
+            ) : (
+              <ToggleLeft size={18} style={{ color: "var(--admin-text-faint)" }} />
+            )}
+          </button>
+        </AdminTooltip>
       </td>
       <td className="py-2 px-2 text-right">
         <div className="flex items-center justify-end gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href={drilldownHref}
-                aria-label="Apri dettaglio coin"
-                className="p-1.5 rounded transition-colors inline-flex items-center"
-                style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
-                <ExternalLink size={12} />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              style={{
-                background: "var(--admin-card-bg)",
-                border: "1px solid var(--admin-card-border)",
-                color: "var(--admin-text)",
-              }}>
-              Apri dettaglio (storico, stats, gap)
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={refetch}
-                disabled={isPending}
-                aria-label="Refresh metadata da CoinGecko"
-                className="p-1.5 rounded transition-colors disabled:opacity-60"
-                style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
-                {busyAction === "refetch" ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={12} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              style={{
-                background: "var(--admin-card-bg)",
-                border: "1px solid var(--admin-card-border)",
-                color: "var(--admin-text)",
-              }}>
-              Refresh metadata da CoinGecko
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={remove}
-                disabled={isPending}
-                aria-label="Elimina coin"
-                className="p-1.5 rounded transition-colors disabled:opacity-60"
-                style={{ border: "1px solid var(--admin-input-border)", color: "var(--gc-neg, #dc2626)" }}>
-                {busyAction === "delete" ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Trash2 size={12} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              style={{
-                background: "var(--admin-card-bg)",
-                border: "1px solid var(--admin-card-border)",
-                color: "var(--admin-text)",
-              }}>
-              Elimina dal registry (cancella anche lo storico)
-            </TooltipContent>
-          </Tooltip>
+          <AdminTooltip label="Apri dettaglio (storico, stats, gap)">
+            <Link
+              href={drilldownHref}
+              aria-label="Apri dettaglio coin"
+              className="p-1.5 rounded transition-colors inline-flex items-center"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
+              <ExternalLink size={12} />
+            </Link>
+          </AdminTooltip>
+          <AdminTooltip label="Refresh metadata da CoinGecko">
+            <button
+              type="button"
+              onClick={refetch}
+              disabled={isPending}
+              aria-label="Refresh metadata da CoinGecko"
+              className="p-1.5 rounded transition-colors disabled:opacity-60"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--admin-text-muted)" }}>
+              {busyAction === "refetch" ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+            </button>
+          </AdminTooltip>
+          <AdminTooltip label="Elimina dal registry (cancella anche lo storico)">
+            <button
+              type="button"
+              onClick={remove}
+              disabled={isPending}
+              aria-label="Elimina coin"
+              className="p-1.5 rounded transition-colors disabled:opacity-60"
+              style={{ border: "1px solid var(--admin-input-border)", color: "var(--gc-neg, #dc2626)" }}>
+              {busyAction === "delete" ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Trash2 size={12} />
+              )}
+            </button>
+          </AdminTooltip>
         </div>
       </td>
     </tr>

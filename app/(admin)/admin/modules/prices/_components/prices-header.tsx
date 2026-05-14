@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { LucideIcon } from "lucide-react";
-import { Activity, Clock, Coins, Info, LineChart, Settings } from "lucide-react";
+import { Activity, Clock, Coins, HelpCircle, LineChart, Settings, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type SectionMeta = {
   label: string;
@@ -87,59 +81,181 @@ export function PricesHeader() {
 }
 
 // ---------------------------------------------------------------------------
-// Guida cache + invalidation (modale di documentazione)
+// Cache & invalidation guide — usa lo stesso pattern modale dell'admin
+// (createPortal + style inline coi token --admin-*, niente shadcn Dialog
+// che con il theming admin renderizza male).
 // ---------------------------------------------------------------------------
 
 function CacheGuideButton() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          aria-label="Guida cache e invalidazione"
-          className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors"
-          style={{
-            background: "transparent",
-            color: "var(--admin-text-faint)",
-          }}>
-          <Info size={14} />
-        </button>
-      </DialogTrigger>
-      <DialogContent
-        className="max-w-2xl"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-          color: "var(--admin-text)",
-        }}>
-        <DialogHeader>
-          <DialogTitle>Cache e invalidazione del modulo prezzi</DialogTitle>
-          <DialogDescription style={{ color: "var(--admin-text-muted)" }}>
-            Tutte le query lette dal frontend (card, chart, esplora) passano per{" "}
-            <code className="font-mono">unstable_cache</code> con tag{" "}
-            <code className="font-mono">prices-data</code>. TTL e
-            invalidazioni qui sotto.
-          </DialogDescription>
-        </DialogHeader>
+  const [open, setOpen] = useState(false);
 
-        <div className="space-y-4 text-sm" style={{ color: "var(--admin-text)" }}>
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-faint)" }}>
-              Tag <code className="font-mono">prices-data</code>
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Apri guida cache e invalidazione"
+        className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors"
+        style={{
+          background: "transparent",
+          color: "var(--admin-text-faint)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "var(--admin-hover-bg, rgba(255,255,255,0.06))";
+          e.currentTarget.style.color = "var(--admin-text-muted)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "var(--admin-text-faint)";
+        }}>
+        <HelpCircle size={14} />
+      </button>
+
+      {open && <CacheGuideModal onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function CacheGuideModal({ onClose }: { onClose: () => void }) {
+  // Chiusura con Escape (stesso pattern di ConfirmModal)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(2px)",
+          animation: "cg-fade-in 140ms ease",
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cg-title"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10001,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1rem",
+          pointerEvents: "none",
+        }}>
+        <div
+          style={{
+            background: "var(--admin-card-bg, #1c1b19)",
+            border: "1px solid var(--admin-card-border, #2a2927)",
+            borderRadius: "14px",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+            width: "100%",
+            maxWidth: 640,
+            maxHeight: "85vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            pointerEvents: "auto",
+            animation: "cg-slide-up 160ms cubic-bezier(0.16,1,0.3,1)",
+          }}>
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "18px 20px 14px",
+              borderBottom: "1px solid var(--admin-card-border, #2a2927)",
+            }}>
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                background: "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
+                color: "var(--admin-accent)",
+                flexShrink: 0,
+              }}>
+              <HelpCircle size={18} />
+            </span>
+            <h2
+              id="cg-title"
+              style={{
+                flex: 1,
+                fontSize: 15,
+                fontWeight: 600,
+                color: "var(--admin-text, #cdccca)",
+                margin: 0,
+              }}>
+              Cache e invalidazione del modulo prezzi
+            </h2>
+            <button
+              onClick={onClose}
+              aria-label="Chiudi"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--admin-text-faint, #5a5957)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--admin-hover-bg, rgba(255,255,255,0.06))";
+                e.currentTarget.style.color = "var(--admin-text-muted, #797876)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "var(--admin-text-faint, #5a5957)";
+              }}>
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div
+            style={{
+              padding: "16px 20px 20px",
+              fontSize: 13,
+              lineHeight: 1.6,
+              color: "var(--admin-text-muted, #797876)",
+              overflowY: "auto",
+            }}>
+            <p style={{ margin: "0 0 16px" }}>
+              Tutte le query lette dal frontend (card, chart, esplora) passano per{" "}
+              <code style={{ fontFamily: "var(--font-mono, monospace)" }}>unstable_cache</code>{" "}
+              con tag{" "}
+              <code style={{ fontFamily: "var(--font-mono, monospace)" }}>prices-data</code>.
+              TTL e invalidazioni qui sotto.
+            </p>
+
+            <SectionTitle>
+              Tag <code style={{ fontFamily: "var(--font-mono, monospace)" }}>prices-data</code>
+            </SectionTitle>
+            <div style={{ overflowX: "auto", marginBottom: 16 }}>
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--admin-input-border)" }}>
-                    <th className="text-left py-1.5 px-2 font-medium" style={{ color: "var(--admin-text-faint)" }}>
-                      Endpoint
-                    </th>
-                    <th className="text-left py-1.5 px-2 font-medium" style={{ color: "var(--admin-text-faint)" }}>
-                      TTL
-                    </th>
-                    <th className="text-left py-1.5 px-2 font-medium" style={{ color: "var(--admin-text-faint)" }}>
-                      Note
-                    </th>
+                    <th style={th()}>Endpoint</th>
+                    <th style={th()}>TTL</th>
+                    <th style={th()}>Note</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,67 +269,98 @@ function CacheGuideButton() {
                     ["fetchEarliestHistoryTs", "5 min", "Detect coverage per fallback CoinGecko"],
                   ].map(([endpoint, ttl, note]) => (
                     <tr key={endpoint} style={{ borderBottom: "1px solid color-mix(in srgb, var(--admin-input-border) 40%, transparent)" }}>
-                      <td className="py-1.5 px-2 font-mono">{endpoint}</td>
-                      <td className="py-1.5 px-2 font-mono tabular-nums">{ttl}</td>
-                      <td className="py-1.5 px-2" style={{ color: "var(--admin-text-muted)" }}>
-                        {note}
-                      </td>
+                      <td style={td("mono")}>{endpoint}</td>
+                      <td style={td("mono")}>{ttl}</td>
+                      <td style={td()}>{note}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </section>
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-faint)" }}>
-              Tag <code className="font-mono">prices-health</code>
-            </h4>
-            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Stats sync runs e endpoint dashboard admin (recent runs, latency).
-              TTL fisso <strong>60s</strong>.
+            <SectionTitle>
+              Tag <code style={{ fontFamily: "var(--font-mono, monospace)" }}>prices-health</code>
+            </SectionTitle>
+            <p style={{ margin: "0 0 16px" }}>
+              Stats sync runs e endpoint dashboard admin (recent runs, latency). TTL fisso{" "}
+              <strong style={{ color: "var(--admin-text)" }}>60s</strong>.
             </p>
-          </section>
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-faint)" }}>
-              Invalidazione automatica
-            </h4>
-            <ul className="text-xs space-y-1.5 list-disc list-outside ml-4" style={{ color: "var(--admin-text-muted)" }}>
-              <li>
-                <strong>Cron sync</strong> ogni 5 min: a fine run riuscito chiama{" "}
-                <code className="font-mono">revalidateTag("prices-data", "max")</code>{" "}
-                → al prossimo render le card e i chart 1d/1w vedono i nuovi
-                prezzi.
+            <SectionTitle>Invalidazione automatica</SectionTitle>
+            <ul style={{ margin: "0 0 16px", paddingLeft: 20 }}>
+              <li style={{ marginBottom: 8 }}>
+                <strong style={{ color: "var(--admin-text)" }}>Cron sync</strong> ogni 5 min: a
+                fine run riuscito chiama{" "}
+                <code style={{ fontFamily: "var(--font-mono, monospace)" }}>
+                  revalidateTag(&quot;prices-data&quot;, &quot;max&quot;)
+                </code>{" "}
+                → al prossimo render le card e i chart 1d/1w vedono i nuovi prezzi.
               </li>
               <li>
-                <strong>Admin actions</strong> (backfill history/images, refresh
-                metadata, sync now, add/delete/toggle coin): tutte chiamano{" "}
-                <code className="font-mono">updateTag("prices-data")</code>{" "}
-                subito dopo lo scritto, così l'utente vede immediatamente
-                l'effetto delle proprie modifiche (anche sulla pagina
-                pubblica del coin).
+                <strong style={{ color: "var(--admin-text)" }}>Admin actions</strong> (backfill
+                history/images, refresh metadata, sync now, add/delete/toggle coin): tutte
+                chiamano{" "}
+                <code style={{ fontFamily: "var(--font-mono, monospace)" }}>
+                  updateTag(&quot;prices-data&quot;)
+                </code>{" "}
+                subito dopo lo scritto, così l&apos;utente vede immediatamente l&apos;effetto
+                delle proprie modifiche (anche sulla pagina pubblica del coin).
               </li>
             </ul>
-          </section>
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-faint)" }}>
-              Impatto performance
-            </h4>
-            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              L'invalidazione è <strong>lazy</strong>: butta via il marker ma
-              il refetch DB avviene solo al prossimo request reale. Per i
-              range con TTL ≤ 5 min (card, chart 1d/1w) l'overhead è zero
-              perché la cache si rinnova comunque più frequentemente. Sui
-              range 1m / 1y un coin molto trafficato genera qualche query
-              DB in più ma sono SQL veloci col downsampling lato Postgres
-              (<code className="font-mono">DISTINCT ON</code> con bucket
-              orario/giornaliero).
+            <SectionTitle>Impatto performance</SectionTitle>
+            <p style={{ margin: 0 }}>
+              L&apos;invalidazione è <strong style={{ color: "var(--admin-text)" }}>lazy</strong>: butta
+              via il marker ma il refetch DB avviene solo al prossimo request reale. Per i
+              range con TTL ≤ 5 min (card, chart 1d/1w) l&apos;overhead è zero perché la cache si
+              rinnova comunque più frequentemente. Sui range 1m / 1y un coin molto trafficato
+              genera qualche query DB in più ma sono SQL veloci col downsampling lato Postgres
+              (<code style={{ fontFamily: "var(--font-mono, monospace)" }}>DISTINCT ON</code> con bucket orario/giornaliero).
             </p>
-          </section>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      <style>{`
+        @keyframes cg-fade-in  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes cg-slide-up { from { opacity: 0; transform: translateY(10px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
+      `}</style>
+    </>,
+    document.body,
   );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h4
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        color: "var(--admin-text-faint)",
+        margin: "0 0 8px",
+      }}>
+      {children}
+    </h4>
+  );
+}
+
+function th(): React.CSSProperties {
+  return {
+    textAlign: "left",
+    padding: "6px 8px",
+    fontWeight: 500,
+    color: "var(--admin-text-faint)",
+    fontSize: 11,
+  };
+}
+
+function td(variant?: "mono"): React.CSSProperties {
+  return {
+    padding: "6px 8px",
+    color: variant === "mono" ? "var(--admin-text)" : "var(--admin-text-muted)",
+    fontFamily: variant === "mono" ? "var(--font-mono, monospace)" : undefined,
+    fontVariantNumeric: variant === "mono" ? "tabular-nums" : undefined,
+  };
 }
