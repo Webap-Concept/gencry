@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
+import { PostMediaGallery } from "./PostMediaGallery";
 import { ReactionPopover } from "./ReactionPopover";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
@@ -259,6 +260,9 @@ export function PostCard({ post, isAuthor }: Props) {
 
       {/* Body */}
       <PostBody body={post.body} />
+
+      {/* Media gallery */}
+      {post.media.length > 0 ? <PostMediaGallery media={post.media} /> : null}
 
       {/* Ticker chips */}
       {post.tickers.length > 0 ? (

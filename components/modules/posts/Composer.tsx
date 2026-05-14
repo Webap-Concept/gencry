@@ -5,7 +5,7 @@
 // che si blenda con la modale (no border, no bg differente), header
 // con avatar utente + username + visibility selector come dropdown
 // inline. Il parent owns il post-success (toast, close).
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { Globe, Lock, UserCheck, Users } from "lucide-react";
 import { createPost } from "@/lib/modules/posts/actions";
 import { POST_VISIBILITIES, type PostVisibility } from "@/lib/db/schema";
@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MediaUploader } from "./MediaUploader";
 
 type ComposerUser = {
   id: string;
@@ -55,21 +56,31 @@ type Props = {
 export function Composer({ user, maxBodyLength = 2000, onPublished, autoFocus }: Props) {
   const [body, setBody] = useState("");
   const [visibility, setVisibility] = useState<PostVisibility>("public");
+  const [mediaIds, setMediaIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // useCallback per non triggherare useEffect del MediaUploader ad ogni render.
+  const onMediaIdsChange = useCallback((ids: string[]) => setMediaIds(ids), []);
+
   const remaining = maxBodyLength - body.length;
   const trimmedLen = body.trim().length;
+  // Permettiamo il submit anche con body vuoto SE c'è almeno un media:
+  // un post "solo immagini" è valido (Instagram-style). Per ora però il
+  // server CHECK posts_body_len_chk vuole body NOT NULL, default '' è ok
+  // ma validateBody nel server lancia su empty. Lascio la regola "almeno
+  // 1 char di testo" finché PR-6c non rilassiamo il vincolo.
   const canSubmit = trimmedLen > 0 && remaining >= 0 && !isPending;
 
   const submit = () => {
     if (!canSubmit) return;
     setError(null);
     startTransition(async () => {
-      const res = await createPost({ body, visibility });
+      const res = await createPost({ body, visibility, mediaIds });
       if (res.ok) {
         setBody("");
         setVisibility("public");
+        setMediaIds([]);
         onPublished?.(res.data!.postId);
       } else {
         setError(res.error);
@@ -158,6 +169,9 @@ export function Composer({ user, maxBodyLength = 2000, onPublished, autoFocus }:
         disabled={isPending}
         autoFocus={autoFocus}
       />
+
+      {/* Media uploader: drag&drop + thumb preview */}
+      <MediaUploader onMediaIdsChange={onMediaIdsChange} disabled={isPending} />
 
       {/* Footer: counter + submit */}
       <div className="flex items-center gap-3 px-5 pb-4">
