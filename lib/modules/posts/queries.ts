@@ -50,16 +50,22 @@ const DEFAULT_PAGE_SIZE = 20;
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Predicato visibility per il feed "Discover":
+ * Predicato visibility per il feed "Discover" (e per Ticker/Mentions):
  *   - viewer anonimo → solo `public`
- *   - viewer loggato → `public` + `members`
- * Followers/private NON entrano mai in Discover.
+ *   - viewer loggato → `public` + `members` + tutti i PROPRI post
+ *     (qualunque visibility), così l'autore non "perde" i suoi
+ *     `followers`/`private` quando guarda il feed home — coerente con
+ *     come `getProfileFeedIds` già si comporta sul proprio profilo.
  */
 function discoverVisibilityClause(viewerUserId: string | undefined) {
   const allowed: PostVisibility[] = viewerUserId
     ? ["public", "members"]
     : ["public"];
-  return inArray(posts.visibility, allowed);
+  if (!viewerUserId) return inArray(posts.visibility, allowed);
+  return or(
+    inArray(posts.visibility, allowed),
+    eq(posts.authorId, viewerUserId),
+  );
 }
 
 /**
