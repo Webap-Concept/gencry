@@ -51,11 +51,14 @@ import {
 interface Props {
   coins: PricesCoin[];
   priceMap: Record<string, PriceRow>;
+  /** Path admin base per la registry (dipende dallo slug admin configurabile,
+   *  es. `/control-panel/modules/prices/coins`). Calcolato server-side. */
+  adminCoinsPath: string;
 }
 
 const PAGE_SIZE = 20;
 
-export function CoinsRegistry({ coins, priceMap }: Props) {
+export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
   const [isBackfilling, startBackfill] = useTransition();
@@ -283,6 +286,7 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
                       key={c.symbol}
                       coin={c}
                       price={priceMap[c.symbol]}
+                      adminCoinsPath={adminCoinsPath}
                       onToast={setToast}
                     />
                   ))
@@ -337,10 +341,12 @@ export function CoinsRegistry({ coins, priceMap }: Props) {
 function CoinRow({
   coin,
   price,
+  adminCoinsPath,
   onToast,
 }: {
   coin: PricesCoin;
   price: PriceRow | undefined;
+  adminCoinsPath: string;
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -377,7 +383,7 @@ function CoinRow({
   const change = price?.change24h ?? null;
   const changeColor = change === null ? "var(--admin-text-faint)" : change >= 0 ? "var(--gc-pos, #16a34a)" : "var(--gc-neg, #dc2626)";
 
-  const drilldownHref = `/admin/modules/prices/coins/${coin.symbol.toLowerCase()}`;
+  const drilldownHref = `${adminCoinsPath}/${coin.symbol.toLowerCase()}`;
 
   return (
     <tr
@@ -687,7 +693,14 @@ function MaintenanceMenu({
           Manutenzione
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[340px]">
+      <DropdownMenuContent
+        align="end"
+        className="w-[340px]"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+          color: "var(--admin-text)",
+        }}>
         <DropdownMenuLabel className="text-[10px] uppercase tracking-wide">
           Azioni bulk
         </DropdownMenuLabel>
