@@ -1,9 +1,11 @@
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { getSystemPageSlugs, isLegalsPathname } from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import { Suspense } from "react";
 // Reset/typography per CMS templates (.tpl-*). Era ereditato dal vecchio
 // (frontend)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
@@ -45,7 +47,19 @@ export default async function LocaleLayout({
   // e copre tutte le route della app.
   setRequestLocale(effectiveLocale);
 
-  const appSettings = await getAppSettingsSafe();
+  const [appSettings, slugs, headerList] = await Promise.all([
+    getAppSettingsSafe(),
+    getSystemPageSlugs(),
+    headers(),
+  ]);
+  const pathname = headerList.get("x-pathname") ?? "/";
+  // Locale prefix: se è presente, strippalo prima di confrontare lo slug
+  // legals (es. /en/privacy → /privacy). Niente effetto per pathname senza
+  // prefix locale.
+  const legalsPath = isLocale(locale)
+    ? pathname.replace(new RegExp(`^/${locale}(?=/|$)`), "") || "/"
+    : pathname;
+  const showRail = !isLegalsPathname(legalsPath, slugs);
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
@@ -53,9 +67,11 @@ export default async function LocaleLayout({
       <div className="flex-1">
         <div className="mx-auto w-full max-w-7xl flex">
           <main className="flex flex-1 flex-col min-w-0">{children}</main>
-          <Suspense fallback={null}>
-            <AppRightRail />
-          </Suspense>
+          {showRail && (
+            <Suspense fallback={null}>
+              <AppRightRail />
+            </Suspense>
+          )}
         </div>
       </div>
       <Suspense fallback={null}>
