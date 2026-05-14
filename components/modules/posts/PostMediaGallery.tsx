@@ -41,6 +41,7 @@ export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
               alt=""
               loading="lazy"
               decoding="async"
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover transition-transform duration-200 hover:scale-[1.02]"
             />
           </button>
@@ -61,6 +62,7 @@ export function PostMediaGallery({ media }: { media: PostMediaPublic[] }) {
             <img
               src={items[openIndex].fullUrl}
               alt=""
+              referrerPolicy="no-referrer"
               className="w-full h-auto max-h-[90vh] object-contain"
             />
           ) : null}

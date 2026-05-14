@@ -289,6 +289,7 @@ function ItemTile({
         <img
           src={showThumb}
           alt=""
+          referrerPolicy="no-referrer"
           className="w-full h-full object-cover"
         />
       ) : null}
