@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 export function PublicHeader({ appLogoUrl }: { appLogoUrl: string | null }) {
   return (
     <header className="sticky top-0 z-30 bg-gc-bg/85 backdrop-blur border-b border-gc-line">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-4">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-4">
         <Link
           href="/"
           prefetch={false}
