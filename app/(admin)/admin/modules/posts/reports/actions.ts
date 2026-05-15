@@ -17,6 +17,11 @@ import { getUser } from "@/lib/db/queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
+import {
+  getReportsQueue,
+  type ReportQueueGroupRow,
+  type ReportQueueStatus,
+} from "@/lib/modules/posts/queries";
 import { z } from "zod";
 
 const ReviewSchema = z.object({
@@ -110,4 +115,38 @@ export async function reviewReportAction(
     updatedReports: updated.length,
     softDeletedPostId,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Pagination — client-side append "Carica altre"
+// ─────────────────────────────────────────────────────────────────────────
+
+const LoadMoreSchema = z.object({
+  status: z.enum(["open", "reviewed", "dismissed", "actioned", "all"]),
+  cursor: z.string().min(1),
+});
+
+export type LoadMoreReportsResult =
+  | { ok: true; rows: ReportQueueGroupRow[]; nextCursor: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Fetcha la prossima pagina (25 row) della queue raggruppata.
+ * Cursor + status arrivano dal client. Reuse della stessa query
+ * server-side per garantire ordering + filtri identici al first paint.
+ */
+export async function loadMoreReportsAction(
+  input: z.input<typeof LoadMoreSchema>,
+): Promise<LoadMoreReportsResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const parsed = LoadMoreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const page = await getReportsQueue({
+    status: parsed.data.status as ReportQueueStatus,
+    cursor: parsed.data.cursor,
+    limit: 25,
+  });
+  return { ok: true, rows: page.rows, nextCursor: page.nextCursor };
 }

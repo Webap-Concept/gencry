@@ -16,6 +16,11 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
+import {
+  getDeletedPostsForAdmin,
+  type DeletedPostRow,
+  type DeletedPostsFilter,
+} from "@/lib/modules/posts/queries";
 import { z } from "zod";
 
 const RestoreSchema = z.object({
@@ -83,4 +88,37 @@ export async function restorePostAction(
   revalidatePath("/admin/modules/posts/deleted");
 
   return { ok: true, postId: result[0].id };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Pagination — client-side append "Carica altre"
+// ─────────────────────────────────────────────────────────────────────────
+
+const LoadMoreSchema = z.object({
+  filter: z.enum(["all", "author", "moderator"]),
+  cursor: z.string().min(1),
+});
+
+export type LoadMoreDeletedResult =
+  | { ok: true; rows: DeletedPostRow[]; nextCursor: string | null }
+  | { ok: false; error: string };
+
+export async function loadMoreDeletedAction(
+  input: z.input<typeof LoadMoreSchema>,
+): Promise<LoadMoreDeletedResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const parsed = LoadMoreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const settings = await getAppSettings();
+  const graceDays =
+    parseInt(settings["modules.posts.deleted_grace_days"], 10) || 7;
+  const page = await getDeletedPostsForAdmin({
+    graceDays,
+    filter: parsed.data.filter as DeletedPostsFilter,
+    cursor: parsed.data.cursor,
+    limit: 25,
+  });
+  return { ok: true, rows: page.rows, nextCursor: page.nextCursor };
 }

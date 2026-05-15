@@ -1229,11 +1229,16 @@ export type DeletedPostRow = {
 
 export type DeletedPostsFilter = "all" | "author" | "moderator";
 
+export type DeletedPostsPage = {
+  rows: DeletedPostRow[];
+  nextCursor: string | null;
+};
+
 /**
  * Lista paginata dei post soft-deleted ancora visibili al moderatore.
  * Include sia quelli in grace (ripristinabili) sia quelli oltre grace
  * (in attesa del prossimo passaggio del cron hard-delete). Order:
- * deleted_at DESC (più recenti in cima).
+ * deleted_at DESC, id DESC (keyset cursor).
  *
  * LEFT JOIN su user_profiles via cast text per risolvere il moderatore
  * dall'uuid in `posts.deleted_by`. Il cast `user_profiles.user_id::text`
@@ -1246,7 +1251,8 @@ export async function getDeletedPostsForAdmin(opts: {
   graceDays: number;
   limit?: number;
   filter?: DeletedPostsFilter;
-}): Promise<DeletedPostRow[]> {
+  cursor?: string;
+}): Promise<DeletedPostsPage> {
   const limit = opts.limit ?? 50;
   const filter = opts.filter ?? "all";
   const cutoff = new Date(Date.now() - opts.graceDays * 24 * 60 * 60 * 1000);
@@ -1270,7 +1276,19 @@ export async function getDeletedPostsForAdmin(opts: {
     }
   })();
 
-  const rows = await db
+  // Cursor keyset: (deleted_at DESC, id DESC)
+  const cursorClause = (() => {
+    if (!opts.cursor) return undefined;
+    const decoded = decodeCursor(opts.cursor);
+    if (!decoded) return undefined;
+    const at = new Date(decoded.ms).toISOString();
+    return sql`(
+      ${posts.deletedAt} < ${at}
+      OR (${posts.deletedAt} = ${at} AND ${posts.id} < ${decoded.id})
+    )`;
+  })();
+
+  const rawRows = await db
     .select({
       id: posts.id,
       body: posts.body,
@@ -1294,11 +1312,14 @@ export async function getDeletedPostsForAdmin(opts: {
       moderatorProfile,
       sql`${moderatorProfile.userId}::text = ${posts.deletedBy}`,
     )
-    .where(and(isNotNull(posts.deletedAt), filterClause))
-    .orderBy(desc(posts.deletedAt))
-    .limit(limit);
+    .where(and(isNotNull(posts.deletedAt), filterClause, cursorClause))
+    .orderBy(desc(posts.deletedAt), desc(posts.id))
+    .limit(limit + 1);
 
-  return rows.map((r) => {
+  const hasMore = rawRows.length > limit;
+  const slicedRows = hasMore ? rawRows.slice(0, limit) : rawRows;
+
+  const mappedRows: DeletedPostRow[] = slicedRows.map((r) => {
     const deletedByKind: DeletedByKind =
       r.deletedBy === "author"
         ? "author"
@@ -1340,6 +1361,16 @@ export async function getDeletedPostsForAdmin(opts: {
       outOfGrace: r.deletedAt! < cutoff,
     };
   });
+
+  const nextCursor =
+    hasMore && slicedRows.length > 0
+      ? encodeCursor({
+          ms: new Date(slicedRows[slicedRows.length - 1].deletedAt!).getTime(),
+          id: slicedRows[slicedRows.length - 1].id,
+        })
+      : null;
+
+  return { rows: mappedRows, nextCursor };
 }
 
 // Re-export per i client di queries.ts

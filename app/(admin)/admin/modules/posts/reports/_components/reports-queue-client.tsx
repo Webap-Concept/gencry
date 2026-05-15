@@ -14,14 +14,14 @@ import {
   AdminDialogConfirmButton,
   AdminDialogContent,
 } from "@/app/(admin)/admin/_components/admin-dialog";
-import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
+import { AlertOctagon, CheckCircle2, Flag, Loader2 } from "lucide-react";
 import type {
   ReportQueueAggregateStatus,
   ReportQueueGroupRow,
   ReportQueueStatus,
   ReportsQueuePage,
 } from "@/lib/modules/posts/queries";
-import { reviewReportAction } from "../actions";
+import { loadMoreReportsAction, reviewReportAction } from "../actions";
 
 const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "open", label: "Aperti" },
@@ -66,6 +66,28 @@ export function ReportsQueueClient({
   reasonLabels: Record<string, string>;
 }) {
   const [selected, setSelected] = useState<ReportQueueGroupRow | null>(null);
+  // Append-paginazione client-side. La prima pagina arriva server-rendered;
+  // il bottone "Carica altre" appende le successive in-place senza
+  // navigation (cursor/hasMore vivono come state).
+  const [rows, setRows] = useState<ReportQueueGroupRow[]>(initial.rows);
+  const [cursor, setCursor] = useState<string | null>(initial.nextCursor);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingMore, startLoadMore] = useTransition();
+
+  const loadMore = () => {
+    if (!cursor) return;
+    setLoadError(null);
+    const cur = cursor;
+    startLoadMore(async () => {
+      const res = await loadMoreReportsAction({ status, cursor: cur });
+      if (!res.ok) {
+        setLoadError(res.error);
+        return;
+      }
+      setRows((prev) => [...prev, ...res.rows]);
+      setCursor(res.nextCursor);
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -107,8 +129,8 @@ export function ReportsQueueClient({
         })}
       </div>
 
-      {/* Lista gruppi */}
-      {initial.rows.length === 0 ? (
+      {/* Lista gruppi (paginata client-side) */}
+      {rows.length === 0 ? (
         <div
           className="rounded-xl p-12 text-center"
           style={{
@@ -119,16 +141,44 @@ export function ReportsQueueClient({
           <p className="text-sm">Nessun post segnalato in questo stato.</p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {initial.rows.map((row) => (
-            <GroupRow
-              key={row.post.id}
-              row={row}
-              reasonLabels={reasonLabels}
-              onClick={() => setSelected(row)}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {rows.map((row) => (
+              <GroupRow
+                key={row.post.id}
+                row={row}
+                reasonLabels={reasonLabels}
+                onClick={() => setSelected(row)}
+              />
+            ))}
+          </ul>
+          {cursor ? (
+            <div className="flex flex-col items-center gap-1.5 pt-2">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                style={{
+                  background: "var(--admin-card-bg)",
+                  color: "var(--admin-text)",
+                  border: "1px solid var(--admin-card-border)",
+                }}>
+                {isLoadingMore ? (
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                ) : null}
+                {isLoadingMore ? "Caricamento…" : "Carica altre"}
+              </button>
+              {loadError ? (
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--gc-neg, #dc2626)" }}>
+                  {loadError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       )}
 
       {selected ? (

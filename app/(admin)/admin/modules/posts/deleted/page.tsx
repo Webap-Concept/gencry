@@ -38,13 +38,17 @@ export default async function PostsDeletedPage({
   const graceDays =
     parseInt(settings["modules.posts.deleted_grace_days"], 10) || 7;
 
-  const rows = await getDeletedPostsForAdmin({
+  const page = await getDeletedPostsForAdmin({
     graceDays,
     filter,
-    limit: 100,
+    limit: 25,
   });
 
   return (
-    <DeletedPostsClient rows={rows} graceDays={graceDays} filter={filter} />
+    <DeletedPostsClient
+      initial={page}
+      graceDays={graceDays}
+      filter={filter}
+    />
   );
 }

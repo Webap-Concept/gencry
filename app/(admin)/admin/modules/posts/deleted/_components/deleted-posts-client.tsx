@@ -14,12 +14,20 @@ import {
   AdminDialogConfirmButton,
   AdminDialogContent,
 } from "@/app/(admin)/admin/_components/admin-dialog";
-import { Inbox, RotateCcw, ShieldAlert, Trash2, UserX } from "lucide-react";
+import {
+  Inbox,
+  Loader2,
+  RotateCcw,
+  ShieldAlert,
+  Trash2,
+  UserX,
+} from "lucide-react";
 import type {
   DeletedPostRow,
   DeletedPostsFilter,
+  DeletedPostsPage,
 } from "@/lib/modules/posts/queries";
-import { restorePostAction } from "../actions";
+import { loadMoreDeletedAction, restorePostAction } from "../actions";
 
 const FILTER_TABS: { key: DeletedPostsFilter; label: string }[] = [
   { key: "all", label: "Tutti" },
@@ -60,11 +68,11 @@ function bodyExcerpt(body: string): string {
 }
 
 export function DeletedPostsClient({
-  rows,
+  initial,
   graceDays,
   filter,
 }: {
-  rows: DeletedPostRow[];
+  initial: DeletedPostsPage;
   graceDays: number;
   filter: DeletedPostsFilter;
 }) {
@@ -72,6 +80,28 @@ export function DeletedPostsClient({
   const [confirmTarget, setConfirmTarget] = useState<DeletedPostRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Append-paginazione client-side. Reset implicito via key page (cambio
+  // filter ricarica la rotta server, ricomincia da capo).
+  const [rows, setRows] = useState<DeletedPostRow[]>(initial.rows);
+  const [cursor, setCursor] = useState<string | null>(initial.nextCursor);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [isLoadingMore, startLoadMore] = useTransition();
+
+  const loadMore = () => {
+    if (!cursor) return;
+    setLoadMoreError(null);
+    const cur = cursor;
+    startLoadMore(async () => {
+      const res = await loadMoreDeletedAction({ filter, cursor: cur });
+      if (!res.ok) {
+        setLoadMoreError(res.error);
+        return;
+      }
+      setRows((prev) => [...prev, ...res.rows]);
+      setCursor(res.nextCursor);
+    });
+  };
 
   const onConfirm = () => {
     if (!confirmTarget) return;
@@ -149,7 +179,7 @@ export function DeletedPostsClient({
   return (
     <>
       {filterPills}
-      <div className="space-y-2 mt-4">
+      <div className="space-y-2 mt-4" data-deleted-list>
         {rows.map((row) => (
           <div
             key={row.id}
@@ -208,6 +238,31 @@ export function DeletedPostsClient({
           </div>
         ))}
       </div>
+
+      {cursor ? (
+        <div className="flex flex-col items-center gap-1.5 pt-2">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              background: "var(--admin-card-bg)",
+              color: "var(--admin-text)",
+              border: "1px solid var(--admin-card-border)",
+            }}>
+            {isLoadingMore ? (
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+            ) : null}
+            {isLoadingMore ? "Caricamento…" : "Carica altre"}
+          </button>
+          {loadMoreError ? (
+            <p className="text-xs" style={{ color: "var(--gc-neg, #dc2626)" }}>
+              {loadMoreError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <AdminDialog
         open={!!confirmTarget}
