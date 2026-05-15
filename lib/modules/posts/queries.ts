@@ -1187,6 +1187,14 @@ export async function getReportsForPost(postId: string): Promise<
 // Deleted posts admin queue (post soft-deleted in grace window)
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Origine della cancellazione:
+ *   - "author"   → l'autore ha eliminato dal proprio post (delete utente)
+ *   - "moderator"→ admin ha eseguito un report action (soft-delete)
+ *   - "unknown"  → posts.deleted_by è NULL (righe pre-migration M_posts_006)
+ */
+export type DeletedByKind = "author" | "moderator" | "unknown";
+
 export type DeletedPostRow = {
   id: string;
   body: string;
@@ -1199,10 +1207,27 @@ export type DeletedPostRow = {
     lastName: string | null;
     avatarUrl: string | null;
   };
+  /** Discriminator + (se applicabile) info del moderatore. Per ripristino
+   *  con audit consapevole — il moderatore vede chi/cosa sta rovesciando. */
+  deletedBy:
+    | { kind: "author" }
+    | {
+        kind: "moderator";
+        moderator: {
+          id: string;
+          username: string | null;
+          firstName: string | null;
+          lastName: string | null;
+          avatarUrl: string | null;
+        } | null; // null se l'account del moderatore è stato cancellato
+      }
+    | { kind: "unknown" };
   /** True se il post è oltre il grace period (cron non ancora passato).
    *  La UI lo segna come "non più ripristinabile". */
   outOfGrace: boolean;
 };
+
+export type DeletedPostsFilter = "all" | "author" | "moderator";
 
 /**
  * Lista paginata dei post soft-deleted ancora visibili al moderatore.
@@ -1210,47 +1235,111 @@ export type DeletedPostRow = {
  * (in attesa del prossimo passaggio del cron hard-delete). Order:
  * deleted_at DESC (più recenti in cima).
  *
+ * LEFT JOIN su user_profiles via cast text per risolvere il moderatore
+ * dall'uuid in `posts.deleted_by`. Il cast `user_profiles.user_id::text`
+ * funziona per tutti gli uuid; per 'author' (literal non-uuid) il match
+ * fallisce gracefully → moderator = null.
+ *
  * Admin-only — gate sul caller (`requireAdminSectionPage`).
  */
 export async function getDeletedPostsForAdmin(opts: {
   graceDays: number;
   limit?: number;
+  filter?: DeletedPostsFilter;
 }): Promise<DeletedPostRow[]> {
   const limit = opts.limit ?? 50;
+  const filter = opts.filter ?? "all";
   const cutoff = new Date(Date.now() - opts.graceDays * 24 * 60 * 60 * 1000);
+
+  const authorProfile = alias(userProfiles, "author_profile_deleted");
+  const moderatorProfile = alias(userProfiles, "moderator_profile_deleted");
+
+  // Filtro: 'author' = delete utente; 'moderator' = qualunque valore ≠ 'author'
+  // (uuid) + escludiamo NULL ("unknown" lo trattiamo come 'all' contesto).
+  const filterClause = (() => {
+    switch (filter) {
+      case "author":
+        return eq(posts.deletedBy, "author");
+      case "moderator":
+        return and(
+          isNotNull(posts.deletedBy),
+          sql`${posts.deletedBy} <> 'author'`,
+        );
+      default:
+        return undefined;
+    }
+  })();
 
   const rows = await db
     .select({
       id: posts.id,
       body: posts.body,
       deletedAt: posts.deletedAt,
+      deletedBy: posts.deletedBy,
       createdAt: posts.createdAt,
       authorId: posts.authorId,
-      authorUsername: userProfiles.username,
-      authorFirstName: userProfiles.firstName,
-      authorLastName: userProfiles.lastName,
-      authorAvatarUrl: userProfiles.avatarUrl,
+      authorUsername: authorProfile.username,
+      authorFirstName: authorProfile.firstName,
+      authorLastName: authorProfile.lastName,
+      authorAvatarUrl: authorProfile.avatarUrl,
+      modUserId: moderatorProfile.userId,
+      modUsername: moderatorProfile.username,
+      modFirstName: moderatorProfile.firstName,
+      modLastName: moderatorProfile.lastName,
+      modAvatarUrl: moderatorProfile.avatarUrl,
     })
     .from(posts)
-    .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
-    .where(isNotNull(posts.deletedAt))
+    .leftJoin(authorProfile, eq(authorProfile.userId, posts.authorId))
+    .leftJoin(
+      moderatorProfile,
+      sql`${moderatorProfile.userId}::text = ${posts.deletedBy}`,
+    )
+    .where(and(isNotNull(posts.deletedAt), filterClause))
     .orderBy(desc(posts.deletedAt))
     .limit(limit);
 
-  return rows.map((r) => ({
-    id: r.id,
-    body: r.body,
-    deletedAt: r.deletedAt!,
-    createdAt: r.createdAt,
-    author: {
-      id: r.authorId,
-      username: r.authorUsername,
-      firstName: r.authorFirstName,
-      lastName: r.authorLastName,
-      avatarUrl: r.authorAvatarUrl,
-    },
-    outOfGrace: r.deletedAt! < cutoff,
-  }));
+  return rows.map((r) => {
+    const deletedByKind: DeletedByKind =
+      r.deletedBy === "author"
+        ? "author"
+        : r.deletedBy
+          ? "moderator"
+          : "unknown";
+
+    const deletedBy: DeletedPostRow["deletedBy"] =
+      deletedByKind === "author"
+        ? { kind: "author" }
+        : deletedByKind === "moderator"
+          ? {
+              kind: "moderator",
+              moderator: r.modUserId
+                ? {
+                    id: r.modUserId,
+                    username: r.modUsername,
+                    firstName: r.modFirstName,
+                    lastName: r.modLastName,
+                    avatarUrl: r.modAvatarUrl,
+                  }
+                : null,
+            }
+          : { kind: "unknown" };
+
+    return {
+      id: r.id,
+      body: r.body,
+      deletedAt: r.deletedAt!,
+      createdAt: r.createdAt,
+      author: {
+        id: r.authorId,
+        username: r.authorUsername,
+        firstName: r.authorFirstName,
+        lastName: r.authorLastName,
+        avatarUrl: r.authorAvatarUrl,
+      },
+      deletedBy,
+      outOfGrace: r.deletedAt! < cutoff,
+    };
+  });
 }
 
 // Re-export per i client di queries.ts

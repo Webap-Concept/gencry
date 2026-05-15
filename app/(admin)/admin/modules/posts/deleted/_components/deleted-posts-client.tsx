@@ -14,9 +14,28 @@ import {
   AdminDialogConfirmButton,
   AdminDialogContent,
 } from "@/app/(admin)/admin/_components/admin-dialog";
-import { Inbox, RotateCcw, Trash2 } from "lucide-react";
-import type { DeletedPostRow } from "@/lib/modules/posts/queries";
+import { Inbox, RotateCcw, ShieldAlert, Trash2, UserX } from "lucide-react";
+import type {
+  DeletedPostRow,
+  DeletedPostsFilter,
+} from "@/lib/modules/posts/queries";
 import { restorePostAction } from "../actions";
+
+const FILTER_TABS: { key: DeletedPostsFilter; label: string }[] = [
+  { key: "all", label: "Tutti" },
+  { key: "author", label: "Da autori" },
+  { key: "moderator", label: "Da moderatori" },
+];
+
+function moderatorDisplay(
+  mod: NonNullable<
+    Extract<DeletedPostRow["deletedBy"], { kind: "moderator" }>["moderator"]
+  >,
+): string {
+  if (mod.username) return `@${mod.username}`;
+  const full = [mod.firstName, mod.lastName].filter(Boolean).join(" ");
+  return full || mod.id.slice(0, 8);
+}
 
 function formatRelativeTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
@@ -43,9 +62,11 @@ function bodyExcerpt(body: string): string {
 export function DeletedPostsClient({
   rows,
   graceDays,
+  filter,
 }: {
   rows: DeletedPostRow[];
   graceDays: number;
+  filter: DeletedPostsFilter;
 }) {
   const router = useRouter();
   const [confirmTarget, setConfirmTarget] = useState<DeletedPostRow | null>(null);
@@ -71,38 +92,64 @@ export function DeletedPostsClient({
     });
   };
 
+  const filterPills = (
+    <div
+      className="flex flex-wrap items-center gap-1 p-1 rounded-xl w-fit"
+      style={{ background: "var(--admin-hover-bg)" }}>
+      {FILTER_TABS.map((tab) => {
+        const isActive = tab.key === filter;
+        return (
+          <Link
+            key={tab.key}
+            href={tab.key === "all" ? "?" : `?filter=${tab.key}`}
+            className="px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
+            style={{
+              background: isActive ? "var(--admin-accent)" : "transparent",
+              color: isActive ? "#fff" : "var(--admin-text-muted)",
+            }}>
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+
   if (rows.length === 0) {
     return (
-      <div
-        className="rounded-lg p-8 text-center"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-        }}>
-        <Inbox
-          size={32}
-          className="mx-auto mb-3"
-          style={{ color: "var(--admin-text-faint)" }}
-          aria-hidden
-        />
-        <p
-          className="text-sm font-medium"
-          style={{ color: "var(--admin-text)" }}>
-          Nessun post eliminato in attesa.
-        </p>
-        <p
-          className="text-xs mt-1"
-          style={{ color: "var(--admin-text-faint)" }}>
-          Quando un utente cancella un suo post, compare qui per {graceDays}{" "}
-          giorni prima del cleanup definitivo.
-        </p>
+      <div className="space-y-4">
+        {filterPills}
+        <div
+          className="rounded-lg p-8 text-center"
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          <Inbox
+            size={32}
+            className="mx-auto mb-3"
+            style={{ color: "var(--admin-text-faint)" }}
+            aria-hidden
+          />
+          <p
+            className="text-sm font-medium"
+            style={{ color: "var(--admin-text)" }}>
+            Nessun post eliminato in attesa.
+          </p>
+          <p
+            className="text-xs mt-1"
+            style={{ color: "var(--admin-text-faint)" }}>
+            Quando un utente cancella un suo post, compare qui per {graceDays}{" "}
+            giorni prima del cleanup definitivo.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-2">
+      {filterPills}
+      <div className="space-y-2 mt-4">
         {rows.map((row) => (
           <div
             key={row.id}
@@ -126,6 +173,7 @@ export function DeletedPostsClient({
                     · creato {formatRelativeTime(row.createdAt)} · eliminato{" "}
                     {formatRelativeTime(row.deletedAt)}
                   </span>
+                  <DeletedByBadge deletedBy={row.deletedBy} />
                   {row.outOfGrace ? (
                     <span
                       className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
@@ -216,5 +264,62 @@ export function DeletedPostsClient({
         </AdminDialogContent>
       </AdminDialog>
     </>
+  );
+}
+
+/**
+ * Badge che riassume chi ha cancellato il post (autore vs moderatore).
+ * Per moderatori risolvibili linka al profilo admin; per moderatori
+ * "orfani" (account cancellato) mostra fallback.
+ */
+function DeletedByBadge({ deletedBy }: { deletedBy: DeletedPostRow["deletedBy"] }) {
+  if (deletedBy.kind === "author") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+        style={{
+          background:
+            "color-mix(in srgb, var(--admin-text-muted) 14%, transparent)",
+          color: "var(--admin-text-muted)",
+        }}>
+        <UserX size={10} strokeWidth={2} aria-hidden />
+        Da autore
+      </span>
+    );
+  }
+  if (deletedBy.kind === "moderator") {
+    const baseClass =
+      "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide";
+    const baseStyle = {
+      background: "color-mix(in srgb, #b45309 14%, transparent)",
+      color: "#b45309",
+    } as const;
+    if (deletedBy.moderator) {
+      return (
+        <Link
+          href={`/admin/access/users/${deletedBy.moderator.id}`}
+          className={`${baseClass} hover:underline`}
+          style={baseStyle}>
+          <ShieldAlert size={10} strokeWidth={2} aria-hidden />
+          Da {moderatorDisplay(deletedBy.moderator)}
+        </Link>
+      );
+    }
+    return (
+      <span className={baseClass} style={baseStyle}>
+        <ShieldAlert size={10} strokeWidth={2} aria-hidden />
+        Da moderatore (account rimosso)
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+      style={{
+        background: "color-mix(in srgb, var(--admin-text-faint) 14%, transparent)",
+        color: "var(--admin-text-faint)",
+      }}>
+      Origine sconosciuta
+    </span>
   );
 }

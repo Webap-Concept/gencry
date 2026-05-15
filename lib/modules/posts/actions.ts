@@ -402,7 +402,7 @@ export async function softDeletePost(
 
   const result = await db
     .update(posts)
-    .set({ deletedAt: sql`NOW()` })
+    .set({ deletedAt: sql`NOW()`, deletedBy: "author" })
     .where(
       and(
         eq(posts.id, parsed.data),

@@ -84,11 +84,13 @@ export async function reviewReportAction(
 
   let softDeletedPostId: string | undefined;
 
-  // 3. Se "actioned" → soft-delete del post (se non già cancellato)
+  // 3. Se "actioned" → soft-delete del post (se non già cancellato).
+  //    deleted_by = uuid del moderatore: la deleted page risolverà
+  //    l'uuid in @username via JOIN per l'audit visivo.
   if (decision === "actioned" && !target.deletedAt) {
     await db
       .update(posts)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: user.id })
       .where(and(eq(posts.id, postId), isNull(posts.deletedAt)));
 
     await invalidatePostCache(postId);

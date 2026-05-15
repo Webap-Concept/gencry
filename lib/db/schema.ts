@@ -1467,6 +1467,8 @@ export const posts = pgTable(
     repostOfId:       uuid("repost_of_id"),  // self-FK, dichiarato a livello SQL
     editedAt:         timestamp("edited_at",  { withTimezone: true }),
     deletedAt:        timestamp("deleted_at", { withTimezone: true }),
+    // 'author' | <uuid moderatore> | null. Vedi M_posts_006_deleted_by.sql.
+    deletedBy:        varchar("deleted_by", { length: 40 }),
     createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Counter denormalizzati (aggiornati da trigger in PR-2)
     reactionsLike:    integer("reactions_like").notNull().default(0),

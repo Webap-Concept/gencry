@@ -58,7 +58,7 @@ export async function restorePostAction(
 
   const result = await db
     .update(posts)
-    .set({ deletedAt: null })
+    .set({ deletedAt: null, deletedBy: null })
     .where(
       and(
         eq(posts.id, parsed.data.postId),
