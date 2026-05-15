@@ -1,5 +1,3 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { getAdminPath } from "@/lib/admin-paths";
 import {
   getCookieRegistry,
@@ -7,18 +5,12 @@ import {
 } from "@/lib/db/cookie-services-queries";
 import { getEnabledLocales, getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Cookie,
-  ExternalLink,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { CookieMasterSwitch } from "./_components/cookie-master-switch";
 import { CookieServicesManager } from "./_components/cookie-services-manager";
-import { CookiesAdminGuide } from "./_components/cookies-admin-guide";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.compliance.cookies");
@@ -28,7 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function CookiesCompliancePage() {
-  const t = await getTranslations("admin.compliance");
   const tC = await getTranslations("admin.compliance.cookies");
   const [settings, slugs, registry, locales, snippetCounts] = await Promise.all([
     getAppSettings(),
@@ -43,20 +34,6 @@ export default async function CookiesCompliancePage() {
 
   return (
     <div className="space-y-8">
-      <AdminSectionHeader
-        icon={Cookie}
-        breadcrumbLabel={t("breadcrumb")}
-        title={tC("pageTitle")}
-        subtitle={tC("pageSubtitle")}
-        infoSlot={
-          <AdminSectionInfo
-            title={tC("guideTitle")}
-            ariaLabel={tC("guideAriaLabel")}>
-            <CookiesAdminGuide />
-          </AdminSectionInfo>
-        }
-      />
-
       {/* Section 1 — Master switch */}
       <section>
         <h2

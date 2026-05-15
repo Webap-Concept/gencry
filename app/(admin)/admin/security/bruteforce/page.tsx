@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { ShieldAlert } from "lucide-react";
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { requireAdminPage } from "@/lib/rbac/guards";
 import { getBruteforceData } from "./actions";
 import { BruteforceClient } from "./_components/bruteforce-client";
@@ -19,19 +17,9 @@ async function BruteforceContent() {
 
 export default async function AdminBruteforcePage() {
   await requireAdminPage();
-  const t = await getTranslations("admin.security");
-  const tBf = await getTranslations("admin.security.bruteforce");
 
   return (
-    <div className="space-y-5">
-      <AdminSectionHeader
-        icon={ShieldAlert}
-        breadcrumbLabel={t("breadcrumb")}
-        title={tBf("pageTitle")}
-        subtitle={tBf("pageSubtitle")}
-      />
-
-      <Suspense
+    <Suspense
         fallback={
           <div className="flex items-center justify-center h-40">
             <div
@@ -43,6 +31,5 @@ export default async function AdminBruteforcePage() {
       >
         <BruteforceContent />
       </Suspense>
-    </div>
   );
 }

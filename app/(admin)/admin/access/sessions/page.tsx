@@ -14,10 +14,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { AlertsTable } from "./_components/alerts-table";
-import { SessionsAdminGuide } from "./_components/sessions-guide";
 import { SessionsTable } from "./_components/sessions-table";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -403,19 +400,6 @@ export default async function AdminSessionsPage({
 
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={Activity}
-        breadcrumbLabel={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-        infoSlot={
-          <AdminSectionInfo
-            title={t("guideTitle")}
-            ariaLabel={t("guideAriaLabel")}>
-            <SessionsAdminGuide />
-          </AdminSectionInfo>
-        }
-      />
-
       <Suspense fallback={<KpisSkeleton />}>
         <KpisRow />
       </Suspense>

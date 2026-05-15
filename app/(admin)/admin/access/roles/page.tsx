@@ -1,7 +1,5 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAdminRoles } from "@/lib/db/roles-queries";
 import { requireAdminPage } from "@/lib/rbac/guards";
-import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -19,18 +17,9 @@ async function RolesContent() {
 
 export default async function AdminRolesPage() {
   await requireAdminPage();
-  const t = await getTranslations("admin.access.roles");
 
   return (
-    <div className="space-y-5">
-      <AdminSectionHeader
-        icon={ShieldCheck}
-        breadcrumbLabel={t("breadcrumbUsers")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-      />
-
-      <Suspense
+    <Suspense
         fallback={
           <div className="flex items-center justify-center h-40">
             <div
@@ -44,6 +33,5 @@ export default async function AdminRolesPage() {
         }>
         <RolesContent />
       </Suspense>
-    </div>
   );
 }

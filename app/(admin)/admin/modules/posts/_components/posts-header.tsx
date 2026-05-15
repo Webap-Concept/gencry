@@ -1,12 +1,47 @@
-// Server component: risolve l'admin slug a runtime così le tab non
-// usano `/admin/` hardcoded ma il valore in app_settings.admin.url_slug.
-import { getAdminUrlSlug } from "@/lib/admin-paths";
-import { MessageSquare } from "lucide-react";
-import { ModuleAdminTabs } from "@/app/(admin)/admin/_components/module-admin-tabs";
+"use client";
 
-export async function PostsHeader() {
-  const slug = await getAdminUrlSlug();
-  const base = `/${slug}/modules/posts`;
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
+import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
+import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
+import type { LucideIcon } from "lucide-react";
+import { Clock, MessageSquare, Settings } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
+
+type SectionMeta = {
+  description: string;
+  icon: LucideIcon;
+  guide?: "cron";
+};
+
+const SECTIONS: Record<string, SectionMeta> = {
+  posts: {
+    description: "Modulo social feed — composer, reactions, comments, moderation.",
+    icon: MessageSquare,
+  },
+  settings: {
+    description: "Storage R2, ritenzione outbox, opzioni di posting.",
+    icon: Settings,
+  },
+  cron: {
+    description: "pg_cron jobs di proprietà del modulo Posts.",
+    icon: Clock,
+    guide: "cron",
+  },
+};
+
+const DEFAULT: SectionMeta = {
+  description: "Modulo social feed — composer, reactions, comments, moderation.",
+  icon: MessageSquare,
+};
+
+export function PostsHeader({ adminSlug }: { adminSlug: string }) {
+  const pathname = usePathname();
+  const tCron = useTranslations("admin.cron");
+  const segment = pathname.split("/").pop() ?? "";
+  const section = SECTIONS[segment] ?? DEFAULT;
+  const Icon = section.icon;
+  const base = `/${adminSlug}/modules/posts`;
 
   return (
     <header>
@@ -18,29 +53,32 @@ export async function PostsHeader() {
               "color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg))",
             border:
               "1px solid color-mix(in srgb, var(--admin-accent) 25%, transparent)",
-          }}
-        >
-          <MessageSquare size={18} style={{ color: "var(--admin-accent)" }} />
+          }}>
+          <Icon size={18} style={{ color: "var(--admin-accent)" }} />
         </div>
-        <div>
-          <h2
-            className="text-lg font-bold"
-            style={{ color: "var(--admin-text)" }}
-          >
-            Posts
-          </h2>
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--admin-text-faint)" }}
-          >
-            Modulo social feed — composer, reactions, comments, moderation.
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold" style={{ color: "var(--admin-text)" }}>
+              Posts
+            </h2>
+            {section.guide === "cron" && (
+              <AdminSectionInfo
+                title={tCron("guideTitle")}
+                ariaLabel={tCron("guideTriggerAria")}>
+                <CronAdminGuide />
+              </AdminSectionInfo>
+            )}
+          </div>
+          <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
+            {section.description}
           </p>
         </div>
       </div>
-      <ModuleAdminTabs
+      <AdminSectionTabs
         tabs={[
-          { href: base,              label: "Overview", exact: true },
+          { href: base, label: "Overview", exact: true },
           { href: `${base}/settings`, label: "Settings" },
+          { href: `${base}/cron`, label: "Cron Jobs" },
         ]}
       />
     </header>

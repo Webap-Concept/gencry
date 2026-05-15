@@ -1,20 +1,16 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAllLocales } from "@/lib/db/locales-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getEmailTranslationsForLocale } from "@/lib/email/locale";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/config";
-import { Mail } from "lucide-react";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
 import { EmailTemplatesTab } from "../tabs/email-templates-tab";
 
 export const metadata: Metadata = { title: "Settings / Email" };
 
 export default async function SettingsEmailPage() {
-  const [settings, allLocales, t] = await Promise.all([
+  const [settings, allLocales] = await Promise.all([
     getAppSettings(),
     getAllLocales(),
-    getTranslations("admin.settings"),
   ]);
 
   // Locale enabled, ordinati come in /admin/settings/languages, default sempre primo.
@@ -45,18 +41,10 @@ export default async function SettingsEmailPage() {
   for (const [code, map] of overlayEntries) overlays[code] = map;
 
   return (
-    <>
-      <AdminSectionHeader
-        icon={Mail}
-        breadcrumbLabel={t("rootTitle")}
-        title={t("sections.email.label")}
-        subtitle={t("sections.email.description")}
-      />
-      <EmailTemplatesTab
-        settings={settings}
-        locales={locales}
-        overlays={overlays}
-      />
-    </>
+    <EmailTemplatesTab
+      settings={settings}
+      locales={locales}
+      overlays={overlays}
+    />
   );
 }

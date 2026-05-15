@@ -1,6 +1,4 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { Globe } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -30,45 +28,20 @@ async function RobotsContent() {
 }
 
 export default async function RobotsPage() {
-  const t = await getTranslations("admin.seo.robots");
   return (
-    <div className="space-y-5">
-      <AdminSectionHeader
-        icon={Globe}
-        breadcrumbLabel={t("pageHeading")}
-        subtitleSlot={
-          <>
-            {t("pageSubtitleBefore")}{" "}
-            <code
-              className="font-mono text-xs px-1 py-0.5 rounded"
-              style={{ background: "var(--admin-hover-bg)" }}>
-              robots.txt
-            </code>{" "}
-            {t("pageSubtitleMiddle")}{" "}
-            <code
-              className="font-mono text-xs px-1 py-0.5 rounded"
-              style={{ background: "var(--admin-hover-bg)" }}>
-              humans.txt
-            </code>{" "}
-            {t("pageSubtitleAfter")}
-          </>
-        }
-      />
-
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center h-32">
-            <div
-              className="w-5 h-5 border-2 rounded-full animate-spin"
-              style={{
-                borderColor: "var(--admin-accent)",
-                borderTopColor: "transparent",
-              }}
-            />
-          </div>
-        }>
-        <RobotsContent />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-32">
+          <div
+            className="w-5 h-5 border-2 rounded-full animate-spin"
+            style={{
+              borderColor: "var(--admin-accent)",
+              borderTopColor: "transparent",
+            }}
+          />
+        </div>
+      }>
+      <RobotsContent />
+    </Suspense>
   );
 }

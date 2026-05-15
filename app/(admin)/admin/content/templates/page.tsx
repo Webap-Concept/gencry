@@ -1,4 +1,3 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { isTemplateSlugRegistered } from "@/app/(frontend)/_templates/registered-slugs";
 import { getAdminPath } from "@/lib/admin-paths";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
@@ -21,23 +20,17 @@ export default async function TemplatePage() {
   const templatesBase = await getAdminPath("content-templates");
 
   return (
-    <div className="">
-      <AdminSectionHeader
-        icon={PanelTop}
-        breadcrumbLabel={t("breadcrumbContent")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-        actionSlot={
-          <Link
-            href={`${templatesBase}/new`}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ background: "var(--admin-accent)" }}>
-            <Plus size={16} />
-            <span className="hidden sm:inline">{t("newButtonFull")}</span>
-            <span className="sm:hidden">{t("newButtonShort")}</span>
-          </Link>
-        }
-      />
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Link
+          href={`${templatesBase}/new`}
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white"
+          style={{ background: "var(--admin-accent)" }}>
+          <Plus size={16} />
+          <span className="hidden sm:inline">{t("newButtonFull")}</span>
+          <span className="sm:hidden">{t("newButtonShort")}</span>
+        </Link>
+      </div>
 
       {templates.length === 0 ? (
         <div

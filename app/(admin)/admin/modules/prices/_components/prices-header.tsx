@@ -2,7 +2,7 @@
 
 import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
-import { ModuleAdminTabs } from "@/app/(admin)/admin/_components/module-admin-tabs";
+import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
 import type { LucideIcon } from "lucide-react";
 import { Activity, Clock, Coins, LineChart, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -94,7 +94,7 @@ export function PricesHeader({ adminSlug }: { adminSlug: string }) {
           </p>
         </div>
       </div>
-      <ModuleAdminTabs
+      <AdminSectionTabs
         tabs={[
           { href: base,             label: "Health",         exact: true },
           { href: `${base}/coins`,   label: "Coins Registry" },
