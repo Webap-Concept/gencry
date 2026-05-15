@@ -1002,5 +1002,75 @@ async function countReportsByStatus(status: string): Promise<number> {
   return row?.n ?? 0;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Deleted posts admin queue (post soft-deleted in grace window)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type DeletedPostRow = {
+  id: string;
+  body: string;
+  deletedAt: Date;
+  createdAt: Date;
+  author: {
+    id: string;
+    username: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+  /** True se il post è oltre il grace period (cron non ancora passato).
+   *  La UI lo segna come "non più ripristinabile". */
+  outOfGrace: boolean;
+};
+
+/**
+ * Lista paginata dei post soft-deleted ancora visibili al moderatore.
+ * Include sia quelli in grace (ripristinabili) sia quelli oltre grace
+ * (in attesa del prossimo passaggio del cron hard-delete). Order:
+ * deleted_at DESC (più recenti in cima).
+ *
+ * Admin-only — gate sul caller (`requireAdminSectionPage`).
+ */
+export async function getDeletedPostsForAdmin(opts: {
+  graceDays: number;
+  limit?: number;
+}): Promise<DeletedPostRow[]> {
+  const limit = opts.limit ?? 50;
+  const cutoff = new Date(Date.now() - opts.graceDays * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      id: posts.id,
+      body: posts.body,
+      deletedAt: posts.deletedAt,
+      createdAt: posts.createdAt,
+      authorId: posts.authorId,
+      authorUsername: userProfiles.username,
+      authorFirstName: userProfiles.firstName,
+      authorLastName: userProfiles.lastName,
+      authorAvatarUrl: userProfiles.avatarUrl,
+    })
+    .from(posts)
+    .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
+    .where(isNotNull(posts.deletedAt))
+    .orderBy(desc(posts.deletedAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    deletedAt: r.deletedAt!,
+    createdAt: r.createdAt,
+    author: {
+      id: r.authorId,
+      username: r.authorUsername,
+      firstName: r.authorFirstName,
+      lastName: r.authorLastName,
+      avatarUrl: r.authorAvatarUrl,
+    },
+    outOfGrace: r.deletedAt! < cutoff,
+  }));
+}
+
 // Re-export per i client di queries.ts
 export { encodeCursor, decodeCursor } from "./lib/cursor";

@@ -199,6 +199,7 @@ export type SettingKey =
   | 'modules.posts.link_preview_cache_days'      // re-fetch OG > N giorni
   | 'modules.posts.outbox_retention_days'        // cleanup posts_outbox processed_at < now()-N
   | 'modules.posts.orphan_media_grace_hours'     // cleanup R2 posts_media confirmed_at IS NULL > N ore
+  | 'modules.posts.deleted_grace_days'           // grace prima dell'hard-delete dei post soft-deleted (default 7)
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -418,6 +419,7 @@ export type AppSettings = {
   'modules.posts.link_preview_cache_days': string
   'modules.posts.outbox_retention_days': string
   'modules.posts.orphan_media_grace_hours': string
+  'modules.posts.deleted_grace_days': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -608,6 +610,7 @@ const DEFAULTS: AppSettings = {
   'modules.posts.link_preview_cache_days': '30',
   'modules.posts.outbox_retention_days': '30',
   'modules.posts.orphan_media_grace_hours': '24',
+  'modules.posts.deleted_grace_days': '7',
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',

@@ -29,7 +29,7 @@ export function DeletePostConfirmDialog({
         icon={Trash2}
         iconTone="danger"
         title="Eliminare questo post?"
-        description="Il post sparisce dal tuo profilo e dai feed di tutti."
+        description="Il post sparisce subito dal tuo profilo e dai feed di tutti."
         size="md"
         footer={
           <>
@@ -50,10 +50,10 @@ export function DeletePostConfirmDialog({
           </>
         }>
         <ul className="space-y-1.5 text-sm text-gc-fg-2 list-disc pl-5">
-          <li>Le reazioni, i bookmark e le menzioni vengono cancellati.</li>
-          <li>I commenti restano se qualcuno ha già risposto (con etichetta &laquo;post rimosso&raquo;), altrimenti spariscono.</li>
+          <li>Reazioni e bookmark restano associati al post fino al ripristino.</li>
+          <li>I commenti restano se qualcuno ha già risposto (etichetta &laquo;post rimosso&raquo;), altrimenti spariscono.</li>
           <li>I quote-repost di altri utenti mostrano &laquo;post originale rimosso&raquo;.</li>
-          <li>Un moderatore può ripristinarlo entro 7 giorni; dopo, è definitivo.</li>
+          <li>Per <strong>7 giorni</strong> un moderatore può ripristinarlo. Dopo, il post viene eliminato definitivamente.</li>
         </ul>
       </GcModalContent>
     </GcModal>

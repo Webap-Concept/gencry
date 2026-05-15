@@ -44,6 +44,15 @@ export const POSTS_MODULE: ModuleManifest = {
       permission: "modules:posts.moderate",
     },
     {
+      key: "posts-deleted",
+      href: "/modules/posts/deleted",
+      label: "Deleted",
+      icon: "Trash2",
+      // Solo moderatori vedono i post soft-deleted in grace e possono
+      // ripristinarli prima che il cron li hard-cancelli.
+      permission: "modules:posts.moderate",
+    },
+    {
       key: "posts-settings",
       href: "/modules/posts/settings",
       label: "Settings",
@@ -71,6 +80,16 @@ export const POSTS_MODULE: ModuleManifest = {
         "Removes posts_outbox rows whose processed_at is older than modules.posts.outbox_retention_days (default 30d).",
       purpose:
         "Keeps the outbox table bounded after the notifications consumer marks events as processed.",
+    },
+    {
+      jobname: "modules-posts-hard-delete-deleted",
+      path: "/api/cron/modules/posts/hard-delete-deleted",
+      schedule: "0 5 * * *",
+      label: "Posts Hard-Delete (post grace)",
+      description:
+        "Hard-deletes posts soft-deleted by their author whose deleted_at is older than modules.posts.deleted_grace_days (default 7d). CASCADE on FK cleans up reactions/comments/bookmarks/reports/tickers/mentions/outbox; orphan R2 media files are reclaimed by the orphan-media-cleanup job.",
+      purpose:
+        "Twitter-style grace window: gives moderators 7 days to restore an erroneously deleted post before it disappears for good. Keeps the posts table bounded.",
     },
   ],
 };
