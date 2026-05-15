@@ -18,7 +18,7 @@
 // Allineato al cron prices (ogni 5min) + 30s margin + min 60s floor per
 // evitare spam refetch quando il cron ritarda.
 
-import { inArray, sql } from "drizzle-orm";
+import { and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/drizzle";
 import { postsTickers } from "@/lib/db/schema";
@@ -126,7 +126,10 @@ export async function getTickerPreviewBatch(
       })
       .from(postsTickers)
       .where(
-        sql`${postsTickers.ticker} = ANY(${unique}::text[]) AND ${postsTickers.createdAt} >= ${cutoffIso}`,
+        and(
+          inArray(postsTickers.ticker, unique),
+          sql`${postsTickers.createdAt} >= ${cutoffIso}`,
+        ),
       )
       .groupBy(postsTickers.ticker),
   ]);
