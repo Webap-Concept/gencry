@@ -10,14 +10,12 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2, AlertOctagon, CheckCircle2 } from "lucide-react";
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
+import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
 import type {
   ReportQueueRow,
   ReportQueueStatus,
@@ -293,19 +291,49 @@ function ReportReviewDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader className="!flex-col !items-start !gap-1 !py-3">
-          <DialogTitle>Revisione segnalazione</DialogTitle>
-          <DialogDescription
-            className="text-xs"
-            style={{ color: "var(--admin-text-faint)" }}>
-            Decidi come gestire la segnalazione. La decisione è registrata
-            con il tuo user id e timestamp.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-5 py-4 space-y-3">
+    <AdminDialog open onOpenChange={(o) => !o && onClose()}>
+      <AdminDialogContent
+        icon={Flag}
+        size="xl"
+        title="Revisione segnalazione"
+        description="Decidi come gestire la segnalazione. La decisione è registrata con il tuo user id e timestamp."
+        footer={
+          <>
+            <AdminDialogCancelButton onClick={onClose} disabled={isSubmitting}>
+              Chiudi
+            </AdminDialogCancelButton>
+            {!alreadyDecided ? (
+              <>
+                <AdminDialogConfirmButton
+                  onClick={() => submit("dismissed")}
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  icon={CheckCircle2}>
+                  Respingi
+                </AdminDialogConfirmButton>
+                <AdminDialogConfirmButton
+                  variant="danger"
+                  onClick={() => {
+                    if (!postAlreadyDeleted) {
+                      if (
+                        !confirm(
+                          "Confermi il soft-delete del post? L'autore potrà appellarsi entro 7 giorni.",
+                        )
+                      )
+                        return;
+                    }
+                    submit("actioned");
+                  }}
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  icon={AlertOctagon}>
+                  {postAlreadyDeleted ? "Conferma action" : "Soft-delete post"}
+                </AdminDialogConfirmButton>
+              </>
+            ) : null}
+          </>
+        }>
+        <div className="space-y-3">
           {/* Post preview */}
           <div
             className="rounded-lg p-4"
@@ -396,66 +424,7 @@ function ReportReviewDialog({
             </p>
           ) : null}
         </div>
-
-        <DialogFooter className="px-5 py-3 gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-50"
-            style={{
-              background: "var(--admin-hover-bg)",
-              color: "var(--admin-text)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            Chiudi
-          </button>
-          {!alreadyDecided ? (
-            <>
-              <button
-                type="button"
-                onClick={() => submit("dismissed")}
-                disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isSubmitting ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <CheckCircle2 size={13} />
-                )}
-                Respingi segnalazione
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!postAlreadyDeleted) {
-                    if (
-                      !confirm(
-                        "Confermi il soft-delete del post? L'autore potrà appellarsi entro 7 giorni.",
-                      )
-                    )
-                      return;
-                  }
-                  submit("actioned");
-                }}
-                disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50 flex items-center gap-2"
-                style={{ background: "var(--gc-neg, #dc2626)" }}>
-                {isSubmitting ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <AlertOctagon size={13} />
-                )}
-                {postAlreadyDeleted ? "Conferma action" : "Soft-delete post"}
-              </button>
-            </>
-          ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }

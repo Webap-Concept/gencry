@@ -16,6 +16,7 @@ import { useState, useTransition } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Flag,
   Loader2,
   Pencil,
   Plus,
@@ -23,13 +24,13 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+  AdminDialogField,
+  adminFieldStyle,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import type { ReportReason } from "@/lib/modules/posts/services/report-reasons";
 import { saveReportReasonsAction } from "../actions";
 
@@ -300,31 +301,25 @@ function ReasonEditDialog({
   const labelsOk = draft.labelByLocale.it && draft.labelByLocale.en;
   const canSave = keyOk && labelsOk;
 
-  // Stile input coerente con il resto delle form admin (vedi
-  // notifications-form / posts-r2-settings-form): inline style usando
-  // i token --admin-*. I token gc-* del frontend non sono in scope qui.
-  const inputStyle: React.CSSProperties = {
-    background: "var(--admin-page-bg)",
-    border: "1px solid var(--admin-input-border)",
-    color: "var(--admin-text)",
-  };
-
   return (
-    <Dialog open onOpenChange={(o) => !o && onCancel()}>
-      <DialogContent className="max-w-lg">
-        {/* Override del DialogHeader (project-wide è flex-row): per
-            description lunghe serve stack verticale. */}
-        <DialogHeader className="!flex-col !items-start !gap-1 !py-3">
-          <DialogTitle>{isNew ? "Nuovo motivo" : "Modifica motivo"}</DialogTitle>
-          <DialogDescription
-            className="text-xs"
-            style={{ color: "var(--admin-text-faint)" }}>
-            Le label IT e EN sono obbligatorie. La key è l&apos;identificatore
-            persistito su DB (lowercase + underscore, max 40 char).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="px-5 py-4 space-y-3">
-          <Field label="Key (identifier)">
+    <AdminDialog open onOpenChange={(o) => !o && onCancel()}>
+      <AdminDialogContent
+        icon={Flag}
+        size="lg"
+        title={isNew ? "Nuovo motivo" : "Modifica motivo"}
+        description="Le label IT e EN sono obbligatorie. La key è l'identificatore persistito su DB (lowercase + underscore, max 40 char)."
+        footer={
+          <>
+            <AdminDialogCancelButton onClick={onCancel} />
+            <AdminDialogConfirmButton onClick={onCommit} disabled={!canSave}>
+              Conferma
+            </AdminDialogConfirmButton>
+          </>
+        }>
+        <div className="space-y-3">
+          <AdminDialogField
+            label="Key (identifier)"
+            error={!keyOk && draft.key ? "Solo lowercase, cifre e underscore, max 40 caratteri." : null}>
             <input
               type="text"
               value={draft.key}
@@ -333,20 +328,12 @@ function ReasonEditDialog({
               }
               disabled={!isNew}
               placeholder="es. market_manipulation"
-              className="w-full px-3 py-2 rounded-lg text-sm font-mono disabled:opacity-60"
-              style={inputStyle}
+              style={{ ...adminFieldStyle, fontFamily: "ui-monospace, monospace", opacity: isNew ? 1 : 0.6 }}
             />
-            {!keyOk && draft.key ? (
-              <p
-                className="text-[11px] mt-1"
-                style={{ color: "var(--gc-neg, #dc2626)" }}>
-                Solo lowercase, cifre e underscore, max 40 caratteri.
-              </p>
-            ) : null}
-          </Field>
+          </AdminDialogField>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Label IT">
+            <AdminDialogField label="Label IT">
               <input
                 type="text"
                 value={draft.labelByLocale.it ?? ""}
@@ -359,11 +346,10 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={inputStyle}
+                style={adminFieldStyle}
               />
-            </Field>
-            <Field label="Label EN">
+            </AdminDialogField>
+            <AdminDialogField label="Label EN">
               <input
                 type="text"
                 value={draft.labelByLocale.en ?? ""}
@@ -376,14 +362,13 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={inputStyle}
+                style={adminFieldStyle}
               />
-            </Field>
+            </AdminDialogField>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Descrizione IT">
+            <AdminDialogField label="Descrizione IT">
               <input
                 type="text"
                 value={draft.descriptionByLocale?.it ?? ""}
@@ -396,11 +381,10 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={inputStyle}
+                style={adminFieldStyle}
               />
-            </Field>
-            <Field label="Descrizione EN">
+            </AdminDialogField>
+            <AdminDialogField label="Descrizione EN">
               <input
                 type="text"
                 value={draft.descriptionByLocale?.en ?? ""}
@@ -413,22 +397,20 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={inputStyle}
+                style={adminFieldStyle}
               />
-            </Field>
+            </AdminDialogField>
           </div>
 
-          <Field label="Icona (emoji o testo)">
+          <AdminDialogField label="Icona (emoji o testo)">
             <input
               type="text"
               value={draft.icon ?? ""}
               onChange={(e) => onChange({ ...draft, icon: e.target.value })}
               placeholder="📈"
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={inputStyle}
+              style={adminFieldStyle}
             />
-          </Field>
+          </AdminDialogField>
 
           <div className="flex items-center gap-6 pt-1">
             <label
@@ -457,47 +439,8 @@ function ReasonEditDialog({
             </label>
           </div>
         </div>
-        <DialogFooter className="px-5 py-3 gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm transition-colors"
-            style={{
-              background: "var(--admin-hover-bg)",
-              color: "var(--admin-text)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            Annulla
-          </button>
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={onCommit}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-            style={{ background: "var(--admin-accent)" }}>
-            Conferma
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span
-        className="block text-[11px] uppercase tracking-wider mb-1"
-        style={{ color: "var(--admin-text-faint)" }}>
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
