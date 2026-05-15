@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import { getAdminRelPath } from "@/lib/admin-nav";
@@ -278,54 +284,14 @@ function PresetPicker({
   } as React.CSSProperties;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)" }}
-      onClick={onCancel}>
-      <div
-        className="rounded-2xl w-full max-w-lg"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-5 pb-4"
-          style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-          <div className="flex items-center gap-2">
-            <Wand2 size={15} style={{ color: "var(--admin-accent)" }} />
-            <span
-              className="text-sm font-semibold"
-              style={{ color: "var(--admin-text)" }}>
-              {selected ? tList(`${selected.tKey}.label`) : tPreset("modalTitle")}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={
-              selected
-                ? () => {
-                    setSelected(null);
-                    setParamValue("");
-                  }
-                : onCancel
-            }
-            style={{ color: "var(--admin-text-faint)" }}>
-            {selected ? (
-              <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
-            ) : (
-              <X size={16} />
-            )}
-          </button>
-        </div>
-
+    <AdminDialog open onOpenChange={(o) => !o && onCancel()}>
+      <AdminDialogContent
+        icon={Wand2}
+        size="lg"
+        title={selected ? tList(`${selected.tKey}.label`) : tPreset("modalTitle")}>
         {!selected ? (
           /* Lista preset */
-          <div className="p-3 space-y-1">
+          <div className="space-y-1 -mx-2">
             {PRESETS.map((p) => (
               <button
                 key={p.id}
@@ -366,7 +332,7 @@ function PresetPicker({
           </div>
         ) : (
           /* Form parametro */
-          <div className="p-5 space-y-4">
+          <div className="space-y-4">
             <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
               {tList(`${selected.tKey}.description`)}
             </p>
@@ -464,24 +430,18 @@ function PresetPicker({
               </p>
             </div>
 
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
+            <div
+              className="flex items-center justify-end gap-2 pt-3"
+              style={{ borderTop: "1px solid var(--admin-card-border)" }}>
+              <AdminDialogCancelButton
                 onClick={() => {
                   setSelected(null);
                   setParamValue("");
                   setCookieServiceId("");
-                }}
-                className="px-4 py-2 text-sm rounded-lg"
-                style={{
-                  background: "var(--admin-input-bg)",
-                  border: "1px solid var(--admin-border)",
-                  color: "var(--admin-text-muted)",
                 }}>
                 {tPreset("backButton")}
-              </button>
-              <button
-                type="button"
+              </AdminDialogCancelButton>
+              <AdminDialogConfirmButton
                 disabled={!paramValue.trim()}
                 onClick={() => {
                   const resolvedSteps = selected.steps.map((s) => ({
@@ -497,18 +457,14 @@ function PresetPicker({
                     cookieServiceId || null,
                   );
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
-                style={{
-                  background: "var(--admin-accent)",
-                  opacity: paramValue.trim() ? 1 : 0.5,
-                }}>
-                <Save size={13} /> {tPreset("confirmButton")}
-              </button>
+                icon={Save}>
+                {tPreset("confirmButton")}
+              </AdminDialogConfirmButton>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
 
@@ -581,35 +537,12 @@ function SnippetForm({
   } as React.CSSProperties;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)" }}
-      onClick={onCancel}>
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-2xl p-6 w-full max-w-lg space-y-4"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3
-            className="text-sm font-semibold"
-            style={{ color: "var(--admin-text)" }}>
-            {initial?.id ? t("titleEdit") : t("titleNew")}
-          </h3>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{ color: "var(--admin-text-faint)" }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <AdminDialog open onOpenChange={(o) => !o && onCancel()}>
+      <AdminDialogContent
+        icon={Code2}
+        size="lg"
+        title={initial?.id ? t("titleEdit") : t("titleNew")}>
+        <form onSubmit={handleSubmit} className="space-y-4">
         {/* Nome */}
         <div>
           <label style={labelStyle}>{t("nameLabel")}</label>
@@ -754,32 +687,23 @@ function SnippetForm({
         )}
 
         {/* Bottoni */}
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg"
-            style={{
-              background: "var(--admin-input-bg)",
-              border: "1px solid var(--admin-border)",
-              color: "var(--admin-text-muted)",
-            }}>
+        <div
+          className="flex items-center justify-end gap-2 pt-3"
+          style={{ borderTop: "1px solid var(--admin-card-border)" }}>
+          <AdminDialogCancelButton onClick={onCancel}>
             {t("cancelButton")}
-          </button>
-          <button
+          </AdminDialogCancelButton>
+          <AdminDialogConfirmButton
             type="submit"
+            loading={loading}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
-            style={{
-              background: "var(--admin-accent)",
-              opacity: loading ? 0.7 : 1,
-            }}>
-            <Save size={14} />
+            icon={Save}>
             {loading ? t("savingButton") : t("saveButton")}
-          </button>
+          </AdminDialogConfirmButton>
         </div>
-      </form>
-    </div>
+        </form>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
 
