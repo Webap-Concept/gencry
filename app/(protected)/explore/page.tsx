@@ -23,9 +23,11 @@ import {
   getPostsByIds,
   getTickerFeedIds,
 } from "@/lib/modules/posts/queries";
+import { getCoinForCard } from "@/lib/modules/prices/queries";
 import { FeedList } from "@/components/modules/posts/FeedList";
 import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRow";
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
+import { CoinSummaryCard } from "@/components/modules/coins/coin-summary-card";
 
 export const metadata: Metadata = { title: "Esplora" };
 export const dynamic = "force-dynamic";
@@ -54,10 +56,15 @@ export default async function ExplorePage({
     throw new Error("Explore rendered without authenticated user");
   }
 
-  // Carica la prima pagina del feed scelto: ticker filter o Discover puro.
-  const page = ticker
-    ? await getTickerFeedIds({ ticker, viewerUserId: user.id })
-    : await getFeedIds({ tab: "discover", viewerUserId: user.id });
+  // Carica la prima pagina del feed scelto + (se ticker) lo snapshot
+  // del coin per il CoinSummaryCard sticky. Coin può essere null se
+  // il ticker non è tracciato nel pricing module — empty state.
+  const [page, coin] = await Promise.all([
+    ticker
+      ? getTickerFeedIds({ ticker, viewerUserId: user.id })
+      : getFeedIds({ tab: "discover", viewerUserId: user.id }),
+    ticker ? getCoinForCard(ticker) : Promise.resolve(null),
+  ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
 
   const source = ticker
@@ -77,11 +84,24 @@ export default async function ExplorePage({
         </p>
       </header>
 
-      {/* Block 1 — Trending tickers (sempre visibile, anche con filtro
-          ticker attivo: il moderatore vede il contesto). */}
-      <Suspense fallback={null}>
-        <TrendingTickersRow activeTicker={ticker} />
-      </Suspense>
+      {/* Block 1 — Header dinamico:
+          - Senza filtro → TrendingTickersRow (top 10 pill)
+          - Con ticker tracciato → CoinSummaryCard (snapshot + sticky)
+          - Con ticker non tracciato → fallback testuale, niente row */}
+      {ticker ? (
+        coin ? (
+          <CoinSummaryCard coin={coin} />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
+            <strong>${ticker}</strong> non è ancora tracciato nel modulo
+            prezzi — vedi sotto i post che lo menzionano.
+          </div>
+        )
+      ) : (
+        <Suspense fallback={null}>
+          <TrendingTickersRow activeTicker={null} />
+        </Suspense>
+      )}
 
       {/* Block 2 — Realtime banner slot (v1 no-op, v2 Tier 2). */}
       <NewPostsBannerSlot

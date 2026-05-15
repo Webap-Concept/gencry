@@ -15,6 +15,7 @@ import { getSession } from "@/lib/auth/session";
 import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { generatePageMetadata, getSiteUrl } from "@/lib/seo";
+import { CoinRelatedPostsSection } from "@/components/modules/posts/CoinRelatedPostsSection";
 import type { Metadata } from "next";
 
 // ---------------------------------------------------------------------------
@@ -130,11 +131,11 @@ async function CoinDetailBody({
       <CoinHeader coin={coin} actions={<HeaderActions isAuthed={isAuthed} />} />
       <CoinChart symbol={coin.symbol} initialSeries={initialSeries} />
       <StatsGrid coin={coin} />
-      {isAuthed ? (
-        <AuthedActionsRow />
-      ) : (
-        <AnonymousCta coinName={coin.name} />
-      )}
+      {/* Post recenti che menzionano questo coin. Server Component
+          riusa la stessa pipeline visibility/block del feed. Anonimi
+          vedono solo i public posts, loggati anche i members. */}
+      <CoinRelatedPostsSection symbol={coin.symbol} limit={5} />
+      {!isAuthed && <AnonymousCta coinName={coin.name} />}
     </>
   );
 }
@@ -211,14 +212,6 @@ function HeaderActions({ isAuthed }: { isAuthed: boolean }) {
         <Share2 size={14} />
       </Button>
     </div>
-  );
-}
-
-function AuthedActionsRow() {
-  return (
-    <section className="rounded-2xl p-4 bg-gc-bg-2 border border-gc-line text-xs text-gc-fg-3">
-      Commenti, sentiment e watchlist arrivano con i prossimi moduli social.
-    </section>
   );
 }
 

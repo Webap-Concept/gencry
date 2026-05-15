@@ -12,6 +12,7 @@
 // in posts_tickers/posts_mentions).
 import Link from "next/link";
 import type { JSX } from "react";
+import { TickerHoverCard } from "./TickerHoverCard";
 
 const TOKEN_REGEX =
   /(?<ticker>\$[A-Z][A-Z0-9]{1,19}\b)|(?<mention>@[A-Za-z][A-Za-z0-9_]{2,29}\b)|(?<url>https?:\/\/[^\s<>]+)/g;
@@ -64,10 +65,19 @@ export function PostBody({ body }: { body: string }): JSX.Element {
       {tokens.map((t, i) => {
         if (t.type === "text") return <span key={i}>{t.value}</span>;
         if (t.type === "ticker") {
+          // Click → /coins/<symbol> (vetrina coin + post in fondo).
+          // Hover desktop → TickerHoverCard preview con CTA "Pagina
+          // coin" e "Tutti i post 24h". Vedi memoria progetto: pattern
+          // Yahoo + Twitter hover-card.
           return (
-            <Link key={i} href={`/explore?ticker=${t.symbol}`} className={LINK_CLASS}>
-              ${t.symbol}
-            </Link>
+            <TickerHoverCard key={i} symbol={t.symbol}>
+              <Link
+                href={`/coins/${t.symbol.toLowerCase()}`}
+                prefetch={false}
+                className={LINK_CLASS}>
+                ${t.symbol}
+              </Link>
+            </TickerHoverCard>
           );
         }
         if (t.type === "mention") {
