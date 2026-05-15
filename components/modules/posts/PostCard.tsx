@@ -25,6 +25,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowUpRight,
@@ -119,6 +120,13 @@ type Props = {
    * default basta perché matcha modules.posts.edit_window_minutes.
    */
   editWindowMs?: number;
+  /**
+   * Se settato, dopo un block confermato dell'autore il PostCard
+   * naviga a questo path (es. "/" per portare l'utente al feed dopo
+   * aver bloccato dalla pagina singolo post). Default `undefined` →
+   * solo optimistic hide locale (UX feed).
+   */
+  redirectAfterBlock?: string;
 };
 
 export function PostCard({
@@ -126,7 +134,9 @@ export function PostCard({
   isAuthor,
   variant = "feed",
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
+  redirectAfterBlock,
 }: Props) {
+  const router = useRouter();
   // Optimistic display state per body/visibility/editedAt: dopo
   // edit successo aggiorniamo questi 3 senza dover ri-fetchare il
   // post dal server. Il modal in riapertura usa displayedBody come
@@ -233,7 +243,17 @@ export function PostCard({
     startTransition(async () => {
       setBlocked(true);
       const res = await toggleUserBlock({ blockedUserId: post.author.id });
-      if (!res.ok) setBlocked(false);
+      if (!res.ok) {
+        setBlocked(false);
+        return;
+      }
+      // Sulla single-post page (variant="single") il caller passa
+      // redirectAfterBlock="/" così l'utente non resta su una URL
+      // morta. Sul feed (variant="feed") niente redirect: la card
+      // sparisce optimistic e l'utente continua a scrollare.
+      if (redirectAfterBlock) {
+        router.push(redirectAfterBlock);
+      }
     });
   };
 

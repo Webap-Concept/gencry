@@ -9,10 +9,15 @@
 //   - Comments thread inline + composer commento
 //   - URL friendly con slug autore
 //
-// Per ora: 404 se il viewer non ha accesso (visibility gate in
-// getPostBySlug). 404 invece di 403 per non rivelare l'esistenza
-// (allineato con il design di project_module_posts §SEO).
-import { notFound } from "next/navigation";
+// Comportamento "post non trovato":
+//   - Viewer anonimo  → notFound() (SEO-friendly 404 per i bot)
+//   - Viewer loggato  → redirect("/") al feed. Why: la 404 dentro il
+//     route group (protected) viene wrappata dal layout del gruppo
+//     (sidebar/rail/banner) — UX confusa, l'utente non sa cosa fare.
+//     Redirect al feed è il prossimo step naturale dopo "post sparito"
+//     (block/cancellazione/visibility che restringe). Vedi memory
+//     project_nextjs_notfound_layout.
+import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
 import { getPostBySlug } from "@/lib/modules/posts/queries";
 import { PostCard } from "@/components/modules/posts/PostCard";
@@ -27,13 +32,21 @@ export default async function PostPage({
   const { id } = await params;
   const user = await getUser();
   const post = await getPostBySlug(id, { viewerUserId: user?.id });
-  if (!post) notFound();
+  if (!post) {
+    if (user) redirect("/");
+    notFound();
+  }
 
   const isAuthor = user?.id === post.author.id;
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">
-      <PostCard post={post} isAuthor={isAuthor} variant="single" />
+      <PostCard
+        post={post}
+        isAuthor={isAuthor}
+        variant="single"
+        redirectAfterBlock="/"
+      />
     </div>
   );
 }
