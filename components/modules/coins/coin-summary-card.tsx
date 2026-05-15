@@ -62,15 +62,15 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           il container sotto è "stuck". */}
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
 
-      <div
-        className="sticky top-0 z-10"
-        style={{ transition: "background-color 150ms ease" }}>
+      <div className="sticky top-0 z-10">
         {isStuck ? (
-          // ── Stato B: stuck ticker bar ──────────────────────────
+          // ── Stato B: stuck coin bar — il caller renderizza questa
+          // card FUORI dai wrapper max-w-* della pagina, così la bar
+          // tocca i bordi laterali del main scroll container.
           <Link
             href={href}
             prefetch={false}
-            className="flex items-center gap-3 px-4 py-2 border-b border-gc-line bg-gc-bg-2/90 hover:bg-gc-bg-2 transition-colors"
+            className="flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2 border-b border-gc-line bg-gc-bg-2/90 hover:bg-gc-bg-2 transition-colors"
             style={{
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
@@ -99,7 +99,11 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           </Link>
         ) : (
           // ── Stato A: card espansa (riusa CoinCard esistente) ───
-          <CoinCard coin={coin} rank={coin.marketCapRank} href={href} />
+          // Wrappata con padding interno per match con il resto della
+          // pagina (sticky bar full-width main, ma card content padded).
+          <div className="px-4 sm:px-6 lg:px-8">
+            <CoinCard coin={coin} rank={coin.marketCapRank} href={href} />
+          </div>
         )}
       </div>
     </>

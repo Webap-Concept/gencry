@@ -72,57 +72,64 @@ export default async function ExplorePage({
     : ({ kind: "tab", tab: "discover" } as const);
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold text-gc-fg">
-          {ticker ? `Post su $${ticker}` : "Esplora"}
-        </h1>
-        <p className="text-sm text-gc-fg-3 mt-1">
-          {ticker
-            ? "Tutti i post pubblici che menzionano questo ticker."
-            : "Post pubblici della community in ordine cronologico."}
-        </p>
-      </header>
+    // Outer = py only. Il max-w-2xl + px è applicato selettivamente alle
+    // sezioni che vogliono essere strette (header + feed); la
+    // CoinSummaryCard sticky resta full-width main per occupare tutta
+    // la colonna fino ai margini quando passa stuck.
+    <div className="py-6 space-y-4">
+      <div className="max-w-2xl mx-auto px-4">
+        <header>
+          <h1 className="text-2xl font-semibold text-gc-fg">
+            {ticker ? `Post su $${ticker}` : "Esplora"}
+          </h1>
+          <p className="text-sm text-gc-fg-3 mt-1">
+            {ticker
+              ? "Tutti i post pubblici che menzionano questo coin."
+              : "Post pubblici della community in ordine cronologico."}
+          </p>
+        </header>
+      </div>
 
-      {/* Block 1 — Header dinamico:
+      {/* Block 1 — Header dinamico FULL-WIDTH (fuori max-w-2xl):
           - Senza filtro → TrendingTickersRow (top 10 pill)
           - Con ticker tracciato → CoinSummaryCard (snapshot + sticky)
-          - Con ticker non tracciato → fallback testuale, niente row */}
+          - Con ticker non tracciato → fallback testuale */}
       {ticker ? (
         coin ? (
           <CoinSummaryCard coin={coin} />
         ) : (
-          <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
-            <strong>${ticker}</strong> non è ancora tracciato nel modulo
-            prezzi — vedi sotto i post che lo menzionano.
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
+              <strong>${ticker}</strong> non è ancora tracciato nel modulo
+              prezzi — vedi sotto i post che lo menzionano.
+            </div>
           </div>
         )
       ) : (
-        <Suspense fallback={null}>
-          <TrendingTickersRow activeTicker={null} />
-        </Suspense>
+        <div className="max-w-2xl mx-auto px-4">
+          <Suspense fallback={null}>
+            <TrendingTickersRow activeTicker={null} />
+          </Suspense>
+        </div>
       )}
 
-      {/* Block 2 — Realtime banner slot (v1 no-op, v2 Tier 2). */}
-      <NewPostsBannerSlot
-        feedKind={ticker ? "ticker" : "discover"}
-        ticker={ticker ?? undefined}
-        initialPage={page}
-      />
-
-      {/* Block 3 — Feed. Key sul ticker resetta lo state accumulato
-          quando l'utente cambia filtro senza navigation (es. click su
-          altro ticker pill mentre era già filtrato). */}
-      <FeedList
-        key={ticker ?? "discover"}
-        initialPosts={initialPosts}
-        initialNextCursor={page.nextCursor}
-        viewerUserId={user.id}
-        source={source}
-        emptyState={
-          <ExploreEmptyState ticker={ticker} />
-        }
-      />
+      {/* Block 2 + 3 — Realtime banner slot e feed: max-w-2xl per
+          readability del testo nei post. */}
+      <div className="max-w-2xl mx-auto px-4 space-y-4">
+        <NewPostsBannerSlot
+          feedKind={ticker ? "ticker" : "discover"}
+          ticker={ticker ?? undefined}
+          initialPage={page}
+        />
+        <FeedList
+          key={ticker ?? "discover"}
+          initialPosts={initialPosts}
+          initialNextCursor={page.nextCursor}
+          viewerUserId={user.id}
+          source={source}
+          emptyState={<ExploreEmptyState ticker={ticker} />}
+        />
+      </div>
     </div>
   );
 }

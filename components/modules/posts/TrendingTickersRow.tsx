@@ -41,7 +41,7 @@ export async function TrendingTickersRow({
         id="trending-tickers-heading"
         className="flex items-center gap-2 text-xs uppercase tracking-wider text-gc-fg-3 mb-3">
         <TrendingUp size={13} strokeWidth={1.75} aria-hidden />
-        Trending — ultime 24h
+        Coin in trend — ultime 24h
       </h2>
       <ul className="flex flex-wrap gap-2">
         {rows.map((r) => {

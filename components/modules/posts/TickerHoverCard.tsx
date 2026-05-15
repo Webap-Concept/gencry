@@ -217,8 +217,8 @@ function PreviewUntracked({
       <div className="flex items-center gap-2 text-sm text-gc-fg-2">
         <TrendingUp size={14} strokeWidth={1.75} aria-hidden className="text-gc-fg-3" />
         <span>
-          <strong className="text-gc-fg">${symbol}</strong> non è tracciato
-          nel modulo prezzi.
+          <strong className="text-gc-fg">${symbol}</strong> non è un coin
+          tracciato.
         </span>
       </div>
       <Link
