@@ -46,6 +46,7 @@ export default async function PostPage({
         isAuthor={isAuthor}
         variant="single"
         redirectAfterBlock="/"
+        redirectAfterDelete="/"
       />
     </div>
   );

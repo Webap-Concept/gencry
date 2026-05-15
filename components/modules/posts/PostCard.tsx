@@ -127,6 +127,11 @@ type Props = {
    * solo optimistic hide locale (UX feed).
    */
   redirectAfterBlock?: string;
+  /**
+   * Speculare a redirectAfterBlock ma per soft-delete del proprio
+   * post: la single-post page passa "/", il feed non lo passa.
+   */
+  redirectAfterDelete?: string;
 };
 
 export function PostCard({
@@ -135,6 +140,7 @@ export function PostCard({
   variant = "feed",
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
   redirectAfterBlock,
+  redirectAfterDelete,
 }: Props) {
   const router = useRouter();
   // Optimistic display state per body/visibility/editedAt: dopo
@@ -228,7 +234,19 @@ export function PostCard({
     startTransition(async () => {
       setDeleted(true);
       const res = await softDeletePost({ postId: post.id });
-      if (!res.ok) setDeleted(false);
+      if (!res.ok) {
+        setDeleted(false);
+        return;
+      }
+      // Single-post page (variant="single") passa redirectAfterDelete="/"
+      // così la URL morta non resta nella history (back skippa). Sul
+      // feed, refresh forza il re-fetch RSC dopo revalidatePath del
+      // server action.
+      if (redirectAfterDelete) {
+        router.replace(redirectAfterDelete);
+      } else {
+        router.refresh();
+      }
     });
   };
 

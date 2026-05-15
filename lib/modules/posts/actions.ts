@@ -418,6 +418,12 @@ export async function softDeletePost(
   await feedInvalidate("discover");
   await feedInvalidate({ profile: user.id });
   await feedInvalidate({ followersOf: user.id });
+
+  // Invalida la Router Cache (RSC payload) di tutto il (protected)
+  // layout: dopo il soft-delete il post deve sparire da feed/profilo/
+  // single-page al next visit anche se l'utente fa back.
+  revalidatePath("/", "layout");
+
   return { ok: true };
 }
 
