@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, X, type LucideIcon } from "lucide-react";
+import { X, type LucideIcon } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -195,8 +195,11 @@ export function AdminDialogField({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Buttons — standardizzati per i footer
+// Buttons — standardizzati per i footer.
+// Wrapper attorno a <AdminButton>: la skin/hover/disabled è centralizzata.
 // ─────────────────────────────────────────────────────────────────────────
+
+import { AdminButton } from "./admin-button";
 
 export function AdminDialogCancelButton({
   onClick,
@@ -208,18 +211,9 @@ export function AdminDialogCancelButton({
   children?: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50"
-      style={{
-        background: "var(--admin-hover-bg)",
-        color: "var(--admin-text)",
-        border: "1px solid var(--admin-card-border)",
-      }}>
+    <AdminButton variant="secondary" size="sm" onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </AdminButton>
   );
 }
 
@@ -240,21 +234,16 @@ export function AdminDialogConfirmButton({
   type?: "button" | "submit";
   children: React.ReactNode;
 }) {
-  const bg =
-    variant === "danger" ? "var(--gc-neg, #dc2626)" : "var(--admin-accent)";
   return (
-    <button
+    <AdminButton
       type={type}
-      onClick={onClick}
-      disabled={disabled || loading}
-      className="px-4 py-1.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-      style={{ background: bg }}>
-      {loading ? (
-        <Loader2 size={13} className="animate-spin" />
-      ) : Icon ? (
-        <Icon size={13} />
-      ) : null}
+      variant={variant === "danger" ? "destructive" : "primary"}
+      size="sm"
+      icon={Icon}
+      loading={loading}
+      disabled={disabled}
+      onClick={onClick}>
       {children}
-    </button>
+    </AdminButton>
   );
 }

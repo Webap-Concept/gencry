@@ -14,7 +14,8 @@ import {
   AdminDialogConfirmButton,
   AdminDialogContent,
 } from "@/app/(admin)/admin/_components/admin-dialog";
-import { AlertOctagon, CheckCircle2, Flag, Loader2 } from "lucide-react";
+import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
+import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import type {
   ReportQueueAggregateStatus,
   ReportQueueGroupRow,
@@ -154,21 +155,13 @@ export function ReportsQueueClient({
           </ul>
           {cursor ? (
             <div className="flex flex-col items-center gap-1.5 pt-2">
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                style={{
-                  background: "var(--admin-card-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isLoadingMore ? (
-                  <Loader2 size={14} className="animate-spin" aria-hidden />
-                ) : null}
+              <AdminButton
+                variant="secondary"
+                size="md"
+                loading={isLoadingMore}
+                onClick={loadMore}>
                 {isLoadingMore ? "Caricamento…" : "Carica altre"}
-              </button>
+              </AdminButton>
               {loadError ? (
                 <p
                   className="text-xs"

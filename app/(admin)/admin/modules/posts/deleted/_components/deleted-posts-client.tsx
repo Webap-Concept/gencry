@@ -16,12 +16,12 @@ import {
 } from "@/app/(admin)/admin/_components/admin-dialog";
 import {
   Inbox,
-  Loader2,
   RotateCcw,
   ShieldAlert,
   Trash2,
   UserX,
 } from "lucide-react";
+import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import type {
   DeletedPostRow,
   DeletedPostsFilter,
@@ -222,18 +222,15 @@ export function DeletedPostsClient({
                   {bodyExcerpt(row.body)}
                 </p>
               </div>
-              <button
-                type="button"
+              <AdminButton
+                variant="primary"
+                size="sm"
+                icon={RotateCcw}
                 onClick={() => setConfirmTarget(row)}
                 disabled={row.outOfGrace || isPending}
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: "var(--admin-accent)",
-                  color: "white",
-                }}>
-                <RotateCcw size={13} strokeWidth={1.75} aria-hidden />
+                className="shrink-0">
                 Ripristina
-              </button>
+              </AdminButton>
             </div>
           </div>
         ))}
@@ -241,21 +238,13 @@ export function DeletedPostsClient({
 
       {cursor ? (
         <div className="flex flex-col items-center gap-1.5 pt-2">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            style={{
-              background: "var(--admin-card-bg)",
-              color: "var(--admin-text)",
-              border: "1px solid var(--admin-card-border)",
-            }}>
-            {isLoadingMore ? (
-              <Loader2 size={14} className="animate-spin" aria-hidden />
-            ) : null}
+          <AdminButton
+            variant="secondary"
+            size="md"
+            loading={isLoadingMore}
+            onClick={loadMore}>
             {isLoadingMore ? "Caricamento…" : "Carica altre"}
-          </button>
+          </AdminButton>
           {loadMoreError ? (
             <p className="text-xs" style={{ color: "var(--gc-neg, #dc2626)" }}>
               {loadMoreError}
