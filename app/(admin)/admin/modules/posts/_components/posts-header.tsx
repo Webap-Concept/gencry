@@ -4,7 +4,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
 import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
 import type { LucideIcon } from "lucide-react";
-import { Clock, MessageSquare, Settings } from "lucide-react";
+import { Clock, Flag, MessageSquare, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 
@@ -19,8 +19,13 @@ const SECTIONS: Record<string, SectionMeta> = {
     description: "Modulo social feed — composer, reactions, comments, moderation.",
     icon: MessageSquare,
   },
+  reports: {
+    description:
+      "Coda di moderazione: segnalazioni utente con decisione dismiss / soft-delete del post.",
+    icon: Flag,
+  },
   settings: {
-    description: "Storage R2, ritenzione outbox, opzioni di posting.",
+    description: "Storage R2, motivi di segnalazione, opzioni di posting.",
     icon: Settings,
   },
   cron: {
@@ -77,6 +82,7 @@ export function PostsHeader({ adminSlug }: { adminSlug: string }) {
       <AdminSectionTabs
         tabs={[
           { href: base, label: "Overview", exact: true },
+          { href: `${base}/reports`, label: "Reports" },
           { href: `${base}/settings`, label: "Settings" },
           { href: `${base}/cron`, label: "Cron Jobs" },
         ]}

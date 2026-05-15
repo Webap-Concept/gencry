@@ -1559,8 +1559,10 @@ export const postsReports = pgTable(
                    .references(() => posts.id, { onDelete: "cascade" }),
     reporterId:  uuid("reporter_id").notNull()
                    .references(() => users.id, { onDelete: "cascade" }),
-    // 'spam' | 'scam' | 'abuse' | 'other'
-    reason:      varchar("reason", { length: 16 }).notNull(),
+    // Key tra quelle attive in app_settings `modules.posts.report_reasons`
+    // (vedi lib/modules/posts/services/report-reasons.ts). Validato runtime
+    // dal Server Action reportPost — il CHECK SQL controlla solo length 1..40.
+    reason:      varchar("reason", { length: 40 }).notNull(),
     details:     text("details"),
     // 'open' | 'reviewed' | 'dismissed' | 'actioned'
     status:      varchar("status", { length: 16 }).notNull().default("open"),

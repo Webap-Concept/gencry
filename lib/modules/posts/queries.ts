@@ -24,9 +24,12 @@ import {
   postsMedia,
   postsMentions,
   postsReactions,
+  postsReports,
   postsTickers,
+  users,
   userProfiles,
   type PostReactionKind,
+  type PostReport,
   type PostVisibility,
 } from "@/lib/db/schema";
 import { getCachedFeedIds } from "./services/feed-cache";
@@ -751,6 +754,207 @@ export async function getCommentsForPost(opts: {
       : null;
 
   return { comments, nextCursor };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Moderation queue (admin only — gating sul caller)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ReportQueueStatus =
+  | "open"
+  | "reviewed"
+  | "dismissed"
+  | "actioned"
+  | "all";
+
+export type ReportQueueRow = {
+  report: PostReport;
+  reporter: {
+    id: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
+  post: {
+    id: string;
+    authorId: string;
+    body: string;
+    deletedAt: Date | null;
+    createdAt: Date;
+    author: {
+      username: string | null;
+      avatarUrl: string | null;
+    };
+  };
+  /** Count totale di report aperti sullo stesso post, per dare contesto
+   *  di volume al moderatore ("3 report attivi su questo post"). */
+  siblingOpenReports: number;
+};
+
+export type ReportsQueuePage = {
+  rows: ReportQueueRow[];
+  nextCursor: string | null;
+  countByStatus: Record<Exclude<ReportQueueStatus, "all">, number>;
+};
+
+/**
+ * Lista paginata della queue di moderazione. JOIN posts_reports + posts +
+ * users (autore post e reporter). Cursor keyset su (created_at, id).
+ *
+ * countByStatus è calcolato sempre (5 piccoli COUNT in parallelo) per
+ * popolare i badge delle pill tabs senza una seconda chiamata client.
+ */
+export async function getReportsQueue(opts: {
+  status: ReportQueueStatus;
+  cursor?: string;
+  limit?: number;
+}): Promise<ReportsQueuePage> {
+  const limit = opts.limit ?? DEFAULT_PAGE_SIZE;
+  const reporterUserProfiles = userProfiles;
+  const authorUserProfiles = userProfiles;
+
+  // Alias per JOIN doppio (reporter + author del post)
+  const reporterUsers = users;
+  const authorUsers = users;
+
+  // Cursor keyset: (created_at DESC, id DESC)
+  const cursorClause = (() => {
+    if (!opts.cursor) return undefined;
+    const decoded = decodeCursor(opts.cursor);
+    if (!decoded) return undefined;
+    const at = new Date(decoded.ms);
+    return or(
+      lt(postsReports.createdAt, at),
+      and(eq(postsReports.createdAt, at), lt(postsReports.id, decoded.id)),
+    );
+  })();
+
+  const statusClause =
+    opts.status === "all"
+      ? undefined
+      : eq(postsReports.status, opts.status);
+
+  const rawRows = await db
+    .select({
+      reportId: postsReports.id,
+      reportPostId: postsReports.postId,
+      reportReporterId: postsReports.reporterId,
+      reportReason: postsReports.reason,
+      reportDetails: postsReports.details,
+      reportStatus: postsReports.status,
+      reportReviewedBy: postsReports.reviewedBy,
+      reportReviewedAt: postsReports.reviewedAt,
+      reportCreatedAt: postsReports.createdAt,
+      reporterUsername: reporterUserProfiles.username,
+      reporterAvatarUrl: reporterUserProfiles.avatarUrl,
+      postAuthorId: posts.authorId,
+      postBody: posts.body,
+      postDeletedAt: posts.deletedAt,
+      postCreatedAt: posts.createdAt,
+      authorUsername: authorUserProfiles.username,
+      authorAvatarUrl: authorUserProfiles.avatarUrl,
+    })
+    .from(postsReports)
+    .innerJoin(posts, eq(posts.id, postsReports.postId))
+    .leftJoin(
+      reporterUserProfiles,
+      eq(reporterUserProfiles.userId, postsReports.reporterId),
+    )
+    .leftJoin(
+      authorUserProfiles,
+      eq(authorUserProfiles.userId, posts.authorId),
+    )
+    .where(and(statusClause, cursorClause))
+    .orderBy(desc(postsReports.createdAt), desc(postsReports.id))
+    .limit(limit + 1);
+
+  const hasMore = rawRows.length > limit;
+  const sliced = hasMore ? rawRows.slice(0, limit) : rawRows;
+
+  // Sibling open count batch — un'unica query group by post_id.
+  const postIds = sliced.map((r) => r.reportPostId);
+  let siblingMap: Map<string, number> = new Map();
+  if (postIds.length > 0) {
+    const groups = await db
+      .select({
+        postId: postsReports.postId,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(postsReports)
+      .where(
+        and(
+          inArray(postsReports.postId, postIds),
+          eq(postsReports.status, "open"),
+        ),
+      )
+      .groupBy(postsReports.postId);
+    siblingMap = new Map(groups.map((g) => [g.postId, g.n]));
+  }
+
+  const rows: ReportQueueRow[] = sliced.map((r) => ({
+    report: {
+      id: r.reportId,
+      postId: r.reportPostId,
+      reporterId: r.reportReporterId,
+      reason: r.reportReason,
+      details: r.reportDetails,
+      status: r.reportStatus,
+      reviewedBy: r.reportReviewedBy,
+      reviewedAt: r.reportReviewedAt,
+      createdAt: r.reportCreatedAt,
+    },
+    reporter: {
+      id: r.reportReporterId,
+      username: r.reporterUsername ?? null,
+      avatarUrl: r.reporterAvatarUrl ?? null,
+    },
+    post: {
+      id: r.reportPostId,
+      authorId: r.postAuthorId,
+      body: r.postBody,
+      deletedAt: r.postDeletedAt,
+      createdAt: r.postCreatedAt,
+      author: {
+        username: r.authorUsername ?? null,
+        avatarUrl: r.authorAvatarUrl ?? null,
+      },
+    },
+    siblingOpenReports: siblingMap.get(r.reportPostId) ?? 0,
+  }));
+
+  const nextCursor =
+    hasMore && sliced.length > 0
+      ? encodeCursor({
+          ms: sliced[sliced.length - 1].reportCreatedAt.getTime(),
+          id: sliced[sliced.length - 1].reportId,
+        })
+      : null;
+
+  // Counts per pills — 4 piccole query batch.
+  const [openC, reviewedC, dismissedC, actionedC] = await Promise.all([
+    countReportsByStatus("open"),
+    countReportsByStatus("reviewed"),
+    countReportsByStatus("dismissed"),
+    countReportsByStatus("actioned"),
+  ]);
+
+  return {
+    rows,
+    nextCursor,
+    countByStatus: {
+      open: openC,
+      reviewed: reviewedC,
+      dismissed: dismissedC,
+      actioned: actionedC,
+    },
+  };
+}
+
+async function countReportsByStatus(status: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(postsReports)
+    .where(eq(postsReports.status, status));
+  return row?.n ?? 0;
 }
 
 // Re-export per i client di queries.ts

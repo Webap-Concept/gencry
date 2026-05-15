@@ -35,6 +35,15 @@ export const POSTS_MODULE: ModuleManifest = {
       exact: true,
     },
     {
+      key: "posts-reports",
+      href: "/modules/posts/reports",
+      label: "Reports",
+      icon: "Flag",
+      // Permission separata (NON auto-granted ad admin). Solo i moderatori
+      // designati vedono la queue di review.
+      permission: "modules:posts.moderate",
+    },
+    {
       key: "posts-settings",
       href: "/modules/posts/settings",
       label: "Settings",
