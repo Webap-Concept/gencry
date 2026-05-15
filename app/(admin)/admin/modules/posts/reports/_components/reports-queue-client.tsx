@@ -1,11 +1,10 @@
 "use client";
 // app/(admin)/admin/modules/posts/reports/_components/reports-queue-client.tsx
 //
-// UI client della queue di moderazione. Tabs pill (open/reviewed/dismissed/
-// actioned/all) via Link con searchParam ?status= (no client state per
-// le tab, restano bookmark-able).
-// Click su una row apre il drawer con i dettagli del post + form di
-// decisione. Drawer = shadcn Dialog wide.
+// UI client della queue di moderazione raggruppata per POST.
+// Refactor 2026-05-15: prima 1 row = 1 report, ora 1 row = 1 post con
+// tutte le sue segnalazioni aggregate. La decisione (dismiss/actioned)
+// si applica in batch a tutte le segnalazioni `open` del post.
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +16,8 @@ import {
 } from "@/app/(admin)/admin/_components/admin-dialog";
 import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
 import type {
-  ReportQueueRow,
+  ReportQueueAggregateStatus,
+  ReportQueueGroupRow,
   ReportQueueStatus,
   ReportsQueuePage,
 } from "@/lib/modules/posts/queries";
@@ -31,7 +31,10 @@ const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "all", label: "Tutti" },
 ];
 
-const STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
+const STATUS_BADGE: Record<
+  ReportQueueAggregateStatus,
+  { label: string; bg: string; fg: string }
+> = {
   open: { label: "Aperto", bg: "#f59e0b22", fg: "#b45309" },
   reviewed: { label: "Esaminato", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-muted)" },
   dismissed: { label: "Respinto", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-faint)" },
@@ -49,6 +52,10 @@ function formatRelativeTime(date: Date | string): string {
   return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
 
+function reasonLabelOf(key: string, labels: Record<string, string>): string {
+  return labels[key] ?? key;
+}
+
 export function ReportsQueueClient({
   initial,
   status,
@@ -58,7 +65,7 @@ export function ReportsQueueClient({
   status: ReportQueueStatus;
   reasonLabels: Record<string, string>;
 }) {
-  const [selected, setSelected] = useState<ReportQueueRow | null>(null);
+  const [selected, setSelected] = useState<ReportQueueGroupRow | null>(null);
 
   return (
     <div className="space-y-4">
@@ -100,7 +107,7 @@ export function ReportsQueueClient({
         })}
       </div>
 
-      {/* Lista report */}
+      {/* Lista gruppi */}
       {initial.rows.length === 0 ? (
         <div
           className="rounded-xl p-12 text-center"
@@ -109,26 +116,25 @@ export function ReportsQueueClient({
             border: "1px dashed var(--admin-card-border)",
             color: "var(--admin-text-faint)",
           }}>
-          <p className="text-sm">Nessuna segnalazione in questo stato.</p>
+          <p className="text-sm">Nessun post segnalato in questo stato.</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {initial.rows.map((row) => (
-            <ReportRow
-              key={row.report.id}
+            <GroupRow
+              key={row.post.id}
               row={row}
-              reasonLabel={reasonLabels[row.report.reason] ?? row.report.reason}
+              reasonLabels={reasonLabels}
               onClick={() => setSelected(row)}
             />
           ))}
         </ul>
       )}
 
-      {/* Drawer (Dialog wide) — montato solo se una row è selezionata */}
       {selected ? (
         <ReportReviewDialog
           row={selected}
-          reasonLabel={reasonLabels[selected.report.reason] ?? selected.report.reason}
+          reasonLabels={reasonLabels}
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -136,16 +142,22 @@ export function ReportsQueueClient({
   );
 }
 
-function ReportRow({
+function GroupRow({
   row,
-  reasonLabel,
+  reasonLabels,
   onClick,
 }: {
-  row: ReportQueueRow;
-  reasonLabel: string;
+  row: ReportQueueGroupRow;
+  reasonLabels: Record<string, string>;
   onClick: () => void;
 }) {
-  const badge = STATUS_BADGE[row.report.status] ?? STATUS_BADGE.open;
+  const badge = STATUS_BADGE[row.aggregateStatus];
+  // Breakdown dei reason ordinato per count DESC, capped a 3 per evitare overflow.
+  const reasonsList = Object.entries(row.reasonsBreakdown)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  const moreReasons = Object.keys(row.reasonsBreakdown).length - reasonsList.length;
+
   return (
     <li>
       <button
@@ -163,57 +175,62 @@ function ReportRow({
           (e.currentTarget.style.background = "var(--admin-card-bg)")
         }>
         <div className="flex items-start gap-3">
-          <div className="shrink-0">
-            {row.reporter.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={row.reporter.avatarUrl}
-                alt=""
-                className="w-9 h-9 rounded-full object-cover"
-              />
-            ) : (
+          {/* Avatar stack dei reporter (max 3 visibili) */}
+          <div className="shrink-0 flex -space-x-2">
+            {row.recentReporters.slice(0, 3).map((r, i) =>
+              r.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={r.id}
+                  src={r.avatarUrl}
+                  alt=""
+                  className="w-9 h-9 rounded-full object-cover ring-2"
+                  style={{
+                    ringColor: "var(--admin-card-bg)",
+                    zIndex: 10 - i,
+                  } as React.CSSProperties}
+                />
+              ) : (
+                <div
+                  key={r.id}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-xs ring-2"
+                  style={{
+                    background: "var(--admin-hover-bg)",
+                    color: "var(--admin-text-muted)",
+                    ringColor: "var(--admin-card-bg)",
+                    zIndex: 10 - i,
+                  } as React.CSSProperties}>
+                  {(r.username ?? "?")[0]?.toUpperCase()}
+                </div>
+              ),
+            )}
+            {row.recentReporters.length === 0 ? (
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-xs"
+                className="w-9 h-9 rounded-full flex items-center justify-center"
                 style={{
                   background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text-muted)",
-                }}>
-                {(row.reporter.username ?? "?")[0]?.toUpperCase()}
+                  color: "var(--admin-text-faint)",
+                }}
+                aria-hidden>
+                <Flag size={14} />
               </div>
-            )}
+            ) : null}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-baseline gap-2">
               <span
                 className="text-sm font-medium"
                 style={{ color: "var(--admin-text)" }}>
-                @{row.reporter.username ?? row.reporter.id.slice(0, 8)}
+                Post di @
+                {row.post.author.username ?? row.post.authorId.slice(0, 8)}
               </span>
               <span
                 className="text-xs"
                 style={{ color: "var(--admin-text-faint)" }}>
-                ha segnalato — {formatRelativeTime(row.report.createdAt)}
+                segnalato {row.totalReports}{" "}
+                {row.totalReports === 1 ? "volta" : "volte"} — ultima{" "}
+                {formatRelativeTime(row.lastReportedAt)}
               </span>
-              <span
-                className="text-[11px] font-medium px-2 py-0.5 rounded"
-                style={{
-                  background:
-                    "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
-                  color: "var(--admin-accent)",
-                }}>
-                {reasonLabel}
-              </span>
-              {row.siblingOpenReports > 1 ? (
-                <span
-                  className="text-[11px] font-medium px-2 py-0.5 rounded"
-                  style={{
-                    background:
-                      "color-mix(in srgb, #f59e0b 14%, transparent)",
-                    color: "#b45309",
-                  }}>
-                  +{row.siblingOpenReports - 1} altre sullo stesso post
-                </span>
-              ) : null}
               {row.post.deletedAt ? (
                 <span
                   className="text-[11px] font-medium px-2 py-0.5 rounded"
@@ -226,8 +243,33 @@ function ReportRow({
                 </span>
               ) : null}
             </div>
+            {/* Reasons breakdown */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {reasonsList.map(([key, n]) => (
+                <span
+                  key={key}
+                  className="text-[11px] font-medium px-2 py-0.5 rounded"
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
+                    color: "var(--admin-accent)",
+                  }}>
+                  {n}× {reasonLabelOf(key, reasonLabels)}
+                </span>
+              ))}
+              {moreReasons > 0 ? (
+                <span
+                  className="text-[11px] px-2 py-0.5 rounded"
+                  style={{
+                    background: "var(--admin-hover-bg)",
+                    color: "var(--admin-text-faint)",
+                  }}>
+                  +{moreReasons}
+                </span>
+              ) : null}
+            </div>
             <p
-              className="text-sm mt-1.5 line-clamp-2"
+              className="text-sm mt-2 line-clamp-2"
               style={{ color: "var(--admin-text)" }}>
               {row.post.body || (
                 <em style={{ color: "var(--admin-text-faint)" }}>
@@ -238,10 +280,15 @@ function ReportRow({
             <p
               className="text-[11px] mt-1.5"
               style={{ color: "var(--admin-text-faint)" }}>
-              autore: @{row.post.author.username ?? row.post.authorId.slice(0, 8)}
-              {row.report.details ? (
-                <> · note reporter: &ldquo;{row.report.details.slice(0, 100)}&rdquo;</>
-              ) : null}
+              {row.openCount > 0 ? (
+                <strong style={{ color: "#b45309" }}>
+                  {row.openCount} aperte
+                </strong>
+              ) : (
+                <>tutte processate</>
+              )}
+              {" · "}prima segnalazione{" "}
+              {formatRelativeTime(row.firstReportedAt)}
             </p>
           </div>
           <span
@@ -257,11 +304,11 @@ function ReportRow({
 
 function ReportReviewDialog({
   row,
-  reasonLabel,
+  reasonLabels,
   onClose,
 }: {
-  row: ReportQueueRow;
-  reasonLabel: string;
+  row: ReportQueueGroupRow;
+  reasonLabels: Record<string, string>;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -269,15 +316,14 @@ function ReportReviewDialog({
   const [isSubmitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const alreadyDecided =
-    row.report.status === "dismissed" || row.report.status === "actioned";
+  const noOpenLeft = row.openCount === 0;
   const postAlreadyDeleted = !!row.post.deletedAt;
 
   const submit = (decision: "dismissed" | "actioned") => {
     setSubmitError(null);
     startSubmit(async () => {
       const res = await reviewReportAction({
-        reportId: row.report.id,
+        postId: row.post.id,
         decision,
         note: note.trim() || null,
       });
@@ -290,44 +336,38 @@ function ReportReviewDialog({
     });
   };
 
+  const reasonsSorted = Object.entries(row.reasonsBreakdown).sort(
+    (a, b) => b[1] - a[1],
+  );
+
   return (
     <AdminDialog open onOpenChange={(o) => !o && onClose()}>
       <AdminDialogContent
         icon={Flag}
         size="xl"
-        title="Revisione segnalazione"
-        description="Decidi come gestire la segnalazione. La decisione è registrata con il tuo user id e timestamp."
+        title={`Revisione: ${row.totalReports} segnalazion${row.totalReports === 1 ? "e" : "i"}`}
+        description="La decisione si applica a tutte le segnalazioni aperte del post. Registrata col tuo user id e timestamp."
         footer={
           <>
             <AdminDialogCancelButton onClick={onClose} disabled={isSubmitting}>
               Chiudi
             </AdminDialogCancelButton>
-            {!alreadyDecided ? (
+            {!noOpenLeft ? (
               <>
                 <AdminDialogConfirmButton
                   onClick={() => submit("dismissed")}
                   disabled={isSubmitting}
                   loading={isSubmitting}
                   icon={CheckCircle2}>
-                  Respingi
+                  Respingi tutte
                 </AdminDialogConfirmButton>
                 <AdminDialogConfirmButton
                   variant="danger"
-                  onClick={() => {
-                    if (!postAlreadyDeleted) {
-                      if (
-                        !confirm(
-                          "Confermi il soft-delete del post? L'autore potrà appellarsi entro 7 giorni.",
-                        )
-                      )
-                        return;
-                    }
-                    submit("actioned");
-                  }}
+                  onClick={() => submit("actioned")}
                   disabled={isSubmitting}
                   loading={isSubmitting}
                   icon={AlertOctagon}>
-                  {postAlreadyDeleted ? "Conferma action" : "Soft-delete post"}
+                  {postAlreadyDeleted ? "Conferma action su tutte" : "Soft-delete + action su tutte"}
                 </AdminDialogConfirmButton>
               </>
             ) : null}
@@ -347,7 +387,9 @@ function ReportReviewDialog({
               Post segnalato — @
               {row.post.author.username ?? row.post.authorId.slice(0, 8)}
             </p>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--admin-text)" }}>
+            <p
+              className="text-sm whitespace-pre-wrap"
+              style={{ color: "var(--admin-text)" }}>
               {row.post.body || (
                 <em style={{ color: "var(--admin-text-faint)" }}>
                   (post senza testo)
@@ -356,45 +398,84 @@ function ReportReviewDialog({
             </p>
           </div>
 
-          {/* Report metadata */}
+          {/* Counts aggregati */}
           <div
-            className="rounded-lg p-3 text-xs space-y-1"
+            className="grid grid-cols-4 gap-2 rounded-lg p-3"
             style={{
               background: "var(--admin-card-bg)",
               border: "1px solid var(--admin-card-border)",
-              color: "var(--admin-text-muted)",
             }}>
-            <p>
-              <strong>Motivo:</strong> {reasonLabel}{" "}
-              <span className="font-mono opacity-60">({row.report.reason})</span>
-            </p>
-            <p>
-              <strong>Reporter:</strong> @
-              {row.reporter.username ?? row.reporter.id.slice(0, 8)}
-            </p>
-            <p>
-              <strong>Inviato:</strong>{" "}
-              {new Date(row.report.createdAt).toLocaleString("it-IT")}
-            </p>
-            {row.report.details ? (
-              <p>
-                <strong>Note reporter:</strong> {row.report.details}
-              </p>
-            ) : null}
-            {row.siblingOpenReports > 1 ? (
-              <p style={{ color: "#b45309" }}>
-                <strong>+{row.siblingOpenReports - 1}</strong> altre segnalazioni
-                aperte sullo stesso post.
-              </p>
-            ) : null}
+            <Stat label="Totale" value={row.totalReports} />
+            <Stat label="Aperte" value={row.openCount} accent={row.openCount > 0} />
+            <Stat label="Respinte" value={row.dismissedCount} />
+            <Stat label="Action" value={row.actionedCount} />
           </div>
 
-          {!alreadyDecided ? (
+          {/* Breakdown reasons */}
+          {reasonsSorted.length > 0 ? (
+            <div
+              className="rounded-lg p-3"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+              }}>
+              <p
+                className="text-[11px] uppercase tracking-wider mb-2"
+                style={{ color: "var(--admin-text-faint)" }}>
+                Motivi (ordinati per frequenza)
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {reasonsSorted.map(([key, n]) => (
+                  <span
+                    key={key}
+                    className="text-xs font-medium px-2 py-1 rounded"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
+                      color: "var(--admin-accent)",
+                    }}>
+                    {n}× {reasonLabelOf(key, reasonLabels)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Recent reporters */}
+          {row.recentReporters.length > 0 ? (
+            <div
+              className="rounded-lg p-3"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+              }}>
+              <p
+                className="text-[11px] uppercase tracking-wider mb-2"
+                style={{ color: "var(--admin-text-faint)" }}>
+                Reporter recenti ({row.recentReporters.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {row.recentReporters.map((r) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded"
+                    style={{
+                      background: "var(--admin-hover-bg)",
+                      color: "var(--admin-text-muted)",
+                    }}>
+                    @{r.username ?? r.id.slice(0, 8)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {!noOpenLeft ? (
             <div>
               <label
                 className="block text-[11px] uppercase tracking-wider mb-1"
                 style={{ color: "var(--admin-text-faint)" }}>
-                Nota interna (opzionale, audit trail)
+                Nota interna (opzionale, audit trail su tutte le segnalazioni)
               </label>
               <textarea
                 value={note}
@@ -414,7 +495,7 @@ function ReportReviewDialog({
             <p
               className="text-xs italic"
               style={{ color: "var(--admin-text-faint)" }}>
-              Questa segnalazione è già stata processata. Solo informazione.
+              Tutte le segnalazioni sono già state processate. Solo informazione.
             </p>
           )}
 
@@ -426,5 +507,30 @@ function ReportReviewDialog({
         </div>
       </AdminDialogContent>
     </AdminDialog>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
+  return (
+    <div className="text-center">
+      <p
+        className="text-xl font-bold"
+        style={{ color: accent ? "#b45309" : "var(--admin-text)" }}>
+        {value}
+      </p>
+      <p
+        className="text-[10px] uppercase tracking-wider mt-0.5"
+        style={{ color: "var(--admin-text-faint)" }}>
+        {label}
+      </p>
+    </div>
   );
 }

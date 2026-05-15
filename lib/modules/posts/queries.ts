@@ -812,13 +812,21 @@ export type ReportQueueStatus =
   | "actioned"
   | "all";
 
-export type ReportQueueRow = {
-  report: PostReport;
-  reporter: {
-    id: string;
-    username: string | null;
-    avatarUrl: string | null;
-  };
+/**
+ * Status aggregato di un gruppo (tutte le segnalazioni dello stesso
+ * post). Calcolato server-side dai conteggi:
+ *   - open      → almeno una open
+ *   - actioned  → 0 open, almeno una actioned
+ *   - dismissed → 0 open, 0 actioned, almeno una dismissed
+ *   - reviewed  → tutto il resto (solo reviewed)
+ */
+export type ReportQueueAggregateStatus =
+  | "open"
+  | "reviewed"
+  | "dismissed"
+  | "actioned";
+
+export type ReportQueueGroupRow = {
   post: {
     id: string;
     authorId: string;
@@ -830,23 +838,44 @@ export type ReportQueueRow = {
       avatarUrl: string | null;
     };
   };
-  /** Count totale di report aperti sullo stesso post, per dare contesto
-   *  di volume al moderatore ("3 report attivi su questo post"). */
-  siblingOpenReports: number;
+  firstReportedAt: Date;
+  lastReportedAt: Date;
+  totalReports: number;
+  openCount: number;
+  reviewedCount: number;
+  dismissedCount: number;
+  actionedCount: number;
+  aggregateStatus: ReportQueueAggregateStatus;
+  /** Mappa reason key → count (es. { spam: 5, scam: 2 }). */
+  reasonsBreakdown: Record<string, number>;
+  /** Avatar/username dei reporter più recenti (max 5, distinti). */
+  recentReporters: Array<{
+    id: string;
+    username: string | null;
+    avatarUrl: string | null;
+  }>;
 };
 
 export type ReportsQueuePage = {
-  rows: ReportQueueRow[];
+  rows: ReportQueueGroupRow[];
   nextCursor: string | null;
   countByStatus: Record<Exclude<ReportQueueStatus, "all">, number>;
 };
 
 /**
- * Lista paginata della queue di moderazione. JOIN posts_reports + posts +
- * users (autore post e reporter). Cursor keyset su (created_at, id).
+ * Lista paginata della moderation queue, **raggruppata per post**.
+ * Ogni riga rappresenta un post segnalato (1+ segnalazioni). I conteggi
+ * per status + reason breakdown + top reporter sono pre-calcolati così
+ * la modale di review può mostrare il quadro completo senza una query
+ * extra per ogni click.
  *
- * countByStatus è calcolato sempre (5 piccoli COUNT in parallelo) per
- * popolare i badge delle pill tabs senza una seconda chiamata client.
+ * Cursor keyset su (last_reported_at DESC, post_id DESC).
+ *
+ * Tre query (batched per gli aggregati delle pages):
+ *  1. GROUP BY post_id su posts_reports con FILTER per status counts +
+ *     JOIN posts + author per il rendering.
+ *  2. reason breakdown via GROUP BY (post_id, reason).
+ *  3. recent reporters via SELECT + sort in JS (volume basso per page).
  */
 export async function getReportsQueue(opts: {
   status: ReportQueueStatus;
@@ -854,43 +883,56 @@ export async function getReportsQueue(opts: {
   limit?: number;
 }): Promise<ReportsQueuePage> {
   const limit = opts.limit ?? DEFAULT_PAGE_SIZE;
-  // JOIN doppio sulla stessa tabella user_profiles (reporter + author del
-  // post). Servono alias distinti — altrimenti Drizzle lancia
-  // "Alias already used". Stessa cosa per users (qui non serve, lo
-  // teniamo per simmetria semantica).
-  const reporterUserProfiles = alias(userProfiles, "reporter_profile");
   const authorUserProfiles = alias(userProfiles, "author_profile");
 
-  // Cursor keyset: (created_at DESC, id DESC)
+  // Status filter sull'aggregato del gruppo (vedi ReportQueueAggregateStatus).
+  const havingClause = (() => {
+    switch (opts.status) {
+      case "all":
+        return undefined;
+      case "open":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') > 0`;
+      case "actioned":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned') > 0`;
+      case "dismissed":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'dismissed') > 0`;
+      case "reviewed":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} IN ('open','actioned','dismissed')) = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'reviewed') > 0`;
+    }
+  })();
+
+  // Cursor keyset su MAX(created_at) e post_id.
   const cursorClause = (() => {
     if (!opts.cursor) return undefined;
     const decoded = decodeCursor(opts.cursor);
     if (!decoded) return undefined;
-    const at = new Date(decoded.ms);
-    return or(
-      lt(postsReports.createdAt, at),
-      and(eq(postsReports.createdAt, at), lt(postsReports.id, decoded.id)),
-    );
+    const at = new Date(decoded.ms).toISOString();
+    return sql`(
+      MAX(${postsReports.createdAt}) < ${at}
+      OR (MAX(${postsReports.createdAt}) = ${at} AND ${postsReports.postId} < ${decoded.id})
+    )`;
   })();
 
-  const statusClause =
-    opts.status === "all"
-      ? undefined
-      : eq(postsReports.status, opts.status);
+  const havingCombined =
+    havingClause && cursorClause
+      ? sql`${havingClause} AND ${cursorClause}`
+      : (havingClause ?? cursorClause);
 
-  const rawRows = await db
+  // Query 1: gruppi paginati con counts + JOIN posts/author.
+  const groupsQuery = db
     .select({
-      reportId: postsReports.id,
-      reportPostId: postsReports.postId,
-      reportReporterId: postsReports.reporterId,
-      reportReason: postsReports.reason,
-      reportDetails: postsReports.details,
-      reportStatus: postsReports.status,
-      reportReviewedBy: postsReports.reviewedBy,
-      reportReviewedAt: postsReports.reviewedAt,
-      reportCreatedAt: postsReports.createdAt,
-      reporterUsername: reporterUserProfiles.username,
-      reporterAvatarUrl: reporterUserProfiles.avatarUrl,
+      postId: postsReports.postId,
+      firstAt: sql<Date>`MIN(${postsReports.createdAt})`.as("first_at"),
+      lastAt: sql<Date>`MAX(${postsReports.createdAt})`.as("last_at"),
+      total: sql<number>`COUNT(*)::int`.as("total"),
+      openCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open')::int`.as("open_count"),
+      reviewedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'reviewed')::int`.as("reviewed_count"),
+      dismissedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'dismissed')::int`.as("dismissed_count"),
+      actionedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned')::int`.as("actioned_count"),
       postAuthorId: posts.authorId,
       postBody: posts.body,
       postDeletedAt: posts.deletedAt,
@@ -901,85 +943,139 @@ export async function getReportsQueue(opts: {
     .from(postsReports)
     .innerJoin(posts, eq(posts.id, postsReports.postId))
     .leftJoin(
-      reporterUserProfiles,
-      eq(reporterUserProfiles.userId, postsReports.reporterId),
-    )
-    .leftJoin(
       authorUserProfiles,
       eq(authorUserProfiles.userId, posts.authorId),
     )
-    .where(and(statusClause, cursorClause))
-    .orderBy(desc(postsReports.createdAt), desc(postsReports.id))
+    .groupBy(
+      postsReports.postId,
+      posts.authorId,
+      posts.body,
+      posts.deletedAt,
+      posts.createdAt,
+      authorUserProfiles.username,
+      authorUserProfiles.avatarUrl,
+    );
+
+  const rawGroups = await (
+    havingCombined ? groupsQuery.having(havingCombined) : groupsQuery
+  )
+    .orderBy(sql`MAX(${postsReports.createdAt}) DESC`, desc(postsReports.postId))
     .limit(limit + 1);
 
-  const hasMore = rawRows.length > limit;
-  const sliced = hasMore ? rawRows.slice(0, limit) : rawRows;
+  const hasMore = rawGroups.length > limit;
+  const sliced = hasMore ? rawGroups.slice(0, limit) : rawGroups;
+  const postIds = sliced.map((g) => g.postId);
 
-  // Sibling open count batch — un'unica query group by post_id.
-  const postIds = sliced.map((r) => r.reportPostId);
-  let siblingMap: Map<string, number> = new Map();
+  // Query 2: reason breakdown per i post della pagina.
+  let reasonsByPost: Map<string, Record<string, number>> = new Map();
   if (postIds.length > 0) {
-    const groups = await db
+    const reasonRows = await db
       .select({
         postId: postsReports.postId,
-        n: sql<number>`count(*)::int`,
+        reason: postsReports.reason,
+        n: sql<number>`COUNT(*)::int`,
       })
       .from(postsReports)
-      .where(
-        and(
-          inArray(postsReports.postId, postIds),
-          eq(postsReports.status, "open"),
-        ),
-      )
-      .groupBy(postsReports.postId);
-    siblingMap = new Map(groups.map((g) => [g.postId, g.n]));
+      .where(inArray(postsReports.postId, postIds))
+      .groupBy(postsReports.postId, postsReports.reason);
+    for (const r of reasonRows) {
+      const map = reasonsByPost.get(r.postId) ?? {};
+      map[r.reason] = r.n;
+      reasonsByPost.set(r.postId, map);
+    }
   }
 
-  const rows: ReportQueueRow[] = sliced.map((r) => ({
-    report: {
-      id: r.reportId,
-      postId: r.reportPostId,
-      reporterId: r.reportReporterId,
-      reason: r.reportReason,
-      details: r.reportDetails,
-      status: r.reportStatus,
-      reviewedBy: r.reportReviewedBy,
-      reviewedAt: r.reportReviewedAt,
-      createdAt: r.reportCreatedAt,
-    },
-    reporter: {
-      id: r.reportReporterId,
-      username: r.reporterUsername ?? null,
-      avatarUrl: r.reporterAvatarUrl ?? null,
-    },
-    post: {
-      id: r.reportPostId,
-      authorId: r.postAuthorId,
-      body: r.postBody,
-      deletedAt: r.postDeletedAt,
-      createdAt: r.postCreatedAt,
-      author: {
-        username: r.authorUsername ?? null,
-        avatarUrl: r.authorAvatarUrl ?? null,
+  // Query 3: recent reporters (max 5 distinti) per i post della pagina.
+  const reporterAlias = alias(userProfiles, "reporter_profile_q3");
+  let recentReportersByPost: Map<
+    string,
+    Array<{ id: string; username: string | null; avatarUrl: string | null; createdAt: Date }>
+  > = new Map();
+  if (postIds.length > 0) {
+    const reporterRows = await db
+      .select({
+        postId: postsReports.postId,
+        reporterId: postsReports.reporterId,
+        createdAt: postsReports.createdAt,
+        username: reporterAlias.username,
+        avatarUrl: reporterAlias.avatarUrl,
+      })
+      .from(postsReports)
+      .leftJoin(reporterAlias, eq(reporterAlias.userId, postsReports.reporterId))
+      .where(inArray(postsReports.postId, postIds))
+      .orderBy(desc(postsReports.createdAt));
+    for (const r of reporterRows) {
+      const arr = recentReportersByPost.get(r.postId) ?? [];
+      // Dedup per reporter_id (un utente che segnala 2 volte conta 1).
+      if (arr.some((x) => x.id === r.reporterId)) continue;
+      if (arr.length < 5) {
+        arr.push({
+          id: r.reporterId,
+          username: r.username ?? null,
+          avatarUrl: r.avatarUrl ?? null,
+          createdAt: r.createdAt,
+        });
+        recentReportersByPost.set(r.postId, arr);
+      }
+    }
+  }
+
+  // Assemble
+  const rows: ReportQueueGroupRow[] = sliced.map((g) => {
+    const aggregateStatus: ReportQueueAggregateStatus =
+      g.openCount > 0
+        ? "open"
+        : g.actionedCount > 0
+          ? "actioned"
+          : g.dismissedCount > 0
+            ? "dismissed"
+            : "reviewed";
+
+    const reporters = (recentReportersByPost.get(g.postId) ?? []).map((r) => ({
+      id: r.id,
+      username: r.username,
+      avatarUrl: r.avatarUrl,
+    }));
+
+    return {
+      post: {
+        id: g.postId,
+        authorId: g.postAuthorId,
+        body: g.postBody,
+        deletedAt: g.postDeletedAt,
+        createdAt: g.postCreatedAt,
+        author: {
+          username: g.authorUsername ?? null,
+          avatarUrl: g.authorAvatarUrl ?? null,
+        },
       },
-    },
-    siblingOpenReports: siblingMap.get(r.reportPostId) ?? 0,
-  }));
+      firstReportedAt: g.firstAt,
+      lastReportedAt: g.lastAt,
+      totalReports: g.total,
+      openCount: g.openCount,
+      reviewedCount: g.reviewedCount,
+      dismissedCount: g.dismissedCount,
+      actionedCount: g.actionedCount,
+      aggregateStatus,
+      reasonsBreakdown: reasonsByPost.get(g.postId) ?? {},
+      recentReporters: reporters,
+    };
+  });
 
   const nextCursor =
     hasMore && sliced.length > 0
       ? encodeCursor({
-          ms: sliced[sliced.length - 1].reportCreatedAt.getTime(),
-          id: sliced[sliced.length - 1].reportId,
+          ms: new Date(sliced[sliced.length - 1].lastAt).getTime(),
+          id: sliced[sliced.length - 1].postId,
         })
       : null;
 
-  // Counts per pills — 4 piccole query batch.
+  // Counts per pills — DISTINCT post_id per ogni aggregateStatus.
   const [openC, reviewedC, dismissedC, actionedC] = await Promise.all([
-    countReportsByStatus("open"),
-    countReportsByStatus("reviewed"),
-    countReportsByStatus("dismissed"),
-    countReportsByStatus("actioned"),
+    countDistinctPostsByAggregate("open"),
+    countDistinctPostsByAggregate("reviewed"),
+    countDistinctPostsByAggregate("dismissed"),
+    countDistinctPostsByAggregate("actioned"),
   ]);
 
   return {
@@ -994,12 +1090,97 @@ export async function getReportsQueue(opts: {
   };
 }
 
-async function countReportsByStatus(status: string): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(postsReports)
-    .where(eq(postsReports.status, status));
+/**
+ * Conteggio di post DISTINCT che ricadono in un dato aggregateStatus.
+ * Stessa logica del filter HAVING applicato in getReportsQueue.
+ */
+async function countDistinctPostsByAggregate(
+  status: ReportQueueAggregateStatus,
+): Promise<number> {
+  const condition = (() => {
+    switch (status) {
+      case "open":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') > 0`;
+      case "actioned":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'actioned') > 0`;
+      case "dismissed":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'actioned') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'dismissed') > 0`;
+      case "reviewed":
+        return sql`COUNT(*) FILTER (WHERE status IN ('open','actioned','dismissed')) = 0
+                   AND COUNT(*) FILTER (WHERE status = 'reviewed') > 0`;
+    }
+  })();
+
+  const result = await db.execute(sql`
+    SELECT COUNT(*)::int AS n FROM (
+      SELECT post_id FROM posts_reports
+      GROUP BY post_id
+      HAVING ${condition}
+    ) sub
+  `);
+  // postgres-js execute returns { rows? } or array depending on driver.
+  // Defensive: support both shapes.
+  const row = (Array.isArray(result) ? result[0] : (result as { rows?: unknown[] }).rows?.[0]) as
+    | { n?: number }
+    | undefined;
   return row?.n ?? 0;
+}
+
+/**
+ * Tutte le segnalazioni di un post specifico, ordered by createdAt DESC.
+ * Usata dalla modale di review per mostrare il dettaglio aggregato.
+ */
+export async function getReportsForPost(postId: string): Promise<
+  Array<{
+    report: PostReport;
+    reporter: {
+      id: string;
+      username: string | null;
+      avatarUrl: string | null;
+    };
+  }>
+> {
+  const reporterAlias2 = alias(userProfiles, "reporter_profile_detail");
+  const rows = await db
+    .select({
+      id: postsReports.id,
+      postId: postsReports.postId,
+      reporterId: postsReports.reporterId,
+      reason: postsReports.reason,
+      details: postsReports.details,
+      status: postsReports.status,
+      reviewedBy: postsReports.reviewedBy,
+      reviewedAt: postsReports.reviewedAt,
+      createdAt: postsReports.createdAt,
+      reporterUsername: reporterAlias2.username,
+      reporterAvatarUrl: reporterAlias2.avatarUrl,
+    })
+    .from(postsReports)
+    .leftJoin(reporterAlias2, eq(reporterAlias2.userId, postsReports.reporterId))
+    .where(eq(postsReports.postId, postId))
+    .orderBy(desc(postsReports.createdAt));
+
+  return rows.map((r) => ({
+    report: {
+      id: r.id,
+      postId: r.postId,
+      reporterId: r.reporterId,
+      reason: r.reason,
+      details: r.details,
+      status: r.status,
+      reviewedBy: r.reviewedBy,
+      reviewedAt: r.reviewedAt,
+      createdAt: r.createdAt,
+    },
+    reporter: {
+      id: r.reporterId,
+      username: r.reporterUsername ?? null,
+      avatarUrl: r.reporterAvatarUrl ?? null,
+    },
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────

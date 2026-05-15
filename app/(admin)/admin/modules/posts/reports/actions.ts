@@ -3,6 +3,11 @@
 //
 // Server Actions admin-side per la moderation queue del modulo Posts.
 // Gate RBAC `modules:posts.moderate` (extra permission, NON auto-granted).
+//
+// Pattern cambiato il 2026-05-15: la queue è raggruppata per post, quindi
+// la decisione si applica in BATCH a TUTTE le segnalazioni `open` dello
+// stesso post (prima 1 click = 1 report risolto, ora 1 click = caso
+// completo chiuso, come Twitter/Facebook).
 
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -15,20 +20,23 @@ import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
 import { z } from "zod";
 
 const ReviewSchema = z.object({
-  reportId: z.string().uuid(),
+  postId: z.string().uuid(),
   decision: z.enum(["dismissed", "actioned"]),
   note: z.string().max(2000).optional().nullable(),
 });
 
 export type ReviewReportResult =
-  | { ok: true; softDeletedPostId?: string }
+  | { ok: true; updatedReports: number; softDeletedPostId?: string }
   | { ok: false; error: string };
 
-/** Risoluzione di una segnalazione:
- *  - decision="dismissed" → status='dismissed' + reviewed_by/at
- *  - decision="actioned"  → status='actioned' + reviewed_by/at +
- *                           soft-delete del post target (deleted_at=NOW())
- *  Note opzionale viene appeso in `details` per audit trail interno.
+/**
+ * Risoluzione batch di tutte le segnalazioni `open` di un post:
+ *  - decision="dismissed" → tutte le open → status='dismissed' +
+ *                           reviewed_by/at popolati
+ *  - decision="actioned"  → idem + soft-delete del post (deleted_at=NOW())
+ *
+ * La `note` opzionale è appesa ai details di OGNI segnalazione open per
+ * audit trail.
  */
 export async function reviewReportAction(
   input: z.input<typeof ReviewSchema>,
@@ -41,66 +49,63 @@ export async function reviewReportAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0].message };
   }
-  const { reportId, decision, note } = parsed.data;
+  const { postId, decision, note } = parsed.data;
 
-  // 1. Carica il report + post target (verifica esistenza)
-  const [report] = await db
-    .select({
-      id: postsReports.id,
-      postId: postsReports.postId,
-      status: postsReports.status,
-      details: postsReports.details,
-    })
-    .from(postsReports)
-    .where(eq(postsReports.id, reportId))
+  // 1. Verifica che il post esiste
+  const [target] = await db
+    .select({ id: posts.id, deletedAt: posts.deletedAt })
+    .from(posts)
+    .where(eq(posts.id, postId))
     .limit(1);
-  if (!report) return { ok: false, error: "report_not_found" };
+  if (!target) return { ok: false, error: "post_not_found" };
 
-  // Già processato → idempotenza, ritorna ok senza ri-eseguire effetti.
-  if (report.status === "dismissed" || report.status === "actioned") {
-    return { ok: true };
-  }
-
-  // 2. Appendi nota di review ai details esistenti (audit trail)
+  // 2. Aggiorna in batch TUTTE le segnalazioni open del post.
+  //    Note appesa a details esistenti via COALESCE (audit trail).
+  const trimmedNote = note?.trim() ?? "";
   const noteSuffix =
-    note && note.trim().length > 0
-      ? `\n\n— mod note (${new Date().toISOString()} by ${user.id}): ${note.trim()}`
+    trimmedNote.length > 0
+      ? `\n\n— mod note (${new Date().toISOString()} by ${user.id}): ${trimmedNote}`
       : "";
-  const newDetails = (report.details ?? "") + noteSuffix;
 
-  // 3. Aggiorna il report
-  await db
+  const updated = await db
     .update(postsReports)
     .set({
       status: decision,
       reviewedBy: user.id,
       reviewedAt: new Date(),
-      details: newDetails.length > 0 ? newDetails : null,
+      details: noteSuffix
+        ? sql`COALESCE(${postsReports.details}, '') || ${noteSuffix}`
+        : postsReports.details,
     })
-    .where(eq(postsReports.id, reportId));
+    .where(
+      and(eq(postsReports.postId, postId), eq(postsReports.status, "open")),
+    )
+    .returning({ id: postsReports.id });
 
   let softDeletedPostId: string | undefined;
 
-  // 4. Se "actioned" → soft-delete del post (se non già cancellato)
-  if (decision === "actioned") {
-    const [target] = await db
-      .select({ id: posts.id, deletedAt: posts.deletedAt })
-      .from(posts)
-      .where(eq(posts.id, report.postId))
-      .limit(1);
+  // 3. Se "actioned" → soft-delete del post (se non già cancellato)
+  if (decision === "actioned" && !target.deletedAt) {
+    await db
+      .update(posts)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(posts.id, postId), isNull(posts.deletedAt)));
 
-    if (target && !target.deletedAt) {
-      await db
-        .update(posts)
-        .set({ deletedAt: new Date() })
-        .where(and(eq(posts.id, report.postId), isNull(posts.deletedAt)));
-
-      await invalidatePostCache(report.postId);
-      await invalidateFeedCache("discover");
-      softDeletedPostId = report.postId;
-    }
+    await invalidatePostCache(postId);
+    await invalidateFeedCache("discover");
+    softDeletedPostId = postId;
   }
 
   revalidatePath("/admin/modules/posts/reports");
-  return { ok: true, softDeletedPostId };
+  // Anche /admin/modules/posts/deleted se è actioned, così la lista
+  // dei post in grace si aggiorna in tempo reale.
+  if (softDeletedPostId) {
+    revalidatePath("/admin/modules/posts/deleted");
+  }
+
+  return {
+    ok: true,
+    updatedReports: updated.length,
+    softDeletedPostId,
+  };
 }
