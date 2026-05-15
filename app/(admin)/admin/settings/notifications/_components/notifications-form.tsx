@@ -373,43 +373,6 @@ export function NotificationsSettingsForm({
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="sessions_schedule">{t("scheduleLabel")} (sessioni)</Label>
-                <select
-                  id="sessions_schedule"
-                  name="sessions_schedule"
-                  defaultValue={sessionsSrc.schedule}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}>
-                  {SCHEDULES.map((s) => (
-                    <option key={s} value={s}>
-                      {SCHEDULE_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="sessions_severity_threshold">{t("severityThresholdLabel")} (sessioni)</Label>
-                <select
-                  id="sessions_severity_threshold"
-                  name="sessions_severity_threshold"
-                  defaultValue={sessionsSrc.severityThreshold}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}>
-                  {SEVERITIES.map((s) => (
-                    <option key={s} value={s}>
-                      {t("severityThresholdOption", { severity: SEVERITY_LABELS[s] })}
-                    </option>
-                  ))}
-                </select>
-                <p
-                  className="text-[12px]"
-                  style={{ color: "var(--admin-text-muted)" }}>
-                  {t("severityThresholdHint")}
-                </p>
-              </div>
-
               <Checkbox
                 name="recipients_include_admin_users"
                 defaultChecked={initialConfig.recipients.includeAdminUsers}
@@ -476,6 +439,99 @@ export function NotificationsSettingsForm({
 
         {activeTab === "sessions" && (
           <>
+            <Section
+              icon={Activity}
+              title="Sessioni sospette"
+              subtitle="Schedule email digest, soglia di severità e strumenti manuali per il modulo di rilevamento sessioni sospette.">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="sessions_schedule">{t("scheduleLabel")}</Label>
+                    <select
+                      id="sessions_schedule"
+                      name="sessions_schedule"
+                      defaultValue={sessionsSrc.schedule}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}>
+                      {SCHEDULES.map((s) => (
+                        <option key={s} value={s}>
+                          {SCHEDULE_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="sessions_severity_threshold">{t("severityThresholdLabel")}</Label>
+                    <select
+                      id="sessions_severity_threshold"
+                      name="sessions_severity_threshold"
+                      defaultValue={sessionsSrc.severityThreshold}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}>
+                      {SEVERITIES.map((s) => (
+                        <option key={s} value={s}>
+                          {t("severityThresholdOption", { severity: SEVERITY_LABELS[s] })}
+                        </option>
+                      ))}
+                    </select>
+                    <p
+                      className="text-[12px]"
+                      style={{ color: "var(--admin-text-muted)" }}>
+                      {t("severityThresholdHint")}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="flex flex-wrap items-center gap-3 pt-1 border-t"
+                  style={{ borderColor: "var(--admin-card-border)" }}>
+                  <div className="w-full -mb-1">
+                    <p
+                      className="text-[12px] uppercase tracking-wide font-semibold"
+                      style={{ color: "var(--admin-text-muted)" }}>
+                      Strumenti manuali (sessioni)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => runAction(new FormData())}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                    style={{
+                      background: "var(--admin-hover-bg)",
+                      color: "var(--admin-text)",
+                      border: "1px solid var(--admin-card-border)",
+                    }}>
+                    {isRunning ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Play size={15} />
+                    )}
+                    {isRunning ? t("runningDetection") : t("runDetectionNow")}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isTesting}
+                    onClick={() => testAction(new FormData())}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                    style={{
+                      background: "var(--admin-hover-bg)",
+                      color: "var(--admin-text)",
+                      border: "1px solid var(--admin-card-border)",
+                    }}>
+                    {isTesting ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Send size={15} />
+                    )}
+                    {isTesting ? t("sendingTestDigest") : t("sendTestDigest")}
+                  </button>
+                </div>
+              </div>
+            </Section>
+
             <Section
               icon={ShieldAlert}
               title={t("detectionRulesTitle")}
@@ -667,44 +723,6 @@ export function NotificationsSettingsForm({
                 </RuleBlock>
               </div>
             </Section>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={isRunning}
-                onClick={() => runAction(new FormData())}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isRunning ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Play size={15} />
-                )}
-                {isRunning ? t("runningDetection") : t("runDetectionNow")}
-              </button>
-
-              <button
-                type="button"
-                disabled={isTesting}
-                onClick={() => testAction(new FormData())}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isTesting ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Send size={15} />
-                )}
-                {isTesting ? t("sendingTestDigest") : t("sendTestDigest")}
-              </button>
-            </div>
           </>
         )}
 

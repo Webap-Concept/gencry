@@ -25,7 +25,9 @@
     "navResetTooltip": "Ripristina ordine di default",
     "navDragHandle": "Trascina per riordinare",
     "navDrawerClose": "Chiudi pannello sezione",
-    "navDrawerEditHint": "Riordina le sotto-voci"
+    "navDrawerEditHint": "Riordina le sotto-voci",
+    "navCollapseSidebar": "Restringi sidebar",
+    "navExpandSidebar": "Espandi sidebar"
   },
   "confirmModal": {
     "defaultConfirm": "Conferma",
@@ -93,6 +95,11 @@
       "label": "Dispatch Notifiche Admin",
       "description": "Esegue tutti i generatori di notifiche (cron failure, rotazione secret, …) e riconcilia admin_notifications: inserisce nuovi alert, aggiorna severity, auto-risolve le condizioni cessate.",
       "purpose": "Garantisce che gli alert admin (es. un cron in errore) compaiano entro minuti invece di attendere che un admin navighi nel pannello. Il trigger al render del layout resta come fallback se pg_cron non gira."
+    },
+    "notifications-email-dispatch": {
+      "label": "Dispatch Email Notifiche Admin",
+      "description": "Dispatcher email generico per admin_notifications. Itera le sorgenti di alert registrate (sessioni, cron, …), rispetta lo schedule per sorgente (instant / orario / giornaliero) e la soglia di severità, raggruppa le notifiche pending per tipo, renderizza il template type-specific e invia un'email digest. Imposta email_sent_at sulle righe consegnate così non vengono re-inviate.",
+      "purpose": "Single source of truth per le email outbound admin: ogni nuova sorgente di notifica registra un renderer invece di cablare la propria pipeline. Destinatari, schedule e soglie sono configurabili per-sorgente da /admin/settings/notifications."
     },
     "sessions-suspicious-detection": {
       "label": "Detection Sessioni Sospette",
@@ -184,7 +191,7 @@
       },
       "notifications": {
         "label": "Notifiche",
-        "description": "Allerte sessioni sospette, impostazioni di invio e notifiche per regola."
+        "description": "Notifiche admin: destinatari, sorgenti di alert (sessioni, cron, …) e schedule di invio per sorgente."
       }
     },
     "general": {
@@ -382,8 +389,8 @@
       }
     },
     "notifications": {
-      "recipientsScheduleTitle": "Destinatari & schedule",
-      "recipientsScheduleSubtitle": "Chi riceve il digest via email, con quale frequenza, e la soglia di severità per pannello/email.",
+      "recipientsScheduleTitle": "Destinatari & opzioni globali",
+      "recipientsScheduleSubtitle": "Chi riceve i digest via email. Schedule e soglie di severità si configurano nelle singole sorgenti (sessioni, cron, …).",
       "recipientsLabel": "Email destinatari",
       "recipientsHint": "Una per riga o separate da virgola.",
       "scheduleLabel": "Schedule email",
@@ -503,7 +510,25 @@
       "missingJobsTitle": "Core job mancanti",
       "missingJobsIntro": "Questi cron HTTP del core sono dichiarati in lib/cron/registry.ts ma NON sono ancora registrati in pg_cron. Esegui l'SQL corrispondente nel SQL Editor di Supabase per attivarli — l'URL viene ricostruito dal dominio del sito attualmente configurato.",
       "missingJobsNoDomain": "Il dominio del sito non è ancora configurato. Impostalo in Settings → General prima di installare i cron mancanti, altrimenti lo statement non può essere generato.",
-      "missingJobsSecretReminder": "Sostituisci <CRON_SECRET> con il bearer reale prima di eseguire."
+      "missingJobsSecretReminder": "Sostituisci <CRON_SECRET> con il bearer reale prima di eseguire.",
+      "categories": {
+        "account-gdpr": {
+          "label": "Account & GDPR",
+          "subtitle": "Ciclo di vita degli account utente: export, purge soft-delete, retention del consent ledger, email di re-consent per cambio policy."
+        },
+        "sessions": {
+          "label": "Sessioni",
+          "subtitle": "Manutenzione sessioni e rilevamento attività sospette."
+        },
+        "notifications": {
+          "label": "Notifiche",
+          "subtitle": "Dispatch delle notifiche admin e consegna email outbound."
+        },
+        "security": {
+          "label": "Sicurezza",
+          "subtitle": "Regole IP, contatori abuse e altra manutenzione lato proxy/edge."
+        }
+      }
     },
     "snippets": {
       "title": "Snippet globali",
@@ -2599,6 +2624,7 @@
     "redirect": {
       "metaTitle": "Redirect",
       "pageHeading": "Redirect",
+      "pageSubtitle": "Gestisci i redirect manuali e quelli automatici generati dai cambi di slug.",
       "totalCount": "{count, plural, one {# redirect configurato} other {# redirect configurati}}",
       "addButton": "Aggiungi redirect",
       "formNewTitle": "Nuovo redirect",
@@ -2649,6 +2675,7 @@
     "robots": {
       "metaTitle": "Robots",
       "pageHeading": "Robots",
+      "pageSubtitle": "Gestisci i file robots.txt e humans.txt serviti dall'app.",
       "pageSubtitleBefore": "Gestisci i file",
       "pageSubtitleMiddle": "e",
       "pageSubtitleAfter": "serviti dall'app.",
@@ -2668,6 +2695,7 @@
     },
     "sitemap": {
       "pageHeading": "Sitemap",
+      "pageSubtitle": "Generazione automatica del file sitemap.xml.",
       "pageSubtitleBefore": "Generazione automatica del file",
       "pageSubtitleAfter": ".",
       "placeholderTitle": "In arrivo",
@@ -3178,6 +3206,9 @@
     "services-google": "Google OAuth",
     "services-github": "GitHub CI",
     "services-cloudflare": "Cloudflare",
+    "services-supabase": "Supabase",
+    "services-sentry": "Sentry",
+    "services-dependencies": "Dipendenze",
     "settings-languages": "Lingue",
     "modules-group": "Moduli",
     "tests": "Test Suite",
