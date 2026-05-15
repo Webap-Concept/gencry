@@ -29,6 +29,10 @@ export type SeedUser = {
   username: string;
   firstName: string;
   lastName: string;
+  /** Data di iscrizione (createdAt random distribuito negli ultimi
+   *  ~90 giorni). Usata dai contributors per evitare di creare post
+   *  ANTERIORI alla registrazione del loro autore. */
+  createdAt: Date;
 };
 
 function pick<T>(arr: readonly T[]): T {
@@ -73,7 +77,14 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
   const seedDomain = `seed.${appDomain.replace(/^https?:\/\//, "")}`;
 
   // Pre-compute tutto in JS, poi 2 bulk INSERT.
+  // Iscrizioni distribuite uniformemente negli ultimi 90 giorni → la
+  // colonna "Data di iscrizione" del profilo mostra un range
+  // realistico. Acceptance dei termini e completamento onboarding
+  // allineati a `createdAt` (atto della registrazione) +1 minuto per
+  // simulare il delta normale del flusso.
   const now = new Date();
+  const REGISTRATION_WINDOW_DAYS = 90;
+  const REGISTRATION_WINDOW_MS = REGISTRATION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const seedRows: Array<{
     id: string;
     email: string;
@@ -83,6 +94,8 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
     avatarUrl: string;
     bio: string;
     interests: string[];
+    createdAt: Date;
+    onboardingAt: Date;
   }> = [];
 
   // bcrypt hash è costoso (~50ms per round). Per 100 users serebbero
@@ -113,6 +126,13 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       username,
     )}`;
 
+    // Distribuzione iscrizione: uniforme negli ultimi 90 giorni.
+    // L'onboarding completion arriva ~1-30 min dopo per realismo.
+    const createdAt = new Date(now.getTime() - Math.random() * REGISTRATION_WINDOW_MS);
+    const onboardingAt = new Date(
+      createdAt.getTime() + (1 + Math.random() * 30) * 60 * 1000,
+    );
+
     seedRows.push({
       id: "", // popolato dopo l'INSERT con il default uuid_generate
       email,
@@ -122,6 +142,8 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       avatarUrl,
       bio: pick(BIO_TEMPLATES_IT),
       interests: pickN(INTERESTS_POOL, Math.floor(Math.random() * 4)),
+      createdAt,
+      onboardingAt,
     });
   }
 
@@ -135,11 +157,13 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
         role: "member" as const,
         isAdmin: false,
         emailVerified: true,
-        acceptedTermsAt: now,
+        acceptedTermsAt: r.createdAt,
         acceptedTermsVersion: "seed-1",
-        acceptedPrivacyAt: now,
+        acceptedPrivacyAt: r.createdAt,
         acceptedPrivacyVersion: "seed-1",
-        onboardingCompletedAt: now,
+        onboardingCompletedAt: r.onboardingAt,
+        createdAt: r.createdAt,
+        updatedAt: r.onboardingAt,
       })),
     )
     .returning({ id: users.id, email: users.email });
@@ -148,7 +172,8 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
   // unique come join key, sicuro.
   const idByEmail = new Map(insertedUsers.map((u) => [u.email, u.id]));
 
-  // INSERT profiles bulk.
+  // INSERT profiles bulk. createdAt/updatedAt allineati a quello user
+  // → la "Data di iscrizione" mostrata sul profilo è coerente.
   const profileRows = seedRows
     .map((r) => ({
       userId: idByEmail.get(r.email)!,
@@ -158,6 +183,8 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       avatarUrl: r.avatarUrl,
       bio: r.bio || null,
       interests: r.interests,
+      createdAt: r.createdAt,
+      updatedAt: r.onboardingAt,
     }))
     .filter((p) => p.userId);
 
@@ -180,6 +207,7 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
         username: r.username,
         firstName: r.firstName,
         lastName: r.lastName,
+        createdAt: r.createdAt,
       } satisfies SeedUser;
     })
     .filter((u): u is SeedUser => u !== null);

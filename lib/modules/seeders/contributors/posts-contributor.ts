@@ -86,7 +86,10 @@ export async function seedPostsForUsers(
   const coinNameMap = await getCoinNameMap();
   const usernames = seedUsers.map((u) => u.username);
   const now = Date.now();
-  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  // Finestra di "post recenti" — ma vincolata dalla data di iscrizione
+  // dell'autore: un utente iscritto 2 giorni fa NON deve avere post di
+  // 30 giorni fa. Il limite inferiore è max(user.createdAt, now-30d).
+  const postWindowMs = 30 * 24 * 60 * 60 * 1000;
 
   // Pre-compute tutti i post in memoria, poi 1 bulk INSERT.
   type PendingPost = {
@@ -101,6 +104,14 @@ export async function seedPostsForUsers(
 
   for (const user of seedUsers) {
     const otherUsernames = usernames.filter((u) => u !== user.username);
+    // Earliest valid post timestamp = max(user.createdAt, now - 30d).
+    // Per utenti vecchi → spalmati ultimi 30 giorni; per utenti nuovi
+    // → spalmati dalla loro iscrizione a oggi (range più stretto).
+    const earliestPostMs = Math.max(
+      user.createdAt.getTime(),
+      now - postWindowMs,
+    );
+    const userWindowMs = now - earliestPostMs;
 
     for (let i = 0; i < opts.postsPerUser; i++) {
       const template = pick(POST_BODY_TEMPLATES_IT);
@@ -109,8 +120,11 @@ export async function seedPostsForUsers(
       // filtering logic). Niente followers/private — sarebbero invisibili
       // a tutti gli altri seed users senza un follow graph.
       const visibility = Math.random() < 0.1 ? ("members" as const) : ("public" as const);
-      // CreatedAt spalmato negli ultimi 7 giorni → timeline realistica.
-      const createdAt = new Date(now - Math.random() * sevenDaysMs);
+      // CreatedAt = random tra l'iscrizione dell'autore e ora — un post
+      // non può essere precedente alla registrazione del suo autore.
+      const createdAt = new Date(
+        earliestPostMs + Math.random() * userWindowMs,
+      );
       // 30% dei post ha immagine se opts.withImages è attivo.
       const withImage = opts.withImages && Math.random() < 0.3;
 
