@@ -20,7 +20,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
-function findScrollParent(node: Element | null): Element | null {
+/**
+ * Trova il primo antenato con `overflow-y: auto|scroll|overlay`. Da
+ * usare come `root` di IntersectionObserver quando il documento è
+ * scrollato dentro un container interno e non dalla window. Riusato
+ * da FeedList per l'infinite scroll e da useIsStuck per i sticky.
+ */
+export function findScrollParent(node: Element | null): Element | null {
   let parent: Element | null = node?.parentElement ?? null;
   while (parent) {
     const style = window.getComputedStyle(parent);

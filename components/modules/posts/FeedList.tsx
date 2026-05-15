@@ -18,6 +18,7 @@ import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
+import { findScrollParent } from "@/lib/hooks/use-is-stuck";
 import { PostCard } from "./PostCard";
 
 export type FeedListSource =
@@ -80,11 +81,17 @@ export function FeedList(props: Props) {
   useEffect(() => {
     const target = sentinelRef.current;
     if (!target || !nextCursor) return;
+    // Trova lo scroll container vero — il (protected) layout ha
+    // `<main overflow-y-auto>` come scroller interno, non la window.
+    // Senza `root` esplicito l'observer guarderebbe la window viewport
+    // e non si triggerebbe mai → infinite scroll rotto (bug visto su
+    // /explore con 100 post: caricava solo i primi 20).
+    const root = findScrollParent(target);
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) onLoadMore();
       },
-      { rootMargin: "0px 0px 800px 0px", threshold: 0 },
+      { root, rootMargin: "0px 0px 800px 0px", threshold: 0 },
     );
     observer.observe(target);
     return () => observer.disconnect();
