@@ -36,6 +36,7 @@ import {
   Pencil,
   Repeat2,
   Trash2,
+  UserMinus,
   X,
 } from "lucide-react";
 import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
@@ -44,6 +45,7 @@ import {
   softDeletePost,
   toggleBookmark,
   toggleReaction,
+  toggleUserBlock,
 } from "@/lib/modules/posts/actions";
 import {
   DropdownMenu,
@@ -57,6 +59,7 @@ import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { ReactionPopover } from "./ReactionPopover";
 import { ReportPostDialog } from "./ReportPostDialog";
+import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
   public: "Tutti",
@@ -162,6 +165,7 @@ export function PostCard({
     optimisticCounts.diamond;
   const [hidden, setHidden] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   // Edit-window è dinamico: la finestra può scadere mentre l'utente
   // sta guardando la card. Forza re-render ogni 30s così "Modifica"
@@ -181,7 +185,7 @@ export function PostCard({
     { revalidateOnFocus: false, keepPreviousData: true },
   );
 
-  if (hidden || deleted) return null;
+  if (hidden || deleted || blocked) return null;
 
   const onToggleReaction = (kind: PostReactionKind) => {
     const wasActive = ownReaction === kind;
@@ -217,6 +221,21 @@ export function PostCard({
 
   const [reportOpen, setReportOpen] = useState(false);
   const onReport = () => setReportOpen(true);
+
+  // Block flow (mutual): conferma modale → action → nascondi card.
+  // Lo stato `blocked` agisce come hide locale immediato (UX snappy);
+  // il server invaliderà i feed così al prossimo paint la card sparisce
+  // anche dagli altri tab. Il post puntuale (/post/[id]) ritornerà 404.
+  const [blockOpen, setBlockOpen] = useState(false);
+  const onBlock = () => setBlockOpen(true);
+  const onBlockConfirmed = () => {
+    setBlockOpen(false);
+    startTransition(async () => {
+      setBlocked(true);
+      const res = await toggleUserBlock({ blockedUserId: post.author.id });
+      if (!res.ok) setBlocked(false);
+    });
+  };
 
   // Edit-window check: postedAt + 10min > now?
   const ageMs = nowTick - new Date(post.createdAt).getTime();
@@ -340,6 +359,10 @@ export function PostCard({
                 {!isAuthor ? (
                   <>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onBlock}>
+                      <UserMinus size={16} strokeWidth={1.75} />
+                      Blocca {authorDisplayName(post.author)}
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={onReport}>
                       <Flag size={16} strokeWidth={1.75} />
                       Segnala
@@ -406,8 +429,9 @@ export function PostCard({
             aggiungere un <Link> stretched dentro l'embed con z-[1]. */}
         {post.repostOf ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
-            <div className="text-xs text-gc-fg-muted mb-1">
-              ↪ {authorDisplayName(post.repostOf.author)}
+            <div className="flex items-center gap-1 text-xs text-gc-fg-muted mb-1">
+              <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
+              {authorDisplayName(post.repostOf.author)}
             </div>
             <PostBody body={post.repostOf.body} />
           </div>
@@ -445,14 +469,25 @@ export function PostCard({
         </footer>
       </article>
 
-      {/* Report dialog: mounted solo per non-autori (l'autore non si segnala
-          da solo). isOpen controllato → fetch reasons solo all'apertura. */}
+      {/* Report dialog + block confirm: mounted solo per non-autori
+          (l'autore non si segnala/blocca da solo). I dialog sono
+          controllati → niente fetch finché non vengono aperti. */}
       {!isAuthor ? (
-        <ReportPostDialog
-          postId={post.id}
-          isOpen={reportOpen}
-          onOpenChange={setReportOpen}
-        />
+        <>
+          <ReportPostDialog
+            postId={post.id}
+            authorDisplayName={authorDisplayName(post.author)}
+            onWantsToBlockAuthor={onBlock}
+            isOpen={reportOpen}
+            onOpenChange={setReportOpen}
+          />
+          <BlockUserConfirmDialog
+            authorDisplayName={authorDisplayName(post.author)}
+            isOpen={blockOpen}
+            onOpenChange={setBlockOpen}
+            onConfirm={onBlockConfirmed}
+          />
+        </>
       ) : null}
 
       {/* Edit modal: mounted solo se autore + edit aperto. */}

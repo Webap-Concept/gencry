@@ -10,6 +10,7 @@
 export * from "./reactions";
 export * from "./comments";
 export * from "./bookmarks";
+export * from "./blocks";
 export * from "./feed-cache";
 export * from "./post-cache";
 export * from "./outbox";

@@ -55,6 +55,7 @@ import {
   softDeleteComment as commentsSoftDeleteService,
 } from "./services/comments";
 import { toggleBookmark as bookmarksToggleService } from "./services/bookmarks";
+import { toggleUserBlock as blocksToggleService } from "./services/blocks";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
@@ -151,6 +152,10 @@ const SoftDeleteCommentInputSchema = z.object({
 
 const ToggleBookmarkInputSchema = z.object({
   postId: UuidSchema,
+});
+
+const ToggleUserBlockInputSchema = z.object({
+  blockedUserId: UuidSchema,
 });
 
 const CreateQuoteRepostInputSchema = z.object({
@@ -599,6 +604,55 @@ export async function createQuoteRepost(
   await postInvalidate(parsed.data.repostOfId); // counter reposts_count del target
 
   return { ok: true, data: { postId } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Actions — User Block (mutual)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Toggle block mutuale. Se il viewer aveva bloccato l'utente, sblocca;
+ * altrimenti blocca. Idempotente.
+ *
+ * Mutual: una sola riga in posts_user_blocks crea il muro per entrambe
+ * le direzioni nelle query feed/post.
+ *
+ * Cache invalidation: invalida discover + post cache. A scala alta
+ * passeremo a precaricamento del Set in KV (vedi
+ * project_block_kv_set_followup).
+ */
+export async function toggleUserBlock(
+  input: z.input<typeof ToggleUserBlockInputSchema>,
+): Promise<ActionResult<{ blocked: boolean }>> {
+  const user = await getUser();
+  if (!user) return fail(I18N.unauthenticated);
+  if (user.bannedAt) return fail(I18N.banned);
+
+  const parsed = ToggleUserBlockInputSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  if (parsed.data.blockedUserId === user.id) {
+    return fail("posts.errors.cannot_block_self");
+  }
+
+  // Verifica che l'utente target esista (defense in depth — l'UI non
+  // dovrebbe mai chiamare con un id invalido, ma evita 500 da CASCADE).
+  const target = await db
+    .select({ id: userProfiles.userId })
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, parsed.data.blockedUserId))
+    .limit(1);
+  if (!target[0]) return fail(I18N.notFound);
+
+  const result = await blocksToggleService(user.id, parsed.data.blockedUserId);
+
+  // Invalidazione cache: il viewer non vede più post del bloccato e
+  // viceversa. Conservativo: nuke discover + feed personale di entrambi.
+  await feedInvalidate("discover");
+  await feedInvalidate({ user: user.id });
+  await feedInvalidate({ user: parsed.data.blockedUserId });
+
+  return { ok: true, data: result };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

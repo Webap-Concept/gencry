@@ -14,15 +14,43 @@
 //   - Save batch a fondo pagina: invia l'intera lista al Server Action
 import { useState, useTransition } from "react";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Ban,
   Flag,
+  HelpCircle,
   Loader2,
+  MessageCircleWarning,
   Pencil,
   Plus,
   Save,
+  ShieldAlert,
   Trash2,
+  TrendingUp,
+  VenetianMask,
+  type LucideIcon,
 } from "lucide-react";
+
+// Whitelist delle icone Lucide supportate nei report reasons. L'admin
+// può digitare uno di questi nomi nel campo "Icona"; nomi diversi
+// degradano a HelpCircle senza crash. Vedi services/report-reasons.ts
+// per l'omologa whitelist lato user-facing (ReportPostDialog).
+const REASON_ICONS: Record<string, LucideIcon> = {
+  Ban,
+  AlertTriangle,
+  TrendingUp,
+  MessageCircleWarning,
+  VenetianMask,
+  ShieldAlert,
+  HelpCircle,
+};
+const REASON_ICON_NAMES = Object.keys(REASON_ICONS);
+
+function resolveReasonIcon(name: string | undefined): LucideIcon {
+  if (!name) return HelpCircle;
+  return REASON_ICONS[name] ?? HelpCircle;
+}
 import {
   AdminDialog,
   AdminDialogCancelButton,
@@ -185,8 +213,13 @@ export function ReportReasonsManager({ initial }: Props) {
                 </button>
               </AdminTooltip>
             </div>
-            <span className="text-lg shrink-0 w-6 text-center">
-              {r.icon || "•"}
+            <span
+              className="shrink-0 w-6 flex items-center justify-center"
+              style={{ color: "var(--admin-text-faint)" }}>
+              {(() => {
+                const Icon = resolveReasonIcon(r.icon);
+                return <Icon size={16} strokeWidth={1.75} aria-hidden />;
+              })()}
             </span>
             <div className="flex-1 min-w-0">
               <p
@@ -411,14 +444,36 @@ function ReasonEditDialog({
             </AdminDialogField>
           </div>
 
-          <AdminDialogField label="Icona (emoji o testo)">
-            <input
-              type="text"
-              value={draft.icon ?? ""}
-              onChange={(e) => onChange({ ...draft, icon: e.target.value })}
-              placeholder="📈"
-              style={adminFieldStyle}
-            />
+          <AdminDialogField
+            label="Icona (nome lucide-react)"
+            hint={
+              <>
+                Whitelist supportata: <code>{REASON_ICON_NAMES.join(", ")}</code>.
+                Nomi non in lista degradano a HelpCircle. Anteprima a destra.
+              </>
+            }>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={draft.icon ?? ""}
+                onChange={(e) => onChange({ ...draft, icon: e.target.value })}
+                placeholder="AlertTriangle"
+                style={adminFieldStyle}
+              />
+              <span
+                className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+                style={{
+                  background: "var(--admin-page-bg)",
+                  border: "1px solid var(--admin-input-border)",
+                  color: "var(--admin-text)",
+                }}
+                aria-hidden>
+                {(() => {
+                  const Icon = resolveReasonIcon(draft.icon);
+                  return <Icon size={16} strokeWidth={1.75} />;
+                })()}
+              </span>
+            </div>
           </AdminDialogField>
 
           <div className="flex items-center gap-6 pt-1">

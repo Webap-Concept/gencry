@@ -34,6 +34,7 @@ import {
 } from "@/lib/db/schema";
 import { getCachedFeedIds } from "./services/feed-cache";
 import { getCachedPosts } from "./services/post-cache";
+import { isBlockedBetween, notBlockedBy } from "./services/blocks";
 import { cursorFromRow, decodeCursor, encodeCursor } from "./lib/cursor";
 import type {
   CommentCardData,
@@ -117,6 +118,23 @@ function cursorClauseAsc(cursor: ReturnType<typeof decodeCursor>) {
 }
 
 /**
+ * Filtro block per query "post-centric" (autore della row = posts.author_id).
+ * Anonymous (no viewerUserId) → nessun filtro. Loggato → NOT EXISTS sui
+ * `posts_user_blocks` in entrambe le direzioni (mutual). Vedi service
+ * `notBlockedBy` per il dettaglio del fragment SQL.
+ */
+function viewerNotBlockedOnPosts(viewerUserId: string | undefined) {
+  if (!viewerUserId) return undefined;
+  return notBlockedBy(viewerUserId, "posts.author_id");
+}
+
+/** Variante per JOIN su posts_comments (autore = posts_comments.author_id). */
+function viewerNotBlockedOnComments(viewerUserId: string | undefined) {
+  if (!viewerUserId) return undefined;
+  return notBlockedBy(viewerUserId, "posts_comments.author_id");
+}
+
+/**
  * Trasforma una lista di righe `(id, createdAt)` paginate +1 in un
  * `PostListPage`: separa il LIMIT sentinel e calcola il nextCursor.
  */
@@ -173,6 +191,7 @@ export async function getFeedIds(opts: {
           and(
             isNull(posts.deletedAt),
             discoverVisibilityClause(opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
             cursorClause(cursor),
           ),
         )
@@ -226,6 +245,7 @@ export async function getProfileFeedIds(opts: {
         eq(posts.authorId, opts.authorId),
         isNull(posts.deletedAt),
         profileVisibilityClause(opts.authorId, opts.viewerUserId),
+        viewerNotBlockedOnPosts(opts.viewerUserId),
         cursorClause(cursor),
       ),
     )
@@ -253,6 +273,7 @@ export async function getTickerFeedIds(opts: {
         eq(postsTickers.ticker, tickerNorm),
         isNull(posts.deletedAt),
         discoverVisibilityClause(opts.viewerUserId),
+        viewerNotBlockedOnPosts(opts.viewerUserId),
         cursor
           ? or(
               lt(postsTickers.createdAt, new Date(cursor.ms)),
@@ -326,6 +347,7 @@ export async function getMentionsFeedIds(opts: {
         eq(postsMentions.mentionedUserId, opts.targetUserId),
         isNull(posts.deletedAt),
         discoverVisibilityClause(opts.viewerUserId),
+        viewerNotBlockedOnPosts(opts.viewerUserId),
         cursor
           ? or(
               lt(postsMentions.createdAt, new Date(cursor.ms)),
@@ -416,13 +438,17 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
 
 /**
  * Query "core" posts + author info per N ids. Esclude i soft-deleted.
- * NB: per il viewerUserId la visibility NON viene riapplicata qui — la
- * fonte di verità è stata getFeedIds(). Se un caller passa direttamente
- * un id che il viewer non ha diritto di vedere, riceve comunque la row
- * (security trade-off: l'enforcement è sul feed listing). Per pagine
- * single-post (getPostBySlug) c'è check visibility esplicito sotto.
+ * NB: per la visibility la fonte di verità è stata getFeedIds(); qui
+ * NON viene riapplicata. Tuttavia il filtro block (mutual) SÌ — se il
+ * viewer e l'autore hanno una relazione di block, la row sparisce
+ * dall'hydration (utile per quote repost target: l'embed diventa
+ * tombstone). Per pagine single-post c'è check visibility esplicito
+ * in getPostBySlug.
  */
-async function selectPostsCore(ids: string[]): Promise<RawPostRow[]> {
+async function selectPostsCore(
+  ids: string[],
+  viewerUserId?: string,
+): Promise<RawPostRow[]> {
   if (ids.length === 0) return [];
   const rows = await db
     .select({
@@ -450,7 +476,13 @@ async function selectPostsCore(ids: string[]): Promise<RawPostRow[]> {
     })
     .from(posts)
     .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
-    .where(and(inArray(posts.id, ids), isNull(posts.deletedAt)));
+    .where(
+      and(
+        inArray(posts.id, ids),
+        isNull(posts.deletedAt),
+        viewerNotBlockedOnPosts(viewerUserId),
+      ),
+    );
   return rows;
 }
 
@@ -570,16 +602,18 @@ export async function getPostsByIds(
   if (ids.length === 0) return [];
 
   return getCachedPosts(ids, async (missingIds) => {
-    // Step 1: core posts
-    const core = await selectPostsCore(missingIds);
+    // Step 1: core posts (filtra anche per block tra viewer e autore)
+    const core = await selectPostsCore(missingIds, opts.viewerUserId);
     if (core.length === 0) return [];
 
-    // Step 2: repost targets (depth 1)
+    // Step 2: repost targets (depth 1) — anche il target è block-filtrato:
+    // se il viewer ha bloccato l'autore del post originale, il quote
+    // perde l'embed e cade su tombstone (UX corretta, niente leak).
     const repostTargetIds = Array.from(
       new Set(core.filter((p) => p.repostOfId).map((p) => p.repostOfId!)),
     );
     const targetCore = repostTargetIds.length
-      ? await selectPostsCore(repostTargetIds)
+      ? await selectPostsCore(repostTargetIds, opts.viewerUserId)
       : [];
     const targetCoreById = new Map(targetCore.map((p) => [p.id, p]));
 
@@ -677,6 +711,15 @@ export async function getPostBySlug(
 
   if (!meta || meta.deletedAt) return null;
 
+  // Block check: se viewer e autore sono in block (qualunque direzione)
+  // → 404 invece di 403 (nascondi esistenza).
+  if (
+    opts.viewerUserId &&
+    (await isBlockedBetween(opts.viewerUserId, meta.authorId))
+  ) {
+    return null;
+  }
+
   // Visibility gate identico a profileVisibilityClause(authorId, viewer),
   // ma valutato a TS-side perché abbiamo già la row.
   const v = meta.visibility as PostVisibility;
@@ -699,6 +742,7 @@ export async function getPostBySlug(
 
 export async function getCommentsForPost(opts: {
   postId: string;
+  viewerUserId?: string;
   cursor?: string;
   pageSize?: number;
 }): Promise<CommentsPage> {
@@ -725,6 +769,7 @@ export async function getCommentsForPost(opts: {
       and(
         eq(postsComments.postId, opts.postId),
         isNull(postsComments.deletedAt),
+        viewerNotBlockedOnComments(opts.viewerUserId),
         cursorClauseAsc(cursor),
       ),
     )

@@ -1616,6 +1616,25 @@ export const postsLinkPreviews = pgTable(
   },
 );
 
+// User-to-user block (mutual). Se A blocca B, NESSUNO dei due vede
+// contenuti dell'altro nelle query del modulo Posts. Enforcement nei
+// filtri di queries.ts (getFeedIds/getPostsByIds/getPostBySlug/getCommentsForPost).
+// Vedi M_posts_005_user_blocks.sql.
+export const postsUserBlocks = pgTable(
+  "posts_user_blocks",
+  {
+    blockerId: uuid("blocker_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.blockerId, t.blockedId] }),
+    index("idx_posts_user_blocks_blocked").on(t.blockedId, t.blockerId),
+  ],
+);
+
 export const postsOutbox = pgTable(
   "posts_outbox",
   {

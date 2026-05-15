@@ -6,7 +6,37 @@
 // è controllato dal parent (PostCard): isOpen + onOpenChange + onSubmitted.
 import { useEffect, useState, useTransition } from "react";
 import { useLocale } from "next-intl";
-import { Flag, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  Flag,
+  HelpCircle,
+  Loader2,
+  MessageCircleWarning,
+  ShieldAlert,
+  TrendingUp,
+  VenetianMask,
+  type LucideIcon,
+} from "lucide-react";
+
+// Map dei nomi icona supportati nei report reasons. Whitelist esplicita
+// così lucide-react tree-shakea senza bundle bloat. Se l'admin salva
+// un nome non in lista → fallback HelpCircle (resiliente, no crash).
+const REASON_ICONS: Record<string, LucideIcon> = {
+  Ban,
+  AlertTriangle,
+  TrendingUp,
+  MessageCircleWarning,
+  VenetianMask,
+  ShieldAlert,
+  HelpCircle,
+};
+
+function resolveReasonIcon(name: string | undefined): LucideIcon {
+  if (!name) return HelpCircle;
+  return REASON_ICONS[name] ?? HelpCircle;
+}
 import { Button } from "@/components/ui/button";
 import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 import {
@@ -17,6 +47,13 @@ import type { ReportReason } from "@/lib/modules/posts/services/report-reasons";
 
 type Props = {
   postId: string;
+  /** Display name autore (es. "@mariotest"). Usato per il prompt "Vuoi
+   *  bloccare anche?". Se omesso, lo step finale degrada a sola conferma. */
+  authorDisplayName?: string;
+  /** Callback invocato se l'utente, dopo aver segnalato, vuole anche
+   *  bloccare l'autore. Il parent monta il flusso block (modale conferma
+   *  + action). Se omesso, lo step finale non offre l'opzione. */
+  onWantsToBlockAuthor?: () => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmitted?: () => void;
@@ -33,6 +70,8 @@ function pickLocalized(
 
 export function ReportPostDialog({
   postId,
+  authorDisplayName,
+  onWantsToBlockAuthor,
   isOpen,
   onOpenChange,
   onSubmitted,
@@ -92,7 +131,8 @@ export function ReportPostDialog({
       if (res.ok) {
         setSubmitted(true);
         onSubmitted?.();
-        setTimeout(() => onOpenChange(false), 1200);
+        // Non chiudiamo automaticamente: lo step finale offre il prompt
+        // "Vuoi bloccare anche {author}?" (vedi render branch submitted).
       } else {
         setSubmitError(res.error);
       }
@@ -108,7 +148,29 @@ export function ReportPostDialog({
         description="Scegli il motivo della segnalazione. Verrà esaminata da un moderatore."
         size="md"
         footer={
-          submitted ? null : (
+          submitted ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}>
+                Chiudi
+              </Button>
+              {onWantsToBlockAuthor && authorDisplayName ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onWantsToBlockAuthor();
+                  }}>
+                  Blocca {authorDisplayName}
+                </Button>
+              ) : null}
+            </>
+          ) : (
             <>
               <Button
                 type="button"
@@ -132,9 +194,23 @@ export function ReportPostDialog({
           )
         }>
         {submitted ? (
-          <p className="text-sm text-gc-fg py-2">
-            ✅ Segnalazione inviata. Grazie per la collaborazione.
-          </p>
+          <div className="space-y-3 py-2">
+            <p className="flex items-center gap-2 text-sm text-gc-fg">
+              <CheckCircle2
+                size={18}
+                strokeWidth={2}
+                className="text-gc-success-fg shrink-0"
+                aria-hidden
+              />
+              Segnalazione inviata. Grazie per la collaborazione.
+            </p>
+            {onWantsToBlockAuthor && authorDisplayName ? (
+              <p className="text-sm text-gc-fg-2">
+                Vuoi anche bloccare {authorDisplayName}? Il blocco è
+                mutuale: non vedrete più i contenuti l'uno dell'altro.
+              </p>
+            ) : null}
+          </div>
         ) : reasons === null && !loadError ? (
           <div className="flex items-center justify-center py-6">
             <Loader2
@@ -157,6 +233,7 @@ export function ReportPostDialog({
                 const label = pickLocalized(r.labelByLocale, locale, r.key);
                 const desc = pickLocalized(r.descriptionByLocale, locale, "");
                 const isActive = r.key === selectedKey;
+                const ReasonIcon = resolveReasonIcon(r.icon);
                 return (
                   <label
                     key={r.key}
@@ -175,7 +252,12 @@ export function ReportPostDialog({
                     />
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-1.5 text-sm font-medium text-gc-fg">
-                        {r.icon ? <span aria-hidden>{r.icon}</span> : null}
+                        <ReasonIcon
+                          size={16}
+                          strokeWidth={1.75}
+                          className="shrink-0 text-gc-fg-2"
+                          aria-hidden
+                        />
                         {label}
                         {r.requiresDetails ? (
                           <span className="text-[10px] uppercase tracking-wide text-gc-fg-muted">

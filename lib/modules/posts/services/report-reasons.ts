@@ -31,6 +31,11 @@ export const ReportReasonSchema = z.object({
     .regex(/^[a-z0-9_]+$/, "lowercase, digits and underscore only"),
   labelByLocale: z.record(z.string(), z.string().min(1).max(80)),
   descriptionByLocale: z.record(z.string(), z.string().max(200)).optional(),
+  // Nome di un'icona lucide-react (es. "Ban", "AlertTriangle"). Niente
+  // emoji nel social: il frontend risolve il nome via lookup dinamico
+  // (fallback HelpCircle se nome ignoto). Il refactor da emoji a name
+  // include un remap automatico in loadReasonsFromDb() per le righe
+  // esistenti — vedi EMOJI_TO_LUCIDE sotto.
   icon: z.string().max(40).optional(),
   enabled: z.boolean(),
   requiresDetails: z.boolean(),
@@ -67,7 +72,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Contenuto ripetitivo, bot, link spam",
       en: "Repetitive content, bots, link spam",
     },
-    icon: "🚫",
+    icon: "Ban",
     enabled: true,
     requiresDetails: false,
     position: 0,
@@ -79,7 +84,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Phishing, rug pull, fake airdrop, link malevoli",
       en: "Phishing, rug pulls, fake airdrops, malicious links",
     },
-    icon: "⚠️",
+    icon: "AlertTriangle",
     enabled: true,
     requiresDetails: false,
     position: 1,
@@ -94,7 +99,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Pump & dump coordinato, shilling pagato non dichiarato",
       en: "Coordinated pump & dump, undisclosed paid shilling",
     },
-    icon: "📈",
+    icon: "TrendingUp",
     enabled: true,
     requiresDetails: false,
     position: 2,
@@ -106,7 +111,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Attacchi personali, hate speech, doxxing",
       en: "Personal attacks, hate speech, doxxing",
     },
-    icon: "🗯️",
+    icon: "MessageCircleWarning",
     enabled: true,
     requiresDetails: false,
     position: 3,
@@ -118,7 +123,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Si finge un altro utente reale o un progetto noto",
       en: "Pretends to be another real user or known project",
     },
-    icon: "🎭",
+    icon: "VenetianMask",
     enabled: true,
     requiresDetails: false,
     position: 4,
@@ -133,7 +138,7 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "NSFW, violenza esplicita, contenuti illeciti",
       en: "NSFW, explicit violence, illicit content",
     },
-    icon: "🔞",
+    icon: "ShieldAlert",
     enabled: true,
     requiresDetails: false,
     position: 5,
@@ -145,12 +150,36 @@ export const DEFAULT_REPORT_REASONS: ReportReason[] = [
       it: "Specifica il motivo nei dettagli",
       en: "Specify the reason in the details",
     },
-    icon: "❓",
+    icon: "HelpCircle",
     enabled: true,
     requiresDetails: true,
     position: 99,
   },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────
+// Emoji → Lucide remap (refactor 2026-05-15 — no emoji nel social)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Le righe esistenti nel DB potrebbero ancora avere emoji nel campo
+// `icon`. Le rimappiamo on-read così l'admin non deve fare nulla; al
+// prossimo "save" dell'admin la lista viene riscritta col nome Lucide e
+// la migrazione è completa. Non scrivo una migration SQL dedicata: il
+// remap è idempotente e il volume è ~7 righe — costo trascurabile.
+const EMOJI_TO_LUCIDE: Record<string, string> = {
+  "🚫": "Ban",
+  "⚠️": "AlertTriangle",
+  "📈": "TrendingUp",
+  "🗯️": "MessageCircleWarning",
+  "🎭": "VenetianMask",
+  "🔞": "ShieldAlert",
+  "❓": "HelpCircle",
+};
+
+function remapIcon(icon: string | undefined): string | undefined {
+  if (!icon) return icon;
+  return EMOJI_TO_LUCIDE[icon] ?? icon;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Read
@@ -171,7 +200,8 @@ async function loadReasonsFromDb(): Promise<ReportReason[]> {
     const parsed = JSON.parse(raw);
     const result = ReportReasonsArraySchema.safeParse(parsed);
     if (!result.success) return DEFAULT_REPORT_REASONS;
-    return result.data;
+    // Remap emoji → lucide name al volo (vedi nota EMOJI_TO_LUCIDE).
+    return result.data.map((r) => ({ ...r, icon: remapIcon(r.icon) }));
   } catch {
     return DEFAULT_REPORT_REASONS;
   }
