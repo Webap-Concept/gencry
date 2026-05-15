@@ -20,6 +20,8 @@
 //   - Modifica ticker/mentions del post → invalidateFeedCache({ ticker: '...' })
 //                                       e per ogni mentioned user
 //   - Soft-delete/restore → invalidateFeedCache('discover') + author + ticker
+import type { PostListPage } from "../types";
+
 export type FeedCacheScope =
   | "discover"
   | { user: string }            // Following feed dell'utente
@@ -33,15 +35,22 @@ export type FeedCacheScope =
  * Pattern cache-aside. V1 chiama sempre `fallback()`. V2 leggerà da KV e
  * popolerà al miss con write-through TTL configurabile.
  *
+ * Firma cambiata 2026-05-16: prima ritornava solo `string[]` (gli ids),
+ * costringendo il caller a un round-trip extra per ricostruire il
+ * cursor → in V1 era impossibile sapere se c'erano altre pagine,
+ * `nextCursor` finiva sempre null e l'infinite scroll si fermava
+ * al primo batch. Ora restituiamo `PostListPage` completo (ids +
+ * nextCursor) così V1 è funzionale e V2 può cachare l'intero payload.
+ *
  * @param key      identificativo univoco della query (vedi feed-cache-keys
  *                 quando esisterà — per ora keys testuali generate dal
  *                 chiamante, es. "discover:cursor=null:limit=21")
- * @param fallback funzione che recupera gli ID dal DB
+ * @param fallback funzione che recupera la pagina dal DB
  */
 export async function getCachedFeedIds(
   _key: string,
-  fallback: () => Promise<string[]>,
-): Promise<string[]> {
+  fallback: () => Promise<PostListPage>,
+): Promise<PostListPage> {
   return fallback();
 }
 

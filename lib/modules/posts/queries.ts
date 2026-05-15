@@ -197,36 +197,9 @@ export async function getFeedIds(opts: {
         )
         .orderBy(desc(posts.createdAt), desc(posts.id))
         .limit(pageSize + 1);
-      return toListPage(rows, pageSize).ids;
+      return toListPage(rows, pageSize);
     },
-  ).then((ids) =>
-    // Ricostruisce nextCursor dall'ultima riga (cache ritorna solo ids).
-    // V2 con KV vorrà serializzare anche nextCursor — per ora ricalcoliamo.
-    rebuildPage(ids, pageSize),
   );
-}
-
-/** Helper: dato un array di ids già limitato a pageSize+1 (o pageSize),
- *  reflette se c'è nextCursor. Per ora la cache ritorna max pageSize+1
- *  ids; calcoliamo qui da `posts.createdAt`. Round-trip aggiuntivo, ma
- *  in V1 (no cache) `getCachedFeedIds` chiama subito il fallback che
- *  già conosce nextCursor — quindi questa funzione è no-op per ora.
- *  Manteniamo lo skeleton per V2.
- */
-async function rebuildPage(ids: string[], pageSize: number): Promise<PostListPage> {
-  if (ids.length <= pageSize) {
-    return { ids, nextCursor: null };
-  }
-  const page = ids.slice(0, pageSize);
-  // V2: query timestamp del page[last] per costruire il cursor.
-  // V1: cache è pass-through e questo branch non viene mai raggiunto.
-  const lastRow = await db
-    .select({ id: posts.id, createdAt: posts.createdAt })
-    .from(posts)
-    .where(eq(posts.id, page[page.length - 1]))
-    .limit(1);
-  if (!lastRow[0]) return { ids: page, nextCursor: null };
-  return { ids: page, nextCursor: encodeCursor(cursorFromRow(lastRow[0])) };
 }
 
 export async function getProfileFeedIds(opts: {
