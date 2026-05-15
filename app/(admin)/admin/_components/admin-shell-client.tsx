@@ -1,6 +1,6 @@
 "use client";
 
-import { Tooltip } from "radix-ui";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import MobileMenuButton from "./mobile-menu-button";
@@ -31,7 +31,7 @@ export default function AdminShellClient({
   const permissionsSet = new Set(userPermissions);
 
   return (
-    <Tooltip.Provider delayDuration={200} skipDelayDuration={300}>
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
       <div
         className="flex h-screen overflow-hidden"
         style={{ background: "var(--admin-page-bg)" }}>
@@ -71,6 +71,6 @@ export default function AdminShellClient({
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
         </div>
       </div>
-    </Tooltip.Provider>
+    </TooltipProvider>
   );
 }

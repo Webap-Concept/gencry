@@ -1,28 +1,35 @@
 "use client";
-
-import { Tooltip } from "radix-ui";
+// app/(admin)/admin/_components/admin-tooltip.tsx
+//
+// Wrapper convenience sopra le primitive shadcn `<Tooltip>` per il
+// pannello admin (analogo a AdminDialog → AdminDialog wrappa shadcn
+// Dialog, AdminTooltip wrappa shadcn Tooltip).
+//
+// REGOLA: in /admin/** ogni icona-cliccabile SENZA testo (azioni
+// inline su tabelle/card/toolbar) deve essere wrappata in
+// `<AdminTooltip label="...">` per dare al keyboard-only user e a
+// chi non riconosce l'icona un hint testuale. Niente `title=""`
+// native (no keyboard focus, mobile, no theming, flicker su hover).
+//
+// Stile: background slate-900 (#0f172a) + testo bianco — coerente
+// nel theme admin sabbia e leggibile su qualunque sfondo.
+//
+// Esempio:
+//   <AdminTooltip label="Modifica pagina">
+//     <button onClick={onEdit}><Pencil size={14} /></button>
+//   </AdminTooltip>
+//
+// Il TooltipProvider (delay 200ms / skipDelay 300ms) vive in
+// admin-shell-client.tsx — i consumer non devono montarne uno proprio.
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { ReactNode } from "react";
 
 type Side = "top" | "right" | "bottom" | "left";
 
-/**
- * Tooltip wrapper for the admin panel. Built on Radix so we get proper
- * keyboard focus support, collision-aware positioning and no flicker —
- * the things native `title=""` doesn't give. Styled with `--admin-*`
- * tokens so it follows whatever theme the panel is on.
- *
- * The shared `<Tooltip.Provider>` lives in `admin-shell-client.tsx`,
- * so consumers don't need to mount one — just wrap any focusable
- * trigger with this component.
- *
- *   <AdminTooltip label="Vai al profilo utente">
- *     <button>...</button>
- *   </AdminTooltip>
- *
- * The trigger MUST forward refs and accept arbitrary props (Radix uses
- * Slot under the hood). Native elements and `forwardRef` components are
- * fine; if you wrap a custom component, make sure it spreads props down.
- */
 export function AdminTooltip({
   label,
   children,
@@ -34,27 +41,21 @@ export function AdminTooltip({
   children: ReactNode;
   side?: Side;
   sideOffset?: number;
-  /** Per-instance override; defaults to the provider value (200ms). */
+  /** Per-instance override; default = provider value (200ms). */
   delayDuration?: number;
 }) {
   return (
-    <Tooltip.Root delayDuration={delayDuration}>
-      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
-          side={side}
-          sideOffset={sideOffset}
-          className="admin-tooltip-content z-50 px-2 py-1 text-[11px] font-medium rounded-md shadow-md select-none"
-          style={{
-            background: "var(--admin-text)",
-            color: "var(--admin-page-bg)",
-            maxWidth: 240,
-          }}
-        >
-          {label}
-          <Tooltip.Arrow style={{ fill: "var(--admin-text)" }} width={10} height={5} />
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+    <Tooltip delayDuration={delayDuration}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent
+        side={side}
+        sideOffset={sideOffset}
+        // Override delle classi shadcn default (`bg-foreground
+        // text-background`) per fissare slate-900/white indipendentemente
+        // dal tema. Le classi `!` vincono via tailwind-merge.
+        className="!bg-slate-900 !text-white px-2 py-1 text-[11px] font-medium rounded-md shadow-md select-none">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

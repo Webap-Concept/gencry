@@ -31,6 +31,7 @@ import {
   AdminDialogField,
   adminFieldStyle,
 } from "@/app/(admin)/admin/_components/admin-dialog";
+import { AdminTooltip } from "@/app/(admin)/admin/_components/admin-tooltip";
 import type { ReportReason } from "@/lib/modules/posts/services/report-reasons";
 import { saveReportReasonsAction } from "../actions";
 
@@ -163,22 +164,26 @@ export function ReportReasonsManager({ initial }: Props) {
               opacity: r.enabled ? 1 : 0.55,
             }}>
             <div className="flex flex-col gap-0.5">
-              <button
-                type="button"
-                onClick={() => move(idx, -1)}
-                disabled={idx === 0}
-                aria-label="Sposta su"
-                className="p-0.5 disabled:opacity-30">
-                <ArrowUp size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={() => move(idx, 1)}
-                disabled={idx === reasons.length - 1}
-                aria-label="Sposta giù"
-                className="p-0.5 disabled:opacity-30">
-                <ArrowDown size={12} />
-              </button>
+              <AdminTooltip label="Sposta su">
+                <button
+                  type="button"
+                  onClick={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  aria-label="Sposta su"
+                  className="p-0.5 disabled:opacity-30">
+                  <ArrowUp size={12} />
+                </button>
+              </AdminTooltip>
+              <AdminTooltip label="Sposta giù">
+                <button
+                  type="button"
+                  onClick={() => move(idx, 1)}
+                  disabled={idx === reasons.length - 1}
+                  aria-label="Sposta giù"
+                  className="p-0.5 disabled:opacity-30">
+                  <ArrowDown size={12} />
+                </button>
+              </AdminTooltip>
             </div>
             <span className="text-lg shrink-0 w-6 text-center">
               {r.icon || "•"}
@@ -214,22 +219,26 @@ export function ReportReasonsManager({ initial }: Props) {
               attivo
             </label>
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => openEdit(idx)}
-                aria-label="Modifica motivo"
-                className="p-1.5 rounded transition-colors"
-                style={{ color: "var(--admin-text-faint)" }}>
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => removeReason(idx)}
-                aria-label="Elimina motivo"
-                className="p-1.5 rounded transition-colors"
-                style={{ color: "var(--gc-neg, #dc2626)" }}>
-                <Trash2 size={14} />
-              </button>
+              <AdminTooltip label="Modifica motivo">
+                <button
+                  type="button"
+                  onClick={() => openEdit(idx)}
+                  aria-label="Modifica motivo"
+                  className="p-1.5 rounded transition-colors"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  <Pencil size={14} />
+                </button>
+              </AdminTooltip>
+              <AdminTooltip label="Elimina motivo">
+                <button
+                  type="button"
+                  onClick={() => removeReason(idx)}
+                  aria-label="Elimina motivo"
+                  className="p-1.5 rounded transition-colors"
+                  style={{ color: "var(--gc-neg, #dc2626)" }}>
+                  <Trash2 size={14} />
+                </button>
+              </AdminTooltip>
             </div>
           </li>
         ))}
