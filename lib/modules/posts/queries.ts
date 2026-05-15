@@ -15,6 +15,7 @@
 // che il viewer non ha diritto di vedere — il filtraggio successivo in
 // UI è una difesa in profondità, non la fonte di verità.
 import { and, asc, desc, eq, gt, inArray, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/drizzle";
 import {
   POST_REACTION_KINDS,
@@ -26,7 +27,6 @@ import {
   postsReactions,
   postsReports,
   postsTickers,
-  users,
   userProfiles,
   type PostReactionKind,
   type PostReport,
@@ -809,12 +809,12 @@ export async function getReportsQueue(opts: {
   limit?: number;
 }): Promise<ReportsQueuePage> {
   const limit = opts.limit ?? DEFAULT_PAGE_SIZE;
-  const reporterUserProfiles = userProfiles;
-  const authorUserProfiles = userProfiles;
-
-  // Alias per JOIN doppio (reporter + author del post)
-  const reporterUsers = users;
-  const authorUsers = users;
+  // JOIN doppio sulla stessa tabella user_profiles (reporter + author del
+  // post). Servono alias distinti — altrimenti Drizzle lancia
+  // "Alias already used". Stessa cosa per users (qui non serve, lo
+  // teniamo per simmetria semantica).
+  const reporterUserProfiles = alias(userProfiles, "reporter_profile");
+  const authorUserProfiles = alias(userProfiles, "author_profile");
 
   // Cursor keyset: (created_at DESC, id DESC)
   const cursorClause = (() => {
