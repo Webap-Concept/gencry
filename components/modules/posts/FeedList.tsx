@@ -2,12 +2,16 @@
 // components/modules/posts/FeedList.tsx
 //
 // Lista paginata generica del feed. Server-rendered la first page,
-// "Carica altri" client-side append via Server Action `loadMoreFeed`.
+// **infinite scroll automatico** via IntersectionObserver sul sentinel
+// in coda alla lista: la prossima pagina viene fetched quando l'utente
+// passa l'~80% scroll grazie a `rootMargin` esteso 800px. Il bottone
+// "Carica altri" resta come fallback per accessibility (keyboard +
+// screen reader users).
 //
 // Source-agnostic: il caller passa `source` discriminato (tab vs
 // ticker) + empty state custom. Usato dalla Home (Following), dalla
 // /explore (Discover) e dalla /explore?ticker= (Ticker filter).
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
@@ -44,8 +48,9 @@ export function FeedList(props: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const onLoadMore = () => {
+  const onLoadMore = useCallback(() => {
     if (!nextCursor || isPending) return;
     setError(null);
     startTransition(async () => {
@@ -65,7 +70,25 @@ export function FeedList(props: Props) {
         setError(res.error);
       }
     });
-  };
+  }, [nextCursor, isPending, props.source]);
+
+  // Infinite scroll + prefetch: IntersectionObserver sul sentinel in
+  // fondo alla lista. `rootMargin: "0px 0px 800px 0px"` estende il
+  // root verso il basso di 800px → l'observer fa scattare il fetch
+  // quando l'utente è ancora 800px sopra la fine, dando tempo al
+  // server di rispondere prima che si veda lo skeleton.
+  useEffect(() => {
+    const target = sentinelRef.current;
+    if (!target || !nextCursor) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMore();
+      },
+      { rootMargin: "0px 0px 800px 0px", threshold: 0 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [nextCursor, onLoadMore]);
 
   return (
     <section aria-label="Feed">
@@ -83,6 +106,16 @@ export function FeedList(props: Props) {
             />
           ))
         )}
+
+        {/* Skeleton on prefetch — 2 card pulsanti in coda durante il
+            fetch della prossima pagina così l'utente vede subito che
+            sta arrivando contenuto. */}
+        {isPending && nextCursor ? (
+          <>
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+          </>
+        ) : null}
       </div>
 
       {error ? (
@@ -91,23 +124,56 @@ export function FeedList(props: Props) {
         </p>
       ) : null}
 
+      {/* Sentinel invisibile per IntersectionObserver. Renderizzato solo
+          se c'è ancora una prossima pagina da fetchare. */}
       {nextCursor ? (
-        <div className="mt-4 flex justify-center">
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={isPending}
-            className="px-4 py-1.5 rounded-full border border-gc-line text-sm text-gc-fg hover:bg-gc-bg-2 disabled:opacity-40"
-          >
-            {isPending ? "Carico…" : "Carica altri"}
-          </button>
-        </div>
+        <>
+          <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
+          {/* Fallback button per accessibility: keyboard + screen reader
+              users che non triggerano l'IntersectionObserver. Mostrato
+              sempre, anche se l'auto-load di solito anticipa il click. */}
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={isPending}
+              className="px-4 py-1.5 rounded-full border border-gc-line text-sm text-gc-fg hover:bg-gc-bg-2 disabled:opacity-40">
+              {isPending ? "Carico…" : "Carica altri"}
+            </button>
+          </div>
+        </>
       ) : posts.length > 0 ? (
         <p className="mt-4 text-center text-xs text-gc-fg-muted">
           Hai visto tutto.
         </p>
       ) : null}
     </section>
+  );
+}
+
+function PostCardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="relative bg-gc-bg-2 border border-gc-line rounded-gc p-5 animate-pulse">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full bg-gc-bg-3 shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3 w-24 rounded bg-gc-bg-3" />
+          <div className="h-2.5 w-16 rounded bg-gc-bg-3" />
+        </div>
+      </div>
+      <div className="space-y-2 mt-4">
+        <div className="h-3 w-full rounded bg-gc-bg-3" />
+        <div className="h-3 w-5/6 rounded bg-gc-bg-3" />
+        <div className="h-3 w-3/4 rounded bg-gc-bg-3" />
+      </div>
+      <div className="mt-4 flex items-center gap-6">
+        <div className="h-6 w-12 rounded-full bg-gc-bg-3" />
+        <div className="h-6 w-12 rounded-full bg-gc-bg-3" />
+        <div className="h-6 w-12 rounded-full bg-gc-bg-3" />
+      </div>
+    </div>
   );
 }
 
