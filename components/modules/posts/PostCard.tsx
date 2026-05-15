@@ -449,20 +449,10 @@ export function PostCard({
           </div>
         ) : null}
 
-        {/* Ticker chips: SI interactiveClass — sono <Link> a /explore */}
-        {post.tickers.length > 0 ? (
-          <div className={`${interactiveClass} flex flex-wrap gap-1.5 mt-3`}>
-            {post.tickers.map((t) => (
-              <Link
-                key={t}
-                href={`/explore?ticker=${t}`}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-gc-line/40 text-gc-fg hover:bg-gc-line/60"
-              >
-                ${t}
-              </Link>
-            ))}
-          </div>
-        ) : null}
+        {/* I ticker NON sono renderizzati come chip ridondanti: il
+            PostBody parser già linka inline ogni `$TICKER` a
+            /explore?ticker=. La lista post.tickers resta in dati per
+            usi futuri (es. counter trending, ticker page meta). */}
 
         {/* Quote repost embed: lo lasciamo SOTTO l'overlay così click
             su area "vuota" dell'embed naviga al post repostante. Se in

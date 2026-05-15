@@ -49,8 +49,13 @@ function tokenize(body: string): Token[] {
   return out;
 }
 
+// `relative z-[1]` è obbligatorio: PostCard ha uno stretched-link
+// overlay sopra il body per intercettare i click sul "vuoto" e
+// navigare a /post/{id}. Senza relative+zIndex i Link interni
+// (ticker/mention/url) finiscono sotto l'overlay e il click vola
+// sul post invece che sul target del link.
 const LINK_CLASS =
-  "text-gc-accent hover:underline underline-offset-2 decoration-gc-accent/60";
+  "relative z-[1] text-gc-accent hover:underline underline-offset-2 decoration-gc-accent/60";
 
 export function PostBody({ body }: { body: string }): JSX.Element {
   const tokens = tokenize(body);
