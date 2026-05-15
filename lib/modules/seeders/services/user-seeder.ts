@@ -22,6 +22,7 @@ import {
   BIO_TEMPLATES_IT,
   INTERESTS_POOL,
 } from "./content-templates-it";
+import { pickRandomMood, type UserMood } from "./mood-types";
 
 export type SeedUser = {
   id: string;
@@ -33,6 +34,9 @@ export type SeedUser = {
    *  ~90 giorni). Usata dai contributors per evitare di creare post
    *  ANTERIORI alla registrazione del loro autore. */
   createdAt: Date;
+  /** Archetype del demo user — guida la selezione dei template dei
+   *  post e il bias sul ticker pick. Vedi mood-types.ts. */
+  mood: UserMood;
 };
 
 function pick<T>(arr: readonly T[]): T {
@@ -96,6 +100,7 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
     interests: string[];
     createdAt: Date;
     onboardingAt: Date;
+    mood: UserMood;
   }> = [];
 
   // bcrypt hash è costoso (~50ms per round). Per 100 users serebbero
@@ -144,6 +149,7 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       interests: pickN(INTERESTS_POOL, Math.floor(Math.random() * 4)),
       createdAt,
       onboardingAt,
+      mood: pickRandomMood(),
     });
   }
 
@@ -208,6 +214,7 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
         firstName: r.firstName,
         lastName: r.lastName,
         createdAt: r.createdAt,
+        mood: r.mood,
       } satisfies SeedUser;
     })
     .filter((u): u is SeedUser => u !== null);

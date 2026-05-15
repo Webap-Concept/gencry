@@ -1,16 +1,25 @@
 // lib/modules/seeders/contributors/posts-contributor.ts
 //
-// Crea post variati per ogni seed user passato. Body con placeholder
-// risolti (ticker random da coin attivi, mention random da altri seed
-// users), date sparpagliate negli ultimi 7 giorni per popolare la
-// timeline cronologica. Opzionale: posts con immagini (URL Picsum
-// deterministici, niente upload R2).
+// Crea post variati per ogni seed user. Tre layer di realismo:
+//
+//   1. Mood-driven pool: ogni user ha un archetype (bullish_btc,
+//      bearish, hodler, trader, defi, macro, newbie, degen) assegnato
+//      al seed time. I template del post arrivano dal sub-pool del
+//      suo mood + un mix GENERIC (60% mood, 40% generic).
+//
+//   2. Meta-site override: 10% dei post (max 1 per user) usa template
+//      META_SITE_TEMPLATES_IT ("bel sito", "primo post qui", ecc.).
+//      Mai negativi, mix positivi/neutri.
+//
+//   3. Trend-aware ticker pick: per template con {ticker}, il symbol
+//      scelto è coerente col mood:
+//         - bullish_btc / degen → coin in crescita reale (>=+5% in 7d)
+//         - bearish / macro     → coin in calo reale (<=-5% in 7d)
+//         - altri               → qualsiasi
+//      Calcolo basato su prices_history (zero costi esterni).
 //
 // Sync di posts_tickers + posts_mentions tramite extractTickers /
-// extractMentions del modulo posts — coerente con la pipeline normale
-// del `createPost` action. Counter denormalizzati (reactions_*,
-// comments_count) restano a 0, aggiornati da trigger DB se in futuro
-// seedingiamo anche reactions/comments.
+// extractMentions del modulo posts — coerente con la pipeline normale.
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -28,41 +37,98 @@ import {
   extractTickers,
 } from "@/lib/modules/posts/lib/parsing";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
-import { POST_BODY_TEMPLATES_IT, POST_URL_POOL } from "../services/content-templates-it";
+import {
+  GENERIC_TEMPLATES_IT,
+  META_SITE_TEMPLATES_IT,
+  POST_URL_POOL,
+  TEMPLATES_BY_MOOD,
+} from "../services/content-templates-it";
+import {
+  MOOD_TREND_PREFERENCE,
+  type UserMood,
+} from "../services/mood-types";
+import {
+  analyzeCoinTrends,
+  trendLabel,
+  type CoinTrend,
+} from "../services/price-trend-analyzer";
 import type { SeedUser } from "../services/user-seeder";
+
+const META_POST_PROBABILITY = 0.1;
+const GENERIC_POOL_WEIGHT = 0.4; // 40% generic, 60% mood-specific
 
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+/**
+ * Sceglie un template tipico del mood, con 40% di chance di pescare
+ * un template GENERIC neutro (per non sembrare "monoclima").
+ */
+function pickTemplateForMood(mood: UserMood): string {
+  if (Math.random() < GENERIC_POOL_WEIGHT) {
+    return pick(GENERIC_TEMPLATES_IT);
+  }
+  return pick(TEMPLATES_BY_MOOD[mood]);
 }
 
 /**
- * Risolvi i placeholder `{ticker}`, `{ticker_name}`, `{mention}`,
- * `{url}` in un template con valori random. `coinNameMap` è la mappa
- * lowercase-name → SYMBOL (es. "bitcoin" → "BTC"); estraggo simboli
- * dal map per il `{ticker}` (es. "$BTC") e i nomi per `{ticker_name}`.
+ * Symbol pick coerente col mood. Se il mood richiede bullish/bearish
+ * e ci sono coin nel bucket richiesto, peschiamo da lì. Altrimenti
+ * fallback a qualsiasi coin attivo.
+ */
+function pickTickerForMood(
+  mood: UserMood,
+  trends: CoinTrend[],
+  allSymbols: string[],
+): { symbol: string; trend: CoinTrend | undefined } {
+  const pref = MOOD_TREND_PREFERENCE[mood];
+  if (pref === "bullish") {
+    const bullish = trends.filter((t) => t.bucket === "bullish");
+    if (bullish.length > 0) {
+      const t = pick(bullish);
+      return { symbol: t.symbol, trend: t };
+    }
+  } else if (pref === "bearish") {
+    const bearish = trends.filter((t) => t.bucket === "bearish");
+    if (bearish.length > 0) {
+      const t = pick(bearish);
+      return { symbol: t.symbol, trend: t };
+    }
+  }
+  // Fallback: random tra tutti i coin attivi.
+  const symbol = pick(allSymbols);
+  const trend = trends.find((t) => t.symbol === symbol);
+  return { symbol, trend };
+}
+
+/**
+ * Risolvi i placeholder. Il trend ticker passato (se c'è) viene usato
+ * per `{ticker_trend_7d}` / `{ticker_trend_30d}` con label umane IT.
  */
 function resolveTemplate(
   template: string,
+  pickedTicker: { symbol: string; trend: CoinTrend | undefined },
   coinNameMap: Record<string, string>,
   otherSeedUsernames: string[],
 ): string {
-  const coinNames = Object.keys(coinNameMap); // lowercase names
-  const coinSymbols = Array.from(new Set(Object.values(coinNameMap))); // SYMBOL
+  const symbolToName = new Map<string, string>();
+  for (const [name, sym] of Object.entries(coinNameMap)) {
+    if (!symbolToName.has(sym)) {
+      symbolToName.set(sym, name.charAt(0).toUpperCase() + name.slice(1));
+    }
+  }
+  const tickerName = symbolToName.get(pickedTicker.symbol) ?? pickedTicker.symbol;
 
   return template
-    .replace(/\{ticker\}/g, () =>
-      coinSymbols.length > 0 ? `$${pick(coinSymbols)}` : "$BTC",
+    .replace(/\{ticker\}/g, () => `$${pickedTicker.symbol}`)
+    .replace(/\{ticker_name\}/g, () => tickerName)
+    .replace(/\{ticker_trend_7d\}/g, () =>
+      trendLabel(pickedTicker.trend?.change7d ?? null),
     )
-    .replace(/\{ticker_name\}/g, () => {
-      if (coinNames.length === 0) return "Bitcoin";
-      const name = pick(coinNames);
-      // Capitalize first letter
-      return name.charAt(0).toUpperCase() + name.slice(1);
-    })
+    .replace(/\{ticker_trend_30d\}/g, () =>
+      trendLabel(pickedTicker.trend?.change30d ?? null),
+    )
     .replace(/\{mention\}/g, () => {
       if (otherSeedUsernames.length === 0) return "@admin";
       return `@${pick(otherSeedUsernames)}`;
@@ -83,17 +149,19 @@ export async function seedPostsForUsers(
     return { created: 0 };
   }
 
-  const coinNameMap = await getCoinNameMap();
+  // Carica una sola volta: coin name map + trend analysis.
+  const [coinNameMap, trends] = await Promise.all([
+    getCoinNameMap(),
+    analyzeCoinTrends(),
+  ]);
+  const allSymbols = Array.from(new Set(Object.values(coinNameMap)));
+
   const usernames = seedUsers.map((u) => u.username);
   const now = Date.now();
-  // Finestra di "post recenti" — ma vincolata dalla data di iscrizione
-  // dell'autore: un utente iscritto 2 giorni fa NON deve avere post di
-  // 30 giorni fa. Il limite inferiore è max(user.createdAt, now-30d).
   const postWindowMs = 30 * 24 * 60 * 60 * 1000;
 
-  // Pre-compute tutti i post in memoria, poi 1 bulk INSERT.
   type PendingPost = {
-    id: string; // generato client-side per linkare media in bulk
+    id: string;
     authorId: string;
     body: string;
     visibility: "public" | "members";
@@ -102,11 +170,11 @@ export async function seedPostsForUsers(
   };
   const pending: PendingPost[] = [];
 
+  // Track: ogni user ha al massimo 1 meta-post per non sembrare auto-promo.
+  const metaPostUsed = new Set<string>();
+
   for (const user of seedUsers) {
     const otherUsernames = usernames.filter((u) => u !== user.username);
-    // Earliest valid post timestamp = max(user.createdAt, now - 30d).
-    // Per utenti vecchi → spalmati ultimi 30 giorni; per utenti nuovi
-    // → spalmati dalla loro iscrizione a oggi (range più stretto).
     const earliestPostMs = Math.max(
       user.createdAt.getTime(),
       now - postWindowMs,
@@ -114,18 +182,34 @@ export async function seedPostsForUsers(
     const userWindowMs = now - earliestPostMs;
 
     for (let i = 0; i < opts.postsPerUser; i++) {
-      const template = pick(POST_BODY_TEMPLATES_IT);
-      const body = resolveTemplate(template, coinNameMap, otherUsernames);
-      // visibility distribution: 90% public, 10% members (testing della
-      // filtering logic). Niente followers/private — sarebbero invisibili
-      // a tutti gli altri seed users senza un follow graph.
-      const visibility = Math.random() < 0.1 ? ("members" as const) : ("public" as const);
-      // CreatedAt = random tra l'iscrizione dell'autore e ora — un post
-      // non può essere precedente alla registrazione del suo autore.
+      // Decidi se è un meta-post (10% prob, max 1 per user).
+      const isMetaPost =
+        !metaPostUsed.has(user.id) &&
+        Math.random() < META_POST_PROBABILITY;
+
+      let template: string;
+      if (isMetaPost) {
+        template = pick(META_SITE_TEMPLATES_IT);
+        metaPostUsed.add(user.id);
+      } else {
+        template = pickTemplateForMood(user.mood);
+      }
+
+      // Ticker pick mood-aware (anche se il template non lo usa,
+      // resolveTemplate lo skippa gracefully).
+      const pickedTicker = pickTickerForMood(user.mood, trends, allSymbols);
+      const body = resolveTemplate(
+        template,
+        pickedTicker,
+        coinNameMap,
+        otherUsernames,
+      );
+
+      const visibility =
+        Math.random() < 0.1 ? ("members" as const) : ("public" as const);
       const createdAt = new Date(
         earliestPostMs + Math.random() * userWindowMs,
       );
-      // 30% dei post ha immagine se opts.withImages è attivo.
       const withImage = opts.withImages && Math.random() < 0.3;
 
       pending.push({
@@ -141,13 +225,7 @@ export async function seedPostsForUsers(
 
   if (pending.length === 0) return { created: 0 };
 
-  // Bulk INSERT posts. uuid_generate_v7 viene generato dal default SQL;
-  // non lo specifichiamo qui (lasciamo che il DB lo faccia) — ma allora
-  // non posso linkare media subito. Trick: uso randomUUID() lato JS e
-  // bypasso il default v7 passando un id esplicito. Trade-off: id v4
-  // invece di v7 → keyset cursor su id va in random order all'interno
-  // dello stesso created_at. Accettabile per seed data (la timeline
-  // primaria è created_at, id è solo tie-break).
+  // Bulk INSERT posts.
   await db.insert(posts).values(
     pending.map((p) => ({
       id: p.id,
@@ -158,9 +236,7 @@ export async function seedPostsForUsers(
     })),
   );
 
-  // Sync posts_tickers e posts_mentions per ogni post (uniforme con
-  // la pipeline normale). Estrazione async (chiama getCoinNameMap →
-  // cached) → batch INSERT in 2 query alla fine.
+  // Sync posts_tickers e posts_mentions.
   const allTickerRows: Array<{
     postId: string;
     ticker: string;
@@ -171,9 +247,12 @@ export async function seedPostsForUsers(
     mentionedUserId: string;
     createdAt: Date;
   }> = [];
-  // Resolve mention usernames → user ids in 1 query batch.
   const allMentionUsernames = new Set<string>();
-  const perPostMentions: Array<{ postId: string; usernames: string[]; createdAt: Date }> = [];
+  const perPostMentions: Array<{
+    postId: string;
+    usernames: string[];
+    createdAt: Date;
+  }> = [];
 
   for (const p of pending) {
     const tickers = await extractTickers(p.body, coinNameMap);
@@ -184,7 +263,11 @@ export async function seedPostsForUsers(
     const mentionsArr = Array.from(mentions);
     for (const m of mentionsArr) allMentionUsernames.add(m);
     if (mentionsArr.length > 0) {
-      perPostMentions.push({ postId: p.id, usernames: mentionsArr, createdAt: p.createdAt });
+      perPostMentions.push({
+        postId: p.id,
+        usernames: mentionsArr,
+        createdAt: p.createdAt,
+      });
     }
   }
 
@@ -193,7 +276,6 @@ export async function seedPostsForUsers(
   }
 
   if (perPostMentions.length > 0 && allMentionUsernames.size > 0) {
-    // 1 batch lookup di tutti gli username menzionati → user_id
     const usernameRows = await db
       .select({ userId: userProfiles.userId, username: userProfiles.username })
       .from(userProfiles)
@@ -223,9 +305,7 @@ export async function seedPostsForUsers(
     }
   }
 
-  // Media: per i post con withImage, INSERT in posts_media con URL
-  // Picsum deterministico. Niente upload R2 (sono solo URL esterni
-  // direttamente riferiti come full_url/thumb_url).
+  // Media Picsum (deterministic seed).
   const mediaRows = pending
     .filter((p) => p.withImage)
     .map((p) => {
