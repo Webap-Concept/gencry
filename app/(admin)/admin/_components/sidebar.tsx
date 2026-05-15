@@ -74,6 +74,7 @@ import {
   ShieldBan,
   ShieldCheck,
   SlidersHorizontal,
+  Sprout,
   Trash2,
   UserCog,
   UserX,
@@ -136,6 +137,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Image: ImageIcon,
   Flag,
   MessageSquare,
+  Sprout,
   Trash2,
 };
 
