@@ -42,10 +42,13 @@ const MIN_FRESHNESS_MS = 60 * 1000;
 function computeFreshUntil(coin: CoinView | null): number {
   const now = Date.now();
   if (!coin) return now + MIN_FRESHNESS_MS;
-  const lastUpdated = coin.lastUpdated.getTime();
+  // `unstable_cache` (via getCoinForCard) serializza il payload in JSON;
+  // al cache hit `lastUpdated` arriva come stringa ISO, non Date. new
+  // Date(...) accetta sia Date sia string, defensive.
+  const lastUpdatedMs = new Date(coin.lastUpdated).getTime();
   return Math.max(
     now + MIN_FRESHNESS_MS,
-    lastUpdated + PRICES_SYNC_INTERVAL_MS + FRESH_UNTIL_MARGIN_MS,
+    lastUpdatedMs + PRICES_SYNC_INTERVAL_MS + FRESH_UNTIL_MARGIN_MS,
   );
 }
 
