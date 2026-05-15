@@ -1,95 +1,67 @@
 "use client";
 // app/(admin)/admin/_components/admin-dialog.tsx
 //
-// Modale canonica per il pannello admin. Wrappa Radix Dialog (stesse
-// primitive di components/ui/dialog.tsx) ma con skin admin: token
-// --admin-card-bg/-border, header con icon-in-circle + titolo +
-// description STACKED, close X built-in, footer right-aligned con
-// bottoni "Annulla outlined / Conferma accent" standard.
+// Convenience wrapper sopra le primitive shadcn `<Dialog>` per le modali
+// del pannello admin. Non re-implementa nulla: compone `Dialog` /
+// `DialogContent` / `DialogHeader` / `DialogTitle` / `DialogDescription` /
+// `DialogClose` di components/ui/dialog.tsx esponendo un'API a slot
+// (`icon`, `title`, `description`, `footer`, `size`) coerente con lo
+// stile della staff modal — la nostra "ground truth" visuale.
 //
-// REGOLA: tutte le modali in /admin/** devono usare `AdminDialog` —
-// MAI <Dialog> shadcn raw (lo skin frontend `gc-modal-*` non è
-// disponibile in admin scope), MAI portali hand-rolled. Per le modali
-// pubbliche (frontend) resta lo standard shadcn Dialog.
+// I token CSS `--gc-modal-bg` / `--gc-modal-border` / etc. usati dalla
+// shadcn primitive sono mappati ai token admin in `admin.css` (scope
+// admin) → niente più sfondo trasparente in admin.
 //
-// Esempio:
-//   <AdminDialog open={open} onOpenChange={setOpen}>
-//     <AdminDialogContent
-//       icon={UserPlus}
-//       title="Aggiungi membro Staff"
-//       description="Promuovi un utente o invitalo via email."
-//       footer={
-//         <>
-//           <AdminDialogCancelButton onClick={() => setOpen(false)} />
-//           <AdminDialogConfirmButton onClick={submit}>
-//             Aggiungi
-//           </AdminDialogConfirmButton>
-//         </>
-//       }>
-//       {/* body content qui */}
-//     </AdminDialogContent>
-//   </AdminDialog>
-import { Dialog as DialogPrimitive } from "radix-ui";
+// REGOLA: in /admin/** usare sempre `<AdminDialog>` (vedi
+// feedback_admin_dialog_primitive). Per modali frontend resta lo
+// shadcn `<Dialog>` raw.
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Loader2, X, type LucideIcon } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Re-exports — Radix primitives che servono direttamente
+// Re-exports — Dialog open-state primitives
 // ─────────────────────────────────────────────────────────────────────────
 
-export const AdminDialog = DialogPrimitive.Root;
-export const AdminDialogTrigger = DialogPrimitive.Trigger;
-export const AdminDialogClose = DialogPrimitive.Close;
+export const AdminDialog = Dialog;
+export const AdminDialogTrigger = DialogTrigger;
+export const AdminDialogClose = DialogClose;
 
 // ─────────────────────────────────────────────────────────────────────────
-// Overlay (dark scrim)
-// ─────────────────────────────────────────────────────────────────────────
-
-function AdminDialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
-  return (
-    <DialogPrimitive.Overlay
-      data-slot="admin-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-black/45 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        className,
-      )}
-      style={{ backdropFilter: "blur(2px)" }}
-      {...props}
-    />
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Content — header (icon+title+description+X) / body / footer
+// Content — header (icon + title/description stacked + close) / body / footer
 // ─────────────────────────────────────────────────────────────────────────
 
 export type AdminDialogSize = "sm" | "md" | "lg" | "xl";
 
 const SIZE_MAX_WIDTH: Record<AdminDialogSize, string> = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-2xl",
+  sm: "!max-w-sm",
+  md: "!max-w-md",
+  lg: "!max-w-lg",
+  xl: "!max-w-2xl",
 };
 
 export type AdminDialogContentProps = {
   /** Icona Lucide mostrata in un cerchietto accent a sinistra del titolo. */
   icon?: LucideIcon;
   title: string;
-  /** Sottotitolo opzionale, sotto al title. */
+  /** Sottotitolo opzionale, stacked sotto al title. */
   description?: React.ReactNode;
   /** Larghezza max. Default `lg` (32rem). */
   size?: AdminDialogSize;
-  /** Footer slot (di solito un AdminDialogCancelButton +
+  /** Footer slot (di solito AdminDialogCancelButton +
    *  AdminDialogConfirmButton). Se omesso, niente footer. */
   footer?: React.ReactNode;
   /** Nascondi il bottone close X in alto a destra (default false). */
   hideCloseButton?: boolean;
-  /** Tradurre l'aria-label del close. */
   closeAriaLabel?: string;
   className?: string;
   children?: React.ReactNode;
@@ -107,87 +79,70 @@ export function AdminDialogContent({
   children,
 }: AdminDialogContentProps) {
   return (
-    <DialogPrimitive.Portal>
-      <AdminDialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="admin-dialog-content"
-        className={cn(
-          "fixed left-[50%] top-[50%] z-50 w-full translate-x-[-50%] translate-y-[-50%] rounded-2xl shadow-xl",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
-          SIZE_MAX_WIDTH[size],
-          className,
-        )}
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-          color: "var(--admin-text)",
-        }}>
-        {/* Header — icon (optional) + title + description stacked + close X */}
-        <div
-          className="flex items-start gap-3 px-5 py-4"
-          style={{ borderBottom: "1px solid var(--admin-card-border)" }}>
-          {Icon ? (
-            <span
-              className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
-                color: "var(--admin-accent)",
-              }}>
-              <Icon size={18} />
-            </span>
-          ) : null}
-          <div className="flex-1 min-w-0">
-            <DialogPrimitive.Title
-              data-slot="admin-dialog-title"
-              className="text-[15px] font-semibold leading-snug"
-              style={{ color: "var(--admin-text)" }}>
-              {title}
-            </DialogPrimitive.Title>
-            {description ? (
-              <DialogPrimitive.Description
-                data-slot="admin-dialog-description"
-                className="text-xs mt-1 leading-snug"
-                style={{ color: "var(--admin-text-faint)" }}>
-                {description}
-              </DialogPrimitive.Description>
-            ) : null}
-          </div>
-          {!hideCloseButton ? (
-            <DialogPrimitive.Close
-              aria-label={closeAriaLabel}
-              className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors"
-              style={{ color: "var(--admin-text-faint)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--admin-hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-              }}>
-              <X size={15} />
-            </DialogPrimitive.Close>
+    <DialogContent
+      // Disabilitiamo il close X built-in (siede in absolute top-right,
+      // collide col nostro header layout). Lo rendiamo noi dentro
+      // DialogHeader, allineato verticalmente al titolo.
+      showCloseButton={false}
+      className={cn(SIZE_MAX_WIDTH[size], className)}>
+      {/* Header — shadcn DialogHeader è `flex items-center gap-3 px-5 py-4`.
+          La staff modal lo riusa così, ma con un wrapper interno flex-col
+          per stackare titolo + description sotto l'icona. */}
+      <DialogHeader>
+        {Icon ? (
+          <span
+            className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+            style={{
+              background:
+                "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
+              color: "var(--admin-accent)",
+            }}>
+            <Icon size={18} />
+          </span>
+        ) : null}
+        <div className="flex-1 min-w-0">
+          <DialogTitle className="!text-[15px] !font-semibold !text-[color:var(--admin-text)] leading-snug">
+            {title}
+          </DialogTitle>
+          {description ? (
+            <DialogDescription className="!text-xs !text-[color:var(--admin-text-faint)] mt-1 leading-snug">
+              {description}
+            </DialogDescription>
           ) : null}
         </div>
-
-        {/* Body — il caller scriva direttamente i field. Il padding è già
-            qui, niente bisogno di wrapper aggiuntivi nel call site. */}
-        <div className="px-5 py-4">{children}</div>
-
-        {/* Footer — opzionale, right-aligned */}
-        {footer ? (
-          <div
-            className="flex items-center justify-end gap-2 px-5 py-3"
-            style={{ borderTop: "1px solid var(--admin-card-border)" }}>
-            {footer}
-          </div>
+        {!hideCloseButton ? (
+          <DialogClose
+            aria-label={closeAriaLabel}
+            className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors"
+            style={{ color: "var(--admin-text-faint)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--admin-hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}>
+            <X size={15} />
+          </DialogClose>
         ) : null}
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
+      </DialogHeader>
+
+      {/* Body — padding standard ricalcato dalle altre form admin. */}
+      <div className="px-5 py-4">{children}</div>
+
+      {/* Footer — opzionale, right-aligned. */}
+      {footer ? (
+        <div
+          className="flex items-center justify-end gap-2 px-5 py-3"
+          style={{ borderTop: "1px solid var(--admin-card-border)" }}>
+          {footer}
+        </div>
+      ) : null}
+    </DialogContent>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Body field helpers — coerenti con notifications-form / staff-modal
+// Body field helpers
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Stile input/textarea/select coerente con il resto delle form admin. */
@@ -286,9 +241,7 @@ export function AdminDialogConfirmButton({
   children: React.ReactNode;
 }) {
   const bg =
-    variant === "danger"
-      ? "var(--gc-neg, #dc2626)"
-      : "var(--admin-accent)";
+    variant === "danger" ? "var(--gc-neg, #dc2626)" : "var(--admin-accent)";
   return (
     <button
       type={type}
