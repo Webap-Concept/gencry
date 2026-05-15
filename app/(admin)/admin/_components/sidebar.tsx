@@ -27,6 +27,7 @@ import {
   Bell,
   BookOpen,
   Boxes,
+  Hexagon,
   Check,
   ChevronDown,
   ChevronRight,
@@ -54,6 +55,8 @@ import {
   MailOpen,
   Map,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelTop,
   Palette,
   Plug,
@@ -225,6 +228,35 @@ export default function AdminSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navOrder]);
 
+  // ── Collapse / icon-only mode ────────────────────────────────────────────
+  // Stato persistito in localStorage (pattern Sentry/Linear). Quando
+  // collapsed: footprint del layout = 4rem (solo icone). Su hover il pannello
+  // si espande in overlay (position:absolute) sopra il content area, senza
+  // sposare il layout.
+  const COLLAPSE_KEY = "gc-admin-sidebar-collapsed";
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [hovered, setHovered] = useState(false);
+  // Init da localStorage post-mount per evitare hydration mismatch.
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      // localStorage bloccato (Safari ITP / privacy) → default expanded
+    }
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        if (next) localStorage.setItem(COLLAPSE_KEY, "1");
+        else localStorage.removeItem(COLLAPSE_KEY);
+      } catch {}
+      // Uscendo da collapsed reset dell'hover-state e di eventuale edit mode
+      if (!next) setHovered(false);
+      return next;
+    });
+  }
+
   // ── Edit-mode (drag & drop ordinamento top-level) ────────────────────────
   const [editMode, setEditMode] = useState(false);
   const [, startTransition] = useTransition();
@@ -301,6 +333,11 @@ export default function AdminSidebar({
     setOpenGroupKey((prev) => (prev === key ? null : key));
   }
 
+  // Quando collapsed: mostra testo SOLO se l'utente sta hovering la sidebar
+  // O se un drawer è aperto (l'utente ha appena cliccato, deve vedere
+  // contesto). Mai in editMode collapsed: il reorder è disabilitato.
+  const showText = !collapsed || hovered || openGroupKey !== null;
+
   // Chiudi automaticamente il drawer quando l'utente naviga (click su una
   // sotto-voce o navigazione esterna). pathname cambia → drawer via.
   useEffect(() => {
@@ -338,8 +375,10 @@ export default function AdminSidebar({
         href={prefixHref(href)}
         onClick={onClose}
         prefetch={false}
-        className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${
-          sub ? "px-3 py-2 ml-3" : "px-3 py-2.5"
+        className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+          showText
+            ? `gap-3 ${sub ? "px-3 py-2 ml-3" : "px-3 py-2.5"}`
+            : "justify-center py-2.5"
         }`}
         style={{
           background: active
@@ -371,10 +410,12 @@ export default function AdminSidebar({
               : "var(--admin-sidebar-icon-inactive)",
           }}
         />
-        {label}
-        {active && (
+        {showText && (
+          <span className="flex-1 min-w-0 truncate">{label}</span>
+        )}
+        {active && showText && (
           <span
-            className="ml-auto w-1.5 h-1.5 rounded-full"
+            className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ background: "var(--admin-accent)" }}
           />
         )}
@@ -397,7 +438,9 @@ export default function AdminSidebar({
       <button
         onClick={() => toggleGroup(item.key)}
         aria-expanded={isOpen}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+        className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors ${
+          showText ? "gap-3 px-3 py-2.5" : "justify-center py-2.5"
+        }`}
         style={{
           background:
             isOpen
@@ -433,17 +476,23 @@ export default function AdminSidebar({
               : "var(--admin-sidebar-icon-inactive)",
           }}
         />
-        <span className="flex-1 text-left">{navLabel(item.key, item.label)}</span>
-        <ChevronRight
-          size={15}
-          className="transition-transform duration-150"
-          style={{
-            // Quando il drawer è aperto, il chevron diventa "indietro" per
-            // suggerire che un secondo click lo chiude.
-            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-            color: "var(--admin-sidebar-icon-inactive)",
-          }}
-        />
+        {showText && (
+          <>
+            <span className="flex-1 text-left truncate">
+              {navLabel(item.key, item.label)}
+            </span>
+            <ChevronRight
+              size={15}
+              className="transition-transform duration-150 shrink-0"
+              style={{
+                // Quando il drawer è aperto, il chevron diventa "indietro" per
+                // suggerire che un secondo click lo chiude.
+                transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                color: "var(--admin-sidebar-icon-inactive)",
+              }}
+            />
+          </>
+        )}
       </button>
     );
   }
@@ -912,28 +961,44 @@ export default function AdminSidebar({
 
   const content = (
     <aside
-      className="w-[var(--admin-sidebar-width)] h-full flex flex-col"
+      onMouseEnter={() => collapsed && setHovered(true)}
+      onMouseLeave={() => collapsed && setHovered(false)}
+      className="h-full flex flex-col transition-[width] duration-200 ease-out"
       style={{
+        width: showText
+          ? "var(--admin-sidebar-width)"
+          : "var(--admin-sidebar-width-collapsed, 4rem)",
         background: "var(--admin-sidebar-bg)",
         color: "var(--admin-sidebar-text-active)",
+        boxShadow:
+          collapsed && hovered
+            ? "8px 0 24px -8px rgba(0,0,0,0.35)"
+            : undefined,
       }}>
       <div
-        className="flex items-center justify-between px-6 py-5"
+        className={`flex items-center py-5 overflow-hidden ${
+          showText ? "justify-between px-6" : "justify-center px-2"
+        }`}
         style={{ borderBottom: "1px solid var(--admin-sidebar-border)" }}>
-        <div className="flex items-center gap-3">
+        <div
+          className={`flex items-center min-w-0 ${showText ? "gap-3" : ""}`}>
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: "var(--admin-accent)" }}>
-            <BookOpen size={16} className="text-white" />
+            <Hexagon size={16} className="text-white" />
           </div>
-          <div>
-            <span className="font-bold text-sm tracking-wide">{appName}</span>
-            <span
-              className="block text-[10px] uppercase tracking-widest"
-              style={{ color: "var(--admin-sidebar-text-faint)" }}>
-              Admin Panel
-            </span>
-          </div>
+          {showText && (
+            <div className="min-w-0">
+              <span className="font-bold text-sm tracking-wide truncate block">
+                {appName}
+              </span>
+              <span
+                className="block text-[10px] uppercase tracking-widest"
+                style={{ color: "var(--admin-sidebar-text-faint)" }}>
+                Admin Panel
+              </span>
+            </div>
+          )}
         </div>
         {onClose && (
           <button
@@ -952,7 +1017,10 @@ export default function AdminSidebar({
         )}
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav
+        className={`flex-1 py-4 space-y-0.5 overflow-y-auto ${
+          showText ? "px-3" : "px-2"
+        }`}>
         {editMode ? (
           <DndContext
             sensors={sensors}
@@ -984,7 +1052,9 @@ export default function AdminSidebar({
       </nav>
 
       <div
-        className="px-5 py-3 flex items-center justify-between gap-2"
+        className={`py-3 flex items-center gap-1 ${
+          showText ? "px-3 justify-end" : "px-2 justify-center"
+        }`}
         style={{ borderTop: "1px solid var(--admin-sidebar-border)" }}>
         {editMode ? (
           <>
@@ -992,7 +1062,7 @@ export default function AdminSidebar({
               type="button"
               onClick={handleReset}
               title={tShell("navResetTooltip")}
-              className="flex items-center gap-1.5 text-[11px] transition-colors"
+              className="flex items-center gap-1.5 text-[11px] transition-colors mr-auto px-2"
               style={{ color: "var(--admin-sidebar-text-faint)" }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.color = "var(--admin-sidebar-text-active)")
@@ -1021,18 +1091,17 @@ export default function AdminSidebar({
           </>
         ) : (
           <>
-            <Link
-              href="/"
-              prefetch={false}
-              className="text-xs transition-colors"
-              style={{ color: "var(--admin-sidebar-text-faint)" }}>
-              ← Back to the App
-            </Link>
+            {/* Toggle collapse — quando collapsed, il reorder button viene
+                nascosto perché serve label visibili per il drag. */}
             <button
               type="button"
-              onClick={enterEditMode}
-              title={tShell("navEditEnter")}
-              aria-label={tShell("navEditEnter")}
+              onClick={toggleCollapsed}
+              title={
+                collapsed ? tShell("navExpandSidebar") : tShell("navCollapseSidebar")
+              }
+              aria-label={
+                collapsed ? tShell("navExpandSidebar") : tShell("navCollapseSidebar")
+              }
               className="p-1.5 rounded-md transition-colors"
               style={{ color: "var(--admin-sidebar-text-faint)" }}
               onMouseEnter={(e) => {
@@ -1044,8 +1113,33 @@ export default function AdminSidebar({
                 e.currentTarget.style.color = "var(--admin-sidebar-text-faint)";
                 e.currentTarget.style.background = "transparent";
               }}>
-              <ArrowUpDown size={13} />
+              {collapsed ? (
+                <PanelLeftOpen size={13} />
+              ) : (
+                <PanelLeftClose size={13} />
+              )}
             </button>
+            {!collapsed && (
+              <button
+                type="button"
+                onClick={enterEditMode}
+                title={tShell("navEditEnter")}
+                aria-label={tShell("navEditEnter")}
+                className="p-1.5 rounded-md transition-colors"
+                style={{ color: "var(--admin-sidebar-text-faint)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color =
+                    "var(--admin-sidebar-text-active)";
+                  e.currentTarget.style.background =
+                    "var(--admin-sidebar-item-hover-bg)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--admin-sidebar-text-faint)";
+                  e.currentTarget.style.background = "transparent";
+                }}>
+                <ArrowUpDown size={13} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -1063,7 +1157,20 @@ export default function AdminSidebar({
 
   return (
     <>
-      <div className="hidden lg:flex shrink-0 h-full">{content}</div>
+      {/* Desktop sidebar. Quando collapsed: il wrapper riserva solo 4rem nel
+          layout, ma l'aside (position: absolute) si espande in overlay sopra
+          il content area al passaggio del mouse. */}
+      <div
+        className="hidden lg:block shrink-0 h-full relative transition-[width] duration-200 ease-out"
+        style={{
+          width: collapsed
+            ? "var(--admin-sidebar-width-collapsed, 4rem)"
+            : "var(--admin-sidebar-width)",
+        }}>
+        <div className={collapsed ? "absolute inset-y-0 left-0 z-40" : "h-full"}>
+          {content}
+        </div>
+      </div>
       {open && (
         <>
           <div

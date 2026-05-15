@@ -23,6 +23,7 @@
   --admin-sidebar-item-hover-bg: rgba(255, 255, 255, 0.05);
   --admin-sidebar-border: rgba(255, 255, 255, 0.1);
   --admin-sidebar-width: 16rem;
+  --admin-sidebar-width-collapsed: 4rem;
 
   /* Layout */
   --admin-header-height: 3.5rem;
