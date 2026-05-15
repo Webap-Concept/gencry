@@ -38,7 +38,6 @@ import {
   Repeat2,
   Trash2,
   UserMinus,
-  X,
 } from "lucide-react";
 import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
@@ -61,6 +60,7 @@ import { PostComposerModal } from "./PostComposerModal";
 import { ReactionPopover } from "./ReactionPopover";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
+import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
   public: "Tutti",
@@ -173,7 +173,6 @@ export function PostCard({
     optimisticCounts.bear +
     optimisticCounts.dump +
     optimisticCounts.diamond;
-  const [hidden, setHidden] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -195,7 +194,7 @@ export function PostCard({
     { revalidateOnFocus: false, keepPreviousData: true },
   );
 
-  if (hidden || deleted || blocked) return null;
+  if (deleted || blocked) return null;
 
   const onToggleReaction = (kind: PostReactionKind) => {
     const wasActive = ownReaction === kind;
@@ -219,9 +218,13 @@ export function PostCard({
     });
   };
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const onDelete = () => {
     if (!isAuthor) return;
-    if (!window.confirm("Eliminare questo post? L'azione non è annullabile.")) return;
+    setDeleteOpen(true);
+  };
+  const onDeleteConfirmed = () => {
+    setDeleteOpen(false);
     startTransition(async () => {
       setDeleted(true);
       const res = await softDeletePost({ postId: post.id });
@@ -411,14 +414,6 @@ export function PostCard({
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
-            <button
-              type="button"
-              onClick={() => setHidden(true)}
-              aria-label="Nascondi post"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
-            >
-              <X size={16} />
-            </button>
           </div>
         </header>
 
@@ -518,28 +513,39 @@ export function PostCard({
         </>
       ) : null}
 
-      {/* Edit modal: mounted solo se autore + edit aperto. */}
-      {canEdit ? (
-        <PostComposerModal
-          open={editOpen}
-          onOpenChange={setEditOpen}
-          onPublished={(_postId, edited) => {
-            if (edited) {
-              // Optimistic-display: aggiorna lo state locale così
-              // l'UI riflette subito i nuovi valori senza refresh.
-              setDisplayedBody(edited.body);
-              setDisplayedVisibility(edited.visibility);
-              setDisplayedEditedAt(new Date());
-            }
-            setEditOpen(false);
-          }}
-          user={currentUser ?? null}
-          editPayload={{
-            postId: post.id,
-            initialBody: displayedBody,
-            initialVisibility: displayedVisibility,
-          }}
-        />
+      {/* Edit + delete confirm: mounted solo se autore. Delete è
+          sempre disponibile per l'autore (l'edit window può scadere
+          ma il delete no). */}
+      {isAuthor ? (
+        <>
+          {canEdit ? (
+            <PostComposerModal
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              onPublished={(_postId, edited) => {
+                if (edited) {
+                  // Optimistic-display: aggiorna lo state locale così
+                  // l'UI riflette subito i nuovi valori senza refresh.
+                  setDisplayedBody(edited.body);
+                  setDisplayedVisibility(edited.visibility);
+                  setDisplayedEditedAt(new Date());
+                }
+                setEditOpen(false);
+              }}
+              user={currentUser ?? null}
+              editPayload={{
+                postId: post.id,
+                initialBody: displayedBody,
+                initialVisibility: displayedVisibility,
+              }}
+            />
+          ) : null}
+          <DeletePostConfirmDialog
+            isOpen={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={onDeleteConfirmed}
+          />
+        </>
       ) : null}
     </>
   );
