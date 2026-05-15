@@ -26,7 +26,18 @@ import {
 } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bookmark,
+  BookmarkCheck,
+  Flag,
+  MessageCircle,
+  MoreHorizontal,
+  Pencil,
+  Repeat2,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import {
@@ -307,13 +318,22 @@ export function PostCard({
                 className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
               >
                 <DropdownMenuItem onSelect={onToggleBookmark}>
+                  {bookmarked ? (
+                    <BookmarkCheck size={16} strokeWidth={1.75} />
+                  ) : (
+                    <Bookmark size={16} strokeWidth={1.75} />
+                  )}
                   {bookmarked ? "Rimuovi dai salvati" : "Salva post"}
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href={`/post/${post.id}`}>Apri post</Link>
+                  <Link href={`/post/${post.id}`}>
+                    <ArrowUpRight size={16} strokeWidth={1.75} />
+                    Apri post
+                  </Link>
                 </DropdownMenuItem>
                 {canEdit ? (
                   <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                    <Pencil size={16} strokeWidth={1.75} />
                     Modifica post
                   </DropdownMenuItem>
                 ) : null}
@@ -321,6 +341,7 @@ export function PostCard({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={onReport}>
+                      <Flag size={16} strokeWidth={1.75} />
                       Segnala
                     </DropdownMenuItem>
                   </>
@@ -332,6 +353,7 @@ export function PostCard({
                       onSelect={onDelete}
                       className="text-gc-danger focus:text-gc-danger"
                     >
+                      <Trash2 size={16} strokeWidth={1.75} />
                       Elimina post
                     </DropdownMenuItem>
                   </>

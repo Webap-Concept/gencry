@@ -1,6 +1,11 @@
 "use client";
 // components/modules/posts/PostMediaGallery.tsx
 //
+// NOTA: il Lightbox interno NON usa <GcModal> di proposito. Eccezione
+// documentata in memory feedback_gc_modal_primitive: lightbox fullscreen
+// con overlay nero e nav arrows, niente chrome header/body/footer.
+// Resta shadcn <Dialog> raw con DialogTitle sr-only per a11y Radix.
+//
 // Gallery dei media. Due varianti:
 //
 //   variant="feed" (default) — strategia "max 2 visibili + slide":

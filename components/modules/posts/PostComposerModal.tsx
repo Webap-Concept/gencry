@@ -4,6 +4,12 @@
 // Wrap shadcn Dialog attorno al Composer. Supporta sia create che edit
 // via prop `mode`. Niente DialogHeader visibile — il Composer integra
 // il proprio (avatar + username + visibility) per stile LinkedIn-blended.
+//
+// NOTA: NON usa <GcModal> di proposito. Eccezione documentata in
+// memory feedback_gc_modal_primitive: questa modale ha chrome custom
+// integrato (Composer è autonomo nella sua testata/footer), quindi il
+// wrapper "slot icon/title/description/footer" non si applica. Resta
+// shadcn <Dialog> raw con DialogTitle sr-only solo per a11y Radix.
 import {
   Dialog,
   DialogContent,

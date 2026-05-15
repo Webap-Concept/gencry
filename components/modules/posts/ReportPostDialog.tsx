@@ -3,18 +3,12 @@
 //
 // Modal di segnalazione post. Lista motivi caricata lazy via Server Action
 // alla prima apertura (settings cache 5min → call quasi free). Il modal
-// è controllato dal parent (PostCard): isOpen + onOpenChange + onReported.
+// è controllato dal parent (PostCard): isOpen + onOpenChange + onSubmitted.
 import { useEffect, useState, useTransition } from "react";
 import { useLocale } from "next-intl";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Flag, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 import {
   getReportReasonsForClient,
   reportPost,
@@ -55,8 +49,6 @@ export function ReportPostDialog({
   // Lazy fetch alla prima apertura. Reset su close.
   useEffect(() => {
     if (!isOpen) {
-      // Pulizia state quando il modal viene chiuso, così riapertura =
-      // form pulito.
       setSelectedKey(null);
       setDetails("");
       setSubmitError(null);
@@ -100,7 +92,6 @@ export function ReportPostDialog({
       if (res.ok) {
         setSubmitted(true);
         onSubmitted?.();
-        // Auto-close dopo ~1.2s per dare feedback visivo.
         setTimeout(() => onOpenChange(false), 1200);
       } else {
         setSubmitError(res.error);
@@ -109,18 +100,39 @@ export function ReportPostDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Segnala questo post</DialogTitle>
-          <DialogDescription>
-            Scegli il motivo della segnalazione. Verrà esaminata da un
-            moderatore.
-          </DialogDescription>
-        </DialogHeader>
-
+    <GcModal open={isOpen} onOpenChange={onOpenChange}>
+      <GcModalContent
+        icon={Flag}
+        iconTone="warning"
+        title="Segnala questo post"
+        description="Scegli il motivo della segnalazione. Verrà esaminata da un moderatore."
+        size="md"
+        footer={
+          submitted ? null : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}>
+                Annulla
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={!canSubmit}>
+                {isSubmitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : null}
+                Invia segnalazione
+              </Button>
+            </>
+          )
+        }>
         {submitted ? (
-          <p className="text-sm text-gc-fg py-3">
+          <p className="text-sm text-gc-fg py-2">
             ✅ Segnalazione inviata. Grazie per la collaborazione.
           </p>
         ) : reasons === null && !loadError ? (
@@ -132,15 +144,15 @@ export function ReportPostDialog({
             />
           </div>
         ) : loadError ? (
-          <p className="text-sm text-gc-danger py-3">
+          <p className="text-sm text-gc-neg py-2">
             Impossibile caricare i motivi di segnalazione. Riprova.
           </p>
         ) : (
-          <>
+          <div className="space-y-4">
             <div
               role="radiogroup"
               aria-label="Motivo della segnalazione"
-              className="space-y-1.5 max-h-[40vh] overflow-y-auto pr-1">
+              className="space-y-2">
               {(reasons ?? []).map((r) => {
                 const label = pickLocalized(r.labelByLocale, locale, r.key);
                 const desc = pickLocalized(r.descriptionByLocale, locale, "");
@@ -148,7 +160,7 @@ export function ReportPostDialog({
                 return (
                   <label
                     key={r.key}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       isActive
                         ? "border-gc-accent bg-gc-accent/5"
                         : "border-gc-line hover:bg-gc-bg-3"
@@ -159,7 +171,7 @@ export function ReportPostDialog({
                       value={r.key}
                       checked={isActive}
                       onChange={() => setSelectedKey(r.key)}
-                      className="mt-0.5"
+                      className="mt-0.5 w-4 h-4 cursor-pointer accent-gc-accent"
                     />
                     <span className="flex-1 min-w-0">
                       <span className="flex items-center gap-1.5 text-sm font-medium text-gc-fg">
@@ -172,7 +184,7 @@ export function ReportPostDialog({
                         ) : null}
                       </span>
                       {desc ? (
-                        <span className="block text-xs text-gc-fg-muted mt-0.5">
+                        <span className="block text-xs text-gc-fg-3 mt-0.5">
                           {desc}
                         </span>
                       ) : null}
@@ -202,35 +214,11 @@ export function ReportPostDialog({
             ) : null}
 
             {submitError ? (
-              <p className="text-xs text-gc-danger">
-                Errore: {submitError}
-              </p>
+              <p className="text-xs text-gc-neg">Errore: {submitError}</p>
             ) : null}
-          </>
+          </div>
         )}
-
-        {!submitted ? (
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="px-3 py-1.5 rounded-lg text-sm text-gc-fg-muted hover:text-gc-fg disabled:opacity-50">
-              Annulla
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-white bg-gc-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-              {isSubmitting ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : null}
-              Invia segnalazione
-            </button>
-          </DialogFooter>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+      </GcModalContent>
+    </GcModal>
   );
 }
