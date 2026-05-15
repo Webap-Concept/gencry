@@ -38,6 +38,7 @@ import {
   Cookie,
   Database,
   FileText,
+  Flag,
   FlaskConical,
   GitMerge,
   Globe,
@@ -54,6 +55,7 @@ import {
   LogIn,
   MailOpen,
   Map,
+  MessageSquare,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -72,6 +74,7 @@ import {
   ShieldBan,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   UserCog,
   UserX,
   Users,
@@ -131,6 +134,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Languages,
   Palette,
   Image: ImageIcon,
+  Flag,
+  MessageSquare,
+  Trash2,
 };
 
 interface AdminSidebarProps {

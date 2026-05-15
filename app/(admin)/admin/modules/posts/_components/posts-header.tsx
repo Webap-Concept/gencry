@@ -4,7 +4,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
 import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
 import type { LucideIcon } from "lucide-react";
-import { Clock, Flag, MessageSquare, Settings } from "lucide-react";
+import { Clock, Flag, MessageSquare, Settings, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 
@@ -23,6 +23,11 @@ const SECTIONS: Record<string, SectionMeta> = {
     description:
       "Coda di moderazione: segnalazioni utente con decisione dismiss / soft-delete del post.",
     icon: Flag,
+  },
+  deleted: {
+    description:
+      "Post soft-deleted dagli autori: ripristinabili entro la grace window, dopo l'hard-delete è definitivo.",
+    icon: Trash2,
   },
   settings: {
     description: "Storage R2, motivi di segnalazione, opzioni di posting.",
@@ -83,6 +88,7 @@ export function PostsHeader({ adminSlug }: { adminSlug: string }) {
         tabs={[
           { href: base, label: "Overview", exact: true },
           { href: `${base}/reports`, label: "Reports" },
+          { href: `${base}/deleted`, label: "Deleted" },
           { href: `${base}/settings`, label: "Settings" },
           { href: `${base}/cron`, label: "Cron Jobs" },
         ]}

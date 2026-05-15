@@ -44,7 +44,14 @@ export async function runDeletedHardDelete(): Promise<DeletedHardDeleteResult> {
     const settings = await getAppSettings();
     const graceDays =
       parseInt(settings["modules.posts.deleted_grace_days"], 10) || 7;
-    const cutoff = new Date(Date.now() - graceDays * 24 * 60 * 60 * 1000);
+    // ISO string: postgres-js non accetta Date come bind parameter di un
+    // sql template literal (ERR_INVALID_ARG_TYPE). Stesso pattern in
+    // outbox-cleanup, ma lì funziona "per fortuna" perché il driver
+    // tollera il Date a profondità di nesting diverse; manteniamoci
+    // sicuri convertendo a stringa esplicita.
+    const cutoffIso = new Date(
+      Date.now() - graceDays * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     // DELETE in batch usando subquery con LIMIT (Postgres non supporta
     // DELETE ... LIMIT direttamente). RETURNING ci dà il count effettivo.
@@ -53,7 +60,7 @@ export async function runDeletedHardDelete(): Promise<DeletedHardDeleteResult> {
       WHERE id IN (
         SELECT id FROM ${posts}
         WHERE ${posts.deletedAt} IS NOT NULL
-          AND ${posts.deletedAt} < ${cutoff}
+          AND ${posts.deletedAt} < ${cutoffIso}
         ORDER BY ${posts.deletedAt} ASC
         LIMIT ${BATCH_LIMIT}
       )

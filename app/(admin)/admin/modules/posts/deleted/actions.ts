@@ -48,7 +48,13 @@ export async function restorePostAction(
   const settings = await getAppSettings();
   const graceDays =
     parseInt(settings["modules.posts.deleted_grace_days"], 10) || 7;
-  const cutoff = new Date(Date.now() - graceDays * 24 * 60 * 60 * 1000);
+  // ISO string: postgres-js driver non accetta Date come bind parameter
+  // di un sql template literal (ERR_INVALID_ARG_TYPE). Drizzle column
+  // setters (`eq`, `set`) convertono Date in stringa autonomamente, qui
+  // dobbiamo farlo a mano perché il fragment è raw.
+  const cutoffIso = new Date(
+    Date.now() - graceDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   const result = await db
     .update(posts)
@@ -57,7 +63,7 @@ export async function restorePostAction(
       and(
         eq(posts.id, parsed.data.postId),
         isNotNull(posts.deletedAt),
-        sql`${posts.deletedAt} >= ${cutoff}`,
+        sql`${posts.deletedAt} >= ${cutoffIso}`,
       ),
     )
     .returning({ id: posts.id, authorId: posts.authorId });
