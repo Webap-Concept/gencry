@@ -30,7 +30,6 @@ import { MessageCircle, MoreHorizontal, Repeat2, X } from "lucide-react";
 import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import {
-  reportPost,
   softDeletePost,
   toggleBookmark,
   toggleReaction,
@@ -46,6 +45,7 @@ import { PostBody } from "./PostBody";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { ReactionPopover } from "./ReactionPopover";
+import { ReportPostDialog } from "./ReportPostDialog";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
   public: "Tutti",
@@ -204,27 +204,8 @@ export function PostCard({
     });
   };
 
-  const onReport = () => {
-    const reasonInput = window.prompt(
-      "Motivo del report (spam, scam, abuse, other):",
-      "spam",
-    );
-    if (!reasonInput) return;
-    const reason = reasonInput.toLowerCase().trim() as
-      | "spam"
-      | "scam"
-      | "abuse"
-      | "other";
-    if (!["spam", "scam", "abuse", "other"].includes(reason)) {
-      window.alert("Motivo non valido.");
-      return;
-    }
-    startTransition(async () => {
-      const res = await reportPost({ postId: post.id, reason });
-      if (res.ok) window.alert("Grazie, il report è stato inviato.");
-      else window.alert("Impossibile inviare il report.");
-    });
-  };
+  const [reportOpen, setReportOpen] = useState(false);
+  const onReport = () => setReportOpen(true);
 
   // Edit-window check: postedAt + 10min > now?
   const ageMs = nowTick - new Date(post.createdAt).getTime();
@@ -441,6 +422,16 @@ export function PostCard({
           </button>
         </footer>
       </article>
+
+      {/* Report dialog: mounted solo per non-autori (l'autore non si segnala
+          da solo). isOpen controllato → fetch reasons solo all'apertura. */}
+      {!isAuthor ? (
+        <ReportPostDialog
+          postId={post.id}
+          isOpen={reportOpen}
+          onOpenChange={setReportOpen}
+        />
+      ) : null}
 
       {/* Edit modal: mounted solo se autore + edit aperto. */}
       {canEdit ? (

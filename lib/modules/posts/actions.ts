@@ -59,6 +59,11 @@ import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
 import { extractMentions, extractTickers } from "./lib/parsing";
+import {
+  findActiveReportReason,
+  getActiveReportReasons,
+  type ReportReason,
+} from "./services/report-reasons";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types
@@ -155,7 +160,14 @@ const CreateQuoteRepostInputSchema = z.object({
 
 const ReportPostInputSchema = z.object({
   postId: UuidSchema,
-  reason: z.enum(["spam", "scam", "abuse", "other"]),
+  // Lista dei reason key è admin-editable (vedi services/report-reasons.ts).
+  // Qui validiamo solo shape; il match con la lista attiva avviene a runtime
+  // dentro reportPost().
+  reason: z
+    .string()
+    .min(1)
+    .max(40)
+    .regex(/^[a-z0-9_]+$/),
   details: z.string().max(2000).optional().nullable(),
 });
 
@@ -593,6 +605,13 @@ export async function createQuoteRepost(
 // Actions — Report
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Esporta la lista di motivi attivi al client (consumato dal report
+ *  modal della PostCard). Letta on-demand quando il modal si apre: la
+ *  settings cache già la rende cheap. Nessuna PII, safe to expose. */
+export async function getReportReasonsForClient(): Promise<ReportReason[]> {
+  return await getActiveReportReasons();
+}
+
 export async function reportPost(
   input: z.input<typeof ReportPostInputSchema>,
 ): Promise<ActionResult> {
@@ -601,6 +620,18 @@ export async function reportPost(
 
   const parsed = ReportPostInputSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  // Reason key validato contro la lista admin-editable corrente. Se
+  // l'admin ha disabilitato/rimosso una reason mentre l'utente aveva
+  // il modal aperto → rifiuta gracefully, il client re-fetcha.
+  const reasonDef = await findActiveReportReason(parsed.data.reason);
+  if (!reasonDef) return fail("posts.errors.reason_not_available");
+
+  // requiresDetails (es. "other") deve avere details non vuoti.
+  const details = (parsed.data.details ?? "").trim();
+  if (reasonDef.requiresDetails && details.length === 0) {
+    return fail("posts.errors.details_required", { field: "details" });
+  }
 
   const rl = await rateLimitCheck(user.id, "report");
   if (!rl.ok) return fail(I18N.rateLimited, { retryAfter: rl.retryAfter });
@@ -619,7 +650,7 @@ export async function reportPost(
     postId: parsed.data.postId,
     reporterId: user.id,
     reason: parsed.data.reason,
-    details: parsed.data.details ?? null,
+    details: details.length > 0 ? details : null,
   });
 
   return { ok: true };
