@@ -295,15 +295,17 @@ function ReportReviewDialog({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
+        <DialogHeader className="!flex-col !items-start !gap-1 !py-3">
           <DialogTitle>Revisione segnalazione</DialogTitle>
-          <DialogDescription>
+          <DialogDescription
+            className="text-xs"
+            style={{ color: "var(--admin-text-faint)" }}>
             Decidi come gestire la segnalazione. La decisione è registrata
             con il tuo user id e timestamp.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="px-5 py-4 space-y-3">
           {/* Post preview */}
           <div
             className="rounded-lg p-4"
@@ -395,13 +397,17 @@ function ReportReviewDialog({
           ) : null}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-5 py-3 gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
             className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-50"
-            style={{ color: "var(--admin-text-muted)" }}>
+            style={{
+              background: "var(--admin-hover-bg)",
+              color: "var(--admin-text)",
+              border: "1px solid var(--admin-card-border)",
+            }}>
             Chiudi
           </button>
           {!alreadyDecided ? (

@@ -300,17 +300,30 @@ function ReasonEditDialog({
   const labelsOk = draft.labelByLocale.it && draft.labelByLocale.en;
   const canSave = keyOk && labelsOk;
 
+  // Stile input coerente con il resto delle form admin (vedi
+  // notifications-form / posts-r2-settings-form): inline style usando
+  // i token --admin-*. I token gc-* del frontend non sono in scope qui.
+  const inputStyle: React.CSSProperties = {
+    background: "var(--admin-page-bg)",
+    border: "1px solid var(--admin-input-border)",
+    color: "var(--admin-text)",
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        {/* Override del DialogHeader (project-wide è flex-row): per
+            description lunghe serve stack verticale. */}
+        <DialogHeader className="!flex-col !items-start !gap-1 !py-3">
           <DialogTitle>{isNew ? "Nuovo motivo" : "Modifica motivo"}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription
+            className="text-xs"
+            style={{ color: "var(--admin-text-faint)" }}>
             Le label IT e EN sono obbligatorie. La key è l&apos;identificatore
             persistito su DB (lowercase + underscore, max 40 char).
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="px-5 py-4 space-y-3">
           <Field label="Key (identifier)">
             <input
               type="text"
@@ -320,10 +333,13 @@ function ReasonEditDialog({
               }
               disabled={!isNew}
               placeholder="es. market_manipulation"
-              className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm font-mono"
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono disabled:opacity-60"
+              style={inputStyle}
             />
             {!keyOk && draft.key ? (
-              <p className="text-[11px] text-gc-danger mt-1">
+              <p
+                className="text-[11px] mt-1"
+                style={{ color: "var(--gc-neg, #dc2626)" }}>
                 Solo lowercase, cifre e underscore, max 40 caratteri.
               </p>
             ) : null}
@@ -343,7 +359,8 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={inputStyle}
               />
             </Field>
             <Field label="Label EN">
@@ -359,7 +376,8 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={inputStyle}
               />
             </Field>
           </div>
@@ -378,7 +396,8 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={inputStyle}
               />
             </Field>
             <Field label="Descrizione EN">
@@ -394,22 +413,27 @@ function ReasonEditDialog({
                     },
                   })
                 }
-                className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={inputStyle}
               />
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 items-end">
-            <Field label="Icona (emoji o testo)">
-              <input
-                type="text"
-                value={draft.icon ?? ""}
-                onChange={(e) => onChange({ ...draft, icon: e.target.value })}
-                placeholder="📈"
-                className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm"
-              />
-            </Field>
-            <label className="flex items-center gap-2 text-xs">
+          <Field label="Icona (emoji o testo)">
+            <input
+              type="text"
+              value={draft.icon ?? ""}
+              onChange={(e) => onChange({ ...draft, icon: e.target.value })}
+              placeholder="📈"
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={inputStyle}
+            />
+          </Field>
+
+          <div className="flex items-center gap-6 pt-1">
+            <label
+              className="flex items-center gap-2 text-xs cursor-pointer"
+              style={{ color: "var(--admin-text)" }}>
               <input
                 type="checkbox"
                 checked={draft.enabled}
@@ -419,7 +443,9 @@ function ReasonEditDialog({
               />
               Abilitato
             </label>
-            <label className="flex items-center gap-2 text-xs">
+            <label
+              className="flex items-center gap-2 text-xs cursor-pointer"
+              style={{ color: "var(--admin-text)" }}>
               <input
                 type="checkbox"
                 checked={draft.requiresDetails}
@@ -431,11 +457,16 @@ function ReasonEditDialog({
             </label>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="px-5 py-3 gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm">
+            className="px-3 py-1.5 rounded-lg text-sm transition-colors"
+            style={{
+              background: "var(--admin-hover-bg)",
+              color: "var(--admin-text)",
+              border: "1px solid var(--admin-card-border)",
+            }}>
             Annulla
           </button>
           <button
@@ -461,7 +492,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-[11px] uppercase tracking-wider text-gc-fg-muted mb-1">
+      <span
+        className="block text-[11px] uppercase tracking-wider mb-1"
+        style={{ color: "var(--admin-text-faint)" }}>
         {label}
       </span>
       {children}
