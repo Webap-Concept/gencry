@@ -24,6 +24,8 @@ import {
   getTickerFeedIds,
 } from "@/lib/modules/posts/queries";
 import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
+import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
+import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { FeedList } from "@/components/modules/posts/FeedList";
 import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRow";
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
@@ -67,6 +69,11 @@ export default async function ExplorePage({
     getCoinNameMap(),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
+  // Prefetch batch dei preview ticker visibili (incluso il filter ticker
+  // attivo, così l'hover su CoinSummaryCard è già hot).
+  const visibleSymbols = collectVisibleTickers(initialPosts);
+  if (ticker) visibleSymbols.push(ticker);
+  const tickerPreviewMap = await getTickerPreviewBatch(visibleSymbols);
 
   const source = ticker
     ? ({ kind: "ticker", ticker } as const)
@@ -129,6 +136,7 @@ export default async function ExplorePage({
           viewerUserId={user.id}
           source={source}
           coinNameMap={coinNameMap}
+          tickerPreviewMap={tickerPreviewMap}
           emptyState={<ExploreEmptyState ticker={ticker} />}
         />
       </div>

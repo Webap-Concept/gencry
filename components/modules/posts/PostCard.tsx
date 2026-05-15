@@ -61,6 +61,7 @@ import { ReactionPopover } from "./ReactionPopover";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
+import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 
 const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
   public: "Tutti",
@@ -139,6 +140,11 @@ type Props = {
    * vengono linkati.
    */
   coinNameMap?: Record<string, string>;
+  /**
+   * Preview ticker pre-fetched server-side (batch). Propagata al
+   * TickerHoverCard tramite PostBody per primo hover zero-latency.
+   */
+  tickerPreviewMap?: Record<string, TickerPreviewData>;
 };
 
 export function PostCard({
@@ -149,6 +155,7 @@ export function PostCard({
   redirectAfterBlock,
   redirectAfterDelete,
   coinNameMap,
+  tickerPreviewMap,
 }: Props) {
   const router = useRouter();
   // Optimistic display state per body/visibility/editedAt: dopo
@@ -447,7 +454,11 @@ export function PostCard({
             "vuoto" cada sull'overlay link verso /post/{id}. I Link
             interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
             e catturano da soli il click. */}
-        <PostBody body={displayedBody} coinNameMap={coinNameMap} />
+        <PostBody
+          body={displayedBody}
+          coinNameMap={coinNameMap}
+          tickerPreviewMap={tickerPreviewMap}
+        />
 
         {/* Media gallery: SI interactiveClass — le tile sono <button>
             e click apre il lightbox, non deve navigare al post. */}
@@ -472,7 +483,11 @@ export function PostCard({
               <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
               {authorDisplayName(post.repostOf.author)}
             </div>
-            <PostBody body={post.repostOf.body} coinNameMap={coinNameMap} />
+            <PostBody
+              body={post.repostOf.body}
+              coinNameMap={coinNameMap}
+              tickerPreviewMap={tickerPreviewMap}
+            />
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">

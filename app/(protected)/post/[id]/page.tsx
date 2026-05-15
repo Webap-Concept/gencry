@@ -21,6 +21,8 @@ import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
 import { getPostBySlug } from "@/lib/modules/posts/queries";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
+import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
+import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { PostCard } from "@/components/modules/posts/PostCard";
 
 type Params = { id: string };
@@ -42,6 +44,9 @@ export default async function PostPage({
   }
 
   const isAuthor = user?.id === post.author.id;
+  const tickerPreviewMap = await getTickerPreviewBatch(
+    collectVisibleTickers([post]),
+  );
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">
@@ -52,6 +57,7 @@ export default async function PostPage({
         redirectAfterBlock="/"
         redirectAfterDelete="/"
         coinNameMap={coinNameMap}
+        tickerPreviewMap={tickerPreviewMap}
       />
     </div>
   );

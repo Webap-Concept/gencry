@@ -12,6 +12,8 @@ import "server-only";
 import { getUser } from "@/lib/db/queries";
 import { getFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
+import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
+import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { FeedList } from "./FeedList";
 
 export async function PostsFeedSection() {
@@ -28,6 +30,12 @@ export async function PostsFeedSection() {
     getCoinNameMap(),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
+  // Prefetch batch dei preview ticker visibili — zero round-trip al
+  // primo hover. Cache server unstable_cache 60s su getCoinForCard
+  // condivide il fetch tra utenti.
+  const tickerPreviewMap = await getTickerPreviewBatch(
+    collectVisibleTickers(initialPosts),
+  );
 
   return (
     <FeedList
@@ -36,6 +44,7 @@ export async function PostsFeedSection() {
       viewerUserId={user.id}
       source={{ kind: "tab", tab: "following" }}
       coinNameMap={coinNameMap}
+      tickerPreviewMap={tickerPreviewMap}
     />
   );
 }

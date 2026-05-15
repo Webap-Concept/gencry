@@ -17,6 +17,8 @@ import {
   getPostsByIds,
 } from "@/lib/modules/posts/queries";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
+import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
+import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { PostCard } from "@/components/modules/posts/PostCard";
 
 export async function CoinRelatedPostsSection({
@@ -37,6 +39,9 @@ export async function CoinRelatedPostsSection({
     getCoinNameMap(),
   ]);
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
+  const tickerPreviewMap = await getTickerPreviewBatch(
+    collectVisibleTickers(posts),
+  );
 
   return (
     <section
@@ -70,6 +75,7 @@ export async function CoinRelatedPostsSection({
               post={p}
               isAuthor={p.author.id === user?.id}
               coinNameMap={coinNameMap}
+              tickerPreviewMap={tickerPreviewMap}
             />
           ))}
         </div>

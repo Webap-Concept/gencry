@@ -18,6 +18,7 @@
 // vengono linkati.
 import Link from "next/link";
 import type { JSX } from "react";
+import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 import { TickerHoverCard } from "./TickerHoverCard";
 
 const TICKER_REGEX = /\$([A-Za-z][A-Za-z0-9]{1,19})\b/g;
@@ -129,11 +130,15 @@ const LINK_CLASS =
 export function PostBody({
   body,
   coinNameMap,
+  tickerPreviewMap,
 }: {
   body: string;
   /** Mappa lower-name → SYMBOL fornita dal Server Component padre.
    *  Senza, i nomi estesi non vengono linkati (degradazione graceful). */
   coinNameMap?: Record<string, string>;
+  /** Preview SSR-prefetched per i ticker visibili. Senza, il
+   *  TickerHoverCard fa lazy fetch al primo open. */
+  tickerPreviewMap?: Record<string, TickerPreviewData>;
 }): JSX.Element {
   const tokens = tokenize(body, coinNameMap);
   return (
@@ -142,7 +147,10 @@ export function PostBody({
         if (t.type === "text") return <span key={i}>{t.value}</span>;
         if (t.type === "ticker") {
           return (
-            <TickerHoverCard key={i} symbol={t.symbol}>
+            <TickerHoverCard
+              key={i}
+              symbol={t.symbol}
+              initialData={tickerPreviewMap?.[t.symbol]}>
               <Link
                 href={`/coins/${t.symbol.toLowerCase()}`}
                 prefetch={false}

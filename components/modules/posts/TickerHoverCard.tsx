@@ -1,17 +1,26 @@
 "use client";
 // components/modules/posts/TickerHoverCard.tsx
 //
-// Hover preview di un $TICKER inline nel PostBody. Pattern Twitter
-// HoverCard: su desktop il hover apre un floating panel con coin
-// snapshot + 2-3 CTA; su mobile (no hover) il Link interno resta
-// cliccabile e va a /coins/<symbol>.
+// Hover/long-press preview di un $TICKER inline nel PostBody. Pattern
+// Twitter HoverCard + Bluesky long-press:
+//   - Desktop (pointerType=mouse) → hover ~120ms apre, leave chiude
+//   - Mobile  (pointerType=touch) → long-press 500ms apre il popover,
+//                                   tap normale lascia navigare il Link
 //
-// La preview è fetched lazy via Server Action al primo open. Cache
-// in-memory per evitare N+1 quando lo stesso ticker compare in
-// più post visibili nella stessa pagina.
+// Tre layer di freshness in cascata:
+//   1. SSR prefetch via `initialData` (Server Components hanno già
+//      caricato il batch dei ticker visibili → 0 latenza primo hover).
+//   2. Cache modulo `previewCache` con `freshUntil` server-driven
+//      (allineato al cron prices → cache scade quando il prossimo sync
+//      è atteso, niente magic-constant TTL).
+//   3. Lazy fetch via Server Action `getTickerPreview` come fallback
+//      quando initialData è assente e cache vuota/stale.
+//
+// Refactor da Radix HoverCard a Popover (controlled): HoverCard non
+// supporta nativamente touch long-press, Popover sì via open prop.
 import * as React from "react";
 import Link from "next/link";
-import { HoverCard as HoverCardPrimitive } from "radix-ui";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import { ArrowUpRight, MessageCircle, TrendingUp } from "lucide-react";
 import {
   getTickerPreview,
@@ -20,9 +29,18 @@ import {
 import { CoinIcon } from "@/components/modules/coins/coin-icon";
 import { MiniSparkline } from "@/components/modules/coins/mini-sparkline";
 
-// Cache locale al modulo (svuotata al refresh pagina). Evita
-// re-fetch quando lo stesso $TICKER è linkato in più post.
-const previewCache = new Map<string, TickerPreviewData>();
+// Cache modulo (svuotata al refresh). { data, freshUntil } per entry —
+// freshUntil è epoch ms, oltre quale la entry è stale.
+type CacheEntry = TickerPreviewData;
+const previewCache = new Map<string, CacheEntry>();
+
+const HOVER_OPEN_DELAY_MS = 120;
+const HOVER_CLOSE_DELAY_MS = 100;
+const TOUCH_LONG_PRESS_MS = 500;
+
+function isFresh(entry: CacheEntry | undefined): entry is CacheEntry {
+  return !!entry && Date.now() < entry.freshUntil;
+}
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -44,19 +62,41 @@ function formatChange(value: number | null): string {
 type Props = {
   /** Simbolo UPPERCASE (es. "BTC"). */
   symbol: string;
+  /** Preview pre-fetched server-side. Se presente E fresh → render
+   *  immediato senza fetch al primo open. */
+  initialData?: TickerPreviewData;
   /** Children = il `<Link>` `$TICKER` originale, wrappato come trigger. */
   children: React.ReactNode;
 };
 
-export function TickerHoverCard({ symbol, children }: Props) {
+export function TickerHoverCard({ symbol, initialData, children }: Props) {
   const [open, setOpen] = React.useState(false);
-  const [data, setData] = React.useState<TickerPreviewData | null>(
-    previewCache.get(symbol) ?? null,
-  );
+
+  // Inizializza la cache modulo col prefetch SSR, se non già presente
+  // o se quello in cache è più stale.
+  React.useEffect(() => {
+    if (!initialData) return;
+    const cached = previewCache.get(symbol);
+    if (!cached || cached.freshUntil < initialData.freshUntil) {
+      previewCache.set(symbol, initialData);
+    }
+  }, [initialData, symbol]);
+
+  const [data, setData] = React.useState<TickerPreviewData | null>(() => {
+    const cached = previewCache.get(symbol);
+    if (isFresh(cached)) return cached;
+    if (initialData && isFresh(initialData)) {
+      previewCache.set(symbol, initialData);
+      return initialData;
+    }
+    return null;
+  });
   const [loading, setLoading] = React.useState(false);
 
+  // Refetch on open se data è null o stale.
   React.useEffect(() => {
-    if (!open || data) return;
+    if (!open) return;
+    if (isFresh(data ?? undefined)) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
@@ -73,21 +113,99 @@ export function TickerHoverCard({ symbol, children }: Props) {
     };
   }, [open, data, symbol]);
 
+  // ── Hover (desktop mouse) — delay-based open/close ──────────────
+  const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimers = () => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  React.useEffect(() => () => clearTimers(), []);
+
+  const onPointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimers();
+    openTimerRef.current = setTimeout(() => setOpen(true), HOVER_OPEN_DELAY_MS);
+  };
+  const onPointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimers();
+    closeTimerRef.current = setTimeout(
+      () => setOpen(false),
+      HOVER_CLOSE_DELAY_MS,
+    );
+  };
+  const onContentPointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimers();
+    closeTimerRef.current = setTimeout(
+      () => setOpen(false),
+      HOVER_CLOSE_DELAY_MS,
+    );
+  };
+
+  // ── Touch long-press (mobile) — 500ms tieni-premuto → apre ─────
+  const touchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchOpenedRef = React.useRef(false);
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    touchOpenedRef.current = false;
+    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+    touchTimerRef.current = setTimeout(() => {
+      touchOpenedRef.current = true;
+      setOpen(true);
+    }, TOUCH_LONG_PRESS_MS);
+  };
+  const cancelTouch = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+  const onClick = (e: React.MouseEvent) => {
+    // Se l'utente ha fatto long-press → blocca la navigation del Link
+    // così resta sul popover. Tap normale → naviga (default).
+    if (touchOpenedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      touchOpenedRef.current = false;
+    }
+  };
+
   return (
-    <HoverCardPrimitive.Root
-      openDelay={250}
-      closeDelay={100}
-      onOpenChange={setOpen}>
-      <HoverCardPrimitive.Trigger asChild>{children}</HoverCardPrimitive.Trigger>
-      <HoverCardPrimitive.Portal>
-        <HoverCardPrimitive.Content
+    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+      <PopoverPrimitive.Trigger asChild>
+        <span
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={(e) => {
+            // Mouse leave: close-delay. Touch leave: cancel long-press.
+            if (e.pointerType === "mouse") onPointerLeave(e);
+            else cancelTouch(e);
+          }}
+          onPointerDown={onPointerDown}
+          onPointerUp={cancelTouch}
+          onPointerCancel={cancelTouch}
+          onClick={onClick}
+          className="inline-block">
+          {children}
+        </span>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
           side="top"
           sideOffset={6}
-          className="z-50 w-72 rounded-2xl border border-gc-line bg-gc-bg-2 p-4 shadow-xl"
-          style={{
-            // Animation soft (Radix data attrs gestiscono open/close).
-            animation: "fadeInUp 120ms ease-out",
-          }}>
+          align="center"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onPointerEnter={() => clearTimers()}
+          onPointerLeave={onContentPointerLeave}
+          className="z-50 w-72 rounded-2xl border border-gc-line bg-gc-bg-2 p-4 shadow-xl">
           {data?.coin ? (
             <PreviewBody data={data} symbol={symbol} />
           ) : loading || !data ? (
@@ -95,9 +213,9 @@ export function TickerHoverCard({ symbol, children }: Props) {
           ) : (
             <PreviewUntracked symbol={symbol} postCount={data.postCount24h} />
           )}
-        </HoverCardPrimitive.Content>
-      </HoverCardPrimitive.Portal>
-    </HoverCardPrimitive.Root>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }
 
@@ -121,7 +239,6 @@ function PreviewBody({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Header: logo + name + symbol + rank */}
       <div className="flex items-start gap-2.5">
         <CoinIcon
           symbol={coin.symbol}
@@ -142,14 +259,14 @@ function PreviewBody({
         </div>
       </div>
 
-      {/* Price + change + sparkline */}
       <div className="flex items-end justify-between gap-2">
         <div className="flex flex-col">
           <span className="text-lg font-semibold text-gc-fg tabular-nums">
             {formatPrice(coin.price)}
           </span>
           <span className={`text-xs tabular-nums ${changeTone}`}>
-            {formatChange(coin.change24h)} <span className="text-gc-fg-3">24h</span>
+            {formatChange(coin.change24h)}{" "}
+            <span className="text-gc-fg-3">24h</span>
           </span>
         </div>
         <MiniSparkline
@@ -160,7 +277,6 @@ function PreviewBody({
         />
       </div>
 
-      {/* CTA */}
       <div className="flex flex-col gap-1.5">
         <Link
           href={`/coins/${symbolLower}`}
@@ -215,7 +331,12 @@ function PreviewUntracked({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm text-gc-fg-2">
-        <TrendingUp size={14} strokeWidth={1.75} aria-hidden className="text-gc-fg-3" />
+        <TrendingUp
+          size={14}
+          strokeWidth={1.75}
+          aria-hidden
+          className="text-gc-fg-3"
+        />
         <span>
           <strong className="text-gc-fg">${symbol}</strong> non è un coin
           tracciato.

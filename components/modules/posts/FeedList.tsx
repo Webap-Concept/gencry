@@ -13,6 +13,7 @@ import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
+import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 import { PostCard } from "./PostCard";
 
 export type FeedListSource =
@@ -31,6 +32,9 @@ type Props = {
   /** Mappa lower-name → SYMBOL per il match implicito nomi nel PostBody.
    *  Caricata dal Server Component padre, propagata a ogni PostCard. */
   coinNameMap?: Record<string, string>;
+  /** Preview ticker pre-fetched server-side. Propagata al TickerHoverCard
+   *  per zero round-trip al primo hover. */
+  tickerPreviewMap?: Record<string, TickerPreviewData>;
 };
 
 export function FeedList(props: Props) {
@@ -75,6 +79,7 @@ export function FeedList(props: Props) {
               post={p}
               isAuthor={p.author.id === props.viewerUserId}
               coinNameMap={props.coinNameMap}
+              tickerPreviewMap={props.tickerPreviewMap}
             />
           ))
         )}
