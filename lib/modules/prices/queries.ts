@@ -417,6 +417,59 @@ export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Coin name → symbol map (per parser ticker estesi nel modulo posts)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mappa `<nome lowercase> → <SYMBOL>` per il riconoscimento dei coin per
+ * nome esteso ("bitcoin" → BTC, "solana" → SOL) nel parser del modulo
+ * Posts.
+ *
+ * Implementazione: tokenization + Set/Map lookup. Lookup è O(1) per
+ * parola, quindi parsare un post body è O(words_nel_body) **indipendente
+ * dal numero di coin**. Scala lineare anche con 100k+ coin.
+ *
+ * Cache 5min via `unstable_cache`. Invalidata dal tag `PRICES_DATA_TAG`
+ * quando admin aggiunge/disattiva/rinomina un coin → propagazione
+ * immediata al parser senza aspettare il revalidate.
+ *
+ * Solo coin attivi (isActive=true). Solo single-word names (filtra
+ * fuori "Bitcoin Cash" e simili — match multi-word richiede
+ * tokenization più sofisticata, fuori scope v1).
+ */
+const fetchCoinNameMap = async (): Promise<Record<string, string>> => {
+  const rows = await db
+    .select({ symbol: pricesCoins.symbol, name: pricesCoins.name })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.isActive, true));
+
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    if (!r.name) continue;
+    const lower = r.name.toLowerCase().trim();
+    // Skip multi-word names (es. "Bitcoin Cash"): in v1 matchiamo solo
+    // single-word per evitare ambiguità su "Cash" / "Inu" / ecc.
+    if (lower.includes(" ")) continue;
+    // Skip se l'unica parola è troppo corta o uguale al symbol stesso
+    // (es. "BTC" come name → già coperto dal parser $TICKER).
+    if (lower.length < 3) continue;
+    if (lower === r.symbol.toLowerCase()) continue;
+    map[lower] = r.symbol;
+  }
+  return map;
+};
+
+const getCoinNameMapCached = unstable_cache(
+  fetchCoinNameMap,
+  ["prices-coin-name-map"],
+  { revalidate: 300, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getCoinNameMap(): Promise<Record<string, string>> {
+  return getCoinNameMapCached();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // History series (chart interattivo)
 // ─────────────────────────────────────────────────────────────────────────
 

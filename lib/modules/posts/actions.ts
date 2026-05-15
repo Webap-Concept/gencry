@@ -232,7 +232,7 @@ async function syncTickersAndMentions(
   body: string,
   postCreatedAt: Date,
 ): Promise<void> {
-  const tickers = extractTickers(body);
+  const tickers = await extractTickers(body);
   const mentions = extractMentions(body);
 
   if (tickers.size > 0) {

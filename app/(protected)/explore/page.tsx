@@ -23,7 +23,7 @@ import {
   getPostsByIds,
   getTickerFeedIds,
 } from "@/lib/modules/posts/queries";
-import { getCoinForCard } from "@/lib/modules/prices/queries";
+import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
 import { FeedList } from "@/components/modules/posts/FeedList";
 import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRow";
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
@@ -57,13 +57,14 @@ export default async function ExplorePage({
   }
 
   // Carica la prima pagina del feed scelto + (se ticker) lo snapshot
-  // del coin per il CoinSummaryCard sticky. Coin può essere null se
-  // il ticker non è tracciato nel pricing module — empty state.
-  const [page, coin] = await Promise.all([
+  // del coin per il CoinSummaryCard sticky + la coinNameMap per il
+  // match nomi estesi nel PostBody di ogni card.
+  const [page, coin, coinNameMap] = await Promise.all([
     ticker
       ? getTickerFeedIds({ ticker, viewerUserId: user.id })
       : getFeedIds({ tab: "discover", viewerUserId: user.id }),
     ticker ? getCoinForCard(ticker) : Promise.resolve(null),
+    getCoinNameMap(),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
 
@@ -127,6 +128,7 @@ export default async function ExplorePage({
           initialNextCursor={page.nextCursor}
           viewerUserId={user.id}
           source={source}
+          coinNameMap={coinNameMap}
           emptyState={<ExploreEmptyState ticker={ticker} />}
         />
       </div>

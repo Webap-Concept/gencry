@@ -16,6 +16,7 @@ import {
   getTickerFeedIds,
   getPostsByIds,
 } from "@/lib/modules/posts/queries";
+import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { PostCard } from "@/components/modules/posts/PostCard";
 
 export async function CoinRelatedPostsSection({
@@ -27,11 +28,14 @@ export async function CoinRelatedPostsSection({
   limit?: number;
 }) {
   const user = await getUser();
-  const page = await getTickerFeedIds({
-    ticker: symbol,
-    viewerUserId: user?.id,
-    pageSize: limit,
-  });
+  const [page, coinNameMap] = await Promise.all([
+    getTickerFeedIds({
+      ticker: symbol,
+      viewerUserId: user?.id,
+      pageSize: limit,
+    }),
+    getCoinNameMap(),
+  ]);
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
 
   return (
@@ -65,6 +69,7 @@ export async function CoinRelatedPostsSection({
               key={p.id}
               post={p}
               isAuthor={p.author.id === user?.id}
+              coinNameMap={coinNameMap}
             />
           ))}
         </div>

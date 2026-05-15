@@ -11,6 +11,7 @@
 import "server-only";
 import { getUser } from "@/lib/db/queries";
 import { getFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
+import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { FeedList } from "./FeedList";
 
 export async function PostsFeedSection() {
@@ -22,10 +23,10 @@ export async function PostsFeedSection() {
   // Home = Following only. `getFeedIds({ tab: 'following' })` oggi
   // ritorna sempre [] (stub fino al modulo follows). Il backend Discover
   // resta vivo e sarà usato da /explore.
-  const page = await getFeedIds({
-    tab: "following",
-    viewerUserId: user.id,
-  });
+  const [page, coinNameMap] = await Promise.all([
+    getFeedIds({ tab: "following", viewerUserId: user.id }),
+    getCoinNameMap(),
+  ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
 
   return (
@@ -34,6 +35,7 @@ export async function PostsFeedSection() {
       initialNextCursor={page.nextCursor}
       viewerUserId={user.id}
       source={{ kind: "tab", tab: "following" }}
+      coinNameMap={coinNameMap}
     />
   );
 }

@@ -20,6 +20,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
 import { getPostBySlug } from "@/lib/modules/posts/queries";
+import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { PostCard } from "@/components/modules/posts/PostCard";
 
 type Params = { id: string };
@@ -31,7 +32,10 @@ export default async function PostPage({
 }) {
   const { id } = await params;
   const user = await getUser();
-  const post = await getPostBySlug(id, { viewerUserId: user?.id });
+  const [post, coinNameMap] = await Promise.all([
+    getPostBySlug(id, { viewerUserId: user?.id }),
+    getCoinNameMap(),
+  ]);
   if (!post) {
     if (user) redirect("/");
     notFound();
@@ -47,6 +51,7 @@ export default async function PostPage({
         variant="single"
         redirectAfterBlock="/"
         redirectAfterDelete="/"
+        coinNameMap={coinNameMap}
       />
     </div>
   );

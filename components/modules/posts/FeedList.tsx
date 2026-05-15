@@ -28,6 +28,9 @@ type Props = {
   source: FeedListSource;
   /** Empty state custom (es. "Nessun post su $BTC" vs "La tua home è vuota"). */
   emptyState?: React.ReactNode;
+  /** Mappa lower-name → SYMBOL per il match implicito nomi nel PostBody.
+   *  Caricata dal Server Component padre, propagata a ogni PostCard. */
+  coinNameMap?: Record<string, string>;
 };
 
 export function FeedList(props: Props) {
@@ -71,6 +74,7 @@ export function FeedList(props: Props) {
               key={p.id}
               post={p}
               isAuthor={p.author.id === props.viewerUserId}
+              coinNameMap={props.coinNameMap}
             />
           ))
         )}

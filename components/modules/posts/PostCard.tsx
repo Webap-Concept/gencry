@@ -132,6 +132,13 @@ type Props = {
    * post: la single-post page passa "/", il feed non lo passa.
    */
   redirectAfterDelete?: string;
+  /**
+   * Mappa lower-name → SYMBOL caricata dal Server Component padre per
+   * il match implicito dei coin nel PostBody. Propagata sia al body
+   * principale sia al `repostOf` embed. Senza, solo `$TICKER` espliciti
+   * vengono linkati.
+   */
+  coinNameMap?: Record<string, string>;
 };
 
 export function PostCard({
@@ -141,6 +148,7 @@ export function PostCard({
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
   redirectAfterBlock,
   redirectAfterDelete,
+  coinNameMap,
 }: Props) {
   const router = useRouter();
   // Optimistic display state per body/visibility/editedAt: dopo
@@ -439,7 +447,7 @@ export function PostCard({
             "vuoto" cada sull'overlay link verso /post/{id}. I Link
             interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
             e catturano da soli il click. */}
-        <PostBody body={displayedBody} />
+        <PostBody body={displayedBody} coinNameMap={coinNameMap} />
 
         {/* Media gallery: SI interactiveClass — le tile sono <button>
             e click apre il lightbox, non deve navigare al post. */}
@@ -464,7 +472,7 @@ export function PostCard({
               <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
               {authorDisplayName(post.repostOf.author)}
             </div>
-            <PostBody body={post.repostOf.body} />
+            <PostBody body={post.repostOf.body} coinNameMap={coinNameMap} />
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
