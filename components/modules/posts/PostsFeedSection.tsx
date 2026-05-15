@@ -33,6 +33,7 @@ export async function PostsFeedSection() {
       initialPosts={initialPosts}
       initialNextCursor={page.nextCursor}
       viewerUserId={user.id}
+      source={{ kind: "tab", tab: "following" }}
     />
   );
 }

@@ -1,26 +1,33 @@
 "use client";
 // components/modules/posts/FeedList.tsx
 //
-// Lista dei post nella Home loggata. Decisione UX 2026-05-14: solo
-// 1 stream (Following), niente più tabs Discover/Following. Per la
-// discoverability dei contenuti pubblici → pagina /explore separata
-// (futuro).
+// Lista paginata generica del feed. Server-rendered la first page,
+// "Carica altri" client-side append via Server Action `loadMoreFeed`.
 //
-// La first page arriva server-rendered (RSC) → niente flash di
-// scheletro al primo paint. Le pagine successive sono caricate via
-// la Server Action `loadMoreFeed`.
+// Source-agnostic: il caller passa `source` discriminato (tab vs
+// ticker) + empty state custom. Usato dalla Home (Following), dalla
+// /explore (Discover) e dalla /explore?ticker= (Ticker filter).
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
+import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import { PostCard } from "./PostCard";
+
+export type FeedListSource =
+  | { kind: "tab"; tab: FeedTab }
+  | { kind: "ticker"; ticker: string };
 
 type Props = {
   initialPosts: PostCardData[];
   initialNextCursor: string | null;
   /** ID utente loggato. Necessario per marcare `isAuthor` sulle proprie card. */
   viewerUserId: string;
+  /** Origine del feed: tab discover/following oppure filtro per ticker. */
+  source: FeedListSource;
+  /** Empty state custom (es. "Nessun post su $BTC" vs "La tua home è vuota"). */
+  emptyState?: React.ReactNode;
 };
 
 export function FeedList(props: Props) {
@@ -35,7 +42,15 @@ export function FeedList(props: Props) {
     if (!nextCursor || isPending) return;
     setError(null);
     startTransition(async () => {
-      const res = await loadMoreFeed({ tab: "following", cursor: nextCursor });
+      const input =
+        props.source.kind === "tab"
+          ? { kind: "tab" as const, tab: props.source.tab, cursor: nextCursor }
+          : {
+              kind: "ticker" as const,
+              ticker: props.source.ticker,
+              cursor: nextCursor,
+            };
+      const res = await loadMoreFeed(input);
       if (res.ok) {
         setPosts((prev) => [...prev, ...res.data.posts]);
         setNextCursor(res.data.nextCursor);
@@ -49,7 +64,7 @@ export function FeedList(props: Props) {
     <section aria-label="Feed">
       <div className="space-y-3">
         {posts.length === 0 && !isPending ? (
-          <FollowingEmptyState />
+          props.emptyState ?? <FollowingEmptyState />
         ) : (
           posts.map((p) => (
             <PostCard

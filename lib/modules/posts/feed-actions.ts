@@ -10,18 +10,29 @@
 //   - più snello da auditare per cosa è chiamabile dal client.
 
 import { getUser } from "@/lib/db/queries";
-import { getFeedIds, getPostsByIds } from "./queries";
+import {
+  getFeedIds,
+  getPostsByIds,
+  getTickerFeedIds,
+} from "./queries";
 import type { FeedTab } from "./queries";
 import type { PostCardData } from "./types";
 
-export type LoadMoreFeedInput = {
-  tab: FeedTab;
-  /**
-   * Cursor encoded base64. `null` = prima pagina (utile dopo un tab
-   * switch). Stringa non-vuota = pagina successiva al cursor.
-   */
-  cursor: string | null;
-};
+/**
+ * Tipo discriminato per i diversi feed paginabili da Explore/Home.
+ * "discover"/"following" → getFeedIds. "ticker" → getTickerFeedIds.
+ */
+export type LoadMoreFeedInput =
+  | {
+      kind: "tab";
+      tab: FeedTab;
+      cursor: string | null;
+    }
+  | {
+      kind: "ticker";
+      ticker: string;
+      cursor: string | null;
+    };
 
 export type LoadMoreFeedResult =
   | {
@@ -36,23 +47,37 @@ export type LoadMoreFeedResult =
 export async function loadMoreFeed(
   input: LoadMoreFeedInput,
 ): Promise<LoadMoreFeedResult> {
-  if (input.tab !== "discover" && input.tab !== "following") {
-    return { ok: false, error: "posts.feed.invalid_tab" };
+  const user = await getUser();
+
+  if (input.kind === "tab") {
+    if (input.tab !== "discover" && input.tab !== "following") {
+      return { ok: false, error: "posts.feed.invalid_tab" };
+    }
+    const page = await getFeedIds({
+      tab: input.tab,
+      viewerUserId: user?.id,
+      cursor: input.cursor ?? undefined,
+    });
+    const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
+    return {
+      ok: true,
+      data: { posts, nextCursor: page.nextCursor },
+    };
   }
 
-  const user = await getUser();
-  const page = await getFeedIds({
-    tab: input.tab,
+  // kind === "ticker"
+  const tickerNorm = input.ticker.toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,19}$/.test(tickerNorm)) {
+    return { ok: false, error: "posts.feed.invalid_ticker" };
+  }
+  const page = await getTickerFeedIds({
+    ticker: tickerNorm,
     viewerUserId: user?.id,
     cursor: input.cursor ?? undefined,
   });
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
-
   return {
     ok: true,
-    data: {
-      posts,
-      nextCursor: page.nextCursor,
-    },
+    data: { posts, nextCursor: page.nextCursor },
   };
 }

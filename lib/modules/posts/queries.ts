@@ -1373,5 +1373,52 @@ export async function getDeletedPostsForAdmin(opts: {
   return { rows: mappedRows, nextCursor };
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Trending tickers (Explore page)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type TrendingTickerRow = {
+  ticker: string;
+  postCount: number;
+};
+
+/**
+ * Top N ticker più menzionati negli ultimi `windowHours` ore.
+ * Query separata dal feed (pattern GetStream §8: trending NON è un
+ * ranking del feed, è una view a sé). Costo trascurabile:
+ * GROUP BY su `posts_tickers` con index `idx_posts_tickers_feed`
+ * coperto da `(ticker, created_at)` — index-only scan.
+ *
+ * Cache lato consumer: il caller wrappa in `unstable_cache` (5min)
+ * o `revalidate: 300` per evitare 12+ query/h.
+ *
+ * Esclusione visibility: il count include TUTTE le visibility
+ * (public/members/followers/private). Refinement v2 se i creator
+ * "private" inflattono il segnale.
+ */
+export async function getTrendingTickers(opts: {
+  windowHours?: number;
+  limit?: number;
+}): Promise<TrendingTickerRow[]> {
+  const windowHours = opts.windowHours ?? 24;
+  const limit = opts.limit ?? 10;
+  const cutoff = new Date(
+    Date.now() - windowHours * 60 * 60 * 1000,
+  ).toISOString();
+
+  const rows = await db
+    .select({
+      ticker: postsTickers.ticker,
+      n: sql<number>`COUNT(*)::int`,
+    })
+    .from(postsTickers)
+    .where(sql`${postsTickers.createdAt} >= ${cutoff}`)
+    .groupBy(postsTickers.ticker)
+    .orderBy(sql`COUNT(*) DESC`, postsTickers.ticker)
+    .limit(limit);
+
+  return rows.map((r) => ({ ticker: r.ticker, postCount: r.n }));
+}
+
 // Re-export per i client di queries.ts
 export { encodeCursor, decodeCursor } from "./lib/cursor";
