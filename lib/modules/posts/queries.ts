@@ -125,13 +125,13 @@ function cursorClauseAsc(cursor: ReturnType<typeof decodeCursor>) {
  */
 function viewerNotBlockedOnPosts(viewerUserId: string | undefined) {
   if (!viewerUserId) return undefined;
-  return notBlockedBy(viewerUserId, "posts.author_id");
+  return notBlockedBy(viewerUserId, posts.authorId);
 }
 
 /** Variante per JOIN su posts_comments (autore = posts_comments.author_id). */
 function viewerNotBlockedOnComments(viewerUserId: string | undefined) {
   if (!viewerUserId) return undefined;
-  return notBlockedBy(viewerUserId, "posts_comments.author_id");
+  return notBlockedBy(viewerUserId, postsComments.authorId);
 }
 
 /**

@@ -7,7 +7,7 @@
 //
 // V1 → pass-through DB. V2 → precaricamento del Set in KV Upstash per
 // fan-out feed (vedi memory project_block_kv_set_followup).
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, or, sql, type Column } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import { postsUserBlocks } from "@/lib/db/schema";
 
@@ -81,21 +81,26 @@ export async function isBlockedBetween(
 
 /**
  * SQL fragment riusabile per filtri feed/list: esclude i post il cui
- * `author_id` ha una qualsiasi relazione di block con il viewer.
+ * autore ha una qualsiasi relazione di block con il viewer.
  *
- * Uso: `where(and(..., notBlockedBy(viewerId)))`.
+ * Uso: `where(and(..., notBlockedBy(viewerId, posts.authorId)))`.
  *
  * Implementato come NOT EXISTS su `posts_user_blocks` con OR sulle due
- * direzioni. Index seek su PK + idx_blocked: cost trascurabile a bassa
- * scala. Per scaling vedi memory project_block_kv_set_followup.
+ * direzioni (mutual). Index seek su PK + idx_blocked: cost trascurabile
+ * a bassa scala. Per scaling vedi memory project_block_kv_set_followup.
  *
  * Importante: il caller deve garantire che `viewerId` sia uno user_id
  * valido. Per anonimi, NON applicare il filtro (passa attorno).
+ *
+ * `authorIdColumn` è una Column Drizzle (es. `posts.authorId` o
+ * `postsComments.authorId`) così l'interpolazione genera il nome
+ * quotato correttamente — `sql.raw("posts.author_id")` non risolve
+ * nello scope della query quando Drizzle alias-quota le tabelle.
  */
-export function notBlockedBy(viewerId: string, authorIdColumn = "posts.author_id") {
+export function notBlockedBy(viewerId: string, authorIdColumn: Column) {
   return sql`NOT EXISTS (
     SELECT 1 FROM posts_user_blocks pb
-    WHERE (pb.blocker_id = ${viewerId} AND pb.blocked_id = ${sql.raw(authorIdColumn)})
-       OR (pb.blocked_id = ${viewerId} AND pb.blocker_id = ${sql.raw(authorIdColumn)})
+    WHERE (pb.blocker_id = ${viewerId} AND pb.blocked_id = ${authorIdColumn})
+       OR (pb.blocked_id = ${viewerId} AND pb.blocker_id = ${authorIdColumn})
   )`;
 }
