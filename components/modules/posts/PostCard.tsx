@@ -248,11 +248,19 @@ export function PostCard({
         return;
       }
       // Sulla single-post page (variant="single") il caller passa
-      // redirectAfterBlock="/" così l'utente non resta su una URL
-      // morta. Sul feed (variant="feed") niente redirect: la card
-      // sparisce optimistic e l'utente continua a scrollare.
+      // redirectAfterBlock="/" e usiamo router.replace() così la post
+      // page bloccata NON resta nella history (back → non torna su
+      // una URL morta, l'utente atterra direttamente sul passo
+      // precedente del flusso).
+      //
+      // Sul feed (no redirect) chiamiamo router.refresh() per
+      // ripopolare la Router Cache di RSC: il server action ha già
+      // chiamato revalidatePath('/', 'layout'), refresh forza il
+      // re-fetch immediato del feed corrente.
       if (redirectAfterBlock) {
-        router.push(redirectAfterBlock);
+        router.replace(redirectAfterBlock);
+      } else {
+        router.refresh();
       }
     });
   };

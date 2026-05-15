@@ -29,6 +29,7 @@
 //   - admin soft-delete by id — PR-8
 
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
@@ -651,6 +652,16 @@ export async function toggleUserBlock(
   await feedInvalidate("discover");
   await feedInvalidate({ user: user.id });
   await feedInvalidate({ user: parsed.data.blockedUserId });
+
+  // Invalida la Next.js Router Cache (client-side RSC payload) di
+  // tutto il route group (protected). Necessario perché il viewer,
+  // dopo block, navigando back nel browser tornerebbe a una post
+  // page hidratata con il post ora bloccato. revalidatePath con
+  // type='layout' invalida sia /, sia /post/[id], sia /profile/*, sia
+  // /explore — granular tag invalidation richiederebbe sapere quali
+  // post-id dell'autore bloccato sono in cache nel viewer, info non
+  // disponibile server-side. Block è azione rara → costo trascurabile.
+  revalidatePath("/", "layout");
 
   return { ok: true, data: result };
 }
