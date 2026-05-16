@@ -1,5 +1,6 @@
 import { CookiePreferencesTrigger } from "@/components/cookie-banner/preferences-trigger";
 import type { BannerServicesByCategory } from "@/lib/db/cookie-services-queries";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Check, Minus } from "lucide-react";
 
 type Props = {
@@ -19,51 +20,31 @@ type Props = {
   services?: BannerServicesByCategory;
 };
 
-const dateFmt = new Intl.DateTimeFormat("it-IT", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
 /**
  * Le 4 categorie ePrivacy fisse — definite localmente perché sono
- * standard di legge (non admin-editabili). Le label IT sono hardcoded
- * coerenti col resto di /settings/privacy (file non i18nato).
+ * standard di legge (non admin-editabili). Le label vivono in i18n
+ * sotto `core.settings.privacy.cookies.categories.*`.
  */
+type CategoryId =
+  | "cookie_necessary"
+  | "cookie_preferences"
+  | "cookie_analytics"
+  | "cookie_marketing";
+
 const CATEGORIES: Array<{
-  id: "cookie_necessary" | "cookie_preferences" | "cookie_analytics" | "cookie_marketing";
-  label: string;
-  description: string;
+  id: CategoryId;
+  labelKey: "necessaryLabel" | "preferencesLabel" | "statisticsLabel" | "marketingLabel";
+  descKey:
+    | "necessaryDescription"
+    | "preferencesDescription"
+    | "statisticsDescription"
+    | "marketingDescription";
   alwaysOn: boolean;
 }> = [
-  {
-    id: "cookie_necessary",
-    label: "Necessari",
-    description:
-      "Indispensabili per il funzionamento del sito (sessione, sicurezza, preferenze di base).",
-    alwaysOn: true,
-  },
-  {
-    id: "cookie_preferences",
-    label: "Preferenze",
-    description:
-      "Memorizzano le tue scelte (lingua, tema, visualizzazioni) per personalizzare l'esperienza.",
-    alwaysOn: false,
-  },
-  {
-    id: "cookie_analytics",
-    label: "Statistiche",
-    description:
-      "Ci aiutano a capire come viene usato il sito tramite dati aggregati e anonimi.",
-    alwaysOn: false,
-  },
-  {
-    id: "cookie_marketing",
-    label: "Marketing",
-    description:
-      "Permettono di mostrare contenuti e annunci più rilevanti su questo sito o piattaforme di terze parti.",
-    alwaysOn: false,
-  },
+  { id: "cookie_necessary", labelKey: "necessaryLabel", descKey: "necessaryDescription", alwaysOn: true },
+  { id: "cookie_preferences", labelKey: "preferencesLabel", descKey: "preferencesDescription", alwaysOn: false },
+  { id: "cookie_analytics", labelKey: "statisticsLabel", descKey: "statisticsDescription", alwaysOn: false },
+  { id: "cookie_marketing", labelKey: "marketingLabel", descKey: "marketingDescription", alwaysOn: false },
 ];
 
 /**
@@ -77,7 +58,7 @@ const CATEGORIES: Array<{
  * informativo invece del bottone — non c'è nulla da modificare quando
  * tutti i cookie non-essenziali sono già OFF per default.
  */
-export function CookiesPanel({
+export async function CookiesPanel({
   bannerEnabled,
   prefs,
   decidedAt,
@@ -85,8 +66,16 @@ export function CookiesPanel({
   services,
 }: Props) {
   const initialPrefs = prefs ?? undefined;
+  const t = await getTranslations("core.settings.privacy.cookies");
+  const tCat = await getTranslations("core.settings.privacy.cookies.categories");
+  const locale = await getLocale();
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  const stateFor = (catId: (typeof CATEGORIES)[number]["id"]): boolean => {
+  const stateFor = (catId: CategoryId): boolean => {
     if (catId === "cookie_necessary") return true;
     if (!prefs) return false;
     if (catId === "cookie_preferences") return prefs.preferences;
@@ -97,13 +86,8 @@ export function CookiesPanel({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">
-          Preferenze cookie
-        </h2>
-        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Gestisci le categorie di cookie che hai accettato. I cookie necessari
-          sono sempre attivi: senza, il sito non funzionerebbe.
-        </p>
+        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
+        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
       </div>
 
       <article className="rounded-2xl border border-gc-line bg-gc-bg-2">
@@ -111,20 +95,20 @@ export function CookiesPanel({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[14px] font-semibold text-gc-fg">
-                Stato attuale
+                {t("currentStatus")}
               </h3>
               {!bannerEnabled && (
                 <span className="rounded-full bg-gc-bg px-2 py-0.5 text-[11px] font-medium text-gc-fg-3">
-                  Banner disattivato
+                  {t("bannerDisabled")}
                 </span>
               )}
             </div>
             <p className="mt-1 text-[12px] text-gc-fg-3">
               {!bannerEnabled
-                ? "L'amministratore ha disattivato il banner cookie: tutti i cookie non essenziali sono spenti."
+                ? t("bannerDisabledInfo")
                 : prefs && decidedAt
-                  ? `Scelta salvata il ${dateFmt.format(new Date(decidedAt))}.`
-                  : "Non hai ancora scelto. Il banner ti chiederà al prossimo accesso pubblico."}
+                  ? t("savedOn", { date: dateFmt.format(new Date(decidedAt)) })
+                  : t("neverChosen")}
             </p>
           </div>
 
@@ -134,7 +118,7 @@ export function CookiesPanel({
               policyUrl={policyUrl}
               services={services}
               variant="button"
-              label={prefs ? "Modifica preferenze" : "Apri preferenze"}
+              label={prefs ? t("editPreferences") : t("openPreferences")}
             />
           )}
         </header>
@@ -149,15 +133,15 @@ export function CookiesPanel({
                   className="flex items-start justify-between gap-3 py-1">
                   <div className="min-w-0">
                     <div className="text-[13px] font-medium text-gc-fg">
-                      {cat.label}
+                      {tCat(cat.labelKey)}
                       {cat.alwaysOn && (
                         <span className="ml-2 rounded-full bg-gc-bg px-2 py-0.5 text-[10px] font-medium text-gc-fg-3 uppercase">
-                          Sempre attivi
+                          {t("alwaysOn")}
                         </span>
                       )}
                     </div>
                     <div className="text-[11.5px] text-gc-fg-3 mt-0.5">
-                      {cat.description}
+                      {tCat(cat.descKey)}
                     </div>
                   </div>
                   <span
@@ -168,11 +152,11 @@ export function CookiesPanel({
                     }>
                     {active ? (
                       <>
-                        <Check size={11} /> Attivi
+                        <Check size={11} /> {t("active")}
                       </>
                     ) : (
                       <>
-                        <Minus size={11} /> Spenti
+                        <Minus size={11} /> {t("inactive")}
                       </>
                     )}
                   </span>

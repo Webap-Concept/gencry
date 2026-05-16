@@ -1,1 +1,349 @@
-{}
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "loading": "Loading…",
+    "delete": "Delete",
+    "remove": "Remove",
+    "removing": "Removing…",
+    "edit": "Edit",
+    "back": "Back",
+    "confirm": "Confirm",
+    "continue": "Continue",
+    "close": "Close",
+    "search": "Search",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "comingSoon": {
+    "badge": "Coming soon"
+  },
+  "relativeTime": {
+    "now": "now",
+    "minutesAgo": "{n, plural, one {1 minute ago} other {# minutes ago}}",
+    "hoursAgo": "{n, plural, one {1 hour ago} other {# hours ago}}",
+    "daysAgo": "{n, plural, one {1 day ago} other {# days ago}}"
+  },
+  "shell": {
+    "openUserMenu": "Open user menu"
+  },
+  "sidebar": {
+    "nav": {
+      "feed": "Feed",
+      "explore": "Explore",
+      "profile": "Profile"
+    },
+    "notifications": "Notifications",
+    "newNotifications": "— new notifications"
+  },
+  "bottomNav": {
+    "feed": "Feed",
+    "explore": "Explore",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "ariaLabel": "Main navigation"
+  },
+  "userMenu": {
+    "openUserMenu": "Open user menu",
+    "profile": "Your profile",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "theme": "Theme",
+    "themeOption": {
+      "sand": "Sand",
+      "forest": "Forest"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "notificationsSheet": {
+    "title": "Notifications",
+    "ariaDescription": "List of unread and recent notifications",
+    "markAllRead": "Mark all as read"
+  },
+  "pages": {
+    "notifications": {
+      "title": "Notifications",
+      "description": "Price alerts, trust signals, new followers. Coming soon."
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Your profile, your watchlists, your followers. Coming soon."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your profile, account, security and privacy.",
+    "nav": {
+      "profile": "Profile",
+      "account": "Account",
+      "security": "Security",
+      "privacy": "Privacy",
+      "ariaLabel": "Settings sections"
+    },
+    "shared": {
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "passwordPlaceholder": "••••••••",
+      "verificationCodePlaceholder": "000000"
+    },
+    "account": {
+      "email": {
+        "sectionTitle": "Email",
+        "sectionDescription": "Your email is used to sign in and to receive security notifications.",
+        "currentLabel": "Current email",
+        "newLabel": "New email",
+        "newPlaceholder": "new@example.com",
+        "checking": "Checking email…",
+        "available": "Email available",
+        "sameAsCurrent": "The new email is the same as your current one.",
+        "invalidFormat": "Enter a valid email address",
+        "checkFailed": "Couldn't verify the email right now",
+        "currentPassword": "Current password",
+        "helpText": "For security we ask you to confirm your current password. You'll get a verification code at the new address. Max 1 request per day.",
+        "submitIdle": "Request email change",
+        "submitPending": "Sending…",
+        "pendingTitle": "Verification in progress for <strong>{pendingEmail}</strong>",
+        "pendingDescription": "We sent you a 6-digit code. Enter it here to complete the change. The code expires after 15 minutes.",
+        "codeLabel": "Verification code",
+        "confirmIdle": "Confirm email change",
+        "confirmPending": "Confirming…",
+        "cancelIdle": "Cancel request",
+        "cancelPending": "Canceling…"
+      },
+      "password": {
+        "sectionTitle": "Password",
+        "oauthInfo": "You signed in with Google. Password management happens directly in your Google account.",
+        "sectionDescription": "Confirm your current password and choose a new one.",
+        "currentLabel": "Current password",
+        "newLabel": "New password",
+        "confirmLabel": "Confirm new password",
+        "submitIdle": "Change password",
+        "submitPending": "Updating…"
+      }
+    },
+    "profile": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "username": "Username",
+      "usernameMinError": "At least 3 characters",
+      "usernameTaken": "Username already in use",
+      "usernameCheckFailed": "Couldn't verify username right now",
+      "usernameChecking": "Checking username…",
+      "usernameAvailable": "Username available",
+      "usernameHelp": "Will appear as @{usernameValue}. 3–50 characters, letters/numbers/underscore.",
+      "bio": "Bio",
+      "bioPlaceholder": "A short description of yourself…",
+      "bioHelp": "Maximum {max} characters.",
+      "email": "Email",
+      "emailMoveInfo": "Email change is available from the Account section.",
+      "languageLabel": "Preferred language",
+      "languageAuto": "Auto (detect from browser)",
+      "languageHelp": "Sets the language of the admin panel and emails. Applies on save.",
+      "submitIdle": "Save",
+      "submitPending": "Saving…",
+      "avatar": {
+        "label": "Profile photo",
+        "alt": "Profile photo",
+        "description": "PNG, JPG or WebP. You can crop and zoom before saving.",
+        "fileInvalid": "Select an image file.",
+        "fileTooLarge": "Image too large. Maximum 8 MB.",
+        "uploadIdle": "Upload",
+        "uploadChange": "Change",
+        "uploadPending": "Uploading…",
+        "removeIdle": "Remove",
+        "removePending": "Removing…"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "Two-factor authentication",
+        "descriptionInactive": "Adds a second step to sign-in: besides your password we ask for a code from an authenticator app (Google Authenticator, 1Password, Authy…). Even if someone stole your password, they couldn't sign in without your phone.",
+        "inactiveNotice": "You haven't enabled two-factor authentication yet.",
+        "enable": "Enable",
+        "descriptionActive": "At sign-in we ask for a code from your authenticator app along with your password.",
+        "activeStatus": "Two-factor authentication active",
+        "enabledOn": "Since {date}",
+        "recoveryCodesLabel": "Recovery codes:",
+        "recoveryCodesRemaining": "{remaining} of {total} available",
+        "lastUsedCode": "Last code used: {date}",
+        "regenerate": "Regenerate recovery codes",
+        "disable": "Disable",
+        "setupTitle": "Enable two-factor authentication",
+        "setupDescription": "Adds a second step to sign-in: besides your password we ask for a code from an authenticator app. We suggest Google Authenticator, 1Password or Authy.",
+        "stepScan": "1. Scan the QR code",
+        "stepScanDescription": "Open your authenticator app and add a new account by scanning this code.",
+        "qrAlt": "QR code for authenticator app",
+        "cantScan": "Can't scan?",
+        "manualKey": "Enter this key into the app manually:",
+        "stepCode": "2. Enter the generated code",
+        "stepCodeDescription": "Open the app and type the 6-digit code you see now to confirm setup.",
+        "verifyIdle": "Enable",
+        "verifyPending": "Verifying…",
+        "recoveryTitleFresh": "Save your recovery codes",
+        "recoveryTitleRegen": "New recovery codes",
+        "recoveryDescription": "They let you sign in if you lose your phone. Each code can be used once. Save them somewhere safe: after this screen we can't show them again.",
+        "copyIdle": "Copy all",
+        "copied": "Copied",
+        "downloadTxt": "Download .txt",
+        "confirmSaved": "I've saved the recovery codes somewhere safe.",
+        "disableTitle": "Disable two-factor authentication",
+        "disableDescription": "For security we ask you to confirm with your password and the current code from your authenticator app. All recovery codes will be invalidated.",
+        "passwordLabel": "Password",
+        "tokenLabel": "Authenticator code",
+        "disableIdle": "Disable",
+        "disablePending": "Disabling…",
+        "regenerateTitle": "Regenerate recovery codes",
+        "regenerateDescription": "Confirm with a current code from your authenticator app. The 10 previous codes will be invalidated and we'll generate 10 new ones.",
+        "regenerateIdle": "Generate new codes",
+        "regeneratePending": "Generating…"
+      },
+      "sessions": {
+        "title": "Active sessions",
+        "description": "Active sign-ins to your account right now. Revoking a session signs out that device immediately. The session you're using now can't be revoked from here — use sign out.",
+        "empty": "No active sessions.",
+        "current": "Current session",
+        "info": "IP {ip} · Opened on {date} · Last activity {time}",
+        "revokeIdle": "Revoke",
+        "revokePending": "Revoking…",
+        "revokeAll": "Revoke all other sessions",
+        "revokeAllConfirm": "You're about to close {n} session(s). On those devices sign-in will be required again.",
+        "revokeAllPending": "Revoking…",
+        "revokeAllConfirmCta": "Confirm revoke"
+      },
+      "devices": {
+        "title": "Trusted devices",
+        "description": "From these devices you can sign in without receiving an email verification code. This is different from sessions above: revoking a device doesn't close any active session, but at the next sign-in from there we'll ask for the OTP code again.",
+        "empty": "No trusted devices registered.",
+        "current": "This device",
+        "info": "Added on {date} · Last used {time}",
+        "revokeIdle": "Revoke",
+        "revokePending": "Revoking…",
+        "revokeAll": "Revoke all other devices",
+        "revokeAllConfirm": "You're about to revoke {n} device(s). At the next sign-in from those devices a new verification code will be required.",
+        "revokeAllPending": "Revoking…",
+        "revokeAllConfirmCta": "Confirm revoke"
+      }
+    },
+    "privacy": {
+      "consents": {
+        "sectionTitle": "Consents",
+        "sectionDescription": "Here are the agreements you've accepted. Terms and Privacy Policy are required to use the platform; marketing consent is optional and you can change it anytime.",
+        "requiredBadge": "Required",
+        "optionalBadge": "Optional",
+        "updatedBadge": "Updated version available",
+        "hideText": "Hide text",
+        "readAcceptedText": "Read accepted text",
+        "readPolicyText": "Read policy",
+        "marketingNotGiven": "You haven't consented to marketing communications.",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "activating": "Activating…",
+        "deactivating": "Deactivating…",
+        "showLess": "Show less",
+        "showMore": "Show all",
+        "neverAccepted": "Never accepted.",
+        "acceptedOn": "Accepted on {date} · version {version}",
+        "currentVersionSuffix": "· current version {version}",
+        "marketingActivated": "Marketing communications enabled.",
+        "marketingDeactivated": "Marketing communications disabled."
+      },
+      "cookies": {
+        "title": "Cookie preferences",
+        "description": "Manage which cookie categories you've accepted. Necessary cookies are always on: without them the site wouldn't work.",
+        "currentStatus": "Current status",
+        "bannerDisabled": "Banner disabled",
+        "bannerDisabledInfo": "The administrator disabled the cookie banner: all non-essential cookies are off.",
+        "savedOn": "Choice saved on {date}.",
+        "neverChosen": "You haven't chosen yet. The banner will ask at the next public visit.",
+        "editPreferences": "Edit preferences",
+        "openPreferences": "Open preferences",
+        "alwaysOn": "Always on",
+        "active": "On",
+        "inactive": "Off",
+        "categories": {
+          "necessaryLabel": "Necessary",
+          "necessaryDescription": "Essential for the site to work (session, security, basic preferences).",
+          "preferencesLabel": "Preferences",
+          "preferencesDescription": "Store your choices (language, theme, views) to personalize the experience.",
+          "statisticsLabel": "Statistics",
+          "statisticsDescription": "Help us understand how the site is used through aggregated, anonymous data.",
+          "marketingLabel": "Marketing",
+          "marketingDescription": "Allow showing more relevant content and ads on this site or third-party platforms."
+        }
+      },
+      "export": {
+        "title": "Data export",
+        "description": "Request a JSON archive with all personal data linked to your account. You'll receive an email with the download link (valid 24 hours); you can regenerate the link from settings while the file is available (7 days). Max 1 request per week.",
+        "requestLabel": "Request a new export",
+        "requestDescription": "Processing takes a few minutes. We'll email you when the archive is ready.",
+        "submitIdle": "Request export",
+        "submitPending": "Sending…",
+        "recentHeading": "Recent requests",
+        "status": {
+          "pending": "Queued — starting soon",
+          "processing": "Processing…",
+          "ready": "Ready to download",
+          "failed": "Error. Try again later.",
+          "expired": "Expired"
+        },
+        "downloadIdle": "Download",
+        "downloadPending": "Opening…",
+        "openingTab": "Opening in a new tab…"
+      },
+      "dangerZone": {
+        "title": "Account deletion",
+        "description": "When you delete your account you start a deletion request: your data is inaccessible for {graceDays} days and then permanently deleted. To cancel the request within that period you'll need to contact support.",
+        "deleteLabel": "Delete my account",
+        "deleteHint": "Irreversible after the {graceDays}-day grace period.",
+        "deleteButton": "Delete account",
+        "passwordStepDescription": "Enter your password to confirm. Your session will end and you won't be able to sign in; within {graceDays} days you can cancel the request by contacting support.",
+        "currentPassword": "Current password",
+        "noPasswordInfo": "Your account doesn't have a local password. To confirm deletion we'll send a verification code to your account email.",
+        "sendCodeIdle": "Send code via email",
+        "sendCodePending": "Sending…",
+        "codeStepDescription": "Enter the 6-digit code received via email. Your session will end and you won't be able to sign in; within {graceDays} days you can cancel the request by contacting support.",
+        "codeLabel": "Verification code",
+        "confirmTitle": "Confirm account deletion",
+        "confirmCheckbox": "I understand that after {graceDays} days my data will be permanently deleted and cannot be recovered.",
+        "finalIdle": "Delete permanently",
+        "finalPending": "Deleting…"
+      }
+    },
+    "actions": {
+      "sessionExpired": "Your session has expired. Please sign in again.",
+      "deviceRevoked": "Device revoked.",
+      "noOtherDevices": "No other devices to revoke.",
+      "devicesRevoked": "{n, plural, one {1 device revoked.} other {# devices revoked.}}",
+      "cannotRevokeCurrentSession": "You can't revoke the current session. To sign out, use the sign out action.",
+      "sessionRevoked": "Session revoked.",
+      "noOtherSessions": "No other active sessions.",
+      "sessionsRevoked": "{n, plural, one {1 session revoked.} other {# sessions revoked.}}",
+      "mfaAlreadyActive": "MFA is already active. Disable it before running setup again.",
+      "mfaScanQr": "Scan the QR with your authenticator app.",
+      "mfaNoPendingSetup": "No setup in progress. Start over.",
+      "mfaInvalidCode": "Invalid code. Try again.",
+      "mfaNotActive": "MFA is not active on this account.",
+      "passwordIncorrect": "Wrong password.",
+      "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+      "mfaDisabled": "Two-factor authentication disabled.",
+      "code6Digits": "Enter a 6-digit code.",
+      "enterPassword": "Enter your password.",
+      "emailCodeSent": "We sent a verification code to {newEmail}.",
+      "emailUpdated": "Email updated: your email is now {newEmail}.",
+      "emailUpdatedRevoked": "{count, plural, =0 {} one { 1 other active session was signed out.} other { # other active sessions were signed out.}}",
+      "emailChangeCanceled": "Email change request canceled.",
+      "passwordUpdated": "Password updated.{count, plural, =0 {} one { 1 other active session was signed out.} other { # other active sessions were signed out.}}",
+      "marketingActivated": "Marketing communications enabled.",
+      "marketingDeactivated": "Marketing communications disabled.",
+      "profileUpdated": "Profile updated.",
+      "notAuthenticated": "Not authenticated.",
+      "avatarSelectImage": "Select an image.",
+      "avatarTooLarge": "Image too large. Maximum 2 MB.",
+      "usernameNotAvailable": "This username is not available.",
+      "usernameTaken": "This username is already in use. Choose another one.",
+      "usernameJustTaken": "Someone just picked this username. Choose another one."
+    }
+  }
+}

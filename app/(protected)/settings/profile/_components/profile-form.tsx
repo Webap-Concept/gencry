@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { mutate } from "swr";
 import { Camera, Check, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function ProfileForm({
   locales: LocaleOption[];
 }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.profile");
   const [previewUrl, setPreviewUrl] = useState<string | null>(initial.avatarUrl);
 
   // Username availability real-time check (stesso pattern di /sign-up)
@@ -66,7 +68,7 @@ export function ProfileForm({
     }
 
     if (trimmed.length < 3) {
-      setUsernameError("Minimo 3 caratteri");
+      setUsernameError(t("usernameMinError"));
       setUsernameAvailable(false);
       setCheckingUsername(false);
       return;
@@ -91,11 +93,11 @@ export function ProfileForm({
         // result.available === false (no error): già registrato
         // result.available === true: ok
         setUsernameError(
-          result.error ?? (result.available ? "" : "Username già in uso"),
+          result.error ?? (result.available ? "" : t("usernameTaken")),
         );
         setUsernameAvailable(Boolean(result.available));
       } catch {
-        setUsernameError("Impossibile verificare lo username in questo momento");
+        setUsernameError(t("usernameCheckFailed"));
         setUsernameAvailable(false);
       } finally {
         setCheckingUsername(false);
@@ -137,13 +139,13 @@ export function ProfileForm({
 
       <form action={profileAction} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Nome" name="firstName" defaultValue={initial.firstName} maxLength={100} />
-          <Field label="Cognome" name="lastName" defaultValue={initial.lastName} maxLength={100} />
+          <Field label={t("firstName")} name="firstName" defaultValue={initial.firstName} maxLength={100} />
+          <Field label={t("lastName")} name="lastName" defaultValue={initial.lastName} maxLength={100} />
         </div>
 
         {/* Username — controlled, real-time check (stesso pattern di /sign-up) */}
         <div className="space-y-1.5">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username">{t("username")}</Label>
           <Input
             id="username"
             name="username"
@@ -155,7 +157,7 @@ export function ProfileForm({
           />
           {checkingUsername ? (
             <p className="text-[11.5px] flex items-center gap-1 text-gc-fg-3 px-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Verifica username in corso…
+              <Loader2 className="h-3 w-3 animate-spin" /> {t("usernameChecking")}
             </p>
           ) : usernameError ? (
             <p className="text-[11.5px] flex items-center gap-1 text-gc-neg px-1">
@@ -163,32 +165,34 @@ export function ProfileForm({
             </p>
           ) : usernameAvailable ? (
             <p className="text-[11.5px] flex items-center gap-1 text-gc-success-fg px-1">
-              <Check className="h-3 w-3" /> Username disponibile
+              <Check className="h-3 w-3" /> {t("usernameAvailable")}
             </p>
           ) : (
             <p className="text-[11.5px] text-gc-fg-3 px-1">
-              Verrà mostrato come @{usernameValue || "tuonome"}. 3–50 caratteri, lettere/numeri/underscore.
+              {t("usernameHelp", { usernameValue: usernameValue || "tuonome" })}
             </p>
           )}
         </div>
 
         {/* Bio */}
         <div className="space-y-1.5">
-          <Label htmlFor="bio">Bio</Label>
+          <Label htmlFor="bio">{t("bio")}</Label>
           <textarea
             id="bio"
             name="bio"
             defaultValue={initial.bio}
             maxLength={BIO_MAX}
             rows={3}
-            placeholder="Breve descrizione di te…"
+            placeholder={t("bioPlaceholder")}
             className="flex w-full rounded-2xl border px-4 py-2.5 text-sm resize-none bg-brand-surface-card text-brand-text placeholder:text-brand-text-light border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <p className="text-[11.5px] text-gc-fg-3 px-1">Massimo {BIO_MAX} caratteri.</p>
+          <p className="text-[11.5px] text-gc-fg-3 px-1">
+            {t("bioHelp", { max: BIO_MAX })}
+          </p>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email-readonly">Email</Label>
+          <Label htmlFor="email-readonly">{t("email")}</Label>
           <Input
             id="email-readonly"
             type="email"
@@ -197,7 +201,7 @@ export function ProfileForm({
             readOnly
           />
           <p className="text-[11.5px] text-gc-fg-3 px-1">
-            Il cambio email sarà disponibile dalla sezione Account.
+            {t("emailMoveInfo")}
           </p>
         </div>
 
@@ -206,13 +210,13 @@ export function ProfileForm({
             /admin/settings/languages (vedi getEnabledLocales). */}
         {locales.length > 0 && (
           <div className="space-y-1.5">
-            <Label htmlFor="locale">Lingua preferita</Label>
+            <Label htmlFor="locale">{t("languageLabel")}</Label>
             <select
               id="locale"
               name="locale"
               defaultValue={initial.locale}
               className="flex w-full rounded-2xl border px-4 py-2.5 text-sm bg-brand-surface-card text-brand-text border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50">
-              <option value="">Auto (rileva dal browser)</option>
+              <option value="">{t("languageAuto")}</option>
               {locales.map((l) => (
                 <option key={l.code} value={l.code}>
                   {l.nativeLabel}
@@ -220,7 +224,7 @@ export function ProfileForm({
               ))}
             </select>
             <p className="text-[11.5px] text-gc-fg-3 px-1">
-              Determina la lingua del pannello admin e delle email. Modifica subito al salvataggio.
+              {t("languageHelp")}
             </p>
           </div>
         )}
@@ -234,7 +238,7 @@ export function ProfileForm({
 
         <div className="flex justify-end">
           <Button type="submit" disabled={profilePending}>
-            {profilePending ? "Salvataggio…" : "Salva"}
+            {profilePending ? t("submitPending") : t("submitIdle")}
           </Button>
         </div>
       </form>
@@ -279,6 +283,7 @@ function AvatarSection({
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const t = useTranslations("core.settings.profile.avatar");
 
   // useActionState è il pattern canonico Next 16 per server actions.
   // Pattern "useTransition + await action(...)" usato prima fallisce
@@ -332,11 +337,11 @@ function AvatarSection({
   function pickFile(file: File) {
     setError(null);
     if (!file.type.startsWith("image/")) {
-      setError("Seleziona un file immagine.");
+      setError(t("fileInvalid"));
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      setError("Immagine troppo grande. Massimo 8 MB.");
+      setError(t("fileTooLarge"));
       return;
     }
     const url = URL.createObjectURL(file);
@@ -367,7 +372,7 @@ function AvatarSection({
         {avatarUrl ? (
           <img
             src={avatarUrl}
-            alt="Foto profilo"
+            alt={t("alt")}
             width={88}
             height={88}
             className="rounded-full object-cover border border-gc-line"
@@ -381,10 +386,8 @@ function AvatarSection({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-medium text-gc-fg">Foto profilo</div>
-        <p className="text-[12px] text-gc-fg-3 mt-0.5">
-          PNG, JPG o WebP. Potrai ritagliare e zoomare prima del salvataggio.
-        </p>
+        <div className="text-[14px] font-medium text-gc-fg">{t("label")}</div>
+        <p className="text-[12px] text-gc-fg-3 mt-0.5">{t("description")}</p>
         <div className="flex flex-wrap gap-2 mt-3">
           <Button
             type="button"
@@ -394,7 +397,11 @@ function AvatarSection({
             disabled={busy}
           >
             <Camera size={14} strokeWidth={1.7} />
-            {uploading ? "Caricamento…" : avatarUrl ? "Cambia" : "Carica"}
+            {uploading
+              ? t("uploadPending")
+              : avatarUrl
+                ? t("uploadChange")
+                : t("uploadIdle")}
           </Button>
           {avatarUrl && (
             <Button
@@ -406,7 +413,7 @@ function AvatarSection({
               className="text-gc-neg hover:text-gc-neg"
             >
               <Trash2 size={14} strokeWidth={1.7} />
-              {removing ? "Rimozione…" : "Rimuovi"}
+              {removing ? t("removePending") : t("removeIdle")}
             </Button>
           )}
         </div>

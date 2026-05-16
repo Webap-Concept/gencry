@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   Compass,
@@ -25,22 +26,24 @@ import type { UserWithProfile } from "@/lib/db/schema";
 
 type NavItem = {
   href: string;
-  label: string;
+  /** Chiave i18n nel namespace `core.sidebar.nav.<labelKey>`. */
+  labelKey: "feed" | "explore" | "profile";
   icon: typeof Home;
   /** Indicatore di novità (dot arancione). Per ora hardcoded sul mock. */
   hasNotifications?: boolean;
 };
 
 const NAV: NavItem[] = [
-  { href: "/", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/profile", label: "Profilo", icon: UserIcon },
+  { href: "/", labelKey: "feed", icon: Home },
+  { href: "/explore", labelKey: "explore", icon: Compass },
+  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
   const pathname = usePathname();
+  const t = useTranslations("core.sidebar");
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
     revalidateOnFocus: false,
     revalidateOnMount: true,
@@ -69,7 +72,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
         <NotificationsSheet>
           <button
             type="button"
-            aria-label="Notifiche"
+            aria-label={t("notifications")}
             className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
           >
             <Bell size={18} strokeWidth={1.6} />
@@ -77,7 +80,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
               aria-hidden="true"
               className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
             />
-            <span className="sr-only">— nuove notifiche</span>
+            <span className="sr-only">{t("newNotifications")}</span>
           </button>
         </NotificationsSheet>
       </div>
@@ -87,7 +90,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
           visibile fuori da questo blocco. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <nav className="flex flex-col gap-1">
-          {NAV.map(({ href, label, icon: Icon, hasNotifications }) => {
+          {NAV.map(({ href, labelKey, icon: Icon, hasNotifications }) => {
             const active = pathname === href;
             return (
               <Link
@@ -102,14 +105,14 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
                 ].join(" ")}
               >
                 <Icon size={18} strokeWidth={1.6} />
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">{t(`nav.${labelKey}`)}</span>
                 {hasNotifications && (
                   <>
                     <span
                       aria-hidden="true"
                       className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
                     />
-                    <span className="sr-only">— nuove notifiche</span>
+                    <span className="sr-only">{t("newNotifications")}</span>
                   </>
                 )}
               </Link>

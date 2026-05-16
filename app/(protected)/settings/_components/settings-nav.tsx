@@ -2,17 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Lock, Shield, User as UserIcon, ScrollText } from "lucide-react";
 
-const TABS = [
-  { href: "/settings/profile", label: "Profilo", icon: UserIcon },
-  { href: "/settings/account", label: "Account", icon: Lock },
-  { href: "/settings/security", label: "Sicurezza", icon: Shield },
-  { href: "/settings/privacy", label: "Privacy", icon: ScrollText },
+type Tab = {
+  href: string;
+  /** Chiave i18n nel namespace `core.settings.nav.<labelKey>`. */
+  labelKey: "profile" | "account" | "security" | "privacy";
+  icon: typeof UserIcon;
+};
+
+const TABS: Tab[] = [
+  { href: "/settings/profile", labelKey: "profile", icon: UserIcon },
+  { href: "/settings/account", labelKey: "account", icon: Lock },
+  { href: "/settings/security", labelKey: "security", icon: Shield },
+  { href: "/settings/privacy", labelKey: "privacy", icon: ScrollText },
 ];
 
 export function SettingsNav() {
   const pathname = usePathname();
+  const t = useTranslations("core.settings.nav");
 
   return (
     // La line di separazione vive sul wrapper relative, NON sul nav: con
@@ -22,10 +31,10 @@ export function SettingsNav() {
     // il content area del Link, niente esce mai dal nav.
     <div className="relative border-b border-gc-line">
       <nav
-        aria-label="Sezioni impostazioni"
+        aria-label={t("ariaLabel")}
         className="flex gap-1 overflow-x-auto -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {TABS.map(({ href, label, icon: Icon }) => {
+        {TABS.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
@@ -41,7 +50,7 @@ export function SettingsNav() {
               ].join(" ")}
             >
               <Icon size={15} strokeWidth={1.7} />
-              {label}
+              {t(labelKey)}
             </Link>
           );
         })}

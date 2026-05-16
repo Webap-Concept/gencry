@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bell, Compass, Home, User as UserIcon } from "lucide-react";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
@@ -10,24 +11,26 @@ import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
 type LinkSlot = {
   href: string;
-  label: string;
+  /** Chiave i18n nel namespace `core.bottomNav.<labelKey>`. */
+  labelKey: "feed" | "explore" | "notifications" | "profile";
   icon: typeof Home;
 };
 
 // `null` = slot del bottone +Nuovo post (centrale, non navigabile)
 const SLOTS: (LinkSlot | null)[] = [
-  { href: "/", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
+  { href: "/", labelKey: "feed", icon: Home },
+  { href: "/explore", labelKey: "explore", icon: Compass },
   null,
-  { href: "/notifiche", label: "Notifiche", icon: Bell },
-  { href: "/profile", label: "Profilo", icon: UserIcon },
+  { href: "/notifiche", labelKey: "notifications", icon: Bell },
+  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
 
 export function AppBottomNav() {
   const pathname = usePathname();
+  const t = useTranslations("core.bottomNav");
   return (
     <nav
-      aria-label="Navigazione principale"
+      aria-label={t("ariaLabel")}
       // z-30 (NAV layer di lib/ui/z-index.ts): sopra il main ma sotto
       // modali/drawer (z-50). Prima era z-50 e si sovrapponeva al
       // shadcn Sheet drawer.
@@ -37,7 +40,7 @@ export function AppBottomNav() {
         if (!slot) {
           return <NewPostButton key="new-post" variant="fab" />;
         }
-        const { href, label, icon: Icon } = slot;
+        const { href, labelKey, icon: Icon } = slot;
         const active = pathname === href;
         return (
           <Link
@@ -50,7 +53,7 @@ export function AppBottomNav() {
             }`}
           >
             <Icon size={20} strokeWidth={1.75} />
-            <span className="text-[10.5px] font-medium">{label}</span>
+            <span className="text-[10.5px] font-medium">{t(labelKey)}</span>
           </Link>
         );
       })}

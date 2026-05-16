@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { mutate } from "swr";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ export function AccountForm({ initial }: { initial: Initial }) {
 // ---------------------------------------------------------------------------
 
 function EmailSection({ initial }: { initial: Initial }) {
+  const t = useTranslations("core.settings.account.email");
   // Stato locale per flip immediato del form al submit. router.refresh()
   // sincronizza il server component, ma può tardare e qui vogliamo che
   // l'utente veda subito il form di inserimento codice. La useEffect tiene
@@ -55,14 +57,16 @@ function EmailSection({ initial }: { initial: Initial }) {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">Email</h2>
+        <h2 className="text-[15px] font-semibold text-gc-fg">
+          {t("sectionTitle")}
+        </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          L'email viene usata per accedere e per le notifiche di sicurezza.
+          {t("sectionDescription")}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label>Email attuale</Label>
+        <Label>{t("currentLabel")}</Label>
         <Input value={initial.email} disabled readOnly />
       </div>
 
@@ -89,6 +93,8 @@ function RequestEmailChangeForm({
   onRequested: (newEmail: string) => void;
 }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.account.email");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<ActionState, FormData>(
     requestEmailChangeAction,
     {},
@@ -128,14 +134,14 @@ function RequestEmailChangeForm({
 
     // Stessa email corrente (case-insensitive) → segnala come no-op
     if (trimmed.toLowerCase() === currentEmail.toLowerCase()) {
-      setEmailError("La nuova email coincide con quella attuale.");
+      setEmailError(t("sameAsCurrent"));
       setEmailAvailable(false);
       setCheckingEmail(false);
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setEmailError("Inserisci un indirizzo email valido");
+      setEmailError(t("invalidFormat"));
       setEmailAvailable(false);
       setCheckingEmail(false);
       return;
@@ -151,7 +157,7 @@ function RequestEmailChangeForm({
         setEmailError(result.error ?? "");
         setEmailAvailable(Boolean(result.available));
       } catch {
-        setEmailError("Impossibile verificare l'email in questo momento");
+        setEmailError(t("checkFailed"));
         setEmailAvailable(false);
       } finally {
         setCheckingEmail(false);
@@ -183,7 +189,7 @@ function RequestEmailChangeForm({
       />
 
       <div className="space-y-1.5">
-        <Label htmlFor="newEmail">Nuova email</Label>
+        <Label htmlFor="newEmail">{t("newLabel")}</Label>
         <Input
           id="newEmail"
           name="newEmail"
@@ -191,14 +197,14 @@ function RequestEmailChangeForm({
           autoComplete="email"
           required
           maxLength={255}
-          placeholder="nuova@esempio.com"
+          placeholder={t("newPlaceholder")}
           value={emailValue}
           onChange={(e) => setEmailValue(e.target.value)}
           aria-invalid={!!emailError}
         />
         {checkingEmail ? (
           <p className="text-[11.5px] flex items-center gap-1 text-gc-fg-3 px-1">
-            <Loader2 className="h-3 w-3 animate-spin" /> Verifica email in corso…
+            <Loader2 className="h-3 w-3 animate-spin" /> {t("checking")}
           </p>
         ) : emailError ? (
           <p className="text-[11.5px] flex items-center gap-1 text-gc-neg px-1">
@@ -206,13 +212,13 @@ function RequestEmailChangeForm({
           </p>
         ) : emailAvailable ? (
           <p className="text-[11.5px] flex items-center gap-1 text-gc-success-fg px-1">
-            <Check className="h-3 w-3" /> Email disponibile
+            <Check className="h-3 w-3" /> {t("available")}
           </p>
         ) : null}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="emailChangePassword">Password attuale</Label>
+        <Label htmlFor="emailChangePassword">{t("currentPassword")}</Label>
         <div className="relative">
           <Input
             id="emailChangePassword"
@@ -233,21 +239,22 @@ function RequestEmailChangeForm({
             required
             maxLength={100}
             className="pr-10"
-            placeholder="••••••••"
+            placeholder={tShared("passwordPlaceholder")}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+            aria-label={
+              showPassword
+                ? tShared("hidePassword")
+                : tShared("showPassword")
+            }
             className="absolute inset-y-0 right-0 flex items-center px-3 text-gc-fg-3 hover:text-gc-fg transition-colors"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        <p className="text-[11.5px] text-gc-fg-3 px-1">
-          Per sicurezza ti chiediamo di confermare la password attuale. Riceverai
-          un codice di verifica al nuovo indirizzo. Massimo 1 richiesta al giorno.
-        </p>
+        <p className="text-[11.5px] text-gc-fg-3 px-1">{t("helpText")}</p>
       </div>
 
       {state.error && <p className="text-[13px] text-gc-neg">{state.error}</p>}
@@ -257,7 +264,7 @@ function RequestEmailChangeForm({
 
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>
-          {pending ? "Invio in corso…" : "Richiedi cambio email"}
+          {pending ? t("submitPending") : t("submitIdle")}
         </Button>
       </div>
     </form>
@@ -272,6 +279,8 @@ function ConfirmEmailChangeForm({
   onCanceled: () => void;
 }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.account.email");
+  const tShared = useTranslations("core.settings.shared");
   const [confirmState, confirmAction, confirmPending] = useActionState<
     ActionState,
     FormData
@@ -304,17 +313,19 @@ function ConfirmEmailChangeForm({
     <div className="space-y-4 rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
       <div>
         <p className="text-[13.5px] text-gc-fg">
-          Verifica in corso per <strong>{pendingEmail}</strong>
+          {t.rich("pendingTitle", {
+            pendingEmail,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
         <p className="text-[12px] text-gc-fg-3 mt-0.5">
-          Ti abbiamo inviato un codice a 6 cifre. Inseriscilo qui per completare
-          il cambio. Il codice scade dopo 15 minuti.
+          {t("pendingDescription")}
         </p>
       </div>
 
       <form action={confirmAction} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="code">Codice di verifica</Label>
+          <Label htmlFor="code">{t("codeLabel")}</Label>
           <Input
             id="code"
             name="code"
@@ -324,7 +335,7 @@ function ConfirmEmailChangeForm({
             maxLength={6}
             autoComplete="one-time-code"
             required
-            placeholder="000000"
+            placeholder={tShared("verificationCodePlaceholder")}
             className="font-mono tracking-[0.25em] text-center"
           />
         </div>
@@ -338,7 +349,7 @@ function ConfirmEmailChangeForm({
 
         <div className="flex justify-end">
           <Button type="submit" disabled={confirmPending}>
-            {confirmPending ? "Conferma…" : "Conferma cambio email"}
+            {confirmPending ? t("confirmPending") : t("confirmIdle")}
           </Button>
         </div>
       </form>
@@ -354,7 +365,7 @@ function ConfirmEmailChangeForm({
           disabled={cancelPending}
           className="text-gc-fg-3 hover:text-gc-fg"
         >
-          {cancelPending ? "Annullamento…" : "Annulla richiesta"}
+          {cancelPending ? t("cancelPending") : t("cancelIdle")}
         </Button>
       </form>
     </div>
@@ -373,24 +384,30 @@ function PasswordSection({
   currentEmail: string;
 }) {
   if (!hasPassword) {
-    return (
-      <section className="space-y-2">
-        <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">Password</h2>
-          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            Hai effettuato l'accesso con Google. La gestione della password
-            avviene direttamente dal tuo account Google.
-          </p>
-        </div>
-      </section>
-    );
+    return <PasswordOauthInfo />;
   }
 
   return <ChangePasswordForm currentEmail={currentEmail} />;
 }
 
+function PasswordOauthInfo() {
+  const t = useTranslations("core.settings.account.password");
+  return (
+    <section className="space-y-2">
+      <div>
+        <h2 className="text-[15px] font-semibold text-gc-fg">
+          {t("sectionTitle")}
+        </h2>
+        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("oauthInfo")}</p>
+      </div>
+    </section>
+  );
+}
+
 function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.account.password");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<ActionState, FormData>(
     changePasswordAction,
     {},
@@ -410,9 +427,11 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">Password</h2>
+        <h2 className="text-[15px] font-semibold text-gc-fg">
+          {t("sectionTitle")}
+        </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Conferma la password attuale e scegline una nuova.
+          {t("sectionDescription")}
         </p>
       </div>
 
@@ -438,7 +457,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
         />
 
         <div className="space-y-1.5">
-          <Label htmlFor="currentPassword">Password attuale</Label>
+          <Label htmlFor="currentPassword">{t("currentLabel")}</Label>
           <div className="relative">
             <Input
               id="currentPassword"
@@ -458,7 +477,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
               required
               maxLength={100}
               className="pr-10"
-              placeholder="••••••••"
+              placeholder={tShared("passwordPlaceholder")}
             />
             <PasswordToggle
               shown={showCurrent}
@@ -468,7 +487,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="newPassword">Nuova password</Label>
+          <Label htmlFor="newPassword">{t("newLabel")}</Label>
           <div className="relative">
             <Input
               id="newPassword"
@@ -481,7 +500,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               className="pr-10"
-              placeholder="••••••••"
+              placeholder={tShared("passwordPlaceholder")}
             />
             <PasswordToggle
               shown={showNew}
@@ -492,7 +511,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword">Conferma nuova password</Label>
+          <Label htmlFor="confirmPassword">{t("confirmLabel")}</Label>
           <div className="relative">
             <Input
               id="confirmPassword"
@@ -503,7 +522,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
               minLength={8}
               maxLength={100}
               className="pr-10"
-              placeholder="••••••••"
+              placeholder={tShared("passwordPlaceholder")}
             />
             <PasswordToggle
               shown={showConfirm}
@@ -519,7 +538,7 @@ function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
 
         <div className="flex justify-end">
           <Button type="submit" disabled={pending}>
-            {pending ? "Aggiornamento…" : "Cambia password"}
+            {pending ? t("submitPending") : t("submitIdle")}
           </Button>
         </div>
       </form>
@@ -534,11 +553,12 @@ function PasswordToggle({
   shown: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations("core.settings.shared");
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={shown ? "Nascondi password" : "Mostra password"}
+      aria-label={shown ? t("hidePassword") : t("showPassword")}
       className="absolute inset-y-0 right-0 flex items-center px-3 text-gc-fg-3 hover:text-gc-fg transition-colors"
     >
       {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

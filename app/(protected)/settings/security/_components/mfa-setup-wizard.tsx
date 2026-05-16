@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useActionState, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,9 @@ type Props = {
 // callback onSuccess, niente useEffect su recoveryCodes. I codici
 // viaggiano via cookie firmato (cfr. lib/auth/mfa/pending-codes-cookie.ts).
 export function MfaSetupWizard({ onCancel }: Props) {
+  const t = useTranslations("core.settings.security.mfa");
+  const tCommon = useTranslations("core.common");
+  const tShared = useTranslations("core.settings.shared");
   const [startState, startAction, starting] = useActionState<
     MfaStartState,
     FormData
@@ -46,12 +50,10 @@ export function MfaSetupWizard({ onCancel }: Props) {
     <section className="space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold text-gc-fg">
-          Attiva l'autenticazione a due fattori
+          {t("setupTitle")}
         </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Aggiunge un secondo passaggio al login: oltre alla password ti
-          chiederemo un codice generato da un'app autenticatore. Ti suggeriamo
-          Google Authenticator, 1Password o Authy.
+          {t("setupDescription")}
         </p>
       </div>
 
@@ -70,16 +72,15 @@ export function MfaSetupWizard({ onCancel }: Props) {
           <>
             <div>
               <p className="text-[13px] font-semibold text-gc-fg mb-2">
-                1. Scansiona il QR code
+                {t("stepScan")}
               </p>
               <p className="text-[12.5px] text-gc-fg-3 mb-3">
-                Apri la tua app autenticatore e aggiungi un nuovo account
-                scansionando questo codice.
+                {t("stepScanDescription")}
               </p>
               <div className="flex justify-center bg-white rounded-xl p-4 border border-gc-line w-fit">
                 <Image
                   src={startState.qrCodeDataUrl}
-                  alt="QR code per app autenticatore"
+                  alt={t("qrAlt")}
                   width={192}
                   height={192}
                   unoptimized
@@ -89,10 +90,10 @@ export function MfaSetupWizard({ onCancel }: Props) {
 
             <div>
               <p className="text-[13px] font-semibold text-gc-fg mb-2">
-                Non puoi scansionare?
+                {t("cantScan")}
               </p>
               <p className="text-[12.5px] text-gc-fg-3 mb-2">
-                Inserisci manualmente questa chiave nell'app:
+                {t("manualKey")}
               </p>
               <code className="block font-mono text-[13px] text-gc-fg bg-gc-bg p-3 rounded-lg border border-gc-line break-all tracking-wider">
                 {startState.manualKey}
@@ -106,11 +107,10 @@ export function MfaSetupWizard({ onCancel }: Props) {
                   htmlFor="mfa-confirm-token"
                   className="text-[13px] font-semibold text-gc-fg"
                 >
-                  2. Inserisci il codice generato
+                  {t("stepCode")}
                 </Label>
                 <p className="text-[12.5px] text-gc-fg-3 mt-1 mb-2">
-                  Apri l'app e digita il codice di 6 cifre che vedi adesso per
-                  confermare il setup.
+                  {t("stepCodeDescription")}
                 </p>
                 <Input
                   id="mfa-confirm-token"
@@ -123,7 +123,7 @@ export function MfaSetupWizard({ onCancel }: Props) {
                   required
                   autoFocus
                   className="font-mono text-lg tracking-widest text-center max-w-[12rem]"
-                  placeholder="000000"
+                  placeholder={tShared("verificationCodePlaceholder")}
                 />
               </div>
 
@@ -135,10 +135,10 @@ export function MfaSetupWizard({ onCancel }: Props) {
                 <Button type="submit" disabled={confirming}>
                   {confirming ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" /> Verifico…
+                      <Loader2 className="size-4 animate-spin" /> {t("verifyPending")}
                     </>
                   ) : (
-                    "Attiva"
+                    t("verifyIdle")
                   )}
                 </Button>
                 <Button
@@ -147,7 +147,7 @@ export function MfaSetupWizard({ onCancel }: Props) {
                   onClick={onCancel}
                   disabled={confirming}
                 >
-                  Annulla
+                  {tCommon("cancel")}
                 </Button>
               </div>
             </form>

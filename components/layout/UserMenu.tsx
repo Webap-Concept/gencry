@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { LogOut, Palette, Settings, User as UserIcon } from "lucide-react";
 import { mutate } from "swr";
 import { signOut } from "@/app/(login)/actions";
@@ -27,6 +28,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("core.userMenu");
 
   useEffect(() => setMounted(true), []);
 
@@ -94,13 +96,13 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
       <MenuItem
         href="/profile"
         icon={<UserIcon size={16} strokeWidth={1.6} />}
-        label="Il tuo profilo"
+        label={t("profile")}
         onClick={close}
       />
       <MenuItem
         href="/settings"
         icon={<Settings size={16} strokeWidth={1.6} />}
-        label="Impostazioni"
+        label={t("settings")}
         onClick={close}
       />
       <ThemeToggleItem onAction={close} />
@@ -111,7 +113,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         className="w-full flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-neg hover:bg-gc-bg-3 transition rounded-gc-sm"
       >
         <LogOut size={16} strokeWidth={1.6} />
-        <span>Esci</span>
+        <span>{t("signOut")}</span>
       </button>
     </>
   );
@@ -176,7 +178,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         <button
           type="button"
           onClick={toggle}
-          aria-label="Apri menu utente"
+          aria-label={t("openUserMenu")}
           aria-expanded={open}
           className="rounded-full"
         >
@@ -291,6 +293,7 @@ function MenuItem({
  */
 function ThemeToggleItem({ onAction }: { onAction?: () => void }) {
   const [theme, setTheme] = useState<"sabbia" | "bosco">("sabbia");
+  const t = useTranslations("core.userMenu");
 
   useEffect(() => {
     const saved =
@@ -320,9 +323,11 @@ function ThemeToggleItem({ onAction }: { onAction?: () => void }) {
       className="w-full flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-fg hover:bg-gc-bg-3 transition rounded-gc-sm"
     >
       <Palette size={16} strokeWidth={1.6} />
-      <span className="flex-1 text-left">Tema</span>
+      <span className="flex-1 text-left">{t("theme")}</span>
       <span className="text-[11.5px] text-gc-fg-3">
-        {theme === "sabbia" ? "Sabbia" : "Bosco"}
+        {theme === "sabbia"
+          ? t("themeOption.sand")
+          : t("themeOption.forest")}
       </span>
     </button>
   );

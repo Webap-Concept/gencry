@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ackPendingRecoveryCodesAction } from "../actions";
@@ -17,6 +18,8 @@ type Props = {
 export function MfaRecoveryCodesDisplay({ codes, context }: Props) {
   const [copied, setCopied] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
+  const t = useTranslations("core.settings.security.mfa");
+  const tCommon = useTranslations("core.common");
 
   const allText = codes.join("\n");
 
@@ -47,13 +50,11 @@ export function MfaRecoveryCodesDisplay({ codes, context }: Props) {
       <div>
         <h2 className="text-[15px] font-semibold text-gc-fg">
           {context === "setup"
-            ? "Salva i tuoi recovery codes"
-            : "Nuovi recovery codes"}
+            ? t("recoveryTitleFresh")
+            : t("recoveryTitleRegen")}
         </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Ti permettono di accedere se perdi il telefono. Ogni codice si può
-          usare una sola volta. Salvali in un posto sicuro: dopo questa schermata
-          non potremo più mostrarteli.
+          {t("recoveryDescription")}
         </p>
       </div>
 
@@ -71,16 +72,16 @@ export function MfaRecoveryCodesDisplay({ codes, context }: Props) {
         <Button type="button" variant="outline" size="sm" onClick={copyAll}>
           {copied ? (
             <>
-              <Check className="size-4" /> Copiati
+              <Check className="size-4" /> {t("copied")}
             </>
           ) : (
             <>
-              <Copy className="size-4" /> Copia tutti
+              <Copy className="size-4" /> {t("copyIdle")}
             </>
           )}
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={downloadTxt}>
-          <Download className="size-4" /> Scarica .txt
+          <Download className="size-4" /> {t("downloadTxt")}
         </Button>
       </div>
 
@@ -94,12 +95,12 @@ export function MfaRecoveryCodesDisplay({ codes, context }: Props) {
             className="mt-0.5 size-4 rounded border-gc-line accent-brand-primary"
           />
           <span className="text-[13px] text-gc-fg-3">
-            Ho salvato i recovery codes in un posto sicuro.
+            {t("confirmSaved")}
           </span>
         </label>
 
         <Button type="submit" disabled={!acknowledged} className="mt-4">
-          Continua
+          {tCommon("continue")}
         </Button>
       </form>
     </section>

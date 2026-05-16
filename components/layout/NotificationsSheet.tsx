@@ -13,6 +13,7 @@
 
 import { Bell, Check, MessageCircle, UserPlus } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import {
   Sheet,
   SheetContent,
@@ -59,6 +60,7 @@ const MOCK_NOTIFS: MockNotif[] = [
 
 export function NotificationsSheet({ children }: { children: ReactNode }) {
   const unreadCount = MOCK_NOTIFS.filter((n) => n.unread).length;
+  const t = useTranslations("core.notificationsSheet");
 
   return (
     <Sheet>
@@ -70,7 +72,7 @@ export function NotificationsSheet({ children }: { children: ReactNode }) {
         <SheetHeader className="px-5 py-4 border-b border-gc-line">
           <SheetTitle className="flex items-center gap-2 text-[15px] text-gc-fg">
             <Bell size={16} strokeWidth={1.7} />
-            Notifiche
+            {t("title")}
             {unreadCount > 0 && (
               <span className="text-[11px] font-semibold text-gc-accent">
                 ({unreadCount})
@@ -78,7 +80,7 @@ export function NotificationsSheet({ children }: { children: ReactNode }) {
             )}
           </SheetTitle>
           <SheetDescription className="sr-only">
-            Elenco delle notifiche non lette e recenti
+            {t("ariaDescription")}
           </SheetDescription>
         </SheetHeader>
 
@@ -128,7 +130,7 @@ export function NotificationsSheet({ children }: { children: ReactNode }) {
             type="button"
             className="text-[12.5px] font-medium text-gc-fg-2 hover:text-gc-fg transition"
           >
-            Segna tutte come lette
+            {t("markAllRead")}
           </button>
         </div>
       </SheetContent>
