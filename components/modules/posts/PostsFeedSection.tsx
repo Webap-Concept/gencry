@@ -55,7 +55,7 @@ export function PostsFeedSectionSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="bg-gc-bg-2 border border-gc-line rounded-gc p-5 h-32 animate-pulse"
+          className="bg-gc-bg-2 border border-gc-line rounded-xl p-5 h-32 animate-pulse"
         />
       ))}
     </div>

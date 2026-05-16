@@ -173,7 +173,7 @@ function PostCardSkeleton() {
   return (
     <div
       aria-hidden
-      className="relative bg-gc-bg-2 border border-gc-line rounded-gc p-5 animate-pulse">
+      className="relative bg-gc-bg-2 border border-gc-line rounded-xl p-5 animate-pulse">
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-gc-bg-3 shrink-0" />
         <div className="flex-1 space-y-1.5">
@@ -198,7 +198,7 @@ function PostCardSkeleton() {
 function FollowingEmptyState() {
   const tEmpty = useTranslations("posts.empty_states");
   return (
-    <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-8 flex flex-col items-center text-center gap-3">
+    <div className="bg-gc-bg-2 border border-gc-line rounded-xl p-8 flex flex-col items-center text-center gap-3">
       <div
         aria-hidden
         className="w-12 h-12 rounded-full bg-gc-accent/10 flex items-center justify-center text-gc-accent"

@@ -337,7 +337,7 @@ export function PostCard({
   return (
     <>
       <article
-        className={`relative bg-gc-bg-2 border border-gc-line rounded-gc p-5 ${
+        className={`relative bg-gc-bg-2 border border-gc-line rounded-xl p-5 ${
           showOverlayLink
             ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors"
             : ""
@@ -350,7 +350,7 @@ export function PostCard({
           <Link
             href={`/post/${post.id}`}
             aria-label={tCard("open_post")}
-            className="absolute inset-0 rounded-gc"
+            className="absolute inset-0 rounded-xl"
           />
         ) : null}
 
