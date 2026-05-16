@@ -343,7 +343,16 @@
       "avatarTooLarge": "Immagine troppo grande. Massimo 2 MB.",
       "usernameNotAvailable": "Questo username non è disponibile.",
       "usernameTaken": "Questo username è già in uso. Scegline un altro.",
-      "usernameJustTaken": "Questo username è appena stato preso da un altro utente. Scegline un altro."
+      "usernameJustTaken": "Questo username è appena stato preso da un altro utente. Scegline un altro.",
+      "passwordChange": {
+        "errors": {
+          "noPasswordOAuth": "Il tuo account non ha una password (accesso solo via Google).",
+          "currentIncorrect": "La password attuale non è corretta.",
+          "sameAsCurrent": "La nuova password deve essere diversa da quella attuale.",
+          "confirmMismatch": "Le password non coincidono.",
+          "weakPassword": "La nuova password non rispetta i requisiti di sicurezza."
+        }
+      }
     }
   }
 }

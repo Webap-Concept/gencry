@@ -343,7 +343,16 @@
       "avatarTooLarge": "Image too large. Maximum 2 MB.",
       "usernameNotAvailable": "This username is not available.",
       "usernameTaken": "This username is already in use. Choose another one.",
-      "usernameJustTaken": "Someone just picked this username. Choose another one."
+      "usernameJustTaken": "Someone just picked this username. Choose another one.",
+      "passwordChange": {
+        "errors": {
+          "noPasswordOAuth": "Your account has no password (sign in via Google only).",
+          "currentIncorrect": "The current password is incorrect.",
+          "sameAsCurrent": "The new password must differ from the current one.",
+          "confirmMismatch": "The passwords don't match.",
+          "weakPassword": "The new password doesn't meet the security requirements."
+        }
+      }
     }
   }
 }

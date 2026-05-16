@@ -156,7 +156,9 @@ export const changePasswordAction = validatedActionWithUser(
     );
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      return {
+        error: tAct(`passwordChange.errors.${result.error}`),
+      } satisfies ActionState;
     }
 
     return {
