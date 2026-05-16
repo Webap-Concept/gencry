@@ -9,6 +9,7 @@ import {
 import {
   Activity,
   Bell,
+  Clock,
   Loader2,
   Play,
   Save,
@@ -24,10 +25,11 @@ import {
   sendTestDigestAction,
 } from "../actions";
 
-type RuleKey = keyof AlertsConfig["rules"];
+type RuleKey = keyof AlertsConfig["sources"]["sessions"]["rules"];
 
 const TABS = [
   { id: "sessions", label: "Sessions", icon: Activity },
+  { id: "cron", label: "Cron", icon: Clock },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -132,7 +134,7 @@ function SeveritySelect({
   severityLabels,
 }: {
   name: string;
-  defaultValue: AlertsConfig["rules"]["multiple_ips"]["severity"];
+  defaultValue: AlertsConfig["sources"]["sessions"]["rules"]["multiple_ips"]["severity"];
   severityLabels: Record<(typeof SEVERITIES)[number], string>;
 }) {
   return (
@@ -187,7 +189,7 @@ function RuleBlock({
   children,
 }: {
   reason: RuleKey;
-  rule: AlertsConfig["rules"][RuleKey];
+  rule: AlertsConfig["sources"]["sessions"]["rules"][RuleKey];
   ruleLabel: string;
   ruleHelp: string;
   severityLabel: string;
@@ -331,9 +333,11 @@ export function NotificationsSettingsForm({
     }
   }, [testState]);
 
-  const r = initialConfig.rules;
+  const r = initialConfig.sources.sessions.rules;
+  const cronSrc = initialConfig.sources.cron;
+  const sessionsSrc = initialConfig.sources.sessions;
 
-  const ruleProps = (reason: RuleKey, rule: AlertsConfig["rules"][RuleKey]) => ({
+  const ruleProps = (reason: RuleKey, rule: AlertsConfig["sources"]["sessions"]["rules"][RuleKey]) => ({
     reason,
     rule,
     ruleLabel: tRule(`${reason}.label`),
@@ -369,43 +373,6 @@ export function NotificationsSettingsForm({
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="schedule">{t("scheduleLabel")}</Label>
-                <select
-                  id="schedule"
-                  name="schedule"
-                  defaultValue={initialConfig.schedule}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}>
-                  {SCHEDULES.map((s) => (
-                    <option key={s} value={s}>
-                      {SCHEDULE_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="severity_threshold">{t("severityThresholdLabel")}</Label>
-                <select
-                  id="severity_threshold"
-                  name="severity_threshold"
-                  defaultValue={initialConfig.severityThreshold}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={inputStyle}>
-                  {SEVERITIES.map((s) => (
-                    <option key={s} value={s}>
-                      {t("severityThresholdOption", { severity: SEVERITY_LABELS[s] })}
-                    </option>
-                  ))}
-                </select>
-                <p
-                  className="text-[12px]"
-                  style={{ color: "var(--admin-text-muted)" }}>
-                  {t("severityThresholdHint")}
-                </p>
-              </div>
-
               <Checkbox
                 name="recipients_include_admin_users"
                 defaultChecked={initialConfig.recipients.includeAdminUsers}
@@ -464,7 +431,7 @@ export function NotificationsSettingsForm({
                   boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
                 }}>
                 <Icon size={13} />
-                {t("tabSessions")}
+                {tab.label}
               </button>
             );
           })}
@@ -472,6 +439,99 @@ export function NotificationsSettingsForm({
 
         {activeTab === "sessions" && (
           <>
+            <Section
+              icon={Activity}
+              title="Sessioni sospette"
+              subtitle="Schedule email digest, soglia di severità e strumenti manuali per il modulo di rilevamento sessioni sospette.">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="sessions_schedule">{t("scheduleLabel")}</Label>
+                    <select
+                      id="sessions_schedule"
+                      name="sessions_schedule"
+                      defaultValue={sessionsSrc.schedule}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}>
+                      {SCHEDULES.map((s) => (
+                        <option key={s} value={s}>
+                          {SCHEDULE_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="sessions_severity_threshold">{t("severityThresholdLabel")}</Label>
+                    <select
+                      id="sessions_severity_threshold"
+                      name="sessions_severity_threshold"
+                      defaultValue={sessionsSrc.severityThreshold}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={inputStyle}>
+                      {SEVERITIES.map((s) => (
+                        <option key={s} value={s}>
+                          {t("severityThresholdOption", { severity: SEVERITY_LABELS[s] })}
+                        </option>
+                      ))}
+                    </select>
+                    <p
+                      className="text-[12px]"
+                      style={{ color: "var(--admin-text-muted)" }}>
+                      {t("severityThresholdHint")}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="flex flex-wrap items-center gap-3 pt-1 border-t"
+                  style={{ borderColor: "var(--admin-card-border)" }}>
+                  <div className="w-full -mb-1">
+                    <p
+                      className="text-[12px] uppercase tracking-wide font-semibold"
+                      style={{ color: "var(--admin-text-muted)" }}>
+                      Strumenti manuali (sessioni)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => runAction(new FormData())}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                    style={{
+                      background: "var(--admin-hover-bg)",
+                      color: "var(--admin-text)",
+                      border: "1px solid var(--admin-card-border)",
+                    }}>
+                    {isRunning ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Play size={15} />
+                    )}
+                    {isRunning ? t("runningDetection") : t("runDetectionNow")}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isTesting}
+                    onClick={() => testAction(new FormData())}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
+                    style={{
+                      background: "var(--admin-hover-bg)",
+                      color: "var(--admin-text)",
+                      border: "1px solid var(--admin-card-border)",
+                    }}>
+                    {isTesting ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Send size={15} />
+                    )}
+                    {isTesting ? t("sendingTestDigest") : t("sendTestDigest")}
+                  </button>
+                </div>
+              </div>
+            </Section>
+
             <Section
               icon={ShieldAlert}
               title={t("detectionRulesTitle")}
@@ -663,45 +723,77 @@ export function NotificationsSettingsForm({
                 </RuleBlock>
               </div>
             </Section>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={isRunning}
-                onClick={() => runAction(new FormData())}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isRunning ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Play size={15} />
-                )}
-                {isRunning ? t("runningDetection") : t("runDetectionNow")}
-              </button>
-
-              <button
-                type="button"
-                disabled={isTesting}
-                onClick={() => testAction(new FormData())}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg disabled:opacity-60"
-                style={{
-                  background: "var(--admin-hover-bg)",
-                  color: "var(--admin-text)",
-                  border: "1px solid var(--admin-card-border)",
-                }}>
-                {isTesting ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Send size={15} />
-                )}
-                {isTesting ? t("sendingTestDigest") : t("sendTestDigest")}
-              </button>
-            </div>
           </>
+        )}
+
+        {activeTab === "cron" && (
+          <Section
+            icon={Clock}
+            title="Cron job failures"
+            subtitle="Alert email quando un job pg_cron registrato fallisce di seguito. Sources monitorate automaticamente: core + tutti i moduli installati che dichiarano cronJobs[] nel manifest.">
+            <div className="space-y-4">
+              <Checkbox
+                name="cron_enabled"
+                defaultChecked={cronSrc.enabled}
+                label={
+                  <span style={{ color: "var(--admin-text)", fontWeight: 600 }}>
+                    Abilita notifiche cron
+                  </span>
+                }
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="cron_schedule">Schedule digest</Label>
+                  <select
+                    id="cron_schedule"
+                    name="cron_schedule"
+                    defaultValue={cronSrc.schedule}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}>
+                    {SCHEDULES.map((s) => (
+                      <option key={s} value={s}>
+                        {SCHEDULE_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cron_severity_threshold">Severity minima</Label>
+                  <select
+                    id="cron_severity_threshold"
+                    name="cron_severity_threshold"
+                    defaultValue={cronSrc.severityThreshold}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={inputStyle}>
+                    {SEVERITIES.map((s) => (
+                      <option key={s} value={s}>
+                        {SEVERITY_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cron_escalate_after">Fallimenti consecutivi → critical</Label>
+                  <NumberField
+                    name="cron_escalate_after"
+                    defaultValue={cronSrc.escalateAfterFailures}
+                    min={1}
+                    max={50}
+                  />
+                </div>
+              </div>
+
+              <p
+                className="text-[12px]"
+                style={{ color: "var(--admin-text-muted)" }}>
+                Il dispatcher controlla <code>cron.job_run_details</code> ogni 5 min.
+                Quando un job fallisce in modo persistente, viene creata una notifica admin (con la severity scelta) e
+                inviata via email digest secondo lo schedule sopra. Dopo N fallimenti consecutivi la severity sale a{" "}
+                <strong>critical</strong>.
+              </p>
+            </div>
+          </Section>
         )}
 
         <div className="flex flex-wrap items-center gap-3">

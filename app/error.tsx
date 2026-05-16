@@ -70,18 +70,21 @@ export default function GlobalError({
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 bg-brand-bg">
+    // I token `--brand-*` vivono in (frontend)/frontend.css, fuori scope
+    // qui (root error boundary, può scattare in admin/login/frontend).
+    // Usiamo colori hardcoded così la pagina è sempre visibile.
+    <div className="min-h-dvh flex items-center justify-center px-4 bg-[#f5f0e8]">
       <div className="w-full max-w-md text-center space-y-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-brand-text">
+          <h1 className="text-2xl font-semibold text-[#2c2416]">
             Qualcosa è andato storto
           </h1>
-          <p className="text-sm text-brand-text-muted">
+          <p className="text-sm text-[#6b5e4a]">
             Si è verificato un errore imprevisto. Riprova o contatta il supporto
             se il problema persiste.
           </p>
           {error.digest && (
-            <p className="text-xs text-brand-text-faint font-mono">
+            <p className="text-xs text-[#9a8b73] font-mono">
               Codice errore: {error.digest}
             </p>
           )}
@@ -97,12 +100,12 @@ export default function GlobalError({
                 reset();
               }
             }}
-            className="px-5 py-2 rounded-full text-sm font-semibold bg-brand-primary text-white hover:bg-brand-primary-hover transition-colors">
+            className="px-5 py-2 rounded-full text-sm font-semibold text-white bg-[#e07a3a] hover:bg-[#c8682e] transition-colors">
             Riprova
           </button>
           <a
             href="/"
-            className="px-5 py-2 rounded-full text-sm font-semibold border border-brand-border text-brand-text hover:bg-brand-surface transition-colors">
+            className="px-5 py-2 rounded-full text-sm font-semibold border border-[#d8ccb6] text-[#2c2416] hover:bg-white transition-colors">
             Torna alla home
           </a>
         </div>

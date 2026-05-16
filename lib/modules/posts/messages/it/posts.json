@@ -1,0 +1,199 @@
+{
+  "errors": {
+    "unauthenticated": "Devi accedere per continuare.",
+    "banned": "Il tuo account è stato sospeso.",
+    "rate_limited": "Hai fatto troppe operazioni di recente. Riprova tra {retryAfter} secondi.",
+    "not_found": "Contenuto non trovato.",
+    "forbidden": "Non hai i permessi per questa operazione.",
+    "edit_window_expired": "Il tempo per modificare questo post è scaduto.",
+    "visibility_not_more_restrictive": "Puoi solo restringere la visibilità, non ampliarla.",
+    "empty_body": "Scrivi qualcosa prima di pubblicare.",
+    "body_too_long": "Il testo è troppo lungo.",
+    "self_repost": "Non puoi ripubblicare un tuo post.",
+    "target_unavailable": "Il post non è più disponibile.",
+    "cannot_block_self": "Non puoi bloccare te stesso.",
+    "reason_not_available": "Motivo di segnalazione non più disponibile.",
+    "details_required": "Compila i dettagli della segnalazione.",
+    "r2_not_configured": "Servizio media non configurato. Riprova più tardi."
+  },
+  "validation": {
+    "repost_needs_body": "Aggiungi un commento al repost."
+  },
+  "media": {
+    "invalid_mime": "Formato file non supportato.",
+    "invalid_size": "File troppo grande.",
+    "too_many_per_post": "Hai aggiunto troppe immagini.",
+    "not_found": "File non trovato.",
+    "upload_missing": "Caricamento non completato. Riprova.",
+    "processing_failed": "Elaborazione del file fallita. Riprova.",
+    "r2_not_configured": "Servizio media non configurato. Riprova più tardi.",
+    "client_invalid_mime": "Formato non supportato (jpeg/png/webp).",
+    "client_invalid_size_mb": "Immagine troppo grande (max {maxMb}MB).",
+    "add_images": "Trascina o clicca per aggiungere immagini ({current}/{max})",
+    "remove": "Rimuovi"
+  },
+  "feed": {
+    "invalid_tab": "Sezione del feed non valida.",
+    "invalid_ticker": "Ticker non valido.",
+    "load_more": "Carica altri",
+    "loading_more": "Carico…",
+    "end_reached": "Hai visto tutto."
+  },
+  "comments": {
+    "empty_body": "Scrivi qualcosa prima di commentare.",
+    "body_too_long": "Il commento è troppo lungo."
+  },
+  "common": {
+    "cancel": "Annulla",
+    "close": "Chiudi",
+    "user_fallback": "Utente",
+    "see_all": "Vedi tutti",
+    "sign_up": "Iscriviti"
+  },
+  "visibility": {
+    "public": "Tutti",
+    "members": "Community",
+    "followers": "Chi mi segue",
+    "private": "Solo io",
+    "public_label": "Pubblico",
+    "public_description": "Tutti possono vedere",
+    "members_label": "Community",
+    "members_description": "Solo utenti loggati",
+    "followers_label": "Chi mi segue",
+    "followers_description": "Solo i tuoi follower",
+    "private_label": "Solo io",
+    "private_description": "Visibile solo a te"
+  },
+  "time": {
+    "now": "ora",
+    "minutes_short": "{n}m",
+    "hours_short": "{n}h",
+    "days_short": "{n}g"
+  },
+  "card": {
+    "edited": "modificato",
+    "open_post": "Apri post",
+    "options_menu": "Opzioni post",
+    "bookmark_save": "Salva post",
+    "bookmark_remove": "Rimuovi dai salvati",
+    "edit": "Modifica post",
+    "delete": "Elimina post",
+    "block_user": "Blocca {name}",
+    "report": "Segnala",
+    "repost_tombstone": "Post originale rimosso",
+    "comments_aria": "Commenti{count, plural, =0 {} other {, #}}",
+    "reposts_aria": "Repost{count, plural, =0 {} other {, #}}"
+  },
+  "composer": {
+    "modal_title_new": "Nuovo post",
+    "modal_title_edit": "Modifica post",
+    "loading_profile": "Caricamento profilo…",
+    "change_visibility": "Cambia visibilità",
+    "visibility_locked": "Non disponibile (puoi solo rendere più privato)",
+    "textarea_placeholder": "Inizia a scrivere…",
+    "textarea_aria": "Testo del post",
+    "submit_new": "Pubblica",
+    "submit_edit": "Salva modifiche",
+    "submitting_new": "Pubblico…",
+    "submitting_edit": "Salvo…"
+  },
+  "dialogs": {
+    "delete": {
+      "title": "Eliminare questo post?",
+      "description": "Il post sparisce subito dal tuo profilo e dai feed di tutti.",
+      "confirm": "Elimina",
+      "consequence_1": "Reazioni e bookmark restano associati al post fino al ripristino.",
+      "consequence_2": "I commenti restano se qualcuno ha già risposto (etichetta «post rimosso»), altrimenti spariscono.",
+      "consequence_3": "I quote-repost di altri utenti mostrano «post originale rimosso».",
+      "consequence_4_prefix": "Per ",
+      "consequence_4_strong": "7 giorni",
+      "consequence_4_suffix": " un moderatore può ripristinarlo. Dopo, il post viene eliminato definitivamente."
+    },
+    "block": {
+      "title": "Bloccare {name}?",
+      "description": "Il blocco è mutuale: non vedrete più i contenuti l'uno dell'altro.",
+      "confirm": "Blocca",
+      "consequence_1": "{name} non comparirà più nel tuo feed o nei tuoi commenti.",
+      "consequence_2": "Non vedrai i suoi post anche se sono pubblici.",
+      "consequence_3": "Nemmeno {name} potrà vedere i tuoi.",
+      "consequence_4": "Puoi rimuovere il blocco in qualsiasi momento dalle impostazioni."
+    },
+    "report": {
+      "title": "Segnala questo post",
+      "description": "Scegli il motivo della segnalazione. Verrà esaminata da un moderatore.",
+      "submit": "Invia segnalazione",
+      "close_after_submit": "Chiudi",
+      "block_author": "Blocca {name}",
+      "success_message": "Segnalazione inviata. Grazie per la collaborazione.",
+      "block_prompt": "Vuoi anche bloccare {name}? Il blocco è mutuale: non vedrete più i contenuti l'uno dell'altro.",
+      "loading_reasons_aria": "Caricamento motivi",
+      "reasons_radiogroup_aria": "Motivo della segnalazione",
+      "details_required_indicator": "(dettagli obbligatori)",
+      "details_label_required": "Dettagli (obbligatori)",
+      "details_label_optional": "Dettagli (opzionali)",
+      "details_placeholder": "Aggiungi un contesto utile per la moderazione (max 2000 caratteri)"
+    }
+  },
+  "empty_states": {
+    "following_home_title": "La tua home è vuota",
+    "following_home_description": "Qui vedrai i post delle persone che segui. Inizia a esplorare per trovare profili e contenuti che ti interessano.",
+    "following_home_cta": "Vai su Esplora",
+    "explore_no_posts_title": "Nessun post da esplorare",
+    "explore_no_posts_description": "Non c'è ancora niente di pubblico. Pubblica il primo post per dare il via.",
+    "explore_ticker_no_posts_title": "Nessun post su {ticker}",
+    "explore_ticker_no_posts_description": "Non c'è ancora nessun post pubblico che menziona questo ticker. Sii il primo a parlarne.",
+    "ticker_no_posts_prefix": "Nessun post ha ancora parlato di ",
+    "ticker_no_posts_suffix": ".",
+    "ticker_create_cta_authed_prefix": "Inizia tu la conversazione — apri un nuovo post col tag ",
+    "ticker_create_cta_authed_suffix": ".",
+    "ticker_create_cta_anon_suffix": " per aprire la conversazione."
+  },
+  "report": {
+    "load_error": "Impossibile caricare i motivi di segnalazione. Riprova."
+  },
+  "reactions": {
+    "like": "Mi piace",
+    "rocket": "Rocket",
+    "bull": "Bullish",
+    "bear": "Bearish",
+    "dump": "Dump",
+    "diamond": "Diamond hands",
+    "button_aria": "Reazioni",
+    "menu_aria": "Scegli reazione"
+  },
+  "gallery": {
+    "scroll_left": "Scorri a sinistra",
+    "scroll_right": "Scorri a destra",
+    "go_to_image": "Vai all'immagine {index}",
+    "lightbox_title": "Anteprima immagine",
+    "image_prev": "Immagine precedente",
+    "image_next": "Immagine successiva"
+  },
+  "new_post": {
+    "button_aria": "Nuovo post",
+    "toast_published_prefix": "Post pubblicato · ",
+    "toast_view_link": "clicca per vederlo",
+    "toast_close_aria": "Chiudi"
+  },
+  "ticker_hover": {
+    "coin_page": "Pagina coin",
+    "posts_24h": "{count} post 24h · vedi tutti",
+    "see_all_posts": "Vedi tutti i post",
+    "untracked_message": "{symbol} non è un coin tracciato."
+  },
+  "trending": {
+    "section_title": "Coin in trend — ultime 24h"
+  },
+  "coin_related": {
+    "section_title": "Post recenti su {symbol}",
+    "see_all": "Vedi tutti"
+  },
+  "explore": {
+    "page_title_ticker": "Post su {ticker}",
+    "page_title": "Esplora",
+    "subtitle_ticker": "Tutti i post pubblici che menzionano questo coin.",
+    "subtitle": "Post pubblici della community in ordine cronologico.",
+    "discussions_about": "Discussioni su: {ticker}",
+    "untracked_fallback": "non è ancora tracciato nel modulo prezzi — vedi sotto i post che lo menzionano."
+  }
+}

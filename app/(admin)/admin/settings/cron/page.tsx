@@ -2,7 +2,9 @@
  * /admin/settings/cron — vista CORE dei cron job pg_cron.
  *
  * Mostra:
- *   1. i job registrati come `core` in lib/cron/registry.ts
+ *   1. i job registrati come `core` in lib/cron/registry.ts, raggruppati
+ *      per categoria funzionale in tab (Account & GDPR, Sessioni, Notifiche,
+ *      Sicurezza).
  *   2. i job presenti su pg_cron ma non riconosciuti da nessun
  *      manifest (sezione "Untracked"): permette di vederli e
  *      toggleare lo stato senza perdere visibilità.
@@ -15,7 +17,6 @@ import {
   CronJobsTable,
   type CronRow,
 } from "@/app/(admin)/admin/_components/cron-jobs-table";
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { buildAdminPath } from "@/lib/admin-paths";
 import {
   buildExpectedCommandBody,
@@ -25,13 +26,15 @@ import {
 import { listCronJobsWithLastRun, type PgCronJobWithLastRun } from "@/lib/cron/queries";
 import {
   CORE_CRON_JOBS,
+  type CronCategory,
   getAllRegisteredJobnames,
   getCoreJobnames,
   getCronJobMeta,
 } from "@/lib/cron/registry";
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
 import { getSiteUrl } from "@/lib/seo";
-import { Clock } from "lucide-react";
+import { Bell, ShieldAlert, ShieldCheck, UserCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { fetchCronRunsAction, toggleCronJobAction } from "./actions";
@@ -39,11 +42,27 @@ import { fetchCronRunsAction, toggleCronJobAction } from "./actions";
 export const metadata: Metadata = { title: "Settings / Cron Jobs" };
 export const dynamic = "force-dynamic";
 
-export default async function SettingsCronPage() {
-  const [t, tHeader] = await Promise.all([
-    getTranslations("admin.settings.cron"),
-    getTranslations("admin.settings"),
-  ]);
+type CoreCategory = Exclude<CronCategory, "modules">;
+
+const CATEGORIES: ReadonlyArray<{ key: CoreCategory; icon: LucideIcon }> = [
+  { key: "account-gdpr", icon: ShieldCheck },
+  { key: "sessions", icon: UserCheck },
+  { key: "notifications", icon: Bell },
+  { key: "security", icon: ShieldAlert },
+] as const;
+
+function isCoreCategory(s: string | null | undefined): s is CoreCategory {
+  return !!s && CATEGORIES.some((c) => c.key === s);
+}
+
+export default async function SettingsCronPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const t = await getTranslations("admin.settings.cron");
+  const { tab } = await searchParams;
+
   let allJobs: PgCronJobWithLastRun[] = [];
   let dbError: string | null = null;
   try {
@@ -54,33 +73,32 @@ export default async function SettingsCronPage() {
 
   const coreNames = getCoreJobnames();
   const registeredNames = getAllRegisteredJobnames();
-  const moduleSlugs = INSTALLED_MODULES.map((m) => m.slug);
+  const modulesWithCron = INSTALLED_MODULES.filter((m) => m.cronJobs.length > 0);
   const siteUrl = await getSiteUrl();
-  // Path admin runtime per ogni modulo: /<adminSlug>/modules/<slug>/cron
   const moduleCronPaths = await Promise.all(
-    INSTALLED_MODULES.map(async (m) => ({
+    modulesWithCron.map(async (m) => ({
       slug: m.slug,
       label: m.label,
       href: await buildAdminPath(`/modules/${m.slug}/cron`),
     })),
   );
 
-  const coreRows: CronRow[] = [];
+  const coreRowsByCategory = new Map<CoreCategory, CronRow[]>();
   const untrackedRows: CronRow[] = [];
 
   for (const job of allJobs) {
     if (job.jobname && coreNames.has(job.jobname)) {
-      const meta = getCronJobMeta(job.jobname) ?? null;
-      coreRows.push(buildRow(job, meta, siteUrl));
+      const meta = getCronJobMeta(job.jobname);
+      if (!meta || meta.category === "modules") continue;
+      const row = buildRow(job, meta, siteUrl);
+      const list = coreRowsByCategory.get(meta.category) ?? [];
+      list.push(row);
+      coreRowsByCategory.set(meta.category, list);
     } else if (!job.jobname || !registeredNames.has(job.jobname)) {
       untrackedRows.push({ job, meta: null });
     }
-    // i job appartenenti a un modulo li scartiamo qui
   }
 
-  // Core HTTP-based jobs that are NOT yet registered in pg_cron — render a
-  // ready-to-paste schedule statement so the admin can install them with
-  // the current site domain baked in.
   const presentJobnames = new Set(allJobs.map((j) => j.jobname).filter(Boolean) as string[]);
   const missingCore = CORE_CRON_JOBS.filter(
     (c) => c.path && c.schedule && !presentJobnames.has(c.jobname),
@@ -99,14 +117,22 @@ export default async function SettingsCronPage() {
       : null,
   }));
 
+  // Conta job per categoria (sia in pg_cron sia missing) → per badge tab
+  const categoryCounts = new Map<CoreCategory, number>();
+  for (const c of CORE_CRON_JOBS) {
+    if (c.category === "modules") continue;
+    const cat = c.category as CoreCategory;
+    categoryCounts.set(cat, (categoryCounts.get(cat) ?? 0) + 1);
+  }
+
+  const activeCategory: CoreCategory = isCoreCategory(tab)
+    ? tab
+    : CATEGORIES.find((c) => (categoryCounts.get(c.key) ?? 0) > 0)?.key ?? "account-gdpr";
+
+  const activeRows = coreRowsByCategory.get(activeCategory) ?? [];
+
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={Clock}
-        breadcrumbLabel={tHeader("rootTitle")}
-        title={tHeader("sections.cron.label")}
-        subtitle={tHeader("sections.cron.description")}
-      />
       {dbError && (
         <div
           className="rounded-xl p-4 text-sm"
@@ -164,14 +190,50 @@ export default async function SettingsCronPage() {
         </div>
       )}
 
-      <Section title={t("coreJobsTitle")} subtitle={t("coreJobsSubtitle")}>
-        <CronJobsTable
-          rows={coreRows}
-          toggleAction={toggleCronJobAction}
-          fetchRunsAction={fetchCronRunsAction}
-          emptyMessage={t("coreJobsEmpty")}
-        />
-      </Section>
+      <div className="space-y-3">
+        <div
+          className="flex flex-wrap items-center gap-1 p-1 rounded-xl w-fit"
+          style={{ background: "var(--admin-hover-bg)" }}>
+          {CATEGORIES.map(({ key, icon: Icon }) => {
+            const count = categoryCounts.get(key) ?? 0;
+            if (count === 0) return null;
+            const isActive = key === activeCategory;
+            return (
+              <a
+                key={key}
+                href={`?tab=${key}`}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
+                style={{
+                  background: isActive ? "var(--admin-accent)" : "transparent",
+                  color: isActive ? "#fff" : "var(--admin-text-muted)",
+                  boxShadow: isActive ? "0 1px 3px oklch(0 0 0 / 0.15)" : "none",
+                }}>
+                <Icon size={13} />
+                {t(`categories.${key}.label`)}
+                <span
+                  className="text-[11px] font-semibold px-1.5 rounded"
+                  style={{
+                    background: isActive ? "oklch(1 0 0 / 0.18)" : "var(--admin-card-bg)",
+                    color: isActive ? "#fff" : "var(--admin-text-faint)",
+                  }}>
+                  {count}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+
+        <Section
+          title={t(`categories.${activeCategory}.label`)}
+          subtitle={t(`categories.${activeCategory}.subtitle`)}>
+          <CronJobsTable
+            rows={activeRows}
+            toggleAction={toggleCronJobAction}
+            fetchRunsAction={fetchCronRunsAction}
+            emptyMessage={t("coreJobsEmpty")}
+          />
+        </Section>
+      </div>
 
       <Section title={t("untrackedJobsTitle")} subtitle={t("untrackedJobsSubtitle")}>
         <CronJobsTable
@@ -182,7 +244,7 @@ export default async function SettingsCronPage() {
         />
       </Section>
 
-      {moduleSlugs.length > 0 && (
+      {moduleCronPaths.length > 0 && (
         <div
           className="rounded-xl p-4 text-xs"
           style={{

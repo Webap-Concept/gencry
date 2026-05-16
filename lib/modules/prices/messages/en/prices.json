@@ -1,0 +1,52 @@
+{
+  "common": {
+    "details": "Details",
+    "sign_in": "Sign in",
+    "sign_up": "Sign up",
+    "explore": "Explore",
+    "watchlist": "Watchlist"
+  },
+  "labels": {
+    "market_cap": "Market cap",
+    "volume_24h": "Volume 24h",
+    "rank": "Rank",
+    "rank_aria": "Market cap rank: {rank}",
+    "in_watchlist": "In watchlist",
+    "mockup_hint": "mockup",
+    "price": "Price",
+    "weekly_chart_aria": "7-day price trend",
+    "historical_chart_aria": "Historical price chart",
+    "time_range_aria": "Time range",
+    "coin_details_aria": "{name} details",
+    "watchlist_count": "In <strong>{count}</strong> watchlists",
+    "add_to_watchlist": "Add to watchlist"
+  },
+  "ranges": {
+    "1d": "1d",
+    "1w": "1w",
+    "1m": "1m",
+    "1y": "1y"
+  },
+  "empty_states": {
+    "no_active_coins": "No active coins.",
+    "no_history_window": "History not available for this window yet."
+  },
+  "page": {
+    "not_found_title": "Coin not found",
+    "metadata_title_suffix": "Price, chart and data",
+    "metadata_description": "Live price of {name} ({symbol}): {price} USD.{change}{rank} Historical chart, market cap and 24h volume.",
+    "metadata_change_24h": " 24h change: {change}.",
+    "metadata_rank": " Market cap rank: #{rank}.",
+    "og_description": "{name} ({symbol}) — live price, historical chart, market cap and 24h volume.",
+    "cta_follow_title": "Follow {name} on the community",
+    "cta_follow_description": "Sign up to add {name} to your watchlist, get alerts and read what the community thinks."
+  },
+  "source": {
+    "label": "Source:",
+    "name": "CoinGecko"
+  },
+  "opengraph": {
+    "claim": "The Italian crypto community.",
+    "change_24h_suffix": "(24h)"
+  }
+}

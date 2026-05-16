@@ -28,7 +28,7 @@ export function ProtectedShell({
     <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
       {banner}
       <AppTopBar />
-      <div className="flex-1 min-h-0 mx-auto w-full max-w-[1440px] flex">
+      <div className="flex-1 min-h-0 mx-auto w-full max-w-[1280px] flex">
         <AppSidebar appLogoUrl={appLogoUrl} />
         <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-6">
           <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">

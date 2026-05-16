@@ -1,11 +1,14 @@
 "use client";
 
 import type { RoleRow } from "@/lib/db/roles-queries";
-import { Mail, Search, UserPlus, X } from "lucide-react";
+import { Loader2, Mail, Search, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import {
+  AdminDialog,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import {
   addUserToStaff,
   inviteStaffMember,
@@ -462,9 +465,7 @@ function ConfirmButton({
       onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.filter = "brightness(0.88)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
     >
-      {loading ? (
-        <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", animation: "cm-spin 0.6s linear infinite" }} />
-      ) : icon}
+      {loading ? <Loader2 size={13} className="animate-spin" /> : icon}
       {label}
     </button>
   );
@@ -518,12 +519,6 @@ export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProp
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("promote");
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function handleSuccess() {
     router.refresh();
     onClose();
@@ -534,84 +529,66 @@ export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProp
     { id: "invite", label: t("tabInvite"), icon: <Mail size={14} /> },
   ];
 
-  return createPortal(
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)", animation: "cm-fade-in 140ms ease" }}
-      />
-
-      {/* Dialog */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 10001, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "none" }}>
+  return (
+    <AdminDialog open onOpenChange={(o) => !o && onClose()}>
+      <AdminDialogContent
+        icon={UserPlus}
+        size="md"
+        title={t("title")}
+        closeAriaLabel={t("closeAria")}
+        className="!p-0"
+      >
+        {/* Tabs */}
         <div
-          role="dialog"
-          aria-modal="true"
-          style={{ background: "var(--admin-card-bg)", border: "1px solid var(--admin-card-border)", borderRadius: 14, boxShadow: "0 24px 60px rgba(0,0,0,0.45)", width: "100%", maxWidth: 480, pointerEvents: "auto", animation: "cm-slide-up 160ms cubic-bezier(0.16,1,0.3,1)" }}
-        >
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px 14px", borderBottom: "1px solid var(--admin-card-border)" }}>
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "color-mix(in srgb, var(--admin-accent) 12%, transparent)", color: "var(--admin-accent)", flexShrink: 0 }}>
-              <UserPlus size={17} />
-            </span>
-            <h2 style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "var(--admin-text)", margin: 0 }}>
-              {t("title")}
-            </h2>
+          style={{
+            display: "flex",
+            borderBottom: "1px solid var(--admin-card-border)",
+            padding: "0 20px",
+            margin: "-16px -20px 0",
+          }}>
+          {tabs.map((tabDef) => (
             <button
-              onClick={onClose}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, background: "transparent", border: "none", cursor: "pointer", color: "var(--admin-text-faint)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--admin-hover-bg)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-              aria-label={t("closeAria")}
-            >
-              <X size={15} />
+              key={tabDef.id}
+              onClick={() => setTab(tabDef.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "10px 4px",
+                marginRight: 20,
+                fontSize: 13,
+                fontWeight: tab === tabDef.id ? 600 : 400,
+                color:
+                  tab === tabDef.id
+                    ? "var(--admin-accent)"
+                    : "var(--admin-text-muted)",
+                background: "transparent",
+                border: "none",
+                borderBottom:
+                  tab === tabDef.id
+                    ? "2px solid var(--admin-accent)"
+                    : "2px solid transparent",
+                cursor: "pointer",
+                transition: "color 120ms, border-color 120ms",
+                marginBottom: -1,
+              }}>
+              {tabDef.icon}
+              {tabDef.label}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {/* Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid var(--admin-card-border)", padding: "0 20px" }}>
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "10px 4px",
-                  marginRight: 20,
-                  fontSize: 13,
-                  fontWeight: tab === t.id ? 600 : 400,
-                  color: tab === t.id ? "var(--admin-accent)" : "var(--admin-text-muted)",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: tab === t.id ? "2px solid var(--admin-accent)" : "2px solid transparent",
-                  cursor: "pointer",
-                  transition: "color 120ms, border-color 120ms",
-                  marginBottom: -1,
-                }}
-              >
-                {t.icon}
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
+        {/* Tab content (PromoteTab/InviteTab already include their own
+            padding/footer). Negative margin clears AdminDialog's body
+            padding so the tabs+content render edge-to-edge as before. */}
+        <div style={{ margin: "16px -20px -16px" }}>
           {tab === "promote" ? (
             <PromoteTab adminRoles={adminRoles} onSuccess={handleSuccess} />
           ) : (
             <InviteTab adminRoles={adminRoles} onSuccess={handleSuccess} />
           )}
         </div>
-      </div>
-
-      <style>{`
-        @keyframes cm-fade-in  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes cm-slide-up { from { opacity: 0; transform: translateY(10px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
-        @keyframes cm-spin     { to { transform: rotate(360deg) } }
-      `}</style>
-    </>,
-    document.body,
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }

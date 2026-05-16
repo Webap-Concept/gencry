@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Bug, Check, ExternalLink, X } from "lucide-react";
+import { Bug, Check, ExternalLink } from "lucide-react";
 import type { SentryIssueSummary } from "@/lib/sentry/issues";
+import {
+  AdminDialog,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import ConfirmModal from "../../_components/confirm-modal";
 import { resolveSentryIssue } from "./actions";
 
@@ -33,31 +36,16 @@ export default function AllErrorsModal({
   const [confirm, setConfirm] = useState<SentryIssueSummary | null>(null);
   const [, startTransition] = useTransition();
 
-  const closeRef = useRef<HTMLButtonElement>(null);
-
   useEffect(() => {
     if (open) {
       setDismissed(new Set());
       setError(null);
       setConfirm(null);
       setPendingId(null);
-      setTimeout(() => closeRef.current?.focus(), 30);
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      // ESC chiude sempre la modale principale, A MENO che la confirm
-      // nested sia aperta — in quel caso ESC è gestito dalla nested.
-      // Il resolve in corso non blocca: la server action continua
-      // comunque, e router.refresh aggiorna il widget alla prossima
-      // apertura.
-      if (e.key === "Escape" && !confirm) onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, confirm]);
+  // Focus + ESC delegati a Radix tramite AdminDialog.
 
   if (!open) return null;
 
@@ -99,119 +87,16 @@ export default function AllErrorsModal({
     }
   }
 
-  return createPortal(
+  return (
     <>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10000,
-          background: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(2px)",
-          animation: "aem-fade-in 140ms ease",
-        }}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="aem-title"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10001,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "1rem",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            background: "var(--admin-card-bg, #1c1b19)",
-            border: "1px solid var(--admin-card-border, #2a2927)",
-            borderRadius: 14,
-            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
-            width: "100%",
-            maxWidth: 640,
-            maxHeight: "min(85vh, 800px)",
-            display: "flex",
-            flexDirection: "column",
-            pointerEvents: "auto",
-            animation: "aem-slide-up 160ms cubic-bezier(0.16,1,0.3,1)",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "16px 20px",
-              borderBottom: "1px solid var(--admin-card-border, #2a2927)",
-            }}
-          >
-            <span
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
-                color: "var(--admin-accent)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Bug size={15} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2
-                id="aem-title"
-                style={{
-                  margin: 0,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--admin-text, #cdccca)",
-                }}
-              >
-                {t("modalTitle")}
-              </h2>
-              <p
-                style={{
-                  margin: "2px 0 0 0",
-                  fontSize: 12,
-                  color: "var(--admin-text-faint, #5a5957)",
-                }}
-              >
-                {t("modalSubtitle", { count: visible.length })}
-              </p>
-            </div>
-            <button
-              ref={closeRef}
-              onClick={onClose}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: "transparent",
-                border: "none",
-                color: "var(--admin-text-faint, #5a5957)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              aria-label={t("modalCloseAria")}
-            >
-              <X size={15} />
-            </button>
-          </div>
-
-          {/* Body */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
+      <AdminDialog open onOpenChange={(o) => !o && !confirm && onClose()}>
+        <AdminDialogContent
+          icon={Bug}
+          size="xl"
+          title={t("modalTitle")}
+          description={t("modalSubtitle", { count: visible.length })}
+          closeAriaLabel={t("modalCloseAria")}>
+          <div style={{ maxHeight: "min(60vh, 600px)", overflowY: "auto", margin: "-16px -20px" }}>
             {visible.length === 0 ? (
               <p
                 style={{
@@ -219,9 +104,8 @@ export default function AllErrorsModal({
                   padding: "40px 20px",
                   textAlign: "center",
                   fontSize: 13,
-                  color: "var(--admin-text-faint, #5a5957)",
-                }}
-              >
+                  color: "var(--admin-text-faint)",
+                }}>
                 {t("modalAllResolved")}
               </p>
             ) : (
@@ -241,8 +125,8 @@ export default function AllErrorsModal({
               </ul>
             )}
           </div>
-        </div>
-      </div>
+        </AdminDialogContent>
+      </AdminDialog>
 
       {/* Confirm modal (nested) for the actual resolve action */}
       {confirm && (
@@ -263,12 +147,9 @@ export default function AllErrorsModal({
       )}
 
       <style>{`
-        @keyframes aem-fade-in  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes aem-slide-up { from { opacity: 0; transform: translateY(10px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
-        @keyframes aem-spin     { to { transform: rotate(360deg) } }
+        @keyframes aem-spin { to { transform: rotate(360deg) } }
       `}</style>
-    </>,
-    document.body,
+    </>
   );
 }
 

@@ -74,7 +74,7 @@ export const suspiciousSessionsGenerator: NotificationGenerator = {
     for (const sev of ["critical", "warning", "info"] as const) {
       const n = counts[sev] ?? 0;
       if (n === 0) continue;
-      if (!meetsThreshold(sev, config.severityThreshold)) continue;
+      if (!meetsThreshold(sev, config.sources.sessions.severityThreshold)) continue;
 
       const title =
         sev === "critical"

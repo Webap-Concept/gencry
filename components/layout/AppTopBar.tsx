@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { Avatar } from "@/components/shared/Avatar";
 import { UserMenu } from "@/components/layout/UserMenu";
@@ -14,6 +15,7 @@ import { fullName } from "@/lib/utils";
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function AppTopBar() {
+  const t = useTranslations("core.shell");
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
     revalidateOnFocus: false,
     keepPreviousData: true,
@@ -38,7 +40,7 @@ export function AppTopBar() {
             <button
               type="button"
               onClick={toggle}
-              aria-label="Apri menu utente"
+              aria-label={t("openUserMenu")}
               aria-expanded={open}
               className="rounded-full focus:outline-none focus:ring-2 focus:ring-gc-accent"
             >

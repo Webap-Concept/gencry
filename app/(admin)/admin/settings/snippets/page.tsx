@@ -1,18 +1,14 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getCookieRegistry } from "@/lib/db/cookie-services-queries";
 import { getAllSnippets } from "@/lib/db/snippets-queries";
-import { Code2 } from "lucide-react";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
 import { SnippetsTab, type CookieServiceOption } from "../tabs/snippets-tab";
 
 export const metadata: Metadata = { title: "Settings / Snippets" };
 
 export default async function SettingsContenutiPage() {
-  const [snippets, registry, t] = await Promise.all([
+  const [snippets, registry] = await Promise.all([
     getAllSnippets(),
     getCookieRegistry(),
-    getTranslations("admin.settings"),
   ]);
 
   // Lista flat dei servizi disponibili per il dropdown del form snippet.
@@ -26,24 +22,18 @@ export default async function SettingsContenutiPage() {
       trMap.set(tr.serviceId, tr.name);
     }
   }
-  const cookieServiceOptions: CookieServiceOption[] = registry.services.map((s) => ({
-    id: s.id,
-    name: trMap.get(s.id) ?? s.id,
-    categoryId: s.categoryId,
-  }));
+  const cookieServiceOptions: CookieServiceOption[] = registry.services.map(
+    (s) => ({
+      id: s.id,
+      name: trMap.get(s.id) ?? s.id,
+      categoryId: s.categoryId,
+    }),
+  );
 
   return (
-    <>
-      <AdminSectionHeader
-        icon={Code2}
-        breadcrumbLabel={t("rootTitle")}
-        title={t("sections.snippets.label")}
-        subtitle={t("sections.snippets.description")}
-      />
-      <SnippetsTab
-        initialSnippets={snippets}
-        cookieServices={cookieServiceOptions}
-      />
-    </>
+    <SnippetsTab
+      initialSnippets={snippets}
+      cookieServices={cookieServiceOptions}
+    />
   );
 }

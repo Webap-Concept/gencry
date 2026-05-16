@@ -1,5 +1,3 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   type AssetSortBy,
   type AssetSortDir,
@@ -11,7 +9,6 @@ import {
   getFolderById,
   getFolderPath,
 } from "@/lib/db/media-queries";
-import { Image as ImageIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -102,12 +99,11 @@ export default async function MediaPage({
   // Edge case: when the requested folder doesn't exist (URL tampering),
   // we've already paid for the rest of the batch. That's an exceptional
   // path; the happy path saves 2 sequential round-trips.
-  const [folder, totalAssets, folders, folderPath, t] = await Promise.all([
+  const [folder, totalAssets, folders, folderPath] = await Promise.all([
     currentFolderId !== null ? getFolderById(currentFolderId) : Promise.resolve(null),
     countAssetsInFolder(currentFolderId, typeFilter ?? undefined),
     getAllFolders(),
     currentFolderId !== null ? getFolderPath(currentFolderId) : Promise.resolve([]),
-    getTranslations("admin.content.media"),
   ]);
 
   if (currentFolderId !== null && !folder) notFound();
@@ -136,67 +132,43 @@ export default async function MediaPage({
   );
 
   return (
-    <div className="space-y-5">
-      <AdminSectionHeader
-        icon={ImageIcon}
-        breadcrumbLabel={t("breadcrumbContent")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-        infoSlot={
-          <AdminSectionInfo
-            title={t("guideTitle")}
-            ariaLabel={t("guideAriaLabel")}>
-            <p>{t("guideIntro")}</p>
-            <ul>
-              <li>{t("guideBulletOriginal")}</li>
-              <li>{t("guideBulletVariants")}</li>
-              <li>{t("guideBulletWhereCmsBody")}</li>
-              <li>{t("guideBulletWhereCmsHero")}</li>
-              <li>{t("guideBulletWhereLightbox")}</li>
-              <li>{t("guideBulletWhereAdmin")}</li>
-            </ul>
-            <p>{t("guideTuning")}</p>
-          </AdminSectionInfo>
-        }
-      />
-
+    <div
+      className="rounded-xl shadow-sm overflow-hidden"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
       <div
-        className="rounded-xl shadow-sm overflow-hidden"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-        }}>
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] divide-y md:divide-y-0 md:divide-x"
-          style={{ borderColor: "var(--admin-card-border)" }}>
-          <aside className="p-4">
-            <FolderTree folders={folders} currentFolderId={currentFolderId} />
-          </aside>
+        className="grid grid-cols-1 md:grid-cols-[260px_1fr] divide-y md:divide-y-0 md:divide-x"
+        style={{ borderColor: "var(--admin-card-border)" }}>
+        <aside className="p-4">
+          <FolderTree folders={folders} currentFolderId={currentFolderId} />
+        </aside>
 
-          <main className="p-5 min-w-0">
-            <MediaShell
-              breadcrumb={<FolderBreadcrumb path={folderPath} />}
-              uploader={<MediaUploader currentFolderId={currentFolderId} />}
-              pagination={
-                <MediaPagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalAssets={totalAssets}
-                  folderId={currentFolderId}
-                  sort={sort}
-                  dir={dir}
-                  typeFilter={typeFilter}
-                />
-              }
-              assets={assets}
-              folders={folders}
-              references={Object.fromEntries(references)}
-              folderId={currentFolderId}
-              sort={sort}
-              dir={dir}
-              typeFilter={typeFilter}
-            />
-          </main>
-        </div>
+        <main className="p-5 min-w-0">
+          <MediaShell
+            breadcrumb={<FolderBreadcrumb path={folderPath} />}
+            uploader={<MediaUploader currentFolderId={currentFolderId} />}
+            pagination={
+              <MediaPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalAssets={totalAssets}
+                folderId={currentFolderId}
+                sort={sort}
+                dir={dir}
+                typeFilter={typeFilter}
+              />
+            }
+            assets={assets}
+            folders={folders}
+            references={Object.fromEntries(references)}
+            folderId={currentFolderId}
+            sort={sort}
+            dir={dir}
+            typeFilter={typeFilter}
+          />
+        </main>
       </div>
     </div>
   );

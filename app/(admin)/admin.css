@@ -23,6 +23,17 @@
   --admin-sidebar-item-hover-bg: rgba(255, 255, 255, 0.05);
   --admin-sidebar-border: rgba(255, 255, 255, 0.1);
   --admin-sidebar-width: 16rem;
+  --admin-sidebar-width-collapsed: 4rem;
+
+  /* Map dei token gc-modal-* in scope admin, così le shadcn Dialog
+   * primitive (components/ui/dialog.tsx) renderizzano con i colori
+   * admin senza dover essere modificate (vedi feedback_admin_dialog_primitive). */
+  --gc-modal-bg: var(--admin-card-bg);
+  --gc-modal-border: var(--admin-card-border);
+  --gc-overlay: rgba(0, 0, 0, 0.45);
+  --gc-bg-3: var(--admin-hover-bg);
+  --gc-line: var(--admin-card-border);
+  --gc-fg-3: var(--admin-text-faint);
 
   /* Layout */
   --admin-header-height: 3.5rem;

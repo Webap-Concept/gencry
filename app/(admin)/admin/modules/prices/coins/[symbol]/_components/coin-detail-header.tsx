@@ -3,6 +3,7 @@
 // + last sync timestamp.
 import type { CoinView } from "@/lib/modules/prices/queries";
 import Link from "next/link";
+import { LocalDateTime } from "./local-datetime";
 
 function formatCompactCurrency(value: number | null): string {
   if (!value || !Number.isFinite(value) || value <= 0) return "—";
@@ -124,13 +125,16 @@ export function CoinDetailHeader({ coin }: { coin: CoinView }) {
                 Last sync
               </div>
               <div className="text-sm font-mono" style={{ color: "var(--admin-text-muted)" }}>
-                {coin.lastUpdated.toLocaleString("it-IT", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                <LocalDateTime
+                  value={coin.lastUpdated}
+                  options={{
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }}
+                />
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,9 @@ type Props = {
 // Su success il server fa redirect a /settings/security/codes con i
 // codici nel cookie firmato. Niente callback onSuccess.
 export function MfaRegenerateForm({ onCancel }: Props) {
+  const t = useTranslations("core.settings.security.mfa");
+  const tCommon = useTranslations("core.common");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<MfaRegenerateState, FormData>(
     regenerateRecoveryCodesAction,
     {},
@@ -26,11 +30,10 @@ export function MfaRegenerateForm({ onCancel }: Props) {
     <section className="space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold text-gc-fg">
-          Rigenera recovery codes
+          {t("regenerateTitle")}
         </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          I 10 codici precedenti verranno invalidati e te ne mostreremo 10 nuovi.
-          Per confermare ti chiediamo il codice corrente dell'app autenticatore.
+          {t("regenerateDescription")}
         </p>
       </div>
 
@@ -44,7 +47,7 @@ export function MfaRegenerateForm({ onCancel }: Props) {
             htmlFor="mfa-regen-token"
             className="text-[13px] font-semibold text-gc-fg"
           >
-            Codice autenticatore
+            {t("tokenLabel")}
           </Label>
           <Input
             id="mfa-regen-token"
@@ -57,7 +60,7 @@ export function MfaRegenerateForm({ onCancel }: Props) {
             required
             autoFocus
             className="mt-1 font-mono text-lg tracking-widest text-center max-w-[12rem]"
-            placeholder="000000"
+            placeholder={tShared("verificationCodePlaceholder")}
           />
         </div>
 
@@ -69,10 +72,10 @@ export function MfaRegenerateForm({ onCancel }: Props) {
           <Button type="submit" disabled={pending}>
             {pending ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> Genero…
+                <Loader2 className="size-4 animate-spin" /> {t("regeneratePending")}
               </>
             ) : (
-              "Rigenera"
+              t("regenerateIdle")
             )}
           </Button>
           <Button
@@ -81,7 +84,7 @@ export function MfaRegenerateForm({ onCancel }: Props) {
             onClick={onCancel}
             disabled={pending}
           >
-            Annulla
+            {tCommon("cancel")}
           </Button>
         </div>
       </form>

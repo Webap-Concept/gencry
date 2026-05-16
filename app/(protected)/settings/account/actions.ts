@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import {
   type ActionState,
   validatedActionWithUser,
@@ -33,8 +34,9 @@ export const requestEmailChangeAction = validatedActionWithUser(
   requestEmailChangeSchema,
   async (data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
-      return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
+      return { error: tAct("sessionExpired") } satisfies ActionState;
     }
 
     const locale = await resolveRecipientLocale(fullUser.locale);
@@ -51,11 +53,15 @@ export const requestEmailChangeAction = validatedActionWithUser(
     });
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      return {
+        error: tAct(`emailChange.errors.${result.error}`),
+      } satisfies ActionState;
     }
 
     return {
-      success: `Ti abbiamo inviato un codice di verifica a ${data.newEmail.trim().toLowerCase()}.`,
+      success: tAct("emailCodeSent", {
+        newEmail: data.newEmail.trim().toLowerCase(),
+      }),
     } satisfies ActionState;
   },
 );
@@ -76,8 +82,9 @@ export const confirmEmailChangeAction = validatedActionWithUser(
   confirmEmailChangeSchema,
   async (data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
-      return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
+      return { error: tAct("sessionExpired") } satisfies ActionState;
     }
 
     const session = await getSession();
@@ -90,17 +97,22 @@ export const confirmEmailChangeAction = validatedActionWithUser(
     });
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      const tOtp = await getTranslations("auth.validation.otp");
+      const message =
+        result.error.type === "otp"
+          ? tOtp(result.error.code)
+          : tAct(`emailChange.errors.${result.error.code}`);
+      return { error: message } satisfies ActionState;
     }
 
-    const tail =
-      result.revokedOtherSessions > 0
-        ? result.revokedOtherSessions === 1
-          ? " 1 altra sessione attiva è stata sloggata."
-          : ` ${result.revokedOtherSessions} altre sessioni attive sono state sloggate.`
-        : "";
+    // emailUpdated + emailUpdatedRevoked (ICU plural) compongono il messaggio
+    // finale: "Email aggiornata: ora la tua email è X.[ 1 altra sessione...]"
+    const base = tAct("emailUpdated", { newEmail: result.newEmail });
+    const revokedSuffix = tAct("emailUpdatedRevoked", {
+      count: result.revokedOtherSessions,
+    });
     return {
-      success: `Email aggiornata: ora la tua email è ${result.newEmail}.${tail}`,
+      success: `${base}${revokedSuffix}`,
     } satisfies ActionState;
   },
 );
@@ -115,7 +127,8 @@ export const cancelEmailChangeAction = validatedActionWithUser(
   cancelEmailChangeSchema,
   async (_data, _formData, user) => {
     await cancelEmailChange(user.id);
-    return { success: "Richiesta di cambio email annullata." } satisfies ActionState;
+    const tAct = await getTranslations("core.settings.actions");
+    return { success: tAct("emailChangeCanceled") } satisfies ActionState;
   },
 );
 
@@ -133,8 +146,9 @@ export const changePasswordAction = validatedActionWithUser(
   changePasswordSchema,
   async (data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
-      return { error: "Sessione scaduta. Effettua di nuovo il login." } satisfies ActionState;
+      return { error: tAct("sessionExpired") } satisfies ActionState;
     }
 
     const session = await getSession();
@@ -149,15 +163,13 @@ export const changePasswordAction = validatedActionWithUser(
     );
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      return {
+        error: tAct(`passwordChange.errors.${result.error}`),
+      } satisfies ActionState;
     }
 
-    const success =
-      result.revokedOtherSessions > 0
-        ? result.revokedOtherSessions === 1
-          ? "Password aggiornata. Hai sloggato 1 altra sessione attiva."
-          : `Password aggiornata. Hai sloggato ${result.revokedOtherSessions} altre sessioni attive.`
-        : "Password aggiornata.";
-    return { success } satisfies ActionState;
+    return {
+      success: tAct("passwordUpdated", { count: result.revokedOtherSessions }),
+    } satisfies ActionState;
   },
 );

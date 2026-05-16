@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import {
   validatedAction,
   validatedActionWithUser,
@@ -49,6 +50,7 @@ export const updateProfile = validatedActionWithUser(
   updateProfileSchema,
   async (data, _formData, user) => {
     const { firstName, lastName, username, bio, locale } = data;
+    const tAct = await getTranslations("core.settings.actions");
 
     // Lo username viene controllato (blacklist + bloom + DB) solo se è
     // cambiato rispetto a quello attuale. Confronto case-insensitive
@@ -62,7 +64,7 @@ export const updateProfile = validatedActionWithUser(
     if (usernameChanged) {
       if (await isUsernameBlacklisted(username)) {
         return {
-          error: "Questo username non è disponibile.",
+          error: tAct("usernameNotAvailable"),
         } satisfies ActionState;
       }
 
@@ -70,7 +72,7 @@ export const updateProfile = validatedActionWithUser(
       const availability = await checkUsernameAvailability(username);
       if (!availability.available) {
         return {
-          error: "Questo username è già in uso. Scegline un altro.",
+          error: tAct("usernameTaken"),
         } satisfies ActionState;
       }
     }
@@ -89,7 +91,7 @@ export const updateProfile = validatedActionWithUser(
       // ce lo dice in modo autoritativo.
       if (isUniqueConstraintError(err)) {
         return {
-          error: "Questo username è appena stato preso da un altro utente. Scegline un altro.",
+          error: tAct("usernameJustTaken"),
         } satisfies ActionState;
       }
       throw err;
@@ -127,7 +129,7 @@ export const updateProfile = validatedActionWithUser(
       ipAddress: "",
     });
 
-    return { success: "Profilo aggiornato." } satisfies ActionState;
+    return { success: tAct("profileUpdated") } satisfies ActionState;
   },
 );
 
@@ -138,14 +140,15 @@ export async function uploadAvatar(
   formData: FormData,
 ): Promise<UploadAvatarState> {
   const user = await getUser();
-  if (!user) return { error: "Non autenticato." };
+  const tAct = await getTranslations("core.settings.actions");
+  if (!user) return { error: tAct("notAuthenticated") };
 
   const file = formData.get("avatar");
   if (!(file instanceof File) || file.size === 0) {
-    return { error: "Seleziona un'immagine." };
+    return { error: tAct("avatarSelectImage") };
   }
   if (file.size > MAX_AVATAR_BYTES) {
-    return { error: "Immagine troppo grande. Massimo 2 MB." };
+    return { error: tAct("avatarTooLarge") };
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -164,7 +167,7 @@ export async function uploadAvatar(
     ipAddress: "",
   });
 
-  return { success: "Foto aggiornata.", url: result.url };
+  return { success: tAct("profileUpdated"), url: result.url };
 }
 
 const removeAvatarSchema = z.object({});
@@ -173,7 +176,8 @@ export const removeAvatar = validatedAction(
   removeAvatarSchema,
   async () => {
     const user = await getUser();
-    if (!user) return { error: "Non autenticato." } satisfies ActionState;
+    const tAct = await getTranslations("core.settings.actions");
+    if (!user) return { error: tAct("notAuthenticated") } satisfies ActionState;
 
     await db
       .update(userProfiles)
@@ -186,6 +190,6 @@ export const removeAvatar = validatedAction(
       ipAddress: "",
     });
 
-    return { success: "Foto rimossa." } satisfies ActionState;
+    return { success: tAct("profileUpdated") } satisfies ActionState;
   },
 );

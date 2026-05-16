@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import {
   type ActionState,
@@ -87,7 +88,8 @@ export const revokeDeviceAction = validatedActionWithUser(
     }
 
     revalidatePath("/settings/security");
-    return { success: "Dispositivo revocato." } satisfies ActionState;
+    const tAct = await getTranslations("core.settings.actions");
+    return { success: tAct("deviceRevoked") } satisfies ActionState;
   },
 );
 
@@ -107,17 +109,15 @@ export const revokeAllOtherDevicesAction = validatedActionWithUser(
     });
 
     revalidatePath("/settings/security");
+    const tAct = await getTranslations("core.settings.actions");
 
     if (revokedCount === 0) {
       return {
-        success: "Nessun altro dispositivo da revocare.",
+        success: tAct("noOtherDevices"),
       } satisfies ActionState;
     }
     return {
-      success:
-        revokedCount === 1
-          ? "1 dispositivo revocato."
-          : `${revokedCount} dispositivi revocati.`,
+      success: tAct("devicesRevoked", { n: revokedCount }),
     } satisfies ActionState;
   },
 );
@@ -134,10 +134,10 @@ export const revokeSessionAction = validatedActionWithUser(
   revokeSessionSchema,
   async (data, _formData, user) => {
     const current = await getSession();
+    const tAct = await getTranslations("core.settings.actions");
     if (current && current.sessionId === data.sessionId) {
       return {
-        error:
-          "Non puoi revocare la sessione corrente. Per uscire effettua il logout.",
+        error: tAct("cannotRevokeCurrentSession"),
       } satisfies ActionState;
     }
 
@@ -148,7 +148,7 @@ export const revokeSessionAction = validatedActionWithUser(
     await revokeSession(data.sessionId, user.id);
 
     revalidatePath("/settings/security");
-    return { success: "Sessione revocata." } satisfies ActionState;
+    return { success: tAct("sessionRevoked") } satisfies ActionState;
   },
 );
 
@@ -168,17 +168,15 @@ export const revokeAllOtherSessionsAction = validatedActionWithUser(
     });
 
     revalidatePath("/settings/security");
+    const tAct = await getTranslations("core.settings.actions");
 
     if (revokedCount === 0) {
       return {
-        success: "Nessun'altra sessione attiva.",
+        success: tAct("noOtherSessions"),
       } satisfies ActionState;
     }
     return {
-      success:
-        revokedCount === 1
-          ? "1 sessione revocata."
-          : `${revokedCount} sessioni revocate.`,
+      success: tAct("sessionsRevoked", { n: revokedCount }),
     } satisfies ActionState;
   },
 );
@@ -202,8 +200,9 @@ export const startMfaSetupAction = validatedActionWithUser(
   startMfaSetupSchema,
   async (_data, _formData, user): Promise<MfaStartState> => {
     const state = await getMfaState(user.id);
+    const tAct = await getTranslations("core.settings.actions");
     if (state.enabled) {
-      return { error: "MFA già attiva. Disabilitala prima di rifare il setup." };
+      return { error: tAct("mfaAlreadyActive") };
     }
 
     const policy = await getMfaPolicy();
@@ -216,7 +215,7 @@ export const startMfaSetupAction = validatedActionWithUser(
     const dataUrl = await qrCodeDataUrl(otpauthUrl);
 
     return {
-      success: "Scansiona il QR con la tua app autenticatore.",
+      success: tAct("mfaScanQr"),
       qrCodeDataUrl: dataUrl,
       manualKey: secretBase32,
     };
@@ -236,7 +235,7 @@ const confirmMfaSetupSchema = z.object({
   token: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+    .regex(/^\d{6}$/, "core.settings.actions.code6Digits"),
   // Quale chrome ha invocato l'action: determina la page /codes di
   // destinazione del redirect post-success.
   context: z.enum(["admin", "public"]).optional().default("public"),
@@ -246,11 +245,12 @@ export const confirmMfaSetupAction = validatedActionWithUser(
   confirmMfaSetupSchema,
   async (data, _formData, user): Promise<MfaConfirmState> => {
     const result = await confirmMfaSetup(user.id, data.token);
+    const tAct = await getTranslations("core.settings.actions");
     if (!result.ok) {
       if (result.reason === "no_pending") {
-        return { error: "Nessun setup in corso. Riavvia la procedura." };
+        return { error: tAct("mfaNoPendingSetup") };
       }
-      return { error: "Codice non valido. Riprova." };
+      return { error: tAct("mfaInvalidCode") };
     }
 
     await logActivity(user.id, ActivityType.MFA_ENABLED);
@@ -308,37 +308,38 @@ export async function ackPendingRecoveryCodesAction(
 // ---------------------------------------------------------------------------
 
 const disableMfaSchema = z.object({
-  password: z.string().min(1, "Inserisci la password."),
+  password: z.string().min(1, "core.settings.actions.enterPassword"),
   token: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+    .regex(/^\d{6}$/, "core.settings.actions.code6Digits"),
 });
 
 export const disableMfaAction = validatedActionWithUser(
   disableMfaSchema,
   async (data, _formData, user): Promise<ActionState> => {
     const state = await getMfaState(user.id);
+    const tAct = await getTranslations("core.settings.actions");
     if (!state.enabled) {
-      return { error: "MFA non è attiva su questo account." };
+      return { error: tAct("mfaNotActive") };
     }
 
     const passwordOk = await comparePasswords(data.password, user.passwordHash);
     if (!passwordOk) {
-      return { error: "Password non corretta." };
+      return { error: tAct("passwordIncorrect") };
     }
 
     const rl = await checkMfaTotpRateLimit(user.id);
     if (rl.blocked) {
       return {
-        error: "Troppi tentativi. Riprova fra qualche minuto.",
+        error: tAct("tooManyAttempts"),
       };
     }
 
     const totpResult = await verifyTotpForLogin(user.id, data.token);
     if (!totpResult.valid) {
       await recordMfaTotpAttempt(user.id);
-      return { error: "Codice non valido. Riprova." };
+      return { error: tAct("mfaInvalidCode") };
     }
 
     await disableMfaQuery(user.id);
@@ -355,7 +356,7 @@ export const disableMfaAction = validatedActionWithUser(
 
     revalidatePath("/settings/security");
     updateTag(MFA_STATE_TAG);
-    return { success: "Autenticazione a due fattori disabilitata." };
+    return { success: tAct("mfaDisabled") };
   },
 );
 
@@ -372,7 +373,7 @@ const regenerateRecoveryCodesSchema = z.object({
   token: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, "Inserisci un codice di 6 cifre."),
+    .regex(/^\d{6}$/, "core.settings.actions.code6Digits"),
   context: z.enum(["admin", "public"]).optional().default("public"),
 });
 
@@ -380,21 +381,22 @@ export const regenerateRecoveryCodesAction = validatedActionWithUser(
   regenerateRecoveryCodesSchema,
   async (data, _formData, user): Promise<MfaRegenerateState> => {
     const state = await getMfaState(user.id);
+    const tAct = await getTranslations("core.settings.actions");
     if (!state.enabled) {
-      return { error: "MFA non è attiva su questo account." };
+      return { error: tAct("mfaNotActive") };
     }
 
     const rl = await checkMfaTotpRateLimit(user.id);
     if (rl.blocked) {
       return {
-        error: "Troppi tentativi. Riprova fra qualche minuto.",
+        error: tAct("tooManyAttempts"),
       };
     }
 
     const totpResult = await verifyTotpForLogin(user.id, data.token);
     if (!totpResult.valid) {
       await recordMfaTotpAttempt(user.id);
-      return { error: "Codice non valido. Riprova." };
+      return { error: tAct("mfaInvalidCode") };
     }
 
     const codes = await regenerateRecoveryCodes(user.id);

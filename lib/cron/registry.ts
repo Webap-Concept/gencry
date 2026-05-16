@@ -18,12 +18,25 @@ import { INSTALLED_MODULES } from "@/lib/modules/registry";
 
 export type CronOwner = "core" | { module: string };
 
+/** Categoria funzionale del job — usata dalla UI admin per raggruppare i
+ *  cron in tab. Aggiungere una nuova categoria = aggiungerla a `CRON_CATEGORIES`
+ *  in lib/cron/categories.ts e tradurre la label in messages/{en,it}. */
+export type CronCategory =
+  | "account-gdpr"
+  | "sessions"
+  | "notifications"
+  | "security"
+  | "modules";
+
 export interface CronJobMeta {
   jobname: string;
   label: string;
   description: string;
   purpose: string;
   owner: CronOwner;
+  /** Categoria funzionale (UI grouping). I job di proprietà di un modulo
+   *  ereditano "modules" se non specificato esplicitamente nel manifest. */
+  category: CronCategory;
   /** API path called by the job, e.g. "/api/cron/account/gdpr-export". When
    *  set, the admin UI can compute the expected `cron.schedule(...)` command
    *  using the configured site URL and detect drift vs. what's actually in
@@ -43,6 +56,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Processes pending GDPR data-export jobs (max 5 per run) and deletes export files whose expires_at is past.",
     purpose: "Required by GDPR. Users can request a copy of their data from /settings/privacy; this cron generates the ZIP, emails the link to the user, and later cleans up expired files.",
     owner: "core",
+    category: "account-gdpr",
     path: "/api/cron/account/gdpr-export",
     schedule: "* * * * *",
   },
@@ -52,6 +66,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Deletes server-side session rows that are expired or have been revoked more than the grace window ago (DELETE FROM sessions WHERE expires_at < now() - interval '1 day' OR (revoked_at IS NOT NULL AND revoked_at < ...)).",
     purpose: "Keeps the sessions table bounded and removes stale records of logged-out / expired devices. Backs the active-sessions UI in /settings/security and the auto-logout-elsewhere flow.",
     owner: "core",
+    category: "sessions",
   },
   {
     jobname: "soft-deleted-purge",
@@ -59,6 +74,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Hard-deletes user rows that have been soft-deleted (deleted_at IS NOT NULL) for more than 30 days.",
     purpose: "Implements the GDPR 30-day grace window after an account-deletion request. Within 30 days the user can still recover the account; after that the row is purged and FK ON DELETE SET NULL preserves audit trails.",
     owner: "core",
+    category: "account-gdpr",
   },
   {
     jobname: "notifications-dispatch",
@@ -66,7 +82,18 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Runs all notification generators (cron failures, secret rotation, …) and reconciles admin_notifications: inserts new alerts, refreshes severity, auto-resolves conditions that have cleared.",
     purpose: "Ensures admin alerts (e.g. a cron going into failure) appear within minutes instead of waiting for an admin to navigate the panel. The layout-render trigger still acts as a fallback if pg_cron is not running.",
     owner: "core",
+    category: "notifications",
     path: "/api/cron/notifications/dispatch",
+    schedule: "*/5 * * * *",
+  },
+  {
+    jobname: "notifications-email-dispatch",
+    label: "Admin Notifications Email Dispatch",
+    description: "Generic email dispatcher for admin_notifications. Iterates the registered alert sources (sessions, cron, …), honours the per-source schedule (instant / hourly / daily) and severity threshold, groups pending notifications by type, renders the type-specific template and sends a digest email. Marks email_sent_at on the delivered rows so they are not re-sent.",
+    purpose: "Single source of truth for outbound admin emails: any new notification source just registers a renderer instead of wiring its own pipeline. Recipients, schedules and thresholds are tunable per-source from /admin/settings/notifications.",
+    owner: "core",
+    category: "notifications",
+    path: "/api/cron/notifications/email-dispatch",
     schedule: "*/5 * * * *",
   },
   {
@@ -75,6 +102,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Runs the configured Tier-1 heuristics (multiple IPs, concurrent devices, bot UA, failed→success login, sensitive action on new IP, …) over recent sessions / login_attempts / activity_logs and persists candidates into session_alerts. Sends an email digest to admins when the schedule allows.",
     purpose: "Surfaces compromised or hijacked sessions early. Detect-only by default — alerts appear in /admin/access/sessions and trigger an admin notification + email digest, but do not auto-revoke sessions. Tunable from /admin/settings/notifications.",
     owner: "core",
+    category: "sessions",
     path: "/api/cron/sessions/suspicious",
     schedule: "*/15 * * * *",
   },
@@ -84,6 +112,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Selects up to 50 distinct users with pending rows in policy_change_notifications and emails each one a single digest of all their out-of-date policies (terms, privacy, marketing). Marks rows sent/failed with retry logic (max 3 attempts).",
     purpose: "Required by GDPR re-consent flow. When an admin bumps a system policy version, all affected users get a row in policy_change_notifications; this cron delivers the email so they know to re-accept on the next login. Frequency tunable via gdpr.policy.notifications_cron_minutes (default 60).",
     owner: "core",
+    category: "account-gdpr",
     path: "/api/cron/account/policy-change-notifications",
     schedule: "0 * * * *",
   },
@@ -93,6 +122,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Deletes rows from consent_records older than gdpr.consent_log.retention_after_deletion_days (default 5 years), in batches of 5000 with a 20-batch cap per run (~100k rows max per execution). Backlog drains across subsequent runs.",
     purpose: "Bounds the append-only consent ledger so it doesn't grow indefinitely. The retention window matches the typical GDPR Art. 7(1) demonstrability period; older rows have no probative value and can be dropped. Cron suggested daily at 03:00 UTC; set retention to 0 to disable.",
     owner: "core",
+    category: "account-gdpr",
     path: "/api/cron/account/consent-records-cleanup",
     schedule: "0 3 * * *",
   },
@@ -102,6 +132,7 @@ export const CORE_CRON_JOBS: CronJobMeta[] = [
     description: "Two jobs in one: deletes expired ip_rules rows older than 30 days, and flushes per-rule hit counters from Redis (GETDEL on ip-rule:hits:<id>) into the hit_count column.",
     purpose: "Keeps the manual IP rules table tidy (auto-purge of long-stale expired entries) and persists analytics counters that are written fire-and-forget at request time. Without this cron, the dashboard would show zero hits even for rules that matched many times. Suggested every 15 minutes.",
     owner: "core",
+    category: "security",
     path: "/api/cron/security/ip-rules",
     schedule: "*/15 * * * *",
   },
@@ -116,6 +147,7 @@ export function getAllCronJobMeta(): CronJobMeta[] {
       description: c.description,
       purpose: c.purpose,
       owner: { module: m.slug },
+      category: "modules" as const,
       path: c.path,
       schedule: c.schedule,
     })),

@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Info, LayoutDashboard, RotateCcw, X } from "lucide-react";
+import { Info, LayoutDashboard, RotateCcw } from "lucide-react";
 import type {
   WidgetMeta,
   WidgetSetupGuide as WidgetSetupGuideData,
 } from "@/lib/admin/dashboard/types";
+import {
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "./admin-dialog";
 import WidgetSetupGuide from "./widget-setup-guide";
 import {
   resetUserDashboardWidgets,
@@ -40,7 +45,6 @@ export default function DashboardConfigModal({
   const [openGuides, setOpenGuides] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
 
   // Resync local state when the modal is reopened after a save/reset cycle.
   useEffect(() => {
@@ -51,18 +55,7 @@ export default function DashboardConfigModal({
     }
   }, [open, initialEnabled]);
 
-  useEffect(() => {
-    if (open) setTimeout(() => cancelRef.current?.focus(), 30);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !pending) onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, pending]);
+  // Focus + ESC delegati a Radix tramite AdminDialog.
 
   if (!open) return null;
 
@@ -114,267 +107,90 @@ export default function DashboardConfigModal({
     });
   }
 
-  return createPortal(
-    <>
-      <div
-        onClick={pending ? undefined : onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10000,
-          background: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(2px)",
-          animation: "dcm-fade-in 140ms ease",
-        }}
-      />
+  return (
+    <AdminDialog open onOpenChange={(o) => !o && !pending && onClose()}>
+      <AdminDialogContent
+        icon={LayoutDashboard}
+        size="lg"
+        title={t("title")}
+        description={t("subtitle")}
+        closeAriaLabel={t("closeAria")}>
+        <div style={{ maxHeight: "min(60vh, 600px)", overflowY: "auto" }}>
+          {visibleWidgets.length === 0 ? (
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--admin-text-faint)",
+                textAlign: "center",
+                padding: "30px 10px",
+              }}>
+              {t("emptyAvailable")}
+            </p>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {visibleWidgets.map((w) => (
+                <WidgetRow
+                  key={w.id}
+                  widget={w}
+                  checked={enabled.has(w.id)}
+                  onToggle={() => toggle(w.id)}
+                  guideOpen={openGuides.has(w.id)}
+                  onToggleGuide={() => toggleGuide(w.id)}
+                />
+              ))}
+            </ul>
+          )}
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dcm-title"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10001,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "1rem",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            background: "var(--admin-card-bg, #1c1b19)",
-            border: "1px solid var(--admin-card-border, #2a2927)",
-            borderRadius: "14px",
-            boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
-            width: "100%",
-            maxWidth: "520px",
-            maxHeight: "min(80vh, 720px)",
-            display: "flex",
-            flexDirection: "column",
-            pointerEvents: "auto",
-            animation: "dcm-slide-up 160ms cubic-bezier(0.16,1,0.3,1)",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "18px 20px 14px",
-              borderBottom: "1px solid var(--admin-card-border, #2a2927)",
-            }}
-          >
-            <span
+          {error && (
+            <p
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 34,
-                height: 34,
-                borderRadius: "8px",
-                background:
-                  "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
-                color: "var(--admin-accent)",
-                flexShrink: 0,
-              }}
-            >
-              <LayoutDashboard size={17} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2
-                id="dcm-title"
-                style={{
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  color: "var(--admin-text, #cdccca)",
-                  margin: 0,
-                }}
-              >
-                {t("title")}
-              </h2>
-              <p
-                style={{
-                  margin: "2px 0 0 0",
-                  fontSize: "12px",
-                  color: "var(--admin-text-faint, #5a5957)",
-                }}
-              >
-                {t("subtitle")}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              disabled={pending}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 28,
-                height: 28,
+                marginTop: 10,
+                fontSize: "12px",
+                color: "#ef4444",
+                background: "rgba(239,68,68,0.08)",
+                padding: "8px 10px",
                 borderRadius: "6px",
-                background: "transparent",
-                border: "none",
-                cursor: pending ? "not-allowed" : "pointer",
-                color: "var(--admin-text-faint, #5a5957)",
-              }}
-              aria-label={t("closeAria")}
-            >
-              <X size={15} />
-            </button>
-          </div>
+              }}>
+              {error}
+            </p>
+          )}
+        </div>
 
-          {/* Body */}
-          <div
-            style={{
-              padding: "10px 20px 16px",
-              overflowY: "auto",
-              flex: 1,
-            }}
-          >
-            {visibleWidgets.length === 0 ? (
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "var(--admin-text-faint, #5a5957)",
-                  textAlign: "center",
-                  padding: "30px 10px",
-                }}
-              >
-                {t("emptyAvailable")}
-              </p>
-            ) : (
-              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {visibleWidgets.map((w) => (
-                  <WidgetRow
-                    key={w.id}
-                    widget={w}
-                    checked={enabled.has(w.id)}
-                    onToggle={() => toggle(w.id)}
-                    guideOpen={openGuides.has(w.id)}
-                    onToggleGuide={() => toggleGuide(w.id)}
-                  />
-                ))}
-              </ul>
-            )}
-
-            {error && (
-              <p
-                style={{
-                  marginTop: 10,
-                  fontSize: "12px",
-                  color: "#ef4444",
-                  background: "rgba(239,68,68,0.08)",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                }}
-              >
-                {error}
-              </p>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-              padding: "12px 20px 16px",
-              borderTop: "1px solid var(--admin-card-border, #2a2927)",
-            }}
-          >
-            <div>
-              {hasUserOverride && (
-                <button
-                  onClick={handleReset}
-                  disabled={pending}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "7px 12px",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    borderRadius: "8px",
-                    border: "1px solid var(--admin-card-border, #2a2927)",
-                    background: "transparent",
-                    color: "var(--admin-text-muted, #797876)",
-                    cursor: pending ? "not-allowed" : "pointer",
-                  }}
-                  title={t("resetTooltip")}
-                >
-                  <RotateCcw size={12} />
-                  {t("resetButton")}
-                </button>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
+        {/* Footer custom (reset a sinistra, cancel+save a destra). */}
+        <div
+          className="flex items-center justify-between gap-2 px-5 py-3 mt-2 -mx-5 -mb-4"
+          style={{ borderTop: "1px solid var(--admin-card-border)" }}>
+          <div>
+            {hasUserOverride && (
               <button
-                ref={cancelRef}
-                onClick={onClose}
+                onClick={handleReset}
                 disabled={pending}
+                title={t("resetTooltip")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg disabled:opacity-50"
                 style={{
-                  padding: "7px 16px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  borderRadius: "8px",
-                  border: "1px solid var(--admin-card-border, #2a2927)",
+                  border: "1px solid var(--admin-card-border)",
                   background: "transparent",
-                  color: "var(--admin-text-muted, #797876)",
-                  cursor: pending ? "not-allowed" : "pointer",
-                }}
-              >
-                {t("cancelButton")}
+                  color: "var(--admin-text-muted)",
+                }}>
+                <RotateCcw size={12} />
+                {t("resetButton")}
               </button>
-              <button
-                onClick={handleSave}
-                disabled={pending}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "7px 16px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  borderRadius: "8px",
-                  border: "none",
-                  background: pending ? "#6b7280" : "var(--admin-accent)",
-                  color: "#fff",
-                  cursor: pending ? "not-allowed" : "pointer",
-                }}
-              >
-                {pending && (
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 12,
-                      height: 12,
-                      border: "2px solid rgba(255,255,255,0.35)",
-                      borderTopColor: "#fff",
-                      borderRadius: "50%",
-                      animation: "dcm-spin 0.6s linear infinite",
-                    }}
-                  />
-                )}
-                {t("saveButton")}
-              </button>
-            </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <AdminDialogCancelButton onClick={onClose} disabled={pending}>
+              {t("cancelButton")}
+            </AdminDialogCancelButton>
+            <AdminDialogConfirmButton
+              onClick={handleSave}
+              disabled={pending}
+              loading={pending}>
+              {t("saveButton")}
+            </AdminDialogConfirmButton>
           </div>
         </div>
-      </div>
-
-      <style>{`
-        @keyframes dcm-fade-in  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes dcm-slide-up { from { opacity: 0; transform: translateY(10px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
-        @keyframes dcm-spin     { to { transform: rotate(360deg) } }
-      `}</style>
-    </>,
-    document.body,
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
 

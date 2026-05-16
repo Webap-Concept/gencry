@@ -1236,7 +1236,14 @@ function RoleMatrix({
                     onPreset={handlePreset}
                   />
                   {(perms as Permission[]).map((perm) => {
-                    const has = hasPermission(role.id, perm.id);
+                    // Super admin (role.isAdmin) bypassa tutti i permission
+                    // check a runtime (vedi lib/rbac/guards.ts) → la UI deve
+                    // riflettere che ha effettivamente accesso a tutto,
+                    // anche se la row in role_permissions non c'è (es. una
+                    // extraPermission non auto-granted come
+                    // `modules:posts.moderate`). Il toggle resta disabilitato:
+                    // non si "revoca" un bypass.
+                    const has = role.isAdmin || hasPermission(role.id, perm.id);
                     return (
                       <div
                         key={perm.id}

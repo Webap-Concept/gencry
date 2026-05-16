@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "Welcome"
+  },
+  "username": {
+    "title": "Welcome!",
+    "subtitle": "Let's start by choosing your public username.",
+    "label": "Username",
+    "placeholder": "e.g. crypto_lover",
+    "hint": "3-50 characters, letters, numbers, dot (.) and underscore (_)",
+    "lengthError": "Username between 3 and 50 characters",
+    "checkFailed": "Unable to verify the username",
+    "submit": "Continue",
+    "submitPending": "Saving…"
+  },
+  "coinPicks": {
+    "title": "Pick the coins you care about",
+    "subtitle": "Choose between {min} and {max} coins to follow.",
+    "searchPlaceholder": "Search by symbol or name…",
+    "noResults": "No coins match your search.",
+    "maxReached": "You can pick at most {max} coins.",
+    "back": "Back",
+    "submit": "Continue",
+    "submitPending": "Saving…"
+  },
+  "riskProfile": {
+    "title": "Tell us how you feel about risk",
+    "subtitle": "We'll use this to tune what shows up in your feed.",
+    "profileLabel": "Risk profile",
+    "profileOption": {
+      "cauto": "Cautious",
+      "moderato": "Moderate",
+      "aggressivo": "Aggressive",
+      "degen": "Degen"
+    },
+    "experienceLabel": "Crypto experience",
+    "experienceOption": {
+      "newbie": "Newbie",
+      "1to3y": "1–3 years",
+      "over3y": "More than 3 years"
+    },
+    "back": "Back",
+    "submit": "Continue",
+    "submitPending": "Saving…"
+  },
+  "done": {
+    "title": "All set!",
+    "subtitle": "Your profile is ready. You can now start exploring the app.",
+    "submit": "Get started",
+    "submitPending": "Opening the app…"
+  },
+  "errors": {
+    "session_expired": "Your session has expired. Please sign in again.",
+    "username_length": "Username must be between 3 and 50 characters.",
+    "username_blacklisted": "This username is not available. Choose another one.",
+    "username_taken": "This username is already in use. Choose another one.",
+    "username_just_taken": "Someone just picked this username. Choose another one.",
+    "coin_picks_min": "Pick at least {min} coins.",
+    "coin_picks_max": "Pick at most {max} coins.",
+    "coins_unavailable": "Coins not available: {list}.",
+    "invalid_risk_profile": "Invalid risk profile.",
+    "invalid_experience": "Invalid experience level."
+  }
+}

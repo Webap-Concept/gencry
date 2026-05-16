@@ -1,1 +1,372 @@
-{}
+{
+  "common": {
+    "cancel": "Annulla",
+    "save": "Salva",
+    "saving": "Salvataggio…",
+    "loading": "Caricamento…",
+    "delete": "Elimina",
+    "remove": "Rimuovi",
+    "removing": "Rimozione…",
+    "edit": "Modifica",
+    "back": "Indietro",
+    "confirm": "Conferma",
+    "continue": "Continua",
+    "close": "Chiudi",
+    "search": "Cerca",
+    "yes": "Sì",
+    "no": "No"
+  },
+  "comingSoon": {
+    "badge": "In costruzione"
+  },
+  "relativeTime": {
+    "now": "ora",
+    "minutesAgo": "{n, plural, one {1 minuto fa} other {# minuti fa}}",
+    "hoursAgo": "{n, plural, one {1 ora fa} other {# ore fa}}",
+    "daysAgo": "{n, plural, one {1 giorno fa} other {# giorni fa}}"
+  },
+  "shell": {
+    "openUserMenu": "Apri menu utente"
+  },
+  "sidebar": {
+    "nav": {
+      "feed": "Feed",
+      "explore": "Explore",
+      "profile": "Profilo"
+    },
+    "notifications": "Notifiche",
+    "newNotifications": "— nuove notifiche"
+  },
+  "bottomNav": {
+    "feed": "Feed",
+    "explore": "Explore",
+    "notifications": "Notifiche",
+    "profile": "Profilo",
+    "ariaLabel": "Navigazione principale"
+  },
+  "userMenu": {
+    "openUserMenu": "Apri menu utente",
+    "profile": "Il tuo profilo",
+    "settings": "Impostazioni",
+    "signOut": "Esci",
+    "theme": "Tema",
+    "themeOption": {
+      "sand": "Sabbia",
+      "forest": "Bosco"
+    },
+    "showPassword": "Mostra password",
+    "hidePassword": "Nascondi password"
+  },
+  "notificationsSheet": {
+    "title": "Notifiche",
+    "ariaDescription": "Elenco delle notifiche non lette e recenti",
+    "markAllRead": "Segna tutte come lette"
+  },
+  "pages": {
+    "notifications": {
+      "title": "Notifiche",
+      "description": "Alert prezzo, fiducia, nuovi follower. Arriva presto."
+    },
+    "profile": {
+      "title": "Profilo",
+      "description": "Il tuo profilo, le tue watchlist, i tuoi follower. Arriva presto."
+    }
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "subtitle": "Gestisci profilo, account, sicurezza e privacy.",
+    "nav": {
+      "profile": "Profilo",
+      "account": "Account",
+      "security": "Sicurezza",
+      "privacy": "Privacy",
+      "ariaLabel": "Sezioni impostazioni"
+    },
+    "shared": {
+      "showPassword": "Mostra password",
+      "hidePassword": "Nascondi password",
+      "passwordPlaceholder": "••••••••",
+      "verificationCodePlaceholder": "000000"
+    },
+    "account": {
+      "email": {
+        "sectionTitle": "Email",
+        "sectionDescription": "L'email viene usata per accedere e per le notifiche di sicurezza.",
+        "currentLabel": "Email attuale",
+        "newLabel": "Nuova email",
+        "newPlaceholder": "nuova@esempio.com",
+        "checking": "Verifica email in corso…",
+        "available": "Email disponibile",
+        "sameAsCurrent": "La nuova email coincide con quella attuale.",
+        "invalidFormat": "Inserisci un indirizzo email valido",
+        "checkFailed": "Impossibile verificare l'email in questo momento",
+        "currentPassword": "Password attuale",
+        "helpText": "Per sicurezza ti chiediamo di confermare la password attuale. Riceverai un codice di verifica al nuovo indirizzo. Massimo 1 richiesta al giorno.",
+        "submitIdle": "Richiedi cambio email",
+        "submitPending": "Invio in corso…",
+        "pendingTitle": "Verifica in corso per <strong>{pendingEmail}</strong>",
+        "pendingDescription": "Ti abbiamo inviato un codice a 6 cifre. Inseriscilo qui per completare il cambio. Il codice scade dopo 15 minuti.",
+        "codeLabel": "Codice di verifica",
+        "confirmIdle": "Conferma cambio email",
+        "confirmPending": "Conferma…",
+        "cancelIdle": "Annulla richiesta",
+        "cancelPending": "Annullamento…"
+      },
+      "password": {
+        "sectionTitle": "Password",
+        "oauthInfo": "Hai effettuato l'accesso con Google. La gestione della password avviene direttamente dal tuo account Google.",
+        "sectionDescription": "Conferma la password attuale e scegline una nuova.",
+        "currentLabel": "Password attuale",
+        "newLabel": "Nuova password",
+        "confirmLabel": "Conferma nuova password",
+        "submitIdle": "Cambia password",
+        "submitPending": "Aggiornamento…"
+      }
+    },
+    "profile": {
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "username": "Username",
+      "usernameMinError": "Minimo 3 caratteri",
+      "usernameTaken": "Username già in uso",
+      "usernameCheckFailed": "Impossibile verificare lo username in questo momento",
+      "usernameChecking": "Verifica username in corso…",
+      "usernameAvailable": "Username disponibile",
+      "usernameHelp": "Verrà mostrato come @{usernameValue}. 3–50 caratteri, lettere/numeri/underscore.",
+      "bio": "Bio",
+      "bioPlaceholder": "Breve descrizione di te…",
+      "bioHelp": "Massimo {max} caratteri.",
+      "email": "Email",
+      "emailMoveInfo": "Il cambio email sarà disponibile dalla sezione Account.",
+      "languageLabel": "Lingua preferita",
+      "languageAuto": "Auto (rileva dal browser)",
+      "languageHelp": "Determina la lingua del pannello admin e delle email. Modifica subito al salvataggio.",
+      "submitIdle": "Salva",
+      "submitPending": "Salvataggio…",
+      "avatar": {
+        "label": "Foto profilo",
+        "alt": "Foto profilo",
+        "description": "PNG, JPG o WebP. Potrai ritagliare e zoomare prima del salvataggio.",
+        "fileInvalid": "Seleziona un file immagine.",
+        "fileTooLarge": "Immagine troppo grande. Massimo 8 MB.",
+        "uploadIdle": "Carica",
+        "uploadChange": "Cambia",
+        "uploadPending": "Caricamento…",
+        "removeIdle": "Rimuovi",
+        "removePending": "Rimozione…"
+      }
+    },
+    "security": {
+      "mfa": {
+        "title": "Autenticazione a due fattori",
+        "descriptionInactive": "Aggiunge un secondo passaggio al login: oltre alla password serve un codice generato da un'app autenticatore (Google Authenticator, 1Password, Authy…). Anche se qualcuno ti rubasse la password, non potrebbe entrare senza il tuo telefono.",
+        "inactiveNotice": "Non hai ancora attivato la verifica a due fattori.",
+        "enable": "Abilita",
+        "descriptionActive": "Al login ti chiediamo un codice generato dalla tua app autenticatore oltre alla password.",
+        "activeStatus": "Verifica a due fattori attiva",
+        "enabledOn": "Dal {date}",
+        "recoveryCodesLabel": "Recovery codes:",
+        "recoveryCodesRemaining": "{remaining} su {total} disponibili",
+        "lastUsedCode": "Ultimo uso codice: {date}",
+        "regenerate": "Rigenera recovery codes",
+        "disable": "Disabilita",
+        "setupTitle": "Attiva l'autenticazione a due fattori",
+        "setupDescription": "Aggiunge un secondo passaggio al login: oltre alla password ti chiederemo un codice generato da un'app autenticatore. Ti suggeriamo Google Authenticator, 1Password o Authy.",
+        "stepScan": "1. Scansiona il QR code",
+        "stepScanDescription": "Apri la tua app autenticatore e aggiungi un nuovo account scansionando questo codice.",
+        "qrAlt": "QR code per app autenticatore",
+        "cantScan": "Non puoi scansionare?",
+        "manualKey": "Inserisci manualmente questa chiave nell'app:",
+        "stepCode": "2. Inserisci il codice generato",
+        "stepCodeDescription": "Apri l'app e digita il codice di 6 cifre che vedi adesso per confermare il setup.",
+        "verifyIdle": "Attiva",
+        "verifyPending": "Verifico…",
+        "recoveryTitleFresh": "Salva i tuoi recovery codes",
+        "recoveryTitleRegen": "Nuovi recovery codes",
+        "recoveryDescription": "Ti permettono di accedere se perdi il telefono. Ogni codice si può usare una sola volta. Salvali in un posto sicuro: dopo questa schermata non potremo più mostrarteli.",
+        "copyIdle": "Copia tutti",
+        "copied": "Copiati",
+        "downloadTxt": "Scarica .txt",
+        "confirmSaved": "Ho salvato i recovery codes in un posto sicuro.",
+        "disableTitle": "Disabilita autenticazione a due fattori",
+        "disableDescription": "Per sicurezza ti chiediamo di confermare con la password e con il codice corrente della tua app autenticatore. Tutti i recovery codes verranno invalidati.",
+        "passwordLabel": "Password",
+        "tokenLabel": "Codice autenticatore",
+        "disableIdle": "Disabilita",
+        "disablePending": "Disabilito…",
+        "regenerateTitle": "Rigenera recovery codes",
+        "regenerateDescription": "Conferma con un codice corrente della tua app autenticatore. I 10 codici precedenti verranno invalidati e ne genereremo 10 nuovi.",
+        "regenerateIdle": "Genera nuovi codici",
+        "regeneratePending": "Genero…"
+      },
+      "sessions": {
+        "title": "Sessioni attive",
+        "description": "Accessi attivi al tuo account in questo momento. Revocando una sessione esci immediatamente da quel dispositivo. La sessione che stai usando ora non può essere revocata da qui — per uscire fai logout.",
+        "empty": "Nessuna sessione attiva.",
+        "current": "Sessione corrente",
+        "info": "IP {ip} · Aperta il {date} · Ultima attività {time}",
+        "revokeIdle": "Revoca",
+        "revokePending": "Revoca…",
+        "revokeAll": "Revoca tutte le altre sessioni",
+        "revokeAllConfirm": "Stai per chiudere {n} sessione/i. Su quei dispositivi sarà necessario rifare login.",
+        "revokeAllPending": "Revoca in corso…",
+        "revokeAllConfirmCta": "Conferma revoca"
+      },
+      "devices": {
+        "title": "Dispositivi fidati",
+        "description": "Da questi dispositivi puoi accedere senza ricevere il codice di verifica via email. È diverso dalle sessioni qui sopra: revocare un dispositivo non chiude alcuna sessione attiva, ma al prossimo login da lì ti chiederemo il codice OTP.",
+        "empty": "Nessun dispositivo fidato registrato.",
+        "current": "Questo dispositivo",
+        "info": "Aggiunto il {date} · Ultimo uso {time}",
+        "revokeIdle": "Revoca",
+        "revokePending": "Revoca…",
+        "revokeAll": "Revoca tutti gli altri dispositivi",
+        "revokeAllConfirm": "Stai per revocare {n} dispositivo/i. Al prossimo accesso da quei dispositivi sarà richiesto un nuovo codice di verifica via email.",
+        "revokeAllPending": "Revoca in corso…",
+        "revokeAllConfirmCta": "Conferma revoca"
+      }
+    },
+    "privacy": {
+      "consents": {
+        "sectionTitle": "Consensi",
+        "sectionDescription": "Qui trovi le condizioni che hai accettato. I Termini e la Privacy Policy sono obbligatori per usare la piattaforma; il consenso marketing è facoltativo e puoi modificarlo quando vuoi.",
+        "requiredBadge": "Obbligatorio",
+        "optionalBadge": "Facoltativo",
+        "updatedBadge": "Versione aggiornata disponibile",
+        "hideText": "Nascondi testo",
+        "readAcceptedText": "Leggi testo accettato",
+        "readPolicyText": "Leggi informativa",
+        "marketingNotGiven": "Non hai dato il consenso alle comunicazioni marketing.",
+        "activate": "Attiva",
+        "deactivate": "Disattiva",
+        "activating": "Attivazione…",
+        "deactivating": "Disattivazione…",
+        "showLess": "Mostra meno",
+        "showMore": "Mostra tutto",
+        "neverAccepted": "Mai accettato.",
+        "acceptedOn": "Accettato il {date} · versione {version}",
+        "currentVersionSuffix": "· versione attuale {version}",
+        "marketingActivated": "Hai attivato le comunicazioni marketing.",
+        "marketingDeactivated": "Hai disattivato le comunicazioni marketing."
+      },
+      "cookies": {
+        "title": "Preferenze cookie",
+        "description": "Gestisci le categorie di cookie che hai accettato. I cookie necessari sono sempre attivi: senza, il sito non funzionerebbe.",
+        "currentStatus": "Stato attuale",
+        "bannerDisabled": "Banner disattivato",
+        "bannerDisabledInfo": "L'amministratore ha disattivato il banner cookie: tutti i cookie non essenziali sono spenti.",
+        "savedOn": "Scelta salvata il {date}.",
+        "neverChosen": "Non hai ancora scelto. Il banner ti chiederà al prossimo accesso pubblico.",
+        "editPreferences": "Modifica preferenze",
+        "openPreferences": "Apri preferenze",
+        "alwaysOn": "Sempre attivi",
+        "active": "Attivi",
+        "inactive": "Spenti",
+        "categories": {
+          "necessaryLabel": "Necessari",
+          "necessaryDescription": "Indispensabili per il funzionamento del sito (sessione, sicurezza, preferenze di base).",
+          "preferencesLabel": "Preferenze",
+          "preferencesDescription": "Memorizzano le tue scelte (lingua, tema, visualizzazioni) per personalizzare l'esperienza.",
+          "statisticsLabel": "Statistiche",
+          "statisticsDescription": "Ci aiutano a capire come viene usato il sito tramite dati aggregati e anonimi.",
+          "marketingLabel": "Marketing",
+          "marketingDescription": "Permettono di mostrare contenuti e annunci più rilevanti su questo sito o piattaforme di terze parti."
+        }
+      },
+      "export": {
+        "title": "Esportazione dati",
+        "description": "Richiedi un archivio JSON con tutti i dati personali associati al tuo account. Riceverai una mail con il link al download (valido 24 ore); puoi rigenerare il link dalle impostazioni finché il file rimane disponibile (7 giorni). Massimo 1 richiesta a settimana.",
+        "requestLabel": "Richiedi una nuova esportazione",
+        "requestDescription": "L'elaborazione richiede qualche minuto. Ti avviseremo via email quando l'archivio sarà pronto.",
+        "submitIdle": "Richiedi esportazione",
+        "submitPending": "Invio…",
+        "recentHeading": "Richieste recenti",
+        "status": {
+          "pending": "In coda — partirà a breve",
+          "processing": "In preparazione…",
+          "ready": "Pronto al download",
+          "failed": "Errore. Riprova più tardi.",
+          "expired": "Scaduto"
+        },
+        "downloadIdle": "Scarica",
+        "downloadPending": "Apertura…",
+        "openingTab": "Apertura in una nuova scheda…"
+      },
+      "dangerZone": {
+        "title": "Eliminazione account",
+        "description": "Quando elimini l'account avvii una richiesta di cancellazione: i tuoi dati restano inaccessibili per {graceDays} giorni e vengono poi eliminati definitivamente. Per annullare la richiesta entro quel periodo dovrai contattare l'assistenza.",
+        "deleteLabel": "Elimina il mio account",
+        "deleteHint": "Azione irreversibile dopo i {graceDays} giorni di grace period.",
+        "deleteButton": "Elimina account",
+        "passwordStepDescription": "Inserisci la password per confermare. La sessione verrà chiusa e non potrai più accedere; entro {graceDays} giorni potrai annullare la richiesta contattando l'assistenza.",
+        "currentPassword": "Password attuale",
+        "noPasswordInfo": "Il tuo account non ha una password locale. Per confermare l'eliminazione ti invieremo un codice di verifica all'email del tuo account.",
+        "sendCodeIdle": "Invia codice via email",
+        "sendCodePending": "Invio…",
+        "codeStepDescription": "Inserisci il codice a 6 cifre ricevuto via email. La sessione verrà chiusa e non potrai più accedere; entro {graceDays} giorni potrai annullare la richiesta contattando l'assistenza.",
+        "codeLabel": "Codice di verifica",
+        "confirmTitle": "Conferma eliminazione account",
+        "confirmCheckbox": "Capisco che dopo {graceDays} giorni i miei dati saranno eliminati in modo permanente e non potranno essere recuperati.",
+        "finalIdle": "Elimina definitivamente",
+        "finalPending": "Elimino…"
+      }
+    },
+    "actions": {
+      "sessionExpired": "Sessione scaduta. Effettua di nuovo il login.",
+      "deviceRevoked": "Dispositivo revocato.",
+      "noOtherDevices": "Nessun altro dispositivo da revocare.",
+      "devicesRevoked": "{n, plural, one {1 dispositivo revocato.} other {# dispositivi revocati.}}",
+      "cannotRevokeCurrentSession": "Non puoi revocare la sessione corrente. Per uscire effettua il logout.",
+      "sessionRevoked": "Sessione revocata.",
+      "noOtherSessions": "Nessun'altra sessione attiva.",
+      "sessionsRevoked": "{n, plural, one {1 sessione revocata.} other {# sessioni revocate.}}",
+      "mfaAlreadyActive": "MFA già attiva. Disabilitala prima di rifare il setup.",
+      "mfaScanQr": "Scansiona il QR con la tua app autenticatore.",
+      "mfaNoPendingSetup": "Nessun setup in corso. Riavvia la procedura.",
+      "mfaInvalidCode": "Codice non valido. Riprova.",
+      "mfaNotActive": "MFA non è attiva su questo account.",
+      "passwordIncorrect": "Password non corretta.",
+      "tooManyAttempts": "Troppi tentativi. Riprova fra qualche minuto.",
+      "mfaDisabled": "Autenticazione a due fattori disabilitata.",
+      "code6Digits": "Inserisci un codice di 6 cifre.",
+      "enterPassword": "Inserisci la password.",
+      "emailCodeSent": "Ti abbiamo inviato un codice di verifica a {newEmail}.",
+      "emailUpdated": "Email aggiornata: ora la tua email è {newEmail}.",
+      "emailUpdatedRevoked": "{count, plural, =0 {} one { 1 altra sessione attiva è stata sloggata.} other { # altre sessioni attive sono state sloggate.}}",
+      "emailChangeCanceled": "Richiesta di cambio email annullata.",
+      "passwordUpdated": "Password aggiornata.{count, plural, =0 {} one { Hai sloggato 1 altra sessione attiva.} other { Hai sloggato # altre sessioni attive.}}",
+      "marketingActivated": "Hai attivato le comunicazioni marketing.",
+      "marketingDeactivated": "Hai disattivato le comunicazioni marketing.",
+      "profileUpdated": "Profilo aggiornato.",
+      "notAuthenticated": "Non autenticato.",
+      "avatarSelectImage": "Seleziona un'immagine.",
+      "avatarTooLarge": "Immagine troppo grande. Massimo 2 MB.",
+      "usernameNotAvailable": "Questo username non è disponibile.",
+      "usernameTaken": "Questo username è già in uso. Scegline un altro.",
+      "usernameJustTaken": "Questo username è appena stato preso da un altro utente. Scegline un altro.",
+      "passwordChange": {
+        "errors": {
+          "noPasswordOAuth": "Il tuo account non ha una password (accesso solo via Google).",
+          "currentIncorrect": "La password attuale non è corretta.",
+          "sameAsCurrent": "La nuova password deve essere diversa da quella attuale.",
+          "confirmMismatch": "Le password non coincidono.",
+          "weakPassword": "La nuova password non rispetta i requisiti di sicurezza."
+        }
+      },
+      "emailChange": {
+        "errors": {
+          "noPasswordOAuth": "Il tuo account non ha una password (accesso solo via Google). Cambia l'email direttamente dal provider Google.",
+          "currentIncorrect": "La password non è corretta.",
+          "pendingExists": "Hai già una richiesta di cambio email in attesa. Conferma il codice o annullala prima di richiederne un'altra.",
+          "rateLimited": "Hai già richiesto un cambio email nelle ultime 24 ore. Riprova domani.",
+          "sameAsCurrent": "La nuova email coincide con quella attuale.",
+          "domainBlocked": "Dominio email non consentito.",
+          "emailUnavailable": "Questa email è già associata a un altro account.",
+          "emailJustTaken": "Questa email è già in uso.",
+          "noPending": "Nessun cambio email in attesa. Richiedilo prima di confermare.",
+          "emailJustRegistered": "Questa email è stata appena registrata da un altro utente."
+        }
+      }
+    }
+  }
+}

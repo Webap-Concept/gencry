@@ -1,8 +1,7 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAdminPath } from "@/lib/admin-paths";
 import { type AdminUsersStatus, getAdminUsers } from "@/lib/db/admin-queries";
 import { getAdminRoles } from "@/lib/db/roles-queries";
-import { Search, Users } from "lucide-react";
+import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -187,12 +186,6 @@ export default async function AdminUsersPage({
 
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={Users}
-        breadcrumbLabel={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-      />
-
       <div
         className="rounded-xl shadow-sm p-4"
         style={{

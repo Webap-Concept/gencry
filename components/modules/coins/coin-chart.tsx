@@ -12,6 +12,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
   AreaChart,
@@ -23,46 +24,42 @@ import {
 import { cn } from "@/lib/utils";
 import type { HistoryRange, HistorySeries } from "@/lib/modules/prices/queries";
 
-const RANGES: { value: HistoryRange; label: string }[] = [
-  { value: "1d", label: "1g" },
-  { value: "1w", label: "1w" },
-  { value: "1m", label: "1m" },
-  { value: "1y", label: "1y" },
-];
+const RANGE_VALUES: HistoryRange[] = ["1d", "1w", "1m", "1y"];
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
   if (value === 0) return "$0.00";
   const abs = Math.abs(value);
   if (abs < 0.01) return `$${value.toPrecision(4)}`;
+  // Crypto convention: en-US format ovunque (1,234.56) — non locale-dipendente.
   return `$${value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-function formatAxisDate(ts: number, range: HistoryRange): string {
+function formatAxisDate(ts: number, range: HistoryRange, locale: string): string {
   const d = new Date(ts);
   if (range === "1d") {
-    return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
   if (range === "1y") {
-    return d.toLocaleDateString("it-IT", { month: "short", year: "2-digit" });
+    return d.toLocaleDateString(locale, { month: "short", year: "2-digit" });
   }
-  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "short" });
 }
 
-function formatTooltipDate(ts: number, range: HistoryRange): string {
+function formatTooltipDate(ts: number, range: HistoryRange, locale: string): string {
   const d = new Date(ts);
   if (range === "1d") {
-    return d.toLocaleString("it-IT", {
+    return d.toLocaleString(locale, {
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  return d.toLocaleDateString("it-IT", {
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -79,6 +76,11 @@ export function CoinChart({
   const reactId = useId();
   const [series, setSeries] = useState<HistorySeries>(initialSeries);
   const [isPending, startTransition] = useTransition();
+  const locale = useLocale();
+  const tLabels = useTranslations("prices.labels");
+  const tRanges = useTranslations("prices.ranges");
+  const tEmpty = useTranslations("prices.empty_states");
+  const tSource = useTranslations("prices.source");
   // Recharts + SSR (Next 16/Turbopack): ResponsiveContainer misura -1
   // sul primo render server. Niente errore funzionale ma logga warning
   // costanti. Gate del rendering al post-mount client → SSR mostra lo
@@ -117,26 +119,26 @@ export function CoinChart({
 
   return (
     <section
-      aria-label="Grafico storico prezzo"
+      aria-label={tLabels("historical_chart_aria")}
       className="rounded-2xl bg-gc-bg-2 border border-gc-line p-4 sm:p-5"
     >
       {/* Header: switcher + nota sorgente */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <div
           role="tablist"
-          aria-label="Intervallo temporale"
+          aria-label={tLabels("time_range_aria")}
           className="inline-flex rounded-full bg-gc-bg-3 border border-gc-line p-0.5"
         >
-          {RANGES.map((r) => {
-            const active = r.value === series.range;
+          {RANGE_VALUES.map((value) => {
+            const active = value === series.range;
             return (
               <button
-                key={r.value}
+                key={value}
                 role="tab"
                 type="button"
                 aria-selected={active}
                 disabled={isPending}
-                onClick={() => handleRangeChange(r.value)}
+                onClick={() => handleRangeChange(value)}
                 className={cn(
                   "px-3 py-1 text-xs font-semibold rounded-full transition-colors",
                   active
@@ -145,20 +147,20 @@ export function CoinChart({
                   isPending && "opacity-60 cursor-wait",
                 )}
               >
-                {r.label}
+                {tRanges(value)}
               </button>
             );
           })}
         </div>
         <span className="text-[10px] uppercase tracking-wide text-gc-fg-3">
-          Source:{" "}
+          {tSource("label")}{" "}
           <a
             href="https://www.coingecko.com/"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-gc-fg-2 transition-colors"
           >
-            CoinGecko
+            {tSource("name")}
           </a>
         </span>
       </div>
@@ -169,7 +171,7 @@ export function CoinChart({
       <div className="w-full h-[280px] sm:h-[320px] md:h-[360px]">
         {series.points.length < 2 ? (
           <div className="h-full flex items-center justify-center text-xs text-gc-fg-3">
-            Storico non ancora disponibile per questa finestra.
+            {tEmpty("no_history_window")}
           </div>
         ) : !mounted ? (
           // Skeleton SSR: stesso ingombro del chart, niente Recharts che
@@ -191,7 +193,7 @@ export function CoinChart({
                 dataKey="ts"
                 type="number"
                 domain={["dataMin", "dataMax"]}
-                tickFormatter={(v) => formatAxisDate(v, series.range)}
+                tickFormatter={(v) => formatAxisDate(v, series.range, locale)}
                 stroke="var(--gc-fg-3)"
                 fontSize={11}
                 tickLine={false}
@@ -218,8 +220,8 @@ export function CoinChart({
                   fontSize: "12px",
                   color: "var(--gc-fg)",
                 }}
-                labelFormatter={(v) => formatTooltipDate(Number(v), series.range)}
-                formatter={(v) => [formatPrice(Number(v)), "Prezzo"]}
+                labelFormatter={(v) => formatTooltipDate(Number(v), series.range, locale)}
+                formatter={(v) => [formatPrice(Number(v)), tLabels("price")]}
               />
               <Area
                 type="monotone"

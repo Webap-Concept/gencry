@@ -1,28 +1,28 @@
 "use client";
-
-import { Tooltip } from "radix-ui";
+// app/(admin)/admin/_components/admin-tooltip.tsx
+//
+// Wrapper convenience per le primitive `<Tooltip>` di shadcn nel
+// pannello admin. Per Tooltip/TooltipTrigger riusiamo shadcn (mantengono
+// il TooltipProvider mountato in admin-shell-client). Per Content/Arrow
+// usiamo direttamente Radix: la shadcn TooltipContent ha un arrow
+// "diamante" (div ruotato + translate-y negativo) che si tucca dentro
+// il body invece di sporgere → no triangolino visibile. L'Arrow Radix
+// è un SVG triangolo standard che funziona affidabile in ogni side.
+//
+// REGOLA: in /admin/** ogni icona-cliccabile SENZA testo va wrappata
+// in `<AdminTooltip label="...">` — vedi feedback_admin_tooltip_primitive.
+//
+// Stile: background slate-900 (#0f172a) + testo bianco + arrow stesso
+// colore. Esplicito (non theme-derived) per essere coerente in
+// light/dark e leggibile su qualsiasi sfondo admin.
+import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip as TooltipPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 
 type Side = "top" | "right" | "bottom" | "left";
 
-/**
- * Tooltip wrapper for the admin panel. Built on Radix so we get proper
- * keyboard focus support, collision-aware positioning and no flicker —
- * the things native `title=""` doesn't give. Styled with `--admin-*`
- * tokens so it follows whatever theme the panel is on.
- *
- * The shared `<Tooltip.Provider>` lives in `admin-shell-client.tsx`,
- * so consumers don't need to mount one — just wrap any focusable
- * trigger with this component.
- *
- *   <AdminTooltip label="Vai al profilo utente">
- *     <button>...</button>
- *   </AdminTooltip>
- *
- * The trigger MUST forward refs and accept arbitrary props (Radix uses
- * Slot under the hood). Native elements and `forwardRef` components are
- * fine; if you wrap a custom component, make sure it spreads props down.
- */
+const TOOLTIP_BG = "#0f172a"; // tailwind slate-900
+
 export function AdminTooltip({
   label,
   children,
@@ -34,27 +34,26 @@ export function AdminTooltip({
   children: ReactNode;
   side?: Side;
   sideOffset?: number;
-  /** Per-instance override; defaults to the provider value (200ms). */
+  /** Per-instance override; default = provider value (200ms). */
   delayDuration?: number;
 }) {
   return (
-    <Tooltip.Root delayDuration={delayDuration}>
-      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
+    <Tooltip delayDuration={delayDuration}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
           side={side}
           sideOffset={sideOffset}
-          className="admin-tooltip-content z-50 px-2 py-1 text-[11px] font-medium rounded-md shadow-md select-none"
-          style={{
-            background: "var(--admin-text)",
-            color: "var(--admin-page-bg)",
-            maxWidth: 240,
-          }}
-        >
+          className="z-50 px-2 py-1 text-[11px] font-medium rounded-md shadow-md select-none animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+          style={{ background: TOOLTIP_BG, color: "#fff", maxWidth: 240 }}>
           {label}
-          <Tooltip.Arrow style={{ fill: "var(--admin-text)" }} width={10} height={5} />
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+          <TooltipPrimitive.Arrow
+            width={10}
+            height={5}
+            style={{ fill: TOOLTIP_BG }}
+          />
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </Tooltip>
   );
 }

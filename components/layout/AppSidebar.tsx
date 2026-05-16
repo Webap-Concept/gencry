@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   Compass,
   Home,
-  Plus,
   User as UserIcon,
 } from "lucide-react";
 import useSWR from "swr";
 import { NotificationsSheet } from "@/components/layout/NotificationsSheet";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 import type { UserWithProfile } from "@/lib/db/schema";
 
 // Sidebar fissa della home loggata. Visibile da md in su; su mobile la
@@ -25,22 +26,24 @@ import type { UserWithProfile } from "@/lib/db/schema";
 
 type NavItem = {
   href: string;
-  label: string;
+  /** Chiave i18n nel namespace `core.sidebar.nav.<labelKey>`. */
+  labelKey: "feed" | "explore" | "profile";
   icon: typeof Home;
   /** Indicatore di novità (dot arancione). Per ora hardcoded sul mock. */
   hasNotifications?: boolean;
 };
 
 const NAV: NavItem[] = [
-  { href: "/", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/profile", label: "Profilo", icon: UserIcon },
+  { href: "/", labelKey: "feed", icon: Home },
+  { href: "/explore", labelKey: "explore", icon: Compass },
+  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
   const pathname = usePathname();
+  const t = useTranslations("core.sidebar");
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
     revalidateOnFocus: false,
     revalidateOnMount: true,
@@ -69,7 +72,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
         <NotificationsSheet>
           <button
             type="button"
-            aria-label="Notifiche"
+            aria-label={t("notifications")}
             className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
           >
             <Bell size={18} strokeWidth={1.6} />
@@ -77,7 +80,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
               aria-hidden="true"
               className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
             />
-            <span className="sr-only">— nuove notifiche</span>
+            <span className="sr-only">{t("newNotifications")}</span>
           </button>
         </NotificationsSheet>
       </div>
@@ -87,29 +90,32 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
           visibile fuori da questo blocco. */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <nav className="flex flex-col gap-1">
-          {NAV.map(({ href, label, icon: Icon, hasNotifications }) => {
-            const active = pathname === href;
+          {NAV.map(({ href, labelKey, icon: Icon, hasNotifications }) => {
+            const active =
+              href === "/"
+                ? pathname === "/"
+                : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}
                 href={href}
                 prefetch={false}
                 className={[
-                  "flex items-center gap-3 px-3 py-2.5 rounded-gc-sm text-[14.5px] transition border",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-full text-[14.5px] transition border",
                   active
                     ? "bg-gc-bg-2 text-gc-fg font-semibold border-gc-line"
                     : "text-gc-fg-2 border-transparent hover:bg-gc-bg-2",
                 ].join(" ")}
               >
                 <Icon size={18} strokeWidth={1.6} />
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">{t(`nav.${labelKey}`)}</span>
                 {hasNotifications && (
                   <>
                     <span
                       aria-hidden="true"
                       className="w-1.5 h-1.5 rounded-full bg-gc-accent flex-shrink-0"
                     />
-                    <span className="sr-only">— nuove notifiche</span>
+                    <span className="sr-only">{t("newNotifications")}</span>
                   </>
                 )}
               </Link>
@@ -117,13 +123,7 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
           })}
         </nav>
 
-        <button
-          type="button"
-          className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-gc-accent text-white font-medium text-sm hover:brightness-95 transition"
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          <span>Nuova watchlist</span>
-        </button>
+        <NewPostButton variant="sidebar" />
       </div>
 
       {/* User menu in fondo — fuori dal blocco scrollabile, sempre
@@ -141,11 +141,12 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
 
 function UserMiniCardSkeleton() {
   return (
-    <div className="flex items-center gap-2.5 px-2 py-1.5">
-      <div className="w-8 h-8 rounded-full bg-gc-bg-3 animate-pulse" />
+    <div className="flex items-center gap-3 px-2 py-1.5">
+      <div className="w-10 h-10 rounded-full bg-gc-bg-3 animate-pulse shrink-0" />
       <div className="flex-1 space-y-1.5">
         <div className="h-3 w-20 rounded bg-gc-bg-3 animate-pulse" />
         <div className="h-2.5 w-12 rounded bg-gc-bg-3 animate-pulse" />
+        <div className="h-2.5 w-24 rounded bg-gc-bg-3 animate-pulse" />
       </div>
     </div>
   );

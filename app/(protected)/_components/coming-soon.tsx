@@ -2,18 +2,21 @@
 // Vive dentro app/(protected)/_components/ — il prefisso underscore è la
 // convenzione Next.js per cartelle private (non routable).
 
+import { getTranslations } from "next-intl/server";
+
 type ComingSoonProps = {
   title: string;
   description: string;
 };
 
-export function ComingSoon({ title, description }: ComingSoonProps) {
+export async function ComingSoon({ title, description }: ComingSoonProps) {
+  const t = await getTranslations("core.comingSoon");
   return (
     <div className="animate-gc-screen">
       <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-10 text-center">
         <div className="inline-flex items-center gap-2 text-[10.5px] uppercase tracking-[0.08em] text-gc-fg-3 mb-3">
           <span className="w-[7px] h-[7px] rounded-full bg-gc-accent animate-gc-pulse" />
-          In costruzione
+          {t("badge")}
         </div>
         <h1 className="font-display font-normal text-[clamp(32px,4vw,44px)] leading-none tracking-[-0.015em] text-gc-fg">
           {title}

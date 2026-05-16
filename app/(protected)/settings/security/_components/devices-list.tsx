@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   HelpCircle,
   Loader2,
@@ -27,35 +28,21 @@ type DeviceVM = {
   isCurrent: boolean;
 };
 
-const dateFmt = new Intl.DateTimeFormat("it-IT", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
 export function DevicesList({ devices }: { devices: DeviceVM[] }) {
   const otherCount = devices.filter((d) => !d.isCurrent).length;
+  const t = useTranslations("core.settings.security.devices");
 
   return (
     <div className="space-y-10">
       <section className="space-y-4">
         <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">
-            Dispositivi fidati
-          </h2>
-          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            Da questi dispositivi puoi accedere senza ricevere il codice di
-            verifica via email. È diverso dalle sessioni qui sopra: revocare un
-            dispositivo non chiude alcuna sessione attiva, ma al prossimo login
-            da lì ti chiederemo il codice OTP.
-          </p>
+          <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
+          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
         </div>
 
         {devices.length === 0 ? (
           <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
-            <p className="text-[13.5px] text-gc-fg-3">
-              Nessun dispositivo fidato registrato.
-            </p>
+            <p className="text-[13.5px] text-gc-fg-3">{t("empty")}</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -71,12 +58,15 @@ export function DevicesList({ devices }: { devices: DeviceVM[] }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Riga singola dispositivo
-// ---------------------------------------------------------------------------
-
 function DeviceRow({ device }: { device: DeviceVM }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.security.devices");
+  const locale = useLocale();
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
   const [state, action, pending] = useActionState<ActionState, FormData>(
     revokeDeviceAction,
     {},
@@ -102,17 +92,15 @@ function DeviceRow({ device }: { device: DeviceVM }) {
             </span>
             {device.isCurrent && (
               <span className="rounded-full bg-gc-success-bg px-2 py-0.5 text-[11px] font-medium text-gc-success-fg">
-                Questo dispositivo
+                {t("current")}
               </span>
             )}
           </div>
           <p className="mt-1 text-[12px] text-gc-fg-3">
-            Aggiunto il {dateFmt.format(new Date(device.createdAt))} · Ultimo
-            uso{" "}
-            <RelativeTime
-              iso={device.lastUsedAt}
-              fallback={dateFmt.format(new Date(device.lastUsedAt))}
-            />
+            {t("info", {
+              date: dateFmt.format(new Date(device.createdAt)),
+              time: dateFmt.format(new Date(device.lastUsedAt)),
+            })}
           </p>
           {state.error && (
             <p className="mt-2 text-[12.5px] text-gc-neg">{state.error}</p>
@@ -131,10 +119,10 @@ function DeviceRow({ device }: { device: DeviceVM }) {
               {pending ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Revoca…
+                  {t("revokePending")}
                 </>
               ) : (
-                "Revoca"
+                t("revokeIdle")
               )}
             </Button>
           </form>
@@ -144,12 +132,10 @@ function DeviceRow({ device }: { device: DeviceVM }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Bottone "Revoca tutti gli altri" con conferma in due step
-// ---------------------------------------------------------------------------
-
 function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.security.devices");
+  const tCommon = useTranslations("core.common");
   const [confirming, setConfirming] = useState(false);
   const [state, action, pending] = useActionState<ActionState, FormData>(
     revokeAllOtherDevicesAction,
@@ -173,7 +159,7 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
           className="self-start text-gc-neg hover:text-gc-neg"
           onClick={() => setConfirming(true)}
         >
-          Revoca tutti gli altri dispositivi
+          {t("revokeAll")}
         </Button>
         {state.success && (
           <p className="text-[12.5px] text-gc-success-fg">{state.success}</p>
@@ -185,9 +171,7 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
       <p className="text-[13px] text-gc-fg">
-        Stai per revocare {otherCount === 1 ? "1 dispositivo" : `${otherCount} dispositivi`}.
-        Al prossimo accesso da quei dispositivi sarà richiesto un nuovo codice
-        di verifica via email.
+        {t("revokeAllConfirm", { n: otherCount })}
       </p>
       {state.error && <p className="text-[12.5px] text-gc-neg">{state.error}</p>}
       <div className="flex flex-wrap gap-2">
@@ -201,10 +185,10 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
             {pending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Revoca in corso…
+                {t("revokeAllPending")}
               </>
             ) : (
-              "Conferma revoca"
+              t("revokeAllConfirmCta")
             )}
           </Button>
         </form>
@@ -215,16 +199,12 @@ function RevokeAllOthersButton({ otherCount }: { otherCount: number }) {
           onClick={() => setConfirming(false)}
           disabled={pending}
         >
-          Annulla
+          {tCommon("cancel")}
         </Button>
       </div>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function iconForDeviceType(type: DeviceType) {
   switch (type) {
@@ -237,33 +217,4 @@ function iconForDeviceType(type: DeviceType) {
     default:
       return HelpCircle;
   }
-}
-
-function RelativeTime({ iso, fallback }: { iso: string; fallback: string }) {
-  // Mounted-only per evitare hydration mismatch (la "differenza" rispetto a now
-  // dipende dal momento del render). Sul primo render mostriamo il fallback
-  // assoluto, poi sostituiamo client-side con il relativo.
-  const [text, setText] = useState<string | null>(null);
-
-  useEffect(() => {
-    setText(formatRelative(new Date(iso)));
-  }, [iso]);
-
-  return <>{text ?? fallback}</>;
-}
-
-function formatRelative(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-
-  if (diffMin < 1) return "pochi secondi fa";
-  if (diffMin < 60) return diffMin === 1 ? "1 minuto fa" : `${diffMin} minuti fa`;
-
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return diffH === 1 ? "1 ora fa" : `${diffH} ore fa`;
-
-  const diffD = Math.floor(diffH / 24);
-  if (diffD < 30) return diffD === 1 ? "1 giorno fa" : `${diffD} giorni fa`;
-
-  return dateFmt.format(date);
 }

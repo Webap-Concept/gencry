@@ -1,0 +1,97 @@
+// lib/modules/posts/types.ts
+//
+// DTO ricchi che il read path (queries.ts) restituisce a UI e Realtime.
+// Separati dalle row Drizzle (`Post`, `PostMedia`, ...) per:
+//   - includere campi join (author profile, ticker list, media array)
+//   - includere campi viewer-specific (ownReactions, bookmarked)
+//   - escludere campi che NON devono lasciare il backend (es. tsvector)
+//
+// Stabilità: questa è l'interfaccia pubblica del modulo posts. Cambiarla
+// significa toccare la UI (PR-5) e Realtime (PR-7). Aggiungere campi
+// opzionali è safe; rinominare o eliminare un campo richiede deprecation.
+import type { PostReactionKind, PostVisibility } from "@/lib/db/schema";
+
+export type PostAuthorPublic = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+};
+
+export type PostMediaPublic = {
+  id: string;
+  fullUrl: string;
+  thumbUrl: string;
+  width: number | null;
+  height: number | null;
+  position: number;
+};
+
+export type PostReactionCounts = {
+  like: number;
+  rocket: number;
+  bull: number;
+  bear: number;
+  dump: number;
+  diamond: number;
+};
+
+export type PostCounts = {
+  reactions: PostReactionCounts;
+  /** Somma di reactions.* — comoda per la UX "X reactions" senza loop client */
+  reactionsTotal: number;
+  comments: number;
+  reposts: number;
+  bookmarks: number;
+};
+
+/**
+ * Viewer-specific. `null` se la query è stata fatta senza viewerUserId
+ * (utente anonimo o RSC public). UI usa questi campi per evidenziare la
+ * propria reaction / bookmark; sono volutamente fuori da PostCardData
+ * "core" così la cache `post:{id}` (V2) non si invalida per ogni utente.
+ */
+export type PostViewerState = {
+  ownReactions: PostReactionKind[];
+  bookmarked: boolean;
+};
+
+export type PostCardData = {
+  id: string;
+  author: PostAuthorPublic;
+  body: string;
+  visibility: PostVisibility;
+  /** Set when this row is a quote repost. Hydration depth max 1 (no
+   *  recursion: repost of repost still shows the original target only). */
+  repostOf: PostCardData | null;
+  /** Tombstone: null se il target esiste, l'oggetto se è stato cancellato.
+   *  Mai entrambi non-null contemporaneamente. */
+  repostOfTombstone: { id: string } | null;
+  editedAt: Date | null;
+  createdAt: Date;
+  counts: PostCounts;
+  tickers: string[];
+  media: PostMediaPublic[];
+  viewer: PostViewerState | null;
+};
+
+export type PostListPage = {
+  ids: string[];
+  nextCursor: string | null;
+};
+
+export type CommentCardData = {
+  id: string;
+  postId: string;
+  parentCommentId: string | null;
+  author: PostAuthorPublic;
+  body: string;
+  editedAt: Date | null;
+  createdAt: Date;
+};
+
+export type CommentsPage = {
+  comments: CommentCardData[];
+  nextCursor: string | null;
+};

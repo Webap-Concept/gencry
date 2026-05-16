@@ -31,6 +31,7 @@ export function MiniSparkline({
   height = 40,
   className,
   id,
+  ariaLabel,
 }: {
   points: number[] | null;
   width?: number;
@@ -39,6 +40,13 @@ export function MiniSparkline({
   /** Id usato per il <linearGradient>. Deve essere unico nella pagina.
    *  Se omesso, viene auto-generato da un counter modulo-local. */
   id?: string;
+  /**
+   * Aria-label tradotto, passato dal caller. Il componente è SSR-statico
+   * + usato da client components → non può chiamare `useTranslations` né
+   * essere `async`. Il caller traduce e passa la stringa. Default fallback
+   * non localizzato per backward-compat.
+   */
+  ariaLabel?: string;
 }) {
   if (!points || points.length < 2) {
     return (
@@ -91,7 +99,7 @@ export function MiniSparkline({
       viewBox={`0 0 ${width} ${height}`}
       className={className}
       role="img"
-      aria-label="Andamento ultimi 7 giorni"
+      aria-label={ariaLabel ?? "7-day price trend"}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

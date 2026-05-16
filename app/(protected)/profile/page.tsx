@@ -1,10 +1,7 @@
+import { getTranslations } from "next-intl/server";
 import { ComingSoon } from "../_components/coming-soon";
 
-export default function ProfiloPage() {
-  return (
-    <ComingSoon
-      title="Profilo"
-      description="Il tuo profilo, le tue watchlist, i tuoi follower. Arriva presto."
-    />
-  );
+export default async function ProfiloPage() {
+  const t = await getTranslations("core.pages.profile");
+  return <ComingSoon title={t("title")} description={t("description")} />;
 }

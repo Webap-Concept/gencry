@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
 import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,10 +12,12 @@ import {
   formatCompactCount,
   mockWatchlistCount,
 } from "@/components/modules/coins";
+import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { getSession } from "@/lib/auth/session";
 import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { generatePageMetadata, getSiteUrl } from "@/lib/seo";
+import { CoinRelatedPostsSection } from "@/components/modules/posts/CoinRelatedPostsSection";
 import type { Metadata } from "next";
 
 // ---------------------------------------------------------------------------
@@ -35,26 +38,38 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { symbol } = await params;
   const coin = await getCoinForCard(symbol);
-  if (!coin) return { title: "Coin non trovato" };
+  const tPage = await getTranslations("prices.page");
+  if (!coin) return { title: tPage("not_found_title") };
 
   const pathname = `/coins/${coin.symbol.toLowerCase()}`;
   const priceStr = formatPriceSeo(coin.price);
   const changeStr =
     coin.change24h !== null && Number.isFinite(coin.change24h)
-      ? ` Variazione 24h: ${coin.change24h > 0 ? "+" : ""}${coin.change24h.toFixed(2)}%.`
+      ? tPage("metadata_change_24h", {
+          change: `${coin.change24h > 0 ? "+" : ""}${coin.change24h.toFixed(2)}%`,
+        })
       : "";
   const rankStr =
     typeof coin.marketCapRank === "number" && coin.marketCapRank > 0
-      ? ` Rank #${coin.marketCapRank} per market cap.`
+      ? tPage("metadata_rank", { rank: coin.marketCapRank })
       : "";
 
-  const title = `${coin.name} (${coin.symbol}) — Prezzo, grafico e dati`;
+  const title = `${coin.name} (${coin.symbol}) — ${tPage("metadata_title_suffix")}`;
   // SERP: prezzo dinamico (CTR migliore, Google ricrawla periodicamente).
-  const description = `Prezzo live di ${coin.name} (${coin.symbol}): ${priceStr} USD.${changeStr}${rankStr} Grafico storico, market cap e volume 24h.`;
+  const description = tPage("metadata_description", {
+    name: coin.name,
+    symbol: coin.symbol,
+    price: priceStr,
+    change: changeStr,
+    rank: rankStr,
+  });
   // OG/Twitter: statica per evitare card "stale" cachate da Twitter/FB
   // quando il prezzo è cambiato (lo share continuerebbe a mostrare il
   // vecchio valore per giorni/settimane).
-  const ogDescription = `${coin.name} (${coin.symbol}) — prezzo, grafico storico, market cap e volume 24h aggiornati in tempo reale.`;
+  const ogDescription = tPage("og_description", {
+    name: coin.name,
+    symbol: coin.symbol,
+  });
 
   // NB: non passiamo `image` qui → lasciamo che Next colleghi
   // automaticamente l'OG image dinamica generata da
@@ -82,37 +97,43 @@ function formatPriceSeo(value: number): string {
 // Page
 // ---------------------------------------------------------------------------
 
-export default function CoinDetailPage({
+export default async function CoinDetailPage({
   params,
 }: {
   params: Promise<{ symbol: string }>;
 }) {
+  // `notFound()` viene chiamato PRIMA di renderizzare lo shell: in
+  // questo modo l'unwind del `NEXT_NOT_FOUND` esce dalla page senza
+  // toccare `<PublicAdaptiveShell>` e raggiunge il root
+  // `app/not-found.tsx` (wrappato dal solo root layout) → 404
+  // full-page sia per loggati che per anonimi.
+  const { symbol } = await params;
+  const coin = await getCoinForCard(symbol);
+  if (!coin) notFound();
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <Suspense fallback={<CoinDetailSkeleton />}>
-        <CoinDetailBody params={params} />
-      </Suspense>
-    </div>
+    <PublicAdaptiveShell>
+      <div className="space-y-6 max-w-4xl">
+        <Suspense fallback={<CoinDetailSkeleton />}>
+          <CoinDetailBody coin={coin} />
+        </Suspense>
+      </div>
+    </PublicAdaptiveShell>
   );
 }
 
-async function CoinDetailBody({
-  params,
-}: {
-  params: Promise<{ symbol: string }>;
-}) {
-  const { symbol } = await params;
-  const [coin, session, initialSeries, siteUrl] = await Promise.all([
-    getCoinForCard(symbol),
+async function CoinDetailBody({ coin }: { coin: CoinView }) {
+  const [session, initialSeries, siteUrl] = await Promise.all([
     getSession(),
     // SSR del range default "1w" — il client può switchare a 1d/1m/1y
     // chiamando l'endpoint /api/modules/prices/<symbol>/history.
-    getHistorySeries(symbol, "1w"),
+    getHistorySeries(coin.symbol, "1w"),
     getSiteUrl(),
   ]);
-  if (!coin) notFound();
 
   const isAuthed = Boolean(session);
+  const tCommon = await getTranslations("prices.common");
+  const tLabels = await getTranslations("prices.labels");
 
   return (
     <>
@@ -124,17 +145,21 @@ async function CoinDetailBody({
           className="inline-flex items-center gap-1.5 text-xs text-gc-fg-3 hover:text-gc-fg-2 transition-colors"
         >
           <ArrowLeft size={14} />
-          Esplora
+          {tCommon("explore")}
         </Link>
       )}
-      <CoinHeader coin={coin} actions={<HeaderActions isAuthed={isAuthed} />} />
+      <CoinHeader
+        coin={coin}
+        actions={<HeaderActions isAuthed={isAuthed} />}
+        sparklineAriaLabel={tLabels("weekly_chart_aria")}
+      />
       <CoinChart symbol={coin.symbol} initialSeries={initialSeries} />
       <StatsGrid coin={coin} />
-      {isAuthed ? (
-        <AuthedActionsRow />
-      ) : (
-        <AnonymousCta coinName={coin.name} />
-      )}
+      {/* Post recenti che menzionano questo coin. Server Component
+          riusa la stessa pipeline visibility/block del feed. Anonimi
+          vedono solo i public posts, loggati anche i members. */}
+      <CoinRelatedPostsSection symbol={coin.symbol} limit={5} />
+      {!isAuthed && <AnonymousCta coinName={coin.name} />}
     </>
   );
 }
@@ -146,9 +171,11 @@ async function CoinDetailBody({
 function CoinHeader({
   coin,
   actions,
+  sparklineAriaLabel,
 }: {
   coin: CoinView;
   actions?: React.ReactNode;
+  sparklineAriaLabel: string;
 }) {
   return (
     <header className="flex items-start gap-4 flex-wrap">
@@ -190,6 +217,7 @@ function CoinHeader({
           points={coin.weeklySparkline}
           width={180}
           height={60}
+          ariaLabel={sparklineAriaLabel}
         />
         {actions}
       </div>
@@ -197,53 +225,47 @@ function CoinHeader({
   );
 }
 
-function HeaderActions({ isAuthed }: { isAuthed: boolean }) {
+async function HeaderActions({ isAuthed }: { isAuthed: boolean }) {
   if (!isAuthed) return null;
+  const tCommon = await getTranslations("prices.common");
   // Placeholder finché le feature reali non esistono. Disabled per non
   // fingere interattività; reso visibile per dare anteprima visiva.
   return (
     <div className="flex items-center gap-2">
       <Button type="button" size="sm" variant="outline" disabled>
         <BookmarkPlus size={14} />
-        Watchlist
+        {tCommon("watchlist")}
       </Button>
-      <Button type="button" size="sm" variant="ghost" disabled aria-label="Condividi">
+      <Button type="button" size="sm" variant="ghost" disabled aria-label="Share">
         <Share2 size={14} />
       </Button>
     </div>
   );
 }
 
-function AuthedActionsRow() {
-  return (
-    <section className="rounded-2xl p-4 bg-gc-bg-2 border border-gc-line text-xs text-gc-fg-3">
-      Commenti, sentiment e watchlist arrivano con i prossimi moduli social.
-    </section>
-  );
-}
-
-function AnonymousCta({ coinName }: { coinName: string }) {
+async function AnonymousCta({ coinName }: { coinName: string }) {
+  const tCommon = await getTranslations("prices.common");
+  const tPage = await getTranslations("prices.page");
   return (
     <section className="rounded-2xl p-5 bg-gc-bg-2 border border-gc-line flex flex-col sm:flex-row sm:items-center gap-4">
       <div className="flex-1 min-w-0">
         <h2 className="text-base font-semibold text-gc-fg">
-          Segui {coinName} sulla community
+          {tPage("cta_follow_title", { name: coinName })}
         </h2>
         <p className="text-xs text-gc-fg-3 mt-1">
-          Iscriviti per aggiungere {coinName} alla tua watchlist, ricevere
-          alert e leggere cosa pensa la community.
+          {tPage("cta_follow_description", { name: coinName })}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <Button asChild variant="ghost" size="sm">
           <Link href="/sign-in" prefetch={false}>
-            Accedi
+            {tCommon("sign_in")}
           </Link>
         </Button>
         <Button asChild size="sm">
           <Link href="/sign-up" prefetch={false}>
             <MessageCircle size={14} />
-            Iscriviti
+            {tCommon("sign_up")}
           </Link>
         </Button>
       </div>
@@ -251,20 +273,21 @@ function AnonymousCta({ coinName }: { coinName: string }) {
   );
 }
 
-function StatsGrid({ coin }: { coin: CoinView }) {
+async function StatsGrid({ coin }: { coin: CoinView }) {
   const watchlistCount = mockWatchlistCount(coin.symbol);
+  const tLabels = await getTranslations("prices.labels");
   return (
     <section className="grid gap-3 grid-cols-2 sm:grid-cols-4">
       <Stat
-        label="Market cap"
+        label={tLabels("market_cap")}
         value={coin.marketCap !== null ? formatCompactCurrency(coin.marketCap) : "—"}
       />
       <Stat
-        label="Volume 24h"
+        label={tLabels("volume_24h")}
         value={coin.volume24h !== null ? formatCompactCurrency(coin.volume24h) : "—"}
       />
       <Stat
-        label="Posizione"
+        label={tLabels("rank")}
         value={
           typeof coin.marketCapRank === "number" && coin.marketCapRank > 0
             ? `#${coin.marketCapRank}`
@@ -272,9 +295,9 @@ function StatsGrid({ coin }: { coin: CoinView }) {
         }
       />
       <Stat
-        label="In watchlist"
+        label={tLabels("in_watchlist")}
         value={formatCompactCount(watchlistCount)}
-        hint="mockup"
+        hint={tLabels("mockup_hint")}
       />
     </section>
   );

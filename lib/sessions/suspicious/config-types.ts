@@ -131,31 +131,94 @@ const RecipientsSchema = z.object({
   includeAdminUsers: z.boolean().default(false),
 });
 
+// Per-source notification config. Ogni source (sessions, cron, …) ha
+// il proprio enabled/schedule/severityThreshold + payload specifico.
+// I global recipients/dryRun stanno fuori e si applicano a tutte.
+
+const SessionsRulesSchema = z.object({
+  multiple_ips: RuleSchemas.multiple_ips,
+  concurrent_devices: RuleSchemas.concurrent_devices,
+  burst_creation: RuleSchemas.burst_creation,
+  bot_user_agent: RuleSchemas.bot_user_agent,
+  long_idle_resurrect: RuleSchemas.long_idle_resurrect,
+  failed_then_success: RuleSchemas.failed_then_success,
+  sensitive_action_new_ip: RuleSchemas.sensitive_action_new_ip,
+  new_subnet: RuleSchemas.new_subnet,
+  ua_churn: RuleSchemas.ua_churn,
+  cross_user_campaign: RuleSchemas.cross_user_campaign,
+  off_baseline_hours: RuleSchemas.off_baseline_hours,
+  admin_off_hours: RuleSchemas.admin_off_hours,
+  trusted_device_from_fresh_session: RuleSchemas.trusted_device_from_fresh_session,
+});
+
+export const SessionsSourceSchema = z.object({
+  enabled: z.boolean().default(true),
+  schedule: z.enum(SCHEDULES).default("hourly_digest"),
+  severityThreshold: z.enum(SEVERITIES).default("warning"),
+  rules: SessionsRulesSchema,
+});
+
+export const CronSourceSchema = z.object({
+  enabled: z.boolean().default(true),
+  schedule: z.enum(SCHEDULES).default("hourly_digest"),
+  severityThreshold: z.enum(SEVERITIES).default("warning"),
+  /** Failures consecutivi sopra cui la severity sale a `critical`. */
+  escalateAfterFailures: z.number().int().positive().default(5),
+});
+
 export const AlertsConfigSchema = z.object({
   recipients: RecipientsSchema,
-  schedule: z.enum(SCHEDULES),
-  /** Don't alert below this severity in the digest / panel. */
-  severityThreshold: z.enum(SEVERITIES),
-  /** When true: detect & log alerts, but don't send email or panel notify. */
+  /** When true: detect & log alerts ma niente email send. */
   dryRun: z.boolean(),
-  rules: z.object({
-    multiple_ips: RuleSchemas.multiple_ips,
-    concurrent_devices: RuleSchemas.concurrent_devices,
-    burst_creation: RuleSchemas.burst_creation,
-    bot_user_agent: RuleSchemas.bot_user_agent,
-    long_idle_resurrect: RuleSchemas.long_idle_resurrect,
-    failed_then_success: RuleSchemas.failed_then_success,
-    sensitive_action_new_ip: RuleSchemas.sensitive_action_new_ip,
-    new_subnet: RuleSchemas.new_subnet,
-    ua_churn: RuleSchemas.ua_churn,
-    cross_user_campaign: RuleSchemas.cross_user_campaign,
-    off_baseline_hours: RuleSchemas.off_baseline_hours,
-    admin_off_hours: RuleSchemas.admin_off_hours,
-    trusted_device_from_fresh_session: RuleSchemas.trusted_device_from_fresh_session,
+  /** Sources di notifiche con la loro config (enabled/schedule/threshold). */
+  sources: z.object({
+    sessions: SessionsSourceSchema,
+    cron: CronSourceSchema,
   }),
 });
 
 export type AlertsConfig = z.infer<typeof AlertsConfigSchema>;
+export type SessionsSourceConfig = z.infer<typeof SessionsSourceSchema>;
+export type CronSourceConfig = z.infer<typeof CronSourceSchema>;
+
+/**
+ * Backward-compat parser. Il payload `notifications.alerts_config`
+ * salvato prima del 2026-05-14 aveva lo shape:
+ *   { recipients, schedule, severityThreshold, dryRun, rules: {...} }
+ * Lo migriamo runtime nel nuovo shape `sources.sessions.{...}` senza
+ * toccare il DB. Una save successiva persiste il nuovo formato.
+ */
+export function parseAlertsConfig(raw: unknown): AlertsConfig | null {
+  if (raw === null || raw === undefined) return null;
+  // Già nel formato nuovo?
+  const newAttempt = AlertsConfigSchema.safeParse(raw);
+  if (newAttempt.success) return newAttempt.data;
+
+  // Formato legacy?
+  if (typeof raw !== "object" || raw === null) return null;
+  const legacy = raw as Record<string, unknown>;
+  if (!("rules" in legacy)) return null;
+  const migrated: unknown = {
+    recipients: legacy.recipients,
+    dryRun: legacy.dryRun ?? false,
+    sources: {
+      sessions: {
+        enabled: true,
+        schedule: legacy.schedule ?? "hourly_digest",
+        severityThreshold: legacy.severityThreshold ?? "warning",
+        rules: legacy.rules,
+      },
+      cron: {
+        enabled: true,
+        schedule: "hourly_digest",
+        severityThreshold: "warning",
+        escalateAfterFailures: 5,
+      },
+    },
+  };
+  const legacyAttempt = AlertsConfigSchema.safeParse(migrated);
+  return legacyAttempt.success ? legacyAttempt.data : null;
+}
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -179,75 +242,48 @@ export const DEFAULT_SENSITIVE_ACTIONS = [
 
 export const DEFAULT_ALERTS_CONFIG: AlertsConfig = {
   recipients: { emails: [], includeAdminUsers: true },
-  schedule: "hourly_digest",
-  severityThreshold: "warning",
   dryRun: false,
-  rules: {
-    multiple_ips: {
+  sources: {
+    sessions: {
       enabled: true,
-      severity: "warning",
-      count: 3,
-      windowHours: 24,
+      schedule: "hourly_digest",
+      severityThreshold: "warning",
+      rules: {
+        multiple_ips: { enabled: true, severity: "warning", count: 3, windowHours: 24 },
+        concurrent_devices: { enabled: true, severity: "warning", count: 5 },
+        burst_creation: { enabled: true, severity: "warning", count: 5, windowMinutes: 60 },
+        bot_user_agent: { enabled: true, severity: "critical", pattern: DEFAULT_BOT_UA_PATTERN },
+        long_idle_resurrect: { enabled: true, severity: "warning", idleDays: 7 },
+        failed_then_success: { enabled: true, severity: "critical", failedCount: 5, windowMinutes: 60 },
+        sensitive_action_new_ip: {
+          enabled: true,
+          severity: "critical",
+          withinMinutes: 30,
+          actions: DEFAULT_SENSITIVE_ACTIONS,
+        },
+        new_subnet: { enabled: true, severity: "info", lookbackDays: 90 },
+        ua_churn: { enabled: true, severity: "warning", count: 3, windowMinutes: 60 },
+        cross_user_campaign: { enabled: true, severity: "critical", minUsers: 3, windowMinutes: 60 },
+        off_baseline_hours: {
+          enabled: true,
+          severity: "info",
+          minSamples: 10,
+          deviationHours: 6,
+          lookbackDays: 30,
+        },
+        admin_off_hours: { enabled: true, severity: "warning", startUtcHour: 6, endUtcHour: 23 },
+        trusted_device_from_fresh_session: {
+          enabled: true,
+          severity: "warning",
+          withinMinutes: 10,
+        },
+      },
     },
-    concurrent_devices: { enabled: true, severity: "warning", count: 5 },
-    burst_creation: {
+    cron: {
       enabled: true,
-      severity: "warning",
-      count: 5,
-      windowMinutes: 60,
-    },
-    bot_user_agent: {
-      enabled: true,
-      severity: "critical",
-      pattern: DEFAULT_BOT_UA_PATTERN,
-    },
-    long_idle_resurrect: {
-      enabled: true,
-      severity: "warning",
-      idleDays: 7,
-    },
-    failed_then_success: {
-      enabled: true,
-      severity: "critical",
-      failedCount: 5,
-      windowMinutes: 60,
-    },
-    sensitive_action_new_ip: {
-      enabled: true,
-      severity: "critical",
-      withinMinutes: 30,
-      actions: DEFAULT_SENSITIVE_ACTIONS,
-    },
-    new_subnet: { enabled: true, severity: "info", lookbackDays: 90 },
-    ua_churn: {
-      enabled: true,
-      severity: "warning",
-      count: 3,
-      windowMinutes: 60,
-    },
-    cross_user_campaign: {
-      enabled: true,
-      severity: "critical",
-      minUsers: 3,
-      windowMinutes: 60,
-    },
-    off_baseline_hours: {
-      enabled: true,
-      severity: "info",
-      minSamples: 10,
-      deviationHours: 6,
-      lookbackDays: 30,
-    },
-    admin_off_hours: {
-      enabled: true,
-      severity: "warning",
-      startUtcHour: 6,
-      endUtcHour: 23,
-    },
-    trusted_device_from_fresh_session: {
-      enabled: true,
-      severity: "warning",
-      withinMinutes: 10,
+      schedule: "hourly_digest",
+      severityThreshold: "warning",
+      escalateAfterFailures: 5,
     },
   },
 };

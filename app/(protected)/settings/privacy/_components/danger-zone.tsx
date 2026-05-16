@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,18 +17,14 @@ const GRACE_DAYS = 30;
 
 export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
   const [confirming, setConfirming] = useState(false);
+  const t = useTranslations("core.settings.privacy.dangerZone");
 
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">
-          Eliminazione account
-        </h2>
+        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Quando elimini l'account avvii una richiesta di cancellazione: i
-          tuoi dati restano inaccessibili per {GRACE_DAYS} giorni e vengono
-          poi eliminati definitivamente. Per annullare la richiesta entro
-          quel periodo dovrai contattare l'assistenza.
+          {t("description", { graceDays: GRACE_DAYS })}
         </p>
       </div>
 
@@ -40,11 +37,10 @@ export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
               </div>
               <div className="min-w-0">
                 <p className="text-[13.5px] font-semibold text-gc-fg">
-                  Elimina il mio account
+                  {t("deleteLabel")}
                 </p>
                 <p className="mt-0.5 text-[12px] text-gc-fg-3">
-                  Azione irreversibile dopo i {GRACE_DAYS} giorni di grace
-                  period.
+                  {t("deleteHint", { graceDays: GRACE_DAYS })}
                 </p>
               </div>
             </div>
@@ -55,7 +51,7 @@ export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
               className="text-gc-neg hover:text-gc-neg"
               onClick={() => setConfirming(true)}
             >
-              Elimina account
+              {t("deleteButton")}
             </Button>
           </div>
         ) : hasPassword ? (
@@ -73,6 +69,8 @@ export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
 // ---------------------------------------------------------------------------
 
 function PasswordDeletionForm({ onCancel }: { onCancel: () => void }) {
+  const t = useTranslations("core.settings.privacy.dangerZone");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<ActionState, FormData>(
     requestAccountDeletionAction,
     {},
@@ -82,11 +80,11 @@ function PasswordDeletionForm({ onCancel }: { onCancel: () => void }) {
   return (
     <form action={action} className="space-y-4">
       <DeletionFormHeader
-        description={`Inserisci la password per confermare. La sessione verrà chiusa e non potrai più accedere; entro ${GRACE_DAYS} giorni potrai annullare la richiesta contattando l'assistenza.`}
+        description={t("passwordStepDescription", { graceDays: GRACE_DAYS })}
       />
 
       <div className="space-y-1.5">
-        <Label htmlFor="deletion-password">Password attuale</Label>
+        <Label htmlFor="deletion-password">{t("currentPassword")}</Label>
         <div className="relative">
           <Input
             id="deletion-password"
@@ -96,13 +94,15 @@ function PasswordDeletionForm({ onCancel }: { onCancel: () => void }) {
             required
             maxLength={100}
             className="pr-10"
-            placeholder="••••••••"
+            placeholder={tShared("passwordPlaceholder")}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={
-              showPassword ? "Nascondi password" : "Mostra password"
+              showPassword
+                ? tShared("hidePassword")
+                : tShared("showPassword")
             }
             className="absolute inset-y-0 right-0 flex items-center px-3 text-gc-fg-3 hover:text-gc-fg transition-colors"
           >
@@ -131,6 +131,8 @@ function PasswordDeletionForm({ onCancel }: { onCancel: () => void }) {
 // ---------------------------------------------------------------------------
 
 function OtpDeletionForm({ onCancel }: { onCancel: () => void }) {
+  const t = useTranslations("core.settings.privacy.dangerZone");
+  const tCommon = useTranslations("core.common");
   const [otpRequested, setOtpRequested] = useState(false);
 
   const [sendState, sendAction, sending] = useActionState<ActionState, FormData>(
@@ -145,7 +147,7 @@ function OtpDeletionForm({ onCancel }: { onCancel: () => void }) {
   if (!otpRequested) {
     return (
       <form action={sendAction} className="space-y-4">
-        <DeletionFormHeader description="Il tuo account non ha una password locale. Per confermare l'eliminazione ti invieremo un codice di verifica all'email del tuo account." />
+        <DeletionFormHeader description={t("noPasswordInfo")} />
 
         {sendState.error && (
           <p className="text-[13px] text-gc-neg">{sendState.error}</p>
@@ -159,16 +161,16 @@ function OtpDeletionForm({ onCancel }: { onCancel: () => void }) {
             onClick={onCancel}
             disabled={sending}
           >
-            Annulla
+            {tCommon("cancel")}
           </Button>
           <Button type="submit" variant="outline" size="sm" disabled={sending}>
             {sending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Invio…
+                {t("sendCodePending")}
               </>
             ) : (
-              "Invia codice via email"
+              t("sendCodeIdle")
             )}
           </Button>
         </div>
@@ -186,6 +188,8 @@ function OtpConfirmForm({
   onCancel: () => void;
   sendStateMessage: string | null;
 }) {
+  const t = useTranslations("core.settings.privacy.dangerZone");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<ActionState, FormData>(
     confirmAccountDeletionViaOtpAction,
     {},
@@ -194,7 +198,7 @@ function OtpConfirmForm({
   return (
     <form action={action} className="space-y-4">
       <DeletionFormHeader
-        description={`Inserisci il codice a 6 cifre ricevuto via email. La sessione verrà chiusa e non potrai più accedere; entro ${GRACE_DAYS} giorni potrai annullare la richiesta contattando l'assistenza.`}
+        description={t("codeStepDescription", { graceDays: GRACE_DAYS })}
       />
 
       {sendStateMessage && (
@@ -202,7 +206,7 @@ function OtpConfirmForm({
       )}
 
       <div className="space-y-1.5">
-        <Label htmlFor="deletion-otp">Codice di verifica</Label>
+        <Label htmlFor="deletion-otp">{t("codeLabel")}</Label>
         <Input
           id="deletion-otp"
           name="code"
@@ -212,7 +216,7 @@ function OtpConfirmForm({
           maxLength={6}
           autoComplete="one-time-code"
           required
-          placeholder="000000"
+          placeholder={tShared("verificationCodePlaceholder")}
           className="font-mono tracking-[0.25em] text-center"
         />
       </div>
@@ -228,11 +232,8 @@ function OtpConfirmForm({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pezzi condivisi tra i due form
-// ---------------------------------------------------------------------------
-
 function DeletionFormHeader({ description }: { description: string }) {
+  const t = useTranslations("core.settings.privacy.dangerZone");
   return (
     <div className="flex items-start gap-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gc-neg/10 text-gc-neg">
@@ -240,7 +241,7 @@ function DeletionFormHeader({ description }: { description: string }) {
       </div>
       <div className="min-w-0">
         <p className="text-[13.5px] font-semibold text-gc-fg">
-          Conferma eliminazione account
+          {t("confirmTitle")}
         </p>
         <p className="mt-0.5 text-[12px] text-gc-fg-3">{description}</p>
       </div>
@@ -249,6 +250,7 @@ function DeletionFormHeader({ description }: { description: string }) {
 }
 
 function ConsequencesCheckbox() {
+  const t = useTranslations("core.settings.privacy.dangerZone");
   return (
     <label className="flex items-start gap-2 cursor-pointer">
       <input
@@ -258,8 +260,7 @@ function ConsequencesCheckbox() {
         className="mt-0.5 h-4 w-4 shrink-0 rounded border-gc-line accent-gc-neg cursor-pointer"
       />
       <span className="text-[12.5px] text-gc-fg leading-relaxed">
-        Capisco che dopo {GRACE_DAYS} giorni i miei dati saranno eliminati in
-        modo permanente e non potranno essere recuperati.
+        {t("confirmCheckbox", { graceDays: GRACE_DAYS })}
       </span>
     </label>
   );
@@ -272,6 +273,8 @@ function DeletionFormFooter({
   onCancel: () => void;
   pending: boolean;
 }) {
+  const t = useTranslations("core.settings.privacy.dangerZone");
+  const tCommon = useTranslations("core.common");
   return (
     <div className="flex flex-wrap justify-end gap-2 border-t border-gc-line pt-3">
       <Button
@@ -281,16 +284,16 @@ function DeletionFormFooter({
         onClick={onCancel}
         disabled={pending}
       >
-        Annulla
+        {tCommon("cancel")}
       </Button>
       <Button type="submit" variant="destructive" size="sm" disabled={pending}>
         {pending ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Elimino…
+            {t("finalPending")}
           </>
         ) : (
-          "Elimina definitivamente"
+          t("finalIdle")
         )}
       </Button>
     </div>

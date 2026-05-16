@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { toggleMarketingConsentAction } from "../actions";
 
 export type ConsentVM = {
@@ -22,12 +23,6 @@ export type ConsentVM = {
   isCurrent: boolean;
 };
 
-const dateFmt = new Intl.DateTimeFormat("it-IT", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
 // Soglia di troncamento del testo legale: ~15 righe a 13px/leading-relaxed.
 // Tenuta in px (non rem) perché ResizeObserver e scrollHeight ragionano in px,
 // e l'utente non cambia la zoom-aware base-font in questa app.
@@ -42,15 +37,16 @@ export function ConsentsPanel({
   privacy: ConsentVM;
   marketing: ConsentVM;
 }) {
+  const t = useTranslations("core.settings.privacy.consents");
   return (
     <div className="space-y-10">
       <section className="space-y-4">
         <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">Consensi</h2>
+          <h2 className="text-[15px] font-semibold text-gc-fg">
+            {t("sectionTitle")}
+          </h2>
           <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            Qui trovi le condizioni che hai accettato. I Termini e la Privacy
-            Policy sono obbligatori per usare la piattaforma; il consenso
-            marketing è facoltativo e puoi modificarlo quando vuoi.
+            {t("sectionDescription")}
           </p>
         </div>
 
@@ -74,6 +70,7 @@ function ConsentCard({
   kind: "required" | "optional";
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("core.settings.privacy.consents");
 
   return (
     <article className="rounded-2xl border border-gc-line bg-gc-bg-2">
@@ -85,12 +82,12 @@ function ConsentCard({
             </h3>
             {kind === "required" && (
               <span className="rounded-full bg-gc-bg px-2 py-0.5 text-[11px] font-medium text-gc-fg-3">
-                Obbligatorio
+                {t("requiredBadge")}
               </span>
             )}
             {!consent.isCurrent && consent.acceptedVersion && (
               <span className="rounded-full bg-gc-warning-bg px-2 py-0.5 text-[11px] font-medium text-gc-warning-fg">
-                Versione aggiornata disponibile
+                {t("updatedBadge")}
               </span>
             )}
           </div>
@@ -109,7 +106,7 @@ function ConsentCard({
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
             />
-            {open ? "Nascondi testo" : "Leggi testo accettato"}
+            {open ? t("hideText") : t("readAcceptedText")}
           </Button>
         )}
       </header>
@@ -129,6 +126,7 @@ function ConsentCard({
 
 function MarketingCard({ consent }: { consent: ConsentVM }) {
   const router = useRouter();
+  const t = useTranslations("core.settings.privacy.consents");
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<ActionState, FormData>(
     toggleMarketingConsentAction,
@@ -150,14 +148,14 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
               {consent.title}
             </h3>
             <span className="rounded-full bg-gc-bg px-2 py-0.5 text-[11px] font-medium text-gc-fg-3">
-              Facoltativo
+              {t("optionalBadge")}
             </span>
           </div>
           <p className="mt-1 text-[12px] text-gc-fg-3">
             {isOn ? (
               <AcceptanceLine consent={consent} />
             ) : (
-              <>Non hai dato il consenso alle comunicazioni marketing.</>
+              <>{t("marketingNotGiven")}</>
             )}
           </p>
           {state.error && (
@@ -177,12 +175,12 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
             {pending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {isOn ? "Disattivazione…" : "Attivazione…"}
+                {isOn ? t("deactivating") : t("activating")}
               </>
             ) : isOn ? (
-              "Disattiva"
+              t("deactivate")
             ) : (
-              "Attiva"
+              t("activate")
             )}
           </Button>
         </form>
@@ -202,10 +200,10 @@ function MarketingCard({ consent }: { consent: ConsentVM }) {
                 className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
               />
               {open
-                ? "Nascondi testo"
+                ? t("hideText")
                 : isOn
-                  ? "Leggi testo accettato"
-                  : "Leggi informativa"}
+                  ? t("readAcceptedText")
+                  : t("readPolicyText")}
             </Button>
           </div>
           {open && (
@@ -227,6 +225,7 @@ function CollapsibleHtmlBody({ html }: { html: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
+  const t = useTranslations("core.settings.privacy.consents");
 
   // Misuro il contenuto reale a prescindere da `expanded`: scrollHeight è
   // sempre l'altezza totale del contenuto, anche quando max-h tronca il
@@ -278,7 +277,7 @@ function CollapsibleHtmlBody({ html }: { html: string }) {
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
             />
-            {expanded ? "Mostra meno" : "Mostra tutto"}
+            {expanded ? t("showLess") : t("showMore")}
           </Button>
         </div>
       )}
@@ -291,25 +290,31 @@ function CollapsibleHtmlBody({ html }: { html: string }) {
 // ---------------------------------------------------------------------------
 
 function AcceptanceLine({ consent }: { consent: ConsentVM }) {
+  const t = useTranslations("core.settings.privacy.consents");
+  const locale = useLocale();
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   if (!consent.acceptedAt) {
-    return <>Mai accettato.</>;
+    return <>{t("neverAccepted")}</>;
   }
   const date = dateFmt.format(new Date(consent.acceptedAt));
   const version = consent.acceptedVersion ?? "?";
 
   if (consent.isCurrent) {
-    return (
-      <>
-        Accettato il {date} · versione {version}
-      </>
-    );
+    return <>{t("acceptedOn", { date, version })}</>;
   }
 
   return (
     <>
-      Accettato il {date} · versione {version}
+      {t("acceptedOn", { date, version })}
       {consent.currentVersion && (
-        <> · versione attuale {consent.currentVersion}</>
+        <>
+          {" "}
+          {t("currentVersionSuffix", { version: consent.currentVersion })}
+        </>
       )}
     </>
   );

@@ -1,9 +1,8 @@
 // app/(admin)/admin/access/staff/page.tsx
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getAdminPath } from "@/lib/admin-paths";
 import { getStaffUsers } from "@/lib/db/admin-queries";
 import { getStaffAssignableRoles } from "@/lib/db/roles-queries";
-import { Search, UserCog } from "lucide-react";
+import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -147,13 +146,9 @@ export default async function AdminStaffPage({
 
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={UserCog}
-        breadcrumbLabel={t("breadcrumbUsers")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-        actionSlot={<AddStaffButton adminRoles={adminRoles} />}
-      />
+      <div className="flex justify-end">
+        <AddStaffButton adminRoles={adminRoles} />
+      </div>
 
       <div
         className="rounded-xl shadow-sm p-4"

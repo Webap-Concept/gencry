@@ -14,6 +14,7 @@ import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import {
   AlertsConfigSchema,
   DEFAULT_ALERTS_CONFIG,
+  parseAlertsConfig,
   type AlertsConfig,
 } from "./config-types";
 
@@ -27,9 +28,12 @@ export {
   SCHEDULES,
   SEVERITIES,
   SUSPICION_REASONS,
+  parseAlertsConfig,
   type AlertSeverity,
   type AlertsConfig,
+  type CronSourceConfig,
   type DigestSchedule,
+  type SessionsSourceConfig,
   type SuspicionReason,
 } from "./config-types";
 
@@ -38,9 +42,14 @@ export {
 // ---------------------------------------------------------------------------
 
 /**
- * Loads + validates the alerts config. On parse failure logs a warning
- * and returns the defaults — never throws, so the cron stays resilient
- * to malformed admin input or a partial migration.
+ * Loads + validates the alerts config. Backward-compat: il payload
+ * legacy (`{ recipients, schedule, severityThreshold, dryRun, rules }`,
+ * salvato prima del refactor 2026-05-14) viene migrato runtime al
+ * nuovo shape `{ recipients, dryRun, sources.sessions.{...} }` senza
+ * toccare il DB. Una save successiva persiste il formato canonico.
+ *
+ * Su parse failure logga un warning e ritorna i defaults — never
+ * throws, così il cron resta resiliente a payload malformati.
  */
 export async function getAlertsConfig(): Promise<AlertsConfig> {
   const settings = await getAppSettings();
@@ -48,11 +57,10 @@ export async function getAlertsConfig(): Promise<AlertsConfig> {
   if (!raw) return DEFAULT_ALERTS_CONFIG;
   try {
     const parsed = JSON.parse(raw);
-    const result = AlertsConfigSchema.safeParse(parsed);
-    if (result.success) return result.data;
+    const result = parseAlertsConfig(parsed);
+    if (result) return result;
     console.warn(
-      "[alerts/config] invalid config in DB, using defaults:",
-      result.error.issues,
+      "[alerts/config] invalid config in DB (legacy + new shape failed), using defaults",
     );
     return DEFAULT_ALERTS_CONFIG;
   } catch (e) {

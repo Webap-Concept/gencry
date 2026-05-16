@@ -1,4 +1,3 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { db } from "@/lib/db/drizzle";
 import { getAllSystemPermissions } from "@/lib/db/permissions-data";
 import { getAdminRoles } from "@/lib/db/roles-queries";
@@ -8,7 +7,6 @@ import {
   getAllPermissions,
   getSystemPermissionsDrift,
 } from "@/lib/rbac/permissions-queries";
-import { KeyRound } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -77,17 +75,9 @@ async function PermissionsContent() {
 
 export default async function AdminPermissionsPage() {
   await requireAdminPage();
-  const t = await getTranslations("admin.access.permissions");
 
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={KeyRound}
-        breadcrumbLabel={t("breadcrumbUsers")}
-        title={t("pageTitle")}
-        subtitle={t("pageSubtitle")}
-      />
-
       <PermissionsInfoCard />
 
       <Suspense

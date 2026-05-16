@@ -41,7 +41,7 @@ function hourBucket(now: Date): string {
 // ---------------------------------------------------------------------------
 
 export async function detectMultipleIps(
-  rule: AlertsConfig["rules"]["multiple_ips"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["multiple_ips"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -84,7 +84,7 @@ export async function detectMultipleIps(
 // ---------------------------------------------------------------------------
 
 export async function detectConcurrentDevices(
-  rule: AlertsConfig["rules"]["concurrent_devices"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["concurrent_devices"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -118,7 +118,7 @@ export async function detectConcurrentDevices(
 // ---------------------------------------------------------------------------
 
 export async function detectBurstCreation(
-  rule: AlertsConfig["rules"]["burst_creation"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["burst_creation"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -146,7 +146,7 @@ export async function detectBurstCreation(
 // ---------------------------------------------------------------------------
 
 export async function detectBotUserAgent(
-  rule: AlertsConfig["rules"]["bot_user_agent"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["bot_user_agent"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -218,7 +218,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export async function detectLongIdleResurrect(
-  rule: AlertsConfig["rules"]["long_idle_resurrect"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["long_idle_resurrect"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -327,7 +327,7 @@ export async function detectLongIdleResurrect(
 // ---------------------------------------------------------------------------
 
 export async function detectFailedThenSuccess(
-  rule: AlertsConfig["rules"]["failed_then_success"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["failed_then_success"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -388,7 +388,7 @@ export async function detectFailedThenSuccess(
 // ---------------------------------------------------------------------------
 
 export async function detectSensitiveActionNewIp(
-  rule: AlertsConfig["rules"]["sensitive_action_new_ip"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["sensitive_action_new_ip"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -462,7 +462,7 @@ export async function detectSensitiveActionNewIp(
 // ---------------------------------------------------------------------------
 
 export async function detectNewSubnet(
-  rule: AlertsConfig["rules"]["new_subnet"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["new_subnet"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -552,7 +552,7 @@ export async function detectNewSubnet(
 // ---------------------------------------------------------------------------
 
 export async function detectUaChurn(
-  rule: AlertsConfig["rules"]["ua_churn"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["ua_churn"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -586,7 +586,7 @@ export async function detectUaChurn(
 // ---------------------------------------------------------------------------
 
 export async function detectCrossUserCampaign(
-  rule: AlertsConfig["rules"]["cross_user_campaign"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["cross_user_campaign"],
   now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -630,7 +630,7 @@ export async function detectCrossUserCampaign(
 // ---------------------------------------------------------------------------
 
 export async function detectOffBaselineHours(
-  rule: AlertsConfig["rules"]["off_baseline_hours"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["off_baseline_hours"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -713,7 +713,7 @@ export async function detectOffBaselineHours(
 // ---------------------------------------------------------------------------
 
 export async function detectAdminOffHours(
-  rule: AlertsConfig["rules"]["admin_off_hours"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["admin_off_hours"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -766,7 +766,7 @@ export async function detectAdminOffHours(
 // ---------------------------------------------------------------------------
 
 export async function detectTrustedDeviceFromFresh(
-  rule: AlertsConfig["rules"]["trusted_device_from_fresh_session"],
+  rule: AlertsConfig["sources"]["sessions"]["rules"]["trusted_device_from_fresh_session"],
   _now: Date,
 ): Promise<AlertCandidate[]> {
   if (!rule.enabled) return [];
@@ -832,60 +832,60 @@ export async function runAllDetectors(
   }> = [
     {
       name: "multiple_ips",
-      fn: () => detectMultipleIps(config.rules.multiple_ips, now),
+      fn: () => detectMultipleIps(config.sources.sessions.rules.multiple_ips, now),
     },
     {
       name: "concurrent_devices",
-      fn: () => detectConcurrentDevices(config.rules.concurrent_devices, now),
+      fn: () => detectConcurrentDevices(config.sources.sessions.rules.concurrent_devices, now),
     },
     {
       name: "burst_creation",
-      fn: () => detectBurstCreation(config.rules.burst_creation, now),
+      fn: () => detectBurstCreation(config.sources.sessions.rules.burst_creation, now),
     },
     {
       name: "bot_user_agent",
-      fn: () => detectBotUserAgent(config.rules.bot_user_agent, now),
+      fn: () => detectBotUserAgent(config.sources.sessions.rules.bot_user_agent, now),
     },
     {
       name: "long_idle_resurrect",
       fn: () =>
-        detectLongIdleResurrect(config.rules.long_idle_resurrect, now),
+        detectLongIdleResurrect(config.sources.sessions.rules.long_idle_resurrect, now),
     },
     {
       name: "failed_then_success",
-      fn: () => detectFailedThenSuccess(config.rules.failed_then_success, now),
+      fn: () => detectFailedThenSuccess(config.sources.sessions.rules.failed_then_success, now),
     },
     {
       name: "sensitive_action_new_ip",
       fn: () =>
-        detectSensitiveActionNewIp(config.rules.sensitive_action_new_ip, now),
+        detectSensitiveActionNewIp(config.sources.sessions.rules.sensitive_action_new_ip, now),
     },
     {
       name: "new_subnet",
-      fn: () => detectNewSubnet(config.rules.new_subnet, now),
+      fn: () => detectNewSubnet(config.sources.sessions.rules.new_subnet, now),
     },
     {
       name: "ua_churn",
-      fn: () => detectUaChurn(config.rules.ua_churn, now),
+      fn: () => detectUaChurn(config.sources.sessions.rules.ua_churn, now),
     },
     {
       name: "cross_user_campaign",
       fn: () =>
-        detectCrossUserCampaign(config.rules.cross_user_campaign, now),
+        detectCrossUserCampaign(config.sources.sessions.rules.cross_user_campaign, now),
     },
     {
       name: "off_baseline_hours",
-      fn: () => detectOffBaselineHours(config.rules.off_baseline_hours, now),
+      fn: () => detectOffBaselineHours(config.sources.sessions.rules.off_baseline_hours, now),
     },
     {
       name: "admin_off_hours",
-      fn: () => detectAdminOffHours(config.rules.admin_off_hours, now),
+      fn: () => detectAdminOffHours(config.sources.sessions.rules.admin_off_hours, now),
     },
     {
       name: "trusted_device_from_fresh_session",
       fn: () =>
         detectTrustedDeviceFromFresh(
-          config.rules.trusted_device_from_fresh_session,
+          config.sources.sessions.rules.trusted_device_from_fresh_session,
           now,
         ),
     },

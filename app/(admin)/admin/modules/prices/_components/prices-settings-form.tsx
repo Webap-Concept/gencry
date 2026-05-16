@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
+import { R2GlobalAccountInfo } from "@/app/(admin)/admin/_components/r2-global-account-info";
 import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
@@ -25,7 +26,8 @@ interface InitialValues {
   // R2 storage. `r2SecretIsSet` viene calcolato server-side: il valore reale
   // del secret NON viaggia mai al client (sicurezza). La UI mostra il
   // sentinel "********" come placeholder se il secret è già salvato.
-  "modules.prices.r2.account_id": string | null;
+  // accountId è gestito globalmente in storage.r2.account_id —
+  // passato a parte come globalAccountId (vedi InitialValues consumer).
   "modules.prices.r2.access_key_id": string | null;
   "modules.prices.r2.bucket": string | null;
   "modules.prices.r2.public_base_url": string | null;
@@ -138,7 +140,15 @@ const GROUP_TITLES: Record<"ingestion" | "breaker" | "history", string> = {
   history: "Historical (sparklines)",
 };
 
-export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
+export function PricesSettingsForm({
+  initial,
+  globalAccountId,
+  cloudflareSettingsHref,
+}: {
+  initial: InitialValues;
+  globalAccountId: string | null;
+  cloudflareSettingsHref: string;
+}) {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     savePricesSettings,
     {},
@@ -328,6 +338,8 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
 
         <R2StorageCard
           initial={initial}
+          globalAccountId={globalAccountId}
+          cloudflareSettingsHref={cloudflareSettingsHref}
           testAction={r2TestAction}
           isTesting={isR2Testing}
           isPending={isPending}
@@ -413,17 +425,24 @@ export function PricesSettingsForm({ initial }: { initial: InitialValues }) {
 
 function R2StorageCard({
   initial,
+  globalAccountId,
+  cloudflareSettingsHref,
   testAction,
   isTesting,
   isPending,
 }: {
   initial: InitialValues;
+  globalAccountId: string | null;
+  cloudflareSettingsHref: string;
   testAction: (formData: FormData) => void;
   isTesting: boolean;
   isPending: boolean;
 }) {
+  // L'account ID Cloudflare è globale: questo modulo lo riceve via prop
+  // separata e mostra info-box invece del field. Lo stato "Configured"
+  // ora considera ANCHE il global account presence.
   const allFilled =
-    Boolean(initial["modules.prices.r2.account_id"]) &&
+    Boolean(globalAccountId) &&
     Boolean(initial["modules.prices.r2.access_key_id"]) &&
     initial.r2SecretIsSet &&
     Boolean(initial["modules.prices.r2.bucket"]) &&
@@ -458,12 +477,9 @@ function R2StorageCard({
         CoinGecko and the public picker shows initials only.
       </p>
       <div className="space-y-4 max-w-lg">
-        <R2Field
-          name="modules.prices.r2.account_id"
-          label="Account ID"
-          hint="Cloudflare account ID (the part before .r2.cloudflarestorage.com in the endpoint)."
-          defaultValue={initial["modules.prices.r2.account_id"] ?? ""}
-          placeholder="32 hex chars"
+        <R2GlobalAccountInfo
+          accountId={globalAccountId}
+          cloudflareSettingsHref={cloudflareSettingsHref}
         />
         <R2Field
           name="modules.prices.r2.access_key_id"

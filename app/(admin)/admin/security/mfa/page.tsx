@@ -1,7 +1,5 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import { getMfaAdminStats } from "@/lib/auth/mfa/admin-stats";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
@@ -24,10 +22,9 @@ function asMode(v: string | undefined | null): MfaMode {
 }
 
 export default async function MfaPage() {
-  const [settings, stats, t] = await Promise.all([
+  const [settings, stats] = await Promise.all([
     getAppSettings(),
     getMfaAdminStats(),
-    getTranslations("admin.security"),
   ]);
 
   const initial = {
@@ -40,13 +37,6 @@ export default async function MfaPage() {
 
   return (
     <div className="space-y-5">
-      <AdminSectionHeader
-        icon={ShieldCheck}
-        breadcrumbLabel={t("breadcrumb")}
-        title={t("mfa.pageTitle")}
-        subtitle={t("mfa.pageSubtitle")}
-      />
-
       <MfaStatsCard stats={stats} />
       <MfaForm initial={initial} stats={stats} />
     </div>

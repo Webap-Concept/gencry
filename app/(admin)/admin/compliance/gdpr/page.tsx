@@ -1,14 +1,10 @@
-import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { buildAdminPath, getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
-import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import ConsentStatusDashboardLoader from "./_components/consent-status-dashboard-loader";
-import { GdprLegendGuide } from "./_components/gdpr-legend-guide";
 import { GdprSettingsForm } from "./_components/gdpr-settings-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,7 +15,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function GdprCompliancePage() {
-  const t = await getTranslations("admin.compliance");
   const tG = await getTranslations("admin.compliance.gdpr");
   const tTools = await getTranslations("admin.compliance.gdpr.tools");
   // We DON'T await stats/health here — they are the slowest leaf on the
@@ -37,20 +32,6 @@ export default async function GdprCompliancePage() {
 
   return (
     <div className="space-y-8">
-      <AdminSectionHeader
-        icon={ScrollText}
-        breadcrumbLabel={t("breadcrumb")}
-        title={tG("pageTitle")}
-        subtitle={tG("pageSubtitle")}
-        infoSlot={
-          <AdminSectionInfo
-            title={tG("guideTitle")}
-            ariaLabel={tG("guideAriaLabel")}>
-            <GdprLegendGuide />
-          </AdminSectionInfo>
-        }
-      />
-
       {/* Section 1 — current consent status. Behind its own Suspense
           boundary so the page paints header/settings/tools immediately
           and the metrics section streams in once the consolidated

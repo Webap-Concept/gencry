@@ -28,6 +28,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { checkUsernameAction } from "@/app/(login)/actions";
 import { validateUsernameFormat } from "@/lib/auth/username-validator";
+import { useOnboardingError } from "@/lib/modules/onboarding/lib/use-onboarding-error";
 import type { CoinOption } from "@/lib/modules/onboarding/queries";
 import {
   completeOnboarding,
@@ -142,7 +143,8 @@ function UsernameStep({
   initial: string;
   onDone: () => void;
 }) {
-  const t = useTranslations("public.onboarding.username");
+  const t = useTranslations("onboarding.username");
+  const tErr = useOnboardingError();
   const [username, setUsername]                 = useState(initial);
   const [available, setAvailable]               = useState<boolean>(Boolean(initial));
   const [checking, setChecking]                 = useState(false);
@@ -206,7 +208,7 @@ function UsernameStep({
     startTransition(async () => {
       const res = await setOnboardingUsername(username);
       if (res.error) {
-        setSubmitError(res.error);
+        setSubmitError(tErr(res.error, res.meta));
         return;
       }
       onDone();
@@ -299,7 +301,8 @@ function CoinPicksStep({
   onBack: () => void;
   onDone: () => void;
 }) {
-  const t = useTranslations("public.onboarding.coinPicks");
+  const t = useTranslations("onboarding.coinPicks");
+  const tErr = useOnboardingError();
   const [selected, setSelected] = useState<string[]>(initialPicks);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CoinOption[] | null>(null);
@@ -367,7 +370,7 @@ function CoinPicksStep({
     startTransition(async () => {
       const res = await setOnboardingCoinPicks(selected);
       if (res.error) {
-        setSubmitError(res.error);
+        setSubmitError(tErr(res.error, res.meta));
         return;
       }
       onDone();
@@ -512,7 +515,8 @@ function RiskProfileStep({
   onBack: () => void;
   onDone: () => void;
 }) {
-  const t = useTranslations("public.onboarding.riskProfile");
+  const t = useTranslations("onboarding.riskProfile");
+  const tErr = useOnboardingError();
   const [profile, setProfile] = useState<RiskProfile | null>(
     initial?.profile ?? null,
   );
@@ -529,7 +533,7 @@ function RiskProfileStep({
     startTransition(async () => {
       const res = await setOnboardingRiskProfile(profile, experience);
       if (res.error) {
-        setSubmitError(res.error);
+        setSubmitError(tErr(res.error, res.meta));
         return;
       }
       onDone();
@@ -630,7 +634,7 @@ function RiskProfileStep({
 // ---------------------------------------------------------------------------
 
 function DoneStep() {
-  const t = useTranslations("public.onboarding.done");
+  const t = useTranslations("onboarding.done");
   const [pending, startTransition] = useTransition();
 
   const handleStart = () => {

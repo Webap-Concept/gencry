@@ -51,6 +51,13 @@ export const PRICES_MODULE: ModuleManifest = {
       icon: "Settings",
       permission: "modules:prices",
     },
+    {
+      key: "prices-architecture",
+      href: "/modules/prices/architecture",
+      label: "Architettura",
+      icon: "BookOpen",
+      permission: "modules:prices",
+    },
   ],
   cronJobs: [
     {

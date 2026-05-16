@@ -25,7 +25,9 @@
     "navResetTooltip": "Ripristina ordine di default",
     "navDragHandle": "Trascina per riordinare",
     "navDrawerClose": "Chiudi pannello sezione",
-    "navDrawerEditHint": "Riordina le sotto-voci"
+    "navDrawerEditHint": "Riordina le sotto-voci",
+    "navCollapseSidebar": "Restringi sidebar",
+    "navExpandSidebar": "Espandi sidebar"
   },
   "confirmModal": {
     "defaultConfirm": "Conferma",
@@ -60,7 +62,80 @@
     "noRunsBadge": "Nessun run",
     "runStatusSucceeded": "Riuscito",
     "runStatusFailed": "Fallito",
-    "failedToLoadRuns": "Impossibile caricare i run."
+    "failedToLoadRuns": "Impossibile caricare i run.",
+    "guideTitle": "Come modificare un cron",
+    "guideTriggerAria": "Apri guida cron",
+    "guideIntro": "Lo schedule effettivo dei cron è gestito da Supabase pg_cron, non dall'app. Per cambiare frequenza o disattivare un job, esegui un comando SQL nel SQL Editor di Supabase.",
+    "guideAlterTitle": "Cambiare la frequenza di un job",
+    "guideAlterIntro": "Esempio: passare da ogni 5 minuti a ogni minuto.",
+    "guideUnscheduleTitle": "Rimuovere un job",
+    "guideUnscheduleIntro": "Cancella completamente il job dal pg_cron.",
+    "guideTipsTitle": "Suggerimenti rapidi",
+    "guideTip1": "I cron schedule usano la sintassi standard di crontab: minuti, ore, giorno, mese, giorno settimana.",
+    "guideTip2": "Per eseguire un job ogni minuto: \"* * * * *\". Ogni 5 min: \"*/5 * * * *\". Ogni ora al minuto 0: \"0 * * * *\".",
+    "guideTip3": "Dopo l'alter_job, la tabella qui sopra rifletterà il nuovo schedule al prossimo refresh della pagina."
+  },
+  "cronJobs": {
+    "gdpr-export-worker": {
+      "label": "GDPR Export Worker",
+      "description": "Processa le richieste di export GDPR in coda (max 5 per run) ed elimina i file di export il cui expires_at è passato.",
+      "purpose": "Richiesto dal GDPR. Gli utenti possono richiedere una copia dei propri dati da /settings/privacy; questo cron genera lo ZIP, manda all'utente il link via email, e successivamente pulisce i file scaduti."
+    },
+    "sessions-cleanup": {
+      "label": "Pulizia Sessioni",
+      "description": "Cancella le righe sessions server-side scadute o revocate da più della grace window (DELETE FROM sessions WHERE expires_at < now() - interval '1 day' OR (revoked_at IS NOT NULL AND revoked_at < ...)).",
+      "purpose": "Mantiene limitata la tabella sessions e rimuove le tracce di dispositivi scollegati / scaduti. Alimenta la UI delle sessioni attive in /settings/security e il flusso auto-logout-altri-dispositivi."
+    },
+    "soft-deleted-purge": {
+      "label": "Purga Account Cancellati",
+      "description": "Esegue hard-delete delle righe utente cancellate logicamente (deleted_at IS NOT NULL) da più di 30 giorni.",
+      "purpose": "Implementa la finestra di grazia GDPR di 30 giorni dopo una richiesta di cancellazione account. Entro 30 giorni l'utente può ancora recuperare l'account; dopo, la riga viene purgata e le FK ON DELETE SET NULL preservano gli audit trail."
+    },
+    "notifications-dispatch": {
+      "label": "Dispatch Notifiche Admin",
+      "description": "Esegue tutti i generatori di notifiche (cron failure, rotazione secret, …) e riconcilia admin_notifications: inserisce nuovi alert, aggiorna severity, auto-risolve le condizioni cessate.",
+      "purpose": "Garantisce che gli alert admin (es. un cron in errore) compaiano entro minuti invece di attendere che un admin navighi nel pannello. Il trigger al render del layout resta come fallback se pg_cron non gira."
+    },
+    "notifications-email-dispatch": {
+      "label": "Dispatch Email Notifiche Admin",
+      "description": "Dispatcher email generico per admin_notifications. Itera le sorgenti di alert registrate (sessioni, cron, …), rispetta lo schedule per sorgente (instant / orario / giornaliero) e la soglia di severità, raggruppa le notifiche pending per tipo, renderizza il template type-specific e invia un'email digest. Imposta email_sent_at sulle righe consegnate così non vengono re-inviate.",
+      "purpose": "Single source of truth per le email outbound admin: ogni nuova sorgente di notifica registra un renderer invece di cablare la propria pipeline. Destinatari, schedule e soglie sono configurabili per-sorgente da /admin/settings/notifications."
+    },
+    "sessions-suspicious-detection": {
+      "label": "Detection Sessioni Sospette",
+      "description": "Esegue le euristiche Tier-1 configurate (IP multipli, dispositivi concorrenti, bot UA, falliti→riuscito login, azione sensibile su nuovo IP, …) su sessions / login_attempts / activity_logs recenti e persiste i candidati in session_alerts. Invia un digest email agli admin quando lo schedule lo prevede.",
+      "purpose": "Identifica precocemente sessioni compromesse o dirottate. Solo detect per default — gli alert compaiono in /admin/access/sessions e generano una notifica admin + digest email, ma non revocano automaticamente le sessioni. Configurabile da /admin/settings/notifications."
+    },
+    "policy-change-notifications": {
+      "label": "Notifiche Cambio Policy",
+      "description": "Seleziona fino a 50 utenti distinti con righe pendenti in policy_change_notifications e invia a ciascuno un digest email di tutte le policy fuori sync (terms, privacy, marketing). Aggiorna le righe come sent/failed con retry logic (max 3 tentativi).",
+      "purpose": "Richiesto dal flusso GDPR re-consent. Quando un admin aggiorna la versione di una policy di sistema, tutti gli utenti interessati ottengono una riga in policy_change_notifications; questo cron consegna l'email così sapranno di dover ri-accettare al prossimo login. Frequenza configurabile via gdpr.policy.notifications_cron_minutes (default 60)."
+    },
+    "consent-records-cleanup": {
+      "label": "Pulizia Retention Consent Records",
+      "description": "Cancella righe di consent_records più vecchie di gdpr.consent_log.retention_after_deletion_days (default 5 anni), in batch da 5000 con cap di 20 batch per run (~100k righe max per esecuzione). Il backlog si smaltisce tra run successivi.",
+      "purpose": "Limita il ledger append-only dei consensi così non cresce all'infinito. La finestra di retention rispecchia il tipico periodo di dimostrabilità GDPR Art. 7(1); righe più vecchie non hanno valore probatorio e possono essere eliminate. Cron suggerito ogni giorno alle 03:00 UTC; metti retention a 0 per disabilitare."
+    },
+    "ip-rules-maintenance": {
+      "label": "Manutenzione Regole IP",
+      "description": "Due job in uno: cancella righe ip_rules scadute da più di 30 giorni, e scarica i contatori hit per-regola da Redis (GETDEL su ip-rule:hits:<id>) nella colonna hit_count.",
+      "purpose": "Mantiene ordinata la tabella delle regole IP manuali (auto-purge di entry scadute molto vecchie) e persiste i contatori analytics scritti fire-and-forget al request time. Senza questo cron, la dashboard mostrerebbe zero hit anche per regole che hanno fatto molti match. Suggerito ogni 15 minuti."
+    },
+    "modules-prices-sync": {
+      "label": "Sync Prezzi",
+      "description": "Recupera gli ultimi prezzi per l'universo attivo dei coin da CoinGecko / source fallback e aggiorna la cache KV live.",
+      "purpose": "Mantiene freschi i prezzi live sul frontend (tabella mercati, watchlist, grafici)."
+    },
+    "modules-prices-snapshot": {
+      "label": "Snapshot Prezzi",
+      "description": "Persiste uno snapshot periodico dei prezzi nella tabella time-series per i grafici storici.",
+      "purpose": "Alimenta i grafici storici e i calcoli di delta (24h, 7gg)."
+    },
+    "modules-prices-cleanup": {
+      "label": "Pulizia Prezzi",
+      "description": "Cancella gli snapshot prezzi più vecchi della finestra di retention configurata dalla tabella time-series.",
+      "purpose": "Mantiene la dimensione DB sotto controllo e rispetta la retention configurata nelle settings del modulo."
+    }
   },
   "signIn": {
     "eyebrow": "Pannello Amministrazione",
@@ -116,7 +191,7 @@
       },
       "notifications": {
         "label": "Notifiche",
-        "description": "Allerte sessioni sospette, impostazioni di invio e notifiche per regola."
+        "description": "Notifiche admin: destinatari, sorgenti di alert (sessioni, cron, …) e schedule di invio per sorgente."
       }
     },
     "general": {
@@ -314,8 +389,8 @@
       }
     },
     "notifications": {
-      "recipientsScheduleTitle": "Destinatari & schedule",
-      "recipientsScheduleSubtitle": "Chi riceve il digest via email, con quale frequenza, e la soglia di severità per pannello/email.",
+      "recipientsScheduleTitle": "Destinatari & opzioni globali",
+      "recipientsScheduleSubtitle": "Chi riceve i digest via email. Schedule e soglie di severità si configurano nelle singole sorgenti (sessioni, cron, …).",
       "recipientsLabel": "Email destinatari",
       "recipientsHint": "Una per riga o separate da virgola.",
       "scheduleLabel": "Schedule email",
@@ -435,7 +510,25 @@
       "missingJobsTitle": "Core job mancanti",
       "missingJobsIntro": "Questi cron HTTP del core sono dichiarati in lib/cron/registry.ts ma NON sono ancora registrati in pg_cron. Esegui l'SQL corrispondente nel SQL Editor di Supabase per attivarli — l'URL viene ricostruito dal dominio del sito attualmente configurato.",
       "missingJobsNoDomain": "Il dominio del sito non è ancora configurato. Impostalo in Settings → General prima di installare i cron mancanti, altrimenti lo statement non può essere generato.",
-      "missingJobsSecretReminder": "Sostituisci <CRON_SECRET> con il bearer reale prima di eseguire."
+      "missingJobsSecretReminder": "Sostituisci <CRON_SECRET> con il bearer reale prima di eseguire.",
+      "categories": {
+        "account-gdpr": {
+          "label": "Account & GDPR",
+          "subtitle": "Ciclo di vita degli account utente: export, purge soft-delete, retention del consent ledger, email di re-consent per cambio policy."
+        },
+        "sessions": {
+          "label": "Sessioni",
+          "subtitle": "Manutenzione sessioni e rilevamento attività sospette."
+        },
+        "notifications": {
+          "label": "Notifiche",
+          "subtitle": "Dispatch delle notifiche admin e consegna email outbound."
+        },
+        "security": {
+          "label": "Sicurezza",
+          "subtitle": "Regole IP, contatori abuse e altra manutenzione lato proxy/edge."
+        }
+      }
     },
     "snippets": {
       "title": "Snippet globali",
@@ -2531,6 +2624,7 @@
     "redirect": {
       "metaTitle": "Redirect",
       "pageHeading": "Redirect",
+      "pageSubtitle": "Gestisci i redirect manuali e quelli automatici generati dai cambi di slug.",
       "totalCount": "{count, plural, one {# redirect configurato} other {# redirect configurati}}",
       "addButton": "Aggiungi redirect",
       "formNewTitle": "Nuovo redirect",
@@ -2581,6 +2675,7 @@
     "robots": {
       "metaTitle": "Robots",
       "pageHeading": "Robots",
+      "pageSubtitle": "Gestisci i file robots.txt e humans.txt serviti dall'app.",
       "pageSubtitleBefore": "Gestisci i file",
       "pageSubtitleMiddle": "e",
       "pageSubtitleAfter": "serviti dall'app.",
@@ -2600,6 +2695,7 @@
     },
     "sitemap": {
       "pageHeading": "Sitemap",
+      "pageSubtitle": "Generazione automatica del file sitemap.xml.",
       "pageSubtitleBefore": "Generazione automatica del file",
       "pageSubtitleAfter": ".",
       "placeholderTitle": "In arrivo",
@@ -3110,6 +3206,9 @@
     "services-google": "Google OAuth",
     "services-github": "GitHub CI",
     "services-cloudflare": "Cloudflare",
+    "services-supabase": "Supabase",
+    "services-sentry": "Sentry",
+    "services-dependencies": "Dipendenze",
     "settings-languages": "Lingue",
     "modules-group": "Moduli",
     "tests": "Test Suite",

@@ -5,14 +5,7 @@ import { Cookie, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 import {
   acceptAllCookiesAction,
   rejectAllCookiesAction,
@@ -107,19 +100,13 @@ export function CookieCustomizeModal({
   };
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg p-0 max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-gc-warning-bg text-gc-warning-fg"
-            aria-hidden>
-            <Cookie size={16} />
-          </span>
-          <DialogTitle>{t("title")}</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-auto px-5 py-4">
-          <DialogDescription className="mb-4">
+    <GcModal open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <GcModalContent
+        icon={Cookie}
+        iconTone="info"
+        title={t("title")}
+        description={
+          <>
             {t("intro")}
             {policyUrl && (
               <>
@@ -134,9 +121,38 @@ export function CookieCustomizeModal({
                 </a>
               </>
             )}
-          </DialogDescription>
-
-          <ul className="space-y-3">
+          </>
+        }
+        size="lg"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRejectAll}
+              disabled={isPending}>
+              {t("rejectAll")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSaveCustom}
+              disabled={isPending}>
+              {isPending ? t("savingPending") : t("saveSelection")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAcceptAll}
+              disabled={isPending}>
+              {t("acceptAll")}
+            </Button>
+          </>
+        }
+      >
+        <ul className="space-y-3">
               {CATEGORY_KEYS.map(({ key, locked }) => {
                 const checked = stateFor(key);
                 const setChecked = setterFor(key);
@@ -214,35 +230,8 @@ export function CookieCustomizeModal({
                   </li>
                 );
               })}
-          </ul>
-        </div>
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleRejectAll}
-            disabled={isPending}>
-            {t("rejectAll")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleSaveCustom}
-            disabled={isPending}>
-            {isPending ? t("savingPending") : t("saveSelection")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleAcceptAll}
-            disabled={isPending}>
-            {t("acceptAll")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ul>
+      </GcModalContent>
+    </GcModal>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,9 @@ type Props = {
 
 export function MfaDisableForm({ onCancel }: Props) {
   const router = useRouter();
+  const t = useTranslations("core.settings.security.mfa");
+  const tCommon = useTranslations("core.common");
+  const tShared = useTranslations("core.settings.shared");
   const [state, action, pending] = useActionState<ActionState, FormData>(
     disableMfaAction,
     {},
@@ -30,12 +34,10 @@ export function MfaDisableForm({ onCancel }: Props) {
     <section className="space-y-4">
       <div>
         <h2 className="text-[15px] font-semibold text-gc-fg">
-          Disabilita autenticazione a due fattori
+          {t("disableTitle")}
         </h2>
         <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          Per sicurezza ti chiediamo di confermare con la password e con il
-          codice corrente della tua app autenticatore. Tutti i recovery codes
-          verranno invalidati.
+          {t("disableDescription")}
         </p>
       </div>
 
@@ -48,7 +50,7 @@ export function MfaDisableForm({ onCancel }: Props) {
             htmlFor="mfa-disable-password"
             className="text-[13px] font-semibold text-gc-fg"
           >
-            Password
+            {t("passwordLabel")}
           </Label>
           <Input
             id="mfa-disable-password"
@@ -65,7 +67,7 @@ export function MfaDisableForm({ onCancel }: Props) {
             htmlFor="mfa-disable-token"
             className="text-[13px] font-semibold text-gc-fg"
           >
-            Codice autenticatore
+            {t("tokenLabel")}
           </Label>
           <Input
             id="mfa-disable-token"
@@ -77,7 +79,7 @@ export function MfaDisableForm({ onCancel }: Props) {
             maxLength={6}
             required
             className="mt-1 font-mono text-lg tracking-widest text-center max-w-[12rem]"
-            placeholder="000000"
+            placeholder={tShared("verificationCodePlaceholder")}
           />
         </div>
 
@@ -89,10 +91,10 @@ export function MfaDisableForm({ onCancel }: Props) {
           <Button type="submit" variant="destructive" disabled={pending}>
             {pending ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> Disabilito…
+                <Loader2 className="size-4 animate-spin" /> {t("disablePending")}
               </>
             ) : (
-              "Disabilita"
+              t("disableIdle")
             )}
           </Button>
           <Button
@@ -101,7 +103,7 @@ export function MfaDisableForm({ onCancel }: Props) {
             onClick={onCancel}
             disabled={pending}
           >
-            Annulla
+            {tCommon("cancel")}
           </Button>
         </div>
       </form>

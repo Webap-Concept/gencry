@@ -6,14 +6,7 @@ import type { PolicyNotificationKey } from "@/lib/db/schema";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 import { acceptUpdatedConsentsAction } from "./policy-reconsent-actions";
 
 type PendingItem = {
@@ -153,7 +146,7 @@ function ReconsentModal({
     (!hasTerms || acceptedTerms) && (!hasPrivacy || acceptedPrivacy);
 
   return (
-    <Dialog
+    <GcModal
       open
       onOpenChange={(o) => {
         // shadcn Dialog chiama questo con `false` quando user preme ESC o
@@ -162,35 +155,55 @@ function ReconsentModal({
         if (!o && onClose) onClose();
       }}
     >
-      <DialogContent
-        className="max-w-lg p-0 max-h-[85vh] flex flex-col"
-        showCloseButton={!!onClose}
-        onEscapeKeyDown={(e) => {
-          if (!onClose) e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          if (!onClose) e.preventDefault();
-        }}
+      <GcModalContent
+        icon={AlertTriangle}
+        iconTone="warning"
+        title="Conferma le policy aggiornate"
+        description="Abbiamo aggiornato le policy che hai accettato in passato. Spunta le caselle per confermare la nuova versione. I link aprono il testo completo in una nuova scheda."
+        size="lg"
+        hideCloseButton={!onClose}
+        preventDismiss={!onClose}
+        footer={
+          <>
+            {isBlocking ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => signOut()}
+                disabled={isPending}>
+                Esci
+              </Button>
+            ) : (
+              onClose && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  disabled={isPending}>
+                  Decidi più tardi
+                </Button>
+              )
+            )}
+            <Button
+              type="button"
+              size="sm"
+              disabled={!requiredOk || isPending}
+              onClick={() => {
+                const form = document.querySelector(
+                  "form[data-reconsent-form]",
+                ) as HTMLFormElement | null;
+                form?.requestSubmit();
+              }}>
+              {isPending ? "Salvataggio…" : "Accetta e continua"}
+            </Button>
+          </>
+        }
       >
-        <DialogHeader>
-          <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center bg-gc-warning-bg text-gc-warning-fg shrink-0">
-            <AlertTriangle size={16} />
-          </span>
-          <DialogTitle>Conferma le policy aggiornate</DialogTitle>
-        </DialogHeader>
-
-        {/* Body */}
-        <form
-          action={formAction}
-          data-reconsent-form
-          className="flex-1 overflow-auto px-5 py-4">
-          <DialogDescription className="mb-4">
-            Abbiamo aggiornato le policy che hai accettato in passato.
-            Spunta le caselle per confermare la nuova versione. I link
-            aprono il testo completo in una nuova scheda.
-          </DialogDescription>
-
+        {/* Body — il form wrappa la lista così requestSubmit() agganciato
+            al pulsante footer triggera la Server Action correttamente. */}
+        <form action={formAction} data-reconsent-form>
           <ul className="space-y-3">
               {items.map((it) => {
                 const slug = slugs[it.policyKey];
@@ -256,49 +269,14 @@ function ReconsentModal({
               })}
             </ul>
 
-            {state.error && (
-              <p className="mt-3 text-xs text-gc-neg">{state.error}</p>
-            )}
-            {state.success && (
-              <p className="mt-3 text-xs text-gc-success-fg">{state.success}</p>
-            )}
-
-        </form>
-
-        <DialogFooter>
-          {isBlocking ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => signOut()}
-              disabled={isPending}>
-              Esci
-            </Button>
-          ) : (
-            onClose && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                disabled={isPending}>
-                Decidi più tardi
-              </Button>
-            )
+          {state.error && (
+            <p className="mt-3 text-xs text-gc-neg">{state.error}</p>
           )}
-          <Button
-            type="button"
-            size="sm"
-            disabled={!requiredOk || isPending}
-            onClick={() => {
-              const form = document.querySelector("form[data-reconsent-form]") as HTMLFormElement | null;
-              form?.requestSubmit();
-            }}>
-            {isPending ? "Salvataggio…" : "Accetta e continua"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {state.success && (
+            <p className="mt-3 text-xs text-gc-success-fg">{state.success}</p>
+          )}
+        </form>
+      </GcModalContent>
+    </GcModal>
   );
 }

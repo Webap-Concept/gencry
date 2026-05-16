@@ -2,7 +2,7 @@
 
 import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
-import Tooltip from "@/app/(admin)/admin/_components/tooltip";
+import { AdminTooltip as Tooltip } from "@/app/(admin)/admin/_components/admin-tooltip";
 import { getAdminRelPath } from "@/lib/admin-nav";
 import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { Page, PageTemplate } from "@/lib/db/schema";

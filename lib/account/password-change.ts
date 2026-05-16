@@ -13,9 +13,16 @@ import { revokeAllUserSessions } from "@/lib/auth/sessions";
 import { isStrongPassword } from "@/lib/account/password-rules";
 import { eq } from "drizzle-orm";
 
+export type ChangePasswordError =
+  | "noPasswordOAuth"
+  | "currentIncorrect"
+  | "sameAsCurrent"
+  | "confirmMismatch"
+  | "weakPassword";
+
 export type ChangePasswordResult =
   | { ok: true; revokedOtherSessions: number }
-  | { ok: false; error: string };
+  | { ok: false; error: ChangePasswordError };
 
 /**
  * `currentSessionId` è la sessione che l'utente sta usando ora (presa da
@@ -34,33 +41,24 @@ export async function changePassword(
 ): Promise<ChangePasswordResult> {
   // OAuth-only senza password: non può cambiarla qui.
   if (currentPasswordHash === null) {
-    return {
-      ok: false,
-      error: "Il tuo account non ha una password (accesso solo via Google).",
-    };
+    return { ok: false, error: "noPasswordOAuth" };
   }
 
   const valid = await comparePasswords(currentPassword, currentPasswordHash);
   if (!valid) {
-    return { ok: false, error: "La password attuale non è corretta." };
+    return { ok: false, error: "currentIncorrect" };
   }
 
   if (currentPassword === newPassword) {
-    return {
-      ok: false,
-      error: "La nuova password deve essere diversa da quella attuale.",
-    };
+    return { ok: false, error: "sameAsCurrent" };
   }
 
   if (newPassword !== confirmPassword) {
-    return { ok: false, error: "Le password non coincidono." };
+    return { ok: false, error: "confirmMismatch" };
   }
 
   if (!isStrongPassword(newPassword)) {
-    return {
-      ok: false,
-      error: "La nuova password non rispetta i requisiti di sicurezza.",
-    };
+    return { ok: false, error: "weakPassword" };
   }
 
   const newHash = await hashPassword(newPassword);

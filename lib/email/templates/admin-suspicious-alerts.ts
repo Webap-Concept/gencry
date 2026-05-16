@@ -145,17 +145,19 @@ function buildSubject(alerts: DigestAlert[]): string {
     : `${alerts.length} suspicious session alerts`;
 }
 
-export async function sendSuspiciousAlertsDigest({
-  recipients,
+/**
+ * Pure-render: ricostruisce subject + html del digest senza inviare nulla.
+ * Esportata per essere riusata dal generic email-channel renderer
+ * (`session-suspicious` adapter) — il dispatcher gestisce sendEmail +
+ * mark `email_sent_at` su admin_notifications.
+ */
+export async function renderSuspiciousAlertsDigest({
   alerts,
   schedule,
 }: {
-  recipients: string[];
   alerts: DigestAlert[];
   schedule: string;
-}): Promise<void> {
-  if (recipients.length === 0 || alerts.length === 0) return;
-
+}): Promise<{ subject: string; html: string }> {
   const [settings, usersAdminPath, sessionsAdminPath] = await Promise.all([
     getAppSettings(),
     buildAdminPath("/access/users"),
@@ -163,14 +165,10 @@ export async function sendSuspiciousAlertsDigest({
   ]);
   const appName = settings.app_name;
   const appDomain = settings.app_domain || "";
-  // app_domain in DB may or may not include the scheme (legacy rows / future
-  // tenants). Normalize once: prepend https:// only if missing, strip trailing
-  // slash. Same pattern used in lib/db/pages-queries.ts and admin/content/pages.
   const baseUrl = appDomain
     ? (/^https?:\/\//i.test(appDomain) ? appDomain : `https://${appDomain}`).replace(/\/$/, "")
     : "";
 
-  // Sort: critical → warning → info, then newest first inside each group.
   const sorted = [...alerts].sort((a, b) => {
     const sa = SEVERITY_ORDER[a.severity] ?? 99;
     const sb = SEVERITY_ORDER[b.severity] ?? 99;
@@ -180,11 +178,7 @@ export async function sendSuspiciousAlertsDigest({
 
   const subject = buildSubject(sorted);
   const intro = `Detected ${sorted.length} suspicious session ${sorted.length === 1 ? "alert" : "alerts"} since the last digest (${schedule.replace("_", " ")}).`;
-
-  const cardsHtml = sorted
-    .map((a) => alertCard(a, baseUrl, usersAdminPath))
-    .join("\n");
-
+  const cardsHtml = sorted.map((a) => alertCard(a, baseUrl, usersAdminPath)).join("\n");
   const link = baseUrl
     ? `${baseUrl}${sessionsAdminPath}?tab=alerts`
     : `${sessionsAdminPath}?tab=alerts`;
@@ -198,20 +192,39 @@ export async function sendSuspiciousAlertsDigest({
     </p>
   `;
 
-  // Single send with everyone in BCC so admins don't see each other's
-  // addresses. The `to` is the sender mailbox itself for delivery
-  // semantics; everyone real is BCC'd.
+  const html = renderEmail({
+    appName,
+    logoUrl: resolveEmailLogoUrl(settings),
+    title: subject,
+    contentHtml,
+    footerText: `© ${new Date().getFullYear()} ${appName} · Sent because you are listed as a recipient in /admin/settings/notifications.`,
+  });
+  return { subject, html };
+}
+
+/**
+ * @deprecated Use the generic email-channel dispatcher
+ * (`lib/notifications/email-channel/dispatcher.ts`) + the
+ * `session-suspicious` renderer instead. Kept for backward-compat
+ * with any direct caller — internally now just composes
+ * `renderSuspiciousAlertsDigest` + `sendEmail`.
+ */
+export async function sendSuspiciousAlertsDigest({
+  recipients,
+  alerts,
+  schedule,
+}: {
+  recipients: string[];
+  alerts: DigestAlert[];
+  schedule: string;
+}): Promise<void> {
+  if (recipients.length === 0 || alerts.length === 0) return;
+  const { subject, html } = await renderSuspiciousAlertsDigest({ alerts, schedule });
   const [first, ...rest] = recipients;
   await sendEmail({
     to: first,
     bcc: rest.length > 0 ? rest : undefined,
     subject,
-    html: renderEmail({
-      appName,
-      logoUrl: resolveEmailLogoUrl(settings),
-      title: subject,
-      contentHtml,
-      footerText: `© ${new Date().getFullYear()} ${appName} · Sent because you are listed as a recipient in /admin/settings/notifications.`,
-    }),
+    html,
   });
 }

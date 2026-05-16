@@ -2,31 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Compass, Home, Plus, User as UserIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Bell, Compass, Home, User as UserIcon } from "lucide-react";
+import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
-// 5 slot con il "+" centrale enfatizzato (CTA Nuova watchlist).
+// 5 slot con il "+" centrale enfatizzato (CTA Nuovo post).
 
 type LinkSlot = {
   href: string;
-  label: string;
+  /** Chiave i18n nel namespace `core.bottomNav.<labelKey>`. */
+  labelKey: "feed" | "explore" | "notifications" | "profile";
   icon: typeof Home;
 };
 
-// `null` = slot del bottone +Nuova watchlist (centrale, non navigabile)
+// `null` = slot del bottone +Nuovo post (centrale, non navigabile)
 const SLOTS: (LinkSlot | null)[] = [
-  { href: "/", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
+  { href: "/", labelKey: "feed", icon: Home },
+  { href: "/explore", labelKey: "explore", icon: Compass },
   null,
-  { href: "/notifiche", label: "Notifiche", icon: Bell },
-  { href: "/profile", label: "Profilo", icon: UserIcon },
+  { href: "/notifiche", labelKey: "notifications", icon: Bell },
+  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
 
 export function AppBottomNav() {
   const pathname = usePathname();
+  const t = useTranslations("core.bottomNav");
   return (
     <nav
-      aria-label="Navigazione principale"
+      aria-label={t("ariaLabel")}
       // z-30 (NAV layer di lib/ui/z-index.ts): sopra il main ma sotto
       // modali/drawer (z-50). Prima era z-50 e si sovrapponeva al
       // shadcn Sheet drawer.
@@ -34,18 +38,9 @@ export function AppBottomNav() {
     >
       {SLOTS.map((slot) => {
         if (!slot) {
-          return (
-            <button
-              key="new-watchlist"
-              type="button"
-              aria-label="Nuova watchlist"
-              className="w-12 h-12 rounded-full bg-gc-accent text-white flex items-center justify-center -mt-3 shadow-md hover:brightness-95 transition"
-            >
-              <Plus size={22} strokeWidth={2.5} />
-            </button>
-          );
+          return <NewPostButton key="new-post" variant="fab" />;
         }
-        const { href, label, icon: Icon } = slot;
+        const { href, labelKey, icon: Icon } = slot;
         const active = pathname === href;
         return (
           <Link
@@ -58,7 +53,7 @@ export function AppBottomNav() {
             }`}
           >
             <Icon size={20} strokeWidth={1.75} />
-            <span className="text-[10.5px] font-medium">{label}</span>
+            <span className="text-[10.5px] font-medium">{t(labelKey)}</span>
           </Link>
         );
       })}

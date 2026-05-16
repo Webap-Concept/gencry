@@ -124,6 +124,23 @@ function CronRowItem({
   onToast: (t: { message: string; type: "success" | "error" }) => void;
 }) {
   const t = useTranslations("admin.cron");
+  const tJobs = useTranslations("admin.cronJobs");
+  // i18n con fallback al registry hardcoded EN. Migrazione incrementale:
+  // ogni job tradotto in messages/<locale>/admin.json vince; quelli non
+  // ancora tradotti restano in inglese senza MISSING_MESSAGE.
+  const localizedMeta = row.meta
+    ? {
+        label: tJobs.has(`${row.meta.jobname}.label`)
+          ? tJobs(`${row.meta.jobname}.label`)
+          : row.meta.label,
+        description: tJobs.has(`${row.meta.jobname}.description`)
+          ? tJobs(`${row.meta.jobname}.description`)
+          : row.meta.description,
+        purpose: tJobs.has(`${row.meta.jobname}.purpose`)
+          ? tJobs(`${row.meta.jobname}.purpose`)
+          : row.meta.purpose,
+      }
+    : null;
   const { job, meta, expectedCommand, commandDrift } = row;
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState(job.active);
@@ -163,7 +180,7 @@ function CronRowItem({
   }
 
   const lastRun = job.lastRun;
-  const displayName = meta?.label ?? job.jobname ?? `job-${job.jobid}`;
+  const displayName = localizedMeta?.label ?? job.jobname ?? `job-${job.jobid}`;
 
   return (
     <>
@@ -216,9 +233,9 @@ function CronRowItem({
                 {job.jobname}
               </span>
             )}
-            {meta && (
+            {localizedMeta && (
               <p className="text-xs mt-1 leading-snug" style={{ color: "var(--admin-text-muted)" }}>
-                {meta.description}
+                {localizedMeta.description}
               </p>
             )}
           </div>
@@ -267,9 +284,9 @@ function CronRowItem({
                 <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--admin-text-faint)" }}>
                   <Info size={12} /> {t("purposeTitle")}
                 </h4>
-                {meta ? (
+                {localizedMeta ? (
                   <p className="text-sm leading-relaxed" style={{ color: "var(--admin-text)" }}>
-                    {meta.purpose}
+                    {localizedMeta.purpose}
                   </p>
                 ) : (
                   <p className="text-xs italic" style={{ color: "var(--admin-text-faint)" }}>

@@ -98,13 +98,18 @@
   }
 
   /* Nasconde la scrollbar mantenendo lo scroll funzionante.
-     Usata sul ticker watchlist (scroll orizzontale fluido). */
+     Usata sul ticker watchlist + gallery carousel del modulo posts.
+     !important: alcuni reset CSS (es. body scrollbar-gutter) o le
+     overlay scrollbars di Windows possono sovrascrivere senza
+     questo. */
   .no-scrollbar::-webkit-scrollbar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
   .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
   }
 }
 

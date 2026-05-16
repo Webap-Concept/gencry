@@ -4,6 +4,7 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   type ActionState,
   validatedActionWithUser,
@@ -59,10 +60,11 @@ export const toggleMarketingConsentAction = validatedActionWithUser(
     });
 
     revalidatePath("/settings/privacy");
+    const tAct = await getTranslations("core.settings.actions");
     return {
       success: data.enabled
-        ? "Hai attivato le comunicazioni marketing."
-        : "Hai disattivato le comunicazioni marketing.",
+        ? tAct("marketingActivated")
+        : tAct("marketingDeactivated"),
     } satisfies ActionState;
   },
 );
@@ -84,9 +86,10 @@ export const requestAccountDeletionAction = validatedActionWithUser(
   requestAccountDeletionSchema,
   async (data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
       return {
-        error: "Sessione scaduta. Effettua di nuovo il login.",
+        error: tAct("sessionExpired"),
       } satisfies ActionState;
     }
 
@@ -123,9 +126,10 @@ export const sendAccountDeletionOtpAction = validatedActionWithUser(
   sendAccountDeletionOtpSchema,
   async (_data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
       return {
-        error: "Sessione scaduta. Effettua di nuovo il login.",
+        error: tAct("sessionExpired"),
       } satisfies ActionState;
     }
 
@@ -142,7 +146,7 @@ export const sendAccountDeletionOtpAction = validatedActionWithUser(
     }
 
     return {
-      success: `Codice inviato a ${fullUser.email}. Inseriscilo qui sotto per confermare l'eliminazione.`,
+      success: tAct("emailCodeSent", { newEmail: fullUser.email }),
     } satisfies ActionState;
   },
 );
@@ -162,9 +166,10 @@ export const confirmAccountDeletionViaOtpAction = validatedActionWithUser(
   confirmDeletionViaOtpSchema,
   async (data, _formData, user) => {
     const fullUser = await getUser();
+    const tAct = await getTranslations("core.settings.actions");
     if (!fullUser) {
       return {
-        error: "Sessione scaduta. Effettua di nuovo il login.",
+        error: tAct("sessionExpired"),
       } satisfies ActionState;
     }
 

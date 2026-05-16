@@ -1,0 +1,671 @@
+"use client";
+// components/modules/posts/PostCard.tsx
+//
+// Card presentational riusabile di un post. Riceve PostCardData
+// hydratato (vedi lib/modules/posts/types.ts).
+//
+// Layout v3 (2026-05-14, post-audit):
+//   - Card-level click NON usa più e.target.closest() blacklist.
+//     Pattern "stretched-link": un <Link> assoluto inset-0 sotto i
+//     contenuti cattura il click sui pixel "vuoti" della card. Gli
+//     elementi interattivi (avatar, username, dropdown, X, gallery,
+//     reactions, ecc.) sono `relative z-[1]` SOPRA l'overlay e
+//     ricevono il click per primi → no escape via closest().
+//   - Autore può Modificare (entro edit_window_minutes) via menu ⋯
+//     che apre PostComposerModal in mode "edit", body+visibility
+//     pre-popolati. Visibility cambiabile solo verso più restrittivo.
+//
+//  Variant:
+//   "feed"   — overlay link attivo, gallery=carousel
+//   "single" — niente overlay (siamo già su /post/{id}), gallery=grid
+import {
+  startTransition,
+  useEffect,
+  useOptimistic,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import useSWR from "swr";
+import {
+  ArrowUpRight,
+  Bookmark,
+  BookmarkCheck,
+  Flag,
+  MessageCircle,
+  MoreHorizontal,
+  Pencil,
+  Repeat2,
+  Trash2,
+  UserMinus,
+} from "lucide-react";
+import type { PostCardData, PostReactionCounts } from "@/lib/modules/posts/types";
+import type { PostReactionKind } from "@/lib/db/schema";
+import {
+  softDeletePost,
+  toggleBookmark,
+  toggleReaction,
+  toggleUserBlock,
+} from "@/lib/modules/posts/actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PostBody } from "./PostBody";
+import { PostMediaGallery } from "./PostMediaGallery";
+import { PostComposerModal } from "./PostComposerModal";
+import { ReactionPopover } from "./ReactionPopover";
+import { ReportPostDialog } from "./ReportPostDialog";
+import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
+import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
+import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
+
+function authorDisplayName(
+  author: PostCardData["author"],
+  fallback: string,
+): string {
+  if (author.username) return `@${author.username}`;
+  const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
+  return full || fallback;
+}
+
+function authorInitial(author: PostCardData["author"]): string {
+  const f = (author.username ?? author.firstName ?? "?")[0] ?? "?";
+  return f.toUpperCase();
+}
+
+// Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
+// (es. "it-IT", "en-US") per il fallback toLocaleDateString quando l'età
+// supera 7 giorni.
+function formatRelativeTime(
+  date: Date,
+  t: (key: string, values?: Record<string, number>) => string,
+  locale: string,
+): string {
+  const diffMs = Date.now() - new Date(date).getTime();
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return t("now");
+  if (sec < 3600) return t("minutes_short", { n: Math.floor(sec / 60) });
+  if (sec < 86_400) return t("hours_short", { n: Math.floor(sec / 3600) });
+  if (sec < 604_800) return t("days_short", { n: Math.floor(sec / 86_400) });
+  return new Date(date).toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+type CurrentUser = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+};
+
+const userFetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const EDIT_WINDOW_MS_DEFAULT = 10 * 60 * 1000;
+
+type Props = {
+  post: PostCardData;
+  /** True quando viewer === author. */
+  isAuthor?: boolean;
+  /**
+   * "feed"   — overlay link verso /post/{id}, gallery carousel
+   * "single" — niente overlay (no nav su sé stessi), gallery stack
+   */
+  variant?: "feed" | "single";
+  /**
+   * Edit window in millisecondi (default 10min). Il PostsFeedSection
+   * potrà in futuro passare il valore da app_settings; per ora il
+   * default basta perché matcha modules.posts.edit_window_minutes.
+   */
+  editWindowMs?: number;
+  /**
+   * Se settato, dopo un block confermato dell'autore il PostCard
+   * naviga a questo path (es. "/" per portare l'utente al feed dopo
+   * aver bloccato dalla pagina singolo post). Default `undefined` →
+   * solo optimistic hide locale (UX feed).
+   */
+  redirectAfterBlock?: string;
+  /**
+   * Speculare a redirectAfterBlock ma per soft-delete del proprio
+   * post: la single-post page passa "/", il feed non lo passa.
+   */
+  redirectAfterDelete?: string;
+  /**
+   * Mappa lower-name → SYMBOL caricata dal Server Component padre per
+   * il match implicito dei coin nel PostBody. Propagata sia al body
+   * principale sia al `repostOf` embed. Senza, solo `$TICKER` espliciti
+   * vengono linkati.
+   */
+  coinNameMap?: Record<string, string>;
+  /**
+   * Preview ticker pre-fetched server-side (batch). Propagata al
+   * TickerHoverCard tramite PostBody per primo hover zero-latency.
+   */
+  tickerPreviewMap?: Record<string, TickerPreviewData>;
+};
+
+export function PostCard({
+  post,
+  isAuthor,
+  variant = "feed",
+  editWindowMs = EDIT_WINDOW_MS_DEFAULT,
+  redirectAfterBlock,
+  redirectAfterDelete,
+  coinNameMap,
+  tickerPreviewMap,
+}: Props) {
+  const router = useRouter();
+  const t = useTranslations("posts");
+  const tCard = useTranslations("posts.card");
+  const tVis = useTranslations("posts.visibility");
+  const tTime = useTranslations("posts.time");
+  const locale = useLocale();
+  const userFallback = t("common.user_fallback");
+  // Optimistic display state per body/visibility/editedAt: dopo
+  // edit successo aggiorniamo questi 3 senza dover ri-fetchare il
+  // post dal server. Il modal in riapertura usa displayedBody come
+  // initial (non più post.body) così non vede mai contenuto stale.
+  const [displayedBody, setDisplayedBody] = useState(post.body);
+  const [displayedVisibility, setDisplayedVisibility] = useState(
+    post.visibility,
+  );
+  const [displayedEditedAt, setDisplayedEditedAt] = useState<Date | null>(
+    post.editedAt,
+  );
+
+  // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
+  // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
+  //   il "valore vero" lato client. Viene aggiornato manualmente DOPO che
+  //   il server action ritorna ok.
+  // - `optimisticX` (useOptimistic) wrappa confirmed: durante la pending
+  //   transition mostra l'anteprima; appena la transition decade torna a
+  //   confirmed (che, dopo il successo, è già il valore nuovo → niente
+  //   "flash back" alla reaction precedente). Rollback su fail = gratuito:
+  //   non aggiorniamo confirmed e l'ottimistico decade da solo.
+  // Senza il "confirmed", useOptimistic torna al passthrough = prop `post`
+  // che NON cambia (niente router.refresh): il bug era proprio quello.
+  const initialOwnReaction: PostReactionKind | null =
+    post.viewer?.ownReactions?.[0] ?? null;
+  const [confirmedBookmarked, setConfirmedBookmarked] = useState(
+    post.viewer?.bookmarked ?? false,
+  );
+  const [bookmarked, setOptimisticBookmarked] =
+    useOptimistic(confirmedBookmarked);
+  const [confirmedReaction, setConfirmedReaction] = useState<
+    PostReactionKind | null
+  >(initialOwnReaction);
+  const [ownReaction, setOptimisticReaction] =
+    useOptimistic<PostReactionKind | null>(confirmedReaction);
+  const [confirmedCounts, setConfirmedCounts] = useState<PostReactionCounts>(
+    post.counts.reactions,
+  );
+  const [optimisticCounts, applyCountsDelta] = useOptimistic<
+    PostReactionCounts,
+    { remove?: PostReactionKind; add?: PostReactionKind }
+  >(confirmedCounts, (state, delta) => {
+    const next = { ...state };
+    if (delta.remove) next[delta.remove] = Math.max(0, next[delta.remove] - 1);
+    if (delta.add) next[delta.add] = next[delta.add] + 1;
+    return next;
+  });
+  const reactionsTotal =
+    optimisticCounts.like +
+    optimisticCounts.rocket +
+    optimisticCounts.bull +
+    optimisticCounts.bear +
+    optimisticCounts.dump +
+    optimisticCounts.diamond;
+  const [deleted, setDeleted] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  // NB: deleteOpen/reportOpen/blockOpen DEVONO stare qui sopra
+  // l'early return `if (deleted || blocked) return null` — altrimenti
+  // dopo `setDeleted(true)` il render successivo salta questi useState
+  // → React vede meno hooks del render precedente → minified error #300
+  // ("Rendered fewer hooks than expected"). È esattamente il crash che
+  // vedevamo eliminando un proprio post dal feed.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  // Edit-window è dinamico: la finestra può scadere mentre l'utente
+  // sta guardando la card. Forza re-render ogni 30s così "Modifica"
+  // sparisce al passaggio del minuto 10.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isAuthor) return;
+    const t = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [isAuthor]);
+
+  // User per il composer in edit: fetch solo se l'utente è autore (non
+  // serve a non-autori). useSWR cachato globale ⇒ 1 sola fetch per N card.
+  const { data: currentUser } = useSWR<CurrentUser>(
+    isAuthor ? "/api/user" : null,
+    userFetcher,
+    { revalidateOnFocus: false, keepPreviousData: true },
+  );
+
+  if (deleted || blocked) return null;
+
+  const onToggleReaction = (kind: PostReactionKind) => {
+    const wasActive = confirmedReaction === kind;
+    const previousOwn = confirmedReaction;
+    const newReaction = wasActive ? null : kind;
+    startTransition(async () => {
+      setOptimisticReaction(newReaction);
+      applyCountsDelta({
+        remove: previousOwn ?? undefined,
+        add: wasActive ? undefined : kind,
+      });
+      const res = await toggleReaction({ postId: post.id, reaction: kind });
+      if (res.ok) {
+        // Confermo il nuovo stato lato client così, quando la transition
+        // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
+        setConfirmedReaction(newReaction);
+        setConfirmedCounts((prev) => {
+          const next = { ...prev };
+          if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
+          if (!wasActive) next[kind] = next[kind] + 1;
+          return next;
+        });
+      }
+      // Fail → niente setConfirmed: l'ottimistico decade naturalmente
+      // e la UI torna al valore confirmed precedente (rollback gratis).
+    });
+  };
+
+  const onToggleBookmark = () => {
+    const next = !confirmedBookmarked;
+    startTransition(async () => {
+      setOptimisticBookmarked(next);
+      const res = await toggleBookmark({ postId: post.id });
+      if (res.ok) setConfirmedBookmarked(next);
+    });
+  };
+
+  const onDelete = () => {
+    if (!isAuthor) return;
+    setDeleteOpen(true);
+  };
+  const onDeleteConfirmed = () => {
+    setDeleteOpen(false);
+    startTransition(async () => {
+      // NB: NON facciamo `setDeleted(true)` qui PRIMA del await.
+      // React batcha setDeleteOpen(false) + setDeleted(true) in un solo
+      // commit → il PostCard ritorna null IMMEDIATAMENTE → la Radix
+      // Dialog viene smontata a metà animazione di chiusura, scatena
+      // un crash lato client ("Qualcosa è andato storto"). Aspettiamo
+      // il server, poi nascondiamo localmente.
+      const res = await softDeletePost({ postId: post.id });
+      if (!res.ok) return;
+
+      setDeleted(true);
+
+      // Single-post page (variant="single") passa redirectAfterDelete="/"
+      // così la URL morta non resta nella history (back skippa). Sul
+      // feed, refresh forza il re-fetch RSC dopo revalidatePath del
+      // server action — il FeedList riceve le nuove initialPosts senza
+      // il post deleted, e useResetableListState aggiorna lo state.
+      if (redirectAfterDelete) {
+        router.replace(redirectAfterDelete);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const onReport = () => setReportOpen(true);
+
+  // Block flow (mutual): conferma modale → action → nascondi card.
+  // Lo stato `blocked` agisce come hide locale immediato (UX snappy);
+  // il server invaliderà i feed così al prossimo paint la card sparisce
+  // anche dagli altri tab. Il post puntuale (/post/[id]) ritornerà 404.
+  const onBlock = () => setBlockOpen(true);
+  const onBlockConfirmed = () => {
+    setBlockOpen(false);
+    startTransition(async () => {
+      setBlocked(true);
+      const res = await toggleUserBlock({ blockedUserId: post.author.id });
+      if (!res.ok) {
+        setBlocked(false);
+        return;
+      }
+      // Sulla single-post page (variant="single") il caller passa
+      // redirectAfterBlock="/" e usiamo router.replace() così la post
+      // page bloccata NON resta nella history (back → non torna su
+      // una URL morta, l'utente atterra direttamente sul passo
+      // precedente del flusso).
+      //
+      // Sul feed (no redirect) chiamiamo router.refresh() per
+      // ripopolare la Router Cache di RSC: il server action ha già
+      // chiamato revalidatePath('/', 'layout'), refresh forza il
+      // re-fetch immediato del feed corrente.
+      if (redirectAfterBlock) {
+        router.replace(redirectAfterBlock);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  // Edit-window check: postedAt + 10min > now?
+  const ageMs = nowTick - new Date(post.createdAt).getTime();
+  const canEdit = Boolean(isAuthor) && ageMs < editWindowMs;
+
+  // Click-on-card pattern (Twitter-style). Lo stretched-link <a> overlay
+  // soffriva del bug "click veloce non passa, click tenuto sì": un
+  // mousedown su un <p> selezionabile (PostBody) faceva entrare il
+  // browser in text-selection mode, il mouseup veloce sullo stesso
+  // punto restava col target = <p>, il click NON propagava al <Link>
+  // absolute sopra. Tenendo premuto ~500ms il browser concludeva "no
+  // selezione" e il click finalmente passava. Risolto sostituendo
+  // l'overlay con onClick sull'<article>, che fa router.push solo se
+  // (a) non c'è una selection attiva e (b) il click NON è dentro un
+  // elemento interattivo (a, button, role=menuitem). Selection nativa
+  // preservata, keyboard nav via Enter, role=link per a11y.
+  const isClickable = variant === "feed";
+  // I figli interattivi (header, footer, gallery) NON hanno più bisogno
+  // di z-[1]: senza overlay absolute non c'è più lo stack da scavalcare.
+  // Le classi `relative` restano dove servono per i loro internal
+  // positioning, ma niente z-index richiesto.
+  const interactiveClass = "relative";
+
+  const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!isClickable) return;
+    // Skip se l'utente ha selezionato testo (vuole copiare, non navigare)
+    const sel = typeof window !== "undefined" ? window.getSelection?.() : null;
+    if (sel && sel.toString().trim().length > 0) return;
+    // Skip se il click è atterrato su un elemento interattivo
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        'a, button, [role="menuitem"], [role="menu"], [role="button"], input, textarea, select',
+      )
+    ) {
+      return;
+    }
+    router.push(`/post/${post.id}`);
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (!isClickable) return;
+    if (e.key === "Enter" && e.target === e.currentTarget) {
+      router.push(`/post/${post.id}`);
+    }
+  };
+
+  return (
+    <>
+      <article
+        onClick={isClickable ? handleCardClick : undefined}
+        onKeyDown={isClickable ? handleCardKeyDown : undefined}
+        role={isClickable ? "link" : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        aria-label={isClickable ? tCard("open_post") : undefined}
+        className={`relative bg-gc-bg-2 border border-gc-line rounded-xl p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent ${
+          isClickable
+            ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors"
+            : ""
+        }`}
+      >
+
+        {/* Header: autore + time + visibility */}
+        <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
+          <Link
+            href={`/profile/${post.author.username ?? post.author.id}`}
+            className="shrink-0"
+          >
+            {post.author.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={post.author.avatarUrl}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
+                {authorInitial(post.author)}
+              </div>
+            )}
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <Link
+                href={`/profile/${post.author.username ?? post.author.id}`}
+                className="font-medium text-gc-fg hover:underline"
+              >
+                {authorDisplayName(post.author, userFallback)}
+              </Link>
+              <span className="text-xs text-gc-fg-muted">·</span>
+              <Link
+                href={`/post/${post.id}`}
+                className="text-xs text-gc-fg-muted hover:underline"
+              >
+                <time dateTime={String(post.createdAt)}>
+                  {formatRelativeTime(post.createdAt, tTime, locale)}
+                </time>
+              </Link>
+              {displayedEditedAt ? (
+                <span
+                  className="text-xs text-gc-fg-muted"
+                  title={String(displayedEditedAt)}
+                >
+                  · {tCard("edited")}
+                </span>
+              ) : null}
+              {displayedVisibility !== "public" ? (
+                <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
+                  {tVis(displayedVisibility)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          {/* Top-right toolbar */}
+          <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={tCard("options_menu")}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
+              >
+                <DropdownMenuItem onSelect={onToggleBookmark}>
+                  {bookmarked ? (
+                    <BookmarkCheck size={16} strokeWidth={1.75} />
+                  ) : (
+                    <Bookmark size={16} strokeWidth={1.75} />
+                  )}
+                  {bookmarked
+                    ? tCard("bookmark_remove")
+                    : tCard("bookmark_save")}
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/post/${post.id}`}>
+                    <ArrowUpRight size={16} strokeWidth={1.75} />
+                    {tCard("open_post")}
+                  </Link>
+                </DropdownMenuItem>
+                {canEdit ? (
+                  <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                    <Pencil size={16} strokeWidth={1.75} />
+                    {tCard("edit")}
+                  </DropdownMenuItem>
+                ) : null}
+                {!isAuthor ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onBlock}>
+                      <UserMinus size={16} strokeWidth={1.75} />
+                      {tCard("block_user", {
+                        name: authorDisplayName(post.author, userFallback),
+                      })}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={onReport}>
+                      <Flag size={16} strokeWidth={1.75} />
+                      {tCard("report")}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {isAuthor ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={onDelete}
+                      className="text-gc-danger focus:text-gc-danger"
+                    >
+                      <Trash2 size={16} strokeWidth={1.75} />
+                      {tCard("delete")}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        {/* Body: NON interactiveClass — vogliamo che click su testo
+            "vuoto" cada sull'overlay link verso /post/{id}. I Link
+            interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
+            e catturano da soli il click. */}
+        <PostBody
+          body={displayedBody}
+          coinNameMap={coinNameMap}
+          tickerPreviewMap={tickerPreviewMap}
+        />
+
+        {/* Media gallery: SI interactiveClass — le tile sono <button>
+            e click apre il lightbox, non deve navigare al post. */}
+        {post.media.length > 0 ? (
+          <div className={interactiveClass}>
+            <PostMediaGallery media={post.media} variant={variant} />
+          </div>
+        ) : null}
+
+        {/* I ticker NON sono renderizzati come chip ridondanti: il
+            PostBody parser già linka inline ogni `$TICKER` a
+            /explore?ticker=. La lista post.tickers resta in dati per
+            usi futuri (es. counter trending, ticker page meta). */}
+
+        {/* Quote repost embed: lo lasciamo SOTTO l'overlay così click
+            su area "vuota" dell'embed naviga al post repostante. Se in
+            futuro vorremo che cliccare l'embed apra il TARGET, basta
+            aggiungere un <Link> stretched dentro l'embed con z-[1]. */}
+        {post.repostOf ? (
+          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
+            <div className="flex items-center gap-1 text-xs text-gc-fg-muted mb-1">
+              <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
+              {authorDisplayName(post.repostOf.author, userFallback)}
+            </div>
+            <PostBody
+              body={post.repostOf.body}
+              coinNameMap={coinNameMap}
+              tickerPreviewMap={tickerPreviewMap}
+            />
+          </div>
+        ) : post.repostOfTombstone ? (
+          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
+            {tCard("repost_tombstone")}
+          </div>
+        ) : null}
+
+        {/* Footer: 3 azioni — tutte interattive sopra l'overlay */}
+        <footer className={`${interactiveClass} mt-4 flex items-center gap-1`}>
+          <ReactionPopover
+            ownReaction={ownReaction}
+            counts={optimisticCounts}
+            totalCount={reactionsTotal}
+            onToggle={onToggleReaction}
+          />
+          <Link
+            href={`/post/${post.id}`}
+            aria-label={tCard("comments_aria", { count: post.counts.comments })}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
+          >
+            <MessageCircle size={18} strokeWidth={1.75} />
+            {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
+          </Link>
+          <button
+            type="button"
+            aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
+            disabled
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
+          >
+            <Repeat2 size={18} strokeWidth={1.75} />
+            {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
+          </button>
+        </footer>
+      </article>
+
+      {/* Report dialog + block confirm: mounted solo per non-autori
+          (l'autore non si segnala/blocca da solo). I dialog sono
+          controllati → niente fetch finché non vengono aperti. */}
+      {!isAuthor ? (
+        <>
+          <ReportPostDialog
+            postId={post.id}
+            authorDisplayName={authorDisplayName(post.author, userFallback)}
+            onWantsToBlockAuthor={onBlock}
+            isOpen={reportOpen}
+            onOpenChange={setReportOpen}
+          />
+          <BlockUserConfirmDialog
+            authorDisplayName={authorDisplayName(post.author, userFallback)}
+            isOpen={blockOpen}
+            onOpenChange={setBlockOpen}
+            onConfirm={onBlockConfirmed}
+          />
+        </>
+      ) : null}
+
+      {/* Edit + delete confirm: mounted solo se autore. Delete è
+          sempre disponibile per l'autore (l'edit window può scadere
+          ma il delete no). */}
+      {isAuthor ? (
+        <>
+          {canEdit ? (
+            <PostComposerModal
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              onPublished={(_postId, edited) => {
+                if (edited) {
+                  // Optimistic-display: aggiorna lo state locale così
+                  // l'UI riflette subito i nuovi valori senza refresh.
+                  setDisplayedBody(edited.body);
+                  setDisplayedVisibility(edited.visibility);
+                  setDisplayedEditedAt(new Date());
+                }
+                setEditOpen(false);
+              }}
+              user={currentUser ?? null}
+              editPayload={{
+                postId: post.id,
+                initialBody: displayedBody,
+                initialVisibility: displayedVisibility,
+              }}
+            />
+          ) : null}
+          <DeletePostConfirmDialog
+            isOpen={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={onDeleteConfirmed}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}

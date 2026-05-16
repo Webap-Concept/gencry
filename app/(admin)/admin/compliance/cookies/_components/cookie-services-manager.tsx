@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import { useAdminSlug } from "@/app/(admin)/admin/_components/admin-slug-context";
 import ConfirmModal from "@/app/(admin)/admin/_components/confirm-modal";
 import { getAdminRelPath } from "@/lib/admin-nav";
@@ -581,30 +587,12 @@ function ServiceModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}>
-      <div
-        className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        style={{
-          background: "var(--admin-card-bg)",
-          border: "1px solid var(--admin-card-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 pt-5 pb-4"
-          style={{ borderBottom: "1px solid var(--admin-divider)" }}>
-          <h2 className="font-semibold" style={{ color: "var(--admin-text)" }}>
-            {isEdit ? t("services.modalEditTitle") : t("services.modalAddTitle")}
-          </h2>
-          <button onClick={onClose} className="p-1 rounded">
-            <X size={18} style={{ color: "var(--admin-text-muted)" }} />
-          </button>
-        </div>
-
-        <form action={action} className="px-6 py-5 space-y-4">
+    <AdminDialog open onOpenChange={(o) => !o && onClose()}>
+      <AdminDialogContent
+        icon={SlidersHorizontal}
+        size="xl"
+        title={isEdit ? t("services.modalEditTitle") : t("services.modalAddTitle")}>
+        <form action={action} className="space-y-4">
           {isEdit && <input type="hidden" name="id" value={editing!.id} />}
           <input type="hidden" name="enabled" value={enabled ? "true" : "false"} />
           <input type="hidden" name="firstParty" value={firstParty ? "true" : "false"} />
@@ -854,35 +842,24 @@ function ServiceModal({
           )}
 
           <div
-            className="flex items-center justify-end gap-3 pt-2"
-            style={{ borderTop: "1px solid var(--admin-divider)" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="px-4 py-2 text-sm rounded-lg disabled:opacity-50"
-              style={{
-                border: "1px solid var(--admin-input-border)",
-                color: "var(--admin-text-muted)",
-              }}>
+            className="flex items-center justify-end gap-2 pt-3"
+            style={{ borderTop: "1px solid var(--admin-card-border)" }}>
+            <AdminDialogCancelButton onClick={onClose} disabled={isPending}>
               {t("services.modalCancelButton")}
-            </button>
-            <button
+            </AdminDialogCancelButton>
+            <AdminDialogConfirmButton
               type="submit"
+              loading={isPending}
               disabled={isPending}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white font-medium disabled:opacity-60"
-              style={{ background: "var(--admin-accent)" }}>
-              {isPending ? (
-                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Check size={14} />
-              )}
-              {isEdit ? t("services.modalSaveButton") : t("services.modalCreateButton")}
-            </button>
+              icon={Check}>
+              {isEdit
+                ? t("services.modalSaveButton")
+                : t("services.modalCreateButton")}
+            </AdminDialogConfirmButton>
           </div>
         </form>
-      </div>
-    </div>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
 
