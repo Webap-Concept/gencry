@@ -1,9 +1,13 @@
+"use client";
 // components/modules/coins/coin-card.tsx
 // Card coin: icona + nome + simbolo + categoria + chip rank + prezzo +
 // variazione 24h + sparkline 21pt + footer "In Nk watchlist" (mockup).
-// Pure presentational, server-component compatibile.
+// Pure presentational. Reso "use client" perché è importato anche da
+// CoinSummaryCard (client component sticky-aware) — un Server Component
+// non può essere importato come JSX da un Client Component in Next.js
+// App Router. useTranslations va bene client-side, no I/O.
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { cn } from "@/lib/utils";
 import { CoinIcon } from "./coin-icon";
@@ -11,7 +15,7 @@ import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
 import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
 
-export async function CoinCard({
+export function CoinCard({
   coin,
   rank,
   watchlistCount,
@@ -33,7 +37,7 @@ export async function CoinCard({
   const wlCount = watchlistCount ?? mockWatchlistCount(coin.symbol);
   const resolvedHref =
     href === null ? null : (href ?? `/coins/${coin.symbol.toLowerCase()}`);
-  const tLabels = await getTranslations("prices.labels");
+  const tLabels = useTranslations("prices.labels");
 
   return (
     <article
