@@ -12,6 +12,7 @@ import {
   formatCompactCount,
   mockWatchlistCount,
 } from "@/components/modules/coins";
+import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { getSession } from "@/lib/auth/session";
 import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
@@ -101,22 +102,23 @@ export default async function CoinDetailPage({
 }: {
   params: Promise<{ symbol: string }>;
 }) {
-  // `notFound()` deve essere chiamato FUORI da `<Suspense>`: in Next 16,
-  // se viene sollevato dentro un async RSC suspeso, l'unwind si ferma al
-  // boundary più vicino, sostituendo solo lo slot del Suspense e
-  // lasciando intatto lo shell del `(public)/layout.tsx`. Risolvendo il
-  // coin qui in alto, l'unwind raggiunge il root `app/not-found.tsx`,
-  // che è wrappato dal solo root layout → 404 full-page.
+  // `notFound()` viene chiamato PRIMA di renderizzare lo shell: in
+  // questo modo l'unwind del `NEXT_NOT_FOUND` esce dalla page senza
+  // toccare `<PublicAdaptiveShell>` e raggiunge il root
+  // `app/not-found.tsx` (wrappato dal solo root layout) → 404
+  // full-page sia per loggati che per anonimi.
   const { symbol } = await params;
   const coin = await getCoinForCard(symbol);
   if (!coin) notFound();
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <Suspense fallback={<CoinDetailSkeleton />}>
-        <CoinDetailBody coin={coin} />
-      </Suspense>
-    </div>
+    <PublicAdaptiveShell>
+      <div className="space-y-6 max-w-4xl">
+        <Suspense fallback={<CoinDetailSkeleton />}>
+          <CoinDetailBody coin={coin} />
+        </Suspense>
+      </div>
+    </PublicAdaptiveShell>
   );
 }
 
