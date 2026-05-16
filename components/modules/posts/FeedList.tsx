@@ -11,7 +11,7 @@
 // Source-agnostic: il caller passa `source` discriminato (tab vs
 // ticker) + empty state custom. Usato dalla Home (Following), dalla
 // /explore (Discover) e dalla /explore?ticker= (Ticker filter).
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
@@ -19,6 +19,7 @@ import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 import { findScrollParent } from "@/lib/hooks/use-is-stuck";
+import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
 import { PostCard } from "./PostCard";
 
 export type FeedListSource =
@@ -43,10 +44,16 @@ type Props = {
 };
 
 export function FeedList(props: Props) {
-  const [posts, setPosts] = useState<PostCardData[]>(props.initialPosts);
-  const [nextCursor, setNextCursor] = useState<string | null>(
-    props.initialNextCursor,
+  // useResetableListState: quando il server passa nuove initialPosts
+  // (es. dopo router.refresh() dopo un soft-delete), lo state si reseta
+  // e i post deleted spariscono dal feed. Senza, useState(initial)
+  // tiene la lista vecchia (vedi feedback_initial_prop_state).
+  const initialPage = useMemo(
+    () => ({ rows: props.initialPosts, nextCursor: props.initialNextCursor }),
+    [props.initialPosts, props.initialNextCursor],
   );
+  const { rows: posts, cursor: nextCursor, appendRows } =
+    useResetableListState<PostCardData>(initialPage);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -65,13 +72,12 @@ export function FeedList(props: Props) {
             };
       const res = await loadMoreFeed(input);
       if (res.ok) {
-        setPosts((prev) => [...prev, ...res.data.posts]);
-        setNextCursor(res.data.nextCursor);
+        appendRows(res.data.posts, res.data.nextCursor);
       } else {
         setError(res.error);
       }
     });
-  }, [nextCursor, isPending, props.source]);
+  }, [nextCursor, isPending, props.source, appendRows]);
 
   // Infinite scroll + prefetch: IntersectionObserver sul sentinel in
   // fondo alla lista. `rootMargin: "0px 0px 800px 0px"` estende il

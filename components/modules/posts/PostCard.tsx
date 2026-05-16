@@ -247,16 +247,22 @@ export function PostCard({
   const onDeleteConfirmed = () => {
     setDeleteOpen(false);
     startTransition(async () => {
-      setDeleted(true);
+      // NB: NON facciamo `setDeleted(true)` qui PRIMA del await.
+      // React batcha setDeleteOpen(false) + setDeleted(true) in un solo
+      // commit → il PostCard ritorna null IMMEDIATAMENTE → la Radix
+      // Dialog viene smontata a metà animazione di chiusura, scatena
+      // un crash lato client ("Qualcosa è andato storto"). Aspettiamo
+      // il server, poi nascondiamo localmente.
       const res = await softDeletePost({ postId: post.id });
-      if (!res.ok) {
-        setDeleted(false);
-        return;
-      }
+      if (!res.ok) return;
+
+      setDeleted(true);
+
       // Single-post page (variant="single") passa redirectAfterDelete="/"
       // così la URL morta non resta nella history (back skippa). Sul
       // feed, refresh forza il re-fetch RSC dopo revalidatePath del
-      // server action.
+      // server action — il FeedList riceve le nuove initialPosts senza
+      // il post deleted, e useResetableListState aggiorna lo state.
       if (redirectAfterDelete) {
         router.replace(redirectAfterDelete);
       } else {
