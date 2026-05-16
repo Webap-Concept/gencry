@@ -33,7 +33,15 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/config";
  * Aggiungere nuovi namespace SOLO dopo aver creato i 2 file (EN + IT).
  */
 
-const NAMESPACES = ["core", "auth", "public", "admin", "posts", "prices"] as const;
+const NAMESPACES = [
+  "core",
+  "auth",
+  "public",
+  "admin",
+  "posts",
+  "prices",
+  "onboarding",
+] as const;
 type Namespace = (typeof NAMESPACES)[number];
 
 const LOADERS: Record<
@@ -47,6 +55,8 @@ const LOADERS: Record<
     admin: () => import("@/messages/en/admin.json"),
     posts: () => import("@/lib/modules/posts/messages/en/posts.json"),
     prices: () => import("@/lib/modules/prices/messages/en/prices.json"),
+    onboarding: () =>
+      import("@/lib/modules/onboarding/messages/en/onboarding.json"),
   },
   it: {
     core: () => import("@/messages/it/core.json"),
@@ -55,6 +65,8 @@ const LOADERS: Record<
     admin: () => import("@/messages/it/admin.json"),
     posts: () => import("@/lib/modules/posts/messages/it/posts.json"),
     prices: () => import("@/lib/modules/prices/messages/it/prices.json"),
+    onboarding: () =>
+      import("@/lib/modules/onboarding/messages/it/onboarding.json"),
   },
 };
 

@@ -16,12 +16,16 @@ import {
 } from "@/lib/modules/onboarding/queries";
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { CoinRain } from "@/components/decor/coin-rain";
 import { GridBackdrop } from "@/components/decor/grid-backdrop";
 import { OnboardingWizard } from "./wizard";
 
-export const metadata: Metadata = { title: "Benvenuto" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("onboarding.page");
+  return { title: t("title") };
+}
 
 const RISK_PROFILES   = new Set(["cauto", "moderato", "aggressivo", "degen"]);
 const EXPERIENCE_KEYS = new Set(["newbie", "1to3y", "over3y"]);

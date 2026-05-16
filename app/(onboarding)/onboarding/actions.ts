@@ -6,6 +6,13 @@
 //   - coin picks (3..20)
 //   - risk profile + experience
 //   - complete   (UPDATE users.onboarding_completed_at + redirect)
+//
+// i18n: gli `error` ritornati sono CHIAVI del namespace "onboarding"
+// (vedi lib/modules/onboarding/messages/{en,it}/onboarding.json). Il
+// client traduce via `useOnboardingError` (vedi feedback_module_i18n_pattern
+// regola 6). Eccezione: `formatCheck.error` da validateUsernameFormat
+// resta una stringa IT raw — vive nel namespace auth (cross-modulo) e
+// sarà tradotto dal futuro sweep auth.
 
 "use server";
 
@@ -33,8 +40,16 @@ import {
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
-export type OnboardingActionState =
-  | { error?: string; success?: boolean };
+/**
+ * Result type delle server action. `error` è una chiave i18n nel namespace
+ * "onboarding" (es. "onboarding.errors.session_expired"); `meta` contiene
+ * i placeholder ICU per la traduzione (es. `{ min: 3 }` per coin_picks_min).
+ */
+export type OnboardingActionState = {
+  error?: string;
+  meta?: Record<string, string | number>;
+  success?: boolean;
+};
 
 const RISK_PROFILES   = new Set(["cauto", "moderato", "aggressivo", "degen"]);
 const EXPERIENCE_KEYS = new Set(["newbie", "1to3y", "over3y"]);
@@ -47,24 +62,27 @@ export async function setOnboardingUsername(
   username: string,
 ): Promise<OnboardingActionState> {
   const user = await getUser();
-  if (!user) return { error: "Sessione scaduta. Effettua di nuovo il login." };
+  if (!user) return { error: "onboarding.errors.session_expired" };
 
   const clean = username.trim().toLowerCase();
 
   if (clean.length < 3 || clean.length > 50) {
-    return { error: "Username tra 3 e 50 caratteri." };
+    return { error: "onboarding.errors.username_length" };
   }
   const formatCheck = validateUsernameFormat(clean);
   if (!formatCheck.ok) {
+    // formatCheck.error è una stringa IT raw da lib/auth (cross-modulo),
+    // non una chiave i18n. La passiamo-through finché auth non avrà il
+    // suo sweep i18n; il client la mostra raw.
     return { error: formatCheck.error };
   }
   if (await isUsernameBlacklisted(clean)) {
-    return { error: "Questo username non è disponibile. Scegline un altro." };
+    return { error: "onboarding.errors.username_blacklisted" };
   }
 
   const availability = await checkUsernameAvailability(clean);
   if (!availability.available) {
-    return { error: "Questo username è già in uso. Scegline un altro." };
+    return { error: "onboarding.errors.username_taken" };
   }
 
   try {
@@ -74,10 +92,7 @@ export async function setOnboardingUsername(
       .where(eq(userProfiles.userId, user.id));
   } catch (err: unknown) {
     if (isUniqueConstraintError(err)) {
-      return {
-        error:
-          "Questo username è appena stato scelto da un altro utente. Scegline un altro.",
-      };
+      return { error: "onboarding.errors.username_just_taken" };
     }
     throw err;
   }
@@ -99,7 +114,7 @@ export async function setOnboardingCoinPicks(
   symbols: string[],
 ): Promise<OnboardingActionState> {
   const user = await getUser();
-  if (!user) return { error: "Sessione scaduta. Effettua di nuovo il login." };
+  if (!user) return { error: "onboarding.errors.session_expired" };
 
   // Dedup + uppercase
   const clean = Array.from(
@@ -107,10 +122,16 @@ export async function setOnboardingCoinPicks(
   );
 
   if (clean.length < COIN_PICKS_MIN) {
-    return { error: `Scegli almeno ${COIN_PICKS_MIN} coin.` };
+    return {
+      error: "onboarding.errors.coin_picks_min",
+      meta: { min: COIN_PICKS_MIN },
+    };
   }
   if (clean.length > COIN_PICKS_MAX) {
-    return { error: `Massimo ${COIN_PICKS_MAX} coin.` };
+    return {
+      error: "onboarding.errors.coin_picks_max",
+      meta: { max: COIN_PICKS_MAX },
+    };
   }
 
   // Validazione server-side: ogni simbolo deve esistere ed essere attivo.
@@ -118,7 +139,10 @@ export async function setOnboardingCoinPicks(
   const existing = await existingCoinSymbols(clean);
   const unknown = clean.filter((s) => !existing.has(s));
   if (unknown.length > 0) {
-    return { error: `Coin non disponibili: ${unknown.slice(0, 5).join(", ")}.` };
+    return {
+      error: "onboarding.errors.coins_unavailable",
+      meta: { list: unknown.slice(0, 5).join(", ") },
+    };
   }
 
   await replaceUserCoinPicks(user.id, clean);
@@ -134,13 +158,13 @@ export async function setOnboardingRiskProfile(
   experience: string,
 ): Promise<OnboardingActionState> {
   const user = await getUser();
-  if (!user) return { error: "Sessione scaduta. Effettua di nuovo il login." };
+  if (!user) return { error: "onboarding.errors.session_expired" };
 
   if (!RISK_PROFILES.has(profile)) {
-    return { error: "Profilo di rischio non valido." };
+    return { error: "onboarding.errors.invalid_risk_profile" };
   }
   if (!EXPERIENCE_KEYS.has(experience)) {
-    return { error: "Livello di esperienza non valido." };
+    return { error: "onboarding.errors.invalid_experience" };
   }
 
   await upsertUserRiskProfile(user.id, profile, experience);
