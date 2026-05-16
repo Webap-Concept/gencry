@@ -59,18 +59,17 @@ export function AdminStickyHeader({
 
       <header
         className={cn(
-          // Sticky positioning. Margini negativi orizzontali +
-          // verticali per estendere lo sfondo edge-to-edge e
-          // COPRIRE il padding del <main p-4 lg:p-2> dello shell:
-          // sticky si attacca al CONTENT del main, non al suo edge,
-          // quindi senza margini negativi lascerebbe un gap bianco
-          // del padding del main sopra l'header quando stuck. Il
-          // pt-2 uniforme è il padding visivo interno; il -mt copre
-          // il padding del main. Se il padding del main cambia,
-          // aggiornare il -mt qui.
-          "sticky top-0 z-10",
+          // Pattern sticky-overlap: `top` NEGATIVO uguale al padding
+          // del <main p-4 lg:p-2>, così l'header si attacca SOPRA il
+          // top del viewport (il suo top edge va dentro il padding
+          // del main → il bg dell'header COPRE quel padding). Il
+          // `pt-4 lg:pt-2` interno rimette il content visivo a 0.
+          // Risultato: niente gap bianco sopra l'header quando stuck.
+          // Se il padding del main cambia, aggiornare entrambi i
+          // valori in sync qui sotto.
+          "sticky -top-4 lg:-top-2 z-10",
           "-mx-4 lg:-mx-2 px-4 lg:px-2",
-          "-mt-4 lg:-mt-2 pt-2",
+          "pt-4 lg:pt-2",
           "transition-shadow duration-200",
           isStuck && "shadow-sm",
         )}
