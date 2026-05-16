@@ -18,7 +18,16 @@
 // Fallback: in caso di errore (import fallisce, syntax error, JS
 // disabilitato) mostriamo la sorgente Mermaid in <pre> — è già
 // leggibile, niente info persa.
+//
+// Click-to-expand: il container è cliccabile, apre una AdminDialog
+// fullscreen (95vw × 90vh) col diagramma re-renderizzato grande. La
+// chunk mermaid è già caricata, il render in modale costa ~10ms.
 import { useEffect, useRef, useState } from "react";
+import { Maximize2 } from "lucide-react";
+import {
+  AdminDialog,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 
 let mermaidPromise: Promise<typeof import("mermaid")["default"]> | null = null;
 
@@ -43,6 +52,84 @@ type Props = {
 };
 
 export function ArchDiagram({ source, caption, id }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <figure className="my-4">
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-label="Espandi diagramma a tutto schermo"
+          className="group relative w-full text-left rounded-2xl p-5 overflow-x-auto cursor-zoom-in transition-colors block"
+          style={{
+            background: "var(--admin-page-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          <span
+            className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            style={{
+              background:
+                "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
+              color: "var(--admin-accent)",
+              border:
+                "1px solid color-mix(in srgb, var(--admin-accent) 30%, transparent)",
+            }}>
+            <Maximize2 size={11} />
+            Espandi
+          </span>
+          <MermaidSvg id={id} source={source} />
+        </button>
+        {caption ? (
+          <figcaption
+            className="mt-2 text-xs text-center"
+            style={{ color: "var(--admin-text-faint)" }}>
+            {caption}
+          </figcaption>
+        ) : null}
+      </figure>
+
+      {/* Modale fullscreen. Il diagramma viene re-renderizzato con un
+          id distinto (mermaid richiede id univoci). La chunk mermaid è
+          già in cache, render ~10ms. Mounting solo on-demand: niente
+          lavoro se la modale non si apre mai. */}
+      <AdminDialog open={expanded} onOpenChange={setExpanded}>
+        <AdminDialogContent
+          title={caption ?? "Diagramma"}
+          size="xl"
+          className="!max-w-[95vw] !w-[95vw]">
+          <div
+            className="overflow-auto rounded-xl p-4"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-card-border)",
+              maxHeight: "82vh",
+              minHeight: "60vh",
+            }}>
+            {expanded ? (
+              <MermaidSvg id={`${id}-expanded`} source={source} expanded />
+            ) : null}
+          </div>
+        </AdminDialogContent>
+      </AdminDialog>
+    </>
+  );
+}
+
+/**
+ * Render core. Tirato fuori da ArchDiagram così possiamo usarlo sia
+ * nella card sia nella modale, con id distinti per evitare collisioni
+ * mermaid (richiede id univoci per render).
+ */
+function MermaidSvg({
+  id,
+  source,
+  expanded = false,
+}: {
+  id: string;
+  source: string;
+  expanded?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendered, setRendered] = useState(false);
@@ -54,8 +141,6 @@ export function ArchDiagram({ source, caption, id }: Props) {
       try {
         const mermaid = await loadMermaid();
 
-        // Leggi i token admin dal CSS root così il diagramma usa
-        // gli stessi colori del resto della pagina.
         const cs = getComputedStyle(document.documentElement);
         const bg     = cs.getPropertyValue("--admin-card-bg").trim()    || "#ffffff";
         const text   = cs.getPropertyValue("--admin-text").trim()       || "#0f172a";
@@ -80,16 +165,31 @@ export function ArchDiagram({ source, caption, id }: Props) {
             clusterBorder:       border,
             textColor:           text,
             fontFamily:          "ui-sans-serif, system-ui, sans-serif",
-            fontSize:            "13px",
+            fontSize:            expanded ? "16px" : "13px",
           },
           flowchart: { curve: "basis", htmlLabels: false },
-          er:        { useMaxWidth: true },
+          er:        { useMaxWidth: !expanded },
         });
 
         const { svg } = await mermaid.render(`${id}-svg`, source);
         if (cancelled) return;
         if (containerRef.current) {
           containerRef.current.innerHTML = svg;
+
+          // In modalità expanded forziamo l'SVG a riempire orizzontalmente
+          // e a scalare proporzionalmente — Mermaid mette width/height
+          // fissi che limitano la leggibilità in modale.
+          if (expanded) {
+            const svgEl = containerRef.current.querySelector("svg");
+            if (svgEl) {
+              svgEl.removeAttribute("style");
+              svgEl.setAttribute("width", "100%");
+              svgEl.setAttribute("height", "auto");
+              svgEl.style.maxWidth = "100%";
+              svgEl.style.height = "auto";
+            }
+          }
+
           setRendered(true);
         }
       } catch (e) {
@@ -101,56 +201,37 @@ export function ArchDiagram({ source, caption, id }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [source, id]);
+  }, [source, id, expanded]);
+
+  if (error) {
+    return (
+      <div>
+        <p className="text-xs mb-2" style={{ color: "var(--gc-warning-fg)" }}>
+          Errore rendering diagramma. Sorgente Mermaid:
+        </p>
+        <pre
+          className="text-xs overflow-x-auto p-3 rounded-lg"
+          style={{
+            background: "var(--admin-card-bg)",
+            color: "var(--admin-text-muted)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          {source}
+        </pre>
+      </div>
+    );
+  }
 
   return (
-    <figure className="my-4">
-      <div
-        className="rounded-2xl p-5 overflow-x-auto"
-        style={{
-          background: "var(--admin-page-bg)",
-          border: "1px solid var(--admin-card-border)",
-        }}>
-        {error ? (
-          <div>
-            <p className="text-xs mb-2" style={{ color: "var(--gc-warning-fg)" }}>
-              Errore rendering diagramma. Sorgente Mermaid:
-            </p>
-            <pre
-              className="text-xs overflow-x-auto p-3 rounded-lg"
-              style={{
-                background: "var(--admin-card-bg)",
-                color: "var(--admin-text-muted)",
-                border: "1px solid var(--admin-card-border)",
-              }}>
-              {source}
-            </pre>
-          </div>
-        ) : (
-          <>
-            {/* Spinner discreto mentre la chunk mermaid carica. */}
-            {!rendered ? (
-              <div
-                className="flex items-center justify-center py-12 text-xs"
-                style={{ color: "var(--admin-text-faint)" }}>
-                Carico diagramma…
-              </div>
-            ) : null}
-            <div
-              ref={containerRef}
-              className="flex justify-center"
-              style={{ minHeight: rendered ? 0 : 0 }}
-            />
-          </>
-        )}
-      </div>
-      {caption ? (
-        <figcaption
-          className="mt-2 text-xs text-center"
+    <>
+      {!rendered ? (
+        <div
+          className="flex items-center justify-center py-12 text-xs"
           style={{ color: "var(--admin-text-faint)" }}>
-          {caption}
-        </figcaption>
+          Carico diagramma…
+        </div>
       ) : null}
-    </figure>
+      <div ref={containerRef} className="flex justify-center" />
+    </>
   );
 }
