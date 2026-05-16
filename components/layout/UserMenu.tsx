@@ -152,6 +152,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
             user={avatarUser}
             label={primary}
             sub={secondary}
+            bio={user.bio}
             onClick={toggle}
             open={open}
           />
@@ -213,27 +214,30 @@ function DefaultPopoverTrigger({
   user,
   label,
   sub,
+  bio,
   onClick,
   open,
 }: {
   user: { name: string; avatar: string; color: string; avatarUrl?: string | null };
   label: string;
   sub: string | null;
+  bio: string | null;
   onClick: () => void;
   open: boolean;
 }) {
   const labelIsHandle = label.startsWith("@");
+  const trimmedBio = bio?.trim();
   return (
     <button
       type="button"
       onClick={onClick}
       aria-haspopup="menu"
       aria-expanded={open}
-      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-gc-sm hover:bg-gc-bg-2 transition text-left"
+      className="w-full flex items-center gap-3 px-2 py-1.5 rounded-gc-sm hover:bg-gc-bg-2 transition text-left"
     >
       <Avatar
         user={{ ...user, handle: "", followers: 0, bio: "" }}
-        size={32}
+        size={40}
       />
       <div className="flex-1 min-w-0">
         <div
@@ -250,6 +254,11 @@ function DefaultPopoverTrigger({
             }`}
           >
             {sub}
+          </div>
+        )}
+        {trimmedBio && (
+          <div className="text-[11px] text-gc-fg-3 truncate leading-tight mt-0.5">
+            {trimmedBio}
           </div>
         )}
       </div>

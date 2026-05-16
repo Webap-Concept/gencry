@@ -141,11 +141,12 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
 
 function UserMiniCardSkeleton() {
   return (
-    <div className="flex items-center gap-2.5 px-2 py-1.5">
-      <div className="w-8 h-8 rounded-full bg-gc-bg-3 animate-pulse" />
+    <div className="flex items-center gap-3 px-2 py-1.5">
+      <div className="w-10 h-10 rounded-full bg-gc-bg-3 animate-pulse shrink-0" />
       <div className="flex-1 space-y-1.5">
         <div className="h-3 w-20 rounded bg-gc-bg-3 animate-pulse" />
         <div className="h-2.5 w-12 rounded bg-gc-bg-3 animate-pulse" />
+        <div className="h-2.5 w-24 rounded bg-gc-bg-3 animate-pulse" />
       </div>
     </div>
   );
