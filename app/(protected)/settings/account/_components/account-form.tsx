@@ -567,6 +567,12 @@ function PasswordToggle({
 }
 
 function PasswordRulesList({ password }: { password: string }) {
+  // Riuso le chiavi `auth.passwordRulesLong.{min,upper,number,special}`
+  // (già in messages/{en,it}/auth.json, usate anche dal form di
+  // reset-password). Le 4 regole sono le stesse: evitare duplicazione.
+  // Variante `Long` perché qui c'è spazio per la frase intera; il
+  // namespace ha anche `Short` (es. "8+ car.") per le pill compatte.
+  const tRules = useTranslations("auth.passwordRulesLong");
   const isEmpty = password.length === 0;
   return (
     <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-1">
@@ -590,7 +596,7 @@ function PasswordRulesList({ password }: { password: string }) {
             ) : (
               <X className="h-3 w-3" />
             )}
-            {rule.label}
+            {tRules(rule.id)}
           </li>
         );
       })}
