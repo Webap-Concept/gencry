@@ -52,15 +52,19 @@ export function AdminStickyHeader({
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
 
   return (
-    // Wrapper div necessario: il layout sezione (es. posts/layout.tsx)
-    // ci wrappa in `<div className="space-y-5">`, e space-y applica
-    // margin-top a tutti i child tranne il primo. Se sentinel e header
-    // fossero fratelli diretti del wrapper layout, lo space-y aggiungerebbe
-    // 20px tra sentinel (1°) e header (2°) → buco visibile sopra l'header.
-    // Wrappandoli in un div, il layout vede un solo child (questo div) e
-    // dentro non c'è space-y. NON usare display:contents qui — renderebbe
-    // il div trasparente al layout box tree e ricomparirebbe il bug.
-    <div>
+    // Fragment intenzionale (no wrapper <div>): un wrapper avrebbe
+    // ristretto il `containing block` dell'header sticky a sé stesso
+    // (alto ~90px), causando lo "shrink + sparizione" appena oltre.
+    // Il containing block deve essere il flow-root del main così
+    // sticky può muoversi per tutto lo scroll.
+    //
+    // Conseguenza: il layout sezione che ci wrappa NON deve usare
+    // `space-y-*` come parent diretto (lo space-y mette margin-top
+    // al 2° child = l'<header>, creando un buco di 20px sopra).
+    // Vedi posts/layout.tsx, prices/layout.tsx: il pattern è
+    //   <PostsHeader />
+    //   <div className="space-y-5 mt-5">{children}</div>
+    <>
       {/* Sentinel invisibile sopra l'header. Quando esce dalla viewport
           dello scroll container → isStuck=true. */}
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
@@ -150,6 +154,6 @@ export function AdminStickyHeader({
 
         <AdminSectionTabs tabs={tabs} />
       </header>
-    </div>
+    </>
   );
 }
