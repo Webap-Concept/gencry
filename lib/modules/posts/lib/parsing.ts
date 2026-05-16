@@ -26,6 +26,12 @@ const TICKER_REGEX = /\$([A-Za-z][A-Za-z0-9]{1,19})\b/g;
 const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]{2,29})\b/g;
 const WORD_REGEX = /\b[A-Za-z][A-Za-z0-9]{2,}\b/g;
 
+// CHECK constraint di posts_tickers.ticker (vedi M_posts_001_init.sql).
+// Garantiamo che ogni symbol ritornato lo rispetti, anche se la mappa
+// coin includesse simboli fuori shape (es. "S" 1 char): filtriamo qui
+// silently invece di lasciar fallire l'INSERT con violazione constraint.
+const VALID_TICKER_SHAPE = /^[A-Z][A-Z0-9]{1,19}$/;
+
 /**
  * Estrae i ticker dal body. Set deduplicato di simboli UPPERCASE.
  * Async perché carica la mappa nomi → symbol per il match implicito.
@@ -42,7 +48,8 @@ export async function extractTickers(
 
   // 1. Match esplicito $TICKER (case-insensitive).
   for (const match of body.matchAll(TICKER_REGEX)) {
-    out.add(match[1].toUpperCase());
+    const symbol = match[1].toUpperCase();
+    if (VALID_TICKER_SHAPE.test(symbol)) out.add(symbol);
   }
 
   // 2. Match implicito su nome esteso. Whitelist-only: lookup O(1) in
@@ -51,7 +58,7 @@ export async function extractTickers(
   const nameMap = coinNameMap ?? (await getCoinNameMap());
   for (const match of body.matchAll(WORD_REGEX)) {
     const symbol = nameMap[match[0].toLowerCase()];
-    if (symbol) out.add(symbol);
+    if (symbol && VALID_TICKER_SHAPE.test(symbol)) out.add(symbol);
   }
 
   return out;
