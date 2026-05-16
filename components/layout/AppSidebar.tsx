@@ -91,14 +91,17 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
       <div className="flex-1 min-h-0 overflow-y-auto">
         <nav className="flex flex-col gap-1">
           {NAV.map(({ href, labelKey, icon: Icon, hasNotifications }) => {
-            const active = pathname === href;
+            const active =
+              href === "/"
+                ? pathname === "/"
+                : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}
                 href={href}
                 prefetch={false}
                 className={[
-                  "flex items-center gap-3 px-3 py-2.5 rounded-gc-sm text-[14.5px] transition border",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-full text-[14.5px] transition border",
                   active
                     ? "bg-gc-bg-2 text-gc-fg font-semibold border-gc-line"
                     : "text-gc-fg-2 border-transparent hover:bg-gc-bg-2",
