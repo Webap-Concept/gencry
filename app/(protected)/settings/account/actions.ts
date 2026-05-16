@@ -53,7 +53,9 @@ export const requestEmailChangeAction = validatedActionWithUser(
     });
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      return {
+        error: tAct(`emailChange.errors.${result.error}`),
+      } satisfies ActionState;
     }
 
     return {
@@ -95,7 +97,12 @@ export const confirmEmailChangeAction = validatedActionWithUser(
     });
 
     if (!result.ok) {
-      return { error: result.error } satisfies ActionState;
+      const tOtp = await getTranslations("auth.validation.otp");
+      const message =
+        result.error.type === "otp"
+          ? tOtp(result.error.code)
+          : tAct(`emailChange.errors.${result.error.code}`);
+      return { error: message } satisfies ActionState;
     }
 
     // emailUpdated + emailUpdatedRevoked (ICU plural) compongono il messaggio

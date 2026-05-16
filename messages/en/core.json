@@ -352,6 +352,20 @@
           "confirmMismatch": "The passwords don't match.",
           "weakPassword": "The new password doesn't meet the security requirements."
         }
+      },
+      "emailChange": {
+        "errors": {
+          "noPasswordOAuth": "Your account has no password (sign in via Google only). Change your email directly from your Google account.",
+          "currentIncorrect": "The password is incorrect.",
+          "pendingExists": "You already have a pending email change request. Confirm the code or cancel it before requesting another one.",
+          "rateLimited": "You already requested an email change in the last 24 hours. Try again tomorrow.",
+          "sameAsCurrent": "The new email is the same as the current one.",
+          "domainBlocked": "Email domain not allowed.",
+          "emailUnavailable": "This email is already linked to another account.",
+          "emailJustTaken": "This email is already in use.",
+          "noPending": "No pending email change. Request one before confirming.",
+          "emailJustRegistered": "This email was just registered by another user."
+        }
       }
     }
   }

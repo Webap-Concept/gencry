@@ -16,7 +16,7 @@ import { isDomainBlacklisted } from "@/lib/auth/blacklist";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import { comparePasswords } from "@/lib/auth/session";
 import { revokeAllUserSessions } from "@/lib/auth/sessions";
-import { createVerificationCode, verifyOtpCode } from "@/lib/auth/otp";
+import { createVerificationCode, verifyOtpCode, type OtpErrorCode } from "@/lib/auth/otp";
 import { db } from "@/lib/db/drizzle";
 import {
   activityLogs,
@@ -27,17 +27,35 @@ import {
 import { sendEmailChangeVerificationEmail } from "@/lib/email/templates/email-change-verification";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { and, eq } from "drizzle-orm";
-import { getTranslations } from "next-intl/server";
 
 const RATE_LIMIT_HOURS = 24;
 
+export type EmailChangeRequestError =
+  | "noPasswordOAuth"
+  | "currentIncorrect"
+  | "pendingExists"
+  | "rateLimited"
+  | "sameAsCurrent"
+  | "domainBlocked"
+  | "emailUnavailable"
+  | "emailJustTaken";
+
+/**
+ * Failure shape per il confirm step. `static` = error code traducibile
+ * in `core.settings.actions.emailChange.errors.<code>`. `otp` = errore
+ * propagato da `verifyOtpCode`, già esistente in `auth.validation.otp`.
+ */
+export type EmailChangeConfirmFailure =
+  | { type: "static"; code: "noPending" | "emailJustRegistered" }
+  | { type: "otp"; code: OtpErrorCode };
+
 export type EmailChangeRequestResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; error: EmailChangeRequestError };
 
 export type EmailChangeConfirmResult =
   | { ok: true; newEmail: string; revokedOtherSessions: number }
-  | { ok: false; error: string };
+  | { ok: false; error: EmailChangeConfirmFailure };
 
 function normalize(email: string): string {
   return email.trim().toLowerCase();
@@ -74,52 +92,40 @@ export async function requestEmailChange(params: {
 
   // 1. Re-auth (no password set → solo OAuth → non può cambiare email qui)
   if (currentPasswordHash === null) {
-    return {
-      ok: false,
-      error:
-        "Il tuo account non ha una password (accesso solo via Google). Cambia l'email direttamente dal provider Google.",
-    };
+    return { ok: false, error: "noPasswordOAuth" };
   }
   const valid = await comparePasswords(password, currentPasswordHash);
   if (!valid) {
-    return { ok: false, error: "La password non è corretta." };
+    return { ok: false, error: "currentIncorrect" };
   }
 
   // 2. Già una richiesta in corso?
   if (currentPendingEmail) {
-    return {
-      ok: false,
-      error:
-        "Hai già una richiesta di cambio email in attesa. Conferma il codice o annullala prima di richiederne un'altra.",
-    };
+    return { ok: false, error: "pendingExists" };
   }
 
   // 3. Rate-limit (1/24h, anche dopo cancel/confirm)
   if (withinRateLimit(pendingEmailRequestedAt)) {
-    return {
-      ok: false,
-      error:
-        "Hai già richiesto un cambio email nelle ultime 24 ore. Riprova domani.",
-    };
+    return { ok: false, error: "rateLimited" };
   }
 
   const normalized = normalize(newEmail);
 
   // 4. Stesso indirizzo
   if (normalized === currentEmail.toLowerCase()) {
-    return { ok: false, error: "La nuova email coincide con quella attuale." };
+    return { ok: false, error: "sameAsCurrent" };
   }
 
   // 5. Dominio non disposable
   if (await isDomainBlacklisted(normalized)) {
-    return { ok: false, error: "Dominio email non consentito." };
+    return { ok: false, error: "domainBlocked" };
   }
 
   // 6. Disponibilità (bloom + DB)
   await ensureBloomFilter();
   const availability = await checkEmailAvailability(normalized);
   if (!availability.available) {
-    return { ok: false, error: "Questa email è già associata a un altro account." };
+    return { ok: false, error: "emailUnavailable" };
   }
 
   // 7. Salva pendingEmail + genera OTP + invia
@@ -137,7 +143,7 @@ export async function requestEmailChange(params: {
     if (isUniqueConstraintError(err)) {
       // Vincolo unique potrebbe arrivare in futuro su pendingEmail.
       // Per ora non c'è, ma copriamo lo scenario.
-      return { ok: false, error: "Questa email è già in uso." };
+      return { ok: false, error: "emailJustTaken" };
     }
     throw err;
   }
@@ -166,16 +172,12 @@ export async function confirmEmailChange(params: {
   const { userId, pendingEmail, code, currentSessionId } = params;
 
   if (!pendingEmail) {
-    return {
-      ok: false,
-      error: "Nessun cambio email in attesa. Richiedilo prima di confermare.",
-    };
+    return { ok: false, error: { type: "static", code: "noPending" } };
   }
 
   const result = await verifyOtpCode(userId, code, "email_change");
   if (!result.success) {
-    const t = await getTranslations("auth.validation.otp");
-    return { ok: false, error: t(result.errorCode) };
+    return { ok: false, error: { type: "otp", code: result.errorCode } };
   }
 
   // Swap email + clear pendingEmail. Mantiene pendingEmailRequestedAt
@@ -200,7 +202,7 @@ export async function confirmEmailChange(params: {
         .where(eq(users.id, userId));
       return {
         ok: false,
-        error: "Questa email è stata appena registrata da un altro utente.",
+        error: { type: "static", code: "emailJustRegistered" },
       };
     }
     throw err;

@@ -352,6 +352,20 @@
           "confirmMismatch": "Le password non coincidono.",
           "weakPassword": "La nuova password non rispetta i requisiti di sicurezza."
         }
+      },
+      "emailChange": {
+        "errors": {
+          "noPasswordOAuth": "Il tuo account non ha una password (accesso solo via Google). Cambia l'email direttamente dal provider Google.",
+          "currentIncorrect": "La password non è corretta.",
+          "pendingExists": "Hai già una richiesta di cambio email in attesa. Conferma il codice o annullala prima di richiederne un'altra.",
+          "rateLimited": "Hai già richiesto un cambio email nelle ultime 24 ore. Riprova domani.",
+          "sameAsCurrent": "La nuova email coincide con quella attuale.",
+          "domainBlocked": "Dominio email non consentito.",
+          "emailUnavailable": "Questa email è già associata a un altro account.",
+          "emailJustTaken": "Questa email è già in uso.",
+          "noPending": "Nessun cambio email in attesa. Richiedilo prima di confermare.",
+          "emailJustRegistered": "Questa email è stata appena registrata da un altro utente."
+        }
       }
     }
   }
