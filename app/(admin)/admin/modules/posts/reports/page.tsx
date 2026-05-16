@@ -61,7 +61,11 @@ export default async function PostsReportsPage({
 
   return (
     <Suspense fallback={null}>
+      {/* key={status}: forza unmount+remount al cambio status (vedi
+          deleted/page.tsx per spiegazione). Senza, useState(initial.rows)
+          tiene lo stato vecchio quando l'utente clicca un'altra pill. */}
       <ReportsQueueClient
+        key={status}
         initial={queue}
         status={status}
         reasonLabels={Object.fromEntries(reasonLabels)}

@@ -45,7 +45,13 @@ export default async function PostsDeletedPage({
   });
 
   return (
+    // key={filter}: forza unmount+remount del client component al cambio
+    // filter. Senza, lo `useState(initial.rows)` resterebbe inizializzato
+    // alla prima visita e i nuovi `initial.rows` dal server verrebbero
+    // ignorati (Next App Router mantiene il componente montato durante
+    // navigazioni con stessa rotta + diverse searchParams).
     <DeletedPostsClient
+      key={filter}
       initial={page}
       graceDays={graceDays}
       filter={filter}
