@@ -1,22 +1,18 @@
 "use client";
 // app/(admin)/admin/_components/admin-parent-header.tsx
 //
-// Header generico per le parent section del core admin (settings,
+// Sticky tab-bar per le parent section del core admin (settings,
 // access, security, content, compliance, seo, services).
 //
-// DAL 2026-05-16: l'icona + titolo + descrizione + guida-tooltip
-// sono spariti da qui — quei dati sono ora mostrati nella topbar
-// di AdminShellClient (vedi lib/admin/current-section.ts). Qui
-// restano SOLO le sub-tabs sticky.
-//
-// API conservata per compat: il caller passa ancora title/icon/
-// descriptions/guides, vengono accettati ma ignorati. Quando avremo
-// tempo rimuoviamo i prop a cascata dai 7 layout core che li
-// passano.
+// Icon + titolo della sezione vivono nella topbar di AdminShellClient.
+// Qui restano solo le sub-tabs + un opzionale info-button "i" per la
+// guida del segment corrente (lookup `guides[segment]`).
+import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import {
   AdminSectionTabs,
   type AdminSectionTab,
 } from "@/app/(admin)/admin/_components/admin-section-tabs";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 export type ParentHeaderGuide = {
@@ -26,27 +22,40 @@ export type ParentHeaderGuide = {
 };
 
 export type AdminParentHeaderProps = {
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  title?: string;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  defaultDescription?: string;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  defaultIcon?: string;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  iconBySegment?: Record<string, string>;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  descriptions?: Record<string, string>;
-  /** @deprecated da rivedere se servirà come tooltip in topbar. */
-  guides?: Partial<Record<string, ParentHeaderGuide>>;
   tabs: AdminSectionTab[];
+  /** Map segment → guide. La guide del segment corrente viene mostrata
+   *  a destra delle tabs come bottone "i". */
+  guides?: Partial<Record<string, ParentHeaderGuide>>;
 };
 
-export function AdminParentHeader({ tabs }: AdminParentHeaderProps) {
+export function AdminParentHeader({
+  tabs,
+  guides = {},
+}: AdminParentHeaderProps) {
+  const pathname = usePathname();
+  const segment = pathname.split("/").pop() ?? "";
+  const guide = guides[segment];
+
   return (
     <div
-      className="sticky top-0 z-10 -mx-4 lg:-mx-2 px-4 lg:px-2"
+      className="sticky top-0 z-10 -mx-4 lg:-mx-2 px-4 lg:px-2 flex items-end gap-3"
       style={{ background: "var(--admin-page-bg)" }}>
-      <AdminSectionTabs tabs={tabs} />
+      <div className="flex-1 min-w-0">
+        <AdminSectionTabs tabs={tabs} />
+      </div>
+      {guide ? (
+        // Hidden su mobile: lo spazio orizzontale serve tutto alle
+        // tabs scrollabili, e l'info-button rubando il fianco
+        // costringerebbe a far overflow le tabs ancora prima.
+        <div className="hidden sm:flex pb-2 shrink-0">
+          <AdminSectionInfo
+            title={guide.title}
+            ariaLabel={guide.ariaLabel}
+            size="md">
+            {guide.content}
+          </AdminSectionInfo>
+        </div>
+      ) : null}
     </div>
   );
 }

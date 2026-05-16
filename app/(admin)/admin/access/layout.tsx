@@ -14,32 +14,12 @@ export default async function AccessLayout({
 }) {
   await requireAdminSectionPage("admin:access");
 
-  const [tNav, tUsers, tStaff, tRoles, tPerms, tSessions] = await Promise.all([
+  const [tNav, tSessions] = await Promise.all([
     getTranslations("admin.nav"),
-    getTranslations("admin.access.users"),
-    getTranslations("admin.access.staff"),
-    getTranslations("admin.access.roles"),
-    getTranslations("admin.access.permissions"),
     getTranslations("admin.access.sessions"),
   ]);
 
   const tabs = await getSectionTabs("users-group", (k) => tNav(k));
-
-  const descriptions: Record<string, string> = {
-    users: tUsers("pageSubtitle"),
-    staff: tStaff("pageSubtitle"),
-    roles: tRoles("pageSubtitle"),
-    permissions: tPerms("pageSubtitle"),
-    sessions: tSessions("pageSubtitle"),
-  };
-
-  const iconBySegment: Record<string, string> = {
-    users: "Users",
-    staff: "UserCog",
-    roles: "ShieldCheck",
-    permissions: "KeyRound",
-    sessions: "Activity",
-  };
 
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     sessions: {
@@ -51,15 +31,7 @@ export default async function AccessLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("users-group")}
-        defaultDescription={tNav("descriptions.users-group")}
-        defaultIcon="Users"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

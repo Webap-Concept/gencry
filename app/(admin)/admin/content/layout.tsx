@@ -19,29 +19,14 @@ export default async function ContentLayout({
 }) {
   await requireAdminSectionPage("admin:content");
 
-  const [tNav, tPages, tTemplates, tMedia, tStyles] = await Promise.all([
+  const [tNav, tPages, tMedia, tStyles] = await Promise.all([
     getTranslations("admin.nav"),
     getTranslations("admin.content.pages"),
-    getTranslations("admin.content.templates"),
     getTranslations("admin.content.media"),
     getTranslations("admin.content.styles"),
   ]);
 
   const tabs = await getSectionTabs("content-group", (k) => tNav(k));
-
-  const descriptions: Record<string, string> = {
-    pages: tPages("pageSubtitle"),
-    templates: tTemplates("pageSubtitle"),
-    media: tMedia("pageSubtitle"),
-    styles: tStyles("pageSubtitle"),
-  };
-
-  const iconBySegment: Record<string, string> = {
-    pages: "FileText",
-    templates: "PanelTop",
-    media: "Image",
-    styles: "Palette",
-  };
 
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     pages: {
@@ -63,15 +48,7 @@ export default async function ContentLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("content-group")}
-        defaultDescription={tNav("descriptions.content-group")}
-        defaultIcon="Layers"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

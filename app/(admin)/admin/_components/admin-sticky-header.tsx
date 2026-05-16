@@ -1,45 +1,57 @@
 "use client";
 // app/(admin)/admin/_components/admin-sticky-header.tsx
 //
-// Header sticky di una sezione admin con sub-tabs. DAL 2026-05-16:
-// l'icona + titolo + descrizione sono spariti da qui — quei dati
-// vengono ora mostrati nella topbar di AdminShellClient (che è già
-// fissa in alto, sempre visibile). Qui restano SOLO le tabs.
+// Sticky tab-bar di una sezione admin. Icon + titolo della sezione
+// vivono nella topbar di AdminShellClient (vedi lib/admin/current-section.ts),
+// qui restano solo le sub-tabs + un opzionale info-button "i" per la
+// guida della sub-section corrente.
 //
-// Le tabs si attaccano `top: 0` del <main> (che non ha padding di
-// suo — il padding è sul wrapper interno in admin-shell-client),
-// così lo sticky è pulito senza buchi o tweak. Il padding negativo
-// orizzontale estende lo sfondo edge-to-edge sopra il padding del
-// wrapper interno.
-//
-// API conservata per compat: il caller passa ancora icon/title/
-// description, vengono accettati ma ignorati. Quando avremo tempo
-// rimuoviamo i prop a cascata (sweep dei call site).
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+// Sticky semplice (top:0): si attacca al top del <main> (che non ha
+// padding di suo — il padding sta sul wrapper interno in
+// admin-shell-client). I `-mx` estendono lo sfondo edge-to-edge sopra
+// il padding orizzontale del wrapper.
+import { AdminSectionInfo } from "./section-info";
 import {
   AdminSectionTabs,
   type AdminSectionTab,
 } from "./admin-section-tabs";
+import type { ReactNode } from "react";
+
+export type AdminStickyHeaderGuide = {
+  title: string;
+  ariaLabel: string;
+  content: ReactNode;
+};
 
 export function AdminStickyHeader({
   tabs,
+  guide,
 }: {
-  /** @deprecated mostrato in topbar, ignorato qui. Solo per back-compat dei caller. */
-  icon?: LucideIcon;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  title?: string;
-  /** @deprecated mostrato in topbar, ignorato qui. */
-  description?: string;
-  /** @deprecated era usato per i tooltip info accanto al titolo. Da rivedere se servirà. */
-  rightExtras?: ReactNode;
   tabs: AdminSectionTab[];
+  /** Bottone info-tooltip mostrato a destra delle tabs per la
+   *  sub-section corrente. Opzionale. */
+  guide?: AdminStickyHeaderGuide;
 }) {
   return (
     <div
-      className="sticky top-0 z-10 -mx-4 lg:-mx-2 px-4 lg:px-2"
+      className="sticky top-0 z-10 -mx-4 lg:-mx-2 px-4 lg:px-2 flex items-end gap-3"
       style={{ background: "var(--admin-page-bg)" }}>
-      <AdminSectionTabs tabs={tabs} />
+      <div className="flex-1 min-w-0">
+        <AdminSectionTabs tabs={tabs} />
+      </div>
+      {guide ? (
+        // Hidden su mobile: lo spazio orizzontale serve tutto alle
+        // tabs scrollabili, e l'info-button rubando il fianco
+        // costringerebbe a far overflow le tabs ancora prima.
+        <div className="hidden sm:flex pb-2 shrink-0">
+          <AdminSectionInfo
+            title={guide.title}
+            ariaLabel={guide.ariaLabel}
+            size="md">
+            {guide.content}
+          </AdminSectionInfo>
+        </div>
+      ) : null}
     </div>
   );
 }

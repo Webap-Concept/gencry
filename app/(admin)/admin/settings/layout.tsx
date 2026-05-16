@@ -18,40 +18,13 @@ export default async function SettingsLayout({
 }) {
   await requireAdminSectionPage("admin:settings");
 
-  const [tNav, tSettings, tCron, tSignupFlow] = await Promise.all([
+  const [tNav, tCron, tSignupFlow] = await Promise.all([
     getTranslations("admin.nav"),
-    getTranslations("admin.settings"),
     getTranslations("admin.cron"),
     getTranslations("admin.settings.signup.flowDiagram"),
   ]);
 
   const tabs = await getSectionTabs("settings-group", (k) => tNav(k));
-
-  const segments = [
-    "general",
-    "operation-mode",
-    "signup",
-    "email",
-    "snippets",
-    "notifications",
-    "languages",
-    "cron",
-  ] as const;
-
-  const descriptions: Record<string, string> = Object.fromEntries(
-    segments.map((s) => [s, tSettings(`sections.${s}.description`)]),
-  );
-
-  const iconBySegment: Record<string, string> = {
-    general: "Settings",
-    "operation-mode": "SlidersHorizontal",
-    signup: "LogIn",
-    email: "MailOpen",
-    snippets: "Code2",
-    notifications: "Bell",
-    languages: "Languages",
-    cron: "Clock",
-  };
 
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     cron: {
@@ -68,15 +41,7 @@ export default async function SettingsLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("settings-group")}
-        defaultDescription={tNav("descriptions.settings-group")}
-        defaultIcon="Settings"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

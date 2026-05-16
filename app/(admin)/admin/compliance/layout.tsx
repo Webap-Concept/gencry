@@ -23,16 +23,6 @@ export default async function ComplianceLayout({
 
   const tabs = await getSectionTabs("compliance-group", (k) => tNav(k));
 
-  const descriptions: Record<string, string> = {
-    gdpr: tGdpr("pageSubtitle"),
-    cookies: tCookies("pageSubtitle"),
-  };
-
-  const iconBySegment: Record<string, string> = {
-    gdpr: "ScrollText",
-    cookies: "Cookie",
-  };
-
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     gdpr: {
       title: tGdpr("guideTitle"),
@@ -48,15 +38,7 @@ export default async function ComplianceLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("compliance-group")}
-        defaultDescription={tNav("descriptions.compliance-group")}
-        defaultIcon="Scale"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

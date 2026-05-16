@@ -25,32 +25,6 @@ export default async function ServicesLayout({
 
   const tabs = await getSectionTabs("services-group", (k) => tNav(k));
 
-  const segments = [
-    "resend",
-    "redis",
-    "google-oauth",
-    "github",
-    "cloudflare",
-    "supabase",
-    "sentry",
-    "dependencies",
-  ] as const;
-
-  const descriptions: Record<string, string> = Object.fromEntries(
-    segments.map((s) => [s, tServices(`sections.${s}.description`)]),
-  );
-
-  const iconBySegment: Record<string, string> = {
-    resend: "Send",
-    redis: "Database",
-    "google-oauth": "LogIn",
-    github: "GitMerge",
-    cloudflare: "Shield",
-    supabase: "Database",
-    sentry: "Bug",
-    dependencies: "Package",
-  };
-
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     redis: {
       title: tServices("sections.redis.guideTitle"),
@@ -66,15 +40,7 @@ export default async function ServicesLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("services-group")}
-        defaultDescription={tNav("descriptions.services-group")}
-        defaultIcon="Plug"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

@@ -17,36 +17,14 @@ export default async function SecurityLayout({
 }) {
   await requireAdminSectionPage("admin:security");
 
-  const [tNav, tSec, tMfa, tBf, tIp, tBd, tBu, tAdminUrl] = await Promise.all([
+  const [tNav, tIp, tBd, tBu] = await Promise.all([
     getTranslations("admin.nav"),
-    getTranslations("admin.security"),
-    getTranslations("admin.security.mfa"),
-    getTranslations("admin.security.bruteforce"),
     getTranslations("admin.security.ipRules"),
     getTranslations("admin.security.blockedDomains"),
     getTranslations("admin.security.blockedUsernames"),
-    getTranslations("admin.security.adminUrl"),
   ]);
 
   const tabs = await getSectionTabs("security-group", (k) => tNav(k));
-
-  const descriptions: Record<string, string> = {
-    "admin-url": tAdminUrl("pageSubtitle"),
-    mfa: tMfa("pageSubtitle"),
-    bruteforce: tBf("pageSubtitle"),
-    "ip-rules": tIp("pageSubtitle"),
-    "blocked-domains": tBd("pageSubtitle"),
-    "blocked-usernames": tBu("pageSubtitle"),
-  };
-
-  const iconBySegment: Record<string, string> = {
-    "admin-url": "Link2",
-    mfa: "ShieldCheck",
-    bruteforce: "ShieldBan",
-    "ip-rules": "ListFilter",
-    "blocked-domains": "Globe",
-    "blocked-usernames": "UserX",
-  };
 
   const guides: Partial<Record<string, ParentHeaderGuide>> = {
     "ip-rules": {
@@ -68,15 +46,7 @@ export default async function SecurityLayout({
 
   return (
     <div className="space-y-5">
-      <AdminParentHeader
-        title={tNav("security-group")}
-        defaultDescription={tNav("descriptions.security-group")}
-        defaultIcon="Lock"
-        iconBySegment={iconBySegment}
-        descriptions={descriptions}
-        guides={guides}
-        tabs={tabs}
-      />
+      <AdminParentHeader tabs={tabs} guides={guides} />
       {children}
     </div>
   );

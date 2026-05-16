@@ -22,6 +22,7 @@ export function AdminSectionInfo({
   title = "Section info",
   children,
   ariaLabel,
+  size = "sm",
 }: {
   /** Modal header. */
   title?: string;
@@ -29,8 +30,14 @@ export function AdminSectionInfo({
   children: React.ReactNode;
   /** Accessible label for the trigger button. Defaults to title. */
   ariaLabel?: string;
+  /** Trigger button size. `sm` = 24px (default, for inline next to a
+   *  small title). `md` = 32px (for sticky header tab-bar, visually
+   *  punchier and easier hit target). */
+  size?: "sm" | "md";
 }) {
   const [open, setOpen] = useState(false);
+  const triggerSize = size === "md" ? 32 : 24;
+  const iconSize = size === "md" ? 16 : 13;
 
   // Close on Escape.
   useEffect(() => {
@@ -60,8 +67,8 @@ export function AdminSectionInfo({
         aria-label={ariaLabel ?? title}
         className="inline-flex items-center justify-center rounded-full transition-colors"
         style={{
-          width: 24,
-          height: 24,
+          width: triggerSize,
+          height: triggerSize,
           background: "transparent",
           color: "var(--admin-text-faint, #5a5957)",
           border: "1px solid var(--admin-card-border, #2a2927)",
@@ -76,7 +83,7 @@ export function AdminSectionInfo({
           e.currentTarget.style.borderColor =
             "var(--admin-card-border, #2a2927)";
         }}>
-        <AlertCircle size={13} strokeWidth={2.2} />
+        <AlertCircle size={iconSize} strokeWidth={2.2} />
       </button>
 
       {open && <SectionInfoModal title={title} onClose={() => setOpen(false)}>{children}</SectionInfoModal>}

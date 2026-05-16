@@ -76,16 +76,16 @@ export default function AdminShellClient({
               {SectionIcon && sectionTitle ? (
                 <>
                   <span
-                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                     style={{
                       background:
                         "color-mix(in srgb, var(--admin-accent) 14%, transparent)",
                       color: "var(--admin-accent)",
                     }}>
-                    <SectionIcon size={16} />
+                    <SectionIcon size={18} />
                   </span>
                   <h1
-                    className="text-sm font-semibold truncate"
+                    className="text-xs sm:text-lg font-semibold truncate"
                     style={{ color: "var(--admin-header-text)" }}>
                     {sectionTitle}
                   </h1>
@@ -93,12 +93,12 @@ export default function AdminShellClient({
               ) : (
                 <>
                   <h1
-                    className="text-sm font-semibold hidden lg:block truncate"
+                    className="text-xs sm:text-lg font-semibold hidden lg:block truncate"
                     style={{ color: "var(--admin-header-text)" }}>
                     {t("dashboardTitle")}
                   </h1>
                   <h1
-                    className="text-sm font-semibold lg:hidden truncate"
+                    className="text-xs sm:text-lg font-semibold lg:hidden truncate"
                     style={{ color: "var(--admin-header-text)" }}>
                     {t("dashboardTitleShort")}
                   </h1>
