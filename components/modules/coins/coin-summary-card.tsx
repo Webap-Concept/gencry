@@ -1,30 +1,31 @@
 "use client";
 // components/modules/coins/coin-summary-card.tsx
 //
-// Card riepilogativa di un coin, due stati visivi gestiti da CSS:
+// Header informativo del feed /explore?ticker=<COIN>.
 //
-//   A. Espanso (default, in-flow) — banner "Discussioni su: $TICKER"
-//      attaccato sopra + CoinCard (logo + nome + categoria + rank +
-//      prezzo + change + sparkline + footer watchlist mock). Cliccabile
-//      → /coins/<symbol>.
-//   B. Stuck (allo scroll) — collapsed ticker bar full-width main: riga
-//      unica con logo small + simbolo + prezzo + change 24h. Niente
-//      sparkline, niente metadati secondari. Sfondo semi-trasparente +
-//      backdrop-blur per leggibilità sopra al feed che scorre dietro.
+// Geometria — DUE ELEMENTI DOM SEPARATI, mai uno che cambia altezza:
 //
-// Il toggle tra A/B è guidato da `useIsStuck` che osserva un sentinel
-// piazzato PRIMA del container sticky. Pattern zero-jank: 1 sola
-// IntersectionObserver, niente scroll listener.
+//   1) "Card espansa"   → discussioni-card + CoinCard, SEMPRE in-flow,
+//                         altezza costante. Visibile a inizio scroll,
+//                         scrolla via normalmente.
+//   2) "Sentinel"       → 1px in-flow, in mezzo. Osservato da
+//                         `useIsStuck`; quando esce dal top dello scroll
+//                         parent significa che l'utente è scrollato
+//                         oltre la card espansa.
+//   3) "Sticky bar"     → container `position: sticky`, height 0 in-flow
+//                         (no reflow al flip). Bar absolute dentro,
+//                         sempre montata, animata solo via opacity +
+//                         transform → niente jank, niente "molla".
 //
-// Layout:
-//   - Wrapper esterno `-mx-4 sm:-mx-6 lg:-mx-8` per uscire dal padding
-//     orizzontale del ProtectedShell main. Solo così la sticky bar (stato
-//     B) tocca davvero i bordi delle colonne laterali quando stuck.
-//   - Stato A wrappato in `max-w-2xl mx-auto px-4`, stessa larghezza dei
-//     post nel feed sotto: la card non risulta più "rimpicciolita" o
-//     disallineata.
+// Il pattern precedente (un singolo elemento sticky che cambiava forma
+// tra "card espansa 200px" e "bar 40px") soffriva del classico bug
+// sticky + altezza variabile: al flip lo scroll position rimbalzava e
+// il sentinel rientrava in view, generando un loop oscillante visibile
+// come "effetto molla" durante lo scroll. Separare i due elementi DOM
+// fissa la cosa alla radice: il flow del documento non cambia mai.
 //
-// Usato in /explore?ticker=BTC come header del feed filtrato.
+// `-mx-4 sm:-mx-6 lg:-mx-8` sullo sticky outer per uscire dal padding
+// orizzontale del ProtectedShell main → la bar tocca davvero i bordi.
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -53,8 +54,7 @@ function formatChange(value: number | null): string {
 export function CoinSummaryCard({ coin }: { coin: CoinView }) {
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
   const tExplore = useTranslations("posts.explore");
-  const symbolLower = coin.symbol.toLowerCase();
-  const href = `/coins/${symbolLower}`;
+  const href = `/coins/${coin.symbol.toLowerCase()}`;
 
   const changeTone =
     coin.change24h === null
@@ -66,73 +66,68 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           : "text-gc-fg-3";
 
   return (
-    // ⚠️ Niente outer wrapper attorno al sentinel + sticky: un wrapper
-    // qui diventerebbe il parent della sticky position e — siccome è
-    // alto solo sentinel(1px) + bar height — la sticky verrebbe
-    // "trascinata via" dopo pochi pixel di scroll. Sentinel e sticky
-    // sono fragment diretti, così il parent torna a essere il `<div>`
-    // outer di ExplorePage (alto quanto tutto il feed): la bar resta
-    // stuck per l'intera durata dello scroll.
-    //
-    // `-mx-*` è applicato direttamente sullo sticky element per
-    // uscire dal padding del ProtectedShell main → bar full-width.
     <>
-      <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
-      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8">
-        {isStuck ? (
-          // ── Stato B: stuck coin bar full-main width ───────────────
-          <Link
-            href={href}
-            prefetch={false}
-            className="flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2 border-b border-gc-line bg-gc-bg-2/90 hover:bg-gc-bg-2 transition-colors"
-            style={{
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-            }}>
-            <CoinIcon
-              symbol={coin.symbol}
-              name={coin.name}
-              imageUrl={coin.imageUrl}
-              size="sm"
-            />
-            <span className="text-sm font-semibold text-gc-fg">
-              ${coin.symbol}
-            </span>
-            <span className="text-sm font-semibold text-gc-fg tabular-nums ml-auto">
-              {formatPrice(coin.price)}
-            </span>
-            <span className={`text-xs tabular-nums ${changeTone}`}>
-              {formatChange(coin.change24h)}
-            </span>
-            <ArrowUpRight
-              size={14}
-              strokeWidth={1.75}
-              className="text-gc-fg-3 shrink-0"
-              aria-hidden
-            />
-          </Link>
-        ) : (
-          // ── Stato A: card "Discussioni su" DIETRO + CoinCard davanti
-          // sovrapposta — due card distinte, la discussioni spunta in
-          // alto da dietro per i suoi padding top + testo.
-          // Wrappata in max-w-2xl per allinearsi al feed sotto.
-          <div className="max-w-2xl mx-auto px-4">
-            <div className="relative">
-              <div
-                className="relative z-0 rounded-2xl border border-gc-line bg-gc-bg-3 px-5 py-3 text-sm text-gc-fg-2"
-                role="heading"
-                aria-level={2}>
-                {tExplore("discussions_about", { ticker: `$${coin.symbol}` })}
-              </div>
-              <CoinCard
-                coin={coin}
-                rank={coin.marketCapRank}
-                href={href}
-                className="relative z-10 -mt-3"
-              />
-            </div>
+      {/* 1) Card espansa — sempre in-flow, altezza fissa */}
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="relative">
+          <div
+            className="relative z-0 rounded-2xl border border-gc-line bg-gc-bg-3 px-5 py-3 text-sm text-gc-fg-2"
+            role="heading"
+            aria-level={2}>
+            {tExplore("discussions_about", { ticker: `$${coin.symbol}` })}
           </div>
-        )}
+          <CoinCard
+            coin={coin}
+            rank={coin.marketCapRank}
+            href={href}
+            className="relative z-10 -mt-3"
+          />
+        </div>
+      </div>
+
+      {/* 2) Sentinel — 1px, observed */}
+      <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
+
+      {/* 3) Sticky bar — h-0 outer, bar absolute inside.
+          Outer è in flow MA con height 0, quindi il flip isStuck non
+          provoca nessun reflow → no jitter. */}
+      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 h-0">
+        <Link
+          href={href}
+          prefetch={false}
+          aria-hidden={!isStuck}
+          tabIndex={isStuck ? 0 : -1}
+          className={`absolute inset-x-0 top-0 flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2 border-b border-gc-line bg-gc-bg-2/90 hover:bg-gc-bg-2 transition-[opacity,transform] duration-150 ease-out ${
+            isStuck
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 -translate-y-1 pointer-events-none"
+          }`}
+          style={{
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}>
+          <CoinIcon
+            symbol={coin.symbol}
+            name={coin.name}
+            imageUrl={coin.imageUrl}
+            size="sm"
+          />
+          <span className="text-sm font-semibold text-gc-fg">
+            ${coin.symbol}
+          </span>
+          <span className="text-sm font-semibold text-gc-fg tabular-nums ml-auto">
+            {formatPrice(coin.price)}
+          </span>
+          <span className={`text-xs tabular-nums ${changeTone}`}>
+            {formatChange(coin.change24h)}
+          </span>
+          <ArrowUpRight
+            size={14}
+            strokeWidth={1.75}
+            className="text-gc-fg-3 shrink-0"
+            aria-hidden
+          />
+        </Link>
       </div>
     </>
   );
