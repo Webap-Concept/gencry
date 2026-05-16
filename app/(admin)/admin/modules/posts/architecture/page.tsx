@@ -579,6 +579,19 @@ export default function PostsArchitecturePage() {
               <code>PostListPage</code> (ids + nextCursor), non solo ids,
               altrimenti l'infinite scroll si ferma al primo batch.
             </li>
+            <li>
+              <strong>useState(initial.X) in client paginati</strong>: nei
+              client component delle pagine{" "}
+              <code>/admin/modules/posts/deleted</code> e{" "}
+              <code>/reports</code> con pill-filter via URL,{" "}
+              <code>useState(initial.rows)</code> legge la prop SOLO al
+              primo mount. Quando l'utente clicca un'altra pill, Next
+              non smonta il client (stessa rotta, diversa searchParams)
+              → lista vecchia. Fix: usare{" "}
+              <code>useResetableListState</code> (auto-reset su prop
+              change) + <code>key=&#123;filter&#125;</code> sul parent
+              come belt + suspenders.
+            </li>
           </ul>
         </ArchSection>
 

@@ -22,6 +22,7 @@ import {
   UserX,
 } from "lucide-react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
+import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
 import type {
   DeletedPostRow,
   DeletedPostsFilter,
@@ -81,10 +82,11 @@ export function DeletedPostsClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Append-paginazione client-side. Reset implicito via key page (cambio
-  // filter ricarica la rotta server, ricomincia da capo).
-  const [rows, setRows] = useState<DeletedPostRow[]>(initial.rows);
-  const [cursor, setCursor] = useState<string | null>(initial.nextCursor);
+  // Append-paginazione client-side. L'hook si auto-resetta quando il
+  // server passa un nuovo `initial` (cambio filter via URL), risolvendo
+  // l'anti-pattern `useState(initial.rows)` che leggeva solo al mount.
+  // Vedi memory `feedback_initial_prop_state`.
+  const { rows, cursor, appendRows } = useResetableListState(initial);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [isLoadingMore, startLoadMore] = useTransition();
 
@@ -98,8 +100,7 @@ export function DeletedPostsClient({
         setLoadMoreError(res.error);
         return;
       }
-      setRows((prev) => [...prev, ...res.rows]);
-      setCursor(res.nextCursor);
+      appendRows(res.rows, res.nextCursor);
     });
   };
 

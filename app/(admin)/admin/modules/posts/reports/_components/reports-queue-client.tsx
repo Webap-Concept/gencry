@@ -16,6 +16,7 @@ import {
 } from "@/app/(admin)/admin/_components/admin-dialog";
 import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
+import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
 import type {
   ReportQueueAggregateStatus,
   ReportQueueGroupRow,
@@ -68,10 +69,10 @@ export function ReportsQueueClient({
 }) {
   const [selected, setSelected] = useState<ReportQueueGroupRow | null>(null);
   // Append-paginazione client-side. La prima pagina arriva server-rendered;
-  // il bottone "Carica altre" appende le successive in-place senza
-  // navigation (cursor/hasMore vivono come state).
-  const [rows, setRows] = useState<ReportQueueGroupRow[]>(initial.rows);
-  const [cursor, setCursor] = useState<string | null>(initial.nextCursor);
+  // il bottone "Carica altre" appende in-place. L'hook si auto-resetta
+  // quando il server passa un nuovo `initial` al cambio status via URL.
+  // Vedi memory `feedback_initial_prop_state`.
+  const { rows, cursor, appendRows } = useResetableListState(initial);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingMore, startLoadMore] = useTransition();
 
@@ -85,8 +86,7 @@ export function ReportsQueueClient({
         setLoadError(res.error);
         return;
       }
-      setRows((prev) => [...prev, ...res.rows]);
-      setCursor(res.nextCursor);
+      appendRows(res.rows, res.nextCursor);
     });
   };
 
