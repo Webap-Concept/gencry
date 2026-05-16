@@ -97,7 +97,7 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
         <Link
           href={href}
           prefetch={false}
-          className="block bg-gc-bg px-4 sm:px-6 lg:px-8 py-4 hover:bg-gc-bg-2/40 transition-colors">
+          className="block bg-gc-bg px-4 sm:px-6 lg:px-8 py-4 hover:bg-gc-bg-2 transition-colors">
           <header className="flex items-start gap-3 min-w-0">
             <CoinIcon
               symbol={coin.symbol}
