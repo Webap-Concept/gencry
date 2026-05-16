@@ -17,14 +17,20 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/config";
  *        / Accept-Language / DEFAULT_LOCALE).
  *
  * Carica i messaggi per namespace con fallback chain "default → richiesto":
- * - Carica `messages/<DEFAULT_LOCALE>/<ns>.json` come base
- * - Se locale ≠ default, carica `messages/<locale>/<ns>.json` e fa deep-merge
- *   sopra il base. Le chiavi mancanti nel locale richiesto cadono sulla
- *   versione default (no chiave grezza, no errore).
+ * - Carica il file del namespace nel DEFAULT_LOCALE come base
+ * - Se locale ≠ default, carica la versione del locale richiesto e fa
+ *   deep-merge sopra il base. Le chiavi mancanti nel locale richiesto
+ *   cadono sulla versione default (no chiave grezza, no errore).
  *
- * I namespace registrati qui sono caricati per ogni request (split costo I/O
- * via dynamic import, cache su filesystem). Aggiungere nuovi namespace solo
- * dopo aver creato i file `messages/{en,it}/<ns>.json`.
+ * Path convention:
+ * - Namespace "core" (auth/admin/public/core) vivono in `messages/{locale}/`
+ *   alla root del progetto: sono globali, non legati a un modulo.
+ * - Namespace di modulo (posts, prices, follows, …) vivono dentro al
+ *   modulo: `lib/modules/<slug>/messages/{locale}/<slug>.json`. Coerente
+ *   con feedback_module_isolation — eliminare un modulo = `rm -rf` di una
+ *   sola cartella, niente file orfani in root.
+ *
+ * Aggiungere nuovi namespace SOLO dopo aver creato i 2 file (EN + IT).
  */
 
 const NAMESPACES = ["core", "auth", "public", "admin", "posts"] as const;
@@ -39,14 +45,14 @@ const LOADERS: Record<
     auth: () => import("@/messages/en/auth.json"),
     public: () => import("@/messages/en/public.json"),
     admin: () => import("@/messages/en/admin.json"),
-    posts: () => import("@/messages/en/posts.json"),
+    posts: () => import("@/lib/modules/posts/messages/en/posts.json"),
   },
   it: {
     core: () => import("@/messages/it/core.json"),
     auth: () => import("@/messages/it/auth.json"),
     public: () => import("@/messages/it/public.json"),
     admin: () => import("@/messages/it/admin.json"),
-    posts: () => import("@/messages/it/posts.json"),
+    posts: () => import("@/lib/modules/posts/messages/it/posts.json"),
   },
 };
 
