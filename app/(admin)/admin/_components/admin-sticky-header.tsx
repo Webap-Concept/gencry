@@ -67,17 +67,15 @@ export function AdminStickyHeader({
 
       <header
         className={cn(
-          // Pattern sticky-overlap: `top` NEGATIVO uguale al padding
-          // del <main p-4 lg:p-2>, così l'header si attacca SOPRA il
-          // top del viewport (il suo top edge va dentro il padding
-          // del main → il bg dell'header COPRE quel padding). Il
-          // `pt-4 lg:pt-2` interno rimette il content visivo a 0.
-          // Risultato: niente gap bianco sopra l'header quando stuck.
-          // Se il padding del main cambia, aggiornare entrambi i
-          // valori in sync qui sotto.
-          "sticky -top-4 lg:-top-2 z-10",
+          // Sticky pulito: `<main>` non ha più padding (sta sul
+          // wrapper interno dentro admin-shell-client). Quindi top:0
+          // attacca l'header esattamente al top del main, niente gap
+          // di padding-top da coprire — niente più trick di -mt/-top.
+          // -mx-4 lg:-mx-2 serve a estendere il bg edge-to-edge
+          // coprendo il padding orizzontale del wrapper interno del
+          // main (e.g. la sidebar arch non finisce sotto il bg).
+          "sticky top-0 z-10",
           "-mx-4 lg:-mx-2 px-4 lg:px-2",
-          "pt-4 lg:pt-2",
           "transition-shadow duration-200",
           isStuck && "shadow-sm",
         )}

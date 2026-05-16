@@ -68,7 +68,17 @@ export default function AdminShellClient({
             {header}
           </div>
 
-          <main className="flex-1 overflow-y-auto p-4 lg:p-2">{children}</main>
+          {/* <main> è il scroll container ma NON ha padding di suo:
+              così uno sticky `top: 0` dentro un suo discendente si
+              attacca pulito al top edge del main, senza padding-top
+              fantasma che riemerge come "buco bianco" sopra l'header
+              durante lo scroll.
+              Il padding lo eredita ogni pagina via questo wrapper
+              interno — i layout sezione possono ancora estendersi
+              edge-to-edge con `-mx-4 lg:-mx-2`, come fa AdminStickyHeader. */}
+          <main className="flex-1 overflow-y-auto">
+            <div className="p-4 lg:p-2">{children}</div>
+          </main>
         </div>
       </div>
     </TooltipProvider>
