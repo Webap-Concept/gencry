@@ -180,18 +180,36 @@ export function PostCard({
     post.editedAt,
   );
 
-  const [bookmarked, setBookmarked] = useOptimistic(
-    post.viewer?.bookmarked ?? false,
-  );
+  // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
+  // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
+  //   il "valore vero" lato client. Viene aggiornato manualmente DOPO che
+  //   il server action ritorna ok.
+  // - `optimisticX` (useOptimistic) wrappa confirmed: durante la pending
+  //   transition mostra l'anteprima; appena la transition decade torna a
+  //   confirmed (che, dopo il successo, è già il valore nuovo → niente
+  //   "flash back" alla reaction precedente). Rollback su fail = gratuito:
+  //   non aggiorniamo confirmed e l'ottimistico decade da solo.
+  // Senza il "confirmed", useOptimistic torna al passthrough = prop `post`
+  // che NON cambia (niente router.refresh): il bug era proprio quello.
   const initialOwnReaction: PostReactionKind | null =
     post.viewer?.ownReactions?.[0] ?? null;
-  const [ownReaction, setOwnReaction] = useOptimistic<PostReactionKind | null>(
-    initialOwnReaction,
+  const [confirmedBookmarked, setConfirmedBookmarked] = useState(
+    post.viewer?.bookmarked ?? false,
+  );
+  const [bookmarked, setOptimisticBookmarked] =
+    useOptimistic(confirmedBookmarked);
+  const [confirmedReaction, setConfirmedReaction] = useState<
+    PostReactionKind | null
+  >(initialOwnReaction);
+  const [ownReaction, setOptimisticReaction] =
+    useOptimistic<PostReactionKind | null>(confirmedReaction);
+  const [confirmedCounts, setConfirmedCounts] = useState<PostReactionCounts>(
+    post.counts.reactions,
   );
   const [optimisticCounts, applyCountsDelta] = useOptimistic<
     PostReactionCounts,
     { remove?: PostReactionKind; add?: PostReactionKind }
-  >(post.counts.reactions, (state, delta) => {
+  >(confirmedCounts, (state, delta) => {
     const next = { ...state };
     if (delta.remove) next[delta.remove] = Math.max(0, next[delta.remove] - 1);
     if (delta.add) next[delta.add] = next[delta.add] + 1;
@@ -237,24 +255,38 @@ export function PostCard({
   if (deleted || blocked) return null;
 
   const onToggleReaction = (kind: PostReactionKind) => {
-    const wasActive = ownReaction === kind;
-    const previousOwn = ownReaction;
+    const wasActive = confirmedReaction === kind;
+    const previousOwn = confirmedReaction;
+    const newReaction = wasActive ? null : kind;
     startTransition(async () => {
-      setOwnReaction(wasActive ? null : kind);
+      setOptimisticReaction(newReaction);
       applyCountsDelta({
         remove: previousOwn ?? undefined,
         add: wasActive ? undefined : kind,
       });
       const res = await toggleReaction({ postId: post.id, reaction: kind });
-      if (!res.ok) setOwnReaction(initialOwnReaction);
+      if (res.ok) {
+        // Confermo il nuovo stato lato client così, quando la transition
+        // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
+        setConfirmedReaction(newReaction);
+        setConfirmedCounts((prev) => {
+          const next = { ...prev };
+          if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
+          if (!wasActive) next[kind] = next[kind] + 1;
+          return next;
+        });
+      }
+      // Fail → niente setConfirmed: l'ottimistico decade naturalmente
+      // e la UI torna al valore confirmed precedente (rollback gratis).
     });
   };
 
   const onToggleBookmark = () => {
+    const next = !confirmedBookmarked;
     startTransition(async () => {
-      setBookmarked(!bookmarked);
+      setOptimisticBookmarked(next);
       const res = await toggleBookmark({ postId: post.id });
-      if (!res.ok) setBookmarked(post.viewer?.bookmarked ?? false);
+      if (res.ok) setConfirmedBookmarked(next);
     });
   };
 
