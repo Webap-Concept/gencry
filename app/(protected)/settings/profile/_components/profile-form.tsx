@@ -215,7 +215,7 @@ export function ProfileForm({
               id="locale"
               name="locale"
               defaultValue={initial.locale}
-              className="flex w-full rounded-2xl border px-4 py-2.5 text-sm bg-brand-surface-card text-brand-text border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50">
+              className="flex w-full rounded-full border px-4 py-2.5 text-sm bg-brand-surface-card text-brand-text border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50">
               <option value="">{t("languageAuto")}</option>
               {locales.map((l) => (
                 <option key={l.code} value={l.code}>
