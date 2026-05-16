@@ -2,6 +2,7 @@
 // Server-component "smart" che fetcha i top coin e li dispone in una grid
 // responsive. Usare wrappato in <Suspense fallback={<CoinCardGridSkeleton />}>
 // per beneficiare dello streaming RSC.
+import { getTranslations } from "next-intl/server";
 import { getTopCoinsForCards } from "@/lib/modules/prices/queries";
 import { cn } from "@/lib/utils";
 import { CoinCard } from "./coin-card";
@@ -17,9 +18,10 @@ export async function CoinCardGrid({
   const coins = await getTopCoinsForCards(limit);
 
   if (coins.length === 0) {
+    const tEmpty = await getTranslations("prices.empty_states");
     return (
       <div className="text-sm text-gc-fg-3 text-center py-12">
-        Nessun coin attivo.
+        {tEmpty("no_active_coins")}
       </div>
     );
   }

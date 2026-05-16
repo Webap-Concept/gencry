@@ -3,6 +3,7 @@
 // variazione 24h + sparkline 21pt + footer "In Nk watchlist" (mockup).
 // Pure presentational, server-component compatibile.
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { cn } from "@/lib/utils";
 import { CoinIcon } from "./coin-icon";
@@ -10,7 +11,7 @@ import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
 import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
 
-export function CoinCard({
+export async function CoinCard({
   coin,
   rank,
   watchlistCount,
@@ -32,6 +33,7 @@ export function CoinCard({
   const wlCount = watchlistCount ?? mockWatchlistCount(coin.symbol);
   const resolvedHref =
     href === null ? null : (href ?? `/coins/${coin.symbol.toLowerCase()}`);
+  const tLabels = await getTranslations("prices.labels");
 
   return (
     <article
@@ -48,7 +50,7 @@ export function CoinCard({
           href={resolvedHref}
           prefetch={false}
           className="absolute inset-0 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
-          aria-label={`Dettagli ${coin.name}`}
+          aria-label={tLabels("coin_details_aria", { name: coin.name })}
         />
       )}
       {/* Header */}
@@ -78,7 +80,7 @@ export function CoinCard({
         {typeof rank === "number" && rank > 0 && (
           <span
             className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gc-bg-3 border border-gc-line text-gc-fg-2 tabular-nums"
-            aria-label={`Posizione market cap: ${rank}`}
+            aria-label={tLabels("rank_aria", { rank })}
           >
             #{rank}
           </span>
@@ -97,16 +99,23 @@ export function CoinCard({
           points={coin.weeklySparkline}
           width={120}
           height={40}
+          ariaLabel={tLabels("weekly_chart_aria")}
         />
       </div>
 
-      {/* Footer — watchlist count (mockup finché la feature reale non esiste) */}
+      {/* Footer — watchlist count (mockup finché la feature reale non esiste).
+          ICU rich text non disponibile in next-intl server: usiamo split
+          "In {count} watchlist" → {prefix}<strong>{count}</strong>{suffix}
+          se servisse styling separato. Qui basta il template piatto. */}
       <footer className="mt-3 pt-3 border-t border-gc-line text-[11px] text-gc-fg-3">
-        In{" "}
-        <span className="font-semibold text-gc-fg-2 tabular-nums">
-          {formatCompactCount(wlCount)}
-        </span>{" "}
-        watchlist
+        {tLabels.rich("watchlist_count", {
+          count: formatCompactCount(wlCount),
+          strong: (chunks) => (
+            <span className="font-semibold text-gc-fg-2 tabular-nums">
+              {chunks}
+            </span>
+          ),
+        })}
       </footer>
     </article>
   );

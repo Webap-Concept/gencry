@@ -13,6 +13,7 @@
 // sicurezza, se l'URL non risponde, fallback al letter circle.
 
 import { ImageResponse } from "next/og";
+import { getTranslations } from "next-intl/server";
 import { getCoinForCard } from "@/lib/modules/prices/queries";
 import { getCachedAppSettings } from "@/lib/seo";
 
@@ -170,7 +171,12 @@ async function renderCoinOgImage(
     .trim()
     .replace(/^https?:\/\//i, "")
     .replace(/\/$/, "");
-  const claim = "La community italiana delle crypto.";
+  // OG image è statica per share (cachata da Vercel CDN) — usiamo
+  // il DEFAULT_LOCALE del progetto, non il locale request (lo share
+  // viene visto da chiunque indipendentemente dalla loro lingua).
+  const tOg = await getTranslations("prices.opengraph");
+  const claim = tOg("claim");
+  const changeSuffix = tOg("change_24h_suffix");
 
   // Fallback: coin non trovato → card generica
   if (!coin) {
@@ -302,7 +308,7 @@ async function renderCoinOgImage(
               color: trend,
             }}
           >
-            {`${formatChange(coin.change24h)} (24h)`}
+            {`${formatChange(coin.change24h)} ${changeSuffix}`}
           </div>
         </div>
 

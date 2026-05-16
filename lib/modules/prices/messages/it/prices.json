@@ -1,0 +1,51 @@
+{
+  "common": {
+    "details": "Dettagli",
+    "sign_in": "Accedi",
+    "sign_up": "Iscriviti",
+    "explore": "Esplora",
+    "watchlist": "Watchlist"
+  },
+  "labels": {
+    "market_cap": "Market cap",
+    "volume_24h": "Volume 24h",
+    "rank": "Posizione",
+    "rank_aria": "Posizione market cap: {rank}",
+    "in_watchlist": "In watchlist",
+    "mockup_hint": "mockup",
+    "price": "Prezzo",
+    "weekly_chart_aria": "Andamento ultimi 7 giorni",
+    "historical_chart_aria": "Grafico storico prezzo",
+    "time_range_aria": "Intervallo temporale",
+    "coin_details_aria": "Dettagli {name}",
+    "watchlist_count": "In <strong>{count}</strong> watchlist"
+  },
+  "ranges": {
+    "1d": "1g",
+    "1w": "1s",
+    "1m": "1m",
+    "1y": "1a"
+  },
+  "empty_states": {
+    "no_active_coins": "Nessun coin attivo.",
+    "no_history_window": "Storico non ancora disponibile per questa finestra."
+  },
+  "page": {
+    "not_found_title": "Coin non trovato",
+    "metadata_title_suffix": "Prezzo, grafico e dati",
+    "metadata_description": "Prezzo live di {name} ({symbol}): {price} USD.{change}{rank} Grafico storico, market cap e volume 24h.",
+    "metadata_change_24h": " Variazione 24h: {change}.",
+    "metadata_rank": " Rank market cap: #{rank}.",
+    "og_description": "{name} ({symbol}) — prezzo, grafico storico, market cap e volume 24h aggiornati in tempo reale.",
+    "cta_follow_title": "Segui {name} sulla community",
+    "cta_follow_description": "Iscriviti per aggiungere {name} alla tua watchlist, ricevere alert e leggere cosa pensa la community."
+  },
+  "source": {
+    "label": "Fonte:",
+    "name": "CoinGecko"
+  },
+  "opengraph": {
+    "claim": "La community italiana delle crypto.",
+    "change_24h_suffix": "(24h)"
+  }
+}

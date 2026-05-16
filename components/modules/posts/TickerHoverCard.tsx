@@ -230,6 +230,7 @@ function PreviewBody({
   const coin = data.coin!;
   const symbolLower = coin.symbol.toLowerCase();
   const tHover = useTranslations("posts.ticker_hover");
+  const tPricesLabels = useTranslations("prices.labels");
   const changeTone =
     coin.change24h === null
       ? "text-gc-fg-3"
@@ -276,6 +277,7 @@ function PreviewBody({
           points={coin.weeklySparkline}
           width={100}
           height={32}
+          ariaLabel={tPricesLabels("weekly_chart_aria")}
         />
       </div>
 
