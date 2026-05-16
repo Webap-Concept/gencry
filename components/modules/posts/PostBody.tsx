@@ -23,8 +23,80 @@ import { TickerHoverCard } from "./TickerHoverCard";
 
 const TICKER_REGEX = /\$([A-Za-z][A-Za-z0-9]{1,19})\b/g;
 const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]{2,29})\b/g;
-const URL_REGEX = /https?:\/\/[^\s<>]+/g;
 const WORD_REGEX = /\b[A-Za-z][A-Za-z0-9]{2,}\b/g;
+
+// URL detection — tre formati supportati:
+//   1) http(s)://<host>[/path]      → match con protocollo esplicito
+//   2) www.<host>[/path]            → senza protocollo (prepend https://)
+//   3) <host>[/path] con TLD noto   → "bare" domain (prepend https://)
+//
+// Per (3) servono almeno 2 segmenti host (es. coingecko.com) e l'ultimo
+// deve essere in `COMMON_TLDS` — altrimenti "frase.altra" diventerebbe
+// link. La whitelist copre i TLD più diffusi (~80) + parecchi ccTLD;
+// TLD esotici (.eth, .crypto, ecc.) richiedono aggiunta manuale.
+//
+// La regex è volutamente "greedy" sul path (`[^\s<>]*`): inghiotte
+// anche eventuale punteggiatura finale (`example.com,`), che viene poi
+// tagliata da `stripTrailingPunctuation` e restituita come testo dopo
+// il link. Senza questo passaggio, virgole/punti/parentesi finali
+// rimanevano dentro l'href e il browser navigava a un URL invalido.
+const URL_REGEX =
+  /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+(?:\/[^\s<>]*)?/g;
+
+const COMMON_TLDS = new Set([
+  // generic
+  "com","org","net","io","co","dev","app","ai","tech","cloud","info","biz",
+  "xyz","online","store","blog","site","website","shop","news","live",
+  "stream","video","photo","art","design","studio","work","careers",
+  "money","finance","crypto","exchange","trading","wallet","network",
+  "global","world","group","systems","services","solutions","digital",
+  "agency","media","markets","fund","capital","investments","ventures",
+  // gov/edu/mil
+  "gov","edu","mil",
+  // ccTLD popolari
+  "it","fr","de","uk","us","eu","es","pt","nl","pl","ch","at","be","se",
+  "no","fi","dk","jp","cn","in","br","mx","ca","au","nz","ie","gr","cz",
+  "ro","sk","hu","bg","hr","tr","ru","ua",
+  // ccTLD spesso usati per branding
+  "to","ly","mn","gg","fm","la","sh","sm","st","gl","ag","ms","im","je",
+  "me","tv","cc","so",
+]);
+
+const TRAILING_PUNCT_REGEX = /[.,;:!?\]\)\}>'"’”]+$/;
+
+/**
+ * Strip trailing punctuation from a captured URL. The stripped chunk is
+ * returned separately so the caller can re-emit it as plain text after
+ * the link token, preserving the original text shape.
+ */
+function stripTrailingPunctuation(raw: string): { url: string; trail: string } {
+  const m = raw.match(TRAILING_PUNCT_REGEX);
+  if (!m) return { url: raw, trail: "" };
+  return { url: raw.slice(0, -m[0].length), trail: m[0] };
+}
+
+/**
+ * Validate + normalize a candidate URL match. Returns null for bare
+ * domains whose TLD isn't in the whitelist (avoids false positives on
+ * sentences like "frase.altra" or "es.la").
+ */
+function normalizeUrl(raw: string): { href: string; display: string } | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower.startsWith("http://") || lower.startsWith("https://")) {
+    return { href: raw, display: raw };
+  }
+  if (lower.startsWith("www.")) {
+    return { href: `https://${raw}`, display: raw };
+  }
+  // Bare domain: validate TLD.
+  const hostEnd = raw.indexOf("/");
+  const host = hostEnd === -1 ? raw : raw.slice(0, hostEnd);
+  const parts = host.split(".");
+  const tld = parts[parts.length - 1].toLowerCase();
+  if (!COMMON_TLDS.has(tld)) return null;
+  return { href: `https://${raw}`, display: raw };
+}
 
 type Token =
   | { type: "text"; value: string }
@@ -65,12 +137,19 @@ function collectMatches(
 
   for (const m of body.matchAll(URL_REGEX)) {
     const start = m.index!;
-    const href = m[0];
-    const display = href.length > 60 ? href.slice(0, 57) + "…" : href;
+    // Strip trailing punctuation BEFORE validating, so e.g. `example.com,`
+    // is validated as `example.com` and the comma stays as plain text.
+    const { url } = stripTrailingPunctuation(m[0]);
+    const normalized = normalizeUrl(url);
+    if (!normalized) continue;
+    const display =
+      normalized.display.length > 60
+        ? normalized.display.slice(0, 57) + "…"
+        : normalized.display;
     out.push({
       start,
-      end: start + m[0].length,
-      token: { type: "url", href, display },
+      end: start + url.length,
+      token: { type: "url", href: normalized.href, display },
     });
   }
 
