@@ -294,7 +294,11 @@ export function ArchAnchorNav({
   return (
     <nav
       aria-label="Sezioni architettura"
-      className="hidden lg:block sticky top-6 self-start text-xs"
+      // top-24 (96px) per stare sotto lo sticky header della sezione
+      // admin (occupa ~88px in stato shrunk: pt-2 + content + tabs).
+      // Lo stesso offset usato da `scroll-mt-24` delle ArchSection,
+      // così le anchor jumpano coerentemente.
+      className="hidden lg:block sticky top-24 self-start text-xs"
       style={{ color: "var(--admin-text-faint)" }}>
       <p
         className="text-[10px] uppercase tracking-wider font-semibold mb-2"
