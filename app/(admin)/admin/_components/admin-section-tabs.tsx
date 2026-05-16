@@ -11,6 +11,7 @@
 // runtime (es. `/${slug}/content/pages`). Il caller server-side
 // chiama `getAdminUrlSlug()` (o `getSectionTabs()` in lib/admin-nav)
 // e costruisce gli href; questo component è puro presentational.
+import { getNavIcon } from "@/lib/admin/nav/icon-map";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,6 +22,9 @@ export type AdminSectionTab = {
   /** Se true, attivo solo su pathname === href (utile per voci-root
    *  di sezione che altrimenti resterebbero attive anche su sub-route). */
   exact?: boolean;
+  /** Nome icona Lucide (chiave NAV_ICON_MAP). Renderizzata solo su
+   *  desktop (lg+) prima del label. */
+  iconName?: string;
 };
 
 export function AdminSectionTabs({ tabs }: { tabs: AdminSectionTab[] }) {
@@ -43,15 +47,18 @@ export function AdminSectionTabs({ tabs }: { tabs: AdminSectionTab[] }) {
         const active = tab.exact
           ? pathname === tab.href
           : pathname === tab.href || pathname.startsWith(tab.href + "/");
+        const Icon = tab.iconName ? getNavIcon(tab.iconName) : null;
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            className="group relative px-2 sm:px-3 py-2 text-xs sm:text-sm transition-colors hover:text-[var(--admin-accent)] whitespace-nowrap shrink-0"
+            className="group relative px-2 sm:px-3 py-2 text-xs sm:text-sm transition-colors hover:text-[var(--admin-accent)] whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
             style={{
               color: active ? "var(--admin-accent)" : "var(--admin-text-muted)",
             }}
             aria-current={active ? "page" : undefined}>
+            {/* Icona solo da lg in su — mobile/tablet vincono leggibilità */}
+            {Icon ? <Icon size={14} className="hidden lg:inline-block shrink-0" /> : null}
             {tab.label}
             <span
               aria-hidden="true"

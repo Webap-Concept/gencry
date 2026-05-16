@@ -71,5 +71,6 @@ export async function getSectionTabs(
     href: `${base}${c.href}`,
     label: labelResolver(c.key),
     exact: c.exact ?? false,
+    iconName: c.icon,
   }));
 }

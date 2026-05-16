@@ -32,11 +32,11 @@ export function PricesHeader({ adminSlug }: { adminSlug: string }) {
   return (
     <AdminStickyHeader
       tabs={[
-        { href: base,                   label: "Health",         exact: true },
-        { href: `${base}/coins`,         label: "Coins Registry" },
-        { href: `${base}/cron`,          label: "Cron Jobs" },
-        { href: `${base}/settings`,      label: "Settings" },
-        { href: `${base}/architecture`,  label: "Architettura" },
+        { href: base,                   label: "Health",         iconName: "Activity",  exact: true },
+        { href: `${base}/coins`,         label: "Coins Registry", iconName: "Coins" },
+        { href: `${base}/cron`,          label: "Cron Jobs",      iconName: "Clock" },
+        { href: `${base}/settings`,      label: "Settings",       iconName: "Settings" },
+        { href: `${base}/architecture`,  label: "Architettura",   iconName: "BookOpen" },
       ]}
       guide={guide}
     />

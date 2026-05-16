@@ -24,12 +24,12 @@ export function PostsHeader({ adminSlug }: { adminSlug: string }) {
   return (
     <AdminStickyHeader
       tabs={[
-        { href: base, label: "Overview", exact: true },
-        { href: `${base}/reports`, label: "Reports" },
-        { href: `${base}/deleted`, label: "Deleted" },
-        { href: `${base}/settings`, label: "Settings" },
-        { href: `${base}/cron`, label: "Cron Jobs" },
-        { href: `${base}/architecture`, label: "Architettura" },
+        { href: base,                   label: "Overview",     iconName: "Activity",       exact: true },
+        { href: `${base}/reports`,       label: "Reports",      iconName: "Flag" },
+        { href: `${base}/deleted`,       label: "Deleted",      iconName: "Trash2" },
+        { href: `${base}/settings`,      label: "Settings",     iconName: "Settings" },
+        { href: `${base}/cron`,          label: "Cron Jobs",    iconName: "Clock" },
+        { href: `${base}/architecture`,  label: "Architettura", iconName: "BookOpen" },
       ]}
       guide={guide}
     />
