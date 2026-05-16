@@ -13,13 +13,9 @@ export default async function PricesLayout({
   await requireAdminSectionPage("modules:prices");
   const slug = await getAdminUrlSlug();
   return (
-    // PricesHeader fuori dal `space-y-5`: in un wrapper space-y il
-    // 2° child (header) riceverebbe margin-top, creando un buco di
-    // 20px sopra l'header sticky. Lo `mt-5` sul wrapper interno
-    // sostituisce esattamente quello space tra header e content.
-    <>
+    <div className="space-y-5">
       <PricesHeader adminSlug={slug} />
-      <div className="space-y-5 mt-5">{children}</div>
-    </>
+      {children}
+    </div>
   );
 }
