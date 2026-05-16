@@ -31,6 +31,7 @@ export function SeedersClient({
   const [postsPerUser, setPostsPerUser] = useState(5);
   const [withImages, setWithImages] = useState(true);
   const [withBlocks, setWithBlocks] = useState(true);
+  const [withReactions, setWithReactions] = useState(true);
   const [lastResult, setLastResult] = useState<RunSeederResult | null>(null);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export function SeedersClient({
         postsPerUser,
         withImages,
         withBlocks,
+        withReactions,
       });
       setLastResult(res);
       if (res.ok) router.refresh();
@@ -170,6 +172,12 @@ export function SeedersClient({
             description="Circa il 30% dei post avrà un'immagine random."
             checked={withImages}
             onChange={setWithImages}
+          />
+          <CheckboxField
+            label="Crea reazioni sui post"
+            description="Circa il 40% dei post riceve reazioni (mood-biased: bullish → 🚀, bearish → 🐻)."
+            checked={withReactions}
+            onChange={setWithReactions}
           />
           <CheckboxField
             label="Crea relazioni di block tra utenti"
@@ -381,7 +389,8 @@ function ResultPanel({ result }: { result: RunSeederResult }) {
       <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
         Utenti creati: <strong>{result.counts.usersCreated}</strong> ·
         Post creati: <strong>{result.counts.postsCreated}</strong> ·
-        Block creati: <strong>{result.counts.blocksCreated}</strong>
+        Reazioni: <strong>{result.counts.reactionsCreated}</strong> ·
+        Block: <strong>{result.counts.blocksCreated}</strong>
       </p>
     </div>
   );

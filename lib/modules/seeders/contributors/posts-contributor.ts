@@ -1,17 +1,22 @@
 // lib/modules/seeders/contributors/posts-contributor.ts
 //
-// Crea post variati per ogni seed user. Tre layer di realismo:
+// Crea post variati per ogni seed user. Layer di realismo:
 //
 //   1. Mood-driven pool: ogni user ha un archetype (bullish_btc,
 //      bearish, hodler, trader, defi, macro, newbie, degen) assegnato
 //      al seed time. I template del post arrivano dal sub-pool del
 //      suo mood + un mix GENERIC (60% mood, 40% generic).
 //
-//   2. Meta-site override: 10% dei post (max 1 per user) usa template
+//   2. Densità + imperfezioni naturali (vedi post-composer.ts):
+//      distribuzione 60% 1-frase / 25% 2-3 frasi / 12% 4-6 / 3%
+//      ultra-short, bias mood. Imperfezioni (emoji/slang/typo) su
+//      degen/newbie/trader con probabilità 5-10%.
+//
+//   3. Meta-site override: 10% dei post (max 1 per user) usa template
 //      META_SITE_TEMPLATES_IT ("bel sito", "primo post qui", ecc.).
 //      Mai negativi, mix positivi/neutri.
 //
-//   3. Trend-aware ticker pick: per template con {ticker}, il symbol
+//   4. Trend-aware ticker pick: per template con {ticker}, il symbol
 //      scelto è coerente col mood:
 //         - bullish_btc / degen → coin in crescita reale (>=+5% in 7d)
 //         - bearish / macro     → coin in calo reale (<=-5% in 7d)
@@ -52,6 +57,7 @@ import {
   trendLabel,
   type CoinTrend,
 } from "../services/price-trend-analyzer";
+import { composeBody } from "../services/post-composer";
 import type { SeedUser } from "../services/user-seeder";
 
 const META_POST_PROBABILITY = 0.1;
@@ -141,12 +147,19 @@ export type SeedPostsOptions = {
   withImages: boolean;
 };
 
+export type SeededPosts = {
+  created: number;
+  /** ID dei post inseriti — passati al reactions-contributor per
+   *  generare reazioni sui post appena creati. */
+  postIds: string[];
+};
+
 export async function seedPostsForUsers(
   seedUsers: SeedUser[],
   opts: SeedPostsOptions,
-): Promise<{ created: number }> {
+): Promise<SeededPosts> {
   if (seedUsers.length === 0 || opts.postsPerUser <= 0) {
-    return { created: 0 };
+    return { created: 0, postIds: [] };
   }
 
   // Carica una sola volta: coin name map + trend analysis.
@@ -187,19 +200,31 @@ export async function seedPostsForUsers(
         !metaPostUsed.has(user.id) &&
         Math.random() < META_POST_PROBABILITY;
 
-      let template: string;
+      let mainTemplate: string;
       if (isMetaPost) {
-        template = pick(META_SITE_TEMPLATES_IT);
+        mainTemplate = pick(META_SITE_TEMPLATES_IT);
         metaPostUsed.add(user.id);
       } else {
-        template = pickTemplateForMood(user.mood);
+        mainTemplate = pickTemplateForMood(user.mood);
       }
+
+      // Layer densità + imperfezioni. Il composer concatena 2-6 frasi
+      // su un % dei post, e applica typo/slang/emoji su degen/newbie/
+      // trader con probabilità basse. Per i meta-post forziamo singola
+      // frase: "primo post qui...gm" suonerebbe stonato.
+      const composed = isMetaPost
+        ? mainTemplate
+        : composeBody({
+            mood: user.mood,
+            mainTemplate,
+            fillerPool: GENERIC_TEMPLATES_IT,
+          });
 
       // Ticker pick mood-aware (anche se il template non lo usa,
       // resolveTemplate lo skippa gracefully).
       const pickedTicker = pickTickerForMood(user.mood, trends, allSymbols);
       const body = resolveTemplate(
-        template,
+        composed,
         pickedTicker,
         coinNameMap,
         otherUsernames,
@@ -223,7 +248,7 @@ export async function seedPostsForUsers(
     }
   }
 
-  if (pending.length === 0) return { created: 0 };
+  if (pending.length === 0) return { created: 0, postIds: [] };
 
   // Bulk INSERT posts.
   await db.insert(posts).values(
@@ -329,5 +354,8 @@ export async function seedPostsForUsers(
     await db.insert(postsMedia).values(mediaRows);
   }
 
-  return { created: pending.length };
+  return {
+    created: pending.length,
+    postIds: pending.map((p) => p.id),
+  };
 }

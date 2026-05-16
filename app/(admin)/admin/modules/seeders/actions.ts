@@ -4,8 +4,12 @@
 // Server Actions del modulo Seeders. Solo permission `modules:seeders`
 // (NON auto-granted: solo SuperAdmin per default).
 //
-// Esegue tutti i SeederContributor registrati in registry.ts. Cleanup
-// rispetta lockdown su email pattern seed-%@seed.<APP_DOMAIN>.
+// Il run esegue in sequenza tutti i SeederContributor abilitati (vedi
+// lib/modules/seeders/registry.ts). Aggiungere un contributor (es.
+// comments futuri) è una riga in registry.ts + 1 flag in
+// SeederOptions: questo file resta invariato.
+//
+// Cleanup rispetta lockdown su email pattern seed-%@seed.<APP_DOMAIN>.
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -15,8 +19,12 @@ import {
   countSeedUsers,
   seedUsers,
 } from "@/lib/modules/seeders/services/user-seeder";
-import { seedPostsForUsers } from "@/lib/modules/seeders/contributors/posts-contributor";
-import { seedBlocksForUsers } from "@/lib/modules/seeders/contributors/blocks-contributor";
+import {
+  SEEDER_CONTRIBUTORS,
+  type SeedRunContext,
+  type SeederOptions,
+  type SeederRunOutput,
+} from "@/lib/modules/seeders/registry";
 
 const SAFETY_MAX_USERS = 500;
 const SAFETY_MAX_POSTS_PER_USER = 50;
@@ -26,17 +34,11 @@ const RunSchema = z.object({
   postsPerUser: z.number().int().min(0).max(SAFETY_MAX_POSTS_PER_USER),
   withImages: z.boolean(),
   withBlocks: z.boolean(),
+  withReactions: z.boolean(),
 });
 
 export type RunSeederResult =
-  | {
-      ok: true;
-      counts: {
-        usersCreated: number;
-        postsCreated: number;
-        blocksCreated: number;
-      };
-    }
+  | { ok: true; counts: { usersCreated: number } & SeederRunOutput }
   | { ok: false; error: string };
 
 export async function runSeederAction(
@@ -48,31 +50,35 @@ export async function runSeederAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid_input" };
   }
-  const { userCount, postsPerUser, withImages, withBlocks } = parsed.data;
+  const { userCount, ...rest } = parsed.data;
+  const opts: SeederOptions = rest;
 
   try {
     const users = await seedUsers(userCount);
 
-    const postsResult =
-      postsPerUser > 0
-        ? await seedPostsForUsers(users, { postsPerUser, withImages })
-        : { created: 0 };
+    const ctx: SeedRunContext = { users, postIds: [] };
 
-    const blocksResult = withBlocks
-      ? await seedBlocksForUsers(users)
-      : { created: 0 };
+    // Accumulatore tipizzato. I contributor ritornano Partial<>; noi
+    // li sommiamo nei field che ci interessano.
+    const output: SeederRunOutput = {
+      usersCreated: users.length,
+      postsCreated: 0,
+      blocksCreated: 0,
+      reactionsCreated: 0,
+    };
+
+    for (const contributor of SEEDER_CONTRIBUTORS) {
+      if (!contributor.enabled(opts)) continue;
+      const delta = await contributor.run(ctx, opts);
+      if (delta.postsCreated)     output.postsCreated     += delta.postsCreated;
+      if (delta.blocksCreated)    output.blocksCreated    += delta.blocksCreated;
+      if (delta.reactionsCreated) output.reactionsCreated += delta.reactionsCreated;
+    }
 
     revalidatePath("/admin/modules/seeders");
     revalidatePath("/", "layout"); // feed/explore mostrano i nuovi post
 
-    return {
-      ok: true,
-      counts: {
-        usersCreated: users.length,
-        postsCreated: postsResult.created,
-        blocksCreated: blocksResult.created,
-      },
-    };
+    return { ok: true, counts: output };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown_error";
     return { ok: false, error: msg };
