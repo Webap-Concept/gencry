@@ -174,54 +174,57 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
       {/* 2) Sentinel */}
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
 
-      {/* 3) Sticky bar — tema invertito, h-0 outer per zero reflow */}
-      <div className="gc-dark sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 h-0">
-        <Link
-          href={href}
-          prefetch={false}
-          aria-hidden={!isStuck}
-          tabIndex={isStuck ? 0 : -1}
-          className={`absolute inset-x-0 top-0 flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2 border-b border-gc-line bg-gc-bg-2/90 text-gc-fg hover:bg-gc-bg-2 transition-[opacity,transform] duration-150 ease-out ${
-            isStuck
-              ? "opacity-100 translate-y-0 pointer-events-auto"
-              : "opacity-0 -translate-y-1 pointer-events-none"
-          }`}
-          style={{
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-          }}>
-          <CoinIcon
-            symbol={coin.symbol}
-            name={coin.name}
-            imageUrl={coin.imageUrl}
-            size="sm"
-          />
-          <span className="text-sm font-semibold text-gc-fg">
-            ${coin.symbol}
-          </span>
-          {/* Pill beige: isola "light" dentro lo scope `.gc-dark` per
-              garantire contrasto leggibile del prezzo e del segnale
-              pos/neg sopra il verde scuro della bar. */}
-          <span
-            className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1"
-            style={{ backgroundColor: PILL_BG, color: PILL_FG }}>
-            <span className="text-sm font-semibold tabular-nums">
-              {formatPrice(coin.price)}
+      {/* 3) Sticky bar — tema invertito, h-0 outer per zero reflow.
+          Renderizzata SOLO quando `isStuck` è true: tenerla montata
+          invisibile (pointer-events-none) lasciava un elemento absolute
+          z-10 sopra il primo PostCard sotto, e in alcuni browser il
+          primo click sulla card finiva "perso" su quell'overlay invece
+          che sul Link stretched. Smontandola del tutto quando non
+          serve, il click va dritto al post. Animazione di entrata via
+          Tailwind animate-in (CSS pure, niente flag pending). */}
+      {isStuck && (
+        <div className="gc-dark sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 h-0">
+          <Link
+            href={href}
+            prefetch={false}
+            className="absolute inset-x-0 top-0 flex items-center gap-3 px-4 sm:px-6 lg:px-8 py-2 border-b border-gc-line bg-gc-bg-2/90 text-gc-fg hover:bg-gc-bg-2 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+            style={{
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+            }}>
+            <CoinIcon
+              symbol={coin.symbol}
+              name={coin.name}
+              imageUrl={coin.imageUrl}
+              size="sm"
+            />
+            <span className="text-sm font-semibold text-gc-fg">
+              ${coin.symbol}
             </span>
+            {/* Pill beige: isola "light" dentro lo scope `.gc-dark` per
+                garantire contrasto leggibile del prezzo e del segnale
+                pos/neg sopra il verde scuro della bar. */}
             <span
-              className="text-xs font-semibold tabular-nums"
-              style={{ color: pillChangeColor }}>
-              {formatChange(coin.change24h)}
+              className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1"
+              style={{ backgroundColor: PILL_BG, color: PILL_FG }}>
+              <span className="text-sm font-semibold tabular-nums">
+                {formatPrice(coin.price)}
+              </span>
+              <span
+                className="text-xs font-semibold tabular-nums"
+                style={{ color: pillChangeColor }}>
+                {formatChange(coin.change24h)}
+              </span>
             </span>
-          </span>
-          <ArrowUpRight
-            size={14}
-            strokeWidth={1.75}
-            className="text-gc-fg-3 shrink-0"
-            aria-hidden
-          />
-        </Link>
-      </div>
+            <ArrowUpRight
+              size={14}
+              strokeWidth={1.75}
+              className="text-gc-fg-3 shrink-0"
+              aria-hidden
+            />
+          </Link>
+        </div>
+      )}
     </>
   );
 }
