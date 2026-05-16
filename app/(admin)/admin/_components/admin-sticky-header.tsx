@@ -52,7 +52,15 @@ export function AdminStickyHeader({
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
 
   return (
-    <>
+    // Wrapper div necessario: il layout sezione (es. posts/layout.tsx)
+    // ci wrappa in `<div className="space-y-5">`, e space-y applica
+    // margin-top a tutti i child tranne il primo. Se sentinel e header
+    // fossero fratelli diretti del wrapper layout, lo space-y aggiungerebbe
+    // 20px tra sentinel (1°) e header (2°) → buco visibile sopra l'header.
+    // Wrappandoli in un div, il layout vede un solo child (questo div) e
+    // dentro non c'è space-y. NON usare display:contents qui — renderebbe
+    // il div trasparente al layout box tree e ricomparirebbe il bug.
+    <div>
       {/* Sentinel invisibile sopra l'header. Quando esce dalla viewport
           dello scroll container → isStuck=true. */}
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
@@ -144,6 +152,6 @@ export function AdminStickyHeader({
 
         <AdminSectionTabs tabs={tabs} />
       </header>
-    </>
+    </div>
   );
 }
