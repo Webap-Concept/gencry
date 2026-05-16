@@ -24,7 +24,7 @@
 // visivi in un singolo sticky che cambiava altezza causava l'effetto
 // "molla" durante lo scroll.
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, BookmarkPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { useIsStuck } from "@/lib/hooks/use-is-stuck";
@@ -32,6 +32,16 @@ import { CoinIcon } from "./coin-icon";
 import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
 import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
+
+// Colori "sabbia" hardcoded usati dalle isole light dentro lo scope
+// `.gc-dark` (pill prezzo/change nella sticky bar). Sono gli stessi
+// valori in `:root` di frontend.css — qui replicati perché dentro
+// `.gc-dark` quelle custom properties sono ridefinite ai valori dark.
+const PILL_BG = "#f5f0e8"; // --gc-bg light (cream)
+const PILL_FG = "#123928"; // --gc-fg light (verde scuro testo)
+const PILL_POS = "#2d8659"; // --gc-pos (invariato)
+const PILL_NEG = "#c2553f"; // --gc-neg (invariato)
+const PILL_NEUTRAL = "#94897a"; // --gc-fg-3 light
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -57,21 +67,22 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
   const href = `/coins/${coin.symbol.toLowerCase()}`;
   const wlCount = mockWatchlistCount(coin.symbol);
 
-  const changeTone =
+  const pillChangeColor =
     coin.change24h === null
-      ? "text-gc-fg-3"
+      ? PILL_NEUTRAL
       : coin.change24h > 0
-        ? "text-gc-pos"
+        ? PILL_POS
         : coin.change24h < 0
-          ? "text-gc-neg"
-          : "text-gc-fg-3";
+          ? PILL_NEG
+          : PILL_NEUTRAL;
 
   return (
     <>
-      {/* 1) Card espansa — full-main width, tema invertito (bosco).
-          `gc-dark` ridefinisce le custom properties `--gc-*` per i
-          children senza toccare il tema globale dell'utente. */}
-      <div className="gc-dark -mx-4 sm:-mx-6 lg:-mx-8">
+      {/* 1) Card espansa — full-main width, tema invertito (bosco),
+          attaccata al top: `-mx-*` cancella il padding orizzontale del
+          ProtectedShell main e `-mt-6` cancella il suo padding-top, così
+          il blocco coin parte dal bordo superiore della colonna. */}
+      <div className="gc-dark -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
         {/* Riga "Discussioni su" — verde più chiaro, font display serif */}
         <div
           className="bg-gc-bg-3 text-gc-fg-2 px-4 sm:px-6 lg:px-8 py-2"
@@ -130,15 +141,32 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
               ariaLabel={tLabels("weekly_chart_aria")}
             />
           </div>
-          <footer className="mt-3 pt-3 border-t border-gc-line text-[11px] text-gc-fg-3">
-            {tLabels.rich("watchlist_count", {
-              count: formatCompactCount(wlCount),
-              strong: (chunks) => (
-                <span className="font-semibold text-gc-fg-2 tabular-nums">
-                  {chunks}
-                </span>
-              ),
-            })}
+          <footer className="mt-3 pt-3 border-t border-gc-line text-[11px] text-gc-fg-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0 truncate">
+              {tLabels.rich("watchlist_count", {
+                count: formatCompactCount(wlCount),
+                strong: (chunks) => (
+                  <span className="font-semibold text-gc-fg-2 tabular-nums">
+                    {chunks}
+                  </span>
+                ),
+              })}
+            </div>
+            {/* Mockup: feature reale non esiste ancora (no users.watchlist
+                table). Inline button con `e.preventDefault()` per non
+                seguire il Link parent. Sostituire con server-action quando
+                la table arriva. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-gc-line-2 bg-gc-bg-2 px-3 py-1 text-[11px] font-medium text-gc-fg hover:bg-gc-bg-3 transition-colors"
+            >
+              <BookmarkPlus size={12} strokeWidth={1.75} />
+              {tLabels("add_to_watchlist")}
+            </button>
           </footer>
         </Link>
       </div>
@@ -171,11 +199,20 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           <span className="text-sm font-semibold text-gc-fg">
             ${coin.symbol}
           </span>
-          <span className="text-sm font-semibold text-gc-fg tabular-nums ml-auto">
-            {formatPrice(coin.price)}
-          </span>
-          <span className={`text-xs tabular-nums ${changeTone}`}>
-            {formatChange(coin.change24h)}
+          {/* Pill beige: isola "light" dentro lo scope `.gc-dark` per
+              garantire contrasto leggibile del prezzo e del segnale
+              pos/neg sopra il verde scuro della bar. */}
+          <span
+            className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1"
+            style={{ backgroundColor: PILL_BG, color: PILL_FG }}>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatPrice(coin.price)}
+            </span>
+            <span
+              className="text-xs font-semibold tabular-nums"
+              style={{ color: pillChangeColor }}>
+              {formatChange(coin.change24h)}
+            </span>
           </span>
           <ArrowUpRight
             size={14}

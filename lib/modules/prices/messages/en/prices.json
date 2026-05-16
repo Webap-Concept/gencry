@@ -18,7 +18,8 @@
     "historical_chart_aria": "Historical price chart",
     "time_range_aria": "Time range",
     "coin_details_aria": "{name} details",
-    "watchlist_count": "In <strong>{count}</strong> watchlists"
+    "watchlist_count": "In <strong>{count}</strong> watchlists",
+    "add_to_watchlist": "Add to watchlist"
   },
   "ranges": {
     "1d": "1d",

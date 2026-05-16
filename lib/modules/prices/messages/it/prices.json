@@ -18,7 +18,8 @@
     "historical_chart_aria": "Grafico storico prezzo",
     "time_range_aria": "Intervallo temporale",
     "coin_details_aria": "Dettagli {name}",
-    "watchlist_count": "In <strong>{count}</strong> watchlist"
+    "watchlist_count": "In <strong>{count}</strong> watchlist",
+    "add_to_watchlist": "Aggiungi a watchlist"
   },
   "ranges": {
     "1d": "1g",

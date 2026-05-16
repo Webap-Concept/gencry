@@ -86,14 +86,13 @@ export default async function ExplorePage({
   const tExp = await getTranslations("posts.explore");
 
   return (
-    // Outer = py only. Il max-w-2xl + px è applicato selettivamente alle
-    // sezioni che vogliono essere strette; la CoinSummaryCard si occupa
-    // del proprio wrapping (max-w-2xl in stato A, full-main in stato B
-    // sticky) inclusa la barra "Discussioni su" attaccata in cima alla
-    // CoinCard — niente <header> separato sopra quando c'è ticker.
-    <div className="py-6 space-y-4">
+    // Outer = pb only. Niente padding-top: quando c'è ticker, la
+    // CoinSummaryCard si attacca al top del main (annulla anche il py-6
+    // del ProtectedShell tramite `-mt-6`). Per il caso !ticker il
+    // padding-top torna sull'header standalone.
+    <div className="pb-6 space-y-4">
       {!ticker && (
-        <div className="max-w-2xl mx-auto px-4">
+        <div className="max-w-2xl mx-auto px-4 pt-6">
           <header>
             <h1 className="text-2xl font-semibold text-gc-fg">
               {tExp("page_title")}
