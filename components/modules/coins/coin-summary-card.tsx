@@ -66,15 +66,19 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           : "text-gc-fg-3";
 
   return (
-    // Outer wrapper esce dal padding `px-4 sm:px-6 lg:px-8` del
-    // ProtectedShell main, così la sticky bar full-width tocca davvero i
-    // bordi.
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-      {/* Sentinel: invisibile, height 1px. Quando esce dalla viewport
-          il container sotto è "stuck". */}
+    // ⚠️ Niente outer wrapper attorno al sentinel + sticky: un wrapper
+    // qui diventerebbe il parent della sticky position e — siccome è
+    // alto solo sentinel(1px) + bar height — la sticky verrebbe
+    // "trascinata via" dopo pochi pixel di scroll. Sentinel e sticky
+    // sono fragment diretti, così il parent torna a essere il `<div>`
+    // outer di ExplorePage (alto quanto tutto il feed): la bar resta
+    // stuck per l'intera durata dello scroll.
+    //
+    // `-mx-*` è applicato direttamente sullo sticky element per
+    // uscire dal padding del ProtectedShell main → bar full-width.
+    <>
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
-
-      <div className="sticky top-0 z-10">
+      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8">
         {isStuck ? (
           // ── Stato B: stuck coin bar full-main width ───────────────
           <Link
@@ -126,6 +130,6 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
