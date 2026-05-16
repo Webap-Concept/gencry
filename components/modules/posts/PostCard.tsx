@@ -359,32 +359,62 @@ export function PostCard({
   const ageMs = nowTick - new Date(post.createdAt).getTime();
   const canEdit = Boolean(isAuthor) && ageMs < editWindowMs;
 
-  // Stretched-link overlay attivo solo su variant="feed".
-  const showOverlayLink = variant === "feed";
-  // I figli interattivi devono essere SOPRA l'overlay (z-[1]).
-  // I figli non-interattivi (body, ticker text container) restano
-  // sotto z-1 e ricevono il click → l'overlay fa la nav.
-  const interactiveClass = "relative z-[1]";
+  // Click-on-card pattern (Twitter-style). Lo stretched-link <a> overlay
+  // soffriva del bug "click veloce non passa, click tenuto sì": un
+  // mousedown su un <p> selezionabile (PostBody) faceva entrare il
+  // browser in text-selection mode, il mouseup veloce sullo stesso
+  // punto restava col target = <p>, il click NON propagava al <Link>
+  // absolute sopra. Tenendo premuto ~500ms il browser concludeva "no
+  // selezione" e il click finalmente passava. Risolto sostituendo
+  // l'overlay con onClick sull'<article>, che fa router.push solo se
+  // (a) non c'è una selection attiva e (b) il click NON è dentro un
+  // elemento interattivo (a, button, role=menuitem). Selection nativa
+  // preservata, keyboard nav via Enter, role=link per a11y.
+  const isClickable = variant === "feed";
+  // I figli interattivi (header, footer, gallery) NON hanno più bisogno
+  // di z-[1]: senza overlay absolute non c'è più lo stack da scavalcare.
+  // Le classi `relative` restano dove servono per i loro internal
+  // positioning, ma niente z-index richiesto.
+  const interactiveClass = "relative";
+
+  const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!isClickable) return;
+    // Skip se l'utente ha selezionato testo (vuole copiare, non navigare)
+    const sel = typeof window !== "undefined" ? window.getSelection?.() : null;
+    if (sel && sel.toString().trim().length > 0) return;
+    // Skip se il click è atterrato su un elemento interattivo
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        'a, button, [role="menuitem"], [role="menu"], [role="button"], input, textarea, select',
+      )
+    ) {
+      return;
+    }
+    router.push(`/post/${post.id}`);
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (!isClickable) return;
+    if (e.key === "Enter" && e.target === e.currentTarget) {
+      router.push(`/post/${post.id}`);
+    }
+  };
 
   return (
     <>
       <article
-        className={`relative bg-gc-bg-2 border border-gc-line rounded-xl p-5 ${
-          showOverlayLink
+        onClick={isClickable ? handleCardClick : undefined}
+        onKeyDown={isClickable ? handleCardKeyDown : undefined}
+        role={isClickable ? "link" : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        aria-label={isClickable ? tCard("open_post") : undefined}
+        className={`relative bg-gc-bg-2 border border-gc-line rounded-xl p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent ${
+          isClickable
             ? "cursor-pointer hover:bg-gc-bg-2/80 transition-colors"
             : ""
         }`}
       >
-        {/* Stretched-link overlay: cattura i click sui pixel "vuoti"
-            della card. È visivamente sotto i figli interattivi (z-[1])
-            ma sopra il body (che resta z-auto). */}
-        {showOverlayLink ? (
-          <Link
-            href={`/post/${post.id}`}
-            aria-label={tCard("open_post")}
-            className="absolute inset-0 rounded-xl"
-          />
-        ) : null}
 
         {/* Header: autore + time + visibility */}
         <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
