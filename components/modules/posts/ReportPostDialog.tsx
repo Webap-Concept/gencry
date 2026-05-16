@@ -43,6 +43,7 @@ import {
   getReportReasonsForClient,
   reportPost,
 } from "@/lib/modules/posts/actions";
+import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import type { ReportReason } from "@/lib/modules/posts/services/report-reasons";
 
 type Props = {
@@ -77,6 +78,7 @@ export function ReportPostDialog({
   onSubmitted,
 }: Props) {
   const locale = useLocale();
+  const tErr = usePostsError();
   const [reasons, setReasons] = useState<ReportReason[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -104,7 +106,7 @@ export function ReportPostDialog({
           setLoadError(null);
         }
       } catch {
-        if (!cancelled) setLoadError("posts.report.load_error");
+        if (!cancelled) setLoadError(tErr("posts.report.load_error"));
       }
     })();
     return () => {
@@ -134,7 +136,7 @@ export function ReportPostDialog({
         // Non chiudiamo automaticamente: lo step finale offre il prompt
         // "Vuoi bloccare anche {author}?" (vedi render branch submitted).
       } else {
-        setSubmitError(res.error);
+        setSubmitError(tErr(res.error, res));
       }
     });
   };
@@ -220,9 +222,7 @@ export function ReportPostDialog({
             />
           </div>
         ) : loadError ? (
-          <p className="text-sm text-gc-neg py-2">
-            Impossibile caricare i motivi di segnalazione. Riprova.
-          </p>
+          <p className="text-sm text-gc-neg py-2">{loadError}</p>
         ) : (
           <div className="space-y-4">
             <div

@@ -1,0 +1,42 @@
+{
+  "errors": {
+    "unauthenticated": "Devi accedere per continuare.",
+    "banned": "Il tuo account è stato sospeso.",
+    "rate_limited": "Hai fatto troppe operazioni di recente. Riprova tra {retryAfter} secondi.",
+    "not_found": "Contenuto non trovato.",
+    "forbidden": "Non hai i permessi per questa operazione.",
+    "edit_window_expired": "Il tempo per modificare questo post è scaduto.",
+    "visibility_not_more_restrictive": "Puoi solo restringere la visibilità, non ampliarla.",
+    "empty_body": "Scrivi qualcosa prima di pubblicare.",
+    "body_too_long": "Il testo è troppo lungo.",
+    "self_repost": "Non puoi ripubblicare un tuo post.",
+    "target_unavailable": "Il post non è più disponibile.",
+    "cannot_block_self": "Non puoi bloccare te stesso.",
+    "reason_not_available": "Motivo di segnalazione non più disponibile.",
+    "details_required": "Compila i dettagli della segnalazione.",
+    "r2_not_configured": "Servizio media non configurato. Riprova più tardi."
+  },
+  "media": {
+    "invalid_mime": "Formato file non supportato.",
+    "invalid_size": "File troppo grande.",
+    "too_many_per_post": "Hai aggiunto troppe immagini.",
+    "not_found": "File non trovato.",
+    "upload_missing": "Caricamento non completato. Riprova.",
+    "processing_failed": "Elaborazione del file fallita. Riprova.",
+    "r2_not_configured": "Servizio media non configurato. Riprova più tardi."
+  },
+  "feed": {
+    "invalid_tab": "Sezione del feed non valida.",
+    "invalid_ticker": "Ticker non valido."
+  },
+  "comments": {
+    "empty_body": "Scrivi qualcosa prima di commentare.",
+    "body_too_long": "Il commento è troppo lungo."
+  },
+  "report": {
+    "load_error": "Impossibile caricare i motivi di segnalazione. Riprova."
+  },
+  "validation": {
+    "repost_needs_body": "Aggiungi un commento al repost."
+  }
+}

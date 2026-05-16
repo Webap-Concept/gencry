@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import { MediaUploader } from "./MediaUploader";
 
 type ComposerUser = {
@@ -104,6 +105,7 @@ export function Composer({
   const [mediaIds, setMediaIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const tErr = usePostsError();
 
   const remaining = maxBodyLength - body.length;
   const trimmedLen = body.trim().length;
@@ -122,7 +124,7 @@ export function Composer({
         if (res.ok) {
           onPublished?.(mode.postId, { body, visibility });
         } else {
-          setError(res.error);
+          setError(tErr(res.error, res));
         }
       } else {
         const res = await createPost({ body, visibility, mediaIds });
@@ -132,7 +134,7 @@ export function Composer({
           setMediaIds([]);
           onPublished?.(res.data!.postId);
         } else {
-          setError(res.error);
+          setError(tErr(res.error, res));
         }
       }
     });

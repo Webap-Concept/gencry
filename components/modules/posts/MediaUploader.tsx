@@ -23,6 +23,7 @@ import {
   createPostMediaTicket,
   deletePostMediaDraft,
 } from "@/lib/modules/posts/media-actions";
+import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 
 type Status = "uploading" | "processing" | "ready" | "error";
 
@@ -50,6 +51,7 @@ type Props = {
 export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
+  const tErr = usePostsError();
   const inputRef = useRef<HTMLInputElement>(null);
   // Snapshot stabile usato dal cleanup-on-unmount per evitare stale closure.
   const itemsRef = useRef<UploadItem[]>([]);
@@ -146,7 +148,7 @@ export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
       setItems((prev) =>
         prev.map((x) =>
           x.localId === item.localId
-            ? { ...x, status: "error", error: ticket.error }
+            ? { ...x, status: "error", error: tErr(ticket.error, ticket) }
             : x,
         ),
       );
@@ -193,7 +195,7 @@ export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
       setItems((prev) =>
         prev.map((x) =>
           x.localId === item.localId
-            ? { ...x, status: "error", error: confirmed.error }
+            ? { ...x, status: "error", error: tErr(confirmed.error, confirmed) }
             : x,
         ),
       );

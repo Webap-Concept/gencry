@@ -1,0 +1,42 @@
+{
+  "errors": {
+    "unauthenticated": "You need to sign in to continue.",
+    "banned": "Your account has been suspended.",
+    "rate_limited": "You're doing this too often. Try again in {retryAfter} seconds.",
+    "not_found": "Content not found.",
+    "forbidden": "You don't have permission for this action.",
+    "edit_window_expired": "The edit window for this post has expired.",
+    "visibility_not_more_restrictive": "You can only restrict visibility, not broaden it.",
+    "empty_body": "Write something before publishing.",
+    "body_too_long": "Your text is too long.",
+    "self_repost": "You can't repost your own post.",
+    "target_unavailable": "The post is no longer available.",
+    "cannot_block_self": "You can't block yourself.",
+    "reason_not_available": "This report reason is no longer available.",
+    "details_required": "Please provide details for the report.",
+    "r2_not_configured": "Media service not configured. Try again later."
+  },
+  "media": {
+    "invalid_mime": "Unsupported file format.",
+    "invalid_size": "File too large.",
+    "too_many_per_post": "You've added too many images.",
+    "not_found": "File not found.",
+    "upload_missing": "Upload did not complete. Try again.",
+    "processing_failed": "File processing failed. Try again.",
+    "r2_not_configured": "Media service not configured. Try again later."
+  },
+  "feed": {
+    "invalid_tab": "Invalid feed section.",
+    "invalid_ticker": "Invalid ticker."
+  },
+  "comments": {
+    "empty_body": "Write something before commenting.",
+    "body_too_long": "Your comment is too long."
+  },
+  "report": {
+    "load_error": "Couldn't load report reasons. Try again."
+  },
+  "validation": {
+    "repost_needs_body": "Add a comment to the repost."
+  }
+}

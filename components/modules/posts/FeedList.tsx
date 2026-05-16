@@ -20,6 +20,7 @@ import type { PostCardData } from "@/lib/modules/posts/types";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 import { findScrollParent } from "@/lib/hooks/use-is-stuck";
 import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
+import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import { PostCard } from "./PostCard";
 
 export type FeedListSource =
@@ -57,6 +58,7 @@ export function FeedList(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const tErr = usePostsError();
 
   const onLoadMore = useCallback(() => {
     if (!nextCursor || isPending) return;
@@ -74,10 +76,11 @@ export function FeedList(props: Props) {
       if (res.ok) {
         appendRows(res.data.posts, res.data.nextCursor);
       } else {
-        setError(res.error);
+        // loadMoreFeed non ha retryAfter/field nel fail branch, basta key.
+        setError(tErr(res.error));
       }
     });
-  }, [nextCursor, isPending, props.source, appendRows]);
+  }, [nextCursor, isPending, props.source, appendRows, tErr]);
 
   // Infinite scroll + prefetch: IntersectionObserver sul sentinel in
   // fondo alla lista. `rootMargin: "0px 0px 800px 0px"` estende il
