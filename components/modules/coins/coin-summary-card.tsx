@@ -112,21 +112,25 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
             />
           </Link>
         ) : (
-          // ── Stato A: banner "Discussioni su" + CoinCard espansa ───
+          // ── Stato A: card "Discussioni su" DIETRO + CoinCard davanti
+          // sovrapposta — due card distinte, la discussioni spunta in
+          // alto da dietro per i suoi padding top + testo.
           // Wrappata in max-w-2xl per allinearsi al feed sotto.
           <div className="max-w-2xl mx-auto px-4">
-            <div
-              className="rounded-t-2xl border border-b-0 border-gc-line bg-gc-bg-3 px-4 py-2 text-sm text-gc-fg-2"
-              role="heading"
-              aria-level={2}>
-              {tExplore("discussions_about", { ticker: `$${coin.symbol}` })}
+            <div className="relative">
+              <div
+                className="relative z-0 rounded-2xl border border-gc-line bg-gc-bg-3 px-5 py-3 text-sm text-gc-fg-2"
+                role="heading"
+                aria-level={2}>
+                {tExplore("discussions_about", { ticker: `$${coin.symbol}` })}
+              </div>
+              <CoinCard
+                coin={coin}
+                rank={coin.marketCapRank}
+                href={href}
+                className="relative z-10 -mt-3"
+              />
             </div>
-            <CoinCard
-              coin={coin}
-              rank={coin.marketCapRank}
-              href={href}
-              className="rounded-t-none border-t-0"
-            />
           </div>
         )}
       </div>
