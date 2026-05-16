@@ -3,23 +3,31 @@
 //
 // Card riepilogativa di un coin, due stati visivi gestiti da CSS:
 //
-//   A. Espanso (default, in-flow) — card piena con CoinCard (logo +
-//      nome + categoria + rank + prezzo + change + sparkline + footer
-//      watchlist mock). Cliccabile → /coins/<symbol>.
-//
-//   B. Stuck (quando l'utente scrolla giù) — collapsed ticker bar:
-//      riga unica con logo small + simbolo + prezzo + change 24h.
-//      Niente sparkline, niente metadati secondari. Sfondo
-//      semi-trasparente + backdrop-blur per leggibilità sopra al
-//      feed che scorre dietro.
+//   A. Espanso (default, in-flow) — banner "Discussioni su: $TICKER"
+//      attaccato sopra + CoinCard (logo + nome + categoria + rank +
+//      prezzo + change + sparkline + footer watchlist mock). Cliccabile
+//      → /coins/<symbol>.
+//   B. Stuck (allo scroll) — collapsed ticker bar full-width main: riga
+//      unica con logo small + simbolo + prezzo + change 24h. Niente
+//      sparkline, niente metadati secondari. Sfondo semi-trasparente +
+//      backdrop-blur per leggibilità sopra al feed che scorre dietro.
 //
 // Il toggle tra A/B è guidato da `useIsStuck` che osserva un sentinel
 // piazzato PRIMA del container sticky. Pattern zero-jank: 1 sola
 // IntersectionObserver, niente scroll listener.
 //
+// Layout:
+//   - Wrapper esterno `-mx-4 sm:-mx-6 lg:-mx-8` per uscire dal padding
+//     orizzontale del ProtectedShell main. Solo così la sticky bar (stato
+//     B) tocca davvero i bordi delle colonne laterali quando stuck.
+//   - Stato A wrappato in `max-w-2xl mx-auto px-4`, stessa larghezza dei
+//     post nel feed sotto: la card non risulta più "rimpicciolita" o
+//     disallineata.
+//
 // Usato in /explore?ticker=BTC come header del feed filtrato.
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { useIsStuck } from "@/lib/hooks/use-is-stuck";
 import { CoinCard } from "./coin-card";
@@ -44,6 +52,7 @@ function formatChange(value: number | null): string {
 
 export function CoinSummaryCard({ coin }: { coin: CoinView }) {
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
+  const tExplore = useTranslations("posts.explore");
   const symbolLower = coin.symbol.toLowerCase();
   const href = `/coins/${symbolLower}`;
 
@@ -57,16 +66,17 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
           : "text-gc-fg-3";
 
   return (
-    <>
+    // Outer wrapper esce dal padding `px-4 sm:px-6 lg:px-8` del
+    // ProtectedShell main, così la sticky bar full-width tocca davvero i
+    // bordi.
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8">
       {/* Sentinel: invisibile, height 1px. Quando esce dalla viewport
           il container sotto è "stuck". */}
       <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
 
       <div className="sticky top-0 z-10">
         {isStuck ? (
-          // ── Stato B: stuck coin bar — il caller renderizza questa
-          // card FUORI dai wrapper max-w-* della pagina, così la bar
-          // tocca i bordi laterali del main scroll container.
+          // ── Stato B: stuck coin bar full-main width ───────────────
           <Link
             href={href}
             prefetch={false}
@@ -98,14 +108,24 @@ export function CoinSummaryCard({ coin }: { coin: CoinView }) {
             />
           </Link>
         ) : (
-          // ── Stato A: card espansa (riusa CoinCard esistente) ───
-          // Wrappata con padding interno per match con il resto della
-          // pagina (sticky bar full-width main, ma card content padded).
-          <div className="px-4 sm:px-6 lg:px-8">
-            <CoinCard coin={coin} rank={coin.marketCapRank} href={href} />
+          // ── Stato A: banner "Discussioni su" + CoinCard espansa ───
+          // Wrappata in max-w-2xl per allinearsi al feed sotto.
+          <div className="max-w-2xl mx-auto px-4">
+            <div
+              className="rounded-t-2xl border border-b-0 border-gc-line bg-gc-bg-3 px-4 py-2 text-sm text-gc-fg-2"
+              role="heading"
+              aria-level={2}>
+              {tExplore("discussions_about", { ticker: `$${coin.symbol}` })}
+            </div>
+            <CoinCard
+              coin={coin}
+              rank={coin.marketCapRank}
+              href={href}
+              className="rounded-t-none border-t-0"
+            />
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

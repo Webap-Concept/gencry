@@ -193,6 +193,7 @@
     "page_title": "Explore",
     "subtitle_ticker": "All public posts mentioning this coin.",
     "subtitle": "Public community posts in chronological order.",
+    "discussions_about": "Discussions about: {ticker}",
     "untracked_fallback": "is not tracked in the prices module — see posts mentioning it below."
   }
 }

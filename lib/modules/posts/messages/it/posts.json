@@ -193,6 +193,7 @@
     "page_title": "Esplora",
     "subtitle_ticker": "Tutti i post pubblici che menzionano questo coin.",
     "subtitle": "Post pubblici della community in ordine cronologico.",
+    "discussions_about": "Discussioni su: {ticker}",
     "untracked_fallback": "non è ancora tracciato nel modulo prezzi — vedi sotto i post che lo menzionano."
   }
 }

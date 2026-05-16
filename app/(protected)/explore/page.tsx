@@ -87,26 +87,26 @@ export default async function ExplorePage({
 
   return (
     // Outer = py only. Il max-w-2xl + px è applicato selettivamente alle
-    // sezioni che vogliono essere strette (header + feed); la
-    // CoinSummaryCard sticky resta full-width main per occupare tutta
-    // la colonna fino ai margini quando passa stuck.
+    // sezioni che vogliono essere strette; la CoinSummaryCard si occupa
+    // del proprio wrapping (max-w-2xl in stato A, full-main in stato B
+    // sticky) inclusa la barra "Discussioni su" attaccata in cima alla
+    // CoinCard — niente <header> separato sopra quando c'è ticker.
     <div className="py-6 space-y-4">
-      <div className="max-w-2xl mx-auto px-4">
-        <header>
-          <h1 className="text-2xl font-semibold text-gc-fg">
-            {ticker
-              ? tExp("page_title_ticker", { ticker: `$${ticker}` })
-              : tExp("page_title")}
-          </h1>
-          <p className="text-sm text-gc-fg-3 mt-1">
-            {ticker ? tExp("subtitle_ticker") : tExp("subtitle")}
-          </p>
-        </header>
-      </div>
+      {!ticker && (
+        <div className="max-w-2xl mx-auto px-4">
+          <header>
+            <h1 className="text-2xl font-semibold text-gc-fg">
+              {tExp("page_title")}
+            </h1>
+            <p className="text-sm text-gc-fg-3 mt-1">{tExp("subtitle")}</p>
+          </header>
+        </div>
+      )}
 
-      {/* Block 1 — Header dinamico FULL-WIDTH (fuori max-w-2xl):
+      {/* Block 1 — Header dinamico:
           - Senza filtro → TrendingTickersRow (top 10 pill)
-          - Con ticker tracciato → CoinSummaryCard (snapshot + sticky)
+          - Con ticker tracciato → CoinSummaryCard (banner "Discussioni
+            su" + snapshot + sticky)
           - Con ticker non tracciato → fallback testuale */}
       {ticker ? (
         coin ? (
