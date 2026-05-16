@@ -96,35 +96,38 @@ function formatPriceSeo(value: number): string {
 // Page
 // ---------------------------------------------------------------------------
 
-export default function CoinDetailPage({
+export default async function CoinDetailPage({
   params,
 }: {
   params: Promise<{ symbol: string }>;
 }) {
+  // `notFound()` deve essere chiamato FUORI da `<Suspense>`: in Next 16,
+  // se viene sollevato dentro un async RSC suspeso, l'unwind si ferma al
+  // boundary più vicino, sostituendo solo lo slot del Suspense e
+  // lasciando intatto lo shell del `(public)/layout.tsx`. Risolvendo il
+  // coin qui in alto, l'unwind raggiunge il root `app/not-found.tsx`,
+  // che è wrappato dal solo root layout → 404 full-page.
+  const { symbol } = await params;
+  const coin = await getCoinForCard(symbol);
+  if (!coin) notFound();
+
   return (
     <div className="space-y-6 max-w-4xl">
       <Suspense fallback={<CoinDetailSkeleton />}>
-        <CoinDetailBody params={params} />
+        <CoinDetailBody coin={coin} />
       </Suspense>
     </div>
   );
 }
 
-async function CoinDetailBody({
-  params,
-}: {
-  params: Promise<{ symbol: string }>;
-}) {
-  const { symbol } = await params;
-  const [coin, session, initialSeries, siteUrl] = await Promise.all([
-    getCoinForCard(symbol),
+async function CoinDetailBody({ coin }: { coin: CoinView }) {
+  const [session, initialSeries, siteUrl] = await Promise.all([
     getSession(),
     // SSR del range default "1w" — il client può switchare a 1d/1m/1y
     // chiamando l'endpoint /api/modules/prices/<symbol>/history.
-    getHistorySeries(symbol, "1w"),
+    getHistorySeries(coin.symbol, "1w"),
     getSiteUrl(),
   ]);
-  if (!coin) notFound();
 
   const isAuthed = Boolean(session);
   const tCommon = await getTranslations("prices.common");
