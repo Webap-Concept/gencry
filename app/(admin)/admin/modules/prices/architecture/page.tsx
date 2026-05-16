@@ -1,5 +1,24 @@
 // app/(admin)/admin/modules/prices/architecture/page.tsx
 //
+// ╔═══════════════════════════════════════════════════════════════════╗
+// ║ ⚠ MAINTENANCE NOTICE — leggi prima di toccare il modulo prices    ║
+// ║                                                                   ║
+// ║ Questa pagina è la SOURCE OF TRUTH del design del modulo.         ║
+// ║ Quando aggiungi/modifichi/elimini feature non banali:             ║
+// ║                                                                   ║
+// ║   • aggiorna QUESTA pagina nello stesso commit                    ║
+// ║   • bump `REVIEWED_AT` qui sotto                                  ║
+// ║   • bump `version` nel manifest.ts se cambia user-visible         ║
+// ║                                                                   ║
+// ║ Vale per: nuove tabelle/colonne (ArchSchemaTable), nuovi cron     ║
+// ║ /trigger (Pipeline + diagram), nuovi servizi hookable             ║
+// ║ (ArchHookBox), nuovi file principali (ArchFileLink), perf         ║
+// ║ numbers, bug/pitfall scoperti (Caveats), future ottimizzazioni   ║
+// ║ realizzate (rimuovi/sposta ArchFutureCard).                      ║
+// ║                                                                   ║
+// ║ Memory di riferimento: feedback_architecture_docs_maintenance     ║
+// ╚═══════════════════════════════════════════════════════════════════╝
+//
 // Pagina di documentazione architetturale del modulo Prices Engine.
 // Statica, zero query DB. Riassume design, source di dati, snapshot
 // pattern R2, cron, fallback chain, e roadmap.
@@ -21,13 +40,20 @@ import {
   ArchFileLink,
   ArchFutureCard,
   ArchHookBox,
+  ArchMaintenanceFooter,
   ArchSchemaTable,
   ArchSection,
   ArchTechBadge,
 } from "@/app/(admin)/admin/_components/architecture/arch-primitives";
 import { ArchDiagram } from "@/app/(admin)/admin/_components/architecture/arch-diagram";
+import { PRICES_MODULE } from "@/lib/modules/prices/manifest";
 
 export const metadata: Metadata = { title: "Prices / Architettura" };
+
+/** ISO date dell'ultima revisione manuale della pagina vs il codice.
+ *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
+ *  feedback_architecture_docs_maintenance). */
+const REVIEWED_AT = "2026-05-16";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -532,6 +558,12 @@ export default function PricesArchitecturePage() {
             </li>
           </ul>
         </ArchSection>
+
+        <ArchMaintenanceFooter
+          reviewedAt={REVIEWED_AT}
+          moduleVersion={PRICES_MODULE.version}
+          moduleSlug={PRICES_MODULE.slug}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,24 @@
 // app/(admin)/admin/modules/posts/architecture/page.tsx
 //
+// ╔═══════════════════════════════════════════════════════════════════╗
+// ║ ⚠ MAINTENANCE NOTICE — leggi prima di toccare il modulo posts     ║
+// ║                                                                   ║
+// ║ Questa pagina è la SOURCE OF TRUTH del design del modulo.         ║
+// ║ Quando aggiungi/modifichi/elimini feature non banali:             ║
+// ║                                                                   ║
+// ║   • aggiorna QUESTA pagina nello stesso commit                    ║
+// ║   • bump `REVIEWED_AT` qui sotto                                  ║
+// ║   • bump `version` nel manifest.ts se cambia user-visible         ║
+// ║                                                                   ║
+// ║ Vale per: nuove tabelle/colonne (ArchSchemaTable), nuovi cron     ║
+// ║ /trigger (Pipeline + diagram), nuovi servizi hookable             ║
+// ║ (ArchHookBox), nuovi file principali (ArchFileLink), perf         ║
+// ║ numbers, bug/pitfall scoperti (Caveats), future ottimizzazioni   ║
+// ║ realizzate (rimuovi/sposta ArchFutureCard).                      ║
+// ║                                                                   ║
+// ║ Memory di riferimento: feedback_architecture_docs_maintenance     ║
+// ╚═══════════════════════════════════════════════════════════════════╝
+//
 // Pagina di documentazione architetturale del modulo Posts. Statica
 // (zero query DB), riassume design, stack, flow, hooks e roadmap. È il
 // punto di riferimento quando si rientra nel modulo dopo settimane e
@@ -28,13 +47,20 @@ import {
   ArchFileLink,
   ArchFutureCard,
   ArchHookBox,
+  ArchMaintenanceFooter,
   ArchSchemaTable,
   ArchSection,
   ArchTechBadge,
 } from "@/app/(admin)/admin/_components/architecture/arch-primitives";
 import { ArchDiagram } from "@/app/(admin)/admin/_components/architecture/arch-diagram";
+import { POSTS_MODULE } from "@/lib/modules/posts/manifest";
 
 export const metadata: Metadata = { title: "Posts / Architettura" };
+
+/** ISO date dell'ultima revisione manuale della pagina vs il codice.
+ *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
+ *  feedback_architecture_docs_maintenance). */
+const REVIEWED_AT = "2026-05-16";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -555,6 +581,12 @@ export default function PostsArchitecturePage() {
             </li>
           </ul>
         </ArchSection>
+
+        <ArchMaintenanceFooter
+          reviewedAt={REVIEWED_AT}
+          moduleVersion={POSTS_MODULE.version}
+          moduleSlug={POSTS_MODULE.slug}
+        />
       </div>
     </div>
   );

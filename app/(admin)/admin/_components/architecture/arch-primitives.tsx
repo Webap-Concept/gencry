@@ -5,6 +5,7 @@
 // restare RSC (solo l'<ArchDiagram> client-side ha JS).
 //
 // Naming: prefisso `Arch*` per evitare collisioni con il resto admin.
+import { CalendarClock, GitCommit } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -313,6 +314,88 @@ export function ArchAnchorNav({
         ))}
       </ul>
     </nav>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ArchMaintenanceFooter — banner "ultima revisione" in fondo alla pagina
+// ─────────────────────────────────────────────────────────────────────
+//
+// Mostra la data dell'ultima revisione manuale della pagina + la
+// versione del modulo. Se la pagina è più vecchia di STALE_AFTER_DAYS
+// la striscia diventa arancione come affordance visiva ("questa doc
+// potrebbe essere out-of-sync col codice").
+//
+// IMPORTANTE: la `reviewedAt` è hardcoded nel TSX di proposito — NON
+// usare `new Date()` o `mtime` del file. Vogliamo che resti la data
+// dell'ultima revisione *intenzionale*, non quella dell'ultimo commit
+// che ha toccato la pagina per ritocchi cosmetici. Bump-ala a mano
+// quando rivedi davvero il contenuto vs il codice.
+//
+// Memory di riferimento: feedback_architecture_docs_maintenance.
+
+const STALE_AFTER_DAYS = 30;
+
+export function ArchMaintenanceFooter({
+  reviewedAt,
+  moduleVersion,
+  moduleSlug,
+}: {
+  /** ISO date 'YYYY-MM-DD' — quando hai rivisto manualmente la pagina. */
+  reviewedAt: string;
+  /** Versione dal manifest del modulo. */
+  moduleVersion: string;
+  /** Slug del modulo (es. "posts"), usato per link al manifest. */
+  moduleSlug: string;
+}) {
+  const reviewedDate = new Date(reviewedAt);
+  const ageDays = Math.floor(
+    (Date.now() - reviewedDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const stale = ageDays > STALE_AFTER_DAYS;
+
+  const palette = stale
+    ? {
+        bg: "color-mix(in srgb, var(--gc-warning-fg) 8%, transparent)",
+        fg: "var(--gc-warning-fg)",
+        bd: "color-mix(in srgb, var(--gc-warning-fg) 25%, transparent)",
+      }
+    : {
+        bg: "color-mix(in srgb, var(--admin-text-faint) 6%, transparent)",
+        fg: "var(--admin-text-faint)",
+        bd: "var(--admin-card-border)",
+      };
+
+  return (
+    <footer
+      className="rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs"
+      style={{
+        background: palette.bg,
+        border: `1px solid ${palette.bd}`,
+        color: palette.fg,
+      }}>
+      <span className="inline-flex items-center gap-1.5">
+        <CalendarClock size={13} />
+        <strong>Ultima revisione:</strong> {reviewedAt}
+        {stale ? (
+          <span style={{ marginLeft: 6 }}>
+            ({ageDays}g fa — verifica drift col codice)
+          </span>
+        ) : (
+          <span style={{ marginLeft: 6 }}>({ageDays}g fa)</span>
+        )}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <GitCommit size={13} />
+        <strong>Modulo:</strong>{" "}
+        <code style={{ fontFamily: "ui-monospace, monospace" }}>
+          {moduleSlug}@{moduleVersion}
+        </code>
+      </span>
+      <span className="flex-1 text-right" style={{ minWidth: 200 }}>
+        Bumpa <code>reviewedAt</code> ogni volta che rivedi la pagina vs il codice.
+      </span>
+    </footer>
   );
 }
 
