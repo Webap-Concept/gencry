@@ -28,9 +28,17 @@ export function AdminSectionTabs({ tabs }: { tabs: AdminSectionTab[] }) {
 
   return (
     <nav
-      className="mt-4 flex gap-1 border-b"
-      style={{ borderColor: "var(--admin-card-border)" }}
+      // overflow-x-auto: su mobile con molte tabs (es. Posts ha 6)
+      // si scorre orizzontalmente invece di wrappare o uscire dallo
+      // schermo. Scrollbar nascosta inline (no plugin tailwind).
+      className="mt-2 flex gap-0.5 sm:gap-1 border-b overflow-x-auto flex-nowrap"
+      style={{
+        borderColor: "var(--admin-card-border)",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
+      }}
       aria-label="Sezioni">
+      <style>{`nav[aria-label="Sezioni"]::-webkit-scrollbar{display:none;}`}</style>
       {tabs.map((tab) => {
         const active = tab.exact
           ? pathname === tab.href
@@ -39,7 +47,7 @@ export function AdminSectionTabs({ tabs }: { tabs: AdminSectionTab[] }) {
           <Link
             key={tab.href}
             href={tab.href}
-            className="group relative px-3 py-2 text-sm transition-colors hover:text-[var(--admin-accent)]"
+            className="group relative px-2 sm:px-3 py-2 text-xs sm:text-sm transition-colors hover:text-[var(--admin-accent)] whitespace-nowrap shrink-0"
             style={{
               color: active ? "var(--admin-accent)" : "var(--admin-text-muted)",
             }}
@@ -47,7 +55,7 @@ export function AdminSectionTabs({ tabs }: { tabs: AdminSectionTab[] }) {
             {tab.label}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 right-3 -bottom-px h-[2px] rounded-full transition-colors group-hover:bg-[var(--admin-accent)]"
+              className="pointer-events-none absolute left-2 sm:left-3 right-2 sm:right-3 -bottom-px h-[2px] rounded-full transition-colors group-hover:bg-[var(--admin-accent)]"
               style={{
                 backgroundColor: active ? "var(--admin-accent)" : "transparent",
               }}

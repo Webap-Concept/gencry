@@ -61,14 +61,16 @@ export function AdminStickyHeader({
         className={cn(
           // Sticky positioning. Margini negativi orizzontali +
           // verticali per estendere lo sfondo edge-to-edge e
-          // COPRIRE il padding del <main p-4 lg:p-6> dello shell:
-          // senza i -mt-4/-mt-6 e i pt-4/pt-6 compensativi, lo
-          // sticky lascerebbe un gap bianco di 16/24px sopra
-          // (sticky si attacca al CONTENT del main, non al suo edge).
-          // Se il padding del main cambia, aggiornare anche qui.
+          // COPRIRE il padding del <main p-4 lg:p-2> dello shell:
+          // sticky si attacca al CONTENT del main, non al suo edge,
+          // quindi senza margini negativi lascerebbe un gap bianco
+          // del padding del main sopra l'header quando stuck. Il
+          // pt-2 uniforme è il padding visivo interno; il -mt copre
+          // il padding del main. Se il padding del main cambia,
+          // aggiornare il -mt qui.
           "sticky top-0 z-10",
-          "-mx-4 lg:-mx-6 px-4 lg:px-6",
-          "-mt-4 lg:-mt-6 pt-4 lg:pt-6",
+          "-mx-4 lg:-mx-2 px-4 lg:px-2",
+          "-mt-4 lg:-mt-2 pt-2",
           "transition-shadow duration-200",
           isStuck && "shadow-sm",
         )}
@@ -82,7 +84,7 @@ export function AdminStickyHeader({
         <div
           className={cn(
             "flex items-center gap-3 transition-all duration-200",
-            isStuck ? "py-1" : "py-1.5",
+            isStuck ? "py-0.5" : "py-1",
           )}>
           {/* Icon — shrink da 36px a 28px */}
           <div
