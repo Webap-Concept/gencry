@@ -197,6 +197,15 @@ export function PostCard({
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // NB: deleteOpen/reportOpen/blockOpen DEVONO stare qui sopra
+  // l'early return `if (deleted || blocked) return null` — altrimenti
+  // dopo `setDeleted(true)` il render successivo salta questi useState
+  // → React vede meno hooks del render precedente → minified error #300
+  // ("Rendered fewer hooks than expected"). È esattamente il crash che
+  // vedevamo eliminando un proprio post dal feed.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   // Edit-window è dinamico: la finestra può scadere mentre l'utente
   // sta guardando la card. Forza re-render ogni 30s così "Modifica"
   // sparisce al passaggio del minuto 10.
@@ -239,7 +248,6 @@ export function PostCard({
     });
   };
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const onDelete = () => {
     if (!isAuthor) return;
     setDeleteOpen(true);
@@ -271,14 +279,12 @@ export function PostCard({
     });
   };
 
-  const [reportOpen, setReportOpen] = useState(false);
   const onReport = () => setReportOpen(true);
 
   // Block flow (mutual): conferma modale → action → nascondi card.
   // Lo stato `blocked` agisce come hide locale immediato (UX snappy);
   // il server invaliderà i feed così al prossimo paint la card sparisce
   // anche dagli altri tab. Il post puntuale (/post/[id]) ritornerà 404.
-  const [blockOpen, setBlockOpen] = useState(false);
   const onBlock = () => setBlockOpen(true);
   const onBlockConfirmed = () => {
     setBlockOpen(false);
