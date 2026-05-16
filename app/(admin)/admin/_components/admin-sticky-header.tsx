@@ -78,8 +78,11 @@ export function AdminStickyHeader({
           // -mx-4 lg:-mx-2 serve a estendere il bg edge-to-edge
           // coprendo il padding orizzontale del wrapper interno del
           // main (e.g. la sidebar arch non finisce sotto il bg).
+          // pt-2 dà un micro respiro tra topbar e icona/titolo in
+          // stato stuck (sennò sembrano incollati alla nav top).
           "sticky top-0 z-10",
           "-mx-4 lg:-mx-2 px-4 lg:px-2",
+          "pt-2",
           "transition-shadow duration-200",
           isStuck && "shadow-sm",
         )}
