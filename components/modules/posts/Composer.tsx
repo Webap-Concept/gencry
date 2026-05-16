@@ -14,6 +14,7 @@
 //
 // Il parent (PostComposerModal) owns il post-success (toast, close).
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Globe, Lock, UserCheck, Users } from "lucide-react";
 import { createPost, editPost } from "@/lib/modules/posts/actions";
 import { POST_VISIBILITIES, type PostVisibility } from "@/lib/db/schema";
@@ -34,14 +35,13 @@ type ComposerUser = {
   avatarUrl: string | null;
 };
 
-const VISIBILITY_META: Record<
-  PostVisibility,
-  { label: string; description: string; Icon: typeof Globe }
-> = {
-  public:    { label: "Pubblico",       description: "Tutti possono vedere",       Icon: Globe },
-  members:   { label: "Community",      description: "Solo utenti loggati",         Icon: Users },
-  followers: { label: "Chi mi segue",   description: "Solo i tuoi follower",        Icon: UserCheck },
-  private:   { label: "Solo io",        description: "Visibile solo a te",          Icon: Lock },
+// Solo Icon mapping: label/description vivono in posts.json sotto
+// `visibility.<kind>_label/_description` e vengono risolte runtime.
+const VISIBILITY_ICON: Record<PostVisibility, typeof Globe> = {
+  public:    Globe,
+  members:   Users,
+  followers: UserCheck,
+  private:   Lock,
 };
 
 // Ordine di restrizione (più alto = più restrittivo). Edit può solo
@@ -53,10 +53,10 @@ const VISIBILITY_RANK: Record<PostVisibility, number> = {
   private: 3,
 };
 
-function displayHandle(user: ComposerUser): string {
+function displayHandle(user: ComposerUser, fallback: string): string {
   if (user.username) return `@${user.username}`;
   const full = [user.firstName, user.lastName].filter(Boolean).join(" ");
-  return full || "Utente";
+  return full || fallback;
 }
 
 function initials(user: ComposerUser): string {
@@ -106,6 +106,10 @@ export function Composer({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const tErr = usePostsError();
+  const t = useTranslations("posts");
+  const tComp = useTranslations("posts.composer");
+  const tVis = useTranslations("posts.visibility");
+  const userFallback = t("common.user_fallback");
 
   const remaining = maxBodyLength - body.length;
   const trimmedLen = body.trim().length;
@@ -140,7 +144,7 @@ export function Composer({
     });
   };
 
-  const ActiveIcon = VISIBILITY_META[visibility].Icon;
+  const ActiveIcon = VISIBILITY_ICON[visibility];
 
   // In edit mode, le visibility "più permissive" della current sono
   // disabilitate (il server le rifiuterebbe). Calcoliamo client-side
@@ -155,7 +159,7 @@ export function Composer({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Cambia visibilità"
+              aria-label={tComp("change_visibility")}
               className="flex items-start gap-3 rounded-lg -m-1 p-1 hover:bg-gc-bg-3/60 transition text-left"
             >
               {user.avatarUrl ? (
@@ -173,11 +177,11 @@ export function Composer({
               )}
               <div className="flex flex-col gap-1 min-w-0">
                 <span className="font-medium text-gc-fg leading-none">
-                  {displayHandle(user)}
+                  {displayHandle(user, userFallback)}
                 </span>
                 <div className="flex items-center gap-1.5 text-xs text-gc-fg-muted">
                   <ActiveIcon size={12} strokeWidth={2} />
-                  <span>{VISIBILITY_META[visibility].label}</span>
+                  <span>{tVis(`${visibility}_label`)}</span>
                 </div>
               </div>
             </button>
@@ -187,8 +191,7 @@ export function Composer({
             className="min-w-[240px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
           >
             {POST_VISIBILITIES.map((v) => {
-              const meta = VISIBILITY_META[v];
-              const Icon = meta.Icon;
+              const Icon = VISIBILITY_ICON[v];
               const active = v === visibility;
               const lockedByEdit =
                 isEdit && VISIBILITY_RANK[v] < editLockRank;
@@ -205,11 +208,11 @@ export function Composer({
                 >
                   <Icon size={16} strokeWidth={1.75} className="mt-0.5" />
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm">{meta.label}</span>
+                    <span className="text-sm">{tVis(`${v}_label`)}</span>
                     <span className="text-xs text-gc-fg-muted">
                       {lockedByEdit
-                        ? "Non disponibile (puoi solo rendere più privato)"
-                        : meta.description}
+                        ? tComp("visibility_locked")
+                        : tVis(`${v}_description`)}
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -223,11 +226,11 @@ export function Composer({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Inizia a scrivere…"
+        placeholder={tComp("textarea_placeholder")}
         rows={6}
         maxLength={maxBodyLength + 100}
         className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
-        aria-label="Testo del post"
+        aria-label={tComp("textarea_aria")}
         disabled={isPending}
         autoFocus={autoFocus}
       />
@@ -253,8 +256,12 @@ export function Composer({
           className="px-5 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isPending
-            ? isEdit ? "Salvo…" : "Pubblico…"
-            : isEdit ? "Salva modifiche" : "Pubblica"}
+            ? isEdit
+              ? tComp("submitting_edit")
+              : tComp("submitting_new")
+            : isEdit
+              ? tComp("submit_edit")
+              : tComp("submit_new")}
         </button>
       </div>
 

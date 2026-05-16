@@ -20,6 +20,7 @@
 // supporta nativamente touch long-press, Popover sì via open prop.
 import * as React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import { ArrowUpRight, MessageCircle, TrendingUp } from "lucide-react";
 import {
@@ -228,6 +229,7 @@ function PreviewBody({
 }) {
   const coin = data.coin!;
   const symbolLower = coin.symbol.toLowerCase();
+  const tHover = useTranslations("posts.ticker_hover");
   const changeTone =
     coin.change24h === null
       ? "text-gc-fg-3"
@@ -283,7 +285,7 @@ function PreviewBody({
           prefetch={false}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
           <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden />
-          Pagina coin
+          {tHover("coin_page")}
         </Link>
         <Link
           href={`/explore?ticker=${symbol}`}
@@ -291,8 +293,8 @@ function PreviewBody({
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
           <MessageCircle size={13} strokeWidth={1.75} aria-hidden />
           {data.postCount24h > 0
-            ? `${data.postCount24h} post 24h · vedi tutti`
-            : "Vedi tutti i post"}
+            ? tHover("posts_24h", { count: data.postCount24h })
+            : tHover("see_all_posts")}
         </Link>
       </div>
     </div>
@@ -328,6 +330,7 @@ function PreviewUntracked({
   symbol: string;
   postCount: number;
 }) {
+  const tHover = useTranslations("posts.ticker_hover");
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm text-gc-fg-2">
@@ -337,10 +340,7 @@ function PreviewUntracked({
           aria-hidden
           className="text-gc-fg-3"
         />
-        <span>
-          <strong className="text-gc-fg">${symbol}</strong> non è un coin
-          tracciato.
-        </span>
+        <span>{tHover("untracked_message", { symbol: `$${symbol}` })}</span>
       </div>
       <Link
         href={`/explore?ticker=${symbol}`}
@@ -348,8 +348,8 @@ function PreviewUntracked({
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
         <MessageCircle size={13} strokeWidth={1.75} aria-hidden />
         {postCount > 0
-          ? `${postCount} post 24h · vedi tutti`
-          : "Vedi tutti i post"}
+          ? tHover("posts_24h", { count: postCount })
+          : tHover("see_all_posts")}
       </Link>
     </div>
   );

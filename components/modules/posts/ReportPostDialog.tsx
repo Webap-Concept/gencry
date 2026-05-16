@@ -5,7 +5,7 @@
 // alla prima apertura (settings cache 5min → call quasi free). Il modal
 // è controllato dal parent (PostCard): isOpen + onOpenChange + onSubmitted.
 import { useEffect, useState, useTransition } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Ban,
@@ -79,6 +79,8 @@ export function ReportPostDialog({
 }: Props) {
   const locale = useLocale();
   const tErr = usePostsError();
+  const t = useTranslations("posts");
+  const tRep = useTranslations("posts.dialogs.report");
   const [reasons, setReasons] = useState<ReportReason[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -146,8 +148,8 @@ export function ReportPostDialog({
       <GcModalContent
         icon={Flag}
         iconTone="warning"
-        title="Segnala questo post"
-        description="Scegli il motivo della segnalazione. Verrà esaminata da un moderatore."
+        title={tRep("title")}
+        description={tRep("description")}
         size="md"
         footer={
           submitted ? (
@@ -157,7 +159,7 @@ export function ReportPostDialog({
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenChange(false)}>
-                Chiudi
+                {tRep("close_after_submit")}
               </Button>
               {onWantsToBlockAuthor && authorDisplayName ? (
                 <Button
@@ -168,7 +170,7 @@ export function ReportPostDialog({
                     onOpenChange(false);
                     onWantsToBlockAuthor();
                   }}>
-                  Blocca {authorDisplayName}
+                  {tRep("block_author", { name: authorDisplayName })}
                 </Button>
               ) : null}
             </>
@@ -180,7 +182,7 @@ export function ReportPostDialog({
                 size="sm"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}>
-                Annulla
+                {t("common.cancel")}
               </Button>
               <Button
                 type="button"
@@ -190,7 +192,7 @@ export function ReportPostDialog({
                 {isSubmitting ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : null}
-                Invia segnalazione
+                {tRep("submit")}
               </Button>
             </>
           )
@@ -204,12 +206,11 @@ export function ReportPostDialog({
                 className="text-gc-success-fg shrink-0"
                 aria-hidden
               />
-              Segnalazione inviata. Grazie per la collaborazione.
+              {tRep("success_message")}
             </p>
             {onWantsToBlockAuthor && authorDisplayName ? (
               <p className="text-sm text-gc-fg-2">
-                Vuoi anche bloccare {authorDisplayName}? Il blocco è
-                mutuale: non vedrete più i contenuti l'uno dell'altro.
+                {tRep("block_prompt", { name: authorDisplayName })}
               </p>
             ) : null}
           </div>
@@ -218,7 +219,7 @@ export function ReportPostDialog({
             <Loader2
               size={20}
               className="animate-spin text-gc-fg-muted"
-              aria-label="Caricamento motivi"
+              aria-label={tRep("loading_reasons_aria")}
             />
           </div>
         ) : loadError ? (
@@ -227,7 +228,7 @@ export function ReportPostDialog({
           <div className="space-y-4">
             <div
               role="radiogroup"
-              aria-label="Motivo della segnalazione"
+              aria-label={tRep("reasons_radiogroup_aria")}
               className="space-y-2">
               {(reasons ?? []).map((r) => {
                 const label = pickLocalized(r.labelByLocale, locale, r.key);
@@ -261,7 +262,7 @@ export function ReportPostDialog({
                         {label}
                         {r.requiresDetails ? (
                           <span className="text-[10px] uppercase tracking-wide text-gc-fg-muted">
-                            (dettagli obbligatori)
+                            {tRep("details_required_indicator")}
                           </span>
                         ) : null}
                       </span>
@@ -281,13 +282,15 @@ export function ReportPostDialog({
                 <label
                   htmlFor="report-details"
                   className="text-xs font-medium text-gc-fg">
-                  Dettagli {detailsRequired ? "(obbligatori)" : "(opzionali)"}
+                  {detailsRequired
+                    ? tRep("details_label_required")
+                    : tRep("details_label_optional")}
                 </label>
                 <textarea
                   id="report-details"
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
-                  placeholder="Aggiungi un contesto utile per la moderazione (max 2000 caratteri)"
+                  placeholder={tRep("details_placeholder")}
                   maxLength={2000}
                   rows={3}
                   className="w-full px-3 py-2 rounded-lg border border-gc-line bg-gc-bg text-sm text-gc-fg focus:outline-none focus:border-gc-accent resize-none"
@@ -296,7 +299,7 @@ export function ReportPostDialog({
             ) : null}
 
             {submitError ? (
-              <p className="text-xs text-gc-neg">Errore: {submitError}</p>
+              <p className="text-xs text-gc-neg">{submitError}</p>
             ) : null}
           </div>
         )}

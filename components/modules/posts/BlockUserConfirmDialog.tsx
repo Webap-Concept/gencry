@@ -7,6 +7,7 @@
 // Il blocco effettivo viene fatto dal parent (PostCard) via Server Action
 // `toggleUserBlock`. Qui solo UI + conferma user-side.
 import { UserMinus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 
@@ -24,13 +25,15 @@ export function BlockUserConfirmDialog({
   onOpenChange,
   onConfirm,
 }: Props) {
+  const t = useTranslations("posts");
+  const tBlock = useTranslations("posts.dialogs.block");
   return (
     <GcModal open={isOpen} onOpenChange={onOpenChange}>
       <GcModalContent
         icon={UserMinus}
         iconTone="danger"
-        title={`Bloccare ${authorDisplayName}?`}
-        description="Il blocco è mutuale: non vedrete più i contenuti l'uno dell'altro."
+        title={tBlock("title", { name: authorDisplayName })}
+        description={tBlock("description")}
         size="md"
         footer={
           <>
@@ -39,22 +42,22 @@ export function BlockUserConfirmDialog({
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
               variant="destructive"
               size="sm"
               onClick={onConfirm}>
-              Blocca
+              {tBlock("confirm")}
             </Button>
           </>
         }>
         <ul className="space-y-1.5 text-sm text-gc-fg-2 list-disc pl-5">
-          <li>{authorDisplayName} non comparirà più nel tuo feed o nei tuoi commenti.</li>
-          <li>Non vedrai i suoi post anche se sono pubblici.</li>
-          <li>Nemmeno {authorDisplayName} potrà vedere i tuoi.</li>
-          <li>Puoi rimuovere il blocco in qualsiasi momento dalle impostazioni.</li>
+          <li>{tBlock("consequence_1", { name: authorDisplayName })}</li>
+          <li>{tBlock("consequence_2")}</li>
+          <li>{tBlock("consequence_3", { name: authorDisplayName })}</li>
+          <li>{tBlock("consequence_4")}</li>
         </ul>
       </GcModalContent>
     </GcModal>

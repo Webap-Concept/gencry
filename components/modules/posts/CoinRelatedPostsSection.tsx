@@ -10,6 +10,7 @@
 // di visibility/block. Block-filtered se viewer è loggato.
 import "server-only";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { getUser } from "@/lib/db/queries";
 import {
@@ -42,6 +43,7 @@ export async function CoinRelatedPostsSection({
   const tickerPreviewMap = await getTickerPreviewBatch(
     collectVisibleTickers(posts),
   );
+  const tCoin = await getTranslations("posts.coin_related");
 
   return (
     <section
@@ -52,14 +54,14 @@ export async function CoinRelatedPostsSection({
           id="coin-posts-heading"
           className="flex items-center gap-2 text-sm font-semibold text-gc-fg">
           <MessageCircle size={15} strokeWidth={1.75} aria-hidden />
-          Post recenti su ${symbol}
+          {tCoin("section_title", { symbol: `$${symbol}` })}
         </h2>
         {posts.length > 0 ? (
           <Link
             href={`/explore?ticker=${symbol}`}
             prefetch={false}
             className="inline-flex items-center gap-1 text-xs font-medium text-gc-accent hover:underline">
-            Vedi tutti
+            {tCoin("see_all")}
             <ArrowRight size={12} strokeWidth={2} aria-hidden />
           </Link>
         ) : null}
@@ -84,22 +86,27 @@ export async function CoinRelatedPostsSection({
   );
 }
 
-function EmptyState({
+async function EmptyState({
   symbol,
   authed,
 }: {
   symbol: string;
   authed: boolean;
 }) {
+  const t = await getTranslations("posts");
+  const tEmpty = await getTranslations("posts.empty_states");
   return (
     <div className="text-center py-6 space-y-2">
       <p className="text-sm text-gc-fg-2">
-        Nessun post ha ancora parlato di <strong>${symbol}</strong>.
+        {tEmpty("ticker_no_posts_prefix")}
+        <strong>${symbol}</strong>
+        {tEmpty("ticker_no_posts_suffix")}
       </p>
       {authed ? (
         <p className="text-xs text-gc-fg-3">
-          Inizia tu la conversazione — apri un nuovo post col tag{" "}
-          <code className="font-mono">${symbol}</code>.
+          {tEmpty("ticker_create_cta_authed_prefix")}
+          <code className="font-mono">${symbol}</code>
+          {tEmpty("ticker_create_cta_authed_suffix")}
         </p>
       ) : (
         <p className="text-xs text-gc-fg-3">
@@ -107,9 +114,9 @@ function EmptyState({
             href="/sign-up"
             prefetch={false}
             className="text-gc-accent hover:underline">
-            Iscriviti
-          </Link>{" "}
-          per aprire la conversazione.
+            {t("common.sign_up")}
+          </Link>
+          {tEmpty("ticker_create_cta_anon_suffix")}
         </p>
       )}
     </div>

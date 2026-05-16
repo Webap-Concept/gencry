@@ -17,6 +17,7 @@
 // Lo unmount del componente fa cleanup di TUTTI i draft non ancora
 // claim-ati (utile su modal close senza submit).
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertCircle, ImagePlus, Loader2, X } from "lucide-react";
 import {
   confirmPostMediaUpload,
@@ -48,10 +49,13 @@ type Props = {
   disabled?: boolean;
 };
 
+const MAX_BYTES_MB = 8;
+
 export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const tErr = usePostsError();
+  const tMedia = useTranslations("posts.media");
   const inputRef = useRef<HTMLInputElement>(null);
   // Snapshot stabile usato dal cleanup-on-unmount per evitare stale closure.
   const itemsRef = useRef<UploadItem[]>([]);
@@ -97,7 +101,7 @@ export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
           file,
           status: "error",
           progress: 0,
-          error: "Formato non supportato (jpeg/png/webp).",
+          error: tMedia("client_invalid_mime"),
         });
         continue;
       }
@@ -107,7 +111,7 @@ export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
           file,
           status: "error",
           progress: 0,
-          error: "Immagine troppo grande (max 8MB).",
+          error: tMedia("client_invalid_size_mb", { maxMb: MAX_BYTES_MB }),
         });
         continue;
       }
@@ -268,7 +272,9 @@ export function MediaUploader({ onMediaIdsChange, disabled }: Props) {
           }`}
         >
           <ImagePlus size={14} />
-          <span>Trascina o clicca per aggiungere immagini ({items.length}/{MAX_FILES})</span>
+          <span>
+            {tMedia("add_images", { current: items.length, max: MAX_FILES })}
+          </span>
         </button>
       ) : null}
     </div>
@@ -282,6 +288,7 @@ function ItemTile({
   item: UploadItem;
   onRemove: (id: string) => void;
 }) {
+  const tMedia = useTranslations("posts.media");
   const localPreview = useObjectUrl(item.file);
   const showThumb = item.thumbUrl ?? localPreview;
   return (
@@ -323,7 +330,7 @@ function ItemTile({
       <button
         type="button"
         onClick={() => onRemove(item.localId)}
-        aria-label="Rimuovi"
+        aria-label={tMedia("remove")}
         className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
       >
         <X size={12} />

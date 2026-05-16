@@ -16,6 +16,7 @@
 import "server-only";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Search } from "lucide-react";
 import { getUser } from "@/lib/db/queries";
 import {
@@ -31,7 +32,10 @@ import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRo
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
 import { CoinSummaryCard } from "@/components/modules/coins/coin-summary-card";
 
-export const metadata: Metadata = { title: "Esplora" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("posts.explore");
+  return { title: t("page_title") };
+}
 export const dynamic = "force-dynamic";
 
 type SearchParams = { ticker?: string };
@@ -79,6 +83,8 @@ export default async function ExplorePage({
     ? ({ kind: "ticker", ticker } as const)
     : ({ kind: "tab", tab: "discover" } as const);
 
+  const tExp = await getTranslations("posts.explore");
+
   return (
     // Outer = py only. Il max-w-2xl + px è applicato selettivamente alle
     // sezioni che vogliono essere strette (header + feed); la
@@ -88,12 +94,12 @@ export default async function ExplorePage({
       <div className="max-w-2xl mx-auto px-4">
         <header>
           <h1 className="text-2xl font-semibold text-gc-fg">
-            {ticker ? `Post su $${ticker}` : "Esplora"}
+            {ticker
+              ? tExp("page_title_ticker", { ticker: `$${ticker}` })
+              : tExp("page_title")}
           </h1>
           <p className="text-sm text-gc-fg-3 mt-1">
-            {ticker
-              ? "Tutti i post pubblici che menzionano questo coin."
-              : "Post pubblici della community in ordine cronologico."}
+            {ticker ? tExp("subtitle_ticker") : tExp("subtitle")}
           </p>
         </header>
       </div>
@@ -108,8 +114,7 @@ export default async function ExplorePage({
         ) : (
           <div className="max-w-2xl mx-auto px-4">
             <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
-              <strong>${ticker}</strong> non è ancora tracciato nel modulo
-              prezzi — vedi sotto i post che lo menzionano.
+              <strong>${ticker}</strong> {tExp("untracked_fallback")}
             </div>
           </div>
         )
@@ -144,7 +149,8 @@ export default async function ExplorePage({
   );
 }
 
-function ExploreEmptyState({ ticker }: { ticker: string | null }) {
+async function ExploreEmptyState({ ticker }: { ticker: string | null }) {
+  const tEmpty = await getTranslations("posts.empty_states");
   if (ticker) {
     return (
       <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-8 flex flex-col items-center text-center gap-3">
@@ -155,11 +161,10 @@ function ExploreEmptyState({ ticker }: { ticker: string | null }) {
         </div>
         <div>
           <p className="text-gc-fg font-medium">
-            Nessun post su ${ticker}
+            {tEmpty("explore_ticker_no_posts_title", { ticker: `$${ticker}` })}
           </p>
           <p className="text-sm text-gc-fg-muted mt-1 max-w-sm">
-            Non c'è ancora nessun post pubblico che menziona questo ticker.
-            Sii il primo a parlarne.
+            {tEmpty("explore_ticker_no_posts_description")}
           </p>
         </div>
       </div>
@@ -173,10 +178,9 @@ function ExploreEmptyState({ ticker }: { ticker: string | null }) {
         <Search size={22} strokeWidth={1.75} />
       </div>
       <div>
-        <p className="text-gc-fg font-medium">Nessun post da esplorare</p>
+        <p className="text-gc-fg font-medium">{tEmpty("explore_no_posts_title")}</p>
         <p className="text-sm text-gc-fg-muted mt-1 max-w-sm">
-          Non c'è ancora niente di pubblico. Pubblica il primo post per
-          dare il via.
+          {tEmpty("explore_no_posts_description")}
         </p>
       </div>
     </div>

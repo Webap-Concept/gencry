@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import useSWR from "swr";
 import { PostComposerModal } from "./PostComposerModal";
@@ -33,6 +34,7 @@ export function NewPostButton({ variant }: { variant: Variant }) {
   const [open, setOpen] = useState(false);
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const tNp = useTranslations("posts.new_post");
   const { data: user } = useSWR<CurrentUser>("/api/user", userFetcher, {
     revalidateOnFocus: false,
     keepPreviousData: true,
@@ -52,17 +54,17 @@ export function NewPostButton({ variant }: { variant: Variant }) {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="Nuovo post"
+      aria-label={tNp("button_aria")}
       className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-gc-accent text-white font-medium text-sm hover:brightness-95 transition"
     >
       <Plus size={16} strokeWidth={2.5} />
-      <span>Nuovo post</span>
+      <span>{tNp("button_aria")}</span>
     </button>
   ) : (
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="Nuovo post"
+      aria-label={tNp("button_aria")}
       className="w-12 h-12 rounded-full bg-gc-accent text-white flex items-center justify-center -mt-3 shadow-md hover:brightness-95 transition"
     >
       <Plus size={22} strokeWidth={2.5} />
@@ -98,6 +100,7 @@ function PublishedToast({
   postId: string;
   onDismiss: () => void;
 }) {
+  const tNp = useTranslations("posts.new_post");
   return (
     <div
       role="status"
@@ -107,19 +110,19 @@ function PublishedToast({
     >
       <div className="flex items-center gap-2 bg-emerald-600 text-white rounded-gc shadow-lg pl-4 pr-2 py-2.5 min-w-[280px]">
         <span className="text-sm flex-1">
-          Post pubblicato ·{" "}
+          {tNp("toast_published_prefix")}
           <Link
             href={`/post/${postId}`}
             onClick={onDismiss}
             className="underline decoration-white/60 underline-offset-2 hover:decoration-white"
           >
-            clicca per vederlo
+            {tNp("toast_view_link")}
           </Link>
         </span>
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Chiudi"
+          aria-label={tNp("toast_close_aria")}
           className="text-white/80 hover:text-white p-1"
         >
           <X size={14} />

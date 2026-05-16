@@ -26,6 +26,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
   ArrowUpRight,
@@ -63,17 +64,13 @@ import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 
-const VISIBILITY_LABEL: Record<PostCardData["visibility"], string> = {
-  public: "Tutti",
-  members: "Community",
-  followers: "Chi mi segue",
-  private: "Solo io",
-};
-
-function authorDisplayName(author: PostCardData["author"]): string {
+function authorDisplayName(
+  author: PostCardData["author"],
+  fallback: string,
+): string {
   if (author.username) return `@${author.username}`;
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  return full || "Utente";
+  return full || fallback;
 }
 
 function authorInitial(author: PostCardData["author"]): string {
@@ -81,14 +78,21 @@ function authorInitial(author: PostCardData["author"]): string {
   return f.toUpperCase();
 }
 
-function formatRelativeTime(date: Date): string {
+// Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
+// (es. "it-IT", "en-US") per il fallback toLocaleDateString quando l'età
+// supera 7 giorni.
+function formatRelativeTime(
+  date: Date,
+  t: (key: string, values?: Record<string, number>) => string,
+  locale: string,
+): string {
   const diffMs = Date.now() - new Date(date).getTime();
   const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return "ora";
-  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-  if (sec < 86_400) return `${Math.floor(sec / 3600)}h`;
-  if (sec < 604_800) return `${Math.floor(sec / 86_400)}g`;
-  return new Date(date).toLocaleDateString("it-IT", {
+  if (sec < 60) return t("now");
+  if (sec < 3600) return t("minutes_short", { n: Math.floor(sec / 60) });
+  if (sec < 86_400) return t("hours_short", { n: Math.floor(sec / 3600) });
+  if (sec < 604_800) return t("days_short", { n: Math.floor(sec / 86_400) });
+  return new Date(date).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
   });
@@ -158,6 +162,12 @@ export function PostCard({
   tickerPreviewMap,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("posts");
+  const tCard = useTranslations("posts.card");
+  const tVis = useTranslations("posts.visibility");
+  const tTime = useTranslations("posts.time");
+  const locale = useLocale();
+  const userFallback = t("common.user_fallback");
   // Optimistic display state per body/visibility/editedAt: dopo
   // edit successo aggiorniamo questi 3 senza dover ri-fetchare il
   // post dal server. Il modal in riapertura usa displayedBody come
@@ -339,7 +349,7 @@ export function PostCard({
         {showOverlayLink ? (
           <Link
             href={`/post/${post.id}`}
-            aria-label="Apri post"
+            aria-label={tCard("open_post")}
             className="absolute inset-0 rounded-gc"
           />
         ) : null}
@@ -370,7 +380,7 @@ export function PostCard({
                 href={`/profile/${post.author.username ?? post.author.id}`}
                 className="font-medium text-gc-fg hover:underline"
               >
-                {authorDisplayName(post.author)}
+                {authorDisplayName(post.author, userFallback)}
               </Link>
               <span className="text-xs text-gc-fg-muted">·</span>
               <Link
@@ -378,7 +388,7 @@ export function PostCard({
                 className="text-xs text-gc-fg-muted hover:underline"
               >
                 <time dateTime={String(post.createdAt)}>
-                  {formatRelativeTime(post.createdAt)}
+                  {formatRelativeTime(post.createdAt, tTime, locale)}
                 </time>
               </Link>
               {displayedEditedAt ? (
@@ -386,12 +396,12 @@ export function PostCard({
                   className="text-xs text-gc-fg-muted"
                   title={String(displayedEditedAt)}
                 >
-                  · modificato
+                  · {tCard("edited")}
                 </span>
               ) : null}
               {displayedVisibility !== "public" ? (
                 <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
-                  {VISIBILITY_LABEL[displayedVisibility]}
+                  {tVis(displayedVisibility)}
                 </span>
               ) : null}
             </div>
@@ -402,7 +412,7 @@ export function PostCard({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Opzioni post"
+                  aria-label={tCard("options_menu")}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
                 >
                   <MoreHorizontal size={18} />
@@ -418,18 +428,20 @@ export function PostCard({
                   ) : (
                     <Bookmark size={16} strokeWidth={1.75} />
                   )}
-                  {bookmarked ? "Rimuovi dai salvati" : "Salva post"}
+                  {bookmarked
+                    ? tCard("bookmark_remove")
+                    : tCard("bookmark_save")}
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={`/post/${post.id}`}>
                     <ArrowUpRight size={16} strokeWidth={1.75} />
-                    Apri post
+                    {tCard("open_post")}
                   </Link>
                 </DropdownMenuItem>
                 {canEdit ? (
                   <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                     <Pencil size={16} strokeWidth={1.75} />
-                    Modifica post
+                    {tCard("edit")}
                   </DropdownMenuItem>
                 ) : null}
                 {!isAuthor ? (
@@ -437,11 +449,13 @@ export function PostCard({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={onBlock}>
                       <UserMinus size={16} strokeWidth={1.75} />
-                      Blocca {authorDisplayName(post.author)}
+                      {tCard("block_user", {
+                        name: authorDisplayName(post.author, userFallback),
+                      })}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={onReport}>
                       <Flag size={16} strokeWidth={1.75} />
-                      Segnala
+                      {tCard("report")}
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -453,7 +467,7 @@ export function PostCard({
                       className="text-gc-danger focus:text-gc-danger"
                     >
                       <Trash2 size={16} strokeWidth={1.75} />
-                      Elimina post
+                      {tCard("delete")}
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -493,7 +507,7 @@ export function PostCard({
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
             <div className="flex items-center gap-1 text-xs text-gc-fg-muted mb-1">
               <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
-              {authorDisplayName(post.repostOf.author)}
+              {authorDisplayName(post.repostOf.author, userFallback)}
             </div>
             <PostBody
               body={post.repostOf.body}
@@ -503,7 +517,7 @@ export function PostCard({
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
-            Post originale rimosso
+            {tCard("repost_tombstone")}
           </div>
         ) : null}
 
@@ -517,7 +531,7 @@ export function PostCard({
           />
           <Link
             href={`/post/${post.id}`}
-            aria-label={`Commenti${post.counts.comments > 0 ? `, ${post.counts.comments}` : ""}`}
+            aria-label={tCard("comments_aria", { count: post.counts.comments })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
           >
             <MessageCircle size={18} strokeWidth={1.75} />
@@ -525,7 +539,7 @@ export function PostCard({
           </Link>
           <button
             type="button"
-            aria-label={`Repost${post.counts.reposts > 0 ? `, ${post.counts.reposts}` : ""}`}
+            aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
             disabled
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
           >
@@ -542,13 +556,13 @@ export function PostCard({
         <>
           <ReportPostDialog
             postId={post.id}
-            authorDisplayName={authorDisplayName(post.author)}
+            authorDisplayName={authorDisplayName(post.author, userFallback)}
             onWantsToBlockAuthor={onBlock}
             isOpen={reportOpen}
             onOpenChange={setReportOpen}
           />
           <BlockUserConfirmDialog
-            authorDisplayName={authorDisplayName(post.author)}
+            authorDisplayName={authorDisplayName(post.author, userFallback)}
             isOpen={blockOpen}
             onOpenChange={setBlockOpen}
             onConfirm={onBlockConfirmed}

@@ -10,6 +10,7 @@
 // integrato (Composer è autonomo nella sua testata/footer), quindi il
 // wrapper "slot icon/title/description/footer" non si applica. Resta
 // shadcn <Dialog> raw con DialogTitle sr-only solo per a11y Radix.
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ export function PostComposerModal({
   maxBodyLength,
   editPayload,
 }: Props) {
+  const tComp = useTranslations("posts.composer");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -61,7 +63,7 @@ export function PostComposerModal({
         showCloseButton
       >
         <DialogTitle className="sr-only">
-          {editPayload ? "Modifica post" : "Nuovo post"}
+          {editPayload ? tComp("modal_title_edit") : tComp("modal_title_new")}
         </DialogTitle>
         {user ? (
           <Composer
@@ -85,7 +87,7 @@ export function PostComposerModal({
           />
         ) : (
           <div className="p-8 text-center text-sm text-gc-fg-muted">
-            Caricamento profilo…
+            {tComp("loading_profile")}
           </div>
         )}
       </DialogContent>

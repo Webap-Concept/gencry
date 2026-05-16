@@ -16,6 +16,9 @@
     "details_required": "Please provide details for the report.",
     "r2_not_configured": "Media service not configured. Try again later."
   },
+  "validation": {
+    "repost_needs_body": "Add a comment to the repost."
+  },
   "media": {
     "invalid_mime": "Unsupported file format.",
     "invalid_size": "File too large.",
@@ -23,20 +26,173 @@
     "not_found": "File not found.",
     "upload_missing": "Upload did not complete. Try again.",
     "processing_failed": "File processing failed. Try again.",
-    "r2_not_configured": "Media service not configured. Try again later."
+    "r2_not_configured": "Media service not configured. Try again later.",
+    "client_invalid_mime": "Unsupported format (jpeg/png/webp).",
+    "client_invalid_size_mb": "Image too large (max {maxMb}MB).",
+    "add_images": "Drag or click to add images ({current}/{max})",
+    "remove": "Remove"
   },
   "feed": {
     "invalid_tab": "Invalid feed section.",
-    "invalid_ticker": "Invalid ticker."
+    "invalid_ticker": "Invalid ticker.",
+    "load_more": "Load more",
+    "loading_more": "Loading…",
+    "end_reached": "You've seen everything."
   },
   "comments": {
     "empty_body": "Write something before commenting.",
     "body_too_long": "Your comment is too long."
   },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "user_fallback": "User",
+    "see_all": "See all",
+    "sign_up": "Sign up"
+  },
+  "visibility": {
+    "public": "Everyone",
+    "members": "Community",
+    "followers": "Followers",
+    "private": "Only me",
+    "public_label": "Public",
+    "public_description": "Everyone can see",
+    "members_label": "Community",
+    "members_description": "Logged-in users only",
+    "followers_label": "Followers",
+    "followers_description": "Only your followers",
+    "private_label": "Only me",
+    "private_description": "Visible only to you"
+  },
+  "time": {
+    "now": "now",
+    "minutes_short": "{n}m",
+    "hours_short": "{n}h",
+    "days_short": "{n}d"
+  },
+  "card": {
+    "edited": "edited",
+    "open_post": "Open post",
+    "options_menu": "Post options",
+    "bookmark_save": "Save post",
+    "bookmark_remove": "Remove from saved",
+    "edit": "Edit post",
+    "delete": "Delete post",
+    "block_user": "Block {name}",
+    "report": "Report",
+    "repost_tombstone": "Original post removed",
+    "comments_aria": "Comments{count, plural, =0 {} other {, #}}",
+    "reposts_aria": "Reposts{count, plural, =0 {} other {, #}}"
+  },
+  "composer": {
+    "modal_title_new": "New post",
+    "modal_title_edit": "Edit post",
+    "loading_profile": "Loading profile…",
+    "change_visibility": "Change visibility",
+    "visibility_locked": "Not available (you can only make it more private)",
+    "textarea_placeholder": "Start writing…",
+    "textarea_aria": "Post body",
+    "submit_new": "Publish",
+    "submit_edit": "Save changes",
+    "submitting_new": "Publishing…",
+    "submitting_edit": "Saving…"
+  },
+  "dialogs": {
+    "delete": {
+      "title": "Delete this post?",
+      "description": "The post will disappear immediately from your profile and everyone's feed.",
+      "confirm": "Delete",
+      "consequence_1": "Reactions and bookmarks stay attached to the post until restored.",
+      "consequence_2": "Comments stay if anyone has already replied (labeled \"post removed\"), otherwise they disappear.",
+      "consequence_3": "Other users' quote-reposts will show \"original post removed\".",
+      "consequence_4_prefix": "For ",
+      "consequence_4_strong": "7 days",
+      "consequence_4_suffix": " a moderator can restore it. After that, the post is permanently deleted."
+    },
+    "block": {
+      "title": "Block {name}?",
+      "description": "Blocking is mutual: neither of you will see each other's content anymore.",
+      "confirm": "Block",
+      "consequence_1": "{name} won't appear in your feed or comments anymore.",
+      "consequence_2": "You won't see their posts even if they're public.",
+      "consequence_3": "{name} won't be able to see yours either.",
+      "consequence_4": "You can remove the block any time from settings."
+    },
+    "report": {
+      "title": "Report this post",
+      "description": "Choose the reason for reporting. It will be reviewed by a moderator.",
+      "submit": "Send report",
+      "close_after_submit": "Close",
+      "block_author": "Block {name}",
+      "success_message": "Report sent. Thanks for helping out.",
+      "block_prompt": "Would you also like to block {name}? Blocking is mutual: neither of you will see each other's content anymore.",
+      "loading_reasons_aria": "Loading reasons",
+      "reasons_radiogroup_aria": "Report reason",
+      "details_required_indicator": "(details required)",
+      "details_label_required": "Details (required)",
+      "details_label_optional": "Details (optional)",
+      "details_placeholder": "Add useful context for moderation (max 2000 characters)"
+    }
+  },
+  "empty_states": {
+    "following_home_title": "Your home is empty",
+    "following_home_description": "Here you'll see posts from people you follow. Start exploring to find profiles and content you'll like.",
+    "following_home_cta": "Go to Explore",
+    "explore_no_posts_title": "Nothing to explore",
+    "explore_no_posts_description": "Nothing public yet. Publish the first post to kick things off.",
+    "explore_ticker_no_posts_title": "No posts about {ticker}",
+    "explore_ticker_no_posts_description": "There are no public posts mentioning this ticker yet. Be the first.",
+    "ticker_no_posts_prefix": "Nobody has talked about ",
+    "ticker_no_posts_suffix": " yet.",
+    "ticker_create_cta_authed_prefix": "Kick off the conversation — write a new post with the tag ",
+    "ticker_create_cta_authed_suffix": ".",
+    "ticker_create_cta_anon_suffix": " to start the conversation."
+  },
   "report": {
     "load_error": "Couldn't load report reasons. Try again."
   },
-  "validation": {
-    "repost_needs_body": "Add a comment to the repost."
+  "reactions": {
+    "like": "Like",
+    "rocket": "Rocket",
+    "bull": "Bullish",
+    "bear": "Bearish",
+    "dump": "Dump",
+    "diamond": "Diamond hands",
+    "button_aria": "Reactions",
+    "menu_aria": "Choose reaction"
+  },
+  "gallery": {
+    "scroll_left": "Scroll left",
+    "scroll_right": "Scroll right",
+    "go_to_image": "Go to image {index}",
+    "lightbox_title": "Image preview",
+    "image_prev": "Previous image",
+    "image_next": "Next image"
+  },
+  "new_post": {
+    "button_aria": "New post",
+    "toast_published_prefix": "Post published · ",
+    "toast_view_link": "click to view",
+    "toast_close_aria": "Close"
+  },
+  "ticker_hover": {
+    "coin_page": "Coin page",
+    "posts_24h": "{count} posts 24h · see all",
+    "see_all_posts": "See all posts",
+    "untracked_message": "{symbol} is not a tracked coin."
+  },
+  "trending": {
+    "section_title": "Trending coins — last 24h"
+  },
+  "coin_related": {
+    "section_title": "Recent posts about {symbol}",
+    "see_all": "See all"
+  },
+  "explore": {
+    "page_title_ticker": "Posts about {ticker}",
+    "page_title": "Explore",
+    "subtitle_ticker": "All public posts mentioning this coin.",
+    "subtitle": "Public community posts in chronological order.",
+    "untracked_fallback": "is not tracked in the prices module — see posts mentioning it below."
   }
 }

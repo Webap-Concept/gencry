@@ -7,6 +7,7 @@
 // Pattern GetStream §8: trending è una query separata, non parte del
 // feed cronologico → niente impatto su getFeedIds().
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { TrendingUp } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import { getTrendingTickers } from "@/lib/modules/posts/queries";
@@ -33,6 +34,8 @@ export async function TrendingTickersRow({
   const rows = await getCachedTrending();
   if (rows.length === 0) return null;
 
+  const t = await getTranslations("posts.trending");
+
   return (
     <section
       aria-labelledby="trending-tickers-heading"
@@ -41,7 +44,7 @@ export async function TrendingTickersRow({
         id="trending-tickers-heading"
         className="flex items-center gap-2 text-xs uppercase tracking-wider text-gc-fg-3 mb-3">
         <TrendingUp size={13} strokeWidth={1.75} aria-hidden />
-        Coin in trend — ultime 24h
+        {t("section_title")}
       </h2>
       <ul className="flex flex-wrap gap-2">
         {rows.map((r) => {

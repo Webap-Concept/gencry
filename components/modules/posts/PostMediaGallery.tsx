@@ -24,6 +24,7 @@
 //
 // Click su tile → lightbox con keyboard ←/→, swipe, frecce, counter.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
@@ -159,6 +160,7 @@ function Carousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const showDots = items.length > 2;
   const showArrows = items.length > 2;
+  const tGal = useTranslations("posts.gallery");
 
   // IntersectionObserver per il dot attivo (la tile più visibile).
   useEffect(() => {
@@ -233,7 +235,7 @@ function Carousel({
           <button
             type="button"
             onClick={() => scrollByOne(-1)}
-            aria-label="Scorri a sinistra"
+            aria-label={tGal("scroll_left")}
             className="hidden md:flex absolute left-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center"
           >
             <ChevronLeft size={18} />
@@ -241,7 +243,7 @@ function Carousel({
           <button
             type="button"
             onClick={() => scrollByOne(1)}
-            aria-label="Scorri a destra"
+            aria-label={tGal("scroll_right")}
             className="hidden md:flex absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center"
           >
             <ChevronRight size={18} />
@@ -256,7 +258,7 @@ function Carousel({
               key={m.id}
               type="button"
               onClick={() => scrollToIndex(i)}
-              aria-label={`Vai all'immagine ${i + 1}`}
+              aria-label={tGal("go_to_image", { index: i + 1 })}
               aria-current={i === activeIndex ? "true" : undefined}
               className={`h-1.5 rounded-full transition-all hover:bg-gc-fg-muted ${
                 i === activeIndex ? "w-4 bg-gc-accent" : "w-1.5 bg-gc-line"
@@ -289,6 +291,7 @@ function Lightbox({
   const total = items.length;
   const hasNav = total > 1;
   const touchStartX = useRef<number | null>(null);
+  const tGal = useTranslations("posts.gallery");
 
   const prev = useCallback(() => {
     if (openIndex === null) return;
@@ -333,7 +336,7 @@ function Lightbox({
         showCloseButton
         className="w-[calc(100vw-2rem)] sm:max-w-[90vw] max-h-[90vh] p-0 bg-black border-black overflow-hidden"
       >
-        <DialogTitle className="sr-only">Anteprima immagine</DialogTitle>
+        <DialogTitle className="sr-only">{tGal("lightbox_title")}</DialogTitle>
         {openIndex !== null ? (
           <div
             className="relative w-full h-full flex items-center justify-center"
@@ -354,7 +357,7 @@ function Lightbox({
                 <button
                   type="button"
                   onClick={prev}
-                  aria-label="Immagine precedente"
+                  aria-label={tGal("image_prev")}
                   className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition"
                 >
                   <ChevronLeft size={22} />
@@ -362,7 +365,7 @@ function Lightbox({
                 <button
                   type="button"
                   onClick={next}
-                  aria-label="Immagine successiva"
+                  aria-label={tGal("image_next")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition"
                 >
                   <ChevronRight size={22} />

@@ -9,6 +9,7 @@
 // L'azione di delete vera la esegue il parent (PostCard) via Server
 // Action `softDeletePost`. Qui solo UI + conferma.
 import { Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 
@@ -23,13 +24,15 @@ export function DeletePostConfirmDialog({
   onOpenChange,
   onConfirm,
 }: Props) {
+  const t = useTranslations("posts");
+  const tDel = useTranslations("posts.dialogs.delete");
   return (
     <GcModal open={isOpen} onOpenChange={onOpenChange}>
       <GcModalContent
         icon={Trash2}
         iconTone="danger"
-        title="Eliminare questo post?"
-        description="Il post sparisce subito dal tuo profilo e dai feed di tutti."
+        title={tDel("title")}
+        description={tDel("description")}
         size="md"
         footer={
           <>
@@ -38,22 +41,26 @@ export function DeletePostConfirmDialog({
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
               variant="destructive"
               size="sm"
               onClick={onConfirm}>
-              Elimina
+              {tDel("confirm")}
             </Button>
           </>
         }>
         <ul className="space-y-1.5 text-sm text-gc-fg-2 list-disc pl-5">
-          <li>Reazioni e bookmark restano associati al post fino al ripristino.</li>
-          <li>I commenti restano se qualcuno ha già risposto (etichetta &laquo;post rimosso&raquo;), altrimenti spariscono.</li>
-          <li>I quote-repost di altri utenti mostrano &laquo;post originale rimosso&raquo;.</li>
-          <li>Per <strong>7 giorni</strong> un moderatore può ripristinarlo. Dopo, il post viene eliminato definitivamente.</li>
+          <li>{tDel("consequence_1")}</li>
+          <li>{tDel("consequence_2")}</li>
+          <li>{tDel("consequence_3")}</li>
+          <li>
+            {tDel("consequence_4_prefix")}
+            <strong>{tDel("consequence_4_strong")}</strong>
+            {tDel("consequence_4_suffix")}
+          </li>
         </ul>
       </GcModalContent>
     </GcModal>

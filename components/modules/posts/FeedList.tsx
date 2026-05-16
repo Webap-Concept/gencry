@@ -13,6 +13,7 @@
 // /explore (Discover) e dalla /explore?ticker= (Ticker filter).
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Compass } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { FeedTab } from "@/lib/modules/posts/queries";
@@ -59,6 +60,7 @@ export function FeedList(props: Props) {
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const tErr = usePostsError();
+  const tFeed = useTranslations("posts.feed");
 
   const onLoadMore = useCallback(() => {
     if (!nextCursor || isPending) return;
@@ -154,13 +156,13 @@ export function FeedList(props: Props) {
               onClick={onLoadMore}
               disabled={isPending}
               className="px-4 py-1.5 rounded-full border border-gc-line text-sm text-gc-fg hover:bg-gc-bg-2 disabled:opacity-40">
-              {isPending ? "Carico…" : "Carica altri"}
+              {isPending ? tFeed("loading_more") : tFeed("load_more")}
             </button>
           </div>
         </>
       ) : posts.length > 0 ? (
         <p className="mt-4 text-center text-xs text-gc-fg-muted">
-          Hai visto tutto.
+          {tFeed("end_reached")}
         </p>
       ) : null}
     </section>
@@ -194,6 +196,7 @@ function PostCardSkeleton() {
 }
 
 function FollowingEmptyState() {
+  const tEmpty = useTranslations("posts.empty_states");
   return (
     <div className="bg-gc-bg-2 border border-gc-line rounded-gc p-8 flex flex-col items-center text-center gap-3">
       <div
@@ -203,17 +206,16 @@ function FollowingEmptyState() {
         <Compass size={22} strokeWidth={1.75} />
       </div>
       <div>
-        <p className="text-gc-fg font-medium">La tua home è vuota</p>
+        <p className="text-gc-fg font-medium">{tEmpty("following_home_title")}</p>
         <p className="text-sm text-gc-fg-muted mt-1 max-w-sm">
-          Qui vedrai i post delle persone che segui. Inizia a esplorare per
-          trovare profili e contenuti che ti interessano.
+          {tEmpty("following_home_description")}
         </p>
       </div>
       <Link
         href="/explore"
         className="mt-2 px-4 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium hover:brightness-95 transition"
       >
-        Vai su Esplora
+        {tEmpty("following_home_cta")}
       </Link>
     </div>
   );

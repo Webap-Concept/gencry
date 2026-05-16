@@ -16,6 +16,7 @@
 // "chi ha reagito" raggruppando per emoji. Già esposta come prop per
 // non rompere la firma quando arriverà.
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Smile } from "lucide-react";
 import { POST_REACTION_KINDS, type PostReactionKind } from "@/lib/db/schema";
 import type { PostReactionCounts } from "@/lib/modules/posts/types";
@@ -33,15 +34,6 @@ const REACTION_EMOJI: Record<PostReactionKind, string> = {
   bear: "🐻",
   dump: "📉",
   diamond: "💎",
-};
-
-const REACTION_LABEL: Record<PostReactionKind, string> = {
-  like: "Mi piace",
-  rocket: "Rocket",
-  bull: "Bullish",
-  bear: "Bearish",
-  dump: "Dump",
-  diamond: "Diamond hands",
 };
 
 const HOVER_OPEN_DELAY = 200;
@@ -67,6 +59,7 @@ export function ReactionPopover({
   onShowDetails,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const tReact = useTranslations("posts.reactions");
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,7 +114,7 @@ export function ReactionPopover({
         }}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label="Reazioni"
+        aria-label={tReact("button_aria")}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${
           isActive
             ? "text-gc-accent hover:bg-gc-accent/10"
@@ -149,7 +142,7 @@ export function ReactionPopover({
       {open ? (
         <div
           role="menu"
-          aria-label="Scegli reazione"
+          aria-label={tReact("menu_aria")}
           data-state="open"
           className="absolute z-50 left-0 -top-2 -translate-y-full origin-bottom-left bg-gc-modal-bg border border-gc-modal-border rounded-full shadow-xl px-1.5 py-1 flex items-center gap-0.5 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 duration-200"
         >
@@ -161,8 +154,8 @@ export function ReactionPopover({
                 type="button"
                 role="menuitem"
                 onClick={() => onPick(kind)}
-                aria-label={REACTION_LABEL[kind]}
-                title={REACTION_LABEL[kind]}
+                aria-label={tReact(kind)}
+                title={tReact(kind)}
                 style={{ animationDelay: `${i * 30}ms` }}
                 className={`text-xl leading-none w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-1 hover:scale-150 hover:drop-shadow-md active:scale-95 ${
                   active
