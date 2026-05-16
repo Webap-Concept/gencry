@@ -59,6 +59,13 @@ export const POSTS_MODULE: ModuleManifest = {
       icon: "Settings",
       permission: "modules:posts",
     },
+    {
+      key: "posts-architecture",
+      href: "/modules/posts/architecture",
+      label: "Architettura",
+      icon: "BookOpen",
+      permission: "modules:posts",
+    },
   ],
   cronJobs: [
     {

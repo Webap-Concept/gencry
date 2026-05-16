@@ -4,7 +4,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
 import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
 import type { LucideIcon } from "lucide-react";
-import { Activity, Clock, Coins, LineChart, Settings } from "lucide-react";
+import { Activity, BookOpen, Clock, Coins, LineChart, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { CacheAdminGuide } from "./cache-admin-guide";
@@ -41,6 +41,12 @@ const SECTIONS: Record<string, SectionMeta> = {
     description: "Cron interval, active universe window, thresholds.",
     icon: Settings,
     guide: "cache",
+  },
+  architecture: {
+    label: "Architettura",
+    description:
+      "Documentazione architetturale: stack, schema DB, pipeline, hook, performance, roadmap.",
+    icon: BookOpen,
   },
 };
 
@@ -96,10 +102,11 @@ export function PricesHeader({ adminSlug }: { adminSlug: string }) {
       </div>
       <AdminSectionTabs
         tabs={[
-          { href: base,             label: "Health",         exact: true },
-          { href: `${base}/coins`,   label: "Coins Registry" },
-          { href: `${base}/cron`,    label: "Cron Jobs" },
-          { href: `${base}/settings`, label: "Settings" },
+          { href: base,                  label: "Health",        exact: true },
+          { href: `${base}/coins`,        label: "Coins Registry" },
+          { href: `${base}/cron`,         label: "Cron Jobs" },
+          { href: `${base}/settings`,     label: "Settings" },
+          { href: `${base}/architecture`, label: "Architettura" },
         ]}
       />
     </header>

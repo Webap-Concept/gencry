@@ -139,6 +139,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   MessageSquare,
   Sprout,
   Trash2,
+  BookOpen,
 };
 
 interface AdminSidebarProps {

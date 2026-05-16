@@ -4,7 +4,7 @@ import { AdminSectionInfo } from "@/app/(admin)/admin/_components/section-info";
 import { CronAdminGuide } from "@/app/(admin)/admin/_components/cron-admin-guide";
 import { AdminSectionTabs } from "@/app/(admin)/admin/_components/admin-section-tabs";
 import type { LucideIcon } from "lucide-react";
-import { Clock, Flag, MessageSquare, Settings, Trash2 } from "lucide-react";
+import { BookOpen, Clock, Flag, MessageSquare, Settings, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 
@@ -37,6 +37,11 @@ const SECTIONS: Record<string, SectionMeta> = {
     description: "pg_cron jobs di proprietà del modulo Posts.",
     icon: Clock,
     guide: "cron",
+  },
+  architecture: {
+    description:
+      "Documentazione architetturale: stack, schema DB, pipeline, hook, performance, roadmap.",
+    icon: BookOpen,
   },
 };
 
@@ -91,6 +96,7 @@ export function PostsHeader({ adminSlug }: { adminSlug: string }) {
           { href: `${base}/deleted`, label: "Deleted" },
           { href: `${base}/settings`, label: "Settings" },
           { href: `${base}/cron`, label: "Cron Jobs" },
+          { href: `${base}/architecture`, label: "Architettura" },
         ]}
       />
     </header>
