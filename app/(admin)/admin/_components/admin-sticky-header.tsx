@@ -54,17 +54,22 @@ export function AdminStickyHeader({
   return (
     <>
       {/* Sentinel invisibile sopra l'header. Quando esce dalla viewport
-          dello scroll container → isStuck=true. Posizionato negativo
-          così sta al di sopra del padding del main e l'header non
-          "salta" nel momento del trigger. */}
-      <div ref={sentinelRef} aria-hidden style={{ height: 1, marginTop: -1 }} />
+          dello scroll container → isStuck=true. */}
+      <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />
 
       <header
         className={cn(
-          // Sticky positioning. Negativi sui margini orizzontali per
-          // estendere lo sfondo bordo-a-bordo, padding compensato per
-          // riallineare il contenuto al layout.
-          "sticky top-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 transition-shadow duration-200",
+          // Sticky positioning. Margini negativi orizzontali +
+          // verticali per estendere lo sfondo edge-to-edge e
+          // COPRIRE il padding del <main p-4 lg:p-6> dello shell:
+          // senza i -mt-4/-mt-6 e i pt-4/pt-6 compensativi, lo
+          // sticky lascerebbe un gap bianco di 16/24px sopra
+          // (sticky si attacca al CONTENT del main, non al suo edge).
+          // Se il padding del main cambia, aggiornare anche qui.
+          "sticky top-0 z-10",
+          "-mx-4 lg:-mx-6 px-4 lg:px-6",
+          "-mt-4 lg:-mt-6 pt-4 lg:pt-6",
+          "transition-shadow duration-200",
           isStuck && "shadow-sm",
         )}
         style={{
@@ -77,7 +82,7 @@ export function AdminStickyHeader({
         <div
           className={cn(
             "flex items-center gap-3 transition-all duration-200",
-            isStuck ? "py-1.5" : "py-3",
+            isStuck ? "py-1" : "py-1.5",
           )}>
           {/* Icon — shrink da 36px a 28px */}
           <div
