@@ -96,7 +96,16 @@ export default function AllErrorsModal({
           title={t("modalTitle")}
           description={t("modalSubtitle", { count: visible.length })}
           closeAriaLabel={t("modalCloseAria")}>
-          <div style={{ maxHeight: "min(60vh, 600px)", overflowY: "auto", margin: "-16px -20px" }}>
+          <div
+            style={{
+              maxHeight: "min(60vh, 600px)",
+              overflowY: "auto",
+              // Clip orizzontale: i title (SQL queries) hanno whiteSpace=nowrap,
+              // senza clip i flex item sforano i bordi del Dialog anche con
+              // max-w-2xl impostato sul DialogContent.
+              overflowX: "hidden",
+              margin: "-16px -20px",
+            }}>
             {visible.length === 0 ? (
               <p
                 style={{
@@ -183,9 +192,15 @@ function ModalIssueRow({
         padding: "12px 20px",
         borderBottom: isLast ? "none" : "1px solid var(--admin-card-border)",
         opacity: pending ? 0.6 : 1,
+        // Defensive: garantisce che la <li> non possa espandersi oltre
+        // il wrapper di scroll (importante quando contenuto child ha
+        // whiteSpace: nowrap).
+        minWidth: 0,
+        maxWidth: "100%",
+        boxSizing: "border-box",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
         <span
           style={{
             width: 7,
