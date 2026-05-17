@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bell, Compass, Home, User as UserIcon } from "lucide-react";
+import { Bell, Radar, User as UserIcon, Zap } from "lucide-react";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
@@ -13,13 +13,13 @@ type LinkSlot = {
   href: string;
   /** Chiave i18n nel namespace `core.bottomNav.<labelKey>`. */
   labelKey: "feed" | "explore" | "notifications" | "profile";
-  icon: typeof Home;
+  icon: typeof Zap;
 };
 
 // `null` = slot del bottone +Nuovo post (centrale, non navigabile)
 const SLOTS: (LinkSlot | null)[] = [
-  { href: "/", labelKey: "feed", icon: Home },
-  { href: "/explore", labelKey: "explore", icon: Compass },
+  { href: "/", labelKey: "feed", icon: Zap },
+  { href: "/explore", labelKey: "explore", icon: Radar },
   null,
   { href: "/notifiche", labelKey: "notifications", icon: Bell },
   { href: "/profile", labelKey: "profile", icon: UserIcon },

@@ -40,6 +40,7 @@ async function getUserInternal() {
       lastName: userProfiles.lastName,
       username: userProfiles.username,
       avatarUrl: userProfiles.avatarUrl,
+      headline: userProfiles.headline,
       bio: userProfiles.bio,
       // subscription
       stripeCustomerId: userSubscriptions.stripeCustomerId,
@@ -98,6 +99,7 @@ export async function getUserByStripeCustomerId(customerId: string) {
       lastName: userProfiles.lastName,
       username: userProfiles.username,
       avatarUrl: userProfiles.avatarUrl,
+      headline: userProfiles.headline,
       bio: userProfiles.bio,
       // subscription
       stripeCustomerId: userSubscriptions.stripeCustomerId,

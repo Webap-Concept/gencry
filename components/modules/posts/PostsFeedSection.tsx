@@ -54,6 +54,7 @@ export async function PostsFeedSection() {
           firstName: user.firstName,
           lastName: user.lastName,
           avatarUrl: user.avatarUrl,
+          headline: user.headline,
         },
         liveMode: commentsConfig.liveModeFeed,
         pollIntervalSeconds: commentsConfig.pollIntervalSeconds,

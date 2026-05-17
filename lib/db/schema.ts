@@ -74,6 +74,10 @@ export const userProfiles = pgTable("user_profiles", {
   username: varchar("username", { length: 50 }).unique(),
   // Avatar: URL immagine profilo (caricata dall'utente o importata da OAuth)
   avatarUrl: text("avatar_url"),
+  // Headline (frase breve, ~160 char): visibile sotto username nei
+  // contesti compatti (sidebar, popover utente). Pattern LinkedIn.
+  headline: varchar("headline", { length: 160 }),
+  // Bio estesa: visibile nella pagina profilo per intero.
   bio: text("bio"),
   // Interessi crypto scelti durante l'onboarding (mock — implementazione vera in seguito)
   interests: text("interests").array().notNull().default(sql`'{}'::text[]`),
@@ -1265,6 +1269,7 @@ export type UserWithProfile = User & {
   lastName: string | null;
   username: string | null;
   avatarUrl: string | null;
+  headline: string | null;
   bio: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;

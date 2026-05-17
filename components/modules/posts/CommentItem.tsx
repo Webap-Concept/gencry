@@ -124,7 +124,7 @@ export function CommentItem({
       {/* Avatar */}
       {comment.author.avatarUrl ? (
         <Link
-          href={comment.author.username ? `/u/${comment.author.username}` : "#"}
+          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
           className={`${avatarSizeCls} shrink-0 rounded-full overflow-hidden bg-gc-bg-3`}
           aria-label={authorDisplayName(comment.author, fallback)}
         >
@@ -138,7 +138,7 @@ export function CommentItem({
         </Link>
       ) : (
         <Link
-          href={comment.author.username ? `/u/${comment.author.username}` : "#"}
+          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
           className={`${avatarSizeCls} shrink-0 rounded-full bg-gc-bg-3 text-gc-fg-muted flex items-center justify-center font-medium`}
           aria-label={authorDisplayName(comment.author, fallback)}
         >
@@ -148,48 +148,56 @@ export function CommentItem({
 
       {/* Body */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap text-xs">
+        <div className="flex items-center gap-2 text-xs">
           <Link
-            href={comment.author.username ? `/u/${comment.author.username}` : "#"}
+            href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
             className="font-medium text-gc-fg hover:underline"
           >
             {authorDisplayName(comment.author, fallback)}
           </Link>
-          <span className="text-gc-fg-muted">·</span>
-          <time className="text-gc-fg-muted" dateTime={new Date(comment.createdAt).toISOString()}>
-            {formatRelativeTime(comment.createdAt, tTime, locale)}
-          </time>
+          {comment.author.headline ? (
+            <span className="text-gc-fg-muted truncate min-w-0 flex-1">
+              · {comment.author.headline}
+            </span>
+          ) : null}
           {comment.editedAt ? (
             <span className="text-gc-fg-muted/80 italic">({t("edited")})</span>
           ) : null}
+          <time
+            className="text-gc-fg-muted ml-auto"
+            dateTime={new Date(comment.createdAt).toISOString()}
+          >
+            {formatRelativeTime(comment.createdAt, tTime, locale)}
+          </time>
           {(canEdit || canDelete) && !editing ? (
-            <div className="ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className="p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
-                  aria-label={tCommon("more_actions")}
-                >
-                  <MoreHorizontal size={14} strokeWidth={1.75} />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {canEdit ? (
-                    <DropdownMenuItem onClick={() => setEditing(true)}>
-                      <Pencil size={14} strokeWidth={1.75} className="mr-2" />
-                      {tCommon("edit")}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canDelete ? (
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="text-gc-neg"
-                    >
-                      <Trash2 size={14} strokeWidth={1.75} className="mr-2" />
-                      {tCommon("delete")}
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
+                aria-label={tCommon("more_actions")}
+              >
+                <MoreHorizontal size={14} strokeWidth={1.75} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-[160px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
+              >
+                {canEdit ? (
+                  <DropdownMenuItem onClick={() => setEditing(true)}>
+                    <Pencil size={14} strokeWidth={1.75} className="mr-2" />
+                    {tCommon("edit")}
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-gc-neg"
+                  >
+                    <Trash2 size={14} strokeWidth={1.75} className="mr-2" />
+                    {tCommon("delete")}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </div>
 
@@ -236,10 +244,11 @@ export function CommentItem({
           <button
             type="button"
             onClick={onReplyClick}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-gc-fg-muted hover:text-gc-fg transition"
+            aria-label={t("actions.reply")}
+            title={t("actions.reply")}
+            className="mt-1 inline-flex items-center justify-center p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
           >
-            <MessageSquare size={12} strokeWidth={1.75} />
-            {t("actions.reply")}
+            <MessageSquare size={16} strokeWidth={1.75} />
           </button>
         ) : null}
       </div>

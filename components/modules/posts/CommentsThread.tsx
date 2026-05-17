@@ -63,6 +63,7 @@ export type CommentsThreadProps = {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    headline: string | null;
   };
   canModerate?: boolean;
   /** Realtime mode (subscribe/poll/off) letta da app_settings dal caller. */
@@ -231,6 +232,7 @@ export function CommentsThread({
           firstName: viewerProfile?.firstName ?? null,
           lastName: viewerProfile?.lastName ?? null,
           avatarUrl: viewerProfile?.avatarUrl ?? null,
+          headline: viewerProfile?.headline ?? null,
         },
         body,
         editedAt: null,

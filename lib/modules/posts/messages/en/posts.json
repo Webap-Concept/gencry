@@ -125,7 +125,7 @@
       "description": "The post will disappear immediately from your profile and everyone's feed.",
       "confirm": "Delete",
       "consequence_1": "Reactions and bookmarks stay attached to the post until restored.",
-      "consequence_2": "Comments stay if anyone has already replied (labeled \"post removed\"), otherwise they disappear.",
+      "consequence_2": "Comments are deleted along with the post.",
       "consequence_3": "Other users' quote-reposts will show \"original post removed\".",
       "consequence_4_prefix": "For ",
       "consequence_4_strong": "7 days",

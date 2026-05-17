@@ -14,7 +14,7 @@
 //   - dedup realtime via useCommentsLiveSignal.registerOwnComment
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Send } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 export type CommentComposerProps = {
   /** Submit handler. Riceve il body trimmed. Ritorna { ok, error? }.
@@ -104,7 +104,7 @@ export function CommentComposer({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`flex items-end gap-2 border border-gc-line/60 rounded-gc-sm bg-gc-bg-1 ${padCls}`}
+      className={`flex items-end gap-2 border border-gc-line/60 rounded-gc-sm bg-gc-bg-2 ${padCls}`}
     >
       <textarea
         ref={ref}
@@ -122,20 +122,20 @@ export function CommentComposer({
         placeholder={placeholder ?? t("composer.placeholder")}
         rows={1}
         maxLength={maxBodyLength + 50 /* over-bound safety, validation handle the real cap */}
-        className={`flex-1 resize-none bg-transparent outline-none text-gc-fg placeholder:text-gc-fg-muted/70 ${taPadCls}`}
+        className={`flex-1 resize-none bg-gc-bg-1 rounded-gc-sm outline-none text-gc-fg placeholder:text-gc-fg-muted/70 ${taPadCls}`}
         aria-label={t("composer.aria_label")}
       />
       <div className="flex flex-col items-end gap-1 shrink-0">
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gc-pos text-white disabled:bg-gc-bg-3 disabled:text-gc-fg-muted transition"
+          className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gc-accent text-white disabled:bg-gc-bg-3 disabled:text-gc-fg-2 transition"
           aria-label={tCommon("submit")}
         >
           {submitting ? (
             <Loader2 className="animate-spin" size={16} />
           ) : (
-            <Send size={16} strokeWidth={2} />
+            <ArrowRight size={18} strokeWidth={2.25} />
           )}
         </button>
         <span className={`text-[10px] tabular-nums ${counterCls}`}>

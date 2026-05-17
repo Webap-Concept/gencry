@@ -368,6 +368,7 @@ type RawPostRow = {
   authorFirstName: string | null;
   authorLastName: string | null;
   authorAvatarUrl: string | null;
+  authorHeadline: string | null;
 };
 
 function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repostOfTombstone" | "viewer" | "tickers" | "media"> & {
@@ -380,6 +381,7 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
     firstName: row.authorFirstName,
     lastName: row.authorLastName,
     avatarUrl: row.authorAvatarUrl,
+    headline: row.authorHeadline,
   };
   const counts: PostCounts = {
     reactions: {
@@ -451,6 +453,7 @@ async function selectPostsCore(
       authorFirstName: userProfiles.firstName,
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
     })
     .from(posts)
     .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
@@ -673,10 +676,17 @@ export async function getPostsByIds(
  *     di vedere la visibility. Il chiamante deve mappare null → 404 (non
  *     403, per non rivelare l'esistenza — vedi project_module_posts §SEO).
  */
+/** Regex UUID standard (8-4-4-4-12 hex). Bocca early i postId non-UUID
+ *  (es. typo in URL) per evitare che Postgres lanci 22P02 invalid_text_
+ *  representation. Il caller riceve null e renderizza 404. */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getPostBySlug(
   postId: string,
   opts: { viewerUserId?: string } = {},
 ): Promise<PostCardData | null> {
+  if (!UUID_REGEX.test(postId)) return null;
+
   const [meta] = await db
     .select({
       authorId: posts.authorId,
@@ -749,6 +759,7 @@ type CommentRowSelection = {
   authorFirstName: string | null;
   authorLastName: string | null;
   authorAvatarUrl: string | null;
+  authorHeadline: string | null;
 };
 
 function rowToCommentCardData(r: CommentRowSelection): CommentCardData {
@@ -762,6 +773,7 @@ function rowToCommentCardData(r: CommentRowSelection): CommentCardData {
       firstName: r.authorFirstName,
       lastName: r.authorLastName,
       avatarUrl: r.authorAvatarUrl,
+      headline: r.authorHeadline,
     },
     body: r.body,
     editedAt: r.editedAt,
@@ -803,6 +815,7 @@ export async function getRootCommentsForPost(opts: {
       authorFirstName: userProfiles.firstName,
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
       repliesCount: repliesCountExpr,
     })
     .from(postsComments)
@@ -879,6 +892,7 @@ export async function getInitialRepliesForRoots(opts: {
         up.first_name AS "authorFirstName",
         up.last_name AS "authorLastName",
         up.avatar_url AS "authorAvatarUrl",
+        up.headline AS "authorHeadline",
         ROW_NUMBER() OVER (
           PARTITION BY c.parent_comment_id
           ORDER BY c.created_at DESC, c.id DESC
@@ -930,6 +944,7 @@ export async function getRepliesForComment(opts: {
       authorFirstName: userProfiles.firstName,
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
     })
     .from(postsComments)
     .leftJoin(userProfiles, eq(userProfiles.userId, postsComments.authorId))

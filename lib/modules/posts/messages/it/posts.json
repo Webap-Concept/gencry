@@ -125,7 +125,7 @@
       "description": "Il post sparisce subito dal tuo profilo e dai feed di tutti.",
       "confirm": "Elimina",
       "consequence_1": "Reazioni e bookmark restano associati al post fino al ripristino.",
-      "consequence_2": "I commenti restano se qualcuno ha già risposto (etichetta «post rimosso»), altrimenti spariscono.",
+      "consequence_2": "I commenti vengono eliminati insieme al post.",
       "consequence_3": "I quote-repost di altri utenti mostrano «post originale rimosso».",
       "consequence_4_prefix": "Per ",
       "consequence_4_strong": "7 giorni",

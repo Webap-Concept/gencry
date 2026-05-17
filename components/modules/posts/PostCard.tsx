@@ -179,6 +179,7 @@ type Props = {
       firstName: string | null;
       lastName: string | null;
       avatarUrl: string | null;
+      headline: string | null;
     };
     liveMode: "subscribe" | "poll" | "off";
     pollIntervalSeconds: number;
@@ -508,6 +509,11 @@ export function PostCard({
                 </span>
               ) : null}
             </div>
+            {post.author.headline ? (
+              <p className="text-xs text-gc-fg-muted truncate leading-tight mt-0.5">
+                {post.author.headline}
+              </p>
+            ) : null}
           </div>
           {/* Top-right toolbar */}
           <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
@@ -535,12 +541,14 @@ export function PostCard({
                     ? tCard("bookmark_remove")
                     : tCard("bookmark_save")}
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/post/${post.id}`}>
-                    <ArrowUpRight size={16} strokeWidth={1.75} />
-                    {tCard("open_post")}
-                  </Link>
-                </DropdownMenuItem>
+                {variant === "feed" ? (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/post/${post.id}`}>
+                      <ArrowUpRight size={16} strokeWidth={1.75} />
+                      {tCard("open_post")}
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
                 {canEdit ? (
                   <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                     <Pencil size={16} strokeWidth={1.75} />

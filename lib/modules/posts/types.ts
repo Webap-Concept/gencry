@@ -17,6 +17,9 @@ export type PostAuthorPublic = {
   firstName: string | null;
   lastName: string | null;
   avatarUrl: string | null;
+  /** Headline (frase breve LinkedIn-style) — mostrata sotto username
+   *  nelle card/commenti dove appare l'autore. Truncate UI-side. */
+  headline: string | null;
 };
 
 export type PostMediaPublic = {

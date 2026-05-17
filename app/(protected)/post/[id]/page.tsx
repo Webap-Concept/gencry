@@ -91,6 +91,7 @@ export default async function PostPage({
                   firstName: user.firstName,
                   lastName: user.lastName,
                   avatarUrl: user.avatarUrl,
+                  headline: user.headline,
                 }
               : undefined
           }

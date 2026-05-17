@@ -53,6 +53,7 @@ type Props = {
       firstName: string | null;
       lastName: string | null;
       avatarUrl: string | null;
+      headline: string | null;
     };
     liveMode: "subscribe" | "poll" | "off";
     pollIntervalSeconds: number;

@@ -152,7 +152,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
             user={avatarUser}
             label={primary}
             sub={secondary}
-            bio={user.bio}
+            headline={user.headline}
             onClick={toggle}
             open={open}
           />
@@ -214,19 +214,19 @@ function DefaultPopoverTrigger({
   user,
   label,
   sub,
-  bio,
+  headline,
   onClick,
   open,
 }: {
   user: { name: string; avatar: string; color: string; avatarUrl?: string | null };
   label: string;
   sub: string | null;
-  bio: string | null;
+  headline: string | null;
   onClick: () => void;
   open: boolean;
 }) {
   const labelIsHandle = label.startsWith("@");
-  const trimmedBio = bio?.trim();
+  const trimmedHeadline = headline?.trim();
   return (
     <button
       type="button"
@@ -256,9 +256,9 @@ function DefaultPopoverTrigger({
             {sub}
           </div>
         )}
-        {trimmedBio && (
+        {trimmedHeadline && (
           <div className="text-[11px] text-gc-fg-3 truncate leading-tight mt-0.5">
-            {trimmedBio}
+            {trimmedHeadline}
           </div>
         )}
       </div>
