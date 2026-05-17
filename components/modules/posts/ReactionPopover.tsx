@@ -185,7 +185,7 @@ export function ReactionPopover({
                     pointer-events-none così non blocca il click. */}
                 <span
                   role="tooltip"
-                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-md bg-gc-modal-bg border border-gc-modal-border px-2 py-0.5 text-[11px] font-medium text-gc-fg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-out shadow-sm"
+                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-7 whitespace-nowrap rounded-full bg-slate-800 px-2.5 py-0.5 text-[11px] font-medium text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-out shadow-sm"
                 >
                   {tReact(kind)}
                 </span>
