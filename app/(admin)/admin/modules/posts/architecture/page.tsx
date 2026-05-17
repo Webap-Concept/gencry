@@ -70,6 +70,7 @@ const SECTIONS = [
   { id: "caching",        label: "Caching" },
   { id: "hooks",          label: "Hooks" },
   { id: "realtime-auth",  label: "Realtime authz" },
+  { id: "capacity",       label: "Capacity" },
   { id: "performance",    label: "Performance" },
   { id: "future",         label: "Future" },
   { id: "files",          label: "Files map" },
@@ -520,6 +521,86 @@ export default function PostsArchitecturePage() {
               comunque visibility check server-side prima di restituire
               il body.
             </p>
+          </div>
+        </ArchSection>
+
+        {/* ─────────────────────────── Capacity Profile ───────────────── */}
+        <ArchSection
+          id="capacity"
+          title="Capacity profile"
+          icon={Gauge}
+          intro={
+            <>
+              Decisione architetturale: ogni modulo dichiara nel suo
+              manifest un array <code>capacityProfiles[]</code>
+              machine-readable, uno per ogni <strong>scope autonomo</strong>
+              della feature (comments, rate-limits, retention, media,
+              …). Ogni profilo documenta <strong>quali risorse esterne
+              usa</strong>, <strong>i limiti correnti</strong>, le{" "}
+              <strong>soglie di upgrade</strong> e i{" "}
+              <strong>preset di calibrazione per scala</strong>
+              (alpha/beta/growth/scale). UI: il form admin di ogni tab
+              fa lookup per <code>scope</code> e mostra header tier +
+              bottoni preset. Dashboard globale{" "}
+              <code>/admin/capacity</code> in arrivo aggrega tutti gli
+              scope di tutti i moduli.
+            </>
+          }>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Types</strong>: <code>CapacityProfile</code> +{" "}
+              <code>CapacityResource</code> + <code>CapacityTunable</code>{" "}
+              + <code>CapacityPreset</code> + <code>CapacityTier</code> in{" "}
+              <code>lib/modules/types.ts</code>. Ogni profilo ha{" "}
+              <code>scope</code> univoco + <code>label</code>.
+            </li>
+            <li>
+              <strong>Pattern obbligatorio</strong> per moduli con
+              tunables a scala. Vedi memoria{" "}
+              <code>feedback_capacity_profile_pattern</code> per la
+              convenzione cross-modulo.
+            </li>
+            <li>
+              <strong>Posts ora</strong>: 4 profili dichiarati nel
+              manifest. <code>comments</code> (Realtime + Postgres),{" "}
+              <code>rate-limits</code> (Upstash roadmap),{" "}
+              <code>retention</code> (Postgres + R2 cleanup),{" "}
+              <code>media</code> (R2 + Vercel sharp). Tier corrente per
+              tutti: alpha.
+            </li>
+            <li>
+              <strong>1 scope per feature autonoma</strong>, non 1 per
+              setting. Disciplina: se un nuovo gruppo di tunables non è
+              "una feature a sé", inseriscilo in uno scope esistente.
+            </li>
+            <li>
+              <strong>Anti-pattern</strong>: NON mettere magic numbers
+              nei form senza preset. Se decidi oggi che "alpha" usa
+              poll=20s, deve essere DICHIARATO nei preset così tra 3
+              mesi quando si scala non si va a memoria a indovinare i
+              valori giusti.
+            </li>
+            <li>
+              <strong>Dimenticabile-resistant</strong>: tutto vive nel
+              codice (manifest), non nella memoria di Claude o nella
+              tua. La decisione si auto-documenta + è visibile dalla
+              UI.
+            </li>
+          </ul>
+
+          <div
+            className="mt-3 p-3 rounded-lg text-xs"
+            style={{
+              background:
+                "color-mix(in srgb, var(--gc-accent) 8%, transparent)",
+              color: "var(--gc-fg)",
+            }}>
+            <strong>Quando aggiungo un nuovo tunable?</strong>{" "}
+            Aggiorna SIA il form admin SIA i preset nel manifest. Se non
+            sai quali valori mettere per scale, scrivi i miei pensieri
+            di oggi (alpha conservative, scale aggressive) come
+            commento — fra 3 mesi è meglio avere un guess scritto che
+            "boh, vediamo".
           </div>
         </ArchSection>
 

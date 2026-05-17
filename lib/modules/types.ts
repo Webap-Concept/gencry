@@ -68,4 +68,66 @@ export interface ModuleManifest {
   cronJobs: ModuleCronJob[];
   /** Eventuale tab opzionale dentro la pagina utente del core admin */
   userTab?: ModuleUserTab;
+  /** Capacity profiles: dichiarazione macchina-leggibile delle feature
+   *  configurabili a scala del modulo. Array di profili, uno per ogni
+   *  "scope autonomo" (es. comments, rate-limits, retention, media).
+   *  Ogni profilo ha i suoi resources/tunables/presets indipendenti.
+   *  Letto dalla UI admin (form tunables filtra per scope) + dashboard
+   *  /admin/capacity (aggrega tutti i scope di tutti i moduli).
+   *  Convenzione obbligatoria per moduli con tunables a scala. */
+  capacityProfiles?: CapacityProfile[];
+}
+
+/**
+ * Tier di scala dichiarato dal modulo. Usato come default selection nei
+ * preset + status badge nel dashboard /admin/capacity.
+ */
+export type CapacityTier = "alpha" | "beta" | "growth" | "scale";
+
+export interface CapacityResource {
+  /** Nome leggibile del provider (es. "Supabase Realtime"). */
+  name: string;
+  /** Tier corrente del piano (es. "Free", "Pro", "Pay-as-you-go"). */
+  plan: string;
+  /** Limits applicabili al tier corrente (es. ["200 conn concorrenti",
+   *  "2M msg/mese"]). Stringhe libere mostrate come bullet list. */
+  limits: string[];
+  /** Stima del trigger di upgrade (es. "Pro a 1k MAU concorrenti"). */
+  upgradeAt: string;
+  /** Cosa fare quando si raggiunge `upgradeAt` (es. "Upgrade a Supabase
+   *  Pro ($25/mo) oppure swap a Ably/Pusher via service hookable"). */
+  upgradePath: string;
+  /** Link doc del provider per quick reference. */
+  docsUrl?: string;
+}
+
+export interface CapacityTunable {
+  /** Setting key in app_settings (es. "modules.posts.comments.poll_interval_seconds"). */
+  key: string;
+  label: string;
+}
+
+export interface CapacityPreset {
+  id: CapacityTier;
+  label: string;
+  /** 1 riga: cosa cambia + per che scala è ottimale. */
+  description: string;
+  /** Mappa setting key → valore stringa (verrà scritto in app_settings
+   *  via Server Action quando l'admin clicca "Apply preset"). */
+  values: Record<string, string>;
+}
+
+export interface CapacityProfile {
+  /** Scope identifier univoco nel modulo (es. "comments", "rate-limits",
+   *  "retention", "media"). Letto dai form admin per filtrare quale
+   *  profilo mostrare. Regola: 1 scope per "feature autonoma" del
+   *  modulo, non 1 per ogni setting. */
+  scope: string;
+  /** Label leggibile mostrata come header del form/card. */
+  label: string;
+  /** Tier corrente in cui il modulo opera. Mostrato come badge. */
+  currentTier: CapacityTier;
+  resources: CapacityResource[];
+  tunables: CapacityTunable[];
+  presets: CapacityPreset[];
 }

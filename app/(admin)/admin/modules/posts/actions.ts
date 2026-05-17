@@ -82,6 +82,100 @@ function clampIntInput(raw: number, min: number, max: number): number {
   return Math.min(Math.max(n, min), max);
 }
 
+export type SaveRateLimitsInput = {
+  postPerHour: number;
+  reactionPerMin: number;
+  commentPerMin: number;
+  repostPerHour: number;
+  reportPerHour: number;
+  mediaPerHour: number;
+};
+
+export async function saveRateLimitsSettings(
+  input: SaveRateLimitsInput,
+): Promise<ActionResult> {
+  await requireAdmin();
+  await updateAppSetting(
+    "modules.posts.rate_limit_post_per_hour",
+    String(clampIntInput(input.postPerHour, 1, 1000)),
+  );
+  await updateAppSetting(
+    "modules.posts.rate_limit_reaction_per_min",
+    String(clampIntInput(input.reactionPerMin, 1, 1000)),
+  );
+  await updateAppSetting(
+    "modules.posts.rate_limit_comment_per_min",
+    String(clampIntInput(input.commentPerMin, 1, 1000)),
+  );
+  await updateAppSetting(
+    "modules.posts.rate_limit_repost_per_hour",
+    String(clampIntInput(input.repostPerHour, 1, 1000)),
+  );
+  await updateAppSetting(
+    "modules.posts.rate_limit_report_per_hour",
+    String(clampIntInput(input.reportPerHour, 1, 1000)),
+  );
+  await updateAppSetting(
+    "modules.posts.rate_limit_media_per_hour",
+    String(clampIntInput(input.mediaPerHour, 1, 1000)),
+  );
+  return { ok: true };
+}
+
+export type SaveRetentionInput = {
+  outboxRetentionDays: number;
+  orphanMediaGraceHours: number;
+  deletedGraceDays: number;
+  linkPreviewCacheDays: number;
+};
+
+export async function saveRetentionSettings(
+  input: SaveRetentionInput,
+): Promise<ActionResult> {
+  await requireAdmin();
+  await updateAppSetting(
+    "modules.posts.outbox_retention_days",
+    String(clampIntInput(input.outboxRetentionDays, 1, 365)),
+  );
+  await updateAppSetting(
+    "modules.posts.orphan_media_grace_hours",
+    String(clampIntInput(input.orphanMediaGraceHours, 1, 168)),
+  );
+  await updateAppSetting(
+    "modules.posts.deleted_grace_days",
+    String(clampIntInput(input.deletedGraceDays, 1, 90)),
+  );
+  await updateAppSetting(
+    "modules.posts.link_preview_cache_days",
+    String(clampIntInput(input.linkPreviewCacheDays, 1, 365)),
+  );
+  return { ok: true };
+}
+
+export type SaveMediaSettingsInput = {
+  maxBodyLength: number;
+  maxImagesPerPost: number;
+  editWindowMinutes: number;
+};
+
+export async function saveMediaSettings(
+  input: SaveMediaSettingsInput,
+): Promise<ActionResult> {
+  await requireAdmin();
+  await updateAppSetting(
+    "modules.posts.max_body_length",
+    String(clampIntInput(input.maxBodyLength, 280, 5000)),
+  );
+  await updateAppSetting(
+    "modules.posts.max_images_per_post",
+    String(clampIntInput(input.maxImagesPerPost, 1, 10)),
+  );
+  await updateAppSetting(
+    "modules.posts.edit_window_minutes",
+    String(clampIntInput(input.editWindowMinutes, 0, 1440)),
+  );
+  return { ok: true };
+}
 
 export async function saveCommentsSettings(
   input: SaveCommentsSettingsInput,
