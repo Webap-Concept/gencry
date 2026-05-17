@@ -9,7 +9,11 @@
 // Capacity profile scope: "media".
 import { useState, useTransition } from "react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
-import type { CapacityPreset, CapacityProfile } from "@/lib/modules/types";
+import type {
+  CapacityPreset,
+  CapacityProfile,
+  CapacityTier,
+} from "@/lib/modules/types";
 import { CapacityProfileHeader } from "./capacity-profile-header";
 import { saveMediaSettings } from "../actions";
 
@@ -22,9 +26,11 @@ export type PostsMediaFormInitial = {
 export function PostsMediaForm({
   initial,
   capacityProfile,
+  currentTier,
 }: {
   initial: PostsMediaFormInitial;
   capacityProfile?: CapacityProfile;
+  currentTier?: CapacityTier | "custom";
 }) {
   const [maxBodyLength, setMaxBodyLength] = useState(initial.maxBodyLength);
   const [maxImagesPerPost, setMaxImagesPerPost] = useState(initial.maxImagesPerPost);
@@ -74,6 +80,7 @@ export function PostsMediaForm({
       {capacityProfile ? (
         <CapacityProfileHeader
           profile={capacityProfile}
+          currentTier={currentTier}
           onApplyPreset={applyPreset}
         />
       ) : null}

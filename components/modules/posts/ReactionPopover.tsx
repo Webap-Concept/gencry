@@ -118,7 +118,7 @@ export function ReactionPopover({
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${
           isActive
             ? "text-gc-accent hover:bg-gc-accent/10"
-            : "text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+            : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg"
         }`}
       >
         {top.length === 0 ? (

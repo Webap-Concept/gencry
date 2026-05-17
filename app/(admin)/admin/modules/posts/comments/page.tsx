@@ -12,21 +12,34 @@
 import type { Metadata } from "next";
 import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { POSTS_MODULE } from "@/lib/modules/posts/manifest";
+import { getAppSettings } from "@/lib/db/settings-queries";
+import { resolveCapacityCurrentTier } from "@/lib/capacity/resolve";
 import { PostsCommentsSettingsForm } from "../_components/posts-comments-settings-form";
 
 export const metadata: Metadata = { title: "Posts / Comments" };
 export const dynamic = "force-dynamic";
 
 export default async function PostsAdminCommentsPage() {
-  const commentsConfig = await loadCommentsConfig();
+  const [commentsConfig, settings] = await Promise.all([
+    loadCommentsConfig(),
+    getAppSettings(),
+  ]);
+  const commentsProfile = POSTS_MODULE.capacityProfiles?.find(
+    (p) => p.scope === "comments",
+  );
+  const commentsTier = commentsProfile
+    ? resolveCapacityCurrentTier(
+        commentsProfile,
+        settings as Record<string, string>,
+      )
+    : undefined;
 
   return (
     <div className="space-y-5">
       <PostsCommentsSettingsForm
         initial={commentsConfig}
-        capacityProfile={
-          POSTS_MODULE.capacityProfiles?.find((p) => p.scope === "comments")
-        }
+        capacityProfile={commentsProfile}
+        currentTier={commentsTier}
       />
 
       {/* Placeholder overview — implementazione completa in PR successiva

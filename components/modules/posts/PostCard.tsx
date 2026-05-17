@@ -640,36 +640,45 @@ export function PostCard({
             totalCount={reactionsTotal}
             onToggle={onToggleReaction}
           />
-          {commentsThreadProps && variant === "feed" ? (
-            <button
-              type="button"
-              aria-label={tCard("comments_aria", { count: post.counts.comments })}
-              aria-expanded={commentsOpen}
-              onClick={() => setCommentsOpen((o) => !o)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${
-                commentsOpen
-                  ? "bg-gc-bg-3 text-gc-fg"
-                  : "text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
-              }`}
-            >
-              <MessageCircle size={18} strokeWidth={1.75} />
-              {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
-            </button>
-          ) : (
-            <Link
-              href={`/post/${post.id}`}
-              aria-label={tCard("comments_aria", { count: post.counts.comments })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
-            >
-              <MessageCircle size={18} strokeWidth={1.75} />
-              {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
-            </Link>
-          )}
+          {(() => {
+            // Color stateful: se ci sono commenti, l'icona+count diventano
+            // arancio (gc-accent). Se la thread è espansa, vince il chip
+            // bg-gc-bg-3. Altrimenti grigio muted con hover standard.
+            const hasComments = post.counts.comments > 0;
+            const baseCommentsCls = commentsOpen
+              ? "bg-gc-line/50 text-gc-fg"
+              : hasComments
+                ? "text-gc-accent hover:bg-gc-line/40"
+                : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg";
+            return commentsThreadProps && variant === "feed" ? (
+              <button
+                type="button"
+                aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                aria-expanded={commentsOpen}
+                onClick={() => setCommentsOpen((o) => !o)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                {hasComments ? <span>{post.counts.comments}</span> : null}
+              </button>
+            ) : (
+              <Link
+                href={`/post/${post.id}`}
+                aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                {hasComments ? <span>{post.counts.comments}</span> : null}
+              </Link>
+            );
+          })()}
           <button
             type="button"
             aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
             disabled
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed hover:bg-gc-line/40 ${
+              post.counts.reposts > 0 ? "text-gc-pos" : "text-gc-fg-muted"
+            }`}
           >
             <Repeat2 size={18} strokeWidth={1.75} />
             {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}

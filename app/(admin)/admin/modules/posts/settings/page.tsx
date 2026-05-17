@@ -7,6 +7,7 @@ import {
 } from "@/lib/storage/r2-account";
 import { getAllReportReasons } from "@/lib/modules/posts/services/report-reasons";
 import { POSTS_MODULE } from "@/lib/modules/posts/manifest";
+import { resolveCapacityCurrentTier } from "@/lib/capacity/resolve";
 import { PostsR2SettingsForm } from "../_components/posts-r2-settings-form";
 import { PostsRateLimitsForm } from "../_components/posts-rate-limits-form";
 import { PostsRetentionForm } from "../_components/posts-retention-form";
@@ -38,6 +39,16 @@ export default async function PostsAdminSettingsPage() {
   const rateLimitsProfile = profiles.find((p) => p.scope === "rate-limits");
   const retentionProfile = profiles.find((p) => p.scope === "retention");
   const mediaProfile = profiles.find((p) => p.scope === "media");
+  const settingsRecord = settings as Record<string, string>;
+  const rateLimitsTier = rateLimitsProfile
+    ? resolveCapacityCurrentTier(rateLimitsProfile, settingsRecord)
+    : undefined;
+  const retentionTier = retentionProfile
+    ? resolveCapacityCurrentTier(retentionProfile, settingsRecord)
+    : undefined;
+  const mediaTier = mediaProfile
+    ? resolveCapacityCurrentTier(mediaProfile, settingsRecord)
+    : undefined;
 
   return (
     <div className="space-y-5">
@@ -48,6 +59,7 @@ export default async function PostsAdminSettingsPage() {
           editWindowMinutes: clampInt(settings["modules.posts.edit_window_minutes"], 10,   0,   1440),
         }}
         capacityProfile={mediaProfile}
+        currentTier={mediaTier}
       />
 
       <PostsRateLimitsForm
@@ -60,6 +72,7 @@ export default async function PostsAdminSettingsPage() {
           mediaPerHour:    clampInt(settings["modules.posts.rate_limit_media_per_hour"],    20, 1, 1000),
         }}
         capacityProfile={rateLimitsProfile}
+        currentTier={rateLimitsTier}
       />
 
       <PostsRetentionForm
@@ -70,6 +83,7 @@ export default async function PostsAdminSettingsPage() {
           linkPreviewCacheDays:  clampInt(settings["modules.posts.link_preview_cache_days"], 30, 1, 365),
         }}
         capacityProfile={retentionProfile}
+        currentTier={retentionTier}
       />
 
       <PostsR2SettingsForm

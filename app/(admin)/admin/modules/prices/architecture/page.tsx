@@ -53,7 +53,7 @@ export const metadata: Metadata = { title: "Prices / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-16";
+const REVIEWED_AT = "2026-05-17";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },

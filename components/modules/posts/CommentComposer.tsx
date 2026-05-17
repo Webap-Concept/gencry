@@ -74,7 +74,13 @@ export function CommentComposer({
   }, [body, compact]);
 
   const trimmed = body.trim();
-  const isEmpty = trimmed.length === 0;
+  // Quando è una reply, il composer pre-popola "@username" come prefill.
+  // Considera "vuoto" anche il caso in cui l'utente non aggiunga nulla
+  // oltre al prefill — non ha senso submitare solo la citazione.
+  const prefillTrimmed = replyToHandle?.trim() ?? "";
+  const isEmpty =
+    trimmed.length === 0 ||
+    (prefillTrimmed.length > 0 && trimmed === prefillTrimmed);
   const tooLong = trimmed.length > maxBodyLength;
   const canSubmit = !isEmpty && !tooLong && !submitting && !disabled;
 

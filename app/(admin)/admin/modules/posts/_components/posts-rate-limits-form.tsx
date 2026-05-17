@@ -8,7 +8,11 @@
 // Capacity profile scope: "rate-limits".
 import { useState, useTransition } from "react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
-import type { CapacityPreset, CapacityProfile } from "@/lib/modules/types";
+import type {
+  CapacityPreset,
+  CapacityProfile,
+  CapacityTier,
+} from "@/lib/modules/types";
 import { CapacityProfileHeader } from "./capacity-profile-header";
 import { saveRateLimitsSettings } from "../actions";
 
@@ -24,9 +28,11 @@ export type PostsRateLimitsFormInitial = {
 export function PostsRateLimitsForm({
   initial,
   capacityProfile,
+  currentTier,
 }: {
   initial: PostsRateLimitsFormInitial;
   capacityProfile?: CapacityProfile;
+  currentTier?: CapacityTier | "custom";
 }) {
   const [postPerHour, setPostPerHour] = useState(initial.postPerHour);
   const [reactionPerMin, setReactionPerMin] = useState(initial.reactionPerMin);
@@ -85,6 +91,7 @@ export function PostsRateLimitsForm({
       {capacityProfile ? (
         <CapacityProfileHeader
           profile={capacityProfile}
+          currentTier={currentTier}
           onApplyPreset={applyPreset}
         />
       ) : null}

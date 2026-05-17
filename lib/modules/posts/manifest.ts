@@ -229,9 +229,9 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Retention generosa per debug. Volume basso, costo trascurabile.",
+      description: "Retention massima per debug iniziale: outbox 45gg, orphan 24h, link preview 30gg.",
       values: {
-        "modules.posts.outbox_retention_days": "30",
+        "modules.posts.outbox_retention_days": "45",
         "modules.posts.orphan_media_grace_hours": "24",
         "modules.posts.deleted_grace_days": "7",
         "modules.posts.link_preview_cache_days": "30",
@@ -240,7 +240,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Stessi valori — il fan-out non giustifica restrizioni.",
+      description: "Retention bilanciata: outbox 30gg, orphan 24h, link preview 30gg.",
       values: {
         "modules.posts.outbox_retention_days": "30",
         "modules.posts.orphan_media_grace_hours": "24",
@@ -310,17 +310,17 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Limits generosi — sperimentazione product, retention bassa di edit per non penalizzare beta tester.",
+      description: "Beta tester: edit window 15min (margine per correggere), max immagini 4, body 2000 char.",
       values: {
         "modules.posts.max_body_length": "2000",
         "modules.posts.max_images_per_post": "4",
-        "modules.posts.edit_window_minutes": "10",
+        "modules.posts.edit_window_minutes": "15",
       },
     },
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Stessi valori — early adopters non sono fonte di abuse.",
+      description: "Edit window standard 10min (Twitter-like). Body e immagini invariati.",
       values: {
         "modules.posts.max_body_length": "2000",
         "modules.posts.max_images_per_post": "4",
@@ -330,9 +330,9 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "growth",
       label: "Growth (1k-10k MAU)",
-      description: "Limits invariati — sotto soglia ops/storage R2.",
+      description: "Body ridotto a 1500 char per scoraggiare wall-of-text. Edit window 10min.",
       values: {
-        "modules.posts.max_body_length": "2000",
+        "modules.posts.max_body_length": "1500",
         "modules.posts.max_images_per_post": "4",
         "modules.posts.edit_window_minutes": "10",
       },
@@ -340,10 +340,10 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Edit window ridotta (5min) per stabilità thread + ridurre re-processing media. Max immagini invariato — è product, non infra.",
+      description: "Body 1000 char + max 3 immagini per ridurre R2 ops. Edit window 5min per stabilità thread.",
       values: {
-        "modules.posts.max_body_length": "2000",
-        "modules.posts.max_images_per_post": "4",
+        "modules.posts.max_body_length": "1000",
+        "modules.posts.max_images_per_post": "3",
         "modules.posts.edit_window_minutes": "5",
       },
     },
@@ -404,6 +404,13 @@ export const POSTS_MODULE: ModuleManifest = {
       href: "/modules/posts/comments",
       label: "Comments",
       icon: "MessageSquare",
+      permission: "modules:posts",
+    },
+    {
+      key: "posts-cron",
+      href: "/modules/posts/cron",
+      label: "Cron",
+      icon: "Clock",
       permission: "modules:posts",
     },
     {

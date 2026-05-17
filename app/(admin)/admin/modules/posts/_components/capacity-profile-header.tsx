@@ -12,10 +12,20 @@
 // Estratto dal form Comments per riuso cross-scope (rate-limits,
 // retention, media). Vedi memoria feedback_capacity_profile_pattern.
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
-import type { CapacityPreset, CapacityProfile } from "@/lib/modules/types";
+import type {
+  CapacityPreset,
+  CapacityProfile,
+  CapacityTier,
+} from "@/lib/modules/types";
 
 export type CapacityProfileHeaderProps = {
   profile: CapacityProfile;
+  /** Override del tier mostrato come "corrente". Se omesso, usa
+   *  `profile.currentTier` (statico dal manifest). Caller server-side
+   *  passa il valore derived da
+   *  `resolveCapacityCurrentTier(profile, settings)` per riflettere i
+   *  valori effettivi salvati in app_settings. */
+  currentTier?: CapacityTier | "custom";
   /** Callback invocato dal click su un preset. Il caller setta i suoi
    *  state in base ai `preset.values` (mappa setting_key → string). */
   onApplyPreset: (preset: CapacityPreset) => void;
@@ -23,8 +33,10 @@ export type CapacityProfileHeaderProps = {
 
 export function CapacityProfileHeader({
   profile,
+  currentTier,
   onApplyPreset,
 }: CapacityProfileHeaderProps) {
+  const resolvedTier = currentTier ?? profile.currentTier;
   return (
     <div className="rounded-md border border-[var(--admin-card-border)] bg-[var(--admin-input-bg)] p-3 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
@@ -38,7 +50,7 @@ export function CapacityProfileHeader({
               "color-mix(in srgb, var(--admin-accent) 15%, transparent)",
             color: "var(--admin-accent)",
           }}>
-          {profile.currentTier}
+          {resolvedTier}
         </span>
         <span className="text-xs text-[var(--admin-text-muted)] sm:ml-auto">
           Applica preset di calibrazione:
@@ -50,7 +62,7 @@ export function CapacityProfileHeader({
           <AdminButton
             key={p.id}
             type="button"
-            variant={p.id === profile.currentTier ? "primary" : "secondary"}
+            variant={p.id === resolvedTier ? "primary" : "secondary"}
             size="sm"
             onClick={() => onApplyPreset(p)}
             title={p.description}

@@ -10,7 +10,11 @@
 // Capacity profile scope: "retention".
 import { useState, useTransition } from "react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
-import type { CapacityPreset, CapacityProfile } from "@/lib/modules/types";
+import type {
+  CapacityPreset,
+  CapacityProfile,
+  CapacityTier,
+} from "@/lib/modules/types";
 import { CapacityProfileHeader } from "./capacity-profile-header";
 import { saveRetentionSettings } from "../actions";
 
@@ -24,9 +28,11 @@ export type PostsRetentionFormInitial = {
 export function PostsRetentionForm({
   initial,
   capacityProfile,
+  currentTier,
 }: {
   initial: PostsRetentionFormInitial;
   capacityProfile?: CapacityProfile;
+  currentTier?: CapacityTier | "custom";
 }) {
   const [outboxRetentionDays, setOutboxRetentionDays] = useState(initial.outboxRetentionDays);
   const [orphanMediaGraceHours, setOrphanMediaGraceHours] = useState(initial.orphanMediaGraceHours);
@@ -79,6 +85,7 @@ export function PostsRetentionForm({
       {capacityProfile ? (
         <CapacityProfileHeader
           profile={capacityProfile}
+          currentTier={currentTier}
           onApplyPreset={applyPreset}
         />
       ) : null}

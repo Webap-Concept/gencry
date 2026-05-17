@@ -14,7 +14,11 @@
 // Bottoni: <AdminButton> primitive (regola feedback_admin_button_primitive).
 import { useState, useTransition } from "react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
-import type { CapacityPreset, CapacityProfile } from "@/lib/modules/types";
+import type {
+  CapacityPreset,
+  CapacityProfile,
+  CapacityTier,
+} from "@/lib/modules/types";
 import { CapacityProfileHeader } from "./capacity-profile-header";
 import { saveCommentsSettings } from "../actions";
 
@@ -36,11 +40,14 @@ const MODE_OPTIONS = [
 export function PostsCommentsSettingsForm({
   initial,
   capacityProfile,
+  currentTier,
 }: {
   initial: PostsCommentsSettingsFormInitial;
   /** Profilo capacity del modulo. Se omesso, niente header + preset
    *  (back-compat). Letto dal manifest del modulo. */
   capacityProfile?: CapacityProfile;
+  /** Tier derivato dai valori salvati (resolveCapacityCurrentTier). */
+  currentTier?: CapacityTier | "custom";
 }) {
   const [liveModePostPage, setLiveModePostPage] = useState(initial.liveModePostPage);
   const [liveModeFeed, setLiveModeFeed] = useState(initial.liveModeFeed);
@@ -112,6 +119,7 @@ export function PostsCommentsSettingsForm({
       {capacityProfile ? (
         <CapacityProfileHeader
           profile={capacityProfile}
+          currentTier={currentTier}
           onApplyPreset={applyPreset}
         />
       ) : null}
