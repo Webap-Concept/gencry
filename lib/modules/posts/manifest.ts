@@ -50,6 +50,19 @@ const COMMENTS_CAPACITY: CapacityProfile = {
         "Upgrade Supabase Pro ($25/mo) — sblocca 8GB DB e 500 conn",
       docsUrl: "https://supabase.com/pricing",
     },
+    {
+      name: "Upstash KV (feed cache) — CORE",
+      plan: "Free / pay-as-you-go",
+      limits: [
+        "10k req/giorno (free tier)",
+        "256MB max DB (free)",
+        "TTL 60s su posts:feed:* (feed-cache.ts)",
+      ],
+      upgradeAt: "Throughput > 10k req/giorno o miss rate > 50%",
+      upgradePath:
+        "Pay-as-you-go Upstash ~$10/mo a 1k MAU. Credenziali a livello CORE (upstash_redis_rest_url/_token) — setup unico in /admin/services/redis, riusato cross-modulo.",
+      docsUrl: "https://upstash.com/pricing",
+    },
   ],
   tunables: [
     { key: "modules.posts.comments.live_mode_post_page",   label: "Live mode — /post/[id]" },
@@ -122,12 +135,12 @@ const RATE_LIMITS_CAPACITY: CapacityProfile = {
   currentTier: "alpha",
   resources: [
     {
-      name: "Upstash KV (sliding window)",
-      plan: "Non attivato",
-      limits: ["10k req/giorno gratis quando attivato"],
-      upgradeAt: "Apertura registrazione pubblica → rischio spam reale",
+      name: "Upstash KV (sliding window) — CORE",
+      plan: "Configurato (cluster condiviso con feed-cache)",
+      limits: ["10k req/giorno (free tier)", "stub V1: services/rate-limit.ts ritorna ok=true"],
+      upgradeAt: "Apertura registrazione pubblica → swap impl V2 sliding window",
       upgradePath:
-        "Pay-as-you-go Upstash ~$10/mo a 1k MAU — service rate-limit.ts oggi pass-through, swap a impl Upstash senza toccare i caller",
+        "Pay-as-you-go Upstash ~$10/mo a 1k MAU — service rate-limit.ts oggi pass-through, swap a impl Upstash sliding window senza toccare i caller. Credenziali a livello CORE — già configurate in /admin/services/redis.",
       docsUrl: "https://upstash.com/pricing",
     },
   ],

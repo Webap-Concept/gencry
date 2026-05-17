@@ -16,12 +16,14 @@ import {
   Clock,
   Database,
   Radio,
+  Zap,
 } from "lucide-react";
 import { db } from "@/lib/db/drizzle";
 import { postsCronRuns, postsOutbox } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { POSTS_MODULE } from "@/lib/modules/posts/manifest";
 import { loadPostsR2Config } from "@/lib/modules/posts/storage";
+import { isUpstashConfigured } from "@/lib/kv/sdk";
 import { resolveCapacityCurrentTier } from "@/lib/capacity/resolve";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 
@@ -55,8 +57,9 @@ export default async function PostsAdminOverviewPage() {
     uniqueTiers.length === 1 ? uniqueTiers[0] : "mixed";
 
   // 2) Probe operativi
-  const [r2Cfg, outboxStats, cronLastRuns] = await Promise.all([
+  const [r2Cfg, upstashOk, outboxStats, cronLastRuns] = await Promise.all([
     loadPostsR2Config(),
+    isUpstashConfigured(),
     // Outbox pending count + età evento più vecchio non processato
     db
       .select({
@@ -165,6 +168,14 @@ export default async function PostsAdminOverviewPage() {
             okMessage="Counter denormalizzati + outbox emit attivi"
             ko="Trigger non installati"
             href={`/${adminSlug}/modules/posts/architecture#schema`}
+          />
+          <HealthCard
+            icon={Zap}
+            title="Upstash KV (feed cache)"
+            ok={upstashOk}
+            okMessage="Cache attiva (feed-cache V2). Credenziali a livello core."
+            ko="Credenziali assenti — feed cache disabilitata (V1 pass-through, fallback DB)"
+            href={`/${adminSlug}/services/redis`}
           />
           <CronCard runs={cronLastRuns} adminSlug={adminSlug} />
         </div>

@@ -177,7 +177,7 @@ export default function PostsArchitecturePage() {
             <ArchTechBadge label="IntersectionObserver" />
             <ArchTechBadge label="pg_cron (3 jobs)" />
             <ArchTechBadge label="Server Actions" />
-            <ArchTechBadge label="Upstash KV (roadmap)" variant="warn" />
+            <ArchTechBadge label="Upstash KV (active, core)" variant="accent" />
           </div>
         </ArchSection>
 
@@ -370,7 +370,27 @@ export default function PostsArchitecturePage() {
             <strong>Invariante</strong>: ogni mutation che genera/elimina post
             DEVE chiamare <code>invalidateFeedCache()</code> con lo scope
             corretto (discover + author + ogni ticker + ogni mentioned user).
-            In V1 è no-op, ma il pattern è già nei call site.
+            Con V2 KV attivo non è più no-op — è write-through reale.
+          </div>
+
+          <div
+            className="mt-3 p-3 rounded-lg text-xs"
+            style={{
+              background:
+                "color-mix(in srgb, var(--gc-accent) 8%, transparent)",
+              color: "var(--gc-fg)",
+            }}>
+            <strong>Credenziali Upstash sono CORE, non per-modulo</strong>:
+            il client KV vive in <code>lib/kv/sdk.ts</code> e legge{" "}
+            <code>upstash_redis_rest_url</code> +{" "}
+            <code>upstash_redis_rest_token</code> da{" "}
+            <code>app_settings</code>. Setup via{" "}
+            <code>/admin/services/redis</code>, NON dai settings del
+            modulo posts. Coerente con la convenzione documentata in{" "}
+            memoria <code>project_modular_architecture</code> (credenziali
+            servizi esterni sempre globali, mai per-modulo). Se Upstash
+            non è configurato il service degrada a pass-through DB-only
+            senza throw — il feed funziona sempre.
           </div>
         </ArchSection>
 
