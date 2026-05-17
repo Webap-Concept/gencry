@@ -48,6 +48,8 @@
     "edited": "modificato",
     "tombstone": "Commento rimosso dall'autore.",
     "show_more_replies": "Mostra {count, plural, =1 {1 altra risposta} other {altre # risposte}}",
+    "expand": "Mostra tutto",
+    "collapse": "Riduci",
     "banner": {
       "new_comments": "{count, plural, =1 {1 nuovo commento} other {# nuovi commenti}} — clicca per caricare"
     },

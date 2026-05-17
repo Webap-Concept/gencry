@@ -48,6 +48,8 @@
     "edited": "edited",
     "tombstone": "Comment removed by author.",
     "show_more_replies": "Show {count, plural, =1 {1 more reply} other {# more replies}}",
+    "expand": "Show more",
+    "collapse": "Show less",
     "banner": {
       "new_comments": "{count, plural, =1 {1 new comment} other {# new comments}} — click to load"
     },

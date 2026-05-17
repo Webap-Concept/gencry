@@ -99,6 +99,14 @@ export function CommentItem({
   const [editing, setEditing] = useState(false);
   const [editingBody, setEditingBody] = useState(comment.body);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // Heuristic: il bottone "Espandi" appare se il body è lungo (>280 char,
+  // soglia Twitter-like) OR ha molti newline (>5, eviterebbe wall of
+  // newline corti). Evita ResizeObserver e misurazioni post-render:
+  // zero costo, decisione stabile.
+  const newlineCount = (comment.body.match(/\n/g) ?? []).length;
+  const isLong = comment.body.length > 280 || newlineCount > 5;
 
   async function handleSaveEdit() {
     if (!onEdit) return;
@@ -242,7 +250,18 @@ export function CommentItem({
           </div>
         ) : (
           <div className="mt-0.5 text-sm text-gc-fg break-words">
-            <PostBody body={comment.body} coinNameMap={coinNameMap} />
+            <div className={isLong && !expanded ? "line-clamp-6" : undefined}>
+              <PostBody body={comment.body} coinNameMap={coinNameMap} />
+            </div>
+            {isLong ? (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1 text-xs font-medium text-gc-accent hover:underline"
+              >
+                {expanded ? t("collapse") : t("expand")}
+              </button>
+            ) : null}
           </div>
         )}
 
