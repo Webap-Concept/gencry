@@ -204,7 +204,7 @@ export default function PostsArchitecturePage() {
           <div className="space-y-3 mt-4">
             <ArchSchemaTable
               name="posts"
-              description="Entità principale + 9 counter denormalizzati"
+              description="Entità principale + 8 counter denormalizzati (5 reactions + comments/reposts/bookmarks)"
               columns={[
                 { name: "id",               type: "uuid v7",     note: "PK, ordinabile per tempo" },
                 { name: "author_id",        type: "uuid",        note: "FK users(id), ON DELETE CASCADE" },
@@ -213,7 +213,7 @@ export default function PostsArchitecturePage() {
                 { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost" },
                 { name: "deleted_at",       type: "timestamptz?", note: "soft delete (autore o admin)" },
                 { name: "deleted_by",       type: "varchar(40)?", note: "'author' | 'moderator', M_posts_006" },
-                { name: "reactions_*",      type: "integer × 6", note: "denormalizzati, gestiti da trigger" },
+                { name: "reactions_*",      type: "integer × 5", note: "like, bullish, bearish, to_the_moon, dump — refactor M_posts_008" },
                 { name: "comments_count",   type: "integer",     note: "trigger soft-delete aware" },
                 { name: "reposts_count",    type: "integer",     note: "trigger su INSERT/soft-delete del repost" },
                 { name: "bookmarks_count",  type: "integer",     note: "trigger su INSERT/DELETE" },
@@ -223,12 +223,24 @@ export default function PostsArchitecturePage() {
 
             <ArchSchemaTable
               name="posts_reactions"
-              description="6 kind: like, rocket, bull, bear, dump, diamond. Regola '1 user → 1 reaction' enforced applicativamente."
+              description="5 kind: like (💎), bullish (🐂), bearish (🐻), to_the_moon (🚀), dump (📉). Regola '1 user → 1 reaction' enforced applicativamente. Set definito in M_posts_008 (refactor da 6 a 5: rimosso diamond come kind, la sua icona è passata a like)."
               columns={[
                 { name: "PK", type: "(post_id, user_id, reaction)", note: "Composito" },
-                { name: "reaction", type: "varchar(16)", note: "CHECK enum 6 valori" },
+                { name: "reaction", type: "varchar(16)", note: "CHECK enum 5 valori" },
                 { name: "idx 1", type: "(post_id, reaction)", note: "lookup 'chi ha messo X'" },
                 { name: "idx 2", type: "(user_id, created_at)", note: "ultime reazioni dell'utente" },
+              ]}
+            />
+
+            <ArchSchemaTable
+              name="posts_comment_reactions"
+              description="Stessa shape di posts_reactions ma su commenti (M_posts_008). 5 kind identici. Counter denorm sulle 5 colonne reactions_* di posts_comments via trigger posts_comment_reactions_counter_trg. Outbox event 'post.comment.reaction.added' via trigger separato."
+              columns={[
+                { name: "PK", type: "(comment_id, user_id, reaction)", note: "Composito" },
+                { name: "FK comment_id", type: "→ posts_comments(id)", note: "ON DELETE CASCADE — soft-delete del commento non cancella la row" },
+                { name: "reaction", type: "varchar(16)", note: "CHECK enum 5 valori (allineato a posts_reactions)" },
+                { name: "idx 1", type: "(comment_id, reaction)", note: "denorm counter scan" },
+                { name: "idx 2", type: "(user_id, created_at)", note: "viewer ownReactions batch (subquery scalare in getRootCommentsForPost)" },
               ]}
             />
 
@@ -264,7 +276,7 @@ export default function PostsArchitecturePage() {
 
             <ArchSchemaTable
               name="posts_comments"
-              description="Commenti — schema flat (1 parent_comment_id), rendering 2-livelli visual. M_posts_007 aggiunge 2 indici parziali (root + replies) per fan-out feed inline + post page. Counter posts.comments_count gestito da trigger soft-delete aware (M_posts_002)."
+              description="Commenti — schema flat (1 parent_comment_id), rendering 2-livelli visual. M_posts_007 aggiunge 2 indici parziali (root + replies) per fan-out feed inline + post page. Counter posts.comments_count gestito da trigger soft-delete aware (M_posts_002). M_posts_008 aggiunge 5 counter reactions_* denormalizzati."
               columns={[
                 { name: "id",                 type: "uuid v7",     note: "PK, ordering chronological" },
                 { name: "post_id",            type: "uuid",        note: "FK posts ON DELETE CASCADE" },
@@ -273,6 +285,7 @@ export default function PostsArchitecturePage() {
                 { name: "body",               type: "text",        note: "CHECK length 1..2000" },
                 { name: "edited_at",          type: "timestamptz?", note: "set on edit entro 10min" },
                 { name: "deleted_at",         type: "timestamptz?", note: "soft delete (tombstone if has replies, hard-hide otherwise)" },
+                { name: "reactions_*",        type: "integer × 5", note: "denormalizzati, gestiti da posts_comment_reactions_counter_trg (M_posts_008)" },
                 { name: "idx root",           type: "(post_id, created_at)", note: "WHERE parent_comment_id IS NULL AND deleted_at IS NULL — M_posts_007" },
                 { name: "idx replies",        type: "(parent_comment_id, created_at)", note: "WHERE parent_comment_id IS NOT NULL AND deleted_at IS NULL — M_posts_007" },
               ]}
@@ -367,9 +380,15 @@ export default function PostsArchitecturePage() {
           <div className="space-y-2.5">
             <ArchHookBox
               title="Reactions service"
-              description="addReaction / removeReaction / toggleReaction. V2 può aggiungere KV invalidation, queue, circuit-breaker senza toccare i caller (Server Actions)."
+              description="addReaction / removeReaction. V2 può aggiungere KV invalidation, queue, circuit-breaker senza toccare i caller (Server Actions)."
               filePath="lib/modules/posts/services/reactions.ts"
               contract="addReaction(postId, userId, kind) → { inserted }"
+            />
+            <ArchHookBox
+              title="Comment reactions service"
+              description="addCommentReaction / removeCommentReaction (gemello di reactions). Counter denorm via trigger DB su posts_comments. Outbox event 'post.comment.reaction.added' (futuro consumer notifications)."
+              filePath="lib/modules/posts/services/comment-reactions.ts"
+              contract="addCommentReaction(commentId, userId, kind) → { inserted }"
             />
             <ArchHookBox
               title="Feed cache"

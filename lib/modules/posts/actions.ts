@@ -37,6 +37,7 @@ import { getUser } from "@/lib/db/queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import {
   posts,
+  postsComments,
   postsMedia,
   postsTickers,
   postsMentions,
@@ -51,6 +52,10 @@ import {
   addReaction as reactionsAddService,
   removeReaction as reactionsRemoveService,
 } from "./services/reactions";
+import {
+  addCommentReaction as commentReactionsAddService,
+  removeCommentReaction as commentReactionsRemoveService,
+} from "./services/comment-reactions";
 import {
   createComment as commentsCreateService,
   editComment as commentsEditService,
@@ -140,6 +145,11 @@ const EditPostInputSchema = z.object({
 
 const ToggleReactionInputSchema = z.object({
   postId: UuidSchema,
+  reaction: ReactionKindSchema,
+});
+
+const ToggleCommentReactionInputSchema = z.object({
+  commentId: UuidSchema,
   reaction: ReactionKindSchema,
 });
 
@@ -460,6 +470,61 @@ export async function toggleReaction(
   const inserted = await reactionsAddService(parsed.data.postId, user.id, parsed.data.reaction);
   await postInvalidate(parsed.data.postId);
   return { ok: true, data: { active: inserted.inserted } };
+}
+
+/**
+ * Toggle reazione su un commento. Stessa quota rate-limit del toggle
+ * sui post (`modules.posts.rate_limit_reaction_per_min`): un user che
+ * reagisce molto reagisce molto, indipendentemente dal target.
+ *
+ * Counter denormalizzati su `posts_comments` aggiornati dal trigger
+ * DB `posts_comment_reactions_counter_trg` (M_posts_008).
+ *
+ * Invalidation: lookup post_id del commento per invalidare la cache
+ * del post target — i counters del commento sono parte del payload
+ * `getPostCardWithThread` cachato.
+ */
+export async function toggleCommentReaction(
+  input: z.input<typeof ToggleCommentReactionInputSchema>,
+): Promise<ActionResult<{ active: boolean }>> {
+  const user = await getUser();
+  if (!user) return fail(I18N.unauthenticated);
+  if (user.bannedAt) return fail(I18N.banned);
+
+  const parsed = ToggleCommentReactionInputSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const rl = await rateLimitCheck(user.id, "reaction");
+  if (!rl.ok) return fail(I18N.rateLimited, { retryAfter: rl.retryAfter });
+
+  const removed = await commentReactionsRemoveService(
+    parsed.data.commentId,
+    user.id,
+    parsed.data.reaction,
+  );
+  if (removed.removed) {
+    await invalidatePostByCommentId(parsed.data.commentId);
+    return { ok: true, data: { active: false } };
+  }
+  const inserted = await commentReactionsAddService(
+    parsed.data.commentId,
+    user.id,
+    parsed.data.reaction,
+  );
+  await invalidatePostByCommentId(parsed.data.commentId);
+  return { ok: true, data: { active: inserted.inserted } };
+}
+
+/** Lookup interno: data un commentId, recupera il post_id e invalida
+ *  la cache del post. Quando arriverà una cache dedicata ai commenti,
+ *  qui invalideremo entrambe. */
+async function invalidatePostByCommentId(commentId: string): Promise<void> {
+  const row = await db
+    .select({ postId: postsComments.postId })
+    .from(postsComments)
+    .where(eq(postsComments.id, commentId))
+    .limit(1);
+  if (row[0]) await postInvalidate(row[0].postId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

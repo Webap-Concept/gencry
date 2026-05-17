@@ -175,11 +175,10 @@
   },
   "reactions": {
     "like": "Mi piace",
-    "rocket": "Rocket",
-    "bull": "Bullish",
-    "bear": "Bearish",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "to_the_moon": "To the moon",
     "dump": "Dump",
-    "diamond": "Diamond hands",
     "button_aria": "Reazioni",
     "menu_aria": "Scegli reazione"
   },

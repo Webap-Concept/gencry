@@ -25,7 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { CommentCardData } from "@/lib/modules/posts/types";
+import type { PostReactionKind } from "@/lib/db/schema";
 import { PostBody } from "./PostBody";
+import { ReactionPopover } from "./ReactionPopover";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
   if (author.username) return `@${author.username}`;
@@ -63,6 +65,9 @@ export type CommentItemProps = {
   onReplyClick?: () => void;
   onEdit?: (newBody: string) => Promise<{ ok: boolean; error?: string }>;
   onDelete?: () => Promise<{ ok: boolean; error?: string }>;
+  /** Toggle reaction sul commento. Se omesso (viewer anon) il popover
+   *  non mostra il bottone. Il caller gestisce optimistic update. */
+  onToggleReaction?: (kind: PostReactionKind) => void;
   /** Mappa name→symbol per inline matching ticker nel body. */
   coinNameMap?: Record<string, string>;
 };
@@ -77,6 +82,7 @@ export function CommentItem({
   onReplyClick,
   onEdit,
   onDelete,
+  onToggleReaction,
   coinNameMap,
 }: CommentItemProps) {
   const t = useTranslations("posts.comments");
@@ -240,16 +246,29 @@ export function CommentItem({
           </div>
         )}
 
-        {variant === "root" && onReplyClick && !editing && !isDeletedTombstone ? (
-          <button
-            type="button"
-            onClick={onReplyClick}
-            aria-label={t("actions.reply")}
-            title={t("actions.reply")}
-            className="mt-1 inline-flex items-center justify-center p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
-          >
-            <MessageSquare size={16} strokeWidth={1.75} />
-          </button>
+        {!editing && !isDeletedTombstone ? (
+          <div className="mt-1 flex items-center gap-1">
+            {onToggleReaction ? (
+              <ReactionPopover
+                compact
+                ownReaction={comment.viewer?.ownReactions[0] ?? null}
+                counts={comment.counts.reactions}
+                totalCount={comment.counts.reactionsTotal}
+                onToggle={onToggleReaction}
+              />
+            ) : null}
+            {variant === "root" && onReplyClick ? (
+              <button
+                type="button"
+                onClick={onReplyClick}
+                aria-label={t("actions.reply")}
+                title={t("actions.reply")}
+                className="inline-flex items-center justify-center p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-line/40 transition"
+              >
+                <MessageSquare size={16} strokeWidth={1.75} />
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

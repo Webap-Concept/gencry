@@ -24,6 +24,7 @@ import {
   createComment as createCommentAction,
   editComment as editCommentAction,
   softDeleteComment as softDeleteCommentAction,
+  toggleCommentReaction as toggleCommentReactionAction,
   generateRealtimeAuthToken,
   loadInitialCommentsAction,
   loadMoreRootCommentsAction,
@@ -34,6 +35,7 @@ import type {
   CommentCardData,
   CommentRootCardData,
 } from "@/lib/modules/posts/types";
+import type { PostReactionKind } from "@/lib/db/schema";
 import {
   useCommentsLiveSignal,
   type CommentsLiveMode,
@@ -238,6 +240,11 @@ export function CommentsThread({
         editedAt: null,
         createdAt: new Date(),
         repliesCount: 0,
+        counts: {
+          reactions: { like: 0, bullish: 0, bearish: 0, to_the_moon: 0, dump: 0 },
+          reactionsTotal: 0,
+        },
+        viewer: viewerUserId ? { ownReactions: [] } : null,
       };
 
       if (parentCommentId) {
@@ -334,6 +341,83 @@ export function CommentsThread({
       return { ok: true as const };
     },
     [repliesByRoot],
+  );
+
+  // ── Toggle reaction su un commento (root o reply) ─────────────────────
+  // Optimistic: applica il delta sui counter/viewer subito; rollback se
+  // l'azione server fallisce. Regola "1 user → 1 reaction":
+  //  - reaction uguale a quella corrente → off (counter--, ownReactions=[])
+  //  - reaction diversa → switch (vecchia--, nuova++, ownReactions=[kind])
+  //  - nessuna reaction → on (kind++, ownReactions=[kind])
+  const applyReactionDelta = useCallback(
+    <T extends CommentCardData>(c: T, kind: PostReactionKind): T => {
+      const current = c.viewer?.ownReactions[0];
+      const counts = { ...c.counts.reactions };
+      let ownReactions: PostReactionKind[];
+      if (current === kind) {
+        counts[kind] = Math.max(0, counts[kind] - 1);
+        ownReactions = [];
+      } else {
+        if (current) counts[current] = Math.max(0, counts[current] - 1);
+        counts[kind] = counts[kind] + 1;
+        ownReactions = [kind];
+      }
+      const total =
+        counts.like +
+        counts.bullish +
+        counts.bearish +
+        counts.to_the_moon +
+        counts.dump;
+      return {
+        ...c,
+        counts: { reactions: counts, reactionsTotal: total },
+        viewer: { ownReactions },
+      };
+    },
+    [],
+  );
+
+  const handleToggleCommentReaction = useCallback(
+    async (commentId: string, kind: PostReactionKind) => {
+      if (!viewerUserId) return;
+      // Snapshot per rollback. setState callback receive prev; per il
+      // rollback memorizziamo il valore precedente lato applyReactionDelta.
+      let rolledBack = false;
+      setRoot((prev) =>
+        prev.map((c) => (c.id === commentId ? applyReactionDelta(c, kind) : c)),
+      );
+      setRepliesByRoot((prev) => {
+        const next: typeof prev = {};
+        for (const [rootId, replies] of Object.entries(prev)) {
+          next[rootId] = replies.map((r) =>
+            r.id === commentId ? applyReactionDelta(r, kind) : r,
+          );
+        }
+        return next;
+      });
+      const res = await toggleCommentReactionAction({
+        commentId,
+        reaction: kind,
+      });
+      if (!res.ok) {
+        // Rollback applicando di nuovo lo stesso delta (è simmetrico).
+        rolledBack = true;
+        setRoot((prev) =>
+          prev.map((c) => (c.id === commentId ? applyReactionDelta(c, kind) : c)),
+        );
+        setRepliesByRoot((prev) => {
+          const next: typeof prev = {};
+          for (const [rootId, replies] of Object.entries(prev)) {
+            next[rootId] = replies.map((r) =>
+              r.id === commentId ? applyReactionDelta(r, kind) : r,
+            );
+          }
+          return next;
+        });
+      }
+      void rolledBack;
+    },
+    [viewerUserId, applyReactionDelta],
   );
 
   // ── "Mostra altri commenti" (root pagination) ─────────────────────────
@@ -440,6 +524,11 @@ export function CommentsThread({
                   }
                   onEdit={(newBody) => handleEdit(c.id, newBody)}
                   onDelete={() => handleDelete(c.id, true)}
+                  onToggleReaction={
+                    composerEnabled
+                      ? (kind) => handleToggleCommentReaction(c.id, kind)
+                      : undefined
+                  }
                   coinNameMap={coinNameMap}
                 />
 
@@ -456,6 +545,11 @@ export function CommentsThread({
                           editWindowMs={editWindowMs}
                           onEdit={(newBody) => handleEdit(r.id, newBody)}
                           onDelete={() => handleDelete(r.id, false)}
+                          onToggleReaction={
+                            composerEnabled
+                              ? (kind) => handleToggleCommentReaction(r.id, kind)
+                              : undefined
+                          }
                           coinNameMap={coinNameMap}
                         />
                       </li>

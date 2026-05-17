@@ -33,11 +33,10 @@ export type PostMediaPublic = {
 
 export type PostReactionCounts = {
   like: number;
-  rocket: number;
-  bull: number;
-  bear: number;
+  bullish: number;
+  bearish: number;
+  to_the_moon: number;
   dump: number;
-  diamond: number;
 };
 
 export type PostCounts = {
@@ -84,6 +83,21 @@ export type PostListPage = {
   nextCursor: string | null;
 };
 
+export type CommentReactionCounts = PostReactionCounts;
+
+/** Counts denormalizzati sul commento. Mantenuto separato da PostCounts
+ *  perché un commento NON ha sub-counter (no repost/bookmark/sub-comments). */
+export type CommentCounts = {
+  reactions: CommentReactionCounts;
+  reactionsTotal: number;
+};
+
+/** Stato viewer-specific sul commento. Speculare a PostViewerState ma
+ *  senza il flag bookmarked (i commenti non sono bookmarkabili). */
+export type CommentViewerState = {
+  ownReactions: PostReactionKind[];
+};
+
 export type CommentCardData = {
   id: string;
   postId: string;
@@ -92,6 +106,8 @@ export type CommentCardData = {
   body: string;
   editedAt: Date | null;
   createdAt: Date;
+  counts: CommentCounts;
+  viewer: CommentViewerState | null;
 };
 
 /**

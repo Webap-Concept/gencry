@@ -1,16 +1,19 @@
 "use client";
 // components/modules/posts/ReactionPopover.tsx
 //
-// Bottone reazione + popover delle 6 emoji.
+// Bottone reazione + popover delle 5 emoji (refactor M_posts_008).
 //
-// Regola (2026-05-14): 1 utente → 1 sola reaction sul post. Cliccare
-// una emoji diversa SOSTITUISCE la propria precedente; cliccare la
-// stessa la rimuove.
+// Set finale: like (💎) | bullish (🐂) | bearish (🐻) | to_the_moon (🚀) | dump (📉).
 //
-// Trigger: mostra le top-2 reaction types presenti sul post
-// accavallate in cerchio + counter formattato (42, 999, 1k+, 12k+).
-// Se 0 reaction → icona Smile neutra. La propria reaction attiva ha
-// il bottone evidenziato (colore accent + ring).
+// Regola (2026-05-14): 1 utente → 1 sola reaction sul target.
+// Riusabile su post E commenti (`compact` prop riduce padding/font).
+// Cliccare una emoji diversa SOSTITUISCE la propria precedente;
+// cliccare la stessa la rimuove.
+//
+// Trigger: mostra le top-2 reaction types presenti accavallate in
+// cerchio + counter formattato (42, 999, 1k+, 12k+). Se 0 reaction →
+// icona Smile neutra. La propria reaction attiva ha il bottone
+// evidenziato (colore accent + ring).
 //
 // TODO(future): la `onShowDetails` callback opzionale aprirà una modale
 // "chi ha reagito" raggruppando per emoji. Già esposta come prop per
@@ -28,19 +31,18 @@ import {
 // TODO(art): sostituire emoji native con SVG custom in
 // components/modules/posts/icons/ (pattern modulare).
 const REACTION_EMOJI: Record<PostReactionKind, string> = {
-  like: "❤️",
-  rocket: "🚀",
-  bull: "🐂",
-  bear: "🐻",
+  like: "💎",
+  bullish: "🐂",
+  bearish: "🐻",
+  to_the_moon: "🚀",
   dump: "📉",
-  diamond: "💎",
 };
 
 const HOVER_OPEN_DELAY = 200;
 const HOVER_CLOSE_DELAY = 250;
 
 type Props = {
-  /** La reaction dell'utente sul post (null se non ha reagito). */
+  /** La reaction dell'utente sul target (null se non ha reagito). */
   ownReaction: PostReactionKind | null;
   /** Counter per ogni kind, usato per top-2 + total. */
   counts: PostReactionCounts;
@@ -49,6 +51,8 @@ type Props = {
   onToggle: (kind: PostReactionKind) => void;
   /** OPZIONALE: callback per future modale "chi ha reagito". */
   onShowDetails?: () => void;
+  /** Render compatto per i commenti: padding/font ridotti. Default false. */
+  compact?: boolean;
 };
 
 export function ReactionPopover({
@@ -57,6 +61,7 @@ export function ReactionPopover({
   totalCount,
   onToggle,
   onShowDetails,
+  compact = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const tReact = useTranslations("posts.reactions");
@@ -115,21 +120,25 @@ export function ReactionPopover({
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={tReact("button_aria")}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${
+        className={`flex items-center rounded-full transition ${
+          compact ? "gap-1 px-2 py-1 text-xs" : "gap-1.5 px-3 py-1.5 text-sm"
+        } ${
           isActive
             ? "text-gc-accent hover:bg-gc-accent/10"
             : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg"
         }`}
       >
         {top.length === 0 ? (
-          <Smile size={18} strokeWidth={1.75} />
+          <Smile size={compact ? 15 : 18} strokeWidth={1.75} />
         ) : (
           <span className="flex items-center -space-x-1" aria-hidden="true">
             {top.map((kind, i) => (
               <span
                 key={kind}
                 style={{ zIndex: top.length - i }}
-                className="w-5 h-5 flex items-center justify-center text-[14px] leading-none"
+                className={`flex items-center justify-center leading-none ${
+                  compact ? "w-4 h-4 text-[12px]" : "w-5 h-5 text-[14px]"
+                }`}
               >
                 {REACTION_EMOJI[kind]}
               </span>

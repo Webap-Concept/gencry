@@ -356,11 +356,10 @@ type RawPostRow = {
   deletedAt: Date | null;
   createdAt: Date;
   reactionsLike: number;
-  reactionsRocket: number;
-  reactionsBull: number;
-  reactionsBear: number;
+  reactionsBullish: number;
+  reactionsBearish: number;
+  reactionsToTheMoon: number;
   reactionsDump: number;
-  reactionsDiamond: number;
   commentsCount: number;
   repostsCount: number;
   bookmarksCount: number;
@@ -385,20 +384,18 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
   };
   const counts: PostCounts = {
     reactions: {
-      like:    row.reactionsLike,
-      rocket:  row.reactionsRocket,
-      bull:    row.reactionsBull,
-      bear:    row.reactionsBear,
-      dump:    row.reactionsDump,
-      diamond: row.reactionsDiamond,
+      like:        row.reactionsLike,
+      bullish:     row.reactionsBullish,
+      bearish:     row.reactionsBearish,
+      to_the_moon: row.reactionsToTheMoon,
+      dump:        row.reactionsDump,
     },
     reactionsTotal:
       row.reactionsLike +
-      row.reactionsRocket +
-      row.reactionsBull +
-      row.reactionsBear +
-      row.reactionsDump +
-      row.reactionsDiamond,
+      row.reactionsBullish +
+      row.reactionsBearish +
+      row.reactionsToTheMoon +
+      row.reactionsDump,
     comments:  row.commentsCount,
     reposts:   row.repostsCount,
     bookmarks: row.bookmarksCount,
@@ -440,12 +437,11 @@ async function selectPostsCore(
       editedAt: posts.editedAt,
       deletedAt: posts.deletedAt,
       createdAt: posts.createdAt,
-      reactionsLike: posts.reactionsLike,
-      reactionsRocket: posts.reactionsRocket,
-      reactionsBull: posts.reactionsBull,
-      reactionsBear: posts.reactionsBear,
-      reactionsDump: posts.reactionsDump,
-      reactionsDiamond: posts.reactionsDiamond,
+      reactionsLike:      posts.reactionsLike,
+      reactionsBullish:   posts.reactionsBullish,
+      reactionsBearish:   posts.reactionsBearish,
+      reactionsToTheMoon: posts.reactionsToTheMoon,
+      reactionsDump:      posts.reactionsDump,
       commentsCount: posts.commentsCount,
       repostsCount: posts.repostsCount,
       bookmarksCount: posts.bookmarksCount,
@@ -747,6 +743,22 @@ export async function getPostBySlug(
 const ROOT_PAGE_SIZE = 15;
 const REPLIES_PAGE_SIZE = 10;
 
+/** Subquery scalare che ritorna l'array di reaction del viewer su un
+ *  commento. Se viewer anonimo, ritorna `ARRAY[]::varchar[]`. Index-only
+ *  scan grazie a idx_posts_comment_reactions_user_recent (M_posts_008). */
+function viewerReactionsForCommentSql(viewerUserId?: string) {
+  if (!viewerUserId) {
+    return sql<string[]>`ARRAY[]::varchar[]`;
+  }
+  return sql<string[]>`COALESCE(
+    (SELECT array_agg(r.reaction)
+     FROM posts_comment_reactions r
+     WHERE r.comment_id = ${postsComments.id}
+       AND r.user_id = ${viewerUserId}::uuid),
+    ARRAY[]::varchar[]
+  )`;
+}
+
 type CommentRowSelection = {
   id: string;
   postId: string;
@@ -760,9 +772,38 @@ type CommentRowSelection = {
   authorLastName: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
+  reactionsLike: number;
+  reactionsBullish: number;
+  reactionsBearish: number;
+  reactionsToTheMoon: number;
+  reactionsDump: number;
+  /** Array di reaction kinds del viewer su questo commento. Array vuoto
+   *  se viewer anonimo o se non ha reazionato. La regola "1 user → 1
+   *  reaction" è applicativa, quindi in pratica length ≤ 1, ma il type
+   *  è array per uniformità con PostViewerState.ownReactions. */
+  viewerReactions: string[];
 };
 
-function rowToCommentCardData(r: CommentRowSelection): CommentCardData {
+function rowToCommentCardData(
+  r: CommentRowSelection,
+  hasViewer: boolean,
+): CommentCardData {
+  const reactions = {
+    like:        Number(r.reactionsLike)       || 0,
+    bullish:     Number(r.reactionsBullish)    || 0,
+    bearish:     Number(r.reactionsBearish)    || 0,
+    to_the_moon: Number(r.reactionsToTheMoon)  || 0,
+    dump:        Number(r.reactionsDump)       || 0,
+  };
+  const reactionsTotal =
+    reactions.like +
+    reactions.bullish +
+    reactions.bearish +
+    reactions.to_the_moon +
+    reactions.dump;
+  const ownReactions = (r.viewerReactions ?? []).filter((k): k is PostReactionKind =>
+    POST_REACTION_KINDS.includes(k as PostReactionKind),
+  );
   return {
     id: r.id,
     postId: r.postId,
@@ -778,6 +819,8 @@ function rowToCommentCardData(r: CommentRowSelection): CommentCardData {
     body: r.body,
     editedAt: r.editedAt,
     createdAt: r.createdAt,
+    counts: { reactions, reactionsTotal },
+    viewer: hasViewer ? { ownReactions } : null,
   };
 }
 
@@ -802,6 +845,7 @@ export async function getRootCommentsForPost(opts: {
       AND r.deleted_at IS NULL
   )`;
 
+  const hasViewer = Boolean(opts.viewerUserId);
   const rows = await db
     .select({
       id: postsComments.id,
@@ -816,6 +860,12 @@ export async function getRootCommentsForPost(opts: {
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      reactionsLike:      postsComments.reactionsLike,
+      reactionsBullish:   postsComments.reactionsBullish,
+      reactionsBearish:   postsComments.reactionsBearish,
+      reactionsToTheMoon: postsComments.reactionsToTheMoon,
+      reactionsDump:      postsComments.reactionsDump,
+      viewerReactions:    viewerReactionsForCommentSql(opts.viewerUserId),
       repliesCount: repliesCountExpr,
     })
     .from(postsComments)
@@ -834,7 +884,7 @@ export async function getRootCommentsForPost(opts: {
 
   const truncated = rows.length > pageSize ? rows.slice(0, pageSize) : rows;
   const comments: CommentRootCardData[] = truncated.map((r) => ({
-    ...rowToCommentCardData(r),
+    ...rowToCommentCardData(r, hasViewer),
     repliesCount: Number(r.repliesCount) || 0,
   }));
 
@@ -882,6 +932,14 @@ export async function getInitialRepliesForRoots(opts: {
       )`
     : sql``;
 
+  const viewerReactionsSql = applyBlockFilter
+    ? sql`COALESCE(
+        (SELECT array_agg(rr.reaction) FROM posts_comment_reactions rr
+         WHERE rr.comment_id = c.id AND rr.user_id = ${viewerId}::uuid),
+        ARRAY[]::varchar[]
+      ) AS "viewerReactions"`
+    : sql`ARRAY[]::varchar[] AS "viewerReactions"`;
+
   const result = await db.execute(sql<CommentRowSelection & { rn: number }>`
     WITH ranked AS (
       SELECT
@@ -893,6 +951,12 @@ export async function getInitialRepliesForRoots(opts: {
         up.last_name AS "authorLastName",
         up.avatar_url AS "authorAvatarUrl",
         up.headline AS "authorHeadline",
+        c.reactions_like         AS "reactionsLike",
+        c.reactions_bullish      AS "reactionsBullish",
+        c.reactions_bearish      AS "reactionsBearish",
+        c.reactions_to_the_moon  AS "reactionsToTheMoon",
+        c.reactions_dump         AS "reactionsDump",
+        ${viewerReactionsSql},
         ROW_NUMBER() OVER (
           PARTITION BY c.parent_comment_id
           ORDER BY c.created_at DESC, c.id DESC
@@ -913,7 +977,7 @@ export async function getInitialRepliesForRoots(opts: {
     const parentId = r.parentCommentId;
     if (!parentId) continue;
     if (!grouped[parentId]) grouped[parentId] = [];
-    grouped[parentId].push(rowToCommentCardData(r));
+    grouped[parentId].push(rowToCommentCardData(r, applyBlockFilter));
   }
   return grouped;
 }
@@ -931,6 +995,7 @@ export async function getRepliesForComment(opts: {
   const pageSize = opts.pageSize ?? REPLIES_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
 
+  const hasViewer = Boolean(opts.viewerUserId);
   const rows = await db
     .select({
       id: postsComments.id,
@@ -945,6 +1010,12 @@ export async function getRepliesForComment(opts: {
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      reactionsLike:      postsComments.reactionsLike,
+      reactionsBullish:   postsComments.reactionsBullish,
+      reactionsBearish:   postsComments.reactionsBearish,
+      reactionsToTheMoon: postsComments.reactionsToTheMoon,
+      reactionsDump:      postsComments.reactionsDump,
+      viewerReactions:    viewerReactionsForCommentSql(opts.viewerUserId),
     })
     .from(postsComments)
     .leftJoin(userProfiles, eq(userProfiles.userId, postsComments.authorId))
@@ -960,7 +1031,7 @@ export async function getRepliesForComment(opts: {
     .limit(pageSize + 1);
 
   const truncated = rows.length > pageSize ? rows.slice(0, pageSize) : rows;
-  const replies = truncated.map(rowToCommentCardData);
+  const replies = truncated.map((r) => rowToCommentCardData(r, hasViewer));
 
   const nextCursor =
     rows.length > pageSize

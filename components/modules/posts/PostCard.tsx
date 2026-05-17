@@ -255,11 +255,10 @@ export function PostCard({
   });
   const reactionsTotal =
     optimisticCounts.like +
-    optimisticCounts.rocket +
-    optimisticCounts.bull +
-    optimisticCounts.bear +
-    optimisticCounts.dump +
-    optimisticCounts.diamond;
+    optimisticCounts.bullish +
+    optimisticCounts.bearish +
+    optimisticCounts.to_the_moon +
+    optimisticCounts.dump;
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

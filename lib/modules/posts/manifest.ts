@@ -361,7 +361,7 @@ export const POSTS_MODULE: ModuleManifest = {
   slug: "posts",
   label: "Posts",
   description: "Social feed: composer, reactions, comments, reposts, bookmarks, moderation.",
-  version: "0.2.0", // 0.2.0 = aggiunta thread commenti 2-livelli (PR-comments). 1.0.0 quando PR-9 SEO sitemap chiude.
+  version: "0.3.0", // 0.3.0 = reactions refactor (M_posts_008): set 5 finale + reactions sui commenti. 0.2.0 = thread commenti 2-livelli. 1.0.0 quando PR-9 SEO sitemap chiude.
   icon: "MessageSquare",
   permission: "modules:posts",
   permissionLabel: "Access Posts module",
