@@ -31,16 +31,7 @@ import {
   formatReactionCount,
   topReactions,
 } from "@/lib/modules/posts/lib/reactions-format";
-
-// TODO(art): sostituire emoji native con SVG custom in
-// components/modules/posts/icons/ (pattern modulare).
-const REACTION_EMOJI: Record<PostReactionKind, string> = {
-  like: "💎",
-  bullish: "🐂",
-  bearish: "🐻",
-  to_the_moon: "🚀",
-  dump: "📉",
-};
+import { REACTION_ICON } from "./icons";
 
 /** Reaction "default" del bottone trigger quando count=0 e viewer non
  *  ha reagito. Click immediato = applica questa. Coerente col fatto
@@ -144,27 +135,24 @@ export function ReactionPopover({
           // Default: icona Like (diamante). Click = quick like (Facebook).
           // top.length === 0 implica totalCount === 0 e !isActive (un
           // viewer attivo ha sempre almeno 1 reaction nel set).
-          <span
-            className={`flex items-center justify-center leading-none ${
-              compact ? "w-4 h-4 text-[12px]" : "w-5 h-5 text-[14px]"
-            }`}
-            aria-hidden="true"
-          >
-            {REACTION_EMOJI[DEFAULT_REACTION]}
-          </span>
+          (() => {
+            const Icon = REACTION_ICON[DEFAULT_REACTION];
+            return <Icon size={compact ? 16 : 18} />;
+          })()
         ) : (
           <span className="flex items-center -space-x-1" aria-hidden="true">
-            {top.map((kind, i) => (
-              <span
-                key={kind}
-                style={{ zIndex: top.length - i }}
-                className={`flex items-center justify-center leading-none ${
-                  compact ? "w-4 h-4 text-[12px]" : "w-5 h-5 text-[14px]"
-                }`}
-              >
-                {REACTION_EMOJI[kind]}
-              </span>
-            ))}
+            {top.map((kind, i) => {
+              const Icon = REACTION_ICON[kind];
+              return (
+                <span
+                  key={kind}
+                  style={{ zIndex: top.length - i }}
+                  className="flex items-center justify-center"
+                >
+                  <Icon size={compact ? 16 : 18} />
+                </span>
+              );
+            })}
           </span>
         )}
         {formatted ? <span>{formatted}</span> : null}
@@ -179,6 +167,7 @@ export function ReactionPopover({
         >
           {POST_REACTION_KINDS.map((kind, i) => {
             const active = ownReaction === kind;
+            const Icon = REACTION_ICON[kind];
             return (
               <div key={kind} className="relative group">
                 {/* Tooltip LinkedIn-style: appare sopra l'icona on hover.
@@ -195,11 +184,11 @@ export function ReactionPopover({
                   onClick={() => onPick(kind)}
                   aria-label={tReact(kind)}
                   style={{ animationDelay: `${i * 15}ms` }}
-                  className={`text-2xl leading-none w-9 h-9 rounded-full flex items-center justify-center transition-transform duration-150 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-2 hover:scale-125 active:scale-95 ${
+                  className={`leading-none w-9 h-9 rounded-full flex items-center justify-center transition-transform duration-150 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-2 hover:scale-125 active:scale-95 ${
                     active ? "bg-gc-accent/15 ring-2 ring-gc-accent/40" : ""
                   }`}
                 >
-                  {REACTION_EMOJI[kind]}
+                  <Icon size={28} />
                 </button>
               </div>
             );
