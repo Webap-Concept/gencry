@@ -172,7 +172,6 @@ export function ReactionPopover({
           className="absolute z-50 left-0 -top-2 -translate-y-full origin-bottom-left bg-gc-modal-bg border border-gc-modal-border rounded-full shadow-xl px-1.5 py-1.5 flex items-center gap-0.5 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-1 duration-150 ease-out"
         >
           {POST_REACTION_KINDS.map((kind, i) => {
-            const active = ownReaction === kind;
             const Icon = REACTION_ICON[kind];
             return (
               <div key={kind} className="relative group">
@@ -190,9 +189,7 @@ export function ReactionPopover({
                   onClick={() => onPick(kind)}
                   aria-label={tReact(kind)}
                   style={{ animationDelay: `${i * 15}ms` }}
-                  className={`leading-none w-9 h-9 rounded-full flex items-center justify-center transition-transform duration-150 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-2 hover:scale-125 active:scale-95 ${
-                    active ? "bg-gc-accent/15 ring-2 ring-gc-accent/40" : ""
-                  }`}
+                  className="leading-none w-9 h-9 rounded-full flex items-center justify-center transition-transform duration-150 ease-out will-change-transform animate-in fade-in-0 slide-in-from-bottom-1 hover:-translate-y-2 hover:scale-125 active:scale-95"
                 >
                   <Icon size={28} />
                 </button>
