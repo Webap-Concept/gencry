@@ -37,7 +37,7 @@
     "invalid_ticker": "Ticker non valido.",
     "load_more": "Carica altri",
     "loading_more": "Carico…",
-    "end_reached": "Hai visto tutto."
+    "end_reached": "Il mercato è saturo, non c'è altro da vedere."
   },
   "comments": {
     "empty_body": "Scrivi qualcosa prima di commentare.",
