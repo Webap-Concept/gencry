@@ -1,3 +1,4 @@
+import "server-only";
 // lib/modules/posts/services/feed-cache.ts
 //
 // Cache layer per le LISTE di post_id (timeline / Following / ticker /
@@ -5,63 +6,159 @@
 // fallback). Il service decide se servire da cache o eseguire `fallback()`
 // e (eventualmente) popolarla.
 //
-// V1 = pass-through: zero cache, zero KV, fallback() viene SEMPRE chiamato.
-// La separazione esiste comunque perché in V2 attiveremo KV `feed:{key}`
-// TTL 60s + write-through senza toccare le query in PR-4.
+// V2 = Upstash KV (write-through, TTL 60s). Implementazione attiva da
+// 2026-05-17. Pattern cache-aside:
+//   - getCachedFeedIds(key, fallback) → HIT: ritorna; MISS: fallback +
+//     SET con TTL. Errori KV: log + fallback() trasparente (mai throw
+//     verso il caller — un KV down non deve mai rompere la feed).
+//   - invalidateFeedCache(scope) → SCAN+DEL pattern. Anche qui no-throw.
 //
-// Quando attivare V2 (KV-backed)
-//   - Following feed con followingIds.length > ~500 (IN-list che esplode)
-//   - Discover loggato con p95 > 100ms
-//   - Trending sorting (richiede materialized view o KV sorted set)
+// Key namespace `posts:feed:<scope-prefix>:<...details>`:
+//   - posts:feed:discover:<userId|anon>:<cursor>:<pageSize>
+//   - posts:feed:profile:<authorId>:<viewerUserId|anon>:<cursor>:<pageSize>
+//   - posts:feed:ticker:<symbol>:<viewerUserId|anon>:<cursor>:<pageSize>
+//   - posts:feed:mentions:<targetUserId>:<viewerUserId|anon>:<cursor>:<pageSize>
+//   - posts:feed:bookmarks:<viewerUserId>:<cursor>:<pageSize>
 //
-// Invalidation contracts (anche in V1, no-op):
-//   - INSERT/DELETE post  → invalidateFeedCache('discover')
-//   - INSERT post di autore X → invalidateFeedCache({ followersOf: X })
-//   - Modifica ticker/mentions del post → invalidateFeedCache({ ticker: '...' })
-//                                       e per ogni mentioned user
-//   - Soft-delete/restore → invalidateFeedCache('discover') + author + ticker
+// Le prime pages (cursor="0") sono di gran lunga le più frequenti — è
+// lì che il caching paga. Le pages successive sono cachate comunque
+// (sicuro, hit rate basso ma TTL 60s naturalmente le scarta).
+//
+// Invalidation contracts:
+//   - INSERT/DELETE post di X → invalidateFeedCache('discover') +
+//                               invalidateFeedCache({ profile: X })
+//   - Modifica ticker/mentions → invalidateFeedCache({ ticker }) per ogni
+//                               ticker e { mentionsOf } per ogni mentioned
+//   - Soft-delete/restore     → invalidateFeedCache('discover') + profile + ticker
+//   - Bookmark toggle         → invalidateFeedCache({ bookmarksOf: viewer })
 import type { PostListPage } from "../types";
+import { getRedisClient } from "@/lib/kv/sdk";
 
 export type FeedCacheScope =
   | "discover"
-  | { user: string }            // Following feed dell'utente
-  | { followersOf: string }     // tutti i Following che includono X
+  | { user: string }            // Following feed dell'utente (alias di discover:<userId>)
+  | { followersOf: string }     // tutti i Following che includono X (futuro)
   | { profile: string }         // /profile/{id} feed
   | { ticker: string }          // /feed?ticker=BTC
   | { mentionsOf: string }      // /profile/{id}/mentions
   | { bookmarksOf: string };    // /bookmarks personali
 
-/**
- * Pattern cache-aside. V1 chiama sempre `fallback()`. V2 leggerà da KV e
- * popolerà al miss con write-through TTL configurabile.
- *
- * Firma cambiata 2026-05-16: prima ritornava solo `string[]` (gli ids),
- * costringendo il caller a un round-trip extra per ricostruire il
- * cursor → in V1 era impossibile sapere se c'erano altre pagine,
- * `nextCursor` finiva sempre null e l'infinite scroll si fermava
- * al primo batch. Ora restituiamo `PostListPage` completo (ids +
- * nextCursor) così V1 è funzionale e V2 può cachare l'intero payload.
- *
- * @param key      identificativo univoco della query (vedi feed-cache-keys
- *                 quando esisterà — per ora keys testuali generate dal
- *                 chiamante, es. "discover:cursor=null:limit=21")
- * @param fallback funzione che recupera la pagina dal DB
- */
-export async function getCachedFeedIds(
-  _key: string,
-  fallback: () => Promise<PostListPage>,
-): Promise<PostListPage> {
-  return fallback();
+const KEY_PREFIX = "posts:feed:";
+const TTL_SECONDS = 60;
+/** Batch size per SCAN durante invalidate. 100 è il default raccomandato
+ *  Upstash — bilancia roundtrip vs memoria server-side. */
+const SCAN_BATCH = 100;
+
+function namespacedKey(key: string): string {
+  // Il caller passa già una key strutturata tipo "discover:anon:0:20".
+  // Aggiungiamo solo il prefix per evitare collisioni con altri moduli.
+  return `${KEY_PREFIX}${key}`;
 }
 
 /**
- * Invalidazione. In V1 no-op (niente da invalidare). In V2 cancellerà le
- * chiavi KV che matchano lo scope.
+ * Pattern cache-aside. Se Upstash non è configurato (client null) o un
+ * errore KV avviene, fallback diretto al DB senza throw — la feed deve
+ * funzionare sempre.
  *
- * Convenzione: SEMPRE chiamare dopo una mutation che potrebbe rendere
- * stale una lista, anche se in V1 non fa niente. Così quando attiveremo
- * il caching reale non dovremo cercare i call site.
+ * Payload cachato: `PostListPage` JSON (~2KB tipico). TTL 60s = staleness
+ * accettabile (Twitter-pattern), invalidation write-through accorcia il
+ * gap su mutation.
  */
-export async function invalidateFeedCache(_scope: FeedCacheScope): Promise<void> {
-  // no-op v1
+export async function getCachedFeedIds(
+  key: string,
+  fallback: () => Promise<PostListPage>,
+): Promise<PostListPage> {
+  const client = await getRedisClient();
+  if (!client) return fallback();
+
+  const k = namespacedKey(key);
+  try {
+    const hit = await client.get<PostListPage>(k);
+    if (hit && Array.isArray(hit.ids)) return hit;
+  } catch (err) {
+    // KV down / corrotto / mismatch shape → fallback senza pollute il log
+    // con stack — è informativo, non un errore applicativo.
+    console.warn("[feed-cache] read miss-on-error", { key: k, err: String(err) });
+  }
+
+  const fresh = await fallback();
+  // Cache write best-effort: se KV è down, ignoriamo l'errore.
+  try {
+    await client.set(k, fresh, { ex: TTL_SECONDS });
+  } catch (err) {
+    console.warn("[feed-cache] write failed", { key: k, err: String(err) });
+  }
+  return fresh;
+}
+
+/**
+ * Invalidate per scope. Converte lo scope strutturato in un pattern KV
+ * e DEL puntuale via SCAN. Idempotente, no-throw. Su scope non ancora
+ * implementati ('followersOf') è un no-op silenzioso.
+ */
+export async function invalidateFeedCache(scope: FeedCacheScope): Promise<void> {
+  const client = await getRedisClient();
+  if (!client) return;
+
+  const patterns = scopeToPatterns(scope);
+  if (patterns.length === 0) return;
+
+  for (const pattern of patterns) {
+    try {
+      await deleteByPattern(client, pattern);
+    } catch (err) {
+      console.warn("[feed-cache] invalidate failed", { pattern, err: String(err) });
+    }
+  }
+}
+
+function scopeToPatterns(scope: FeedCacheScope): string[] {
+  if (scope === "discover") {
+    return [`${KEY_PREFIX}discover:*`];
+  }
+  if ("user" in scope) {
+    // Alias: la timeline dell'utente è la sua chiave discover:<userId>:*
+    return [`${KEY_PREFIX}discover:${scope.user}:*`];
+  }
+  if ("profile" in scope) {
+    return [`${KEY_PREFIX}profile:${scope.profile}:*`];
+  }
+  if ("ticker" in scope) {
+    return [`${KEY_PREFIX}ticker:${scope.ticker.toUpperCase()}:*`];
+  }
+  if ("mentionsOf" in scope) {
+    return [`${KEY_PREFIX}mentions:${scope.mentionsOf}:*`];
+  }
+  if ("bookmarksOf" in scope) {
+    return [`${KEY_PREFIX}bookmarks:${scope.bookmarksOf}:*`];
+  }
+  // followersOf: il modulo follows non c'è ancora — niente cache da
+  // invalidare. Quando arriverà, definiremo lo schema della key.
+  return [];
+}
+
+/**
+ * Iterativo SCAN + DEL per pattern. Su Upstash REST SCAN è O(N) sul
+ * dataset matchante, batch SCAN_BATCH. Su alpha-scale (<100 user) il
+ * totale è trascurabile; su scale futura valutare bookkeeping via Set
+ * di tag-invalidation (vedi roadmap).
+ */
+async function deleteByPattern(
+  client: NonNullable<Awaited<ReturnType<typeof getRedisClient>>>,
+  pattern: string,
+): Promise<number> {
+  let cursor: string = "0";
+  let deleted = 0;
+  do {
+    const result = (await client.scan(cursor, {
+      match: pattern,
+      count: SCAN_BATCH,
+    })) as [string, string[]];
+    const [next, keys] = result;
+    if (keys.length > 0) {
+      deleted += await client.del(...keys);
+    }
+    cursor = String(next);
+  } while (cursor !== "0");
+  return deleted;
 }

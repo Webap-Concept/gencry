@@ -349,11 +349,14 @@ export default function PostsArchitecturePage() {
               ridondanti dopo il primo hover.
             </li>
             <li>
-              <strong>feed-cache (V1 pass-through)</strong>:{" "}
-              <code>getCachedFeedIds()</code> oggi chiama solo il fallback;
-              quando attiveremo KV (V2) la chiave sarà{" "}
-              <code>feed:&#123;scope&#125;</code> TTL 60s. I call site lo
-              chiamano già, zero refactor quando si attiverà.
+              <strong>feed-cache (V2 Upstash KV attivo)</strong>:{" "}
+              <code>getCachedFeedIds()</code> ora legge/scrive su Upstash
+              KV (namespace <code>posts:feed:*</code> TTL 60s).{" "}
+              Cache-aside con fallback graceful: se KV è null o errore,
+              query DB diretta (mai throw). Invalidation via{" "}
+              <code>invalidateFeedCache(scope)</code> usa SCAN+DEL per
+              pattern, chiamata sia su mutation post (create/edit/delete)
+              sia su block/bookmark/admin-action.
             </li>
           </ol>
 
@@ -391,8 +394,8 @@ export default function PostsArchitecturePage() {
               contract="addCommentReaction(commentId, userId, kind) → { inserted }"
             />
             <ArchHookBox
-              title="Feed cache"
-              description="getCachedFeedIds + invalidateFeedCache. V1 pass-through; V2 Upstash KV."
+              title="Feed cache (V2 attivo)"
+              description="getCachedFeedIds + invalidateFeedCache. Upstash KV namespace posts:feed:* TTL 60s. Cache-aside con fallback graceful (KV null/errore → DB diretto). Invalidation per scope strutturato via SCAN+DEL pattern."
               filePath="lib/modules/posts/services/feed-cache.ts"
               contract="getCachedFeedIds(key, fallback) → PostListPage"
             />
@@ -675,9 +678,9 @@ export default function PostsArchitecturePage() {
             />
             <ArchFutureCard
               tier={2}
-              title="Feed cache Upstash KV"
-              description="feed:{scope} TTL 60s + write-through. Codice già strutturato in feed-cache.ts (V1 pass-through)."
-              trigger="Discover loggato p95 > 100ms o trending sorting attivo"
+              title="Post cache Upstash KV (hydration)"
+              description="post:{id} TTL 5min. Codice strutturato in post-cache.ts (V1 pass-through). Più granulare del feed-cache: ogni post hydrato resta in KV finché non viene modificato."
+              trigger="Hydration p95 > 50ms o frequent re-render del feed con DB pool saturo"
             />
             <ArchFutureCard
               tier={2}

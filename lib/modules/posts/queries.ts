@@ -215,21 +215,26 @@ export async function getProfileFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const rows = await db
-    .select({ id: posts.id, createdAt: posts.createdAt })
-    .from(posts)
-    .where(
-      and(
-        eq(posts.authorId, opts.authorId),
-        isNull(posts.deletedAt),
-        profileVisibilityClause(opts.authorId, opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursorClause(cursor),
-      ),
-    )
-    .orderBy(desc(posts.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `profile:${opts.authorId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(posts)
+        .where(
+          and(
+            eq(posts.authorId, opts.authorId),
+            isNull(posts.deletedAt),
+            profileVisibilityClause(opts.authorId, opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursorClause(cursor),
+          ),
+        )
+        .orderBy(desc(posts.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getTickerFeedIds(opts: {
@@ -242,30 +247,35 @@ export async function getTickerFeedIds(opts: {
   const cursor = decodeCursor(opts.cursor);
   // Ticker normalizzato uppercase (CHECK SQL li impone così).
   const tickerNorm = opts.ticker.toUpperCase();
-  const rows = await db
-    .select({ id: posts.id, createdAt: posts.createdAt })
-    .from(postsTickers)
-    .innerJoin(posts, eq(posts.id, postsTickers.postId))
-    .where(
-      and(
-        eq(postsTickers.ticker, tickerNorm),
-        isNull(posts.deletedAt),
-        discoverVisibilityClause(opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursor
-          ? or(
-              lt(postsTickers.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsTickers.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsTickers.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `ticker:${tickerNorm}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(postsTickers)
+        .innerJoin(posts, eq(posts.id, postsTickers.postId))
+        .where(
+          and(
+            eq(postsTickers.ticker, tickerNorm),
+            isNull(posts.deletedAt),
+            discoverVisibilityClause(opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursor
+              ? or(
+                  lt(postsTickers.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsTickers.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsTickers.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getBookmarkFeedIds(opts: {
@@ -275,36 +285,41 @@ export async function getBookmarkFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  // Ordine: per `posts_bookmarks.created_at` (quando l'utente ha
-  // bookmarkato), non per `posts.created_at`. UX migliore: il "primo
-  // bookmark" sta in cima.
-  const rows = await db
-    .select({
-      id: posts.id,
-      // Esponiamo come createdAt il timestamp di bookmark per ricostruire
-      // il cursor coerentemente; le UI userà comunque l'ordine di ritorno.
-      createdAt: postsBookmarks.createdAt,
-    })
-    .from(postsBookmarks)
-    .innerJoin(posts, eq(posts.id, postsBookmarks.postId))
-    .where(
-      and(
-        eq(postsBookmarks.userId, opts.viewerUserId),
-        isNull(posts.deletedAt),
-        cursor
-          ? or(
-              lt(postsBookmarks.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsBookmarks.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsBookmarks.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `bookmarks:${opts.viewerUserId}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      // Ordine: per `posts_bookmarks.created_at` (quando l'utente ha
+      // bookmarkato), non per `posts.created_at`. UX migliore: il "primo
+      // bookmark" sta in cima.
+      const rows = await db
+        .select({
+          id: posts.id,
+          // Esponiamo come createdAt il timestamp di bookmark per ricostruire
+          // il cursor coerentemente; le UI userà comunque l'ordine di ritorno.
+          createdAt: postsBookmarks.createdAt,
+        })
+        .from(postsBookmarks)
+        .innerJoin(posts, eq(posts.id, postsBookmarks.postId))
+        .where(
+          and(
+            eq(postsBookmarks.userId, opts.viewerUserId),
+            isNull(posts.deletedAt),
+            cursor
+              ? or(
+                  lt(postsBookmarks.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsBookmarks.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsBookmarks.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getMentionsFeedIds(opts: {
@@ -316,30 +331,35 @@ export async function getMentionsFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const rows = await db
-    .select({ id: posts.id, createdAt: postsMentions.createdAt })
-    .from(postsMentions)
-    .innerJoin(posts, eq(posts.id, postsMentions.postId))
-    .where(
-      and(
-        eq(postsMentions.mentionedUserId, opts.targetUserId),
-        isNull(posts.deletedAt),
-        discoverVisibilityClause(opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursor
-          ? or(
-              lt(postsMentions.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsMentions.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsMentions.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `mentions:${opts.targetUserId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: postsMentions.createdAt })
+        .from(postsMentions)
+        .innerJoin(posts, eq(posts.id, postsMentions.postId))
+        .where(
+          and(
+            eq(postsMentions.mentionedUserId, opts.targetUserId),
+            isNull(posts.deletedAt),
+            discoverVisibilityClause(opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursor
+              ? or(
+                  lt(postsMentions.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsMentions.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsMentions.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -248,7 +248,7 @@ async function syncTickersAndMentions(
   postId: string,
   body: string,
   postCreatedAt: Date,
-): Promise<void> {
+): Promise<{ tickers: string[]; mentionUserIds: string[] }> {
   const tickers = await extractTickers(body);
   const mentions = extractMentions(body);
 
@@ -280,6 +280,8 @@ async function syncTickersAndMentions(
         target: [postsMentions.postId, postsMentions.mentionedUserId],
       });
   }
+
+  return { tickers: Array.from(tickers), mentionUserIds };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -303,7 +305,7 @@ export async function createPost(
   const bodyCheck = validateBody(parsed.data.body, maxBodyLength);
   if (!bodyCheck.ok) return fail(bodyCheck.error, { field: "body" });
 
-  const postId = await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(posts)
       .values({
@@ -312,7 +314,12 @@ export async function createPost(
         visibility: parsed.data.visibility,
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
-    await syncTickersAndMentions(tx, inserted.id, bodyCheck.body, inserted.createdAt);
+    const synced = await syncTickersAndMentions(
+      tx,
+      inserted.id,
+      bodyCheck.body,
+      inserted.createdAt,
+    );
 
     // Claim dei media draft (atomic: o vanno tutti o nessuno via
     // rollback della transaction). Filtro WHERE garantisce ownership.
@@ -327,14 +334,16 @@ export async function createPost(
               AND ${postsMedia.postId} IS NULL`,
         );
     }
-    return inserted.id;
+    return { postId: inserted.id, ...synced };
   });
 
   await feedInvalidate("discover");
   await feedInvalidate({ followersOf: user.id });
   await feedInvalidate({ profile: user.id });
+  for (const t of created.tickers) await feedInvalidate({ ticker: t });
+  for (const m of created.mentionUserIds) await feedInvalidate({ mentionsOf: m });
 
-  return { ok: true, data: { postId } };
+  return { ok: true, data: { postId: created.postId } };
 }
 
 export async function editPost(
@@ -381,7 +390,18 @@ export async function editPost(
     return fail(I18N.visibilityNotRestrictive, { field: "visibility" });
   }
 
-  await db.transaction(async (tx) => {
+  // Cattura ticker/mentions PRIMA del clear per invalidare anche le
+  // chiavi dei ticker/mention RIMOSSI dall'edit (non solo quelli nuovi).
+  const previousTickers = await db
+    .select({ ticker: postsTickers.ticker })
+    .from(postsTickers)
+    .where(eq(postsTickers.postId, parsed.data.postId));
+  const previousMentions = await db
+    .select({ uid: postsMentions.mentionedUserId })
+    .from(postsMentions)
+    .where(eq(postsMentions.postId, parsed.data.postId));
+
+  const synced = await db.transaction(async (tx) => {
     await tx
       .update(posts)
       .set({
@@ -397,13 +417,30 @@ export async function editPost(
     await tx
       .delete(postsMentions)
       .where(eq(postsMentions.postId, parsed.data.postId));
-    await syncTickersAndMentions(tx, parsed.data.postId, bodyCheck.body, post.createdAt);
+    return syncTickersAndMentions(
+      tx,
+      parsed.data.postId,
+      bodyCheck.body,
+      post.createdAt,
+    );
   });
 
   await postInvalidate(parsed.data.postId);
   // Visibility cambiata = il post può uscire da Discover o profilo pubblico
   await feedInvalidate("discover");
   await feedInvalidate({ profile: user.id });
+  // Invalidate ticker/mentions sia per quelli vecchi (potrebbero essere
+  // stati rimossi dall'edit) sia per quelli nuovi.
+  const tickerSet = new Set<string>([
+    ...previousTickers.map((t) => t.ticker),
+    ...synced.tickers,
+  ]);
+  const mentionSet = new Set<string>([
+    ...previousMentions.map((m) => m.uid),
+    ...synced.mentionUserIds,
+  ]);
+  for (const t of tickerSet) await feedInvalidate({ ticker: t });
+  for (const m of mentionSet) await feedInvalidate({ mentionsOf: m });
 
   return { ok: true };
 }
@@ -416,6 +453,19 @@ export async function softDeletePost(
 
   const parsed = UuidSchema.safeParse(input.postId);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  // Cattura ticker/mentions del post PRIMA del soft-delete per invalidare
+  // anche le rispettive cache (il post sparirà da /feed?ticker=X e /mentions).
+  const [tickersBefore, mentionsBefore] = await Promise.all([
+    db
+      .select({ ticker: postsTickers.ticker })
+      .from(postsTickers)
+      .where(eq(postsTickers.postId, parsed.data)),
+    db
+      .select({ uid: postsMentions.mentionedUserId })
+      .from(postsMentions)
+      .where(eq(postsMentions.postId, parsed.data)),
+  ]);
 
   const result = await db
     .update(posts)
@@ -435,6 +485,8 @@ export async function softDeletePost(
   await feedInvalidate("discover");
   await feedInvalidate({ profile: user.id });
   await feedInvalidate({ followersOf: user.id });
+  for (const t of tickersBefore) await feedInvalidate({ ticker: t.ticker });
+  for (const m of mentionsBefore) await feedInvalidate({ mentionsOf: m.uid });
 
   // Invalida la Router Cache (RSC payload) di tutto il (protected)
   // layout: dopo il soft-delete il post deve sparire da feed/profilo/
