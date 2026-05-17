@@ -132,8 +132,11 @@ export default function PostsArchitecturePage() {
           }>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Visibility</strong>: post pubblici (anche anonimi) o
-              members-only (gate next-auth).
+              <strong>Visibility</strong>: 4 valori — <code>public</code>{" "}
+              (anche anon), <code>members</code> (authenticated),{" "}
+              <code>followers</code> (richiede modulo follows futuro;
+              oggi gate effettivo = autore), <code>private</code>{" "}
+              (solo autore).
             </li>
             <li>
               <strong>Moderazione</strong>: report → review admin → soft-delete
@@ -206,7 +209,7 @@ export default function PostsArchitecturePage() {
                 { name: "id",               type: "uuid v7",     note: "PK, ordinabile per tempo" },
                 { name: "author_id",        type: "uuid",        note: "FK users(id), ON DELETE CASCADE" },
                 { name: "body",             type: "text",        note: "max 1000 char (CHECK)" },
-                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members'" },
+                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Followers richiede modulo follows (non ancora attivo) → effettivamente oggi gate = autore" },
                 { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost" },
                 { name: "deleted_at",       type: "timestamptz?", note: "soft delete (autore o admin)" },
                 { name: "deleted_by",       type: "varchar(40)?", note: "'author' | 'moderator', M_posts_006" },
