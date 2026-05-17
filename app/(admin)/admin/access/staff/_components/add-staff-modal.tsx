@@ -536,7 +536,7 @@ export default function AddStaffModal({ adminRoles, onClose }: AddStaffModalProp
         size="md"
         title={t("title")}
         closeAriaLabel={t("closeAria")}
-        className="!p-0"
+        className="p-0!"
       >
         {/* Tabs */}
         <div

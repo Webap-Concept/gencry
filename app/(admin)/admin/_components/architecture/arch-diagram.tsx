@@ -97,7 +97,7 @@ export function ArchDiagram({ source, caption, id }: Props) {
         <AdminDialogContent
           title={caption ?? "Diagramma"}
           size="xl"
-          className="!max-w-[95vw] !w-[95vw]">
+          className="max-w-[95vw]! w-[95vw]!">
           <div
             className="overflow-auto rounded-xl p-4"
             style={{

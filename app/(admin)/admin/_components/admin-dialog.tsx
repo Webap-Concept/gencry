@@ -42,11 +42,15 @@ export const AdminDialogClose = DialogClose;
 
 export type AdminDialogSize = "sm" | "md" | "lg" | "xl";
 
+// Tailwind v4 important syntax è SUFFIX (`class!`), non prefix (`!class`).
+// Con prefix v4 ignora silenziosamente la classe e vince il max-w-lg
+// di default di DialogContent shadcn (size="lg" sembrava funzionare solo
+// per coincidenza). Verificato 2026-05-17.
 const SIZE_MAX_WIDTH: Record<AdminDialogSize, string> = {
-  sm: "!max-w-sm",
-  md: "!max-w-md",
-  lg: "!max-w-lg",
-  xl: "!max-w-2xl",
+  sm: "max-w-sm!",
+  md: "max-w-md!",
+  lg: "max-w-lg!",
+  xl: "max-w-2xl!",
 };
 
 export type AdminDialogContentProps = {
