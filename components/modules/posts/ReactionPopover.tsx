@@ -132,12 +132,18 @@ export function ReactionPopover({
         }`}
       >
         {top.length === 0 ? (
-          // Default: icona Like (diamante). Click = quick like (Facebook).
+          // Default: icona Like (diamante) DESATURATA — affordance "neutra"
+          // finché nessuno ha reagito. Click = quick like (Facebook).
           // top.length === 0 implica totalCount === 0 e !isActive (un
           // viewer attivo ha sempre almeno 1 reaction nel set).
           (() => {
             const Icon = REACTION_ICON[DEFAULT_REACTION];
-            return <Icon size={compact ? 16 : 18} />;
+            return (
+              <Icon
+                size={compact ? 16 : 18}
+                className="grayscale opacity-60 transition-[filter,opacity] duration-150"
+              />
+            );
           })()
         ) : (
           <span className="flex items-center -space-x-1" aria-hidden="true">
