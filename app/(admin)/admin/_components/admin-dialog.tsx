@@ -43,9 +43,6 @@ export const AdminDialogClose = DialogClose;
 export type AdminDialogSize = "sm" | "md" | "lg" | "xl";
 
 // Tailwind v4 important syntax è SUFFIX (`class!`), non prefix (`!class`).
-// Con prefix v4 ignora silenziosamente la classe e vince il max-w-lg
-// di default di DialogContent shadcn (size="lg" sembrava funzionare solo
-// per coincidenza). Verificato 2026-05-17.
 const SIZE_MAX_WIDTH: Record<AdminDialogSize, string> = {
   sm: "max-w-sm!",
   md: "max-w-md!",
@@ -130,8 +127,16 @@ export function AdminDialogContent({
         ) : null}
       </DialogHeader>
 
-      {/* Body — padding standard ricalcato dalle altre form admin. */}
-      <div className="px-5 py-4">{children}</div>
+      {/* Body — padding standard ricalcato dalle altre form admin.
+          IMPORTANTE: `min-w-0` qui è critico. DialogContent (shadcn) è
+          `display: grid`. I grid items hanno `min-width: auto` di
+          default (= min-content), quindi se un descendant ha testo
+          `white-space: nowrap` lungo (es. una query SQL nella sentry
+          errors modal), il grid item richiede come minimo quella
+          larghezza → bypassa il max-w-* e fa esplodere la modale.
+          `min-w-0` permette al grid item di shrinkare al di sotto del
+          min-content del child, lasciando agire il troncamento ellipsis. */}
+      <div className="px-5 py-4 min-w-0">{children}</div>
 
       {/* Footer — opzionale, right-aligned. */}
       {footer ? (
