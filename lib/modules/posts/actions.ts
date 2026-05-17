@@ -30,6 +30,7 @@
 
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { SignJWT } from "jose";
 import { z } from "zod";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
@@ -66,6 +67,12 @@ import {
   getActiveReportReasons,
   type ReportReason,
 } from "./services/report-reasons";
+import {
+  getInitialRepliesForRoots,
+  getRepliesForComment,
+  getRootCommentsForPost,
+} from "./queries";
+import type { CommentCardData, CommentRootCardData } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types
@@ -530,6 +537,227 @@ export async function softDeleteComment(
   });
   if (!deleted) return fail(I18N.notFound);
   return { ok: true };
+}
+
+const LoadInitialCommentsSchema = z.object({
+  postId: UuidSchema,
+  perRoot: z.number().int().min(0).max(10).optional(),
+});
+
+const LoadMoreRootCommentsSchema = z.object({
+  postId: UuidSchema,
+  cursor: z.string().optional(),
+});
+
+const LoadMoreRepliesSchema = z.object({
+  parentCommentId: UuidSchema,
+  cursor: z.string().optional(),
+});
+
+const PollCommentsSignalSchema = z.object({
+  postId: UuidSchema,
+  since: z.string().datetime(),
+});
+
+/**
+ * Carica il primo set di root commenti + reply iniziali per un post.
+ * Usato dall'inline expand del feed (lazy fetch on-expand). Su /post/[id]
+ * la page lo prefetcha lato SSR direttamente con la query, senza passare
+ * da qui.
+ *
+ * 2 query: getRootCommentsForPost (root + repliesCount) +
+ * getInitialRepliesForRoots (window function ROW_NUMBER) — niente N+1.
+ */
+export async function loadInitialCommentsAction(
+  input: z.input<typeof LoadInitialCommentsSchema>,
+): Promise<
+  ActionResult<{
+    root: CommentRootCardData[];
+    replies: Record<string, CommentCardData[]>;
+    nextRootCursor: string | null;
+  }>
+> {
+  const parsed = LoadInitialCommentsSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const user = await getUser();
+  const viewerId = user?.id;
+
+  const rootPage = await getRootCommentsForPost({
+    postId: parsed.data.postId,
+    viewerUserId: viewerId,
+  });
+
+  const rootIds = rootPage.comments.map((c) => c.id);
+  const replies =
+    rootIds.length === 0
+      ? {}
+      : await getInitialRepliesForRoots({
+          rootIds,
+          perRoot: parsed.data.perRoot ?? 3,
+          viewerUserId: viewerId,
+        });
+
+  return {
+    ok: true,
+    data: {
+      root: rootPage.comments,
+      replies,
+      nextRootCursor: rootPage.nextCursor,
+    },
+  };
+}
+
+export async function loadMoreRootCommentsAction(
+  input: z.input<typeof LoadMoreRootCommentsSchema>,
+): Promise<
+  ActionResult<{
+    root: CommentRootCardData[];
+    replies: Record<string, CommentCardData[]>;
+    nextRootCursor: string | null;
+  }>
+> {
+  const parsed = LoadMoreRootCommentsSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const user = await getUser();
+  const viewerId = user?.id;
+
+  const rootPage = await getRootCommentsForPost({
+    postId: parsed.data.postId,
+    viewerUserId: viewerId,
+    cursor: parsed.data.cursor,
+  });
+
+  const rootIds = rootPage.comments.map((c) => c.id);
+  const replies =
+    rootIds.length === 0
+      ? {}
+      : await getInitialRepliesForRoots({
+          rootIds,
+          perRoot: 3,
+          viewerUserId: viewerId,
+        });
+
+  return {
+    ok: true,
+    data: {
+      root: rootPage.comments,
+      replies,
+      nextRootCursor: rootPage.nextCursor,
+    },
+  };
+}
+
+export async function loadMoreRepliesAction(
+  input: z.input<typeof LoadMoreRepliesSchema>,
+): Promise<ActionResult<{ replies: CommentCardData[]; nextCursor: string | null }>> {
+  const parsed = LoadMoreRepliesSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const user = await getUser();
+  const viewerId = user?.id;
+
+  const page = await getRepliesForComment({
+    parentCommentId: parsed.data.parentCommentId,
+    viewerUserId: viewerId,
+    cursor: parsed.data.cursor,
+  });
+
+  return {
+    ok: true,
+    data: { replies: page.replies, nextCursor: page.nextCursor },
+  };
+}
+
+/**
+ * Genera un JWT custom firmato con SUPABASE_JWT_SECRET per autenticare
+ * il client al servizio Supabase Realtime su channel PRIVATE (post
+ * visibility != 'public'). Non usiamo Supabase Auth, quindi forniamo
+ * un JWT minimale con `sub` (= our user id) + `role: authenticated` +
+ * scadenza 1h. La RLS policy `comments_topic_read` su realtime.messages
+ * legge `auth.jwt() ->> 'sub'` per il visibility gate.
+ *
+ * Re-fetched dal client periodicamente (50 min cadenza, vedi
+ * useCommentsLiveSignal) per evitare scadenza durante sessione lunga.
+ */
+export async function generateRealtimeAuthToken(): Promise<
+  ActionResult<{ token: string; expiresAt: number }>
+> {
+  const user = await getUser();
+  if (!user) return fail(I18N.unauthenticated);
+
+  const secret = process.env.SUPABASE_JWT_SECRET;
+  if (!secret) return fail("posts.errors.realtime_jwt_missing_secret");
+
+  // exp = now + 1h. Lasciamo 10min di margine per il client refresh.
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60;
+  const token = await new SignJWT({
+    sub: user.id,
+    role: "authenticated",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(exp)
+    .sign(new TextEncoder().encode(secret));
+
+  return { ok: true, data: { token, expiresAt: exp } };
+}
+
+/**
+ * Server Action consumata da `useCommentsLiveSignal` in modalità "poll".
+ * Ritorna il NUMERO di commenti non-deleted inseriti su `postId` dopo
+ * `since`. Conta solo: visibility ereditata, block filter, deleted_at IS
+ * NULL. Niente body, niente JOIN — pura COUNT veloce.
+ */
+export async function pollCommentsSignalAction(
+  input: z.input<typeof PollCommentsSignalSchema>,
+): Promise<ActionResult<{ newCount: number }>> {
+  const parsed = PollCommentsSignalSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const user = await getUser();
+  const viewerId = user?.id;
+
+  // Verifica veloce che il post esiste e non è soft-deleted.
+  const target = await db
+    .select({ id: posts.id, visibility: posts.visibility, authorId: posts.authorId, deletedAt: posts.deletedAt })
+    .from(posts)
+    .where(eq(posts.id, parsed.data.postId))
+    .limit(1);
+  if (!target[0] || target[0].deletedAt) return fail(I18N.notFound);
+
+  // Visibility gate semplificato: se è private/followers e viewer non è
+  // l'autore, ritorna 0 (niente leak di esistenza).
+  const vis = target[0].visibility as PostVisibility;
+  if ((vis === "private" || vis === "followers") && target[0].authorId !== viewerId) {
+    return { ok: true, data: { newCount: 0 } };
+  }
+  if (vis === "members" && !viewerId) {
+    return { ok: true, data: { newCount: 0 } };
+  }
+
+  const since = new Date(parsed.data.since);
+  const sinceIso = since.toISOString();
+  const blockFilterSql = viewerId
+    ? sql`AND NOT EXISTS (
+        SELECT 1 FROM posts_user_blocks b
+        WHERE (b.blocker_id = ${viewerId}::uuid AND b.blocked_id = c.author_id)
+           OR (b.blocked_id = ${viewerId}::uuid AND b.blocker_id = c.author_id)
+      )`
+    : sql``;
+
+  const result = await db.execute<{ cnt: string }>(sql`
+    SELECT COUNT(*)::text AS cnt FROM posts_comments c
+    WHERE c.post_id = ${parsed.data.postId}::uuid
+      AND c.deleted_at IS NULL
+      AND c.created_at > ${sinceIso}
+      ${blockFilterSql}
+  `);
+  const rows = Array.from(result as unknown as Array<{ cnt: string }>);
+  const row = rows[0];
+  const newCount = row ? parseInt(row.cnt, 10) || 0 : 0;
+  return { ok: true, data: { newCount } };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

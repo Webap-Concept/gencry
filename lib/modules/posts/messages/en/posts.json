@@ -41,14 +41,36 @@
   },
   "comments": {
     "empty_body": "Write something before commenting.",
-    "body_too_long": "Your comment is too long."
+    "body_too_long": "Your comment is too long.",
+    "loading": "Loading comments…",
+    "empty": "No comments yet. Be the first.",
+    "load_more": "Show more comments",
+    "edited": "edited",
+    "tombstone": "Comment removed by author.",
+    "show_more_replies": "Show {count, plural, =1 {1 more reply} other {# more replies}}",
+    "banner": {
+      "new_comments": "{count, plural, =1 {1 new comment} other {# new comments}} — click to load"
+    },
+    "actions": {
+      "reply": "Reply"
+    },
+    "composer": {
+      "placeholder": "Write a comment…",
+      "aria_label": "Comment body",
+      "error_generic": "Could not send. Try again."
+    }
   },
   "common": {
     "cancel": "Cancel",
     "close": "Close",
     "user_fallback": "User",
     "see_all": "See all",
-    "sign_up": "Sign up"
+    "sign_up": "Sign up",
+    "submit": "Send",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "more_actions": "More actions"
   },
   "visibility": {
     "public": "Everyone",

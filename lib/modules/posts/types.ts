@@ -91,6 +91,31 @@ export type CommentCardData = {
   createdAt: Date;
 };
 
+/**
+ * Variante "root commento" arricchita con `repliesCount`. La query del
+ * thread carica i root con repliesCount in 1 sola query (subquery scalare
+ * con count parziale sull'indice idx_posts_comments_replies). Lato UI
+ * `repliesCount > 0` ⇒ mostra "Mostra altre N risposte" oppure il pannello
+ * tombstone se tutti i reply sono soft-deleted (caso raro).
+ */
+export type CommentRootCardData = CommentCardData & {
+  repliesCount: number;
+};
+
+export type CommentsRootPage = {
+  comments: CommentRootCardData[];
+  nextCursor: string | null;
+};
+
+export type CommentRepliesPage = {
+  replies: CommentCardData[];
+  nextCursor: string | null;
+};
+
+/**
+ * @deprecated mantenuto per backward-compat finché tutti i call site
+ * passano a `CommentsRootPage`. Da rimuovere a chiusura della PR-comments.
+ */
 export type CommentsPage = {
   comments: CommentCardData[];
   nextCursor: string | null;

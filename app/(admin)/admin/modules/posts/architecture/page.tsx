@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-16";
+const REVIEWED_AT = "2026-05-17";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -69,6 +69,7 @@ const SECTIONS = [
   { id: "pipeline",       label: "Pipeline" },
   { id: "caching",        label: "Caching" },
   { id: "hooks",          label: "Hooks" },
+  { id: "realtime-auth",  label: "Realtime authz" },
   { id: "performance",    label: "Performance" },
   { id: "future",         label: "Future" },
   { id: "files",          label: "Files map" },
@@ -256,6 +257,22 @@ export default function PostsArchitecturePage() {
                 { name: "filtro feed", type: "SQL", note: "NOT EXISTS in entrambe le direzioni" },
               ]}
             />
+
+            <ArchSchemaTable
+              name="posts_comments"
+              description="Commenti — schema flat (1 parent_comment_id), rendering 2-livelli visual. M_posts_007 aggiunge 2 indici parziali (root + replies) per fan-out feed inline + post page. Counter posts.comments_count gestito da trigger soft-delete aware (M_posts_002)."
+              columns={[
+                { name: "id",                 type: "uuid v7",     note: "PK, ordering chronological" },
+                { name: "post_id",            type: "uuid",        note: "FK posts ON DELETE CASCADE" },
+                { name: "author_id",          type: "uuid",        note: "FK users" },
+                { name: "parent_comment_id",  type: "uuid?",       note: "FK posts_comments ON DELETE SET NULL — visual grouping 2-livelli" },
+                { name: "body",               type: "text",        note: "CHECK length 1..2000" },
+                { name: "edited_at",          type: "timestamptz?", note: "set on edit entro 10min" },
+                { name: "deleted_at",         type: "timestamptz?", note: "soft delete (tombstone if has replies, hard-hide otherwise)" },
+                { name: "idx root",           type: "(post_id, created_at)", note: "WHERE parent_comment_id IS NULL AND deleted_at IS NULL — M_posts_007" },
+                { name: "idx replies",        type: "(parent_comment_id, created_at)", note: "WHERE parent_comment_id IS NOT NULL AND deleted_at IS NULL — M_posts_007" },
+              ]}
+            />
           </div>
         </ArchSection>
 
@@ -374,6 +391,135 @@ export default function PostsArchitecturePage() {
               filePath="lib/modules/posts/ticker-preview-actions.ts"
               contract="getTickerPreviewBatch(symbols) → Record<symbol, data>"
             />
+            <ArchHookBox
+              title="Comments realtime provider (Broadcast)"
+              description="V1 Supabase Realtime BROADCAST (1 channel/post page). Trigger DB posts_comments_broadcast_trg (M_posts_007) emette su topic posts_comments:{post_id}. RLS policy permissiva sui topic posts_comments:* per authenticated. V2 = single-channel pooling o broadcast fanout via Edge Function — swap-in-place senza toccare i caller."
+              filePath="lib/modules/posts/services/comments-realtime.ts"
+              contract="subscribeToCommentsForPost({ postId, onInsert }) → unsubscribe()"
+            />
+            <ArchHookBox
+              title="Comments live signal hook"
+              description="Hook React con 3 mode (subscribe / poll / off) configurabili via settings admin. Banner non-disruptive 'X nuovi commenti', dedup ottimistico via registerOwnComment."
+              filePath="lib/modules/posts/lib/use-comments-live-signal.ts"
+              contract="useCommentsLiveSignal({ postId, mode, pollIntervalMs, fetchNewCount }) → { newCount, lastSyncAt, markSynced, registerOwnComment }"
+            />
+            <ArchHookBox
+              title="Comments queries (root + reply window function)"
+              description="getRootCommentsForPost(root + repliesCount inline) + getInitialRepliesForRoots(window ROW_NUMBER per N root in 1 query) + getRepliesForComment (on-demand). Niente N+1. Ordering DESC su (created_at, id) sia root sia reply — più recente in cima. Future Tier 3: sort modes configurabili (recent/top/controversial)."
+              filePath="lib/modules/posts/queries.ts"
+              contract="getRootCommentsForPost(opts) / getInitialRepliesForRoots(opts) / getRepliesForComment(opts)"
+            />
+          </div>
+        </ArchSection>
+
+        {/* ─────────────────────────── Realtime authz ─────────────────── */}
+        <ArchSection
+          id="realtime-auth"
+          title="Realtime authorization model"
+          icon={Wrench}
+          intro={
+            <>
+              Mapping fra <code>posts.visibility</code> e visibility del
+              channel Supabase Realtime. Decisione: il channel realtime
+              eredita la stessa visibility del post target. Topic naming
+              convention <code>posts_comments:{"{post_id}"}</code>.
+            </>
+          }>
+          <div className="space-y-3">
+            <p>
+              <strong>Mapping visibility → channel mode</strong>:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <code>public</code> → broadcast channel <strong>public</strong>{" "}
+                (<code>realtime.send(payload, event, topic, false)</code>),
+                nessun setAuth richiesto, ricevibile anche da anon (per
+                futuro PR-9 SEO).
+              </li>
+              <li>
+                <code>members</code> → broadcast channel <strong>private</strong>{" "}
+                (<code>realtime.send(..., true)</code>), client deve fare{" "}
+                <code>setAuth(jwt)</code> + subscribe con{" "}
+                <code>{`{ private: true }`}</code>. RLS policy passa se
+                l'utente è authenticated.
+              </li>
+              <li>
+                <code>followers</code> → broadcast channel <strong>private</strong>{" "}
+                +{" "}
+                <strong>RLS gate: viewer è follower dell'autore</strong>
+                . Implementazione completa quando arriva il modulo follows;
+                fino ad allora, solo l'autore stesso passa il gate.
+              </li>
+              <li>
+                <code>private</code> → broadcast channel <strong>private</strong>{" "}
+                + RLS gate: viewer è l'autore. Per definizione nessun
+                altro vede il post né i suoi commenti.
+              </li>
+            </ul>
+
+            <p className="mt-3">
+              <strong>JWT custom</strong>: non usiamo Supabase Auth come
+              identity provider, ma per i channel private serve un JWT
+              valido. Generiamo un JWT custom firmato con{" "}
+              <code>SUPABASE_JWT_SECRET</code> (env) via Server Action{" "}
+              <code>generateRealtimeAuthToken</code>: claim{" "}
+              <code>{`{ sub: user.id, role: "authenticated", exp: now + 1h }`}</code>
+              . Il client lo recupera al mount del thread (solo se il post
+              non è public) e lo passa a{" "}
+              <code>supabase.realtime.setAuth(jwt)</code> prima di{" "}
+              <code>.subscribe()</code>. Re-fetch automatico ogni 50 min
+              per evitare scadenza durante una sessione lunga.
+            </p>
+
+            <p className="mt-3">
+              <strong>RLS policy su <code>realtime.messages</code></strong>{" "}
+              (M_posts_007 §3): nome <code>comments_topic_read</code>,
+              applies <code>TO authenticated</code>, USING gate che estrae
+              il post_id da <code>realtime.topic()</code> e verifica
+              visibility + viewer access via{" "}
+              <code>(auth.jwt() {`->>`} 'sub')::uuid</code>. I channel
+              public NON passano dalla policy (Supabase li distribuisce
+              direttamente).
+            </p>
+
+            <p className="mt-3">
+              <strong>Trigger condizionale</strong>: il trigger{" "}
+              <code>posts_comments_broadcast_trg</code> (M_posts_007 §2)
+              legge <code>posts.visibility</code> del post target via
+              subquery, e passa <code>private = false</code> per{" "}
+              <code>public</code>, <code>true</code> altrimenti. 1 SELECT
+              extra per ogni INSERT (~1ms, index PK su{" "}
+              <code>posts.id</code>).
+            </p>
+
+            <div
+              className="mt-3 p-3 rounded-lg text-xs"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--gc-warning-fg) 8%, transparent)",
+                color: "var(--gc-warning-fg)",
+              }}>
+              <strong>Invariante</strong>: ogni feature realtime futura
+              (reactions live, presence, DM, ecc.) deve seguire questo
+              stesso mapping. <strong>NIENTE channel public per dati che
+              non sono pubblicamente visibili.</strong> Il payload curato
+              (solo IDs) non basta da solo a giustificare un public: se
+              esiste un commento su un post private, il fatto stesso
+              dell'attività è metadata sensibile.
+            </div>
+
+            <p className="mt-3">
+              <strong>Anti-leak</strong>: il payload broadcast contiene
+              solo IDs (<code>commentId</code>, <code>postId</code>,{" "}
+              <code>parentCommentId</code>, <code>authorId</code>,{" "}
+              <code>createdAt</code>) — mai il <code>body</code>. Anche
+              se la policy RLS dovesse fallire e un utente non autorizzato
+              ricevesse l'evento, vedrebbe solo "esiste un nuovo
+              commento" senza contenuto. Il client click banner → Server
+              Action <code>loadInitialCommentsAction</code> applica
+              comunque visibility check server-side prima di restituire
+              il body.
+            </p>
           </div>
         </ArchSection>
 
@@ -420,12 +566,6 @@ export default function PostsArchitecturePage() {
           <div className="grid sm:grid-cols-2 gap-3">
             <ArchFutureCard
               tier={1}
-              title="Comments thread"
-              description="Inline su /post/[id], realtime via Supabase Postgres Changes. Schema già pronto (posts_comments). Cost: 1-2 giorni."
-              trigger="Prossima iterazione (T1 finale)"
-            />
-            <ArchFutureCard
-              tier={1}
               title="KV-set block precomputato"
               description="blocks:user:{id} Set in Upstash KV. Evita la NOT EXISTS in fan-out feed (oggi 5+ subquery per request)."
               trigger="Quando il Following feed > 500 followingIds o p95 > 100ms"
@@ -449,6 +589,12 @@ export default function PostsArchitecturePage() {
               trigger="Following feed con >100 post/giorno per user"
             />
             <ArchFutureCard
+              tier={2}
+              title="Single-channel pooling commenti realtime"
+              description="Oggi 1 channel Broadcast per post page open (topic posts_comments:{id}). Su un post trending con migliaia di viewer = altrettanti channel concorrenti. V2: 1 solo channel per utente sottoscritto a un topic-wildcard tipo posts_comments:* (oppure Edge Function fanout su un channel personale viewer:{userId}). L'interfaccia di subscribeToCommentsForPost resta invariata (hookable)."
+              trigger="Post trending con >500 viewer simultanei o concurrent realtime > 70% del plan limit"
+            />
+            <ArchFutureCard
               tier={3}
               title="Virtualization 100+"
               description="react-window per feed con 100+ post visibili. DOM rimane bounded."
@@ -459,6 +605,12 @@ export default function PostsArchitecturePage() {
               title="Edge cache Discover anonimo"
               description="Discover anonimo è 99% identico tra utenti — può vivere in edge cache 30s. CDN-friendly."
               trigger="Discover anonymous traffic > 70% del totale"
+            />
+            <ArchFutureCard
+              tier={3}
+              title="Comments sort modes configurabili"
+              description="Oggi solo `recent` (DESC su created_at). Aggiungere `top` (per repliesCount + reactionsCount denorm), `controversial` (alta variabilità di reaction sentiment). Richiede counter denorm aggiuntivi + index ad-hoc. UI: pill toggle sopra il thread."
+              trigger="Post con >50 commenti per cui il chronological perde leggibilità"
             />
           </div>
         </ArchSection>

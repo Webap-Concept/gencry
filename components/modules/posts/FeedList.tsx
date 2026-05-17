@@ -43,6 +43,22 @@ type Props = {
   /** Preview ticker pre-fetched server-side. Propagata al TickerHoverCard
    *  per zero round-trip al primo hover. */
   tickerPreviewMap?: Record<string, TickerPreviewData>;
+  /** Quando passato, abilita l'inline expand dei commenti sotto ogni
+   *  PostCard del feed. Caricato dal Server Component padre via
+   *  loadCommentsConfig(). */
+  commentsThreadProps?: {
+    viewerUserId?: string;
+    viewerProfile?: {
+      username: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      avatarUrl: string | null;
+    };
+    liveMode: "subscribe" | "poll" | "off";
+    pollIntervalSeconds: number;
+    repliesInitialCount: number;
+    maxBodyLength: number;
+  };
 };
 
 export function FeedList(props: Props) {
@@ -121,6 +137,7 @@ export function FeedList(props: Props) {
               isAuthor={p.author.id === props.viewerUserId}
               coinNameMap={props.coinNameMap}
               tickerPreviewMap={props.tickerPreviewMap}
+              commentsThreadProps={props.commentsThreadProps}
             />
           ))
         )}

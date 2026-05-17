@@ -27,6 +27,7 @@ import {
 import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
 import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
+import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { FeedList } from "@/components/modules/posts/FeedList";
 import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRow";
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
@@ -65,12 +66,13 @@ export default async function ExplorePage({
   // Carica la prima pagina del feed scelto + (se ticker) lo snapshot
   // del coin per il CoinSummaryCard sticky + la coinNameMap per il
   // match nomi estesi nel PostBody di ogni card.
-  const [page, coin, coinNameMap] = await Promise.all([
+  const [page, coin, coinNameMap, commentsConfig] = await Promise.all([
     ticker
       ? getTickerFeedIds({ ticker, viewerUserId: user.id })
       : getFeedIds({ tab: "discover", viewerUserId: user.id }),
     ticker ? getCoinForCard(ticker) : Promise.resolve(null),
     getCoinNameMap(),
+    loadCommentsConfig(),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
   // Prefetch batch dei preview ticker visibili (incluso il filter ticker
@@ -142,6 +144,19 @@ export default async function ExplorePage({
           coinNameMap={coinNameMap}
           tickerPreviewMap={tickerPreviewMap}
           emptyState={<ExploreEmptyState ticker={ticker} />}
+          commentsThreadProps={{
+            viewerUserId: user.id,
+            viewerProfile: {
+              username: user.username,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              avatarUrl: user.avatarUrl,
+            },
+            liveMode: commentsConfig.liveModeFeed,
+            pollIntervalSeconds: commentsConfig.pollIntervalSeconds,
+            repliesInitialCount: commentsConfig.repliesInitialCount,
+            maxBodyLength: commentsConfig.maxBodyLength,
+          }}
         />
       </div>
     </div>

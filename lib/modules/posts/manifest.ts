@@ -14,7 +14,7 @@ export const POSTS_MODULE: ModuleManifest = {
   slug: "posts",
   label: "Posts",
   description: "Social feed: composer, reactions, comments, reposts, bookmarks, moderation.",
-  version: "0.1.0", // bump a 1.0.0 quando PR-1→PR-9 saranno tutte in main
+  version: "0.2.0", // 0.2.0 = aggiunta thread commenti 2-livelli (PR-comments). 1.0.0 quando PR-9 SEO sitemap chiude.
   icon: "MessageSquare",
   permission: "modules:posts",
   permissionLabel: "Access Posts module",

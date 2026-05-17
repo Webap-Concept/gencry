@@ -64,3 +64,55 @@ export async function testPostsR2Connection(): Promise<PostsR2ConnectionResult> 
   if (!cfg) return { ok: false, reason: "missing_config" };
   return checkPostsR2Connection(cfg);
 }
+
+export type SaveCommentsSettingsInput = {
+  liveModePostPage: "subscribe" | "poll" | "off";
+  liveModeFeed: "subscribe" | "poll" | "off";
+  pollIntervalSeconds: number;
+  cacheTtlSeconds: number;
+  maxBodyLength: number;
+  repliesInitialCount: number;
+};
+
+const VALID_MODES = ["subscribe", "poll", "off"] as const;
+
+function clampIntInput(raw: number, min: number, max: number): number {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n)) return min;
+  return Math.min(Math.max(n, min), max);
+}
+
+
+export async function saveCommentsSettings(
+  input: SaveCommentsSettingsInput,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const modePostPage = (VALID_MODES as readonly string[]).includes(input.liveModePostPage)
+    ? input.liveModePostPage
+    : "subscribe";
+  const modeFeed = (VALID_MODES as readonly string[]).includes(input.liveModeFeed)
+    ? input.liveModeFeed
+    : "subscribe";
+
+  await updateAppSetting("modules.posts.comments.live_mode_post_page", modePostPage);
+  await updateAppSetting("modules.posts.comments.live_mode_feed", modeFeed);
+  await updateAppSetting(
+    "modules.posts.comments.poll_interval_seconds",
+    String(clampIntInput(input.pollIntervalSeconds, 5, 120)),
+  );
+  await updateAppSetting(
+    "modules.posts.comments.cache_ttl_seconds",
+    String(clampIntInput(input.cacheTtlSeconds, 0, 300)),
+  );
+  await updateAppSetting(
+    "modules.posts.comments.max_body_length",
+    String(clampIntInput(input.maxBodyLength, 100, 2000)),
+  );
+  await updateAppSetting(
+    "modules.posts.comments.replies_initial_count",
+    String(clampIntInput(input.repliesInitialCount, 0, 10)),
+  );
+
+  return { ok: true };
+}
