@@ -33,9 +33,13 @@ import { ReportContentDialog } from "./ReportContentDialog";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
-  if (author.username) return `@${author.username}`;
+  // Stesso pattern di PostCard.authorDisplayName: nome+cognome prima,
+  // username SENZA chiocciola come fallback. La `@` resta solo per
+  // le mention inline nel body.
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  return full || fallback;
+  if (full) return full;
+  if (author.username) return author.username;
+  return fallback;
 }
 
 function formatRelativeTime(

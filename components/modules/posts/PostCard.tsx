@@ -85,9 +85,13 @@ function authorDisplayName(
   author: PostCardData["author"],
   fallback: string,
 ): string {
-  if (author.username) return `@${author.username}`;
+  // Priorità: nome+cognome se presenti (UX più umana, ridotto noise di
+  // @username). Username come fallback SENZA chiocciola — la `@` resta
+  // riservata alle mention nel body. Pattern allineato a LinkedIn.
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  return full || fallback;
+  if (full) return full;
+  if (author.username) return author.username;
+  return fallback;
 }
 
 // Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
