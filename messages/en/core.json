@@ -312,6 +312,35 @@
         "confirmCheckbox": "I understand that after {graceDays} days my data will be permanently deleted and cannot be recovered.",
         "finalIdle": "Delete permanently",
         "finalPending": "Deleting…"
+      },
+      "accordion": {
+        "consents": {
+          "title": "Consents",
+          "outdated": "{count, plural, one {# consent to renew} other {# consents to renew}}",
+          "allCurrent": "All up to date"
+        },
+        "cookies": {
+          "title": "Cookie preferences",
+          "noDecision": "Decision pending",
+          "customized": "Customized",
+          "bannerDisabled": "Banner disabled"
+        },
+        "posts": {
+          "title": "Posts",
+          "current": "Default visibility: {visibility}"
+        },
+        "export": {
+          "title": "Data export",
+          "none": "No requests",
+          "count": "{count, plural, one {# request} other {# requests}}"
+        },
+        "danger": {
+          "title": "Delete account"
+        }
+      },
+      "posts": {
+        "description": "Choose the default visibility for new posts. You can always change it for a single post.",
+        "saveError": "Could not save preference. Please retry."
       }
     },
     "actions": {

@@ -1717,6 +1717,20 @@ export const postsCronRuns = pgTable(
   ],
 );
 
+// Sidecar 1:1 con users per preferenze del modulo posts. Row creata lazy
+// on first set; assenza row = default app ("public"). Vedi
+// M_posts_009_user_preferences.sql.
+export const postsUserPreferences = pgTable("posts_user_preferences", {
+  userId:            uuid("user_id").primaryKey()
+                       .references(() => users.id, { onDelete: "cascade" }),
+  defaultVisibility: varchar("default_visibility", { length: 16 }).notNull().default("public"),
+  createdAt:         timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:         timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PostsUserPreferences    = typeof postsUserPreferences.$inferSelect;
+export type NewPostsUserPreferences = typeof postsUserPreferences.$inferInsert;
+
 export type PostsCronRun    = typeof postsCronRuns.$inferSelect;
 export type NewPostsCronRun = typeof postsCronRuns.$inferInsert;
 

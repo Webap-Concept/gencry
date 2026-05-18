@@ -16,6 +16,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import useSWR from "swr";
+import type { PostVisibility } from "@/lib/db/schema";
+import { getMyPostPreferences } from "@/lib/modules/posts/preferences-actions";
 import { PostComposerModal } from "./PostComposerModal";
 
 type Variant = "sidebar" | "fab";
@@ -39,6 +41,18 @@ export function NewPostButton({ variant }: { variant: Variant }) {
     revalidateOnFocus: false,
     keepPreviousData: true,
   });
+  // Sticky default visibility (cross-device). Server Action come fetcher:
+  // niente nuovo endpoint REST. SWR cache la chiamata; mutate dopo publish
+  // così se l'utente apre un nuovo composer subito vede la nuova preferenza.
+  const { data: defaultVisibility, mutate: mutateVisibility } =
+    useSWR<PostVisibility>(
+      user ? "posts:default-visibility" : null,
+      async () => {
+        const res = await getMyPostPreferences();
+        return res.ok && res.data ? res.data.defaultVisibility : "public";
+      },
+      { revalidateOnFocus: false, keepPreviousData: true },
+    );
 
   useEffect(() => {
     setMounted(true);
@@ -77,8 +91,14 @@ export function NewPostButton({ variant }: { variant: Variant }) {
       <PostComposerModal
         open={open}
         onOpenChange={setOpen}
-        onPublished={setPublishedId}
+        onPublished={(postId) => {
+          setPublishedId(postId);
+          // createPost ha già aggiornato server-side la sticky preference:
+          // re-fetch silenzioso per allineare la cache del prossimo open.
+          mutateVisibility();
+        }}
         user={user ?? null}
+        initialDefaultVisibility={defaultVisibility}
       />
       {mounted && publishedId
         ? createPortal(

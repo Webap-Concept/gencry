@@ -42,6 +42,7 @@ import {
   postsTickers,
   postsMentions,
   postsReports,
+  postsUserPreferences,
   userProfiles,
   POST_REACTION_KINDS,
   POST_VISIBILITIES,
@@ -342,6 +343,24 @@ export async function createPost(
   await feedInvalidate({ profile: user.id });
   for (const t of created.tickers) await feedInvalidate({ ticker: t });
   for (const m of created.mentionUserIds) await feedInvalidate({ mentionsOf: m });
+
+  // Sticky visibility: l'ultima visibility scelta diventa il default per i
+  // post successivi (sticky cross-device, vedi posts_user_preferences).
+  // Best-effort: fallimento qui non rompe la create già committata.
+  try {
+    await db
+      .insert(postsUserPreferences)
+      .values({ userId: user.id, defaultVisibility: parsed.data.visibility })
+      .onConflictDoUpdate({
+        target: postsUserPreferences.userId,
+        set: {
+          defaultVisibility: parsed.data.visibility,
+          updatedAt: sql`NOW()`,
+        },
+      });
+  } catch {
+    // swallow: la preferenza è un nice-to-have, non blocca la pubblicazione
+  }
 
   return { ok: true, data: { postId: created.postId } };
 }

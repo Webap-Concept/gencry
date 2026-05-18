@@ -45,6 +45,8 @@ type Props = {
   maxBodyLength?: number;
   /** Se presente, la modale è in mode EDIT su questo post. Altrimenti CREATE. */
   editPayload?: EditPayload;
+  /** Sticky default in mode create; in edit è ignorato. */
+  initialDefaultVisibility?: PostVisibility;
 };
 
 export function PostComposerModal({
@@ -54,6 +56,7 @@ export function PostComposerModal({
   user,
   maxBodyLength,
   editPayload,
+  initialDefaultVisibility,
 }: Props) {
   const tComp = useTranslations("posts.composer");
   return (
@@ -70,6 +73,7 @@ export function PostComposerModal({
             autoFocus
             user={user}
             maxBodyLength={maxBodyLength}
+            initialDefaultVisibility={initialDefaultVisibility}
             mode={
               editPayload
                 ? {

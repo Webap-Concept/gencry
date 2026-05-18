@@ -88,6 +88,9 @@ type Props = {
   onPublished?: (postId: string, edited?: ComposerPublishedPayload) => void;
   autoFocus?: boolean;
   mode?: CreateMode | EditMode;
+  /** Default visibility in mode create (sticky preference letta dal parent).
+   *  Ignorato in mode edit (lì la visibility iniziale è quella del post). */
+  initialDefaultVisibility?: PostVisibility;
 };
 
 export function Composer({
@@ -96,11 +99,13 @@ export function Composer({
   onPublished,
   autoFocus,
   mode = { kind: "create" },
+  initialDefaultVisibility,
 }: Props) {
   const isEdit = mode.kind === "edit";
+  const createDefault = initialDefaultVisibility ?? "public";
   const [body, setBody] = useState(isEdit ? mode.initialBody : "");
   const [visibility, setVisibility] = useState<PostVisibility>(
-    isEdit ? mode.initialVisibility : "public",
+    isEdit ? mode.initialVisibility : createDefault,
   );
   const [mediaIds, setMediaIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +139,9 @@ export function Composer({
         const res = await createPost({ body, visibility, mediaIds });
         if (res.ok) {
           setBody("");
-          setVisibility("public");
+          // Reset alla preferenza appena salvata server-side (sticky):
+          // l'utente vede il prossimo composer già impostato sull'ultima scelta.
+          setVisibility(visibility);
           setMediaIds([]);
           onPublished?.(res.data!.postId);
         } else {
