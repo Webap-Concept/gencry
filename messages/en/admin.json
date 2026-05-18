@@ -1108,6 +1108,7 @@
       "filterVerifiedYes": "✓ Verified email",
       "filterVerifiedNo": "✗ Unverified email",
       "filterStatusActive": "Active accounts",
+      "filterStatusWithStrikes": "With active strikes",
       "filterStatusDeletionRequested": "Deletion requested",
       "filterStatusAll": "All (incl. deleted)",
       "filterButton": "Filter",
