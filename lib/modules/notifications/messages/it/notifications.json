@@ -40,17 +40,17 @@
   "types": {
     "post": {
       "reaction": {
-        "added": "{actor} ha reagito al tuo post"
+        "added": "<actor>{name}</actor> ha reagito al tuo post"
       },
       "comment": {
-        "created": "{actor} ha commentato il tuo post",
+        "created": "<actor>{name}</actor> ha commentato il tuo post",
         "reaction": {
-          "added": "{actor} ha reagito al tuo commento"
+          "added": "<actor>{name}</actor> ha reagito al tuo commento"
         }
       },
-      "mention": "{actor} ti ha menzionato in un post",
+      "mention": "<actor>{name}</actor> ti ha menzionato in un post",
       "repost": {
-        "created": "{actor} ha citato il tuo post"
+        "created": "<actor>{name}</actor> ha citato il tuo post"
       }
     }
   }

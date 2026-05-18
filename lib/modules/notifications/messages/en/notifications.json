@@ -40,17 +40,17 @@
   "types": {
     "post": {
       "reaction": {
-        "added": "{actor} reacted to your post"
+        "added": "<actor>{name}</actor> reacted to your post"
       },
       "comment": {
-        "created": "{actor} commented on your post",
+        "created": "<actor>{name}</actor> commented on your post",
         "reaction": {
-          "added": "{actor} reacted to your comment"
+          "added": "<actor>{name}</actor> reacted to your comment"
         }
       },
-      "mention": "{actor} mentioned you in a post",
+      "mention": "<actor>{name}</actor> mentioned you in a post",
       "repost": {
-        "created": "{actor} quoted your post"
+        "created": "<actor>{name}</actor> quoted your post"
       }
     }
   }

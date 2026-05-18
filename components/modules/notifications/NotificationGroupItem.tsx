@@ -143,9 +143,22 @@ export function NotificationGroupItem({
     });
   }
 
-  const summary = target
-    ? tTypes(target.summaryKey, { actor: actorsText })
-    : `${actorsText} → ${representative.type}`;
+  // t.rich per usare lo stesso pattern di NotificationItem (i18n strings
+  // hanno `<actor>{name}</actor>`). In group view il nome aggregato NON
+  // è cliccabile (sono più persone), quindi il tag actor renderizza un
+  // semplice <span> bold invece di un <Link>.
+  const summary = target ? (
+    tTypes.rich(target.summaryKey, {
+      name: actorsText,
+      actor: (chunks) => (
+        <span className="font-medium text-gc-fg">{chunks}</span>
+      ),
+    })
+  ) : (
+    <>
+      {actorsText} → {representative.type}
+    </>
+  );
 
   const preview = target?.commentPreview ?? target?.postPreview ?? null;
 

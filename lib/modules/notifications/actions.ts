@@ -17,6 +17,7 @@ import { getUser } from "@/lib/db/queries";
 import { notifications } from "@/lib/db/schema";
 import {
   getMyNotifications,
+  getNotificationByIdForViewer,
   type NotificationListItem,
 } from "./queries";
 
@@ -98,4 +99,24 @@ export async function loadMoreNotificationsAction(input: {
     pageSize: input.pageSize,
   });
   return { ok: true, data: { items: page.items, nextCursor: page.nextCursor } };
+}
+
+/**
+ * Fetch hydratato di una singola notifica (actor + preview joinati).
+ * Usata dal client realtime per arricchire la riga "spoglia" arrivata
+ * via Postgres Changes — il broadcast non porta i join, qui li
+ * recuperiamo in 1 round-trip.
+ *
+ * RBAC: doppio gate. Il viewer è preso da getUser() server-side; la
+ * query interna filtra ulteriormente per user_id = viewer → impossibile
+ * leggere notifiche di altri utenti anche forgiando l'id.
+ */
+export async function getNotificationByIdAction(
+  id: string,
+): Promise<NotificationsActionResult<{ item: NotificationListItem | null }>> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "notifications.errors.unauthenticated" };
+
+  const item = await getNotificationByIdForViewer(id, user.id);
+  return { ok: true, data: { item } };
 }

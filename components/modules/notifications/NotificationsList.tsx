@@ -17,6 +17,7 @@ import { Bell } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 import { generateSupabaseRealtimeToken } from "@/lib/auth/supabase-realtime-token";
 import {
+  getNotificationByIdAction,
   loadMoreNotificationsAction,
   markAllNotificationsAsRead,
 } from "@/lib/modules/notifications/actions";
@@ -89,10 +90,17 @@ export function NotificationsList({ viewerUserId, initial }: Props) {
             filter: `user_id=eq.${viewerUserId}`,
           },
           (payload) => {
-            // payload.new è la row come oggetto DB (snake_case).
+            // payload.new è la row come oggetto DB (snake_case). NON
+            // contiene actor né post/comment preview hydratati (RLS+JOIN
+            // non passano via Postgres Changes). Chiamiamo una Server
+            // Action per fetchare l'item completo e poi merge.
             const row = payload.new as Record<string, unknown>;
-            const incoming: NotificationListItem = {
-              id: String(row.id),
+            const incomingId = String(row.id);
+            // Optimistic placeholder con actor null così l'utente vede
+            // SUBITO la riga apparire (badge +1 immediato); l'hydration
+            // arriva entro <100ms e sostituisce.
+            const placeholder: NotificationListItem = {
+              id: incomingId,
               userId: String(row.user_id),
               type: String(row.type),
               actorId: (row.actor_id as string | null) ?? null,
@@ -100,19 +108,24 @@ export function NotificationsList({ viewerUserId, initial }: Props) {
               commentId: (row.comment_id as string | null) ?? null,
               payload:
                 (row.payload as Record<string, unknown> | null) ?? {},
-              readAt: row.read_at
-                ? new Date(String(row.read_at))
-                : null,
+              readAt: row.read_at ? new Date(String(row.read_at)) : null,
               createdAt: new Date(String(row.created_at)),
-              // actor hydratato non disponibile via Realtime: lo lasciamo
-              // null e la UI mostra fallback. Al prossimo refresh il SSR
-              // lo idrata correttamente.
               actor: null,
             };
             setItems((prev) => {
-              if (prev.some((i) => i.id === incoming.id)) return prev;
-              return [incoming, ...prev];
+              if (prev.some((i) => i.id === incomingId)) return prev;
+              return [placeholder, ...prev];
             });
+            // Fetch hydratato fire-and-forget; sostituisce il placeholder
+            // appena disponibile. Niente await sul handler Realtime.
+            void (async () => {
+              const res = await getNotificationByIdAction(incomingId);
+              if (!res.ok || !res.data?.item) return;
+              const full = res.data.item;
+              setItems((prev) =>
+                prev.map((i) => (i.id === incomingId ? full : i)),
+              );
+            })();
           },
         )
         .subscribe();

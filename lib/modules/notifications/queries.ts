@@ -10,10 +10,13 @@
 // cima alla lista locale + bumpiamo lo unread counter senza refetch.
 
 import "server-only";
+import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import {
   notifications,
+  posts,
+  postsComments,
   userProfiles,
   type Notification,
 } from "@/lib/db/schema";
@@ -50,7 +53,83 @@ export async function getMyNotifications(opts: {
   const pageSize = opts.pageSize ?? 30;
   const cur = decodeCursor(opts.cursor);
 
-  const rows = await db
+  const rows = await selectNotificationsHydrated(
+    and(
+      eq(notifications.userId, opts.viewerUserId),
+      cur
+        ? or(
+            lt(notifications.createdAt, cur.createdAt),
+            and(
+              eq(notifications.createdAt, cur.createdAt),
+              lt(notifications.id, cur.id),
+            ),
+          )
+        : undefined,
+    ),
+    pageSize + 1,
+  );
+
+  const hasMore = rows.length > pageSize;
+  const sliced = hasMore ? rows.slice(0, pageSize) : rows;
+  const items = sliced.map(rowToHydratedItem);
+  const last = items[items.length - 1];
+  const nextCursor =
+    hasMore && last ? encodeCursor(last.createdAt, last.id) : null;
+
+  return { items, nextCursor };
+}
+
+/**
+ * Single-row lookup hydratato (actor + preview fallback). Usata dal
+ * client realtime: quando Postgres Changes notifica un INSERT, il
+ * payload broadcast NON contiene i campi joinati, quindi il client
+ * chiama questa per ottenere l'item completo prima di renderizzare.
+ *
+ * Sicurezza: la WHERE include `user_id = viewer` → impossibile leggere
+ * notifiche di altri utenti anche se si forgia l'id.
+ */
+export async function getNotificationByIdForViewer(
+  id: string,
+  viewerUserId: string,
+): Promise<NotificationListItem | null> {
+  const rows = await selectNotificationsHydrated(
+    and(eq(notifications.id, id), eq(notifications.userId, viewerUserId)),
+    1,
+  );
+  const row = rows[0];
+  return row ? rowToHydratedItem(row) : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Internal: query helper condivisa lista + single
+// ─────────────────────────────────────────────────────────────────────────
+
+const postsJ = alias(posts, "p");
+const commentsJ = alias(postsComments, "c");
+
+type HydratedRow = {
+  id: string;
+  userId: string;
+  type: string;
+  actorId: string | null;
+  postId: string | null;
+  commentId: string | null;
+  payload: Record<string, unknown>;
+  readAt: Date | null;
+  createdAt: Date;
+  actorUsername: string | null;
+  actorFirstName: string | null;
+  actorLastName: string | null;
+  actorAvatarUrl: string | null;
+  postBody: string | null;
+  commentBody: string | null;
+};
+
+async function selectNotificationsHydrated(
+  whereClause: ReturnType<typeof and>,
+  limit: number,
+): Promise<HydratedRow[]> {
+  return db
     .select({
       id: notifications.id,
       userId: notifications.userId,
@@ -65,36 +144,52 @@ export async function getMyNotifications(opts: {
       actorFirstName: userProfiles.firstName,
       actorLastName: userProfiles.lastName,
       actorAvatarUrl: userProfiles.avatarUrl,
+      // Fallback hydration: se il payload non ha preview (notifiche
+      // pre-M_notifications_002 o futuri tipi senza preview), prendi
+      // il body crudo dal post/commento collegato. Hidrato JS-side.
+      postBody: postsJ.body,
+      commentBody: commentsJ.body,
     })
     .from(notifications)
     .leftJoin(userProfiles, eq(userProfiles.userId, notifications.actorId))
-    .where(
-      and(
-        eq(notifications.userId, opts.viewerUserId),
-        cur
-          ? or(
-              lt(notifications.createdAt, cur.createdAt),
-              and(
-                eq(notifications.createdAt, cur.createdAt),
-                lt(notifications.id, cur.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
+    .leftJoin(postsJ, eq(postsJ.id, notifications.postId))
+    .leftJoin(commentsJ, eq(commentsJ.id, notifications.commentId))
+    .where(whereClause)
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
-    .limit(pageSize + 1);
+    .limit(limit) as Promise<HydratedRow[]>;
+}
 
-  const hasMore = rows.length > pageSize;
-  const sliced = hasMore ? rows.slice(0, pageSize) : rows;
-  const items: NotificationListItem[] = sliced.map((r) => ({
+/** Tronca + collassa whitespace come il trigger M_notifications_002. */
+function previewFromBody(body: string | null): string | null {
+  if (!body) return null;
+  const collapsed = body.replace(/\s+/g, " ").trim();
+  if (!collapsed) return null;
+  return collapsed.length > 100 ? collapsed.slice(0, 100) : collapsed;
+}
+
+function rowToHydratedItem(r: HydratedRow): NotificationListItem {
+  const payload = (r.payload ?? {}) as Record<string, unknown>;
+  // Backfill preview se manca nel payload (notifiche pre-002).
+  const payloadPostPreview =
+    typeof payload.post_preview === "string" ? payload.post_preview : null;
+  const payloadCommentPreview =
+    typeof payload.comment_preview === "string"
+      ? payload.comment_preview
+      : null;
+  const enrichedPayload = {
+    ...payload,
+    post_preview: payloadPostPreview ?? previewFromBody(r.postBody),
+    comment_preview:
+      payloadCommentPreview ?? previewFromBody(r.commentBody),
+  };
+  return {
     id: r.id,
     userId: r.userId,
     type: r.type,
     actorId: r.actorId,
     postId: r.postId,
     commentId: r.commentId,
-    payload: r.payload,
+    payload: enrichedPayload,
     readAt: r.readAt,
     createdAt: r.createdAt,
     actor: r.actorId
@@ -106,12 +201,7 @@ export async function getMyNotifications(opts: {
           avatarUrl: r.actorAvatarUrl,
         }
       : null,
-  }));
-  const last = items[items.length - 1];
-  const nextCursor =
-    hasMore && last ? encodeCursor(last.createdAt, last.id) : null;
-
-  return { items, nextCursor };
+  };
 }
 
 /**

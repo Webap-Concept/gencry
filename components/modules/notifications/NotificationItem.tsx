@@ -15,6 +15,7 @@
 //      mark-as-read per-row (in aggiunta al bulk on-mount della lista).
 import { useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Bell } from "lucide-react";
 import { REACTION_ICON } from "@/components/modules/posts/icons";
@@ -33,6 +34,13 @@ function actorLabel(actor: NotificationActor | null, fallback: string): string {
   if (actor.username) return `@${actor.username}`;
   const full = [actor.firstName, actor.lastName].filter(Boolean).join(" ");
   return full || fallback;
+}
+
+/** Path al profilo: preferisce username (URL stabile), fallback id.
+ *  null se actor null. */
+function actorProfileHref(actor: NotificationActor | null): string | null {
+  if (!actor) return null;
+  return `/profile/${actor.username ?? actor.id}`;
 }
 
 function formatRelative(date: Date, locale: string): string {
@@ -62,6 +70,7 @@ export function NotificationItem({
   const tTypes = useTranslations("notifications.types");
   const tUi = useTranslations("notifications.ui");
   const locale = useLocale();
+  const router = useRouter();
   const [, startTransition] = useTransition();
 
   const target: NotificationTarget | null = resolveNotificationTarget(
@@ -71,13 +80,38 @@ export function NotificationItem({
     item.payload as Record<string, unknown>,
   );
 
-  const actor = actorLabel(item.actor, tUi("unknown_actor"));
+  const actorName = actorLabel(item.actor, tUi("unknown_actor"));
+  const profileHref = actorProfileHref(item.actor);
   const isUnread = item.readAt === null;
 
-  // Summary i18n. Per type sconosciuti (forward-compat) fallback raw.
-  const summary = target
-    ? tTypes(target.summaryKey, { actor })
-    : `${actor} → ${item.type}`;
+  // Summary i18n con tag rich <actor>: il nome diventa <Link> al profilo.
+  // Click sull'<a> interno NON deve scatenare la mark-as-read del link
+  // wrapper (anchor nested non valido HTML), quindi gestiamo entrambi
+  // come componenti separati: il summary è renderizzato qui sotto in
+  // un <p>, e il wrapper esterno è un <button> (no <a>) che fa
+  // router.push manualmente — vedi <Body> sotto.
+  const summary = target ? (
+    tTypes.rich(target.summaryKey, {
+      name: actorName,
+      actor: (chunks) =>
+        profileHref ? (
+          <Link
+            href={profileHref}
+            prefetch={false}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-gc-fg hover:underline"
+          >
+            {chunks}
+          </Link>
+        ) : (
+          <span className="font-medium text-gc-fg">{chunks}</span>
+        ),
+    })
+  ) : (
+    <>
+      {actorName} → {item.type}
+    </>
+  );
 
   // Per commenti il preview rilevante è quello del commento; per gli altri
   // è il post. Per i quote repost, post_preview = corpo del quote.
@@ -141,17 +175,42 @@ export function NotificationItem({
   );
 
   if (target) {
+    // Wrapper è un div role=link (NON un <a>) perché il summary contiene
+    // un <Link> al profilo del actor: nested <a> sarebbe HTML invalido.
+    // Pattern già usato in PostCard per il quote embed.
+    const handleWrapperClick = (e: React.MouseEvent<HTMLElement>) => {
+      // Skip se il click viene da un anchor/button interno (es. Link al
+      // profilo dell'actor): lascia che cattura il suo navigation senza
+      // double-fire.
+      const t = e.target as HTMLElement;
+      if (
+        t.closest('a, button, [role="menuitem"], [role="menu"], [role="button"]')
+      ) {
+        return;
+      }
+      const sel =
+        typeof window !== "undefined" ? window.getSelection?.() : null;
+      if (sel && sel.toString().trim().length > 0) return;
+      handleClick();
+      router.push(target.href);
+    };
     return (
-      <Link
-        href={target.href}
-        prefetch={false}
-        onClick={handleClick}
-        className={`block border-b border-gc-line/40 transition-colors ${
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={handleWrapperClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && e.target === e.currentTarget) {
+            handleClick();
+            router.push(target.href);
+          }
+        }}
+        className={`block border-b border-gc-line/40 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent ${
           isUnread ? "bg-gc-accent/5 hover:bg-gc-accent/10" : "hover:bg-gc-bg-3/40"
         }`}
       >
         {Body}
-      </Link>
+      </div>
     );
   }
 
