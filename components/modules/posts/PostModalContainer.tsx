@@ -80,7 +80,10 @@ export function PostModalContainer({ data, viewer }: Props) {
         <DialogTitle className="sr-only">
           {t("open_post")} — {authorDisplay}
         </DialogTitle>
-        <div className="overflow-y-auto p-4 sm:p-5 space-y-4">
+        {/* pt-14: la X built-in del DialogContent è in absolute top-4
+            right-4 (h-7). Serve almeno ~52px di padding-top altrimenti
+            la X copre l'header della PostCard. */}
+        <div className="overflow-y-auto px-4 pb-4 pt-14 sm:px-5 sm:pb-5 space-y-4">
           {/* Delete/block confermati nella modale → router.back (chiude
               lo slot + lascia il feed sotto). PostCard usa le callback
               prima dei redirectAfter*. */}
