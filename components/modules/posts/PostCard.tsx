@@ -614,12 +614,40 @@ export function PostCard({
             /explore?ticker=. La lista post.tickers resta in dati per
             usi futuri (es. counter trending, ticker page meta). */}
 
-        {/* Quote repost embed: lo lasciamo SOTTO l'overlay così click
-            su area "vuota" dell'embed naviga al post repostante. Se in
-            futuro vorremo che cliccare l'embed apra il TARGET, basta
-            aggiungere un <Link> stretched dentro l'embed con z-[1]. */}
+        {/* Quote repost embed: cliccabile → naviga al TARGET (non al post
+            repostante). Il wrapper è un div con role=link (no <Link> per
+            evitare nested-anchor: PostBody renderizza link interni per
+            ticker/mention). I link interni catturano il loro click; per
+            l'area vuota dell'embed stopPropagation evita il bubble all'
+            article parent (che andrebbe al post repostante). */}
         {post.repostOf ? (
-          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
+          <div
+            role="link"
+            tabIndex={0}
+            aria-label={tCard("open_post")}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (
+                target.closest(
+                  'a, button, [role="menuitem"], [role="menu"], [role="button"]',
+                )
+              ) {
+                return;
+              }
+              const sel =
+                typeof window !== "undefined" ? window.getSelection?.() : null;
+              if (sel && sel.toString().trim().length > 0) return;
+              e.stopPropagation();
+              router.push(`/post/${post.repostOf!.id}`);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.target === e.currentTarget) {
+                e.stopPropagation();
+                router.push(`/post/${post.repostOf!.id}`);
+              }
+            }}
+            className={`${interactiveClass} mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 cursor-pointer hover:bg-gc-bg-1/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent`}
+          >
             <div className="flex items-center gap-1 text-xs text-gc-fg-muted mb-1">
               <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
               {authorDisplayName(post.repostOf.author, userFallback)}
@@ -629,6 +657,25 @@ export function PostCard({
               coinNameMap={coinNameMap}
               tickerPreviewMap={tickerPreviewMap}
             />
+            {/* Media compact: solo la prima image come preview, badge +N
+                se ce ne sono altre. Niente lightbox/carousel — l'utente
+                apre il target dove vede tutte le foto. */}
+            {post.repostOf.media.length > 0 ? (
+              <div className="mt-2 relative rounded-gc-sm overflow-hidden bg-gc-bg-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.repostOf.media[0].thumbUrl}
+                  alt=""
+                  className="w-full max-h-48 object-cover"
+                  loading="lazy"
+                />
+                {post.repostOf.media.length > 1 ? (
+                  <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-xs font-medium">
+                    +{post.repostOf.media.length - 1}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
