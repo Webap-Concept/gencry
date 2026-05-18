@@ -202,6 +202,7 @@
     "coin_page": "Coin page",
     "posts_24h": "{count} posts 24h · see all",
     "see_all_posts": "See all posts",
+    "posts_short": "Posts",
     "untracked_message": "{symbol} is not a tracked coin."
   },
   "trending": {
