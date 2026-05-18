@@ -35,10 +35,20 @@
     }
   },
   "types": {
-    "post.reaction.added": "{actor} reacted to your post with {reaction}",
-    "post.comment.created": "{actor} commented on your post",
-    "post.comment.reaction.added": "{actor} reacted to your comment with {reaction}",
-    "post.mention": "{actor} mentioned you in a post",
-    "post.repost.created": "{actor} quoted your post"
+    "post": {
+      "reaction": {
+        "added": "{actor} reacted to your post with {reaction}"
+      },
+      "comment": {
+        "created": "{actor} commented on your post",
+        "reaction": {
+          "added": "{actor} reacted to your comment with {reaction}"
+        }
+      },
+      "mention": "{actor} mentioned you in a post",
+      "repost": {
+        "created": "{actor} quoted your post"
+      }
+    }
   }
 }

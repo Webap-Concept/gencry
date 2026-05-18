@@ -35,10 +35,20 @@
     }
   },
   "types": {
-    "post.reaction.added": "{actor} ha messo {reaction} al tuo post",
-    "post.comment.created": "{actor} ha commentato il tuo post",
-    "post.comment.reaction.added": "{actor} ha messo {reaction} al tuo commento",
-    "post.mention": "{actor} ti ha menzionato in un post",
-    "post.repost.created": "{actor} ha citato il tuo post"
+    "post": {
+      "reaction": {
+        "added": "{actor} ha messo {reaction} al tuo post"
+      },
+      "comment": {
+        "created": "{actor} ha commentato il tuo post",
+        "reaction": {
+          "added": "{actor} ha messo {reaction} al tuo commento"
+        }
+      },
+      "mention": "{actor} ti ha menzionato in un post",
+      "repost": {
+        "created": "{actor} ha citato il tuo post"
+      }
+    }
   }
 }
