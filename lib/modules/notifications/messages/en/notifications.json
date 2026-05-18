@@ -2,6 +2,13 @@
   "errors": {
     "unauthenticated": "You must be signed in to manage notifications."
   },
+  "ui": {
+    "empty_title": "No notifications",
+    "empty_description": "When someone reacts, comments, quotes or mentions your posts, you'll see it here.",
+    "unknown_actor": "someone",
+    "unread_dot_aria": "Unread",
+    "loading_more": "Loading more…"
+  },
   "admin": {
     "overview": {
       "title": "Notifications — Overview",

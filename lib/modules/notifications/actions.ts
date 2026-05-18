@@ -3,7 +3,8 @@
 //
 // Server Actions del modulo notifications — write path. Le notifiche
 // vengono CREATE dal trigger DB (M_notifications_001), il client può
-// solo aggiornare il proprio `read_at`.
+// solo aggiornare il proprio `read_at`. Più una Server Action read-only
+// `loadMoreNotificationsAction` usata dall'infinite scroll.
 //
 // RBAC: ogni action chiama getUser() e scrive SOLO sull'user corrente.
 // Niente parametro userId nel write → impossibile cross-user write
@@ -14,6 +15,10 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import { notifications } from "@/lib/db/schema";
+import {
+  getMyNotifications,
+  type NotificationListItem,
+} from "./queries";
 
 export type NotificationsActionResult<T = void> =
   | { ok: true; data?: T }
@@ -69,4 +74,28 @@ export async function markAllNotificationsAsRead(): Promise<
 
   revalidatePath("/notifiche");
   return { ok: true, data: { updated: result.length } };
+}
+
+/**
+ * Server Action consumata dall'infinite scroll della lista notifiche.
+ * Ritorna il prossimo batch keyset-paginato e il cursor successivo.
+ */
+export async function loadMoreNotificationsAction(input: {
+  cursor: string | null;
+  pageSize?: number;
+}): Promise<
+  NotificationsActionResult<{
+    items: NotificationListItem[];
+    nextCursor: string | null;
+  }>
+> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "notifications.errors.unauthenticated" };
+
+  const page = await getMyNotifications({
+    viewerUserId: user.id,
+    cursor: input.cursor ?? undefined,
+    pageSize: input.pageSize,
+  });
+  return { ok: true, data: { items: page.items, nextCursor: page.nextCursor } };
 }

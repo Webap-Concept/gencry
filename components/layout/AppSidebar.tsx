@@ -41,7 +41,15 @@ const NAV: NavItem[] = [
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
+export function AppSidebar({
+  appLogoUrl,
+  notificationsBadge,
+}: {
+  appLogoUrl?: string | null;
+  /** Badge unread server-rendered dal modulo notifications. Se null
+   *  (modulo non installato o nessun unread) la bell appare senza pill. */
+  notificationsBadge?: React.ReactNode;
+}) {
   const pathname = usePathname();
   const t = useTranslations("core.sidebar");
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
@@ -76,10 +84,13 @@ export function AppSidebar({ appLogoUrl }: { appLogoUrl?: string | null }) {
             className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
           >
             <Bell size={18} strokeWidth={1.6} />
-            <span
-              aria-hidden="true"
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gc-accent ring-2 ring-gc-bg"
-            />
+            {/* Badge unread real-time del modulo notifications. Sostituisce
+                il vecchio dot statico mockato. Reso null dal componente
+                quando count <= 0. Posizionato top-right come il dot
+                precedente per non rompere il layout. */}
+            <span className="absolute -top-1 -right-1 pointer-events-none">
+              {notificationsBadge}
+            </span>
             <span className="sr-only">{t("newNotifications")}</span>
           </button>
         </NotificationsSheet>

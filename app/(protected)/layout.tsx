@@ -1,5 +1,6 @@
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
@@ -96,7 +97,15 @@ export default async function Layout({
   );
 
   return (
-    <ProtectedShell appLogoUrl={appSettings.app_logo_url} banner={banner}>
+    <ProtectedShell
+      appLogoUrl={appSettings.app_logo_url}
+      banner={banner}
+      notificationsBadge={
+        <Suspense fallback={null}>
+          <NotificationsBadge />
+        </Suspense>
+      }
+    >
       <Suspense fallback={null}>{children}</Suspense>
       {modal}
     </ProtectedShell>

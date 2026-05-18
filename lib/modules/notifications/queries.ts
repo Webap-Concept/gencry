@@ -12,9 +12,25 @@
 import "server-only";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { notifications, type Notification } from "@/lib/db/schema";
+import {
+  notifications,
+  userProfiles,
+  type Notification,
+} from "@/lib/db/schema";
 
-export type NotificationListItem = Notification;
+export type NotificationActor = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+};
+
+/** Item per la UI: notifica + actor hydratato (null se actor_id era NULL
+ *  o se l'utente è stato eliminato — ON DELETE SET NULL su actor_id). */
+export type NotificationListItem = Notification & {
+  actor: NotificationActor | null;
+};
 
 export type NotificationsPage = {
   items: NotificationListItem[];
@@ -35,8 +51,23 @@ export async function getMyNotifications(opts: {
   const cur = decodeCursor(opts.cursor);
 
   const rows = await db
-    .select()
+    .select({
+      id: notifications.id,
+      userId: notifications.userId,
+      type: notifications.type,
+      actorId: notifications.actorId,
+      postId: notifications.postId,
+      commentId: notifications.commentId,
+      payload: notifications.payload,
+      readAt: notifications.readAt,
+      createdAt: notifications.createdAt,
+      actorUsername: userProfiles.username,
+      actorFirstName: userProfiles.firstName,
+      actorLastName: userProfiles.lastName,
+      actorAvatarUrl: userProfiles.avatarUrl,
+    })
     .from(notifications)
+    .leftJoin(userProfiles, eq(userProfiles.userId, notifications.actorId))
     .where(
       and(
         eq(notifications.userId, opts.viewerUserId),
@@ -55,9 +86,30 @@ export async function getMyNotifications(opts: {
     .limit(pageSize + 1);
 
   const hasMore = rows.length > pageSize;
-  const items = hasMore ? rows.slice(0, pageSize) : rows;
+  const sliced = hasMore ? rows.slice(0, pageSize) : rows;
+  const items: NotificationListItem[] = sliced.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    type: r.type,
+    actorId: r.actorId,
+    postId: r.postId,
+    commentId: r.commentId,
+    payload: r.payload,
+    readAt: r.readAt,
+    createdAt: r.createdAt,
+    actor: r.actorId
+      ? {
+          id: r.actorId,
+          username: r.actorUsername,
+          firstName: r.actorFirstName,
+          lastName: r.actorLastName,
+          avatarUrl: r.actorAvatarUrl,
+        }
+      : null,
+  }));
   const last = items[items.length - 1];
-  const nextCursor = hasMore && last ? encodeCursor(last.createdAt, last.id) : null;
+  const nextCursor =
+    hasMore && last ? encodeCursor(last.createdAt, last.id) : null;
 
   return { items, nextCursor };
 }

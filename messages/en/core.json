@@ -65,7 +65,7 @@
   "pages": {
     "notifications": {
       "title": "Notifications",
-      "description": "Price alerts, trust signals, new followers. Coming soon."
+      "description": "Reactions, comments, mentions and reposts of your posts."
     },
     "profile": {
       "title": "Profile",

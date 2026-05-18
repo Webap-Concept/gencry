@@ -2,6 +2,13 @@
   "errors": {
     "unauthenticated": "Devi essere connesso per gestire le notifiche."
   },
+  "ui": {
+    "empty_title": "Nessuna notifica",
+    "empty_description": "Quando qualcuno reagirà, commenterà, citerà o menzionerà i tuoi post, lo vedrai qui.",
+    "unknown_actor": "qualcuno",
+    "unread_dot_aria": "Non letta",
+    "loading_more": "Carico altre…"
+  },
   "admin": {
     "overview": {
       "title": "Notifications — Overview",
