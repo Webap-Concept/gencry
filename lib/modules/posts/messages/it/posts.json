@@ -106,7 +106,9 @@
     "repost_tombstone": "Post originale rimosso",
     "repost_tombstone_not_visible": "Post non disponibile",
     "comments_aria": "Commenti{count, plural, =0 {} other {, #}}",
-    "reposts_aria": "Repost{count, plural, =0 {} other {, #}}"
+    "reposts_aria": "Repost{count, plural, =0 {} other {, #}}",
+    "expand": "Mostra tutto",
+    "collapse": "Riduci"
   },
   "composer": {
     "modal_title_new": "Nuovo post",

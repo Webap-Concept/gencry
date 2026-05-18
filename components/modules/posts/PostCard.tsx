@@ -278,6 +278,11 @@ export function PostCard({
   const [displayedRepostsCount, setDisplayedRepostsCount] = useState(
     post.counts.reposts,
   );
+  // Body lungo nel feed: clamp a 8 righe + toggle "Mostra tutto / Riduci".
+  // SOLO in variant "feed" (in single view il post va sempre intero).
+  // Stessa heuristic di CommentItem ma soglia più generosa (post = 2000
+  // char max vs commenti 1000): 500 char OR >8 newlines.
+  const [postExpanded, setPostExpanded] = useState(false);
   // ID del quote appena pubblicato → mostra PublishedPostToast con link
   // al nuovo quote post (stesso pattern di NewPostButton).
   const [publishedQuoteId, setPublishedQuoteId] = useState<string | null>(null);
@@ -614,11 +619,32 @@ export function PostCard({
             "vuoto" cada sull'overlay link verso /post/{id}. I Link
             interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
             e catturano da soli il click. */}
-        <PostBody
-          body={displayedBody}
-          coinNameMap={coinNameMap}
-          tickerPreviewMap={tickerPreviewMap}
-        />
+        {(() => {
+          const newlineCount = (displayedBody.match(/\n/g) ?? []).length;
+          const isLong =
+            variant === "feed" &&
+            (displayedBody.length > 500 || newlineCount > 8);
+          return (
+            <>
+              <div className={isLong && !postExpanded ? "line-clamp-8" : undefined}>
+                <PostBody
+                  body={displayedBody}
+                  coinNameMap={coinNameMap}
+                  tickerPreviewMap={tickerPreviewMap}
+                />
+              </div>
+              {isLong ? (
+                <button
+                  type="button"
+                  onClick={() => setPostExpanded((v) => !v)}
+                  className="mt-1 text-xs font-medium text-gc-accent hover:underline"
+                >
+                  {postExpanded ? tCard("collapse") : tCard("expand")}
+                </button>
+              ) : null}
+            </>
+          );
+        })()}
 
         {/* Media gallery: SI interactiveClass — le tile sono <button>
             e click apre il lightbox, non deve navigare al post. */}
