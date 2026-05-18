@@ -38,6 +38,11 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   bannedAt: timestamp("banned_at"),
   bannedReason: varchar("banned_reason", { length: 255 }),
+  // Counter denormalizzato 0..3 dei strike attivi (revoked_at IS NULL).
+  // Aggiornato via trigger users_strikes_sync_count_trg su INSERT/
+  // UPDATE/DELETE di users_strikes. Al raggiungimento di 3 il trigger
+  // setta automaticamente banned_at. Vedi M_users_strikes_001.
+  activeStrikesCount: integer("active_strikes_count").notNull().default(0),
   emailVerified: boolean("email_verified").notNull().default(false),
   acceptedTermsAt: timestamp("accepted_terms_at"),
   acceptedTermsVersion: text("accepted_terms_version"),
@@ -84,6 +89,30 @@ export const userProfiles = pgTable("user_profiles", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Strike history (sistema moderazione YouTube-like). Vedi
+// M_users_strikes_001 per schema completo + trigger denorm. Append-only:
+// gli strike non si cancellano, si revocano via revoked_at/revoked_by.
+// source_id è soft-FK (no REFERENCES) per preservare la history se il
+// contenuto target viene hard-cancellato in futuro.
+export const usersStrikes = pgTable("users_strikes", {
+  id: uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  issuedBy: uuid("issued_by").notNull(),
+  sourceType: varchar("source_type", { length: 16 }).notNull(),
+  sourceId: uuid("source_id").notNull(),
+  sourcePreview: text("source_preview"),
+  reason: varchar("reason", { length: 40 }).notNull(),
+  note: text("note"),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: uuid("revoked_by"),
+  revokeNote: text("revoke_note"),
+});
+
+export type UserStrike = typeof usersStrikes.$inferSelect;
+export type NewUserStrike = typeof usersStrikes.$inferInsert;
+export type StrikeSourceType = "post" | "comment";
 
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1760,13 +1789,18 @@ export const notifications = pgTable("notifications", {
 export type Notification    = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 
-/** Match 1:1 con posts_outbox.event_type — sync col CASE plpgsql del trigger. */
+/** Match 1:1 con posts_outbox.event_type — sync col CASE plpgsql del trigger.
+ *  I tipi `moderation.*` NON passano dal trigger: sono emessi direttamente
+ *  da Server Actions admin (vedi reviewReport*Action + revokeStrikeAction). */
 export const NOTIFICATION_TYPES = [
   "post.reaction.added",
   "post.comment.created",
   "post.comment.reaction.added",
   "post.mention",
   "post.repost.created",
+  "moderation.strike_received",
+  "moderation.banned",
+  "moderation.strike_revoked",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

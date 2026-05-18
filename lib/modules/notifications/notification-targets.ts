@@ -108,6 +108,34 @@ export function resolveNotificationTarget(
         commentPreview: null,
       };
     }
+    case "moderation.strike_received":
+    case "moderation.strike_revoked":
+      // Niente deep-link interno: lo storico strike utente non è esposto
+      // user-side in V1. Click → resta su /notifiche (href "#" = no-op).
+      // Preview del contenuto incriminato dal payload (source_preview)
+      // viene mostrato come postPreview/commentPreview a seconda del kind.
+      return {
+        href: "#",
+        summaryKey: type as NotificationType,
+        reactionKind: null,
+        postPreview:
+          str(payload, "source_type") === "post"
+            ? str(payload, "source_preview") ?? null
+            : null,
+        commentPreview:
+          str(payload, "source_type") === "comment"
+            ? str(payload, "source_preview") ?? null
+            : null,
+      };
+    case "moderation.banned":
+      // Click → /banned (la page dedicata che spiega lo stato + ricorso).
+      return {
+        href: "/banned",
+        summaryKey: "moderation.banned",
+        reactionKind: null,
+        postPreview: null,
+        commentPreview: null,
+      };
     default:
       return null;
   }

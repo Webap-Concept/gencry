@@ -30,6 +30,7 @@ import {
   type ReportDetailRow,
 } from "../actions";
 import { ReportHistory } from "./report-history";
+import { StrikeToggle } from "./strike-toggle";
 
 const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "open", label: "Aperti" },
@@ -366,6 +367,8 @@ function ReviewDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [details, setDetails] = useState<ReportDetailRow[] | null>(null);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [issueStrike, setIssueStrike] = useState(false);
+  const [strikeReason, setStrikeReason] = useState<string>("");
 
   // Lazy fetch dello storico (mirror del post dialog). Le note del
   // moderatore vivono nel campo `details` di ogni riga via
@@ -396,6 +399,11 @@ function ReviewDialog({
         commentId: row.comment.id,
         decision,
         note: note.trim() || null,
+        issueStrike: decision === "actioned" && issueStrike,
+        strikeReason:
+          decision === "actioned" && issueStrike
+            ? strikeReason.trim() || undefined
+            : undefined,
       });
       if (res.ok) {
         onClose();
@@ -555,26 +563,41 @@ function ReviewDialog({
           />
 
           {!noOpenLeft ? (
-            <div>
-              <label
-                className="block text-[11px] uppercase tracking-wider mb-1"
-                style={{ color: "var(--admin-text-faint)" }}>
-                Nota interna (opzionale, audit trail su tutte le segnalazioni)
-              </label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Motivazione della decisione, visibile solo ad altri moderatori"
-                rows={2}
-                maxLength={2000}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  background: "var(--admin-page-bg)",
-                  border: "1px solid var(--admin-card-border)",
-                  color: "var(--admin-text)",
-                }}
+            <>
+              <div>
+                <label
+                  className="block text-[11px] uppercase tracking-wider mb-1"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  Nota interna (opzionale, audit trail su tutte le segnalazioni)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Motivazione della decisione, visibile solo ad altri moderatori"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    background: "var(--admin-page-bg)",
+                    border: "1px solid var(--admin-card-border)",
+                    color: "var(--admin-text)",
+                  }}
+                />
+              </div>
+              <StrikeToggle
+                authorLabel={
+                  row.comment.author.username
+                    ? `@${row.comment.author.username}`
+                    : "l'autore"
+                }
+                checked={issueStrike}
+                onCheckedChange={setIssueStrike}
+                reason={strikeReason}
+                onReasonChange={setStrikeReason}
+                reasonOptions={Object.keys(reasonLabels)}
+                reasonLabels={reasonLabels}
               />
-            </div>
+            </>
           ) : (
             <p
               className="text-xs italic"

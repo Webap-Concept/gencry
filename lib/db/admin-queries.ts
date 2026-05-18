@@ -219,6 +219,10 @@ export type AdminUser = {
   deletedAt: Date | null;
   bannedReason: string | null;
   avatarUrl: string | null;
+  /** Counter denormalizzato (0..3) degli strike attivi su questo
+   *  utente. Aggiornato via trigger DB users_strikes_sync_count_trg.
+   *  Al raggiungimento di 3, banned_at viene settato automaticamente. */
+  activeStrikesCount: number;
 };
 
 export type AdminUsersStatus = "active" | "deletion_requested" | "all";
@@ -314,6 +318,7 @@ export async function getAdminUsers({
         emailVerified: users.emailVerified,
         createdAt: users.createdAt,
         bannedAt: users.bannedAt,
+        activeStrikesCount: users.activeStrikesCount,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,
@@ -390,6 +395,7 @@ export async function getStaffUsers({
         emailVerified: users.emailVerified,
         createdAt: users.createdAt,
         bannedAt: users.bannedAt,
+        activeStrikesCount: users.activeStrikesCount,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,

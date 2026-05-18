@@ -51,6 +51,36 @@ function PlanBadge({ status }: { status: string | null }) {
  * Color-coded: rosso ultimo giorno, ambra <= 7gg, grigio altrimenti.
  * `Expired` quando la grace e' gia' passata (in attesa del cron purge).
  */
+/** Badge "Nx strike" rosso/arancio accanto al plan. count > 0 only.
+ *  Quando banned=true (3/3) il badge diventa solid + label "BAN". */
+function StrikesBadge({
+  count,
+  banned,
+}: {
+  count: number;
+  banned: boolean;
+}) {
+  if (banned) {
+    return (
+      <span
+        className="ml-1.5 inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
+        style={{ background: "#dc2626", color: "#fff" }}
+        title="Account bannato (3 strike attivi)">
+        BAN
+      </span>
+    );
+  }
+  const tone =
+    count >= 2 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+  return (
+    <span
+      className={`ml-1.5 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded ${tone}`}
+      title={`${count} strike attiv${count === 1 ? "o" : "i"} su 3`}>
+      {count}/3 ⚠
+    </span>
+  );
+}
+
 function DaysLeftBadge({ deletedAt }: { deletedAt: Date }) {
   const t = useTranslations("admin.access.users.table");
   const purgeAt =
@@ -170,6 +200,9 @@ function UserRow({
       {/* Plan */}
       <td className="px-4 py-3">
         <PlanBadge status={user.subscriptionStatus} />
+        {user.activeStrikesCount > 0 ? (
+          <StrikesBadge count={user.activeStrikesCount} banned={isBanned} />
+        ) : null}
       </td>
 
       {/* Verified Email — hidden when filtering deletion_requested to make

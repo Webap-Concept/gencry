@@ -52,6 +52,11 @@
       "repost": {
         "created": "<actor>{name}</actor> quoted your post"
       }
+    },
+    "moderation": {
+      "strike_received": "You received a moderation strike (total: {strike_number}/3)",
+      "banned": "Your account has been suspended for reaching 3 strikes",
+      "strike_revoked": "One of your strikes has been revoked by a moderator"
     }
   }
 }

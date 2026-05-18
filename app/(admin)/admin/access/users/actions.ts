@@ -5,6 +5,7 @@ import { db } from "@/lib/db/drizzle";
 import {
   activityLogs,
   ActivityType,
+  notifications,
   roles,
   userProfiles,
   users,
@@ -12,7 +13,9 @@ import {
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendUserDeletedEmail } from "@/lib/email/templates/user-deleted";
 import { can } from "@/lib/rbac/can";
-import { requireAdmin } from "@/lib/rbac/guards";
+import { requireAdmin, requireAdminSectionPage } from "@/lib/rbac/guards";
+import { revokeStrike } from "@/lib/auth/strikes";
+import { getUser } from "@/lib/db/queries";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
@@ -182,4 +185,67 @@ export async function changeUserRole(userId: string, roleName: string) {
     .where(eq(users.id, userId));
 
   revalidatePath(await getAdminPath("users-list"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Strike revoke: usato dal blocco "Strike history" nel user detail page.
+// Gated `modules:posts.moderate` (decisione utente — chi può emettere
+// strike può anche revocarli, no super-admin separato in V1).
+// ─────────────────────────────────────────────────────────────────────────
+
+export type RevokeUserStrikeResult =
+  | { ok: true; activeCount: number; unbannedNow: boolean }
+  | { ok: false; error: string };
+
+export async function revokeUserStrikeAction(
+  strikeId: string,
+  note?: string,
+): Promise<RevokeUserStrikeResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const user = await getUser();
+  if (!user) return { ok: false, error: "unauthenticated" };
+
+  const { usersStrikes } = await import("@/lib/db/schema");
+
+  // Risolvi userId target PRIMA del revoke (mi serve per la notifica
+  // anche se idempotent skippa l'update).
+  const [target] = await db
+    .select({ userId: usersStrikes.userId })
+    .from(usersStrikes)
+    .where(eq(usersStrikes.id, strikeId))
+    .limit(1);
+  if (!target) return { ok: false, error: "strike_not_found" };
+
+  const result = await revokeStrike({
+    strikeId,
+    revokedBy: user.id,
+    note: note?.trim() || null,
+  });
+  if ("error" in result) {
+    return { ok: false, error: result.error };
+  }
+
+  // Notifica utente solo se la revoca era davvero "nuova".
+  if (!result.alreadyRevoked) {
+    try {
+      await db.insert(notifications).values({
+        userId: target.userId,
+        type: "moderation.strike_revoked",
+        actorId: user.id,
+        payload: {
+          active_count_after: result.activeStrikesCount,
+          unbanned: result.unbannedNow,
+        },
+      });
+    } catch (err) {
+      console.warn("[revokeUserStrikeAction] notification failed:", err);
+    }
+  }
+
+  revalidatePath(await getAdminPath("users-list"));
+  return {
+    ok: true,
+    activeCount: result.activeStrikesCount,
+    unbannedNow: result.unbannedNow,
+  };
 }

@@ -12,9 +12,16 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/drizzle";
-import { posts, postsComments, postsReports } from "@/lib/db/schema";
+import {
+  notifications,
+  posts,
+  postsComments,
+  postsReports,
+  type StrikeSourceType,
+} from "@/lib/db/schema";
 import { getUser } from "@/lib/db/queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
+import { issueStrike } from "@/lib/auth/strikes";
 import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
 import {
@@ -46,11 +53,79 @@ const ReviewSchema = z.object({
   postId: z.string().uuid(),
   decision: z.enum(["dismissed", "actioned"]),
   note: z.string().max(2000).optional().nullable(),
+  /** Se true E decision='actioned', emette uno strike all'autore del
+   *  post via lib/auth/strikes. 3° strike → ban automatico (trigger DB). */
+  issueStrike: z.boolean().optional(),
+  /** Reason key da catalog admin-editable (riusa report-reasons). Solo
+   *  rilevante quando issueStrike=true; gli altri casi lo ignorano. */
+  strikeReason: z.string().max(40).optional(),
 });
 
 export type ReviewReportResult =
-  | { ok: true; updatedReports: number; softDeletedPostId?: string }
+  | {
+      ok: true;
+      updatedReports: number;
+      softDeletedPostId?: string;
+      strike?: {
+        issued: boolean;
+        activeCount: number;
+        bannedNow: boolean;
+      };
+    }
   | { ok: false; error: string };
+
+/**
+ * Helper interno: emette uno strike all'autore + invia notifica utente
+ * (`moderation.strike_received` o `moderation.banned`). Best-effort sulla
+ * notifica — se fallisce loggiamo ma NON ribaltiamo lo strike (è
+ * già committato, audit trail vale più della notifica).
+ */
+async function applyStrikeAndNotify(args: {
+  authorId: string;
+  issuedBy: string;
+  sourceType: StrikeSourceType;
+  sourceId: string;
+  sourcePreview: string | null;
+  reason: string;
+  note: string | null;
+}): Promise<{ activeCount: number; bannedNow: boolean }> {
+  const result = await issueStrike({
+    userId: args.authorId,
+    issuedBy: args.issuedBy,
+    sourceType: args.sourceType,
+    sourceId: args.sourceId,
+    sourcePreview: args.sourcePreview,
+    reason: args.reason,
+    note: args.note,
+  });
+
+  try {
+    await db.insert(notifications).values({
+      userId: args.authorId,
+      type: result.bannedNow
+        ? "moderation.banned"
+        : "moderation.strike_received",
+      actorId: args.issuedBy,
+      // I report sui contenuti mod sono di proprietà del modulo posts:
+      // settiamo post_id solo se sourceType='post' per coerenza schema.
+      postId: args.sourceType === "post" ? args.sourceId : null,
+      commentId: args.sourceType === "comment" ? args.sourceId : null,
+      payload: {
+        strike_number: result.activeStrikesCount,
+        reason: args.reason,
+        source_type: args.sourceType,
+        source_preview: args.sourcePreview,
+      },
+    });
+  } catch (err) {
+    console.warn("[reports] strike notification insert failed:", err);
+  }
+
+  return {
+    activeCount: result.activeStrikesCount,
+    bannedNow: result.bannedNow,
+  };
+}
 
 /**
  * Risoluzione batch di tutte le segnalazioni `open` di un post:
@@ -72,11 +147,17 @@ export async function reviewReportAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0].message };
   }
-  const { postId, decision, note } = parsed.data;
+  const { postId, decision, note, issueStrike: shouldStrike, strikeReason } =
+    parsed.data;
 
-  // 1. Verifica che il post esiste
+  // 1. Verifica che il post esiste + autore + preview body per strike payload
   const [target] = await db
-    .select({ id: posts.id, deletedAt: posts.deletedAt })
+    .select({
+      id: posts.id,
+      authorId: posts.authorId,
+      body: posts.body,
+      deletedAt: posts.deletedAt,
+    })
     .from(posts)
     .where(eq(posts.id, postId))
     .limit(1);
@@ -121,6 +202,31 @@ export async function reviewReportAction(
     softDeletedPostId = postId;
   }
 
+  // 4. Strike opzionale (solo se decision='actioned'). Emesso DOPO il
+  //    soft-delete del contenuto: lo strike senza azione sul contenuto
+  //    è semanticamente incoerente (Twitter pattern). L'autore viene
+  //    notificato della strike (o del ban automatico al 3°).
+  let strikeOutcome:
+    | { issued: boolean; activeCount: number; bannedNow: boolean }
+    | undefined;
+  if (decision === "actioned" && shouldStrike) {
+    const preview = (target.body ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200) || null;
+    const reason = (strikeReason ?? "").trim() || "moderation";
+    const outcome = await applyStrikeAndNotify({
+      authorId: target.authorId,
+      issuedBy: user.id,
+      sourceType: "post",
+      sourceId: postId,
+      sourcePreview: preview,
+      reason,
+      note: note?.trim() || null,
+    });
+    strikeOutcome = { issued: true, ...outcome };
+  }
+
   revalidatePath("/admin/modules/posts/reports");
   // Anche /admin/modules/posts/deleted se è actioned, così la lista
   // dei post in grace si aggiorna in tempo reale.
@@ -132,6 +238,7 @@ export async function reviewReportAction(
     ok: true,
     updatedReports: updated.length,
     softDeletedPostId,
+    strike: strikeOutcome,
   };
 }
 
@@ -179,10 +286,17 @@ const ReviewCommentSchema = z.object({
   commentId: z.string().uuid(),
   decision: z.enum(["dismissed", "actioned"]),
   note: z.string().max(2000).optional().nullable(),
+  issueStrike: z.boolean().optional(),
+  strikeReason: z.string().max(40).optional(),
 });
 
 export type ReviewCommentReportResult =
-  | { ok: true; updatedReports: number; softDeletedCommentId?: string }
+  | {
+      ok: true;
+      updatedReports: number;
+      softDeletedCommentId?: string;
+      strike?: { issued: boolean; activeCount: number; bannedNow: boolean };
+    }
   | { ok: false; error: string };
 
 export async function reviewCommentReportAction(
@@ -196,12 +310,20 @@ export async function reviewCommentReportAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0].message };
   }
-  const { commentId, decision, note } = parsed.data;
+  const {
+    commentId,
+    decision,
+    note,
+    issueStrike: shouldStrike,
+    strikeReason,
+  } = parsed.data;
 
   const [target] = await db
     .select({
       id: postsComments.id,
       postId: postsComments.postId,
+      authorId: postsComments.authorId,
+      body: postsComments.body,
       deletedAt: postsComments.deletedAt,
     })
     .from(postsComments)
@@ -251,11 +373,33 @@ export async function reviewCommentReportAction(
     softDeletedCommentId = commentId;
   }
 
+  let strikeOutcome:
+    | { issued: boolean; activeCount: number; bannedNow: boolean }
+    | undefined;
+  if (decision === "actioned" && shouldStrike) {
+    const preview = (target.body ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200) || null;
+    const reason = (strikeReason ?? "").trim() || "moderation";
+    const outcome = await applyStrikeAndNotify({
+      authorId: target.authorId,
+      issuedBy: user.id,
+      sourceType: "comment",
+      sourceId: commentId,
+      sourcePreview: preview,
+      reason,
+      note: note?.trim() || null,
+    });
+    strikeOutcome = { issued: true, ...outcome };
+  }
+
   revalidatePath("/admin/modules/posts/reports");
   return {
     ok: true,
     updatedReports: updated.length,
     softDeletedCommentId,
+    strike: strikeOutcome,
   };
 }
 

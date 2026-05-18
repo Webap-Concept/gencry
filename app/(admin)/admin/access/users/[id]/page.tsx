@@ -33,6 +33,9 @@ import { ActivityList } from "./_components/activity-list";
 import { AdminMfaCard } from "./_components/admin-mfa-card";
 import { UserAccessTab } from "./_components/user-access-tab";
 import { UserConsentsTab } from "./_components/user-consents-tab";
+import { UserStrikeHistory } from "./_components/user-strike-history";
+import { getStrikeHistory } from "@/lib/auth/strikes";
+import { getActiveReportReasons } from "@/lib/modules/posts/services/report-reasons";
 import {
   BanButton,
   DeleteButton,
@@ -80,9 +83,11 @@ function StatusBadge({
 async function UserContent({
   id,
   canDelete,
+  canRevokeStrikes,
 }: {
   id: string;
   canDelete: boolean;
+  canRevokeStrikes: boolean;
 }) {
   const t = await getTranslations("admin.access.users.detail");
   const locale = await getLocale();
@@ -96,6 +101,8 @@ async function UserContent({
     userSessions,
     consentRecords,
     mfaState,
+    strikes,
+    reportReasons,
   ] = await Promise.all([
     getAdminUserById(id),
     getAdminUserActivity(id),
@@ -104,7 +111,19 @@ async function UserContent({
     listAdminUserSessions(id),
     getUserConsentRecords(id),
     getMfaState(id),
+    getStrikeHistory(id),
+    getActiveReportReasons(),
   ]);
+
+  const reasonLabels = Object.fromEntries(
+    reportReasons.map((r) => [
+      r.key,
+      r.labelByLocale.it ??
+        r.labelByLocale.en ??
+        Object.values(r.labelByLocale)[0] ??
+        r.key,
+    ]),
+  );
 
   if (!user) notFound();
 
@@ -352,6 +371,13 @@ async function UserContent({
         </div>
       )}
 
+      {/* Strike history — visibile sempre, importante per il moderatore */}
+      <UserStrikeHistory
+        strikes={strikes}
+        canRevoke={canRevokeStrikes}
+        reasonLabels={reasonLabels}
+      />
+
       {/* Tabs */}
       <UserDetailTabs
         infoContent={infoContent}
@@ -380,6 +406,11 @@ export default async function AdminUserPage({
   const canDelete = currentUser
     ? currentUser.isAdmin || (await can(currentUser, "users:delete"))
     : false;
+  // Revocare strike = stesso permesso di emetterli (decisione utente
+  // 2026-05-18). Admin con isAdmin sempre, altrimenti via modules:posts.moderate.
+  const canRevokeStrikes = currentUser
+    ? currentUser.isAdmin || (await can(currentUser, "modules:posts.moderate"))
+    : false;
 
   const t = await getTranslations("admin.access.users.detail");
 
@@ -405,7 +436,11 @@ export default async function AdminUserPage({
             />
           </div>
         }>
-        <UserContent id={id} canDelete={canDelete} />
+        <UserContent
+          id={id}
+          canDelete={canDelete}
+          canRevokeStrikes={canRevokeStrikes}
+        />
       </Suspense>
     </div>
   );
