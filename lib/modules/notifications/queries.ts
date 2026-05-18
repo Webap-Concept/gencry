@@ -159,12 +159,14 @@ async function selectNotificationsHydrated(
     .limit(limit) as Promise<HydratedRow[]>;
 }
 
-/** Tronca + collassa whitespace come il trigger M_notifications_002. */
+/** Tronca + collassa whitespace, mirror del trigger plpgsql (M_notifications_003).
+ *  Aggiunge '…' finale quando il body supera la soglia per segnalare il
+ *  troncamento all'utente. */
 function previewFromBody(body: string | null): string | null {
   if (!body) return null;
   const collapsed = body.replace(/\s+/g, " ").trim();
   if (!collapsed) return null;
-  return collapsed.length > 100 ? collapsed.slice(0, 100) : collapsed;
+  return collapsed.length > 100 ? collapsed.slice(0, 99) + "…" : collapsed;
 }
 
 function rowToHydratedItem(r: HydratedRow): NotificationListItem {
