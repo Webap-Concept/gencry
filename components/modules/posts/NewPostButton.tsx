@@ -6,19 +6,16 @@
 //                  in AppSidebar al posto della "Nuova watchlist" stub
 //   - "fab"      → bottone circolare per il FAB centrale di AppBottomNav
 //
-// Toast: portallato a `document.body` con z-60 (Z.TOAST). Posizione
-// top-center. Sfondo verde "success". Contiene un <Link> a `/post/{id}`
-// così l'utente può raggiungere il post appena pubblicato in 1 click.
-// Auto-dismiss dopo 5s.
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
+// Toast post-publish: <PublishedPostToast> riusabile (lo monta anche
+// PostCard dopo un quote-repost).
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import useSWR from "swr";
 import type { PostVisibility } from "@/lib/db/schema";
 import { getMyPostPreferences } from "@/lib/modules/posts/preferences-actions";
 import { PostComposerModal } from "./PostComposerModal";
+import { PublishedPostToast } from "./PublishedPostToast";
 
 type Variant = "sidebar" | "fab";
 
@@ -35,7 +32,6 @@ const userFetcher = (url: string) => fetch(url).then((r) => r.json());
 export function NewPostButton({ variant }: { variant: Variant }) {
   const [open, setOpen] = useState(false);
   const [publishedId, setPublishedId] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const tNp = useTranslations("posts.new_post");
   const { data: user } = useSWR<CurrentUser>("/api/user", userFetcher, {
     revalidateOnFocus: false,
@@ -53,16 +49,6 @@ export function NewPostButton({ variant }: { variant: Variant }) {
       },
       { revalidateOnFocus: false, keepPreviousData: true },
     );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!publishedId) return;
-    const t = setTimeout(() => setPublishedId(null), 5000);
-    return () => clearTimeout(t);
-  }, [publishedId]);
 
   const Trigger = variant === "sidebar" ? (
     <button
@@ -100,54 +86,10 @@ export function NewPostButton({ variant }: { variant: Variant }) {
         user={user ?? null}
         initialDefaultVisibility={defaultVisibility}
       />
-      {mounted && publishedId
-        ? createPortal(
-            <PublishedToast
-              postId={publishedId}
-              onDismiss={() => setPublishedId(null)}
-            />,
-            document.body,
-          )
-        : null}
+      <PublishedPostToast
+        postId={publishedId}
+        onDismiss={() => setPublishedId(null)}
+      />
     </>
-  );
-}
-
-function PublishedToast({
-  postId,
-  onDismiss,
-}: {
-  postId: string;
-  onDismiss: () => void;
-}) {
-  const tNp = useTranslations("posts.new_post");
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      // z-[60] = Z.TOAST. Top-center. Mobile e desktop stesso layout.
-      className="fixed z-[60] top-4 left-1/2 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
-    >
-      <div className="flex items-center gap-2 bg-emerald-600 text-white rounded-gc shadow-lg pl-4 pr-2 py-2.5 min-w-[280px]">
-        <span className="text-sm flex-1">
-          {tNp("toast_published_prefix")}
-          <Link
-            href={`/post/${postId}`}
-            onClick={onDismiss}
-            className="underline decoration-white/60 underline-offset-2 hover:decoration-white"
-          >
-            {tNp("toast_view_link")}
-          </Link>
-        </span>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label={tNp("toast_close_aria")}
-          className="text-white/80 hover:text-white p-1"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
   );
 }

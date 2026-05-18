@@ -59,6 +59,7 @@ import {
 import { PostBody } from "./PostBody";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
+import { PublishedPostToast } from "./PublishedPostToast";
 import { ReactionPopover } from "./ReactionPopover";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
@@ -277,6 +278,9 @@ export function PostCard({
   const [displayedRepostsCount, setDisplayedRepostsCount] = useState(
     post.counts.reposts,
   );
+  // ID del quote appena pubblicato → mostra PublishedPostToast con link
+  // al nuovo quote post (stesso pattern di NewPostButton).
+  const [publishedQuoteId, setPublishedQuoteId] = useState<string | null>(null);
   // NB: deleteOpen/reportOpen/blockOpen DEVONO stare qui sopra
   // l'early return `if (deleted || blocked) return null` — altrimenti
   // dopo `setDeleted(true)` il render successivo salta questi useState
@@ -843,8 +847,9 @@ export function PostCard({
         <PostComposerModal
           open={quoteOpen}
           onOpenChange={setQuoteOpen}
-          onPublished={() => {
+          onPublished={(quoteId) => {
             setDisplayedRepostsCount((c) => c + 1);
+            setPublishedQuoteId(quoteId);
             setQuoteOpen(false);
           }}
           user={currentUser ?? null}
@@ -855,6 +860,11 @@ export function PostCard({
           }}
         />
       ) : null}
+
+      <PublishedPostToast
+        postId={publishedQuoteId}
+        onDismiss={() => setPublishedQuoteId(null)}
+      />
     </>
   );
 }
