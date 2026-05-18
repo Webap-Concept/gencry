@@ -25,6 +25,10 @@ export type NotificationTarget = {
   postPreview: string | null;
   /** Preview del body del commento (max 100 char) per i tipi comment.*. */
   commentPreview: string | null;
+  /** Parametri extra da spreddare nel `t.rich()` call (es. {strike_number}
+   *  per le moderation.*). Sono SEMPRE valori serializzabili — niente
+   *  funzioni (i tag rich come `<actor>` restano gestiti dal consumer). */
+  templateValues: Record<string, string | number>;
 };
 
 type AnyPayload = Record<string, unknown>;
@@ -60,6 +64,7 @@ export function resolveNotificationTarget(
         reactionKind: reactionFromPayload(payload),
         postPreview,
         commentPreview: null,
+        templateValues: {},
       };
     }
     case "post.comment.created": {
@@ -72,6 +77,7 @@ export function resolveNotificationTarget(
         reactionKind: null,
         postPreview,
         commentPreview,
+        templateValues: {},
       };
     }
     case "post.comment.reaction.added": {
@@ -82,6 +88,7 @@ export function resolveNotificationTarget(
         reactionKind: reactionFromPayload(payload),
         postPreview: null,
         commentPreview,
+        templateValues: {},
       };
     }
     case "post.mention": {
@@ -92,6 +99,7 @@ export function resolveNotificationTarget(
         reactionKind: null,
         postPreview,
         commentPreview: null,
+        templateValues: {},
       };
     }
     case "post.repost.created": {
@@ -106,14 +114,16 @@ export function resolveNotificationTarget(
         reactionKind: null,
         postPreview,
         commentPreview: null,
+        templateValues: {},
       };
     }
     case "moderation.strike_received":
-    case "moderation.strike_revoked":
+    case "moderation.strike_revoked": {
       // Niente deep-link interno: lo storico strike utente non è esposto
       // user-side in V1. Click → resta su /notifiche (href "#" = no-op).
       // Preview del contenuto incriminato dal payload (source_preview)
       // viene mostrato come postPreview/commentPreview a seconda del kind.
+      const strikeNum = payload.strike_number;
       return {
         href: "#",
         summaryKey: type as NotificationType,
@@ -126,7 +136,19 @@ export function resolveNotificationTarget(
           str(payload, "source_type") === "comment"
             ? str(payload, "source_preview") ?? null
             : null,
+        // strike_number è interpolato in "...(totale: {strike_number}/3)".
+        // Per strike_revoked il template non lo usa ma passiamo comunque
+        // un valore safe (string vuota) per evitare MISSING_VALUE errors.
+        templateValues: {
+          strike_number:
+            typeof strikeNum === "number"
+              ? strikeNum
+              : typeof strikeNum === "string"
+                ? strikeNum
+                : "",
+        },
       };
+    }
     case "moderation.banned":
       // Click → /banned (la page dedicata che spiega lo stato + ricorso).
       return {
@@ -135,6 +157,7 @@ export function resolveNotificationTarget(
         reactionKind: null,
         postPreview: null,
         commentPreview: null,
+        templateValues: {},
       };
     default:
       return null;

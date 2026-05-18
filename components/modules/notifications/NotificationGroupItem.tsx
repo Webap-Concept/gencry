@@ -132,6 +132,7 @@ export function NotificationGroupItem({
   const summary = target ? (
     tTypes.rich(target.summaryKey, {
       name: actorsText,
+      ...target.templateValues,
       actor: (chunks) => (
         <span className="font-medium text-gc-fg">{chunks}</span>
       ),

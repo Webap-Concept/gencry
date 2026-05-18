@@ -93,6 +93,8 @@ export function NotificationItem({
   const summary = target ? (
     tTypes.rich(target.summaryKey, {
       name: actorName,
+      // Valori extra dal payload (es. strike_number per moderation.*).
+      ...target.templateValues,
       actor: (chunks) =>
         profileHref ? (
           <Link
