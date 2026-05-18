@@ -374,7 +374,7 @@ export const POSTS_MODULE: ModuleManifest = {
   slug: "posts",
   label: "Posts",
   description: "Social feed: composer, reactions, comments, reposts, bookmarks, moderation.",
-  version: "0.3.0", // 0.3.0 = reactions refactor (M_posts_008): set 5 finale + reactions sui commenti. 0.2.0 = thread commenti 2-livelli. 1.0.0 quando PR-9 SEO sitemap chiude.
+  version: "1.0.0", // 1.0.0 = feature-complete 2026-05-18: PR-9 SEO sitemap+meta + post-in-modale intercepting + quote repost UI + sticky default visibility + visibility-gating embed. 0.3.0 = reactions refactor (M_posts_008). 0.2.0 = thread commenti 2-livelli.
   icon: "MessageSquare",
   permission: "modules:posts",
   permissionLabel: "Access Posts module",
