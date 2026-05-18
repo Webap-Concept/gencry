@@ -1,10 +1,10 @@
 "use client";
-// app/(admin)/admin/modules/posts/reports/_components/reports-queue-client.tsx
+// app/(admin)/admin/modules/posts/reports/_components/comment-reports-queue-client.tsx
 //
-// UI client della queue di moderazione raggruppata per POST.
-// Refactor 2026-05-15: prima 1 row = 1 report, ora 1 row = 1 post con
-// tutte le sue segnalazioni aggregate. La decisione (dismiss/actioned)
-// si applica in batch a tutte le segnalazioni `open` del post.
+// Mirror di reports-queue-client.tsx ma operante sui COMMENT REPORTS
+// (schema polymorphic posts_reports + comment_id, vedi M_posts_010).
+// La decisione "actioned" qui soft-deleta il COMMENTO (non il post che
+// lo contiene). La preview header mostra "Commento di @x su /post/y".
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,16 +14,19 @@ import {
   AdminDialogConfirmButton,
   AdminDialogContent,
 } from "@/app/(admin)/admin/_components/admin-dialog";
-import { AlertOctagon, CheckCircle2, Flag } from "lucide-react";
+import { AlertOctagon, CheckCircle2, ExternalLink, Flag } from "lucide-react";
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
 import type {
+  CommentReportQueueGroupRow,
+  CommentReportsQueuePage,
   ReportQueueAggregateStatus,
-  ReportQueueGroupRow,
   ReportQueueStatus,
-  ReportsQueuePage,
 } from "@/lib/modules/posts/queries";
-import { loadMoreReportsAction, reviewReportAction } from "../actions";
+import {
+  loadMoreCommentReportsAction,
+  reviewCommentReportAction,
+} from "../actions";
 
 const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "open", label: "Aperti" },
@@ -58,20 +61,18 @@ function reasonLabelOf(key: string, labels: Record<string, string>): string {
   return labels[key] ?? key;
 }
 
-export function ReportsQueueClient({
+export function CommentReportsQueueClient({
   initial,
   status,
   reasonLabels,
 }: {
-  initial: ReportsQueuePage;
+  initial: CommentReportsQueuePage;
   status: ReportQueueStatus;
   reasonLabels: Record<string, string>;
 }) {
-  const [selected, setSelected] = useState<ReportQueueGroupRow | null>(null);
-  // Append-paginazione client-side. La prima pagina arriva server-rendered;
-  // il bottone "Carica altre" appende in-place. L'hook si auto-resetta
-  // quando il server passa un nuovo `initial` al cambio status via URL.
-  // Vedi memory `feedback_initial_prop_state`.
+  const [selected, setSelected] = useState<CommentReportQueueGroupRow | null>(
+    null,
+  );
   const { rows, cursor, appendRows } = useResetableListState(initial);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingMore, startLoadMore] = useTransition();
@@ -81,7 +82,7 @@ export function ReportsQueueClient({
     setLoadError(null);
     const cur = cursor;
     startLoadMore(async () => {
-      const res = await loadMoreReportsAction({ status, cursor: cur });
+      const res = await loadMoreCommentReportsAction({ status, cursor: cur });
       if (!res.ok) {
         setLoadError(res.error);
         return;
@@ -92,7 +93,6 @@ export function ReportsQueueClient({
 
   return (
     <div className="space-y-4">
-      {/* Pill tabs */}
       <div
         className="flex flex-wrap items-center gap-1 p-1 rounded-xl w-fit"
         style={{ background: "var(--admin-hover-bg)" }}>
@@ -105,7 +105,7 @@ export function ReportsQueueClient({
           return (
             <Link
               key={tab.key}
-              href={`?kind=post&status=${tab.key}`}
+              href={`?kind=comment&status=${tab.key}`}
               className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
               style={{
                 background: isActive ? "var(--admin-accent)" : "transparent",
@@ -130,7 +130,6 @@ export function ReportsQueueClient({
         })}
       </div>
 
-      {/* Lista gruppi (paginata client-side) */}
       {rows.length === 0 ? (
         <div
           className="rounded-xl p-12 text-center"
@@ -139,14 +138,14 @@ export function ReportsQueueClient({
             border: "1px dashed var(--admin-card-border)",
             color: "var(--admin-text-faint)",
           }}>
-          <p className="text-sm">Nessun post segnalato in questo stato.</p>
+          <p className="text-sm">Nessun commento segnalato in questo stato.</p>
         </div>
       ) : (
         <>
           <ul className="space-y-2">
             {rows.map((row) => (
               <GroupRow
-                key={row.post.id}
+                key={row.comment.id}
                 row={row}
                 reasonLabels={reasonLabels}
                 onClick={() => setSelected(row)}
@@ -175,7 +174,7 @@ export function ReportsQueueClient({
       )}
 
       {selected ? (
-        <ReportReviewDialog
+        <ReviewDialog
           row={selected}
           reasonLabels={reasonLabels}
           onClose={() => setSelected(null)}
@@ -190,12 +189,11 @@ function GroupRow({
   reasonLabels,
   onClick,
 }: {
-  row: ReportQueueGroupRow;
+  row: CommentReportQueueGroupRow;
   reasonLabels: Record<string, string>;
   onClick: () => void;
 }) {
   const badge = STATUS_BADGE[row.aggregateStatus];
-  // Breakdown dei reason ordinato per count DESC, capped a 3 per evitare overflow.
   const reasonsList = Object.entries(row.reasonsBreakdown)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
@@ -218,7 +216,6 @@ function GroupRow({
           (e.currentTarget.style.background = "var(--admin-card-bg)")
         }>
         <div className="flex items-start gap-3">
-          {/* Avatar stack dei reporter (max 3 visibili) */}
           <div className="shrink-0 flex -space-x-2">
             {row.recentReporters.slice(0, 3).map((r, i) =>
               r.avatarUrl ? (
@@ -264,8 +261,8 @@ function GroupRow({
               <span
                 className="text-sm font-medium"
                 style={{ color: "var(--admin-text)" }}>
-                Post di @
-                {row.post.author.username ?? row.post.authorId.slice(0, 8)}
+                Commento di @
+                {row.comment.author.username ?? row.comment.authorId.slice(0, 8)}
               </span>
               <span
                 className="text-xs"
@@ -274,7 +271,7 @@ function GroupRow({
                 {row.totalReports === 1 ? "volta" : "volte"} — ultima{" "}
                 {formatRelativeTime(row.lastReportedAt)}
               </span>
-              {row.post.deletedAt ? (
+              {row.comment.deletedAt ? (
                 <span
                   className="text-[11px] font-medium px-2 py-0.5 rounded"
                   style={{
@@ -282,11 +279,10 @@ function GroupRow({
                       "color-mix(in srgb, #6b7280 14%, transparent)",
                     color: "#6b7280",
                   }}>
-                  Post già cancellato
+                  Commento già cancellato
                 </span>
               ) : null}
             </div>
-            {/* Reasons breakdown */}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {reasonsList.map(([key, n]) => (
                 <span
@@ -314,9 +310,9 @@ function GroupRow({
             <p
               className="text-sm mt-2 line-clamp-2"
               style={{ color: "var(--admin-text)" }}>
-              {row.post.body || (
+              {row.comment.body || (
                 <em style={{ color: "var(--admin-text-faint)" }}>
-                  (post senza testo)
+                  (commento vuoto)
                 </em>
               )}
             </p>
@@ -332,6 +328,15 @@ function GroupRow({
               )}
               {" · "}prima segnalazione{" "}
               {formatRelativeTime(row.firstReportedAt)}
+              {" · "}
+              <Link
+                href={`/post/${row.comment.postId}#comment-${row.comment.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 underline hover:no-underline"
+                onClick={(e) => e.stopPropagation()}>
+                Apri post <ExternalLink size={10} />
+              </Link>
             </p>
           </div>
           <span
@@ -345,12 +350,12 @@ function GroupRow({
   );
 }
 
-function ReportReviewDialog({
+function ReviewDialog({
   row,
   reasonLabels,
   onClose,
 }: {
-  row: ReportQueueGroupRow;
+  row: CommentReportQueueGroupRow;
   reasonLabels: Record<string, string>;
   onClose: () => void;
 }) {
@@ -360,13 +365,13 @@ function ReportReviewDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const noOpenLeft = row.openCount === 0;
-  const postAlreadyDeleted = !!row.post.deletedAt;
+  const alreadyDeleted = !!row.comment.deletedAt;
 
   const submit = (decision: "dismissed" | "actioned") => {
     setSubmitError(null);
     startSubmit(async () => {
-      const res = await reviewReportAction({
-        postId: row.post.id,
+      const res = await reviewCommentReportAction({
+        commentId: row.comment.id,
         decision,
         note: note.trim() || null,
       });
@@ -388,8 +393,8 @@ function ReportReviewDialog({
       <AdminDialogContent
         icon={Flag}
         size="xl"
-        title={`Revisione: ${row.totalReports} segnalazion${row.totalReports === 1 ? "e" : "i"}`}
-        description="La decisione si applica a tutte le segnalazioni aperte del post. Registrata col tuo user id e timestamp."
+        title={`Revisione commento: ${row.totalReports} segnalazion${row.totalReports === 1 ? "e" : "i"}`}
+        description="La decisione si applica a tutte le segnalazioni aperte del commento. 'Action' soft-deleta il commento (NON il post che lo contiene)."
         footer={
           <>
             <AdminDialogCancelButton onClick={onClose} disabled={isSubmitting}>
@@ -410,14 +415,15 @@ function ReportReviewDialog({
                   disabled={isSubmitting}
                   loading={isSubmitting}
                   icon={AlertOctagon}>
-                  {postAlreadyDeleted ? "Conferma action su tutte" : "Soft-delete + action su tutte"}
+                  {alreadyDeleted
+                    ? "Conferma action su tutte"
+                    : "Soft-delete commento + action"}
                 </AdminDialogConfirmButton>
               </>
             ) : null}
           </>
         }>
         <div className="space-y-3">
-          {/* Post preview */}
           <div
             className="rounded-lg p-4"
             style={{
@@ -425,23 +431,32 @@ function ReportReviewDialog({
               border: "1px solid var(--admin-card-border)",
             }}>
             <p
-              className="text-[11px] uppercase tracking-wider mb-2"
+              className="text-[11px] uppercase tracking-wider mb-2 flex items-center gap-2"
               style={{ color: "var(--admin-text-faint)" }}>
-              Post segnalato — @
-              {row.post.author.username ?? row.post.authorId.slice(0, 8)}
+              <span>
+                Commento di @
+                {row.comment.author.username ??
+                  row.comment.authorId.slice(0, 8)}
+              </span>
+              <Link
+                href={`/post/${row.comment.postId}#comment-${row.comment.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 underline hover:no-underline normal-case">
+                Apri post <ExternalLink size={10} />
+              </Link>
             </p>
             <p
               className="text-sm whitespace-pre-wrap"
               style={{ color: "var(--admin-text)" }}>
-              {row.post.body || (
+              {row.comment.body || (
                 <em style={{ color: "var(--admin-text-faint)" }}>
-                  (post senza testo)
+                  (commento vuoto)
                 </em>
               )}
             </p>
           </div>
 
-          {/* Counts aggregati */}
           <div
             className="grid grid-cols-4 gap-2 rounded-lg p-3"
             style={{
@@ -454,7 +469,6 @@ function ReportReviewDialog({
             <Stat label="Action" value={row.actionedCount} />
           </div>
 
-          {/* Breakdown reasons */}
           {reasonsSorted.length > 0 ? (
             <div
               className="rounded-lg p-3"
@@ -484,7 +498,6 @@ function ReportReviewDialog({
             </div>
           ) : null}
 
-          {/* Recent reporters */}
           {row.recentReporters.length > 0 ? (
             <div
               className="rounded-lg p-3"

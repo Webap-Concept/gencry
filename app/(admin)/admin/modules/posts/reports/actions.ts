@@ -12,13 +12,15 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/drizzle";
-import { posts, postsReports } from "@/lib/db/schema";
+import { posts, postsComments, postsReports } from "@/lib/db/schema";
 import { getUser } from "@/lib/db/queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
 import {
+  getCommentReportsQueue,
   getReportsQueue,
+  type CommentReportQueueGroupRow,
   type ReportQueueGroupRow,
   type ReportQueueStatus,
 } from "@/lib/modules/posts/queries";
@@ -144,6 +146,116 @@ export async function loadMoreReportsAction(
     return { ok: false, error: parsed.error.issues[0].message };
   }
   const page = await getReportsQueue({
+    status: parsed.data.status as ReportQueueStatus,
+    cursor: parsed.data.cursor,
+    limit: 25,
+  });
+  return { ok: true, rows: page.rows, nextCursor: page.nextCursor };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// COMMENT variants — specchio delle 2 actions sopra ma operanti sui
+// comment reports (polymorphic schema posts_reports, vedi M_posts_010).
+// "actioned" qui implica soft-delete del COMMENTO, non del post.
+// ─────────────────────────────────────────────────────────────────────────
+
+const ReviewCommentSchema = z.object({
+  commentId: z.string().uuid(),
+  decision: z.enum(["dismissed", "actioned"]),
+  note: z.string().max(2000).optional().nullable(),
+});
+
+export type ReviewCommentReportResult =
+  | { ok: true; updatedReports: number; softDeletedCommentId?: string }
+  | { ok: false; error: string };
+
+export async function reviewCommentReportAction(
+  input: z.input<typeof ReviewCommentSchema>,
+): Promise<ReviewCommentReportResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const user = await getUser();
+  if (!user) return { ok: false, error: "unauthenticated" };
+
+  const parsed = ReviewCommentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const { commentId, decision, note } = parsed.data;
+
+  const [target] = await db
+    .select({
+      id: postsComments.id,
+      postId: postsComments.postId,
+      deletedAt: postsComments.deletedAt,
+    })
+    .from(postsComments)
+    .where(eq(postsComments.id, commentId))
+    .limit(1);
+  if (!target) return { ok: false, error: "comment_not_found" };
+
+  const trimmedNote = note?.trim() ?? "";
+  const noteSuffix =
+    trimmedNote.length > 0
+      ? `\n\n— mod note (${new Date().toISOString()} by ${user.id}): ${trimmedNote}`
+      : "";
+
+  const updated = await db
+    .update(postsReports)
+    .set({
+      status: decision,
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      details: noteSuffix
+        ? sql`COALESCE(${postsReports.details}, '') || ${noteSuffix}`
+        : postsReports.details,
+    })
+    .where(
+      and(
+        eq(postsReports.commentId, commentId),
+        eq(postsReports.status, "open"),
+      ),
+    )
+    .returning({ id: postsReports.id });
+
+  let softDeletedCommentId: string | undefined;
+
+  // "actioned" → soft-delete del commento. NON tocca il post che lo
+  // contiene: la moderation è scoped al commento.
+  if (decision === "actioned" && !target.deletedAt) {
+    await db
+      .update(postsComments)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(eq(postsComments.id, commentId), isNull(postsComments.deletedAt)),
+      );
+
+    // Il counter posts.comments_count è tenuto in sync da trigger DB
+    // (vedi M_posts_001). Invalida la post-cache per refresh del card.
+    await invalidatePostCache(target.postId);
+    softDeletedCommentId = commentId;
+  }
+
+  revalidatePath("/admin/modules/posts/reports");
+  return {
+    ok: true,
+    updatedReports: updated.length,
+    softDeletedCommentId,
+  };
+}
+
+export type LoadMoreCommentReportsResult =
+  | { ok: true; rows: CommentReportQueueGroupRow[]; nextCursor: string | null }
+  | { ok: false; error: string };
+
+export async function loadMoreCommentReportsAction(
+  input: z.input<typeof LoadMoreSchema>,
+): Promise<LoadMoreCommentReportsResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const parsed = LoadMoreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const page = await getCommentReportsQueue({
     status: parsed.data.status as ReportQueueStatus,
     cursor: parsed.data.cursor,
     limit: 25,
