@@ -58,7 +58,9 @@
     "composer": {
       "placeholder": "Write a comment…",
       "aria_label": "Comment body",
-      "error_generic": "Could not send. Try again."
+      "error_generic": "Could not send. Try again.",
+      "mention_no_results": "No users found",
+      "mention_loading": "Searching…"
     }
   },
   "common": {
@@ -120,6 +122,8 @@
     "textarea_placeholder": "Start writing…",
     "quote_placeholder": "Add a comment…",
     "textarea_aria": "Post body",
+    "mention_no_results": "No users found",
+    "mention_loading": "Searching…",
     "submit_new": "Publish",
     "submit_edit": "Save changes",
     "submit_quote": "Repost",

@@ -17,7 +17,7 @@
 //                sotto la textarea, niente MediaUploader.
 //
 // Il parent (PostComposerModal) owns il post-success (toast, close).
-import { useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Globe, Lock, Repeat2, UserCheck, Users } from "lucide-react";
 import {
@@ -34,8 +34,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
+import { useMentionAutocomplete } from "@/lib/modules/posts/lib/use-mention-autocomplete";
+import { searchUsersForMention } from "@/lib/modules/posts/actions";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MediaUploader } from "./MediaUploader";
+import { MentionPopover } from "./MentionPopover";
 
 type ComposerUser = {
   id: string;
@@ -121,6 +124,22 @@ export function Composer({
   const isQuote = mode.kind === "quote";
   const createDefault = initialDefaultVisibility ?? "public";
   const [body, setBody] = useState(isEdit ? mode.initialBody : "");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Mention autocomplete. Fetcher cablato sulla Server Action posts.
+  // signal viene scartato: la Server Action è già abortable (AbortController
+  // del hook gestisce il debounce; la network call sotto è non-cancellable
+  // ma in pratica completa in <100ms, race condition ininfluente).
+  const mentionFetcher = useCallback(async (prefix: string) => {
+    const res = await searchUsersForMention({ prefix });
+    return res.ok ? res.data.results : [];
+  }, []);
+  const mention = useMentionAutocomplete({
+    textareaRef,
+    value: body,
+    onValueChange: setBody,
+    fetcher: mentionFetcher,
+  });
   const [visibility, setVisibility] = useState<PostVisibility>(
     isEdit ? mode.initialVisibility : createDefault,
   );
@@ -247,20 +266,45 @@ export function Composer({
         </DropdownMenu>
       </div>
 
-      {/* Textarea blended */}
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder={
-          isQuote ? tComp("quote_placeholder") : tComp("textarea_placeholder")
-        }
-        rows={isQuote ? 4 : 6}
-        maxLength={maxBodyLength + 100}
-        className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
-        aria-label={tComp("textarea_aria")}
-        disabled={isPending}
-        autoFocus={autoFocus}
-      />
+      {/* Textarea blended — wrappata in relative per ancorare il popover
+          @mention sotto. */}
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+            mention.recomputeActive();
+          }}
+          onSelect={() => mention.recomputeActive()}
+          onKeyDown={(e) => mention.handleKeyDown(e)}
+          onBlur={() => {
+            // Lascia tempo al click sull'item del popover (mousedown
+            // intercept). Niente close immediato.
+            setTimeout(() => mention.close(), 150);
+          }}
+          placeholder={
+            isQuote ? tComp("quote_placeholder") : tComp("textarea_placeholder")
+          }
+          rows={isQuote ? 4 : 6}
+          maxLength={maxBodyLength + 100}
+          className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
+          aria-label={tComp("textarea_aria")}
+          disabled={isPending}
+          autoFocus={autoFocus}
+        />
+        <MentionPopover
+          open={mention.open}
+          results={mention.results}
+          selectedIndex={mention.selectedIndex}
+          loading={mention.loading}
+          onSelect={mention.applySelection}
+          onHover={mention.setSelectedIndex}
+          emptyLabel={tComp("mention_no_results")}
+          loadingLabel={tComp("mention_loading")}
+          className="mx-5"
+        />
+      </div>
 
       {/* Quote embed preview: solo testo (plain), niente ticker links —
           è una preview di contesto, non un widget interattivo. Il body è

@@ -103,6 +103,17 @@ export async function setOnboardingUsername(
     console.error("[onboarding] addUsernameToBloom failed:", e);
   }
 
+  // Sync dell'indice mention-autocomplete: ora l'utente è mentionabile.
+  // Lazy import per evitare di trascinare il modulo posts qui.
+  try {
+    const { syncMentionMember } = await import(
+      "@/lib/modules/posts/services/mention-index"
+    );
+    await syncMentionMember(user.id);
+  } catch (e) {
+    console.warn("[onboarding] syncMentionMember failed:", e);
+  }
+
   return { success: true };
 }
 

@@ -484,6 +484,14 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const sideEffects = await Promise.allSettled([
     addEmailToBloom(createdUser.email),
     addUsernameToBloom(username),
+    // Indice mention-autocomplete (Upstash sorted-set). Lazy import per
+    // evitare di trascinare il grafo modulo posts nel bundle login.
+    (async () => {
+      const { syncMentionMember } = await import(
+        "@/lib/modules/posts/services/mention-index"
+      );
+      await syncMentionMember(createdUser.id);
+    })(),
     // Append-only consent ledger (GDPR Art. 7(1)). Best-effort: errori
     // interni non bloccano il signup. La cattura di IP/UA segue la
     // strategy configurata in /admin/compliance/gdpr.

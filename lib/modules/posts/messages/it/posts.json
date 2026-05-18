@@ -58,7 +58,9 @@
     "composer": {
       "placeholder": "Scrivi un commento…",
       "aria_label": "Testo del commento",
-      "error_generic": "Invio non riuscito. Riprova."
+      "error_generic": "Invio non riuscito. Riprova.",
+      "mention_no_results": "Nessun utente trovato",
+      "mention_loading": "Cerco…"
     }
   },
   "common": {
@@ -120,6 +122,8 @@
     "textarea_placeholder": "Inizia a scrivere…",
     "quote_placeholder": "Aggiungi un commento…",
     "textarea_aria": "Testo del post",
+    "mention_no_results": "Nessun utente trovato",
+    "mention_loading": "Cerco…",
     "submit_new": "Pubblica",
     "submit_edit": "Salva modifiche",
     "submit_quote": "Riposta",

@@ -112,6 +112,18 @@ export const updateProfile = validatedActionWithUser(
       }
     }
 
+    // Sync mention-autocomplete index: replace il member col nuovo
+    // username/firstName/lastName/avatar. Lazy import per evitare di
+    // trascinare il modulo posts nel bundle settings.
+    try {
+      const { syncMentionMember } = await import(
+        "@/lib/modules/posts/services/mention-index"
+      );
+      await syncMentionMember(user.id);
+    } catch (err) {
+      console.warn("[settings/profile] syncMentionMember failed:", err);
+    }
+
     // Locale preferito: scriviamo `users.locale` solo se valido (whitelist
     // LOCALES) o esplicitamente svuotato. Sync col cookie NEXT_LOCALE così
     // la preferenza vale anche da guest dopo il logout (e viene letta dal

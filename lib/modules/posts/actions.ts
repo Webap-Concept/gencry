@@ -42,6 +42,7 @@ import {
   postsTickers,
   postsMentions,
   postsReports,
+  postsUserBlocks,
   postsUserPreferences,
   userProfiles,
   POST_REACTION_KINDS,
@@ -64,6 +65,12 @@ import {
 } from "./services/comments";
 import { toggleBookmark as bookmarksToggleService } from "./services/bookmarks";
 import { toggleUserBlock as blocksToggleService } from "./services/blocks";
+import {
+  ensureMentionIndexBootstrapped,
+  rebuildMentionIndex,
+  searchMentionPrefix,
+  type MentionCandidate,
+} from "./services/mention-index";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
@@ -1108,4 +1115,92 @@ export async function reportPost(
   });
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Mention autocomplete (Upstash sorted-set)
+// ---------------------------------------------------------------------------
+
+const MentionSearchSchema = z.object({
+  prefix: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9_]+$/),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
+export type MentionSearchResult =
+  | { ok: true; data: { results: MentionCandidate[] } }
+  | { ok: false; error: string };
+
+/**
+ * Search Server Action per il popover di @mention nel composer (post +
+ * commenti). Backed da Upstash sorted-set via `searchMentionPrefix`.
+ *
+ * Sicurezza:
+ *   - getUser() obbligatorio → niente anonimi (anti-enumeration).
+ *   - Exclude del viewer (auto-mention senza senso) e di tutti i
+ *     blocked-pair (entrambe le direzioni) per rispettare il modulo
+ *     blocks.
+ *   - Validation Zod: prefix [A-Za-z0-9_]{1,32}.
+ *
+ * Performance:
+ *   - 1 round-trip Upstash (~5-10ms) o fallback DB se Upstash giù.
+ *   - Lazy bootstrap dell'indice al primo uso (fire-and-forget).
+ */
+export async function searchUsersForMention(input: {
+  prefix: string;
+  limit?: number;
+}): Promise<MentionSearchResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "posts.errors.unauthenticated" };
+
+  const parsed = MentionSearchSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "posts.errors.mention_invalid_prefix" };
+  }
+
+  // Lazy bootstrap (no await): se l'indice non c'è ancora, lo rebuilda
+  // in background. Questa query cade su fallback DB intanto.
+  void ensureMentionIndexBootstrapped();
+
+  // Lista blocked pair: chi io blocco + chi mi blocca. Mutua.
+  const blockedRows = await db
+    .select({
+      blockerId: postsUserBlocks.blockerId,
+      blockedId: postsUserBlocks.blockedId,
+    })
+    .from(postsUserBlocks)
+    .where(
+      sql`${postsUserBlocks.blockerId} = ${user.id} OR ${postsUserBlocks.blockedId} = ${user.id}`,
+    );
+  const excludeIds = new Set<string>([user.id]);
+  for (const b of blockedRows) {
+    excludeIds.add(b.blockerId === user.id ? b.blockedId : b.blockerId);
+  }
+
+  const results = await searchMentionPrefix({
+    prefix: parsed.data.prefix,
+    limit: parsed.data.limit ?? 8,
+    excludeUserIds: Array.from(excludeIds),
+  });
+
+  return { ok: true, data: { results } };
+}
+
+/**
+ * Server Action admin-only per il rebuild manuale dell'indice mention.
+ * Usata da un bottone in `/admin/modules/posts/architecture` o equiv.
+ * Sicura a chiamare in qualsiasi momento (idempotente).
+ */
+export async function rebuildMentionIndexAction(): Promise<
+  { ok: true; data: { scanned: number; indexed: number } } | { ok: false; error: string }
+> {
+  const user = await getUser();
+  if (!user || !user.isAdmin) {
+    return { ok: false, error: "posts.errors.unauthenticated" };
+  }
+  const result = await rebuildMentionIndex();
+  return { ok: true, data: result };
 }
