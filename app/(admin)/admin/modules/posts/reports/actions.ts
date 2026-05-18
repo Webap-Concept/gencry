@@ -19,12 +19,28 @@ import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
 import {
   getCommentReportsQueue,
+  getReportsForComment,
+  getReportsForPost,
   getReportsQueue,
   type CommentReportQueueGroupRow,
   type ReportQueueGroupRow,
   type ReportQueueStatus,
 } from "@/lib/modules/posts/queries";
 import { z } from "zod";
+
+export type ReportDetailRow = {
+  id: string;
+  reason: string;
+  status: string;
+  details: string | null;
+  createdAt: Date;
+  reviewedAt: Date | null;
+  reporter: {
+    id: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
+};
 
 const ReviewSchema = z.object({
   postId: z.string().uuid(),
@@ -261,4 +277,50 @@ export async function loadMoreCommentReportsAction(
     limit: 25,
   });
   return { ok: true, rows: page.rows, nextCursor: page.nextCursor };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Storico dettagliato segnalazioni per UN target (post o commento).
+// Usato dal Review dialog: lazy fetch al mount per mostrare ogni
+// segnalazione con la sua details (incluse le note del moderatore appese
+// nel campo details via COALESCE || ${noteSuffix}).
+// ─────────────────────────────────────────────────────────────────────────
+
+const ReportDetailsInputSchema = z.object({
+  kind: z.enum(["post", "comment"]),
+  targetId: z.string().uuid(),
+});
+
+export type ReportDetailsResult =
+  | { ok: true; rows: ReportDetailRow[] }
+  | { ok: false; error: string };
+
+export async function getReportDetailsAction(
+  input: z.input<typeof ReportDetailsInputSchema>,
+): Promise<ReportDetailsResult> {
+  await requireAdminSectionPage("modules:posts.moderate");
+  const parsed = ReportDetailsInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const raw =
+    parsed.data.kind === "post"
+      ? await getReportsForPost(parsed.data.targetId)
+      : await getReportsForComment(parsed.data.targetId);
+  return {
+    ok: true,
+    rows: raw.map((r) => ({
+      id: r.report.id,
+      reason: r.report.reason,
+      status: r.report.status,
+      details: r.report.details,
+      createdAt: r.report.createdAt,
+      reviewedAt: r.report.reviewedAt,
+      reporter: {
+        id: r.reporter.id,
+        username: r.reporter.username,
+        avatarUrl: r.reporter.avatarUrl,
+      },
+    })),
+  };
 }

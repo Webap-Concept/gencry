@@ -20,12 +20,15 @@ import { CommentReportsQueueClient } from "./_components/comment-reports-queue-c
 export const metadata: Metadata = { title: "Posts / Reports" };
 export const dynamic = "force-dynamic";
 
+// Tab semplificati 2026-05-18: una segnalazione può solo essere
+// 'open' (da processare), 'actioned' (accettata, contenuto rimosso) o
+// 'dismissed' (respinta). 'reviewed' resta nel CHECK SQL per backward
+// compat ma non è esposto in UI. 'all' rimosso perché confusionale.
+// Una URL legacy con ?status=reviewed o ?status=all retrocede su 'open'.
 const VALID_STATUSES: ReportQueueStatus[] = [
   "open",
-  "reviewed",
-  "dismissed",
   "actioned",
-  "all",
+  "dismissed",
 ];
 
 type ReportKind = "post" | "comment";

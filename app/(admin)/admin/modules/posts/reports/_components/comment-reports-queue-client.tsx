@@ -5,7 +5,7 @@
 // (schema polymorphic posts_reports + comment_id, vedi M_posts_010).
 // La decisione "actioned" qui soft-deleta il COMMENTO (non il post che
 // lo contiene). La preview header mostra "Commento di @x su /post/y".
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -24,16 +24,17 @@ import type {
   ReportQueueStatus,
 } from "@/lib/modules/posts/queries";
 import {
+  getReportDetailsAction,
   loadMoreCommentReportsAction,
   reviewCommentReportAction,
+  type ReportDetailRow,
 } from "../actions";
+import { ReportHistory } from "./report-history";
 
 const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "open", label: "Aperti" },
-  { key: "reviewed", label: "Esaminati" },
+  { key: "actioned", label: "Accettati" },
   { key: "dismissed", label: "Respinti" },
-  { key: "actioned", label: "Action presi" },
-  { key: "all", label: "Tutti" },
 ];
 
 const STATUS_BADGE: Record<
@@ -43,7 +44,7 @@ const STATUS_BADGE: Record<
   open: { label: "Aperto", bg: "#f59e0b22", fg: "#b45309" },
   reviewed: { label: "Esaminato", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-muted)" },
   dismissed: { label: "Respinto", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-faint)" },
-  actioned: { label: "Action", bg: "#dc262622", fg: "#dc2626" },
+  actioned: { label: "Accettato", bg: "#dc262622", fg: "#dc2626" },
 };
 
 function formatRelativeTime(date: Date | string): string {
@@ -363,6 +364,27 @@ function ReviewDialog({
   const [note, setNote] = useState("");
   const [isSubmitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [details, setDetails] = useState<ReportDetailRow[] | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  // Lazy fetch dello storico (mirror del post dialog). Le note del
+  // moderatore vivono nel campo `details` di ogni riga via
+  // COALESCE || noteSuffix in reviewCommentReportAction.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await getReportDetailsAction({
+        kind: "comment",
+        targetId: row.comment.id,
+      });
+      if (cancelled) return;
+      if (res.ok) setDetails(res.rows);
+      else setDetailsError(res.error);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row.comment.id]);
 
   const noOpenLeft = row.openCount === 0;
   const alreadyDeleted = !!row.comment.deletedAt;
@@ -525,6 +547,12 @@ function ReviewDialog({
               </div>
             </div>
           ) : null}
+
+          <ReportHistory
+            rows={details}
+            error={detailsError}
+            reasonLabels={reasonLabels}
+          />
 
           {!noOpenLeft ? (
             <div>
