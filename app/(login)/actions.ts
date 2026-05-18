@@ -70,18 +70,45 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+// Regex IPv4 basic (4 ottetti 0-255) + IPv6 basic (contiene `:` con char hex).
+// Sufficiente per filtrare i fallback "unknown" / vuoti — non vuole essere
+// un parser completo: Cloudflare farà la sua validazione stretta sul valore.
+const IP_LIKE_RE =
+  /^(?:\d{1,3}\.){3}\d{1,3}$|^(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+
 async function verifyTurnstile(token: string | null, ip: string): Promise<boolean> {
   const settings = await getAppSettings();
   const secret = settings.cf_turnstile_secret_key;
   if (!secret) return true; // Turnstile non configurato: skip
   if (!token) return false;
 
+  // `remoteip` è OPZIONALE per siteverify; se passi un valore non-IP
+  // (es. "unknown" in dev locale dove x-forwarded-for non c'è) Cloudflare
+  // rifiuta il token con `invalid-remoteip-format` ed era impossibile
+  // diagnosticarlo senza log. Lo include solo se sembra un IP valido.
+  const params = new URLSearchParams({ secret, response: token });
+  if (IP_LIKE_RE.test(ip)) {
+    params.set("remoteip", ip);
+  }
+
   const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+    body: params,
   });
-  const json = await res.json() as { success: boolean };
+  const json = (await res.json()) as {
+    success: boolean;
+    "error-codes"?: string[];
+  };
+  if (!json.success) {
+    // Log diagnostico (server-only). Senza questo "Verifica anti-bot
+    // fallita" lato UI è opaco — adesso vediamo subito i codici reali
+    // (es. timeout-or-duplicate, invalid-input-response, ecc.).
+    console.warn("[turnstile] verification failed:", {
+      errorCodes: json["error-codes"],
+      hadRemoteIp: IP_LIKE_RE.test(ip),
+    });
+  }
   return json.success === true;
 }
 
