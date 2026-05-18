@@ -1,9 +1,10 @@
 "use client";
 // components/modules/posts/PostComposerModal.tsx
 //
-// Wrap shadcn Dialog attorno al Composer. Supporta sia create che edit
-// via prop `mode`. Niente DialogHeader visibile — il Composer integra
-// il proprio (avatar + username + visibility) per stile LinkedIn-blended.
+// Wrap shadcn Dialog attorno al Composer. Supporta 3 mode via prop:
+// create (default), edit (`editPayload`) o quote (`quoteTarget`). Niente
+// DialogHeader visibile — il Composer integra il proprio (avatar +
+// username + visibility) per stile LinkedIn-blended.
 //
 // NOTA: NON usa <GcModal> di proposito. Eccezione documentata in
 // memory feedback_gc_modal_primitive: questa modale ha chrome custom
@@ -17,7 +18,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PostVisibility } from "@/lib/db/schema";
-import { Composer, type ComposerPublishedPayload } from "./Composer";
+import {
+  Composer,
+  type ComposerPublishedPayload,
+  type ComposerQuoteTarget,
+} from "./Composer";
 
 type ComposerUser = {
   id: string;
@@ -43,9 +48,11 @@ type Props = {
   onPublished: (postId: string, edited?: ComposerPublishedPayload) => void;
   user: ComposerUser | null;
   maxBodyLength?: number;
-  /** Se presente, la modale è in mode EDIT su questo post. Altrimenti CREATE. */
+  /** Se presente → mode EDIT. Mutuamente esclusivo con quoteTarget. */
   editPayload?: EditPayload;
-  /** Sticky default in mode create; in edit è ignorato. */
+  /** Se presente → mode QUOTE. Mutuamente esclusivo con editPayload. */
+  quoteTarget?: ComposerQuoteTarget;
+  /** Sticky default in mode create/quote; in edit è ignorato. */
   initialDefaultVisibility?: PostVisibility;
 };
 
@@ -56,18 +63,22 @@ export function PostComposerModal({
   user,
   maxBodyLength,
   editPayload,
+  quoteTarget,
   initialDefaultVisibility,
 }: Props) {
   const tComp = useTranslations("posts.composer");
+  const title = editPayload
+    ? tComp("modal_title_edit")
+    : quoteTarget
+      ? tComp("modal_title_quote")
+      : tComp("modal_title_new");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="w-[calc(100vw-2rem)] sm:w-full sm:max-w-[560px] p-0"
         showCloseButton
       >
-        <DialogTitle className="sr-only">
-          {editPayload ? tComp("modal_title_edit") : tComp("modal_title_new")}
-        </DialogTitle>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         {user ? (
           <Composer
             autoFocus
@@ -82,7 +93,9 @@ export function PostComposerModal({
                     initialBody: editPayload.initialBody,
                     initialVisibility: editPayload.initialVisibility,
                   }
-                : { kind: "create" }
+                : quoteTarget
+                  ? { kind: "quote", target: quoteTarget }
+                  : { kind: "create" }
             }
             onPublished={(postId, edited) => {
               onPublished(postId, edited);

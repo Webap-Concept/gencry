@@ -1,9 +1,10 @@
 "use client";
 // components/modules/posts/Composer.tsx
 //
-// Form per la creazione O modifica di un post. Design LinkedIn-style:
-// textarea che si blenda con la modale (no border, no bg differente),
-// header con avatar utente + username + visibility dropdown inline.
+// Form per la creazione O modifica O quote-repost di un post. Design
+// LinkedIn-style: textarea che si blenda con la modale (no border,
+// no bg differente), header con avatar utente + username +
+// visibility dropdown inline.
 //
 // Mode `create`: body/visibility partono vuoti, submit → createPost,
 //                visibility cambiabile liberamente, onPublished riceve
@@ -11,13 +12,21 @@
 // Mode `edit`:   body/visibility pre-popolati, submit → editPost,
 //                visibility cambiabile SOLO verso più restrittivo
 //                (regola server), onPublished riceve il postId esistente.
+// Mode `quote`:  body/visibility partono vuoti (visibility = sticky pref),
+//                submit → createQuoteRepost, embed preview del target
+//                sotto la textarea, niente MediaUploader.
 //
 // Il parent (PostComposerModal) owns il post-success (toast, close).
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Globe, Lock, UserCheck, Users } from "lucide-react";
-import { createPost, editPost } from "@/lib/modules/posts/actions";
+import { Globe, Lock, Repeat2, UserCheck, Users } from "lucide-react";
+import {
+  createPost,
+  createQuoteRepost,
+  editPost,
+} from "@/lib/modules/posts/actions";
 import { POST_VISIBILITIES, type PostVisibility } from "@/lib/db/schema";
+import type { PostAuthorPublic } from "@/lib/modules/posts/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +80,16 @@ type EditMode = {
   initialBody: string;
   initialVisibility: PostVisibility;
 };
+/** Quote target rendered come embed preview sotto la textarea. */
+export type ComposerQuoteTarget = {
+  id: string;
+  body: string;
+  author: PostAuthorPublic;
+};
+type QuoteMode = {
+  kind: "quote";
+  target: ComposerQuoteTarget;
+};
 
 /**
  * Su create il secondo arg è omesso. Su edit contiene i nuovi
@@ -87,9 +106,10 @@ type Props = {
   maxBodyLength?: number;
   onPublished?: (postId: string, edited?: ComposerPublishedPayload) => void;
   autoFocus?: boolean;
-  mode?: CreateMode | EditMode;
-  /** Default visibility in mode create (sticky preference letta dal parent).
-   *  Ignorato in mode edit (lì la visibility iniziale è quella del post). */
+  mode?: CreateMode | EditMode | QuoteMode;
+  /** Default visibility in mode create/quote (sticky preference letta dal
+   *  parent). Ignorato in mode edit (lì la visibility iniziale è quella
+   *  del post). */
   initialDefaultVisibility?: PostVisibility;
 };
 
@@ -102,6 +122,7 @@ export function Composer({
   initialDefaultVisibility,
 }: Props) {
   const isEdit = mode.kind === "edit";
+  const isQuote = mode.kind === "quote";
   const createDefault = initialDefaultVisibility ?? "public";
   const [body, setBody] = useState(isEdit ? mode.initialBody : "");
   const [visibility, setVisibility] = useState<PostVisibility>(
@@ -132,6 +153,19 @@ export function Composer({
         });
         if (res.ok) {
           onPublished?.(mode.postId, { body, visibility });
+        } else {
+          setError(tErr(res.error, res));
+        }
+      } else if (mode.kind === "quote") {
+        const res = await createQuoteRepost({
+          repostOfId: mode.target.id,
+          body,
+          visibility,
+        });
+        if (res.ok) {
+          setBody("");
+          setVisibility(visibility);
+          onPublished?.(res.data!.postId);
         } else {
           setError(tErr(res.error, res));
         }
@@ -233,8 +267,10 @@ export function Composer({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder={tComp("textarea_placeholder")}
-        rows={6}
+        placeholder={
+          isQuote ? tComp("quote_placeholder") : tComp("textarea_placeholder")
+        }
+        rows={isQuote ? 4 : 6}
         maxLength={maxBodyLength + 100}
         className="w-full bg-transparent text-gc-fg placeholder:text-gc-fg-muted/70 outline-none border-0 resize-none text-[17px] leading-relaxed px-5 py-4"
         aria-label={tComp("textarea_aria")}
@@ -242,8 +278,33 @@ export function Composer({
         autoFocus={autoFocus}
       />
 
-      {/* MediaUploader solo in mode create. In edit la regola attuale è
-          "no edit immagini, solo testo/visibility" (vedi project_module_posts). */}
+      {/* Quote embed preview: solo testo (plain), niente ticker links —
+          è una preview di contesto, non un widget interattivo. Il body è
+          troncato visivamente via line-clamp per non far esplodere la modale
+          su post lunghi. */}
+      {mode.kind === "quote" ? (
+        <div className="mx-5 mb-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
+          <div className="flex items-center gap-1.5 text-xs text-gc-fg-muted mb-1">
+            <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
+            <span className="font-medium">
+              {mode.target.author.username
+                ? `@${mode.target.author.username}`
+                : [
+                    mode.target.author.firstName,
+                    mode.target.author.lastName,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || userFallback}
+            </span>
+          </div>
+          <p className="text-sm text-gc-fg/90 whitespace-pre-wrap line-clamp-5">
+            {mode.target.body}
+          </p>
+        </div>
+      ) : null}
+
+      {/* MediaUploader solo in mode create. Edit: "no edit immagini".
+          Quote: niente media (v1) — un quote è "testo + post citato". */}
       {mode.kind === "create" ? (
         <MediaUploader onMediaIdsChange={setMediaIds} disabled={isPending} />
       ) : null}
@@ -265,10 +326,14 @@ export function Composer({
           {isPending
             ? isEdit
               ? tComp("submitting_edit")
-              : tComp("submitting_new")
+              : isQuote
+                ? tComp("submitting_quote")
+                : tComp("submitting_new")
             : isEdit
               ? tComp("submit_edit")
-              : tComp("submit_new")}
+              : isQuote
+                ? tComp("submit_quote")
+                : tComp("submit_new")}
         </button>
       </div>
 

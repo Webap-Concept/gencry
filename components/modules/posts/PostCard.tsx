@@ -262,6 +262,12 @@ export function PostCard({
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  // Counter optimistic-display per i repost. Incrementato lato client
+  // dopo successful publish del quote dal modale, senza refetch del feed.
+  const [displayedRepostsCount, setDisplayedRepostsCount] = useState(
+    post.counts.reposts,
+  );
   // NB: deleteOpen/reportOpen/blockOpen DEVONO stare qui sopra
   // l'early return `if (deleted || blocked) return null` — altrimenti
   // dopo `setDeleted(true)` il render successivo salta questi useState
@@ -285,10 +291,11 @@ export function PostCard({
     return () => clearInterval(t);
   }, [isAuthor]);
 
-  // User per il composer in edit: fetch solo se l'utente è autore (non
-  // serve a non-autori). useSWR cachato globale ⇒ 1 sola fetch per N card.
+  // User per il composer (edit per gli autori, quote-repost per qualsiasi
+  // utente loggato). useSWR cachato globale ⇒ 1 sola fetch di rete per
+  // tutto il feed (stessa key di NewPostButton). Null = non loggato.
   const { data: currentUser } = useSWR<CurrentUser>(
-    isAuthor ? "/api/user" : null,
+    "/api/user",
     userFetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
   );
@@ -625,7 +632,9 @@ export function PostCard({
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
-            {tCard("repost_tombstone")}
+            {post.repostOfTombstone.reason === "not_visible"
+              ? tCard("repost_tombstone_not_visible")
+              : tCard("repost_tombstone")}
           </div>
         ) : null}
 
@@ -671,14 +680,17 @@ export function PostCard({
           })()}
           <button
             type="button"
-            aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
-            disabled
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed hover:bg-gc-line/40 ${
-              post.counts.reposts > 0 ? "text-gc-pos" : "text-gc-fg-muted"
+            aria-label={tCard("reposts_aria", { count: displayedRepostsCount })}
+            onClick={() => setQuoteOpen(true)}
+            disabled={!currentUser}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gc-line/40 ${
+              displayedRepostsCount > 0 ? "text-gc-pos" : "text-gc-fg-muted"
             }`}
           >
             <Repeat2 size={18} strokeWidth={1.75} />
-            {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
+            {displayedRepostsCount > 0 ? (
+              <span>{displayedRepostsCount}</span>
+            ) : null}
           </button>
         </footer>
 
@@ -759,6 +771,27 @@ export function PostCard({
             onConfirm={onDeleteConfirmed}
           />
         </>
+      ) : null}
+
+      {/* Quote repost modal: disponibile a tutti gli utenti loggati
+          (anche self-repost — vedi pattern Twitter). Mount solo dopo
+          il primo open per non istanziare Dialog/Composer su ogni card
+          del feed. */}
+      {quoteOpen ? (
+        <PostComposerModal
+          open={quoteOpen}
+          onOpenChange={setQuoteOpen}
+          onPublished={() => {
+            setDisplayedRepostsCount((c) => c + 1);
+            setQuoteOpen(false);
+          }}
+          user={currentUser ?? null}
+          quoteTarget={{
+            id: post.id,
+            body: displayedBody,
+            author: post.author,
+          }}
+        />
       ) : null}
     </>
   );

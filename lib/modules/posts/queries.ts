@@ -435,16 +435,31 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
 
 /**
  * Query "core" posts + author info per N ids. Esclude i soft-deleted.
- * NB: per la visibility la fonte di verità è stata getFeedIds(); qui
- * NON viene riapplicata. Tuttavia il filtro block (mutual) SÌ — se il
- * viewer e l'autore hanno una relazione di block, la row sparisce
- * dall'hydration (utile per quote repost target: l'embed diventa
- * tombstone). Per pagine single-post c'è check visibility esplicito
- * in getPostBySlug.
+ * Visibility:
+ *   - default: NON riapplicata, fonte di verità è getFeedIds() per i feed
+ *     e getPostBySlug() per single-post.
+ *   - enforceVisibility: true → filtro SQL aggiuntivo che esclude righe
+ *     che il viewer non ha diritto di vedere. USATO per repost embed
+ *     target: il quote-poster sceglie la visibility del suo quote, ma
+ *     l'embed del target deve rispettare la visibility del TARGET (no
+ *     leak). Quando il filtro elimina la row, la UI cade su tombstone
+ *     con reason 'not_visible'.
+ *     Gate per kind:
+ *       public    → sempre ok
+ *       members   → viewerUserId != null
+ *       followers → viewerUserId == authorId (modulo follow non esiste
+ *                   ancora: temporaneamente equivalente a 'private'.
+ *                   Quando arriverà, aggiungere il join con la tabella
+ *                   follow qui)
+ *       private   → viewerUserId == authorId
+ *
+ * Filtro block (mutual) applicato sempre — se il viewer e l'autore hanno
+ * una relazione di block, la row sparisce dall'hydration.
  */
 async function selectPostsCore(
   ids: string[],
   viewerUserId?: string,
+  opts: { enforceVisibility?: boolean } = {},
 ): Promise<RawPostRow[]> {
   if (ids.length === 0) return [];
   const rows = await db
@@ -478,9 +493,44 @@ async function selectPostsCore(
         inArray(posts.id, ids),
         isNull(posts.deletedAt),
         viewerNotBlockedOnPosts(viewerUserId),
+        opts.enforceVisibility
+          ? viewerCanSeeVisibility(viewerUserId)
+          : undefined,
       ),
     );
   return rows;
+}
+
+// Filtro visibility per un viewer. Restituisce condizione SQL che
+// passa solo per le righe che il viewer può vedere. Usato per embed
+// target del quote repost (NON per i feed: lì gestisce getFeedIds).
+function viewerCanSeeVisibility(viewerUserId: string | undefined) {
+  if (!viewerUserId) {
+    // Viewer anonimo: solo public.
+    return eq(posts.visibility, "public");
+  }
+  // Viewer loggato: public + members sempre; followers/private solo se
+  // viewer == author (finché il modulo follow non sarà disponibile,
+  // 'followers' è di fatto trattato come 'private').
+  return or(
+    inArray(posts.visibility, ["public", "members"]),
+    eq(posts.authorId, viewerUserId),
+  );
+}
+
+// Specchio JS del filtro SQL `viewerCanSeeVisibility`. Usato post-query
+// per classificare un target embed mancante come 'not_visible' vs
+// 'deleted'. Devono restare allineati (modificarli insieme).
+function viewerCanSeeVisibilityJS(
+  visibility: string,
+  authorId: string,
+  viewerUserId: string | undefined,
+): boolean {
+  if (visibility === "public") return true;
+  if (!viewerUserId) return false;
+  if (visibility === "members") return true;
+  // followers + private: solo se viewer == author
+  return authorId === viewerUserId;
 }
 
 async function selectMediaForPosts(
@@ -590,7 +640,9 @@ async function selectViewerStateForPosts(
  *
  * Repost target (depth=1): se A è quote-repost di B, B viene hydrato e
  * piazzato in A.repostOf. Se B non esiste o è cancellato → A.repostOf
- * resta null e A.repostOfTombstone = { id: B }.
+ * resta null e A.repostOfTombstone = { id: B, reason }: 'deleted' se
+ * B è soft/hard-deleted o block-filtrato, 'not_visible' se B esiste ma
+ * il viewer non ha accesso (visibility members/followers/private).
  */
 export async function getPostsByIds(
   ids: string[],
@@ -609,10 +661,36 @@ export async function getPostsByIds(
     const repostTargetIds = Array.from(
       new Set(core.filter((p) => p.repostOfId).map((p) => p.repostOfId!)),
     );
+    // enforceVisibility: il target embed deve rispettare la SUA visibility,
+    // non quella del quote-poster. Se il viewer non ha accesso → tombstone
+    // reason 'not_visible' (niente leak del body).
     const targetCore = repostTargetIds.length
-      ? await selectPostsCore(repostTargetIds, opts.viewerUserId)
+      ? await selectPostsCore(repostTargetIds, opts.viewerUserId, {
+          enforceVisibility: true,
+        })
       : [];
     const targetCoreById = new Map(targetCore.map((p) => [p.id, p]));
+    // Per i target che NON sono in targetCore, query light per distinguere
+    // 'deleted' (hard-deleted o soft-deleted o block) vs 'not_visible'
+    // (esiste ma visibility-gated). Block-filtered cade volutamente su
+    // 'deleted' per non leakare la relazione di block.
+    const missingTargetIds = repostTargetIds.filter(
+      (id) => !targetCoreById.has(id),
+    );
+    const missingTargetMeta = missingTargetIds.length
+      ? await db
+          .select({
+            id: posts.id,
+            visibility: posts.visibility,
+            authorId: posts.authorId,
+            deletedAt: posts.deletedAt,
+          })
+          .from(posts)
+          .where(inArray(posts.id, missingTargetIds))
+      : [];
+    const missingTargetById = new Map(
+      missingTargetMeta.map((r) => [r.id, r]),
+    );
 
     // Step 3: parallel batch — media, tickers, viewer state
     const allPostIds = [...core.map((p) => p.id), ...targetCore.map((p) => p.id)];
@@ -664,7 +742,20 @@ export async function getPostsByIds(
               : null,
           };
         } else {
-          card.repostOfTombstone = { id: row.repostOfId };
+          // Distinguo 'deleted' vs 'not_visible' usando la query light
+          // su missingTargetById. Block-filtered cade su 'deleted'.
+          const meta = missingTargetById.get(row.repostOfId);
+          const reason: "deleted" | "not_visible" =
+            meta &&
+            !meta.deletedAt &&
+            !viewerCanSeeVisibilityJS(
+              meta.visibility,
+              meta.authorId,
+              opts.viewerUserId,
+            )
+              ? "not_visible"
+              : "deleted";
+          card.repostOfTombstone = { id: row.repostOfId, reason };
         }
       }
       return card;

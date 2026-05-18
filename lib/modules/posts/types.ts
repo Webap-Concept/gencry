@@ -67,9 +67,13 @@ export type PostCardData = {
   /** Set when this row is a quote repost. Hydration depth max 1 (no
    *  recursion: repost of repost still shows the original target only). */
   repostOf: PostCardData | null;
-  /** Tombstone: null se il target esiste, l'oggetto se è stato cancellato.
-   *  Mai entrambi non-null contemporaneamente. */
-  repostOfTombstone: { id: string } | null;
+  /** Tombstone: null se il target esiste ed è visibile al viewer.
+   *  - reason 'deleted'     → target soft-deleted o hard-deleted
+   *  - reason 'not_visible' → target esiste ma il viewer non ha accesso
+   *                           (visibility members/followers/private + check fallito).
+   *                           UI mostra placeholder "Post non disponibile" — niente
+   *                           leak del body. Mai entrambi non-null con repostOf. */
+  repostOfTombstone: { id: string; reason: "deleted" | "not_visible" } | null;
   editedAt: Date | null;
   createdAt: Date;
   counts: PostCounts;

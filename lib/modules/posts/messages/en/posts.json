@@ -9,7 +9,6 @@
     "visibility_not_more_restrictive": "You can only restrict visibility, not broaden it.",
     "empty_body": "Write something before publishing.",
     "body_too_long": "Your text is too long.",
-    "self_repost": "You can't repost your own post.",
     "target_unavailable": "The post is no longer available.",
     "cannot_block_self": "You can't block yourself.",
     "reason_not_available": "This report reason is no longer available.",
@@ -105,21 +104,26 @@
     "block_user": "Block {name}",
     "report": "Report",
     "repost_tombstone": "Original post removed",
+    "repost_tombstone_not_visible": "Post not available",
     "comments_aria": "Comments{count, plural, =0 {} other {, #}}",
     "reposts_aria": "Reposts{count, plural, =0 {} other {, #}}"
   },
   "composer": {
     "modal_title_new": "New post",
     "modal_title_edit": "Edit post",
+    "modal_title_quote": "Repost with comment",
     "loading_profile": "Loading profile…",
     "change_visibility": "Change visibility",
     "visibility_locked": "Not available (you can only make it more private)",
     "textarea_placeholder": "Start writing…",
+    "quote_placeholder": "Add a comment…",
     "textarea_aria": "Post body",
     "submit_new": "Publish",
     "submit_edit": "Save changes",
+    "submit_quote": "Repost",
     "submitting_new": "Publishing…",
-    "submitting_edit": "Saving…"
+    "submitting_edit": "Saving…",
+    "submitting_quote": "Reposting…"
   },
   "dialogs": {
     "delete": {

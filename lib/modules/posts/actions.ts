@@ -98,7 +98,6 @@ const I18N = {
   visibilityNotRestrictive: "posts.errors.visibility_not_more_restrictive",
   emptyBody: "posts.errors.empty_body",
   bodyTooLong: "posts.errors.body_too_long",
-  selfRepost: "posts.errors.self_repost",
   targetUnavailable: "posts.errors.target_unavailable",
 } as const;
 
@@ -180,6 +179,12 @@ const ToggleUserBlockInputSchema = z.object({
 const CreateQuoteRepostInputSchema = z.object({
   repostOfId: UuidSchema,
   body: z.string().min(1, "validation.posts.repost_needs_body"),
+  // Il quote ha la SUA visibility, scelta dall'utente. NON eredita quella
+  // del target (privacy paradox: quotare un public con visibility members
+  // restringe la diffusione del mio commento; quotare un members con
+  // visibility public NON allarga il target — l'embed viene gated server-side
+  // in hydration). Default 'public' se omesso (back-compat client legacy).
+  visibility: VisibilitySchema.default("public"),
 });
 
 const ReportPostInputSchema = z.object({
@@ -936,9 +941,10 @@ export async function createQuoteRepost(
   const bodyCheck = validateBody(parsed.data.body, maxBodyLength);
   if (!bodyCheck.ok) return fail(bodyCheck.error, { field: "body" });
 
-  // Verifica che il target esiste e non è soft-deleted. Le policy di
-  // visibility (es. quote-reposto di un private/followers a cui non
-  // hai accesso) verranno enforcate quando arriverà il modulo `follows`.
+  // Verifica che il target esiste e non è soft-deleted. Self-repost
+  // ammesso: pattern Twitter "ricommento un mio post di 2 anni fa".
+  // L'hydration applica visibility-gating sull'embed target, quindi
+  // un viewer senza accesso al target vede solo tombstone.
   const target = await db
     .select({
       id: posts.id,
@@ -950,10 +956,6 @@ export async function createQuoteRepost(
     .limit(1);
 
   if (!target[0] || target[0].deletedAt) return fail(I18N.targetUnavailable);
-  if (target[0].id === parsed.data.repostOfId && target[0].authorId === user.id) {
-    // Reposting il proprio post non ha valore — UX scelta di prodotto
-    return fail(I18N.selfRepost);
-  }
 
   const postId = await db.transaction(async (tx) => {
     const [inserted] = await tx
@@ -961,7 +963,7 @@ export async function createQuoteRepost(
       .values({
         authorId: user.id,
         body: bodyCheck.body,
-        visibility: "public",
+        visibility: parsed.data.visibility,
         repostOfId: parsed.data.repostOfId,
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
@@ -973,6 +975,23 @@ export async function createQuoteRepost(
   await feedInvalidate({ followersOf: user.id });
   await feedInvalidate({ profile: user.id });
   await postInvalidate(parsed.data.repostOfId); // counter reposts_count del target
+
+  // Sticky visibility: anche il quote contribuisce alla preferenza
+  // (best-effort, non blocca la create già committata).
+  try {
+    await db
+      .insert(postsUserPreferences)
+      .values({ userId: user.id, defaultVisibility: parsed.data.visibility })
+      .onConflictDoUpdate({
+        target: postsUserPreferences.userId,
+        set: {
+          defaultVisibility: parsed.data.visibility,
+          updatedAt: sql`NOW()`,
+        },
+      });
+  } catch {
+    // swallow
+  }
 
   return { ok: true, data: { postId } };
 }
