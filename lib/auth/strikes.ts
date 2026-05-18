@@ -17,7 +17,7 @@
 // notifications) sono gestite dal CALLER della service — qui niente
 // I/O extra fuori dal DB, per restare pure.
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import {
   users,
@@ -175,14 +175,19 @@ export async function getStrikeHistory(userId: string): Promise<UserStrike[]> {
     .orderBy(desc(usersStrikes.issuedAt));
 }
 
-/** Solo i N strike attivi (revoked_at IS NULL). Usato per
- *  rendering counter dove non serve la history completa. */
+/** Solo i N strike attivi (revoked_at IS NULL). Usato per rendering
+ *  counter dove non serve la history completa.
+ *
+ *  Implementazione: legge il counter denormalizzato
+ *  `users.active_strikes_count` aggiornato dal trigger
+ *  users_strikes_sync_count_trg → single-row lookup invece di scan
+ *  N-row su users_strikes. Trascurabile per piccoli numeri ma free win
+ *  su scale (1 idx hit vs N rows letti + filter applicativo). */
 export async function getActiveStrikesCount(userId: string): Promise<number> {
-  const rows = await db
-    .select({ id: usersStrikes.id })
-    .from(usersStrikes)
-    .where(
-      and(eq(usersStrikes.userId, userId), isNull(usersStrikes.revokedAt)),
-    );
-  return rows.length;
+  const [row] = await db
+    .select({ count: users.activeStrikesCount })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.count ?? 0;
 }
