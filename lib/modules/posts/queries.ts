@@ -832,6 +832,42 @@ export async function getPostBySlug(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// SEO — sitemap dei post pubblici
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lista compatta (id + createdAt) dei post indicizzabili per la sitemap
+ * `/post/sitemap.xml`. Filtra:
+ *   - visibility = 'public' (solo questi sono visibili ai bot anonimi)
+ *   - deleted_at IS NULL
+ *
+ * Cap a 5000 entries ordinati per createdAt DESC: sitemap.org accetta
+ * fino a 50k URLs per file, ma a quel volume vale la pena passare a
+ * sitemap index. Sotto 5k è 1 sola sitemap, semplice.
+ *
+ * createdAt usato come `lastModified` perché i post non vengono editati
+ * dopo 10min e l'edit non cambia la URL — il timestamp di creazione è
+ * un proxy onesto per il crawler. Edit-window expanded a editedAt
+ * quando arriverà la moderation di admin-edit.
+ */
+export async function getPublicPostsForSitemap(): Promise<
+  Array<{ id: string; createdAt: Date }>
+> {
+  const rows = await db
+    .select({
+      id: posts.id,
+      createdAt: posts.createdAt,
+    })
+    .from(posts)
+    .where(
+      and(eq(posts.visibility, "public"), isNull(posts.deletedAt)),
+    )
+    .orderBy(desc(posts.createdAt))
+    .limit(5000);
+  return rows;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Comments — thread cursor-paginated, 2-livelli visual (root + replies)
 // ─────────────────────────────────────────────────────────────────────────
 //

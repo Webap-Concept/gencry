@@ -829,6 +829,10 @@ export default function PostsArchitecturePage() {
               description="Dialog raw wrapper per la modale intercepting (eccezione GcModal)"
             />
             <ArchFileLink
+              path="app/(public)/post/sitemap.ts"
+              description="Sitemap dinamica per post pubblici → /post/sitemap.xml (cap 5000, cache 5min, tag posts:feed)"
+            />
+            <ArchFileLink
               path="components/modules/posts/FeedList.tsx"
               description="Infinite scroll con IntersectionObserver + scroll-parent root"
             />
