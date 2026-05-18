@@ -1,12 +1,14 @@
 // app/(protected)/post/[id]/page.tsx
 //
 // Pagina singolo post (versione minimale PR-5c). Vista loggata dello
-// stesso PostCard usato in feed.
+// stesso PostCard usato in feed. Il fetching è delegato all'helper
+// `getPostPageData()` (lib/modules/posts/post-page-data.ts) — single
+// source of data condiviso con la modale intercepting
+// `@modal/(.)post/[id]/page.tsx`, niente drift di logica/parametri.
 //
 // PR-9 espanderà:
 //   - SEO meta (OG/Twitter card per condivisione esterna)
 //   - Anonymous via adaptive (public)/ layout
-//   - Comments thread inline + composer commento
 //   - URL friendly con slug autore
 //
 // Comportamento "post non trovato":
@@ -19,15 +21,7 @@
 //     project_nextjs_notfound_layout.
 import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
-import {
-  getPostBySlug,
-  getInitialRepliesForRoots,
-  getRootCommentsForPost,
-} from "@/lib/modules/posts/queries";
-import { getCoinNameMap } from "@/lib/modules/prices/queries";
-import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
-import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
-import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
+import { getPostPageData } from "@/lib/modules/posts/post-page-data";
 import { PostCard } from "@/components/modules/posts/PostCard";
 import { CommentsThread } from "@/components/modules/posts/CommentsThread";
 
@@ -40,33 +34,21 @@ export default async function PostPage({
 }) {
   const { id } = await params;
   const user = await getUser();
-  const [post, coinNameMap, commentsConfig] = await Promise.all([
-    getPostBySlug(id, { viewerUserId: user?.id }),
-    getCoinNameMap(),
-    loadCommentsConfig(),
-  ]);
-  if (!post) {
+  const data = await getPostPageData(id, user?.id);
+  if (!data) {
     if (user) redirect("/");
     notFound();
   }
 
+  const {
+    post,
+    coinNameMap,
+    commentsConfig,
+    tickerPreviewMap,
+    rootPage,
+    initialReplies,
+  } = data;
   const isAuthor = user?.id === post.author.id;
-
-  // SSR prefetch: ticker preview + comments root (+ initial replies)
-  // in parallelo. La page detail è il golden path utente concentrato,
-  // val la pena pagare 2 query extra per first-paint zero-latency.
-  const [tickerPreviewMap, rootPage] = await Promise.all([
-    getTickerPreviewBatch(collectVisibleTickers([post])),
-    getRootCommentsForPost({ postId: post.id, viewerUserId: user?.id }),
-  ]);
-  const initialReplies =
-    rootPage.comments.length === 0
-      ? {}
-      : await getInitialRepliesForRoots({
-          rootIds: rootPage.comments.map((c) => c.id),
-          perRoot: commentsConfig.repliesInitialCount,
-          viewerUserId: user?.id,
-        });
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">

@@ -817,6 +817,18 @@ export default function PostsArchitecturePage() {
               description="Radio list nella card Post di /settings/privacy"
             />
             <ArchFileLink
+              path="lib/modules/posts/post-page-data.ts"
+              description="Single source of data per page standalone + modale intercepting (no drift)"
+            />
+            <ArchFileLink
+              path="app/(protected)/@modal/(.)post/[id]/page.tsx"
+              description="Intercepting route: click PostCard → modale; refresh/share → page"
+            />
+            <ArchFileLink
+              path="components/modules/posts/PostModalContainer.tsx"
+              description="Dialog raw wrapper per la modale intercepting (eccezione GcModal)"
+            />
+            <ArchFileLink
               path="components/modules/posts/FeedList.tsx"
               description="Infinite scroll con IntersectionObserver + scroll-parent root"
             />
@@ -924,6 +936,36 @@ export default function PostsArchitecturePage() {
               <code>'followers'</code> come <code>'private'</code> (gate
               <code>viewerUserId == authorId</code>). Quando il modulo arriva,
               aggiungere il join in entrambe le funzioni.
+            </li>
+            <li>
+              <strong>Post in modale via intercepting routes</strong> (2026-05-18):
+              <code>@modal/(.)post/[id]/page.tsx</code> intercetta la
+              navigazione client da una <code>PostCard</code> verso
+              <code>/post/[id]</code> e renderizza la modale invece della
+              page standalone. Refresh/share dello stesso URL bypassano
+              l'intercept e rendono la page → SEO/share intatti. Single
+              source di data:{" "}
+              <code>lib/modules/posts/post-page-data.ts</code> riusato da
+              entrambe le route — toccare l'uno richiede toccare l'altro
+              solo se cambia il contratto del fetch. Lo slot{" "}
+              <code>modal</code> è passato come prop al{" "}
+              <code>(protected)/layout.tsx</code>;{" "}
+              <code>@modal/default.tsx</code> ritorna <code>null</code>{" "}
+              quando l'URL non matcha (obbligatorio per il parallel routes
+              system). Delete/block dentro la modale chiamano i nuovi
+              callback{" "}
+              <code>PostCard.onDeleted</code> /{" "}
+              <code>onBlocked</code> che fanno <code>router.back()</code>
+              {" "}invece dei <code>redirectAfter*</code>.
+            </li>
+            <li>
+              <strong>Realtime nella modale</strong>: il
+              <code>CommentsThread</code> dentro la modale apre la sua
+              subscription a <code>posts_comments:&#123;id&#125;</code>{" "}
+              come fa la page standalone. Il feed sotto NON ha
+              subscription sui commenti del post in modale (subscribe a
+              namespace diverso <code>feed:posts</code>), nessuna
+              collisione. Niente doppia subscription da gestire.
             </li>
           </ul>
         </ArchSection>

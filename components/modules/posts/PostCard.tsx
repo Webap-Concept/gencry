@@ -153,6 +153,13 @@ type Props = {
    */
   redirectAfterDelete?: string;
   /**
+   * Callback alternativa ai redirectAfter* — se passata, viene chiamata
+   * dopo delete/block confermati invece di fare router.replace. Usata
+   * dalla modale intercepting per chiudere lo slot (router.back).
+   */
+  onDeleted?: () => void;
+  onBlocked?: () => void;
+  /**
    * Mappa lower-name → SYMBOL caricata dal Server Component padre per
    * il match implicito dei coin nel PostBody. Propagata sia al body
    * principale sia al `repostOf` embed. Senza, solo `$TICKER` espliciti
@@ -195,6 +202,8 @@ export function PostCard({
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
   redirectAfterBlock,
   redirectAfterDelete,
+  onDeleted,
+  onBlocked,
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
@@ -356,12 +365,16 @@ export function PostCard({
 
       setDeleted(true);
 
+      // Priority: onDeleted callback (modale → router.back) >
+      // redirectAfterDelete (single page → "/") > router.refresh (feed).
       // Single-post page (variant="single") passa redirectAfterDelete="/"
       // così la URL morta non resta nella history (back skippa). Sul
       // feed, refresh forza il re-fetch RSC dopo revalidatePath del
       // server action — il FeedList riceve le nuove initialPosts senza
       // il post deleted, e useResetableListState aggiorna lo state.
-      if (redirectAfterDelete) {
+      if (onDeleted) {
+        onDeleted();
+      } else if (redirectAfterDelete) {
         router.replace(redirectAfterDelete);
       } else {
         router.refresh();
@@ -395,7 +408,9 @@ export function PostCard({
       // ripopolare la Router Cache di RSC: il server action ha già
       // chiamato revalidatePath('/', 'layout'), refresh forza il
       // re-fetch immediato del feed corrente.
-      if (redirectAfterBlock) {
+      if (onBlocked) {
+        onBlocked();
+      } else if (redirectAfterBlock) {
         router.replace(redirectAfterBlock);
       } else {
         router.refresh();
