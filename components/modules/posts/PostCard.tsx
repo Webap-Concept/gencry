@@ -486,14 +486,12 @@ export function PostCard({
                 {authorDisplayName(post.author, userFallback)}
               </Link>
               <span className="text-xs text-gc-fg-muted">·</span>
-              <Link
-                href={`/post/${post.id}`}
-                className="text-xs text-gc-fg-muted hover:underline"
+              <time
+                dateTime={String(post.createdAt)}
+                className="text-xs text-gc-fg-muted"
               >
-                <time dateTime={String(post.createdAt)}>
-                  {formatRelativeTime(post.createdAt, tTime, locale)}
-                </time>
-              </Link>
+                {formatRelativeTime(post.createdAt, tTime, locale)}
+              </time>
               {displayedEditedAt ? (
                 <span
                   className="text-xs text-gc-fg-muted"
