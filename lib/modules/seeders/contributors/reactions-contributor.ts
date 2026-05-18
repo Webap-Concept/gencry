@@ -9,16 +9,16 @@
 //     skewed verso il basso (max ~ sqrt(N_users), tipico effetto
 //     long tail). Per N=100 seed users → median 3-5, max ~10.
 //   - Il "kind" di reaction è mood-biased: un bullish_btc tende al
-//     `rocket`/`bull`, un bearish al `bear`/`dump`, hodler al
-//     `diamond`, ecc.
+//     `to_the_moon`/`bullish`, un bearish al `bearish`/`dump`, hodler
+//     al `like`, ecc.
 //   - Constraint PK (post_id, user_id, reaction) + regola "1 user →
 //     1 reaction": ogni user reaziona AL MASSIMO 1 volta per post.
 //
-// Performance: bulk INSERT singola. I 6 contatori denormalizzati su
-// `posts` si aggiornano via trigger DB (M_posts_002_triggers.sql),
-// niente roundtrip extra. Outbox emit `post.reaction.added` viene
-// generato dal trigger ma rimane inerte: niente notifications module
-// che lo consuma in V1.
+// Performance: bulk INSERT singola. I 5 contatori denormalizzati su
+// `posts` si aggiornano via trigger DB (M_posts_002_triggers.sql +
+// refactor M_posts_008), niente roundtrip extra. Outbox emit
+// `post.reaction.added` viene generato dal trigger ma rimane inerte:
+// niente notifications module che lo consuma in V1.
 import "server-only";
 
 import { db } from "@/lib/db/drizzle";
@@ -30,18 +30,19 @@ import type { SeedUser } from "../services/user-seeder";
  * Per ogni mood, ordinate dalla più probabile alla meno. Il pick
  * fa weighted-by-position: posizione 0 vince spesso, le altre poco.
  *
- * NB: i 6 kind del modulo posts sono: like, rocket, bull, bear, dump,
- * diamond. Mantenuti in sync con POST_REACTION_KINDS in lib/db/schema.
+ * NB: i 5 kind del modulo posts (refactor M_posts_008) sono:
+ * like, bullish, bearish, to_the_moon, dump. Mantenuti in sync con
+ * POST_REACTION_KINDS in lib/db/schema.
  */
 const MOOD_REACTION_PREFERENCE: Record<UserMood, PostReactionKind[]> = {
-  bullish_btc: ["rocket", "bull", "diamond", "like"],
-  bearish:     ["bear", "dump", "like"],
-  hodler:      ["diamond", "like", "bull"],
-  trader:      ["like", "rocket", "bear"],
-  defi:        ["like", "rocket", "bull"],
-  macro:       ["bear", "like", "diamond"],
-  newbie:      ["like", "rocket"],
-  degen:       ["rocket", "diamond", "bull", "like"],
+  bullish_btc: ["to_the_moon", "bullish", "like"],
+  bearish:     ["bearish", "dump", "like"],
+  hodler:      ["like", "bullish"],
+  trader:      ["like", "to_the_moon", "bearish"],
+  defi:        ["like", "to_the_moon", "bullish"],
+  macro:       ["bearish", "like"],
+  newbie:      ["like", "to_the_moon"],
+  degen:       ["to_the_moon", "bullish", "like"],
 };
 
 // Distribuzione pesi per il pick mood-biased. Index 0 vince circa

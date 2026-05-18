@@ -39,7 +39,12 @@ const updateProfileSchema = z.object({
         ctx.addIssue({ code: "custom", message: result.error });
       }
     }),
-  bio: z.string().trim().max(160).optional().default(""),
+  /** Headline: frase breve visibile sotto username (pattern LinkedIn).
+   *  Max 160 char (DB varchar 160). */
+  headline: z.string().trim().max(160).optional().default(""),
+  /** Bio estesa, visibile nella page profilo. Max 500 char (DB text,
+   *  limite enforcato app-side per evitare blob enormi). */
+  bio: z.string().trim().max(500).optional().default(""),
   /** Locale preferito (es. "it", "en"). Stringa vuota = nessuna preferenza
    *  (segui il detection del proxy). Validato lato server contro la
    *  whitelist `LOCALES` di lib/i18n/config.ts. */
@@ -49,7 +54,7 @@ const updateProfileSchema = z.object({
 export const updateProfile = validatedActionWithUser(
   updateProfileSchema,
   async (data, _formData, user) => {
-    const { firstName, lastName, username, bio, locale } = data;
+    const { firstName, lastName, username, headline, bio, locale } = data;
     const tAct = await getTranslations("core.settings.actions");
 
     // Lo username viene controllato (blacklist + bloom + DB) solo se è
@@ -80,10 +85,10 @@ export const updateProfile = validatedActionWithUser(
     try {
       await db
         .insert(userProfiles)
-        .values({ userId: user.id, firstName, lastName, username, bio })
+        .values({ userId: user.id, firstName, lastName, username, headline, bio })
         .onConflictDoUpdate({
           target: userProfiles.userId,
-          set: { firstName, lastName, username, bio, updatedAt: new Date() },
+          set: { firstName, lastName, username, headline, bio, updatedAt: new Date() },
         });
     } catch (err) {
       // Race condition: tra il check bloom/DB e l'UPDATE, qualcun altro

@@ -56,9 +56,9 @@ export async function NotFoundShell() {
             <Image
               src={logoUrl}
               alt={settings.app_name || "Logo"}
-              width={160}
-              height={40}
-              className="h-10 w-auto object-contain"
+              width={256}
+              height={64}
+              className="h-16 w-auto object-contain"
               priority
               unoptimized
             />

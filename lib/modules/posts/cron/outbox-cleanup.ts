@@ -14,7 +14,7 @@
 // processed > retention.
 import "server-only";
 
-import { and, isNotNull, lt, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import { postsCronRuns, postsOutbox } from "@/lib/db/schema";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -70,7 +70,7 @@ export async function runOutboxCleanup(): Promise<OutboxCleanupResult> {
         itemsProcessed: processed,
         ok: true,
       })
-      .where(and(sql`${postsCronRuns.id} = ${runRow.id}`, isNotNull(postsCronRuns.id)));
+      .where(sql`${postsCronRuns.id} = ${runRow.id}`);
 
     return { ok: true, itemsProcessed: processed, durationMs };
   } catch (err) {
@@ -91,8 +91,5 @@ export async function runOutboxCleanup(): Promise<OutboxCleanupResult> {
       durationMs,
       error: message,
     };
-  } finally {
-    // No-op: il lt() era usato in tx originaria, ora la DELETE è inline.
-    void lt; // keep import non-unused warning a bada se ts strict
   }
 }

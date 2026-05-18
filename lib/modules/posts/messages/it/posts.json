@@ -37,18 +37,42 @@
     "invalid_ticker": "Ticker non valido.",
     "load_more": "Carica altri",
     "loading_more": "Carico…",
-    "end_reached": "Hai visto tutto."
+    "end_reached": "Il mercato è saturo, non c'è altro da vedere."
   },
   "comments": {
     "empty_body": "Scrivi qualcosa prima di commentare.",
-    "body_too_long": "Il commento è troppo lungo."
+    "body_too_long": "Il commento è troppo lungo.",
+    "loading": "Caricamento commenti…",
+    "empty": "Ancora nessun commento. Sii il primo.",
+    "load_more": "Mostra altri commenti",
+    "edited": "modificato",
+    "tombstone": "Commento rimosso dall'autore.",
+    "show_more_replies": "Mostra {count, plural, =1 {1 altra risposta} other {altre # risposte}}",
+    "expand": "Mostra tutto",
+    "collapse": "Riduci",
+    "banner": {
+      "new_comments": "{count, plural, =1 {1 nuovo commento} other {# nuovi commenti}} — clicca per caricare"
+    },
+    "actions": {
+      "reply": "Rispondi"
+    },
+    "composer": {
+      "placeholder": "Scrivi un commento…",
+      "aria_label": "Testo del commento",
+      "error_generic": "Invio non riuscito. Riprova."
+    }
   },
   "common": {
     "cancel": "Annulla",
     "close": "Chiudi",
     "user_fallback": "Utente",
     "see_all": "Vedi tutti",
-    "sign_up": "Iscriviti"
+    "sign_up": "Iscriviti",
+    "submit": "Invia",
+    "save": "Salva",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "more_actions": "Altre azioni"
   },
   "visibility": {
     "public": "Tutti",
@@ -103,7 +127,7 @@
       "description": "Il post sparisce subito dal tuo profilo e dai feed di tutti.",
       "confirm": "Elimina",
       "consequence_1": "Reazioni e bookmark restano associati al post fino al ripristino.",
-      "consequence_2": "I commenti restano se qualcuno ha già risposto (etichetta «post rimosso»), altrimenti spariscono.",
+      "consequence_2": "I commenti vengono eliminati insieme al post.",
       "consequence_3": "I quote-repost di altri utenti mostrano «post originale rimosso».",
       "consequence_4_prefix": "Per ",
       "consequence_4_strong": "7 giorni",
@@ -153,11 +177,10 @@
   },
   "reactions": {
     "like": "Mi piace",
-    "rocket": "Rocket",
-    "bull": "Bullish",
-    "bear": "Bearish",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "to_the_moon": "To the moon",
     "dump": "Dump",
-    "diamond": "Diamond hands",
     "button_aria": "Reazioni",
     "menu_aria": "Scegli reazione"
   },

@@ -14,7 +14,8 @@ import { checkUsernameAction } from "@/app/(login)/actions";
 import { removeAvatar, updateProfile, uploadAvatar, type UploadAvatarState } from "../actions";
 import { AvatarCropDialog } from "./avatar-crop-dialog";
 
-const BIO_MAX = 160;
+const HEADLINE_MAX = 160;
+const BIO_MAX = 500;
 
 type Initial = {
   firstName: string;
@@ -22,6 +23,7 @@ type Initial = {
   username: string;
   avatarUrl: string | null;
   email: string;
+  headline: string;
   bio: string;
   /** Locale preferito (es. "it", "en"). Stringa vuota = nessuna preferenza. */
   locale: string;
@@ -114,12 +116,19 @@ export function ProfileForm({
     FormData
   >(updateProfile, {});
 
+  // Ref-based diff: `profileState.success` resta truthy tra salvataggi
+  // consecutivi (es. "Saved!" → "Saved!"), quindi un dep `[profileState.success]`
+  // non riscatta l'effect al secondo save. Confrontiamo il reference
+  // dell'oggetto state, che useActionState rinnova ad ogni dispatch.
+  const lastProfileStateRef = useRef(profileState);
   useEffect(() => {
+    if (profileState === lastProfileStateRef.current) return;
+    lastProfileStateRef.current = profileState;
     if (profileState.success) {
       mutate("/api/user");
       router.refresh();
     }
-  }, [profileState.success, router]);
+  }, [profileState, router]);
 
   return (
     <div className="space-y-8">
@@ -174,7 +183,23 @@ export function ProfileForm({
           )}
         </div>
 
-        {/* Bio */}
+        {/* Headline (frase breve, visibile sotto username in liste compatte) */}
+        <div className="space-y-1.5">
+          <Label htmlFor="headline">{t("headline")}</Label>
+          <Input
+            id="headline"
+            name="headline"
+            type="text"
+            defaultValue={initial.headline}
+            maxLength={HEADLINE_MAX}
+            placeholder={t("headlinePlaceholder")}
+          />
+          <p className="text-[11.5px] text-gc-fg-3 px-1">
+            {t("headlineHelp", { max: HEADLINE_MAX })}
+          </p>
+        </div>
+
+        {/* Bio estesa (visibile sulla pagina profilo per intero) */}
         <div className="space-y-1.5">
           <Label htmlFor="bio">{t("bio")}</Label>
           <textarea
@@ -182,7 +207,7 @@ export function ProfileForm({
             name="bio"
             defaultValue={initial.bio}
             maxLength={BIO_MAX}
-            rows={3}
+            rows={5}
             placeholder={t("bioPlaceholder")}
             className="flex w-full rounded-2xl border px-4 py-2.5 text-sm resize-none bg-brand-surface-card text-brand-text placeholder:text-brand-text-light border-brand-border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-border-focus-rgb),0.2)] focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
           />

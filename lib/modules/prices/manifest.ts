@@ -23,11 +23,11 @@ export const PRICES_MODULE: ModuleManifest = {
     {
       key: "prices-overview",
       href: "/modules/prices",
-      label: "Health",
+      label: "Overview",
       icon: "Activity",
       permission: "modules:prices",
       // exact: il path è prefisso di /coins e /settings, senza exact tutte
-      // le sottosezioni accenderebbero anche Health.
+      // le sottosezioni accenderebbero anche Overview.
       exact: true,
     },
     {

@@ -14,6 +14,7 @@ import { getFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
 import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
+import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { FeedList } from "./FeedList";
 
 export async function PostsFeedSection() {
@@ -25,9 +26,10 @@ export async function PostsFeedSection() {
   // Home = Following only. `getFeedIds({ tab: 'following' })` oggi
   // ritorna sempre [] (stub fino al modulo follows). Il backend Discover
   // resta vivo e sarà usato da /explore.
-  const [page, coinNameMap] = await Promise.all([
+  const [page, coinNameMap, commentsConfig] = await Promise.all([
     getFeedIds({ tab: "following", viewerUserId: user.id }),
     getCoinNameMap(),
+    loadCommentsConfig(),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
   // Prefetch batch dei preview ticker visibili — zero round-trip al
@@ -45,6 +47,20 @@ export async function PostsFeedSection() {
       source={{ kind: "tab", tab: "following" }}
       coinNameMap={coinNameMap}
       tickerPreviewMap={tickerPreviewMap}
+      commentsThreadProps={{
+        viewerUserId: user.id,
+        viewerProfile: {
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          avatarUrl: user.avatarUrl,
+          headline: user.headline,
+        },
+        liveMode: commentsConfig.liveModeFeed,
+        pollIntervalSeconds: commentsConfig.pollIntervalSeconds,
+        repliesInitialCount: commentsConfig.repliesInitialCount,
+        maxBodyLength: commentsConfig.maxBodyLength,
+      }}
     />
   );
 }

@@ -108,10 +108,13 @@ const nextConfig: NextConfig = {
               "font-src 'self'",
               // Stripe JS + Cloudflare Turnstile (iframe widget)
               "frame-src 'self' https://js.stripe.com https://challenges.cloudflare.com",
-              // Connessioni API: Supabase + Stripe + Resend + GA4/GTM
-              // + Cloudflare R2 endpoint S3 (signed PUT da browser per il
-              //   modulo Posts media upload — vedi project_module_posts_architecture)
-              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.r2.cloudflarestorage.com",
+              // Connessioni API: Supabase (REST + Realtime WebSocket) +
+              // Stripe + Resend + GA4/GTM + Cloudflare R2 endpoint S3
+              // (signed PUT da browser per il modulo Posts media upload).
+              // wss://*.supabase.co: necessario per Supabase Realtime
+              // (Broadcast/Presence/Postgres Changes) — WebSocket richiede
+              // lo schema wss esplicito, https non basta.
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://*.r2.cloudflarestorage.com",
             ].join("; "),
           },
         ],

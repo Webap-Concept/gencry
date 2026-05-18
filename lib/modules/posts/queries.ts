@@ -38,7 +38,10 @@ import { isBlockedBetween, notBlockedBy } from "./services/blocks";
 import { cursorFromRow, decodeCursor, encodeCursor } from "./lib/cursor";
 import type {
   CommentCardData,
+  CommentRepliesPage,
+  CommentRootCardData,
   CommentsPage,
+  CommentsRootPage,
   PostAuthorPublic,
   PostCardData,
   PostCounts,
@@ -107,13 +110,15 @@ function cursorClause(cursor: ReturnType<typeof decodeCursor>) {
   );
 }
 
-/** Equivalente di cursorClause ma per ASC (commenti). */
-function cursorClauseAsc(cursor: ReturnType<typeof decodeCursor>) {
+/** Keyset cursor per posts_comments in ordine DESC (più recenti
+ *  prima). Decisione 2026-05-17: anche le reply seguono DESC come i
+ *  root per coerenza UX. */
+function cursorClauseCommentsDesc(cursor: ReturnType<typeof decodeCursor>) {
   if (!cursor) return undefined;
   const cursorDate = new Date(cursor.ms);
   return or(
-    gt(postsComments.createdAt, cursorDate),
-    and(eq(postsComments.createdAt, cursorDate), gt(postsComments.id, cursor.id)),
+    lt(postsComments.createdAt, cursorDate),
+    and(eq(postsComments.createdAt, cursorDate), lt(postsComments.id, cursor.id)),
   );
 }
 
@@ -210,21 +215,26 @@ export async function getProfileFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const rows = await db
-    .select({ id: posts.id, createdAt: posts.createdAt })
-    .from(posts)
-    .where(
-      and(
-        eq(posts.authorId, opts.authorId),
-        isNull(posts.deletedAt),
-        profileVisibilityClause(opts.authorId, opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursorClause(cursor),
-      ),
-    )
-    .orderBy(desc(posts.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `profile:${opts.authorId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(posts)
+        .where(
+          and(
+            eq(posts.authorId, opts.authorId),
+            isNull(posts.deletedAt),
+            profileVisibilityClause(opts.authorId, opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursorClause(cursor),
+          ),
+        )
+        .orderBy(desc(posts.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getTickerFeedIds(opts: {
@@ -237,30 +247,35 @@ export async function getTickerFeedIds(opts: {
   const cursor = decodeCursor(opts.cursor);
   // Ticker normalizzato uppercase (CHECK SQL li impone così).
   const tickerNorm = opts.ticker.toUpperCase();
-  const rows = await db
-    .select({ id: posts.id, createdAt: posts.createdAt })
-    .from(postsTickers)
-    .innerJoin(posts, eq(posts.id, postsTickers.postId))
-    .where(
-      and(
-        eq(postsTickers.ticker, tickerNorm),
-        isNull(posts.deletedAt),
-        discoverVisibilityClause(opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursor
-          ? or(
-              lt(postsTickers.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsTickers.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsTickers.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `ticker:${tickerNorm}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(postsTickers)
+        .innerJoin(posts, eq(posts.id, postsTickers.postId))
+        .where(
+          and(
+            eq(postsTickers.ticker, tickerNorm),
+            isNull(posts.deletedAt),
+            discoverVisibilityClause(opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursor
+              ? or(
+                  lt(postsTickers.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsTickers.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsTickers.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getBookmarkFeedIds(opts: {
@@ -270,36 +285,41 @@ export async function getBookmarkFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  // Ordine: per `posts_bookmarks.created_at` (quando l'utente ha
-  // bookmarkato), non per `posts.created_at`. UX migliore: il "primo
-  // bookmark" sta in cima.
-  const rows = await db
-    .select({
-      id: posts.id,
-      // Esponiamo come createdAt il timestamp di bookmark per ricostruire
-      // il cursor coerentemente; le UI userà comunque l'ordine di ritorno.
-      createdAt: postsBookmarks.createdAt,
-    })
-    .from(postsBookmarks)
-    .innerJoin(posts, eq(posts.id, postsBookmarks.postId))
-    .where(
-      and(
-        eq(postsBookmarks.userId, opts.viewerUserId),
-        isNull(posts.deletedAt),
-        cursor
-          ? or(
-              lt(postsBookmarks.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsBookmarks.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsBookmarks.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `bookmarks:${opts.viewerUserId}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      // Ordine: per `posts_bookmarks.created_at` (quando l'utente ha
+      // bookmarkato), non per `posts.created_at`. UX migliore: il "primo
+      // bookmark" sta in cima.
+      const rows = await db
+        .select({
+          id: posts.id,
+          // Esponiamo come createdAt il timestamp di bookmark per ricostruire
+          // il cursor coerentemente; le UI userà comunque l'ordine di ritorno.
+          createdAt: postsBookmarks.createdAt,
+        })
+        .from(postsBookmarks)
+        .innerJoin(posts, eq(posts.id, postsBookmarks.postId))
+        .where(
+          and(
+            eq(postsBookmarks.userId, opts.viewerUserId),
+            isNull(posts.deletedAt),
+            cursor
+              ? or(
+                  lt(postsBookmarks.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsBookmarks.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsBookmarks.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 export async function getMentionsFeedIds(opts: {
@@ -311,30 +331,35 @@ export async function getMentionsFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const rows = await db
-    .select({ id: posts.id, createdAt: postsMentions.createdAt })
-    .from(postsMentions)
-    .innerJoin(posts, eq(posts.id, postsMentions.postId))
-    .where(
-      and(
-        eq(postsMentions.mentionedUserId, opts.targetUserId),
-        isNull(posts.deletedAt),
-        discoverVisibilityClause(opts.viewerUserId),
-        viewerNotBlockedOnPosts(opts.viewerUserId),
-        cursor
-          ? or(
-              lt(postsMentions.createdAt, new Date(cursor.ms)),
-              and(
-                eq(postsMentions.createdAt, new Date(cursor.ms)),
-                lt(posts.id, cursor.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-    .orderBy(desc(postsMentions.createdAt), desc(posts.id))
-    .limit(pageSize + 1);
-  return toListPage(rows, pageSize);
+  return getCachedFeedIds(
+    `mentions:${opts.targetUserId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: postsMentions.createdAt })
+        .from(postsMentions)
+        .innerJoin(posts, eq(posts.id, postsMentions.postId))
+        .where(
+          and(
+            eq(postsMentions.mentionedUserId, opts.targetUserId),
+            isNull(posts.deletedAt),
+            discoverVisibilityClause(opts.viewerUserId),
+            viewerNotBlockedOnPosts(opts.viewerUserId),
+            cursor
+              ? or(
+                  lt(postsMentions.createdAt, new Date(cursor.ms)),
+                  and(
+                    eq(postsMentions.createdAt, new Date(cursor.ms)),
+                    lt(posts.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(postsMentions.createdAt), desc(posts.id))
+        .limit(pageSize + 1);
+      return toListPage(rows, pageSize);
+    },
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -351,11 +376,10 @@ type RawPostRow = {
   deletedAt: Date | null;
   createdAt: Date;
   reactionsLike: number;
-  reactionsRocket: number;
-  reactionsBull: number;
-  reactionsBear: number;
+  reactionsBullish: number;
+  reactionsBearish: number;
+  reactionsToTheMoon: number;
   reactionsDump: number;
-  reactionsDiamond: number;
   commentsCount: number;
   repostsCount: number;
   bookmarksCount: number;
@@ -363,6 +387,7 @@ type RawPostRow = {
   authorFirstName: string | null;
   authorLastName: string | null;
   authorAvatarUrl: string | null;
+  authorHeadline: string | null;
 };
 
 function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repostOfTombstone" | "viewer" | "tickers" | "media"> & {
@@ -375,23 +400,22 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
     firstName: row.authorFirstName,
     lastName: row.authorLastName,
     avatarUrl: row.authorAvatarUrl,
+    headline: row.authorHeadline,
   };
   const counts: PostCounts = {
     reactions: {
-      like:    row.reactionsLike,
-      rocket:  row.reactionsRocket,
-      bull:    row.reactionsBull,
-      bear:    row.reactionsBear,
-      dump:    row.reactionsDump,
-      diamond: row.reactionsDiamond,
+      like:        row.reactionsLike,
+      bullish:     row.reactionsBullish,
+      bearish:     row.reactionsBearish,
+      to_the_moon: row.reactionsToTheMoon,
+      dump:        row.reactionsDump,
     },
     reactionsTotal:
       row.reactionsLike +
-      row.reactionsRocket +
-      row.reactionsBull +
-      row.reactionsBear +
-      row.reactionsDump +
-      row.reactionsDiamond,
+      row.reactionsBullish +
+      row.reactionsBearish +
+      row.reactionsToTheMoon +
+      row.reactionsDump,
     comments:  row.commentsCount,
     reposts:   row.repostsCount,
     bookmarks: row.bookmarksCount,
@@ -433,12 +457,11 @@ async function selectPostsCore(
       editedAt: posts.editedAt,
       deletedAt: posts.deletedAt,
       createdAt: posts.createdAt,
-      reactionsLike: posts.reactionsLike,
-      reactionsRocket: posts.reactionsRocket,
-      reactionsBull: posts.reactionsBull,
-      reactionsBear: posts.reactionsBear,
-      reactionsDump: posts.reactionsDump,
-      reactionsDiamond: posts.reactionsDiamond,
+      reactionsLike:      posts.reactionsLike,
+      reactionsBullish:   posts.reactionsBullish,
+      reactionsBearish:   posts.reactionsBearish,
+      reactionsToTheMoon: posts.reactionsToTheMoon,
+      reactionsDump:      posts.reactionsDump,
       commentsCount: posts.commentsCount,
       repostsCount: posts.repostsCount,
       bookmarksCount: posts.bookmarksCount,
@@ -446,6 +469,7 @@ async function selectPostsCore(
       authorFirstName: userProfiles.firstName,
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
     })
     .from(posts)
     .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
@@ -668,10 +692,17 @@ export async function getPostsByIds(
  *     di vedere la visibility. Il chiamante deve mappare null → 404 (non
  *     403, per non rivelare l'esistenza — vedi project_module_posts §SEO).
  */
+/** Regex UUID standard (8-4-4-4-12 hex). Bocca early i postId non-UUID
+ *  (es. typo in URL) per evitare che Postgres lanci 22P02 invalid_text_
+ *  representation. Il caller riceve null e renderizza 404. */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getPostBySlug(
   postId: string,
   opts: { viewerUserId?: string } = {},
 ): Promise<PostCardData | null> {
+  if (!UUID_REGEX.test(postId)) return null;
+
   const [meta] = await db
     .select({
       authorId: posts.authorId,
@@ -710,18 +741,131 @@ export async function getPostBySlug(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Comments: thread cursor-paginated
+// Comments — thread cursor-paginated, 2-livelli visual (root + replies)
 // ─────────────────────────────────────────────────────────────────────────
+//
+// Pattern (vedi memory project_module_posts.md §Interazioni):
+//   - Schema FLAT (1 colonna parent_comment_id), rendering 2-livelli visual.
+//   - Root = parent_comment_id IS NULL; Reply = parent_comment_id NOT NULL.
+//   - "Reply su reply" comunque collassano a livello 2 con `@user`
+//     precompilato (gestito UI-side, schema resta piatto).
+//
+// Performance (M_posts_007_comments_indexes.sql):
+//   - idx_posts_comments_root      → root listing 1 INDEX SCAN
+//   - idx_posts_comments_replies   → reply listing + COUNT scalare 1 INDEX SCAN
+//
+// 3 funzioni esposte:
+//   1) getRootCommentsForPost(postId)            → root paginate + repliesCount inline
+//   2) getInitialRepliesForRoots(rootIds, perRoot) → prime N reply di N root in 1 query
+//      (window function ROW_NUMBER) — evita N+1 a primo render del thread.
+//   3) getRepliesForComment(parentId)            → on-demand "Mostra altre N risposte"
 
-export async function getCommentsForPost(opts: {
+const ROOT_PAGE_SIZE = 15;
+const REPLIES_PAGE_SIZE = 10;
+
+/** Subquery scalare che ritorna l'array di reaction del viewer su un
+ *  commento. Se viewer anonimo, ritorna `ARRAY[]::varchar[]`. Index-only
+ *  scan grazie a idx_posts_comment_reactions_user_recent (M_posts_008). */
+function viewerReactionsForCommentSql(viewerUserId?: string) {
+  if (!viewerUserId) {
+    return sql<string[]>`ARRAY[]::varchar[]`;
+  }
+  return sql<string[]>`COALESCE(
+    (SELECT array_agg(r.reaction)
+     FROM posts_comment_reactions r
+     WHERE r.comment_id = ${postsComments.id}
+       AND r.user_id = ${viewerUserId}::uuid),
+    ARRAY[]::varchar[]
+  )`;
+}
+
+type CommentRowSelection = {
+  id: string;
+  postId: string;
+  parentCommentId: string | null;
+  authorId: string;
+  body: string;
+  editedAt: Date | null;
+  createdAt: Date;
+  authorUsername: string | null;
+  authorFirstName: string | null;
+  authorLastName: string | null;
+  authorAvatarUrl: string | null;
+  authorHeadline: string | null;
+  reactionsLike: number;
+  reactionsBullish: number;
+  reactionsBearish: number;
+  reactionsToTheMoon: number;
+  reactionsDump: number;
+  /** Array di reaction kinds del viewer su questo commento. Array vuoto
+   *  se viewer anonimo o se non ha reazionato. La regola "1 user → 1
+   *  reaction" è applicativa, quindi in pratica length ≤ 1, ma il type
+   *  è array per uniformità con PostViewerState.ownReactions. */
+  viewerReactions: string[];
+};
+
+function rowToCommentCardData(
+  r: CommentRowSelection,
+  hasViewer: boolean,
+): CommentCardData {
+  const reactions = {
+    like:        Number(r.reactionsLike)       || 0,
+    bullish:     Number(r.reactionsBullish)    || 0,
+    bearish:     Number(r.reactionsBearish)    || 0,
+    to_the_moon: Number(r.reactionsToTheMoon)  || 0,
+    dump:        Number(r.reactionsDump)       || 0,
+  };
+  const reactionsTotal =
+    reactions.like +
+    reactions.bullish +
+    reactions.bearish +
+    reactions.to_the_moon +
+    reactions.dump;
+  const ownReactions = (r.viewerReactions ?? []).filter((k): k is PostReactionKind =>
+    POST_REACTION_KINDS.includes(k as PostReactionKind),
+  );
+  return {
+    id: r.id,
+    postId: r.postId,
+    parentCommentId: r.parentCommentId,
+    author: {
+      id: r.authorId,
+      username: r.authorUsername,
+      firstName: r.authorFirstName,
+      lastName: r.authorLastName,
+      avatarUrl: r.authorAvatarUrl,
+      headline: r.authorHeadline,
+    },
+    body: r.body,
+    editedAt: r.editedAt,
+    createdAt: r.createdAt,
+    counts: { reactions, reactionsTotal },
+    viewer: hasViewer ? { ownReactions } : null,
+  };
+}
+
+/**
+ * Root commenti di un post, paginated ASC su (created_at, id). Include
+ * `repliesCount` come subquery scalare: 1 query per N root, ogni count è
+ * un INDEX-ONLY SCAN su idx_posts_comments_replies (parziale, deleted_at
+ * filter incluso nell'indice). Niente N+1.
+ */
+export async function getRootCommentsForPost(opts: {
   postId: string;
   viewerUserId?: string;
   cursor?: string;
   pageSize?: number;
-}): Promise<CommentsPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+}): Promise<CommentsRootPage> {
+  const pageSize = opts.pageSize ?? ROOT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
 
+  const repliesCountExpr = sql<number>`(
+    SELECT COUNT(*)::int FROM ${postsComments} r
+    WHERE r.parent_comment_id = ${postsComments.id}
+      AND r.deleted_at IS NULL
+  )`;
+
+  const hasViewer = Boolean(opts.viewerUserId);
   const rows = await db
     .select({
       id: postsComments.id,
@@ -735,35 +879,33 @@ export async function getCommentsForPost(opts: {
       authorFirstName: userProfiles.firstName,
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
+      reactionsLike:      postsComments.reactionsLike,
+      reactionsBullish:   postsComments.reactionsBullish,
+      reactionsBearish:   postsComments.reactionsBearish,
+      reactionsToTheMoon: postsComments.reactionsToTheMoon,
+      reactionsDump:      postsComments.reactionsDump,
+      viewerReactions:    viewerReactionsForCommentSql(opts.viewerUserId),
+      repliesCount: repliesCountExpr,
     })
     .from(postsComments)
     .leftJoin(userProfiles, eq(userProfiles.userId, postsComments.authorId))
     .where(
       and(
         eq(postsComments.postId, opts.postId),
+        isNull(postsComments.parentCommentId),
         isNull(postsComments.deletedAt),
         viewerNotBlockedOnComments(opts.viewerUserId),
-        cursorClauseAsc(cursor),
+        cursorClauseCommentsDesc(cursor),
       ),
     )
-    .orderBy(asc(postsComments.createdAt), asc(postsComments.id))
+    .orderBy(desc(postsComments.createdAt), desc(postsComments.id))
     .limit(pageSize + 1);
 
   const truncated = rows.length > pageSize ? rows.slice(0, pageSize) : rows;
-  const comments: CommentCardData[] = truncated.map((r) => ({
-    id: r.id,
-    postId: r.postId,
-    parentCommentId: r.parentCommentId,
-    author: {
-      id: r.authorId,
-      username: r.authorUsername,
-      firstName: r.authorFirstName,
-      lastName: r.authorLastName,
-      avatarUrl: r.authorAvatarUrl,
-    },
-    body: r.body,
-    editedAt: r.editedAt,
-    createdAt: r.createdAt,
+  const comments: CommentRootCardData[] = truncated.map((r) => ({
+    ...rowToCommentCardData(r, hasViewer),
+    repliesCount: Number(r.repliesCount) || 0,
   }));
 
   const nextCursor =
@@ -772,6 +914,169 @@ export async function getCommentsForPost(opts: {
       : null;
 
   return { comments, nextCursor };
+}
+
+/**
+ * Prime N reply di una lista di root commenti, in 1 sola query con
+ * window function ROW_NUMBER. Restituisce una mappa
+ * `{ rootId: CommentCardData[] }`. Caller passa i root ids della pagina
+ * corrente di `getRootCommentsForPost` (≤ ROOT_PAGE_SIZE root). Lookup
+ * O(1) lato client, niente N+1.
+ *
+ * Se vuoi caricare MORE reply oltre `perRoot`, usa `getRepliesForComment`
+ * on-demand col cursor della reply N-esima.
+ */
+export async function getInitialRepliesForRoots(opts: {
+  rootIds: string[];
+  perRoot?: number;
+  viewerUserId?: string;
+}): Promise<Record<string, CommentCardData[]>> {
+  if (opts.rootIds.length === 0) return {};
+  const perRoot = opts.perRoot ?? 3;
+
+  // CTE con window function: ROW_NUMBER partitionato per parent_comment_id
+  // ordinato ASC su (created_at, id), poi filtra rn <= perRoot.
+  //
+  // NB: il block check è SQL-side via NOT EXISTS in entrambe le direzioni.
+  // Il viewer_id viene passato come parametro letterale per evitare di
+  // dover gestire il caso "anonymous = nessun filtro" con sql.empty().
+  const viewerId = opts.viewerUserId ?? "00000000-0000-0000-0000-000000000000";
+  const applyBlockFilter = Boolean(opts.viewerUserId);
+
+  const rootIdsSql = sql.join(opts.rootIds.map((id) => sql`${id}`), sql`, `);
+  const blockClauseSql = applyBlockFilter
+    ? sql`AND NOT EXISTS (
+        SELECT 1 FROM posts_user_blocks b
+        WHERE (b.blocker_id = ${viewerId}::uuid AND b.blocked_id = c.author_id)
+           OR (b.blocked_id = ${viewerId}::uuid AND b.blocker_id = c.author_id)
+      )`
+    : sql``;
+
+  const viewerReactionsSql = applyBlockFilter
+    ? sql`COALESCE(
+        (SELECT array_agg(rr.reaction) FROM posts_comment_reactions rr
+         WHERE rr.comment_id = c.id AND rr.user_id = ${viewerId}::uuid),
+        ARRAY[]::varchar[]
+      ) AS "viewerReactions"`
+    : sql`ARRAY[]::varchar[] AS "viewerReactions"`;
+
+  const result = await db.execute(sql<CommentRowSelection & { rn: number }>`
+    WITH ranked AS (
+      SELECT
+        c.id, c.post_id AS "postId", c.parent_comment_id AS "parentCommentId",
+        c.author_id AS "authorId", c.body, c.edited_at AS "editedAt",
+        c.created_at AS "createdAt",
+        up.username AS "authorUsername",
+        up.first_name AS "authorFirstName",
+        up.last_name AS "authorLastName",
+        up.avatar_url AS "authorAvatarUrl",
+        up.headline AS "authorHeadline",
+        c.reactions_like         AS "reactionsLike",
+        c.reactions_bullish      AS "reactionsBullish",
+        c.reactions_bearish      AS "reactionsBearish",
+        c.reactions_to_the_moon  AS "reactionsToTheMoon",
+        c.reactions_dump         AS "reactionsDump",
+        ${viewerReactionsSql},
+        ROW_NUMBER() OVER (
+          PARTITION BY c.parent_comment_id
+          ORDER BY c.created_at DESC, c.id DESC
+        ) AS rn
+      FROM posts_comments c
+      LEFT JOIN user_profiles up ON up.user_id = c.author_id
+      WHERE c.parent_comment_id IN (${rootIdsSql})
+        AND c.deleted_at IS NULL
+        ${blockClauseSql}
+    )
+    SELECT * FROM ranked WHERE rn <= ${perRoot}
+    ORDER BY "parentCommentId", "createdAt" DESC
+  `);
+
+  const rows = Array.from(result as unknown as CommentRowSelection[]);
+  const grouped: Record<string, CommentCardData[]> = {};
+  for (const r of rows) {
+    const parentId = r.parentCommentId;
+    if (!parentId) continue;
+    if (!grouped[parentId]) grouped[parentId] = [];
+    grouped[parentId].push(rowToCommentCardData(r, applyBlockFilter));
+  }
+  return grouped;
+}
+
+/**
+ * Reply di un singolo root, paginate ASC. Usata per "Mostra altre N risposte"
+ * dopo che `getInitialRepliesForRoots` ha già caricato le prime 3.
+ */
+export async function getRepliesForComment(opts: {
+  parentCommentId: string;
+  viewerUserId?: string;
+  cursor?: string;
+  pageSize?: number;
+}): Promise<CommentRepliesPage> {
+  const pageSize = opts.pageSize ?? REPLIES_PAGE_SIZE;
+  const cursor = decodeCursor(opts.cursor);
+
+  const hasViewer = Boolean(opts.viewerUserId);
+  const rows = await db
+    .select({
+      id: postsComments.id,
+      postId: postsComments.postId,
+      parentCommentId: postsComments.parentCommentId,
+      authorId: postsComments.authorId,
+      body: postsComments.body,
+      editedAt: postsComments.editedAt,
+      createdAt: postsComments.createdAt,
+      authorUsername: userProfiles.username,
+      authorFirstName: userProfiles.firstName,
+      authorLastName: userProfiles.lastName,
+      authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
+      reactionsLike:      postsComments.reactionsLike,
+      reactionsBullish:   postsComments.reactionsBullish,
+      reactionsBearish:   postsComments.reactionsBearish,
+      reactionsToTheMoon: postsComments.reactionsToTheMoon,
+      reactionsDump:      postsComments.reactionsDump,
+      viewerReactions:    viewerReactionsForCommentSql(opts.viewerUserId),
+    })
+    .from(postsComments)
+    .leftJoin(userProfiles, eq(userProfiles.userId, postsComments.authorId))
+    .where(
+      and(
+        eq(postsComments.parentCommentId, opts.parentCommentId),
+        isNull(postsComments.deletedAt),
+        viewerNotBlockedOnComments(opts.viewerUserId),
+        cursorClauseCommentsDesc(cursor),
+      ),
+    )
+    .orderBy(desc(postsComments.createdAt), desc(postsComments.id))
+    .limit(pageSize + 1);
+
+  const truncated = rows.length > pageSize ? rows.slice(0, pageSize) : rows;
+  const replies = truncated.map((r) => rowToCommentCardData(r, hasViewer));
+
+  const nextCursor =
+    rows.length > pageSize
+      ? encodeCursor(cursorFromRow(truncated[truncated.length - 1]))
+      : null;
+
+  return { replies, nextCursor };
+}
+
+/**
+ * @deprecated Mantenuto per backward-compat. Nuovo codice deve usare
+ * `getRootCommentsForPost` + `getInitialRepliesForRoots` per evitare di
+ * tirare giù tutto il thread in piano e fare il pull di reply che
+ * potrebbero non essere mai mostrate.
+ */
+export async function getCommentsForPost(opts: {
+  postId: string;
+  viewerUserId?: string;
+  cursor?: string;
+  pageSize?: number;
+}): Promise<CommentsPage> {
+  const root = await getRootCommentsForPost(opts);
+  // Per non rompere chiamanti vecchi che si aspettavano flat list, fondiamo
+  // root + replies in un solo array. Internamente sconsigliato.
+  return { comments: root.comments, nextCursor: root.nextCursor };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

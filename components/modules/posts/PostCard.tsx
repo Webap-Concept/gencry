@@ -24,6 +24,7 @@ import {
   useOptimistic,
   useState,
 } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -63,6 +64,20 @@ import { ReportPostDialog } from "./ReportPostDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
+
+// Lazy-load del thread commenti: ~30KB di JS + dipendenze Supabase
+// Realtime non gravano sul bundle iniziale del feed. Mount on first
+// expand (`commentsOpen=true`).
+const CommentsThreadLazy = dynamic(
+  () =>
+    import("./CommentsThread").then((m) => ({ default: m.CommentsThread })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-3 py-4 text-center text-xs text-gc-fg-muted">…</div>
+    ),
+  },
+);
 
 function authorDisplayName(
   author: PostCardData["author"],
@@ -149,6 +164,28 @@ type Props = {
    * TickerHoverCard tramite PostBody per primo hover zero-latency.
    */
   tickerPreviewMap?: Record<string, TickerPreviewData>;
+  /**
+   * Se settato (variant "feed"), il bottone "Commenta" diventa un
+   * toggle che espande inline il thread sotto la card invece di
+   * navigare a /post/{id}. Mounta `<CommentsThread>` lazily (dynamic
+   * import) → zero impatto sul bundle del feed initial render.
+   *
+   * Se omesso, fallback al comportamento storico: Link a /post/{id}.
+   */
+  commentsThreadProps?: {
+    viewerUserId?: string;
+    viewerProfile?: {
+      username: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      avatarUrl: string | null;
+      headline: string | null;
+    };
+    liveMode: "subscribe" | "poll" | "off";
+    pollIntervalSeconds: number;
+    repliesInitialCount: number;
+    maxBodyLength: number;
+  };
 };
 
 export function PostCard({
@@ -160,6 +197,7 @@ export function PostCard({
   redirectAfterDelete,
   coinNameMap,
   tickerPreviewMap,
+  commentsThreadProps,
 }: Props) {
   const router = useRouter();
   const t = useTranslations("posts");
@@ -217,11 +255,10 @@ export function PostCard({
   });
   const reactionsTotal =
     optimisticCounts.like +
-    optimisticCounts.rocket +
-    optimisticCounts.bull +
-    optimisticCounts.bear +
-    optimisticCounts.dump +
-    optimisticCounts.diamond;
+    optimisticCounts.bullish +
+    optimisticCounts.bearish +
+    optimisticCounts.to_the_moon +
+    optimisticCounts.dump;
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -234,6 +271,10 @@ export function PostCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
+  // Inline expand del thread commenti (solo variant feed, gated da
+  // `commentsThreadProps`). Mount lazy via dynamic() — il bundle del
+  // thread non grava sul render iniziale del feed.
+  const [commentsOpen, setCommentsOpen] = useState(false);
   // Edit-window è dinamico: la finestra può scadere mentre l'utente
   // sta guardando la card. Forza re-render ogni 30s così "Modifica"
   // sparisce al passaggio del minuto 10.
@@ -467,6 +508,11 @@ export function PostCard({
                 </span>
               ) : null}
             </div>
+            {post.author.headline ? (
+              <p className="text-xs text-gc-fg-muted truncate leading-tight mt-0.5">
+                {post.author.headline}
+              </p>
+            ) : null}
           </div>
           {/* Top-right toolbar */}
           <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
@@ -494,12 +540,14 @@ export function PostCard({
                     ? tCard("bookmark_remove")
                     : tCard("bookmark_save")}
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/post/${post.id}`}>
-                    <ArrowUpRight size={16} strokeWidth={1.75} />
-                    {tCard("open_post")}
-                  </Link>
-                </DropdownMenuItem>
+                {variant === "feed" ? (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/post/${post.id}`}>
+                      <ArrowUpRight size={16} strokeWidth={1.75} />
+                      {tCard("open_post")}
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
                 {canEdit ? (
                   <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                     <Pencil size={16} strokeWidth={1.75} />
@@ -591,24 +639,72 @@ export function PostCard({
             totalCount={reactionsTotal}
             onToggle={onToggleReaction}
           />
-          <Link
-            href={`/post/${post.id}`}
-            aria-label={tCard("comments_aria", { count: post.counts.comments })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg transition"
-          >
-            <MessageCircle size={18} strokeWidth={1.75} />
-            {post.counts.comments > 0 ? <span>{post.counts.comments}</span> : null}
-          </Link>
+          {(() => {
+            // Color stateful: se ci sono commenti, l'icona+count diventano
+            // arancio (gc-accent). Se la thread è espansa, vince il chip
+            // bg-gc-bg-3. Altrimenti grigio muted con hover standard.
+            const hasComments = post.counts.comments > 0;
+            const baseCommentsCls = commentsOpen
+              ? "bg-gc-line/50 text-gc-fg"
+              : hasComments
+                ? "text-gc-accent hover:bg-gc-line/40"
+                : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg";
+            return commentsThreadProps && variant === "feed" ? (
+              <button
+                type="button"
+                aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                aria-expanded={commentsOpen}
+                onClick={() => setCommentsOpen((o) => !o)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                {hasComments ? <span>{post.counts.comments}</span> : null}
+              </button>
+            ) : (
+              <Link
+                href={`/post/${post.id}`}
+                aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+              >
+                <MessageCircle size={18} strokeWidth={1.75} />
+                {hasComments ? <span>{post.counts.comments}</span> : null}
+              </Link>
+            );
+          })()}
           <button
             type="button"
             aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
             disabled
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted disabled:cursor-not-allowed"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed hover:bg-gc-line/40 ${
+              post.counts.reposts > 0 ? "text-gc-pos" : "text-gc-fg-muted"
+            }`}
           >
             <Repeat2 size={18} strokeWidth={1.75} />
             {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
           </button>
         </footer>
+
+        {/* Inline comments thread (expand-on-click, lazy bundle).
+            Gate: solo variant feed + caller ha passato commentsThreadProps.
+            Render condizionato → niente WebSocket aperti finché non si
+            clicca. Pattern non-disruptive: il banner realtime e il
+            composer vivono dentro CommentsThread. */}
+        {commentsOpen && commentsThreadProps && variant === "feed" ? (
+          <div className="mt-3 pt-3 border-t border-gc-line/40 relative z-[1]">
+            <CommentsThreadLazy
+              postId={post.id}
+              postVisibility={post.visibility}
+              viewerUserId={commentsThreadProps.viewerUserId}
+              viewerProfile={commentsThreadProps.viewerProfile}
+              liveMode={commentsThreadProps.liveMode}
+              pollIntervalSeconds={commentsThreadProps.pollIntervalSeconds}
+              repliesInitialCount={commentsThreadProps.repliesInitialCount}
+              maxBodyLength={commentsThreadProps.maxBodyLength}
+              editWindowMs={editWindowMs}
+              coinNameMap={coinNameMap}
+            />
+          </div>
+        ) : null}
       </article>
 
       {/* Report dialog + block confirm: mounted solo per non-autori

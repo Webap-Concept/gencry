@@ -74,6 +74,10 @@ export const userProfiles = pgTable("user_profiles", {
   username: varchar("username", { length: 50 }).unique(),
   // Avatar: URL immagine profilo (caricata dall'utente o importata da OAuth)
   avatarUrl: text("avatar_url"),
+  // Headline (frase breve, ~160 char): visibile sotto username nei
+  // contesti compatti (sidebar, popover utente). Pattern LinkedIn.
+  headline: varchar("headline", { length: 160 }),
+  // Bio estesa: visibile nella pagina profilo per intero.
   bio: text("bio"),
   // Interessi crypto scelti durante l'onboarding (mock — implementazione vera in seguito)
   interests: text("interests").array().notNull().default(sql`'{}'::text[]`),
@@ -1265,6 +1269,7 @@ export type UserWithProfile = User & {
   lastName: string | null;
   username: string | null;
   avatarUrl: string | null;
+  headline: string | null;
   bio: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -1470,13 +1475,12 @@ export const posts = pgTable(
     // 'author' | <uuid moderatore> | null. Vedi M_posts_006_deleted_by.sql.
     deletedBy:        varchar("deleted_by", { length: 40 }),
     createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    // Counter denormalizzati (aggiornati da trigger in PR-2)
-    reactionsLike:    integer("reactions_like").notNull().default(0),
-    reactionsRocket:  integer("reactions_rocket").notNull().default(0),
-    reactionsBull:    integer("reactions_bull").notNull().default(0),
-    reactionsBear:    integer("reactions_bear").notNull().default(0),
-    reactionsDump:    integer("reactions_dump").notNull().default(0),
-    reactionsDiamond: integer("reactions_diamond").notNull().default(0),
+    // Counter denormalizzati (aggiornati da trigger in PR-2, refactor 008)
+    reactionsLike:       integer("reactions_like").notNull().default(0),
+    reactionsBullish:    integer("reactions_bullish").notNull().default(0),
+    reactionsBearish:    integer("reactions_bearish").notNull().default(0),
+    reactionsToTheMoon:  integer("reactions_to_the_moon").notNull().default(0),
+    reactionsDump:       integer("reactions_dump").notNull().default(0),
     commentsCount:    integer("comments_count").notNull().default(0),
     repostsCount:     integer("reposts_count").notNull().default(0),
     bookmarksCount:   integer("bookmarks_count").notNull().default(0),
@@ -1511,7 +1515,7 @@ export const postsReactions = pgTable(
                  .references(() => posts.id, { onDelete: "cascade" }),
     userId:    uuid("user_id").notNull()
                  .references(() => users.id, { onDelete: "cascade" }),
-    // 'like' | 'rocket' | 'bull' | 'bear' | 'dump' | 'diamond'
+    // 'like' | 'bullish' | 'bearish' | 'to_the_moon' | 'dump' (refactor M_posts_008)
     reaction:  varchar("reaction", { length: 16 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1525,17 +1529,44 @@ export const postsReactions = pgTable(
 export const postsComments = pgTable(
   "posts_comments",
   {
-    id:               uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
-    postId:           uuid("post_id").notNull()
-                        .references(() => posts.id, { onDelete: "cascade" }),
-    authorId:         uuid("author_id").notNull()
-                        .references(() => users.id, { onDelete: "cascade" }),
-    parentCommentId:  uuid("parent_comment_id"),  // self-FK, dichiarato a livello SQL
-    body:             text("body").notNull(),
-    editedAt:         timestamp("edited_at",  { withTimezone: true }),
-    deletedAt:        timestamp("deleted_at", { withTimezone: true }),
-    createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    id:                 uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    postId:             uuid("post_id").notNull()
+                          .references(() => posts.id, { onDelete: "cascade" }),
+    authorId:           uuid("author_id").notNull()
+                          .references(() => users.id, { onDelete: "cascade" }),
+    parentCommentId:    uuid("parent_comment_id"),  // self-FK, dichiarato a livello SQL
+    body:               text("body").notNull(),
+    editedAt:           timestamp("edited_at",  { withTimezone: true }),
+    deletedAt:          timestamp("deleted_at", { withTimezone: true }),
+    createdAt:          timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Counter denormalizzati reactions sui commenti (M_posts_008)
+    reactionsLike:      integer("reactions_like").notNull().default(0),
+    reactionsBullish:   integer("reactions_bullish").notNull().default(0),
+    reactionsBearish:   integer("reactions_bearish").notNull().default(0),
+    reactionsToTheMoon: integer("reactions_to_the_moon").notNull().default(0),
+    reactionsDump:      integer("reactions_dump").notNull().default(0),
   },
+);
+
+// posts_comment_reactions — stessa shape di posts_reactions ma su commenti
+// (M_posts_008). 1 user → 1 reaction per commento, enforced applicativamente
+// dal service comment-reactions.ts (PK schema = composito kind incluso).
+export const postsCommentReactions = pgTable(
+  "posts_comment_reactions",
+  {
+    commentId: uuid("comment_id").notNull()
+                 .references(() => postsComments.id, { onDelete: "cascade" }),
+    userId:    uuid("user_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    // 'like' | 'bullish' | 'bearish' | 'to_the_moon' | 'dump'
+    reaction:  varchar("reaction", { length: 16 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.commentId, t.userId, t.reaction] }),
+    index("idx_posts_comment_reactions_comment_kind").on(t.commentId, t.reaction),
+    index("idx_posts_comment_reactions_user_recent").on(t.userId, t.createdAt),
+  ],
 );
 
 export const postsBookmarks = pgTable(
@@ -1695,11 +1726,10 @@ export type NewPostsCronRun = typeof postsCronRuns.$inferInsert;
  */
 export const POST_REACTION_KINDS = [
   "like",
-  "rocket",
-  "bull",
-  "bear",
+  "bullish",
+  "bearish",
+  "to_the_moon",
   "dump",
-  "diamond",
 ] as const;
 export type PostReactionKind = (typeof POST_REACTION_KINDS)[number];
 

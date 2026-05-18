@@ -17,6 +17,9 @@ export type PostAuthorPublic = {
   firstName: string | null;
   lastName: string | null;
   avatarUrl: string | null;
+  /** Headline (frase breve LinkedIn-style) — mostrata sotto username
+   *  nelle card/commenti dove appare l'autore. Truncate UI-side. */
+  headline: string | null;
 };
 
 export type PostMediaPublic = {
@@ -30,11 +33,10 @@ export type PostMediaPublic = {
 
 export type PostReactionCounts = {
   like: number;
-  rocket: number;
-  bull: number;
-  bear: number;
+  bullish: number;
+  bearish: number;
+  to_the_moon: number;
   dump: number;
-  diamond: number;
 };
 
 export type PostCounts = {
@@ -81,6 +83,21 @@ export type PostListPage = {
   nextCursor: string | null;
 };
 
+export type CommentReactionCounts = PostReactionCounts;
+
+/** Counts denormalizzati sul commento. Mantenuto separato da PostCounts
+ *  perché un commento NON ha sub-counter (no repost/bookmark/sub-comments). */
+export type CommentCounts = {
+  reactions: CommentReactionCounts;
+  reactionsTotal: number;
+};
+
+/** Stato viewer-specific sul commento. Speculare a PostViewerState ma
+ *  senza il flag bookmarked (i commenti non sono bookmarkabili). */
+export type CommentViewerState = {
+  ownReactions: PostReactionKind[];
+};
+
 export type CommentCardData = {
   id: string;
   postId: string;
@@ -89,8 +106,35 @@ export type CommentCardData = {
   body: string;
   editedAt: Date | null;
   createdAt: Date;
+  counts: CommentCounts;
+  viewer: CommentViewerState | null;
 };
 
+/**
+ * Variante "root commento" arricchita con `repliesCount`. La query del
+ * thread carica i root con repliesCount in 1 sola query (subquery scalare
+ * con count parziale sull'indice idx_posts_comments_replies). Lato UI
+ * `repliesCount > 0` ⇒ mostra "Mostra altre N risposte" oppure il pannello
+ * tombstone se tutti i reply sono soft-deleted (caso raro).
+ */
+export type CommentRootCardData = CommentCardData & {
+  repliesCount: number;
+};
+
+export type CommentsRootPage = {
+  comments: CommentRootCardData[];
+  nextCursor: string | null;
+};
+
+export type CommentRepliesPage = {
+  replies: CommentCardData[];
+  nextCursor: string | null;
+};
+
+/**
+ * @deprecated mantenuto per backward-compat finché tutti i call site
+ * passano a `CommentsRootPage`. Da rimuovere a chiusura della PR-comments.
+ */
 export type CommentsPage = {
   comments: CommentCardData[];
   nextCursor: string | null;

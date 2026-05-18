@@ -200,6 +200,13 @@ export type SettingKey =
   | 'modules.posts.outbox_retention_days'        // cleanup posts_outbox processed_at < now()-N
   | 'modules.posts.orphan_media_grace_hours'     // cleanup R2 posts_media confirmed_at IS NULL > N ore
   | 'modules.posts.deleted_grace_days'           // grace prima dell'hard-delete dei post soft-deleted (default 7)
+  // Comments — thread 2-livelli (vedi project_module_posts_architecture §Comments)
+  | 'modules.posts.comments.live_mode_post_page' // 'subscribe'|'poll'|'off' su /post/[id]
+  | 'modules.posts.comments.live_mode_feed'      // 'subscribe'|'poll'|'off' su inline expand del feed
+  | 'modules.posts.comments.poll_interval_seconds' // intervallo polling (5..120) quando mode=poll
+  | 'modules.posts.comments.cache_ttl_seconds'   // unstable_cache TTL per i thread (0..300, 0=off)
+  | 'modules.posts.comments.max_body_length'     // CHECK constraint allinea schema (100..2000)
+  | 'modules.posts.comments.replies_initial_count' // numero di reply prefetched per root (0..10)
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -420,6 +427,12 @@ export type AppSettings = {
   'modules.posts.outbox_retention_days': string
   'modules.posts.orphan_media_grace_hours': string
   'modules.posts.deleted_grace_days': string
+  'modules.posts.comments.live_mode_post_page': string
+  'modules.posts.comments.live_mode_feed': string
+  'modules.posts.comments.poll_interval_seconds': string
+  'modules.posts.comments.cache_ttl_seconds': string
+  'modules.posts.comments.max_body_length': string
+  'modules.posts.comments.replies_initial_count': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -611,6 +624,13 @@ const DEFAULTS: AppSettings = {
   'modules.posts.outbox_retention_days': '30',
   'modules.posts.orphan_media_grace_hours': '24',
   'modules.posts.deleted_grace_days': '7',
+  // Comments — thread 2-livelli (PR-comments, vedi project_module_posts_architecture).
+  'modules.posts.comments.live_mode_post_page': 'subscribe',
+  'modules.posts.comments.live_mode_feed': 'subscribe',
+  'modules.posts.comments.poll_interval_seconds': '20',
+  'modules.posts.comments.cache_ttl_seconds': '30',
+  'modules.posts.comments.max_body_length': '2000',
+  'modules.posts.comments.replies_initial_count': '3',
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',

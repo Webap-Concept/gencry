@@ -8,13 +8,373 @@
 // e PR-7 (outbox retention).
 //
 // Design completo del modulo: vedi memory project_module_posts_architecture.
-import type { ModuleManifest } from "@/lib/modules/types";
+import type { CapacityProfile, ModuleManifest } from "@/lib/modules/types";
+
+// Capacity profiles del modulo Posts. 1 profilo per "feature autonoma"
+// (vedi memoria feedback_capacity_profile_pattern). La UI admin di
+// ogni tab legge il profilo via lookup `scope`.
+//
+// Scopes definiti:
+//   - "comments" → live mode + reply prefetch + cache TTL
+//   - "rate-limits" → Upstash sliding window per post/reaction/etc (placeholder, attesa Upstash + form admin dedicato)
+//   - "retention" → outbox/orphan-media/deleted grace days (placeholder)
+//   - "media" → R2 (max images per post, body length, link preview cache) (placeholder)
+
+const COMMENTS_CAPACITY: CapacityProfile = {
+  scope: "comments",
+  label: "Comments thread",
+  currentTier: "alpha",
+  resources: [
+    {
+      name: "Supabase Realtime (Broadcast)",
+      plan: "Free",
+      limits: [
+        "200 conn concorrenti",
+        "2M msg/mese",
+        "100 msg/sec per conn",
+      ],
+      upgradeAt: "500 viewer simultanei o concurrent conn > 70% del limite",
+      upgradePath:
+        "Supabase Pro (500 conn) OR swap a Ably/Pusher via service hookable comments-realtime.ts",
+      docsUrl: "https://supabase.com/docs/guides/realtime",
+    },
+    {
+      name: "Supabase Postgres (posts_comments)",
+      plan: "Free",
+      limits: [
+        "500MB DB share",
+        "200 conn concorrenti via pool",
+      ],
+      upgradeAt: "p95 query > 100ms (M_posts_007 indici parziali coprono il fan-out)",
+      upgradePath:
+        "Upgrade Supabase Pro ($25/mo) — sblocca 8GB DB e 500 conn",
+      docsUrl: "https://supabase.com/pricing",
+    },
+    {
+      name: "Upstash KV (feed cache) — CORE",
+      plan: "Free / pay-as-you-go",
+      limits: [
+        "10k req/giorno (free tier)",
+        "256MB max DB (free)",
+        "TTL 60s su posts:feed:* (feed-cache.ts)",
+      ],
+      upgradeAt: "Throughput > 10k req/giorno o miss rate > 50%",
+      upgradePath:
+        "Pay-as-you-go Upstash ~$10/mo a 1k MAU. Credenziali a livello CORE (upstash_redis_rest_url/_token) — setup unico in /admin/services/redis, riusato cross-modulo.",
+      docsUrl: "https://upstash.com/pricing",
+    },
+  ],
+  tunables: [
+    { key: "modules.posts.comments.live_mode_post_page",   label: "Live mode — /post/[id]" },
+    { key: "modules.posts.comments.live_mode_feed",        label: "Live mode — feed inline" },
+    { key: "modules.posts.comments.poll_interval_seconds", label: "Poll interval (sec)" },
+    { key: "modules.posts.comments.cache_ttl_seconds",     label: "Cache TTL (sec)" },
+    { key: "modules.posts.comments.max_body_length",       label: "Max body length (char)" },
+    { key: "modules.posts.comments.replies_initial_count", label: "Reply prefetch per root" },
+  ],
+  presets: [
+    {
+      id: "alpha",
+      label: "Alpha (<100 MAU)",
+      description: "Realtime aggressivo, niente cache aggressive — feedback immediato per chiusura early-stage.",
+      values: {
+        "modules.posts.comments.live_mode_post_page": "subscribe",
+        "modules.posts.comments.live_mode_feed": "subscribe",
+        "modules.posts.comments.poll_interval_seconds": "20",
+        "modules.posts.comments.cache_ttl_seconds": "30",
+        "modules.posts.comments.replies_initial_count": "3",
+      },
+    },
+    {
+      id: "beta",
+      label: "Beta (100-1k MAU)",
+      description: "Subscribe sulla page, poll nel feed per non saturare conn realtime. Cache un po' più aggressiva.",
+      values: {
+        "modules.posts.comments.live_mode_post_page": "subscribe",
+        "modules.posts.comments.live_mode_feed": "poll",
+        "modules.posts.comments.poll_interval_seconds": "30",
+        "modules.posts.comments.cache_ttl_seconds": "60",
+        "modules.posts.comments.replies_initial_count": "3",
+      },
+    },
+    {
+      id: "growth",
+      label: "Growth (1k-10k MAU)",
+      description: "Realtime solo su page dedicata, poll ovunque, cache lunga. Conviene anche attivare Upstash KV + Supabase Pro.",
+      values: {
+        "modules.posts.comments.live_mode_post_page": "subscribe",
+        "modules.posts.comments.live_mode_feed": "poll",
+        "modules.posts.comments.poll_interval_seconds": "45",
+        "modules.posts.comments.cache_ttl_seconds": "120",
+        "modules.posts.comments.replies_initial_count": "2",
+      },
+    },
+    {
+      id: "scale",
+      label: "Scale (10k+ MAU)",
+      description: "Realtime off di default — banner via poll lungo. Cache aggressiva. Necessita single-channel pooling (V2 future) + Upstash + Supabase Pro + monitoring proattivo.",
+      values: {
+        "modules.posts.comments.live_mode_post_page": "poll",
+        "modules.posts.comments.live_mode_feed": "off",
+        "modules.posts.comments.poll_interval_seconds": "60",
+        "modules.posts.comments.cache_ttl_seconds": "300",
+        "modules.posts.comments.replies_initial_count": "2",
+      },
+    },
+  ],
+};
+
+// Placeholder profiles — capacity dichiarata oggi anche se i form admin
+// dedicati non esistono ancora (vivono dentro il tab Settings generale
+// o sotto la pagina del modulo). Quando aggiungeremo form admin
+// dedicati, useranno questi profili via lookup scope.
+
+const RATE_LIMITS_CAPACITY: CapacityProfile = {
+  scope: "rate-limits",
+  label: "Rate limiting (anti-spam)",
+  currentTier: "alpha",
+  resources: [
+    {
+      name: "Upstash KV (sliding window) — CORE",
+      plan: "Configurato (cluster condiviso con feed-cache)",
+      limits: ["10k req/giorno (free tier)", "stub V1: services/rate-limit.ts ritorna ok=true"],
+      upgradeAt: "Apertura registrazione pubblica → swap impl V2 sliding window",
+      upgradePath:
+        "Pay-as-you-go Upstash ~$10/mo a 1k MAU — service rate-limit.ts oggi pass-through, swap a impl Upstash sliding window senza toccare i caller. Credenziali a livello CORE — già configurate in /admin/services/redis.",
+      docsUrl: "https://upstash.com/pricing",
+    },
+  ],
+  tunables: [
+    { key: "modules.posts.rate_limit_post_per_hour",     label: "Post per ora" },
+    { key: "modules.posts.rate_limit_reaction_per_min",  label: "Reaction per min" },
+    { key: "modules.posts.rate_limit_comment_per_min",   label: "Comment per min" },
+    { key: "modules.posts.rate_limit_repost_per_hour",   label: "Repost per ora" },
+    { key: "modules.posts.rate_limit_report_per_hour",   label: "Report per ora" },
+    { key: "modules.posts.rate_limit_media_per_hour",    label: "Media upload per ora" },
+  ],
+  presets: [
+    {
+      id: "alpha",
+      label: "Alpha (<100 MAU)",
+      description: "Limits permissivi — early users hanno comportamento legittimo, no spam.",
+      values: {
+        "modules.posts.rate_limit_post_per_hour": "10",
+        "modules.posts.rate_limit_reaction_per_min": "60",
+        "modules.posts.rate_limit_comment_per_min": "30",
+        "modules.posts.rate_limit_repost_per_hour": "5",
+        "modules.posts.rate_limit_report_per_hour": "5",
+        "modules.posts.rate_limit_media_per_hour": "20",
+      },
+    },
+    {
+      id: "beta",
+      label: "Beta (100-1k MAU)",
+      description: "Limits leggermente più stretti su post/repost per evitare flood casuale.",
+      values: {
+        "modules.posts.rate_limit_post_per_hour": "8",
+        "modules.posts.rate_limit_reaction_per_min": "60",
+        "modules.posts.rate_limit_comment_per_min": "30",
+        "modules.posts.rate_limit_repost_per_hour": "5",
+        "modules.posts.rate_limit_report_per_hour": "5",
+        "modules.posts.rate_limit_media_per_hour": "20",
+      },
+    },
+    {
+      id: "growth",
+      label: "Growth (1k-10k MAU)",
+      description: "Limits realistici per traffico pubblico: post 5/h è plenty per un utente vero, scoraggia bot.",
+      values: {
+        "modules.posts.rate_limit_post_per_hour": "5",
+        "modules.posts.rate_limit_reaction_per_min": "40",
+        "modules.posts.rate_limit_comment_per_min": "20",
+        "modules.posts.rate_limit_repost_per_hour": "3",
+        "modules.posts.rate_limit_report_per_hour": "5",
+        "modules.posts.rate_limit_media_per_hour": "15",
+      },
+    },
+    {
+      id: "scale",
+      label: "Scale (10k+ MAU)",
+      description: "Limits stretti + monitoring abuse. Considerare captcha sui write action di nuovi account.",
+      values: {
+        "modules.posts.rate_limit_post_per_hour": "5",
+        "modules.posts.rate_limit_reaction_per_min": "30",
+        "modules.posts.rate_limit_comment_per_min": "15",
+        "modules.posts.rate_limit_repost_per_hour": "3",
+        "modules.posts.rate_limit_report_per_hour": "3",
+        "modules.posts.rate_limit_media_per_hour": "10",
+      },
+    },
+  ],
+};
+
+const RETENTION_CAPACITY: CapacityProfile = {
+  scope: "retention",
+  label: "Retention & cleanup",
+  currentTier: "alpha",
+  resources: [
+    {
+      name: "Supabase Postgres (posts_outbox, soft-deleted posts)",
+      plan: "Free",
+      limits: ["500MB DB share"],
+      upgradeAt: "outbox > 100k righe non processate o storage > 80%",
+      upgradePath:
+        "Aumentare cleanup cadenza + ridurre retention days. In ultima istanza Supabase Pro.",
+      docsUrl: "https://supabase.com/pricing",
+    },
+    {
+      name: "Cloudflare R2 (orphan media)",
+      plan: "Free",
+      limits: ["10GB storage"],
+      upgradeAt: "Storage > 8GB",
+      upgradePath:
+        "Cron orphan-media-cleanup giornaliero + restringere grace hours.",
+      docsUrl: "https://developers.cloudflare.com/r2/pricing/",
+    },
+  ],
+  tunables: [
+    { key: "modules.posts.outbox_retention_days",     label: "Outbox retention (days)" },
+    { key: "modules.posts.orphan_media_grace_hours",  label: "Orphan media grace (hours)" },
+    { key: "modules.posts.deleted_grace_days",        label: "Deleted post grace (days)" },
+    { key: "modules.posts.link_preview_cache_days",   label: "Link preview cache (days)" },
+  ],
+  presets: [
+    {
+      id: "alpha",
+      label: "Alpha (<100 MAU)",
+      description: "Retention massima per debug iniziale: outbox 45gg, orphan 24h, link preview 30gg.",
+      values: {
+        "modules.posts.outbox_retention_days": "45",
+        "modules.posts.orphan_media_grace_hours": "24",
+        "modules.posts.deleted_grace_days": "7",
+        "modules.posts.link_preview_cache_days": "30",
+      },
+    },
+    {
+      id: "beta",
+      label: "Beta (100-1k MAU)",
+      description: "Retention bilanciata: outbox 30gg, orphan 24h, link preview 30gg.",
+      values: {
+        "modules.posts.outbox_retention_days": "30",
+        "modules.posts.orphan_media_grace_hours": "24",
+        "modules.posts.deleted_grace_days": "7",
+        "modules.posts.link_preview_cache_days": "30",
+      },
+    },
+    {
+      id: "growth",
+      label: "Growth (1k-10k MAU)",
+      description: "Outbox retention più aggressiva (15gg) per limitare storage. Orphan grace ridotto.",
+      values: {
+        "modules.posts.outbox_retention_days": "15",
+        "modules.posts.orphan_media_grace_hours": "12",
+        "modules.posts.deleted_grace_days": "7",
+        "modules.posts.link_preview_cache_days": "60",
+      },
+    },
+    {
+      id: "scale",
+      label: "Scale (10k+ MAU)",
+      description: "Cleanup aggressivo. Outbox 7gg, orphan 6h. Link preview cache più lunga per ridurre fetch esterni.",
+      values: {
+        "modules.posts.outbox_retention_days": "7",
+        "modules.posts.orphan_media_grace_hours": "6",
+        "modules.posts.deleted_grace_days": "7",
+        "modules.posts.link_preview_cache_days": "90",
+      },
+    },
+  ],
+};
+
+const MEDIA_CAPACITY: CapacityProfile = {
+  scope: "media",
+  label: "Media & content limits",
+  currentTier: "alpha",
+  resources: [
+    {
+      name: "Cloudflare R2 (social-media bucket)",
+      plan: "Free",
+      limits: [
+        "10GB storage",
+        "1M ops Classe A/mese",
+        "10M ops Classe B/mese",
+      ],
+      upgradeAt: "Storage > 8GB o ops > 80%",
+      upgradePath:
+        "R2 è pay-as-you-go (~$0.015/GB/mese sopra free tier) — auto-scale, no upgrade manuale",
+      docsUrl: "https://developers.cloudflare.com/r2/pricing/",
+    },
+    {
+      name: "Vercel (image processing via sharp)",
+      plan: "Hobby/Free",
+      limits: ["100GB-hours/mese di Serverless compute"],
+      upgradeAt: "p95 image processing > 2s o budget compute > 70%",
+      upgradePath:
+        "Vercel Pro ($20/mo) OR swap a Cloudflare Worker + R2 Queue (vedi roadmap)",
+      docsUrl: "https://vercel.com/pricing",
+    },
+  ],
+  tunables: [
+    { key: "modules.posts.max_body_length",      label: "Max body length post (char)" },
+    { key: "modules.posts.max_images_per_post",  label: "Max immagini per post" },
+    { key: "modules.posts.edit_window_minutes",  label: "Edit window post (min)" },
+  ],
+  presets: [
+    {
+      id: "alpha",
+      label: "Alpha (<100 MAU)",
+      description: "Beta tester: edit window 15min (margine per correggere), max immagini 4, body 2000 char.",
+      values: {
+        "modules.posts.max_body_length": "2000",
+        "modules.posts.max_images_per_post": "4",
+        "modules.posts.edit_window_minutes": "15",
+      },
+    },
+    {
+      id: "beta",
+      label: "Beta (100-1k MAU)",
+      description: "Edit window standard 10min (Twitter-like). Body e immagini invariati.",
+      values: {
+        "modules.posts.max_body_length": "2000",
+        "modules.posts.max_images_per_post": "4",
+        "modules.posts.edit_window_minutes": "10",
+      },
+    },
+    {
+      id: "growth",
+      label: "Growth (1k-10k MAU)",
+      description: "Body ridotto a 1500 char per scoraggiare wall-of-text. Edit window 10min.",
+      values: {
+        "modules.posts.max_body_length": "1500",
+        "modules.posts.max_images_per_post": "4",
+        "modules.posts.edit_window_minutes": "10",
+      },
+    },
+    {
+      id: "scale",
+      label: "Scale (10k+ MAU)",
+      description: "Body 1000 char + max 3 immagini per ridurre R2 ops. Edit window 5min per stabilità thread.",
+      values: {
+        "modules.posts.max_body_length": "1000",
+        "modules.posts.max_images_per_post": "3",
+        "modules.posts.edit_window_minutes": "5",
+      },
+    },
+  ],
+};
+
+const POSTS_CAPACITY_PROFILES: CapacityProfile[] = [
+  COMMENTS_CAPACITY,
+  RATE_LIMITS_CAPACITY,
+  RETENTION_CAPACITY,
+  MEDIA_CAPACITY,
+];
 
 export const POSTS_MODULE: ModuleManifest = {
   slug: "posts",
   label: "Posts",
   description: "Social feed: composer, reactions, comments, reposts, bookmarks, moderation.",
-  version: "0.1.0", // bump a 1.0.0 quando PR-1→PR-9 saranno tutte in main
+  version: "0.3.0", // 0.3.0 = reactions refactor (M_posts_008): set 5 finale + reactions sui commenti. 0.2.0 = thread commenti 2-livelli. 1.0.0 quando PR-9 SEO sitemap chiude.
   icon: "MessageSquare",
   permission: "modules:posts",
   permissionLabel: "Access Posts module",
@@ -51,6 +411,20 @@ export const POSTS_MODULE: ModuleManifest = {
       // Solo moderatori vedono i post soft-deleted in grace e possono
       // ripristinarli prima che il cron li hard-cancelli.
       permission: "modules:posts.moderate",
+    },
+    {
+      key: "posts-comments",
+      href: "/modules/posts/comments",
+      label: "Comments",
+      icon: "MessageSquare",
+      permission: "modules:posts",
+    },
+    {
+      key: "posts-cron",
+      href: "/modules/posts/cron",
+      label: "Cron",
+      icon: "Clock",
+      permission: "modules:posts",
     },
     {
       key: "posts-settings",
@@ -99,4 +473,5 @@ export const POSTS_MODULE: ModuleManifest = {
         "Twitter-style grace window: gives moderators 7 days to restore an erroneously deleted post before it disappears for good. Keeps the posts table bounded.",
     },
   ],
+  capacityProfiles: POSTS_CAPACITY_PROFILES,
 };

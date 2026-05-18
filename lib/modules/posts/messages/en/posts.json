@@ -37,18 +37,42 @@
     "invalid_ticker": "Invalid ticker.",
     "load_more": "Load more",
     "loading_more": "Loading…",
-    "end_reached": "You've seen everything."
+    "end_reached": "The market is saturated, there's nothing else to see."
   },
   "comments": {
     "empty_body": "Write something before commenting.",
-    "body_too_long": "Your comment is too long."
+    "body_too_long": "Your comment is too long.",
+    "loading": "Loading comments…",
+    "empty": "No comments yet. Be the first.",
+    "load_more": "Show more comments",
+    "edited": "edited",
+    "tombstone": "Comment removed by author.",
+    "show_more_replies": "Show {count, plural, =1 {1 more reply} other {# more replies}}",
+    "expand": "Show more",
+    "collapse": "Show less",
+    "banner": {
+      "new_comments": "{count, plural, =1 {1 new comment} other {# new comments}} — click to load"
+    },
+    "actions": {
+      "reply": "Reply"
+    },
+    "composer": {
+      "placeholder": "Write a comment…",
+      "aria_label": "Comment body",
+      "error_generic": "Could not send. Try again."
+    }
   },
   "common": {
     "cancel": "Cancel",
     "close": "Close",
     "user_fallback": "User",
     "see_all": "See all",
-    "sign_up": "Sign up"
+    "sign_up": "Sign up",
+    "submit": "Send",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "more_actions": "More actions"
   },
   "visibility": {
     "public": "Everyone",
@@ -103,7 +127,7 @@
       "description": "The post will disappear immediately from your profile and everyone's feed.",
       "confirm": "Delete",
       "consequence_1": "Reactions and bookmarks stay attached to the post until restored.",
-      "consequence_2": "Comments stay if anyone has already replied (labeled \"post removed\"), otherwise they disappear.",
+      "consequence_2": "Comments are deleted along with the post.",
       "consequence_3": "Other users' quote-reposts will show \"original post removed\".",
       "consequence_4_prefix": "For ",
       "consequence_4_strong": "7 days",
@@ -153,11 +177,10 @@
   },
   "reactions": {
     "like": "Like",
-    "rocket": "Rocket",
-    "bull": "Bullish",
-    "bear": "Bearish",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "to_the_moon": "To the moon",
     "dump": "Dump",
-    "diamond": "Diamond hands",
     "button_aria": "Reactions",
     "menu_aria": "Choose reaction"
   },

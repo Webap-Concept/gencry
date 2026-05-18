@@ -253,7 +253,7 @@ export function Composer({
           type="button"
           onClick={submit}
           disabled={!canSubmit}
-          className="px-5 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-5 py-1.5 rounded-full bg-gc-accent text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isPending
             ? isEdit
