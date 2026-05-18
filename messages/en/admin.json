@@ -385,6 +385,24 @@
           "defaultSubject": "Two-factor authentication reset by support — '{{appName}}'",
           "defaultBody": "Hi '{{userName}}',\n\nA '{{appName}}' administrator reset two-factor authentication on your account. All previous recovery codes have been invalidated and at the next sign-in we'll only use email and password.\n\nSupport reason: '{{reason}}'\n\nTo restore protection, sign in to your account and re-enable two-factor authentication from your security settings. If you didn't request this operation, contact support immediately and change your password.",
           "defaultFooter": "© '{{appName}}' · All rights reserved"
+        },
+        "modstrike": {
+          "label": "Moderation · strike received",
+          "defaultSubject": "Moderation notice on '{{appName}}' ('{{strikeNumber}}'/3)",
+          "defaultBody": "Hi '{{userName}}',\n\nOne of our moderators reviewed a report on one of your '{{sourceType}}' and accepted it. The content has been removed and you received a moderation strike.\n\nActive strikes on your account: '{{strikeNumber}}'/3.\nReason: '{{reason}}'.\n\nWhen you reach 3 active strikes the account is automatically suspended. Please review our community guidelines to avoid further violations.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "modbanned": {
+          "label": "Moderation · account suspended (3 strikes)",
+          "defaultSubject": "Your '{{appName}}' account has been suspended",
+          "defaultBody": "Hi '{{userName}}',\n\nFollowing three accumulated moderation strikes, your account on '{{appName}}' has been suspended and you can no longer access the platform.\n\nThe last '{{sourceType}}' that triggered the suspension has been removed. Final reason: '{{reason}}'.\n\nIf you believe this decision is unfair you can contact support by replying to this email or via the contact form on the site.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "modstrikerevoked": {
+          "label": "Moderation · strike revoked",
+          "defaultSubject": "A strike was revoked on your '{{appName}}' account",
+          "defaultBody": "Hi '{{userName}}',\n\nOne of our moderators revoked one of your strikes after reviewing the case.\n\nRemaining active strikes: '{{activeCountAfter}}'/3.\n\nIf your account was suspended and the revocation brought the counter back below 3, access has been automatically reinstated.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
         }
       }
     },
@@ -1108,6 +1126,7 @@
       "filterVerifiedYes": "✓ Verified email",
       "filterVerifiedNo": "✗ Unverified email",
       "filterStatusActive": "Active accounts",
+      "filterStatusWithStrikes": "With active strikes",
       "filterStatusDeletionRequested": "Deletion requested",
       "filterStatusAll": "All (incl. deleted)",
       "filterButton": "Filter",

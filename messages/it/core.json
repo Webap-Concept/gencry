@@ -57,15 +57,10 @@
     "showPassword": "Mostra password",
     "hidePassword": "Nascondi password"
   },
-  "notificationsSheet": {
-    "title": "Notifiche",
-    "ariaDescription": "Elenco delle notifiche non lette e recenti",
-    "markAllRead": "Segna tutte come lette"
-  },
   "pages": {
     "notifications": {
       "title": "Notifiche",
-      "description": "Alert prezzo, fiducia, nuovi follower. Arriva presto."
+      "description": "Reazioni, commenti, menzioni e repost dei tuoi post."
     },
     "profile": {
       "title": "Profilo",
@@ -312,6 +307,35 @@
         "confirmCheckbox": "Capisco che dopo {graceDays} giorni i miei dati saranno eliminati in modo permanente e non potranno essere recuperati.",
         "finalIdle": "Elimina definitivamente",
         "finalPending": "Elimino…"
+      },
+      "accordion": {
+        "consents": {
+          "title": "Consensi",
+          "outdated": "{count, plural, one {# consenso da rinnovare} other {# consensi da rinnovare}}",
+          "allCurrent": "Tutti aggiornati"
+        },
+        "cookies": {
+          "title": "Preferenze cookie",
+          "noDecision": "Decisione mancante",
+          "customized": "Personalizzati",
+          "bannerDisabled": "Banner disattivato"
+        },
+        "posts": {
+          "title": "Post",
+          "current": "Visibilità predefinita: {visibility}"
+        },
+        "export": {
+          "title": "Esportazione dati",
+          "none": "Nessuna richiesta",
+          "count": "{count, plural, one {# richiesta} other {# richieste}}"
+        },
+        "danger": {
+          "title": "Eliminazione account"
+        }
+      },
+      "posts": {
+        "description": "Scegli la visibilità predefinita per i nuovi post. Puoi sempre cambiarla quando crei un singolo post.",
+        "saveError": "Impossibile salvare la preferenza. Riprova."
       }
     },
     "actions": {

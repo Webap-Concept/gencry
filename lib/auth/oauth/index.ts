@@ -97,7 +97,7 @@ export async function findOrCreateOAuthUser(
 
     if (picture) {
       const avatarUrl =
-        (await uploadAvatarFromUrlToR2(picture, existingOAuth.userId)) ?? picture;
+        (await uploadAvatarFromUrlToR2(existingOAuth.userId, picture)) ?? picture;
       // Aggiorna avatar_url solo se l'utente non ne ha già caricato uno suo
       await db
         .update(userProfiles)
@@ -141,7 +141,7 @@ export async function findOrCreateOAuthUser(
 
     if (picture) {
       const avatarUrl =
-        (await uploadAvatarFromUrlToR2(picture, existingUser.id)) ?? picture;
+        (await uploadAvatarFromUrlToR2(existingUser.id, picture)) ?? picture;
       await db
         .update(userProfiles)
         .set({ avatarUrl, updatedAt: new Date() })
@@ -197,7 +197,7 @@ export async function findOrCreateOAuthUser(
   if (!newUser) throw new Error("[oauth] Failed to create user");
 
   const avatarUrl = picture
-    ? ((await uploadAvatarFromUrlToR2(picture, newUser.id)) ?? picture)
+    ? ((await uploadAvatarFromUrlToR2(newUser.id, picture)) ?? picture)
     : null;
 
   await db.insert(userProfiles).values({

@@ -20,13 +20,10 @@ export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
   const t = useTranslations("core.settings.privacy.dangerZone");
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
-        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-          {t("description", { graceDays: GRACE_DAYS })}
-        </p>
-      </div>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">
+        {t("description", { graceDays: GRACE_DAYS })}
+      </p>
 
       <article className="rounded-2xl border border-gc-neg/30 bg-gc-bg-2 p-4">
         {!confirming ? (
@@ -60,7 +57,7 @@ export function DangerZone({ hasPassword }: { hasPassword: boolean }) {
           <OtpDeletionForm onCancel={() => setConfirming(false)} />
         )}
       </article>
-    </section>
+    </div>
   );
 }
 

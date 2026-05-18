@@ -29,7 +29,7 @@ import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-action
 import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { FeedList } from "@/components/modules/posts/FeedList";
-import { TrendingTickersRow } from "@/components/modules/posts/TrendingTickersRow";
+import { TrendingCoinsRow } from "@/components/modules/posts/TrendingCoinsRow";
 import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
 import { CoinSummaryCard } from "@/components/modules/coins/coin-summary-card";
 
@@ -90,22 +90,12 @@ export default async function ExplorePage({
   return (
     // Outer = pb only. Niente padding-top: quando c'è ticker, la
     // CoinSummaryCard si attacca al top del main (annulla anche il py-6
-    // del ProtectedShell tramite `-mt-6`). Per il caso !ticker il
-    // padding-top torna sull'header standalone.
+    // del ProtectedShell tramite `-mt-6`). Quando non c'è ticker, il
+    // TrendingCoinCards apre direttamente la pagina senza header
+    // (decisione UX 2026-05-18: meno chrome, più contenuto sopra).
     <div className="pb-6 space-y-4">
-      {!ticker && (
-        <div className="max-w-2xl mx-auto px-4 pt-6">
-          <header>
-            <h1 className="text-2xl font-semibold text-gc-fg">
-              {tExp("page_title")}
-            </h1>
-            <p className="text-sm text-gc-fg-3 mt-1">{tExp("subtitle")}</p>
-          </header>
-        </div>
-      )}
-
       {/* Block 1 — Header dinamico:
-          - Senza filtro → TrendingTickersRow (top 10 pill)
+          - Senza filtro → TrendingCoinsRow (grid di 4 coin cards)
           - Con ticker tracciato → CoinSummaryCard (banner "Discussioni
             su" + snapshot + sticky)
           - Con ticker non tracciato → fallback testuale */}
@@ -113,16 +103,16 @@ export default async function ExplorePage({
         coin ? (
           <CoinSummaryCard coin={coin} />
         ) : (
-          <div className="max-w-2xl mx-auto px-4">
+          <div className="max-w-2xl mx-auto px-4 pt-6">
             <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
               <strong>${ticker}</strong> {tExp("untracked_fallback")}
             </div>
           </div>
         )
       ) : (
-        <div className="max-w-2xl mx-auto px-4">
+        <div className="max-w-2xl mx-auto px-4 pt-6">
           <Suspense fallback={null}>
-            <TrendingTickersRow activeTicker={null} />
+            <TrendingCoinsRow />
           </Suspense>
         </div>
       )}

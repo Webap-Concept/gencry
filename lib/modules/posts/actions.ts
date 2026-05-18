@@ -42,6 +42,8 @@ import {
   postsTickers,
   postsMentions,
   postsReports,
+  postsUserBlocks,
+  postsUserPreferences,
   userProfiles,
   POST_REACTION_KINDS,
   POST_VISIBILITIES,
@@ -63,6 +65,12 @@ import {
 } from "./services/comments";
 import { toggleBookmark as bookmarksToggleService } from "./services/bookmarks";
 import { toggleUserBlock as blocksToggleService } from "./services/blocks";
+import {
+  ensureMentionIndexBootstrapped,
+  rebuildMentionIndex,
+  searchMentionPrefix,
+  type MentionCandidate,
+} from "./services/mention-index";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
@@ -97,7 +105,6 @@ const I18N = {
   visibilityNotRestrictive: "posts.errors.visibility_not_more_restrictive",
   emptyBody: "posts.errors.empty_body",
   bodyTooLong: "posts.errors.body_too_long",
-  selfRepost: "posts.errors.self_repost",
   targetUnavailable: "posts.errors.target_unavailable",
 } as const;
 
@@ -179,18 +186,36 @@ const ToggleUserBlockInputSchema = z.object({
 const CreateQuoteRepostInputSchema = z.object({
   repostOfId: UuidSchema,
   body: z.string().min(1, "validation.posts.repost_needs_body"),
+  // Il quote ha la SUA visibility, scelta dall'utente. NON eredita quella
+  // del target (privacy paradox: quotare un public con visibility members
+  // restringe la diffusione del mio commento; quotare un members con
+  // visibility public NON allarga il target — l'embed viene gated server-side
+  // in hydration). Default 'public' se omesso (back-compat client legacy).
+  visibility: VisibilitySchema.default("public"),
 });
 
-const ReportPostInputSchema = z.object({
-  postId: UuidSchema,
+const ReportContentInputSchema = z.object({
+  // Polimorfismo discriminato: 'post' o 'comment'. Lo schema SQL ha XOR
+  // su post_id/comment_id (M_posts_010), qui validiamo l'unione.
+  targetType: z.enum(["post", "comment"]),
+  targetId: UuidSchema,
   // Lista dei reason key è admin-editable (vedi services/report-reasons.ts).
   // Qui validiamo solo shape; il match con la lista attiva avviene a runtime
-  // dentro reportPost().
+  // dentro reportContent().
   reason: z
     .string()
     .min(1)
     .max(40)
     .regex(/^[a-z0-9_]+$/),
+  details: z.string().max(2000).optional().nullable(),
+});
+
+// Backward-compat: alias dello schema vecchio (solo post) per i client
+// che non hanno ancora migrato a reportContent. Da rimuovere quando
+// nessuno chiama più reportPost direttamente.
+const ReportPostInputSchema = z.object({
+  postId: UuidSchema,
+  reason: z.string().min(1).max(40).regex(/^[a-z0-9_]+$/),
   details: z.string().max(2000).optional().nullable(),
 });
 
@@ -342,6 +367,24 @@ export async function createPost(
   await feedInvalidate({ profile: user.id });
   for (const t of created.tickers) await feedInvalidate({ ticker: t });
   for (const m of created.mentionUserIds) await feedInvalidate({ mentionsOf: m });
+
+  // Sticky visibility: l'ultima visibility scelta diventa il default per i
+  // post successivi (sticky cross-device, vedi posts_user_preferences).
+  // Best-effort: fallimento qui non rompe la create già committata.
+  try {
+    await db
+      .insert(postsUserPreferences)
+      .values({ userId: user.id, defaultVisibility: parsed.data.visibility })
+      .onConflictDoUpdate({
+        target: postsUserPreferences.userId,
+        set: {
+          defaultVisibility: parsed.data.visibility,
+          updatedAt: sql`NOW()`,
+        },
+      });
+  } catch {
+    // swallow: la preferenza è un nice-to-have, non blocca la pubblicazione
+  }
 
   return { ok: true, data: { postId: created.postId } };
 }
@@ -917,9 +960,10 @@ export async function createQuoteRepost(
   const bodyCheck = validateBody(parsed.data.body, maxBodyLength);
   if (!bodyCheck.ok) return fail(bodyCheck.error, { field: "body" });
 
-  // Verifica che il target esiste e non è soft-deleted. Le policy di
-  // visibility (es. quote-reposto di un private/followers a cui non
-  // hai accesso) verranno enforcate quando arriverà il modulo `follows`.
+  // Verifica che il target esiste e non è soft-deleted. Self-repost
+  // ammesso: pattern Twitter "ricommento un mio post di 2 anni fa".
+  // L'hydration applica visibility-gating sull'embed target, quindi
+  // un viewer senza accesso al target vede solo tombstone.
   const target = await db
     .select({
       id: posts.id,
@@ -931,10 +975,6 @@ export async function createQuoteRepost(
     .limit(1);
 
   if (!target[0] || target[0].deletedAt) return fail(I18N.targetUnavailable);
-  if (target[0].id === parsed.data.repostOfId && target[0].authorId === user.id) {
-    // Reposting il proprio post non ha valore — UX scelta di prodotto
-    return fail(I18N.selfRepost);
-  }
 
   const postId = await db.transaction(async (tx) => {
     const [inserted] = await tx
@@ -942,7 +982,7 @@ export async function createQuoteRepost(
       .values({
         authorId: user.id,
         body: bodyCheck.body,
-        visibility: "public",
+        visibility: parsed.data.visibility,
         repostOfId: parsed.data.repostOfId,
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
@@ -954,6 +994,23 @@ export async function createQuoteRepost(
   await feedInvalidate({ followersOf: user.id });
   await feedInvalidate({ profile: user.id });
   await postInvalidate(parsed.data.repostOfId); // counter reposts_count del target
+
+  // Sticky visibility: anche il quote contribuisce alla preferenza
+  // (best-effort, non blocca la create già committata).
+  try {
+    await db
+      .insert(postsUserPreferences)
+      .values({ userId: user.id, defaultVisibility: parsed.data.visibility })
+      .onConflictDoUpdate({
+        target: postsUserPreferences.userId,
+        set: {
+          defaultVisibility: parsed.data.visibility,
+          updatedAt: sql`NOW()`,
+        },
+      });
+  } catch {
+    // swallow
+  }
 
   return { ok: true, data: { postId } };
 }
@@ -1028,22 +1085,24 @@ export async function getReportReasonsForClient(): Promise<ReportReason[]> {
   return await getActiveReportReasons();
 }
 
-export async function reportPost(
-  input: z.input<typeof ReportPostInputSchema>,
+/**
+ * Report polimorfico: post O commento. Schema SQL enforced via CHECK
+ * (XOR su post_id/comment_id). Unique constraint impedisce doppio
+ * report dello stesso utente sullo stesso target.
+ */
+export async function reportContent(
+  input: z.input<typeof ReportContentInputSchema>,
 ): Promise<ActionResult> {
   const user = await getUser();
   if (!user) return fail(I18N.unauthenticated);
 
-  const parsed = ReportPostInputSchema.safeParse(input);
+  const parsed = ReportContentInputSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
-  // Reason key validato contro la lista admin-editable corrente. Se
-  // l'admin ha disabilitato/rimosso una reason mentre l'utente aveva
-  // il modal aperto → rifiuta gracefully, il client re-fetcha.
+  // Reason key validato contro la lista admin-editable corrente.
   const reasonDef = await findActiveReportReason(parsed.data.reason);
   if (!reasonDef) return fail("posts.errors.reason_not_available");
 
-  // requiresDetails (es. "other") deve avere details non vuoti.
   const details = (parsed.data.details ?? "").trim();
   if (reasonDef.requiresDetails && details.length === 0) {
     return fail("posts.errors.details_required", { field: "details" });
@@ -1052,22 +1111,149 @@ export async function reportPost(
   const rl = await rateLimitCheck(user.id, "report");
   if (!rl.ok) return fail(I18N.rateLimited, { retryAfter: rl.retryAfter });
 
-  // Verifica che il post esiste (no check su deleted_at: un post cancellato
-  // può comunque essere report-ato — la queue admin lo vedrà tombstoned).
-  const target = await db
-    .select({ id: posts.id })
-    .from(posts)
-    .where(eq(posts.id, parsed.data.postId))
-    .limit(1);
+  // Verifica che il target esiste. Niente check su deleted_at — un
+  // contenuto cancellato può comunque essere report-ato per moderation
+  // post-fatto (la queue admin lo vedrà tombstoned).
+  if (parsed.data.targetType === "post") {
+    const t = await db
+      .select({ id: posts.id })
+      .from(posts)
+      .where(eq(posts.id, parsed.data.targetId))
+      .limit(1);
+    if (!t[0]) return fail(I18N.notFound);
+  } else {
+    const t = await db
+      .select({ id: postsComments.id })
+      .from(postsComments)
+      .where(eq(postsComments.id, parsed.data.targetId))
+      .limit(1);
+    if (!t[0]) return fail(I18N.notFound);
+  }
 
-  if (!target[0]) return fail(I18N.notFound);
-
-  await db.insert(postsReports).values({
-    postId: parsed.data.postId,
-    reporterId: user.id,
-    reason: parsed.data.reason,
-    details: details.length > 0 ? details : null,
-  });
+  try {
+    await db.insert(postsReports).values({
+      postId: parsed.data.targetType === "post" ? parsed.data.targetId : null,
+      commentId:
+        parsed.data.targetType === "comment" ? parsed.data.targetId : null,
+      reporterId: user.id,
+      reason: parsed.data.reason,
+      details: details.length > 0 ? details : null,
+    });
+  } catch (err) {
+    // Unique parziale viola → utente ha già segnalato quel target.
+    // Trattiamo come success idempotente per non leakare lo stato delle
+    // sue segnalazioni precedenti.
+    const msg = String((err as Error)?.message ?? "");
+    if (msg.includes("uq_posts_reports_reporter")) {
+      return { ok: true };
+    }
+    throw err;
+  }
 
   return { ok: true };
+}
+
+/**
+ * @deprecated Backward-compat per i call site che ancora chiamano
+ * reportPost direttamente. Inoltra a reportContent.
+ */
+export async function reportPost(
+  input: z.input<typeof ReportPostInputSchema>,
+): Promise<ActionResult> {
+  const parsed = ReportPostInputSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  return reportContent({
+    targetType: "post",
+    targetId: parsed.data.postId,
+    reason: parsed.data.reason,
+    details: parsed.data.details,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mention autocomplete (Upstash sorted-set)
+// ---------------------------------------------------------------------------
+
+const MentionSearchSchema = z.object({
+  prefix: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9_]+$/),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
+export type MentionSearchResult =
+  | { ok: true; data: { results: MentionCandidate[] } }
+  | { ok: false; error: string };
+
+/**
+ * Search Server Action per il popover di @mention nel composer (post +
+ * commenti). Backed da Upstash sorted-set via `searchMentionPrefix`.
+ *
+ * Sicurezza:
+ *   - getUser() obbligatorio → niente anonimi (anti-enumeration).
+ *   - Exclude del viewer (auto-mention senza senso) e di tutti i
+ *     blocked-pair (entrambe le direzioni) per rispettare il modulo
+ *     blocks.
+ *   - Validation Zod: prefix [A-Za-z0-9_]{1,32}.
+ *
+ * Performance:
+ *   - 1 round-trip Upstash (~5-10ms) o fallback DB se Upstash giù.
+ *   - Lazy bootstrap dell'indice al primo uso (fire-and-forget).
+ */
+export async function searchUsersForMention(input: {
+  prefix: string;
+  limit?: number;
+}): Promise<MentionSearchResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "posts.errors.unauthenticated" };
+
+  const parsed = MentionSearchSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "posts.errors.mention_invalid_prefix" };
+  }
+
+  // Lazy bootstrap (no await): se l'indice non c'è ancora, lo rebuilda
+  // in background. Questa query cade su fallback DB intanto.
+  void ensureMentionIndexBootstrapped();
+
+  // Lista blocked pair: chi io blocco + chi mi blocca. Mutua.
+  const blockedRows = await db
+    .select({
+      blockerId: postsUserBlocks.blockerId,
+      blockedId: postsUserBlocks.blockedId,
+    })
+    .from(postsUserBlocks)
+    .where(
+      sql`${postsUserBlocks.blockerId} = ${user.id} OR ${postsUserBlocks.blockedId} = ${user.id}`,
+    );
+  const excludeIds = new Set<string>([user.id]);
+  for (const b of blockedRows) {
+    excludeIds.add(b.blockerId === user.id ? b.blockedId : b.blockerId);
+  }
+
+  const results = await searchMentionPrefix({
+    prefix: parsed.data.prefix,
+    limit: parsed.data.limit ?? 8,
+    excludeUserIds: Array.from(excludeIds),
+  });
+
+  return { ok: true, data: { results } };
+}
+
+/**
+ * Server Action admin-only per il rebuild manuale dell'indice mention.
+ * Usata da un bottone in `/admin/modules/posts/architecture` o equiv.
+ * Sicura a chiamare in qualsiasi momento (idempotente).
+ */
+export async function rebuildMentionIndexAction(): Promise<
+  { ok: true; data: { scanned: number; indexed: number } } | { ok: false; error: string }
+> {
+  const user = await getUser();
+  if (!user || !user.isAdmin) {
+    return { ok: false, error: "posts.errors.unauthenticated" };
+  }
+  const result = await rebuildMentionIndex();
+  return { ok: true, data: result };
 }

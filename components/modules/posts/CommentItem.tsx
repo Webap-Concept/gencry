@@ -12,6 +12,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import {
+  Flag,
   Loader2,
   MessageSquare,
   MoreHorizontal,
@@ -28,15 +29,17 @@ import type { CommentCardData } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import { PostBody } from "./PostBody";
 import { ReactionPopover } from "./ReactionPopover";
+import { ReportContentDialog } from "./ReportContentDialog";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
-  if (author.username) return `@${author.username}`;
+  // Stesso pattern di PostCard.authorDisplayName: nome+cognome prima,
+  // username SENZA chiocciola come fallback. La `@` resta solo per
+  // le mention inline nel body.
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  return full || fallback;
-}
-
-function authorInitial(author: CommentCardData["author"]): string {
-  return ((author.username ?? author.firstName ?? "?")[0] ?? "?").toUpperCase();
+  if (full) return full;
+  if (author.username) return author.username;
+  return fallback;
 }
 
 function formatRelativeTime(
@@ -95,6 +98,11 @@ export function CommentItem({
   const ageMs = Date.now() - new Date(comment.createdAt).getTime();
   const canEdit = isOwn && ageMs <= editWindowMs && onEdit && !isDeletedTombstone;
   const canDelete = (isOwn || canModerate) && onDelete && !isDeletedTombstone;
+  // Report visibile a chiunque non sia l'autore e su commenti non tombstoned.
+  // Anche utenti non loggati non vedono il menu (viewerUserId === undefined →
+  // isOwn === false ma il submit Server Action gata cmq).
+  const canReport = !!viewerUserId && !isOwn && !isDeletedTombstone;
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [editingBody, setEditingBody] = useState(comment.body);
@@ -131,34 +139,27 @@ export function CommentItem({
   }
 
   const indentCls = variant === "reply" ? "pl-9" : "";
-  const avatarSizeCls = variant === "reply" ? "w-7 h-7 text-[11px]" : "w-9 h-9 text-xs";
+  const avatarSize = variant === "reply" ? 28 : 36;
 
   return (
     <div className={`flex gap-2.5 ${indentCls}`}>
-      {/* Avatar */}
-      {comment.author.avatarUrl ? (
-        <Link
-          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
-          className={`${avatarSizeCls} shrink-0 rounded-full overflow-hidden bg-gc-bg-3`}
-          aria-label={authorDisplayName(comment.author, fallback)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={comment.author.avatarUrl}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </Link>
-      ) : (
-        <Link
-          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
-          className={`${avatarSizeCls} shrink-0 rounded-full bg-gc-bg-3 text-gc-fg-muted flex items-center justify-center font-medium`}
-          aria-label={authorDisplayName(comment.author, fallback)}
-        >
-          {authorInitial(comment.author)}
-        </Link>
-      )}
+      {/* Avatar — UserAvatar gestisce internamente img vs fallback colorato. */}
+      <Link
+        href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
+        className="shrink-0"
+        aria-label={authorDisplayName(comment.author, fallback)}
+      >
+        <UserAvatar
+          user={{
+            id: comment.author.id,
+            username: comment.author.username,
+            firstName: comment.author.firstName,
+            lastName: comment.author.lastName,
+            avatarUrl: comment.author.avatarUrl,
+          }}
+          size={avatarSize}
+        />
+      </Link>
 
       {/* Body */}
       <div className="flex-1 min-w-0">
@@ -183,7 +184,7 @@ export function CommentItem({
           >
             {formatRelativeTime(comment.createdAt, tTime, locale)}
           </time>
-          {(canEdit || canDelete) && !editing ? (
+          {(canEdit || canDelete || canReport) && !editing ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
@@ -210,8 +211,22 @@ export function CommentItem({
                     {tCommon("delete")}
                   </DropdownMenuItem>
                 ) : null}
+                {canReport ? (
+                  <DropdownMenuItem onClick={() => setReportOpen(true)}>
+                    <Flag size={14} strokeWidth={1.75} className="mr-2" />
+                    {t("actions.report")}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : null}
+          {canReport ? (
+            <ReportContentDialog
+              target={{ type: "comment", id: comment.id }}
+              authorDisplayName={authorDisplayName(comment.author, fallback)}
+              isOpen={reportOpen}
+              onOpenChange={setReportOpen}
+            />
           ) : null}
         </div>
 

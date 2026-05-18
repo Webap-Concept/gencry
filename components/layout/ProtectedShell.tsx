@@ -17,11 +17,16 @@ import { AppTopBar } from "@/components/layout/AppTopBar";
 export function ProtectedShell({
   appLogoUrl,
   banner,
+  notificationsBadge,
   children,
 }: {
   appLogoUrl: string | null;
   /** Banner opzionale renderizzato sopra la topbar (es. re-consent). */
   banner?: React.ReactNode;
+  /** Server-rendered badge unread per la bell della sidebar (modulo
+   *  notifications). Passato come ReactNode così rimane server-only
+   *  pur essendo nested in un client component. */
+  notificationsBadge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -29,7 +34,7 @@ export function ProtectedShell({
       {banner}
       <AppTopBar />
       <div className="flex-1 min-h-0 mx-auto w-full max-w-[1280px] flex">
-        <AppSidebar appLogoUrl={appLogoUrl} />
+        <AppSidebar appLogoUrl={appLogoUrl} notificationsBadge={notificationsBadge} />
         <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-6">
           <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {children}

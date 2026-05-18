@@ -84,11 +84,8 @@ export async function CookiesPanel({
   };
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
-        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
-      </div>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">{t("description")}</p>
 
       <article className="rounded-2xl border border-gc-line bg-gc-bg-2">
         <header className="flex flex-wrap items-start justify-between gap-3 p-4">
@@ -166,6 +163,6 @@ export async function CookiesPanel({
           </ul>
         </div>
       </article>
-    </section>
+    </div>
   );
 }

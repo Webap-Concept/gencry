@@ -38,6 +38,11 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   bannedAt: timestamp("banned_at"),
   bannedReason: varchar("banned_reason", { length: 255 }),
+  // Counter denormalizzato 0..3 dei strike attivi (revoked_at IS NULL).
+  // Aggiornato via trigger users_strikes_sync_count_trg su INSERT/
+  // UPDATE/DELETE di users_strikes. Al raggiungimento di 3 il trigger
+  // setta automaticamente banned_at. Vedi M_users_strikes_001.
+  activeStrikesCount: integer("active_strikes_count").notNull().default(0),
   emailVerified: boolean("email_verified").notNull().default(false),
   acceptedTermsAt: timestamp("accepted_terms_at"),
   acceptedTermsVersion: text("accepted_terms_version"),
@@ -84,6 +89,30 @@ export const userProfiles = pgTable("user_profiles", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Strike history (sistema moderazione YouTube-like). Vedi
+// M_users_strikes_001 per schema completo + trigger denorm. Append-only:
+// gli strike non si cancellano, si revocano via revoked_at/revoked_by.
+// source_id è soft-FK (no REFERENCES) per preservare la history se il
+// contenuto target viene hard-cancellato in futuro.
+export const usersStrikes = pgTable("users_strikes", {
+  id: uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  issuedBy: uuid("issued_by").notNull(),
+  sourceType: varchar("source_type", { length: 16 }).notNull(),
+  sourceId: uuid("source_id").notNull(),
+  sourcePreview: text("source_preview"),
+  reason: varchar("reason", { length: 40 }).notNull(),
+  note: text("note"),
+  issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: uuid("revoked_by"),
+  revokeNote: text("revoke_note"),
+});
+
+export type UserStrike = typeof usersStrikes.$inferSelect;
+export type NewUserStrike = typeof usersStrikes.$inferInsert;
+export type StrikeSourceType = "post" | "comment";
 
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1588,13 +1617,18 @@ export const postsReports = pgTable(
   "posts_reports",
   {
     id:          uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
-    postId:      uuid("post_id").notNull()
+    // Polimorfismo discriminato via XOR (vedi M_posts_010): valorizzato
+    // ESATTAMENTE 1 tra post_id e comment_id. Enforced lato SQL dal CHECK
+    // `posts_reports_target_xor_chk` (num_nonnulls = 1).
+    postId:      uuid("post_id")
                    .references(() => posts.id, { onDelete: "cascade" }),
+    commentId:   uuid("comment_id")
+                   .references(() => postsComments.id, { onDelete: "cascade" }),
     reporterId:  uuid("reporter_id").notNull()
                    .references(() => users.id, { onDelete: "cascade" }),
     // Key tra quelle attive in app_settings `modules.posts.report_reasons`
     // (vedi lib/modules/posts/services/report-reasons.ts). Validato runtime
-    // dal Server Action reportPost — il CHECK SQL controlla solo length 1..40.
+    // dalla Server Action reportContent — il CHECK SQL controlla solo length 1..40.
     reason:      varchar("reason", { length: 40 }).notNull(),
     details:     text("details"),
     // 'open' | 'reviewed' | 'dismissed' | 'actioned'
@@ -1717,8 +1751,58 @@ export const postsCronRuns = pgTable(
   ],
 );
 
+// Sidecar 1:1 con users per preferenze del modulo posts. Row creata lazy
+// on first set; assenza row = default app ("public"). Vedi
+// M_posts_009_user_preferences.sql.
+export const postsUserPreferences = pgTable("posts_user_preferences", {
+  userId:            uuid("user_id").primaryKey()
+                       .references(() => users.id, { onDelete: "cascade" }),
+  defaultVisibility: varchar("default_visibility", { length: 16 }).notNull().default("public"),
+  createdAt:         timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:         timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PostsUserPreferences    = typeof postsUserPreferences.$inferSelect;
+export type NewPostsUserPreferences = typeof postsUserPreferences.$inferInsert;
+
 export type PostsCronRun    = typeof postsCronRuns.$inferSelect;
 export type NewPostsCronRun = typeof postsCronRuns.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Module: notifications (end-user social notifications)
+// ─────────────────────────────────────────────────────────────────────────
+// NB: distinto da `adminNotifications` (core, notifiche admin di sistema).
+// Popolata dal trigger `posts_outbox_to_notifications_trg` (M_notifications_001)
+// con dedup integrato. UI scrive solo `read_at` via Server Action.
+export const notifications = pgTable("notifications", {
+  id:         uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+  userId:     uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type:       varchar("type", { length: 64 }).notNull(),
+  actorId:    uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+  postId:     uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  commentId:  uuid("comment_id").references(() => postsComments.id, { onDelete: "cascade" }),
+  payload:    jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  readAt:     timestamp("read_at",    { withTimezone: true }),
+  createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Notification    = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+
+/** Match 1:1 con posts_outbox.event_type — sync col CASE plpgsql del trigger.
+ *  I tipi `moderation.*` NON passano dal trigger: sono emessi direttamente
+ *  da Server Actions admin (vedi reviewReport*Action + revokeStrikeAction). */
+export const NOTIFICATION_TYPES = [
+  "post.reaction.added",
+  "post.comment.created",
+  "post.comment.reaction.added",
+  "post.mention",
+  "post.repost.created",
+  "moderation.strike_received",
+  "moderation.banned",
+  "moderation.strike_revoked",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /**
  * Set di reaction supportate (allineato al CHECK SQL su posts_reactions.reaction).

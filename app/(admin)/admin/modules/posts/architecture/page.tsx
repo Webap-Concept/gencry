@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-17";
+const REVIEWED_AT = "2026-05-18 (mention-index)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -88,6 +88,7 @@ const SCHEMA_DIAGRAM = `erDiagram
   posts ||--o{ posts_media : "has"
   posts ||--o{ posts_outbox : "emits"
   users ||--o{ posts_user_blocks : "blocks"
+  users ||--|| posts_user_preferences : "1:1"
   posts ||--o{ posts : "repost_of"
 `;
 
@@ -209,8 +210,8 @@ export default function PostsArchitecturePage() {
                 { name: "id",               type: "uuid v7",     note: "PK, ordinabile per tempo" },
                 { name: "author_id",        type: "uuid",        note: "FK users(id), ON DELETE CASCADE" },
                 { name: "body",             type: "text",        note: "max 1000 char (CHECK)" },
-                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Followers richiede modulo follows (non ancora attivo) → effettivamente oggi gate = autore" },
-                { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost" },
+                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Enforce viewer-side in getFeedIds (feed) e selectPostsCore(enforceVisibility:true) (embed target del repost — vedi Caveats §visibility leak fix). 'followers' richiede modulo follows: oggi temp. trattato come 'private' (viewer == author)" },
+                { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost (self-repost ammesso dal 2026-05-18)" },
                 { name: "deleted_at",       type: "timestamptz?", note: "soft delete (autore o admin)" },
                 { name: "deleted_by",       type: "varchar(40)?", note: "'author' | 'moderator', M_posts_006" },
                 { name: "reactions_*",      type: "integer × 5", note: "like, bullish, bearish, to_the_moon, dump — refactor M_posts_008" },
@@ -275,6 +276,17 @@ export default function PostsArchitecturePage() {
             />
 
             <ArchSchemaTable
+              name="posts_user_preferences"
+              description="Sidecar 1:1 con users per preferenze del modulo (M_posts_009). Riga creata lazy on first set (assenza = default app). Oggi 1 sola preferenza: default_visibility (sticky cross-device per il Composer). Letta da NewPostButton via Server Action + SWR; aggiornata server-side da createPost e createQuoteRepost (best-effort, non blocca la create). Editabile in /settings/privacy → card Post."
+              columns={[
+                { name: "user_id",            type: "uuid",        note: "PK + FK users(id) ON DELETE CASCADE" },
+                { name: "default_visibility", type: "varchar(16)", note: "CHECK enum 4 valori; default 'public'" },
+                { name: "created_at",         type: "timestamptz", note: "default NOW()" },
+                { name: "updated_at",         type: "timestamptz", note: "bump via sql`NOW()` on conflict update" },
+              ]}
+            />
+
+            <ArchSchemaTable
               name="posts_comments"
               description="Commenti — schema flat (1 parent_comment_id), rendering 2-livelli visual. M_posts_007 aggiunge 2 indici parziali (root + replies) per fan-out feed inline + post page. Counter posts.comments_count gestito da trigger soft-delete aware (M_posts_002). M_posts_008 aggiunge 5 counter reactions_* denormalizzati."
               columns={[
@@ -334,7 +346,7 @@ export default function PostsArchitecturePage() {
           id="caching"
           title="Strategia di caching"
           icon={Boxes}
-          intro="3 layer di caching coordinati. V1 = solo unstable_cache + revalidateTag. V2 (roadmap) = Upstash KV per feed hot.">
+          intro="4 layer di caching/indici coordinati. V1 = solo unstable_cache + revalidateTag. V2 (attivo) = Upstash KV per feed hot e per mention-index autocomplete.">
           <ol className="list-decimal pl-5 space-y-2">
             <li>
               <strong>Next unstable_cache</strong>: query DB read-only (coin
@@ -357,6 +369,21 @@ export default function PostsArchitecturePage() {
               <code>invalidateFeedCache(scope)</code> usa SCAN+DEL per
               pattern, chiamata sia su mutation post (create/edit/delete)
               sia su block/bookmark/admin-action.
+            </li>
+            <li>
+              <strong>mention-index (V2 Upstash sorted-set attivo)</strong>:
+              {" "}sorted-set globale <code>mention:users</code> (score 0,
+              member <code>username\\x01userId\\x01first\\x01last\\x01avatar</code>)
+              consumato dal popover di autocomplete @mention nei composer
+              (post + commenti). Search via <code>ZRANGEBYLEX</code>{" "}
+              <code>[prefix [prefix\\xff</code> in O(log N), ~5-10ms per
+              keystroke debounced. Sync via{" "}
+              <code>syncMentionMember(userId)</code> chiamato dai 4 punti
+              che creano/cambiano username (signup, staff-invite,
+              onboarding, settings profile). Lazy bootstrap al primo uso
+              con sentinel TTL 7d. Fallback DB ILIKE prefix se Upstash
+              non configurato. Admin rebuild via{" "}
+              <code>rebuildMentionIndexAction</code>.
             </li>
           </ol>
 
@@ -418,6 +445,12 @@ export default function PostsArchitecturePage() {
               description="getCachedFeedIds + invalidateFeedCache. Upstash KV namespace posts:feed:* TTL 60s. Cache-aside con fallback graceful (KV null/errore → DB diretto). Invalidation per scope strutturato via SCAN+DEL pattern."
               filePath="lib/modules/posts/services/feed-cache.ts"
               contract="getCachedFeedIds(key, fallback) → PostListPage"
+            />
+            <ArchHookBox
+              title="Mention index (V2 attivo)"
+              description="Sorted-set Upstash mention:users per l'autocomplete @mention nei composer. Search ZRANGEBYLEX in O(log N), ~5-10ms. Sync via syncMentionMember(userId) chiamato dai 4 punti che toccano username. Lazy bootstrap con sentinel TTL 7d. Fallback DB ILIKE se Upstash non configurato. Admin rebuild = 1 click."
+              filePath="lib/modules/posts/services/mention-index.ts"
+              contract="searchMentionPrefix({prefix, limit, excludeUserIds}) → MentionCandidate[]"
             />
             <ArchHookBox
               title="Media storage R2"
@@ -777,6 +810,18 @@ export default function PostsArchitecturePage() {
               description="Pattern cache-aside per liste post_id, V1 pass-through, V2 KV"
             />
             <ArchFileLink
+              path="lib/modules/posts/services/mention-index.ts"
+              description="Upstash sorted-set per autocomplete @mention nei composer (ZRANGEBYLEX + sync hooks + lazy bootstrap)"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/lib/use-mention-autocomplete.ts"
+              description="Hook React: caret parsing, debounce 200ms, abort, keyboard ↑↓/Enter/Tab/Esc"
+            />
+            <ArchFileLink
+              path="components/modules/posts/MentionPopover.tsx"
+              description="Popover presentazionale (avatar + handle + nome) ancorato sotto la textarea"
+            />
+            <ArchFileLink
               path="lib/modules/posts/ticker-preview-actions.ts"
               description="getTickerPreview + batch con freshUntil allineato al cron prices"
             />
@@ -791,6 +836,34 @@ export default function PostsArchitecturePage() {
             <ArchFileLink
               path="lib/db/migrations/M_posts_005_user_blocks.sql"
               description="Tabella block mutuale + indice per filtri feed"
+            />
+            <ArchFileLink
+              path="lib/db/migrations/M_posts_009_user_preferences.sql"
+              description="Sidecar 1:1 posts_user_preferences (default_visibility sticky)"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/preferences-actions.ts"
+              description="Server Actions get/set sticky default_visibility"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/components/PostsPrivacyPanel.tsx"
+              description="Radio list nella card Post di /settings/privacy"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/post-page-data.ts"
+              description="Single source of data per page standalone + modale intercepting (no drift)"
+            />
+            <ArchFileLink
+              path="app/(protected)/@modal/(.)post/[id]/page.tsx"
+              description="Intercepting route: click PostCard → modale; refresh/share → page"
+            />
+            <ArchFileLink
+              path="components/modules/posts/PostModalContainer.tsx"
+              description="Dialog raw wrapper per la modale intercepting (eccezione GcModal)"
+            />
+            <ArchFileLink
+              path="app/(public)/post/sitemap.ts"
+              description="Sitemap dinamica per post pubblici → /post/sitemap.xml (cap 5000, cache 5min, tag posts:feed)"
             />
             <ArchFileLink
               path="components/modules/posts/FeedList.tsx"
@@ -869,6 +942,67 @@ export default function PostsArchitecturePage() {
               <code>useResetableListState</code> (auto-reset su prop
               change) + <code>key=&#123;filter&#125;</code> sul parent
               come belt + suspenders.
+            </li>
+            <li>
+              <strong>Visibility leak fix sul repost embed</strong> (2026-05-18):
+              il quote-poster sceglie la SUA visibility, ma l'embed del target
+              deve rispettare la visibility del TARGET. Prima del fix,
+              <code>selectPostsCore</code> in <code>queries.ts</code> hydratava
+              i target del repost senza visibility-gate (solo block check):
+              quoting un post <code>members</code> via un quote <code>public</code>
+              avrebbe leakato il body a viewer anonimi. Fix: opzione
+              <code>enforceVisibility</code> in <code>selectPostsCore</code>,
+              passata <code>true</code> dai target del repost in
+              <code>getPostsByIds</code>. I miss vengono classificati in
+              <code>repostOfTombstone.reason: 'deleted' | 'not_visible'</code>
+              via una query light secondaria; <strong>block-filtered</strong>
+              cade volutamente su <code>'deleted'</code> per non leakare la
+              relazione di block.
+            </li>
+            <li>
+              <strong>viewerCanSeeVisibility (SQL) ↔ viewerCanSeeVisibilityJS</strong>:
+              le due helper in <code>queries.ts</code> devono restare allineate.
+              La SQL filtra le row prima del fetch; la JS classifica i miss in
+              <code>'deleted'</code> vs <code>'not_visible'</code> usando la
+              query light secondaria. Se ne tocchi una, tocca anche l'altra
+              (commento inline lo ricorda).
+            </li>
+            <li>
+              <strong>Modulo follow inesistente → visibility 'followers' = 'private'</strong>:
+              finché non c'è la tabella follow, i due check (SQL e JS) trattano
+              <code>'followers'</code> come <code>'private'</code> (gate
+              <code>viewerUserId == authorId</code>). Quando il modulo arriva,
+              aggiungere il join in entrambe le funzioni.
+            </li>
+            <li>
+              <strong>Post in modale via intercepting routes</strong> (2026-05-18):
+              <code>@modal/(.)post/[id]/page.tsx</code> intercetta la
+              navigazione client da una <code>PostCard</code> verso
+              <code>/post/[id]</code> e renderizza la modale invece della
+              page standalone. Refresh/share dello stesso URL bypassano
+              l'intercept e rendono la page → SEO/share intatti. Single
+              source di data:{" "}
+              <code>lib/modules/posts/post-page-data.ts</code> riusato da
+              entrambe le route — toccare l'uno richiede toccare l'altro
+              solo se cambia il contratto del fetch. Lo slot{" "}
+              <code>modal</code> è passato come prop al{" "}
+              <code>(protected)/layout.tsx</code>;{" "}
+              <code>@modal/default.tsx</code> ritorna <code>null</code>{" "}
+              quando l'URL non matcha (obbligatorio per il parallel routes
+              system). Delete/block dentro la modale chiamano i nuovi
+              callback{" "}
+              <code>PostCard.onDeleted</code> /{" "}
+              <code>onBlocked</code> che fanno <code>router.back()</code>
+              {" "}invece dei <code>redirectAfter*</code>.
+            </li>
+            <li>
+              <strong>Realtime nella modale</strong>: il
+              <code>CommentsThread</code> dentro la modale apre la sua
+              subscription a <code>posts_comments:&#123;id&#125;</code>{" "}
+              come fa la page standalone. Il feed sotto NON ha
+              subscription sui commenti del post in modale (subscribe a
+              namespace diverso <code>feed:posts</code>), nessuna
+              collisione. Niente doppia subscription da gestire.
             </li>
           </ul>
         </ArchSection>

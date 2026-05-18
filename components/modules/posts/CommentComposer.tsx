@@ -12,9 +12,12 @@
 //   - Server Action createComment
 //   - optimistic prepend al thread
 //   - dedup realtime via useCommentsLiveSignal.registerOwnComment
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { useMentionAutocomplete } from "@/lib/modules/posts/lib/use-mention-autocomplete";
+import { searchUsersForMention } from "@/lib/modules/posts/actions";
+import { MentionPopover } from "./MentionPopover";
 
 export type CommentComposerProps = {
   /** Submit handler. Riceve il body trimmed. Ritorna { ok, error? }.
@@ -55,6 +58,19 @@ export function CommentComposer({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  // @mention autocomplete (Upstash sorted-set backend). Stesso pattern del
+  // PostComposer: hook + popover ancorato sotto il textarea.
+  const mentionFetcher = useCallback(async (prefix: string) => {
+    const res = await searchUsersForMention({ prefix });
+    return res.ok ? res.data.results : [];
+  }, []);
+  const mention = useMentionAutocomplete({
+    textareaRef: ref,
+    value: body,
+    onValueChange: setBody,
+    fetcher: mentionFetcher,
+  });
 
   useEffect(() => {
     if (autoFocus && ref.current) {
@@ -112,25 +128,47 @@ export function CommentComposer({
       onSubmit={handleSubmit}
       className={`flex items-end gap-2 border border-gc-line/60 rounded-gc-sm bg-gc-bg-2 ${padCls}`}
     >
-      <textarea
-        ref={ref}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
-            handleSubmit(e);
-          }
-          if (e.key === "Escape" && onCancel) {
-            onCancel();
-          }
-        }}
-        disabled={disabled || submitting}
-        placeholder={placeholder ?? t("composer.placeholder")}
-        rows={1}
-        maxLength={maxBodyLength + 50 /* over-bound safety, validation handle the real cap */}
-        className={`flex-1 resize-none bg-gc-bg-1 rounded-gc-sm outline-none text-gc-fg placeholder:text-gc-fg-muted/70 ${taPadCls}`}
-        aria-label={t("composer.aria_label")}
-      />
+      <div className="relative flex-1">
+        <textarea
+          ref={ref}
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+            mention.recomputeActive();
+          }}
+          onSelect={() => mention.recomputeActive()}
+          onKeyDown={(e) => {
+            // Il mention handler ha priorità sull'Enter→submit: se il
+            // popover è aperto Enter conferma il candidato, non sottomette.
+            if (mention.handleKeyDown(e)) return;
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
+              handleSubmit(e);
+            }
+            if (e.key === "Escape" && onCancel) {
+              onCancel();
+            }
+          }}
+          onBlur={() => {
+            setTimeout(() => mention.close(), 150);
+          }}
+          disabled={disabled || submitting}
+          placeholder={placeholder ?? t("composer.placeholder")}
+          rows={1}
+          maxLength={maxBodyLength + 50 /* over-bound safety, validation handle the real cap */}
+          className={`w-full resize-none bg-gc-bg-1 rounded-gc-sm outline-none text-gc-fg placeholder:text-gc-fg-muted/70 ${taPadCls}`}
+          aria-label={t("composer.aria_label")}
+        />
+        <MentionPopover
+          open={mention.open}
+          results={mention.results}
+          selectedIndex={mention.selectedIndex}
+          loading={mention.loading}
+          onSelect={mention.applySelection}
+          onHover={mention.setSelectedIndex}
+          emptyLabel={t("composer.mention_no_results")}
+          loadingLabel={t("composer.mention_loading")}
+        />
+      </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
         <button
           type="submit"

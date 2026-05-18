@@ -385,6 +385,24 @@
           "defaultSubject": "Verifica a due fattori resettata dal supporto — '{{appName}}'",
           "defaultBody": "Ciao '{{userName}}',\n\nUn amministratore di '{{appName}}' ha resettato la verifica a due fattori sul tuo account. Tutti i recovery codes precedenti sono stati invalidati e al prossimo login useremo solo email e password.\n\nMotivazione del supporto: '{{reason}}'\n\nPer ripristinare la protezione, accedi al tuo account e riattiva la verifica a due fattori dalle impostazioni di sicurezza. Se non hai richiesto questa operazione, contatta subito l'assistenza e cambia la password.",
           "defaultFooter": "© '{{appName}}' · Tutti i diritti riservati"
+        },
+        "modstrike": {
+          "label": "Moderazione · strike ricevuto",
+          "defaultSubject": "Avviso di moderazione su '{{appName}}' ('{{strikeNumber}}'/3)",
+          "defaultBody": "Ciao '{{userName}}',\n\nUn nostro moderatore ha esaminato una segnalazione su un tuo '{{sourceType}}' e l'ha accettata. Il contenuto è stato rimosso e hai ricevuto uno strike di moderazione.\n\nStrike attivi sul tuo account: '{{strikeNumber}}'/3.\nMotivo: '{{reason}}'.\n\nAl raggiungimento di 3 strike attivi l'account viene sospeso automaticamente. Ti invitiamo a rivedere le linee guida della community per evitare ulteriori violazioni.",
+          "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
+        },
+        "modbanned": {
+          "label": "Moderazione · account sospeso (3 strike)",
+          "defaultSubject": "Il tuo account '{{appName}}' è stato sospeso",
+          "defaultBody": "Ciao '{{userName}}',\n\nA seguito di tre strike di moderazione accumulati, il tuo account su '{{appName}}' è stato sospeso e non puoi più accedere alla piattaforma.\n\nL'ultimo '{{sourceType}}' che ha innescato la sospensione è stato rimosso. Motivo finale: '{{reason}}'.\n\nSe ritieni che la decisione sia ingiusta puoi contattare il supporto rispondendo a questa email o scrivendo dal modulo di contatto sul sito.",
+          "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
+        },
+        "modstrikerevoked": {
+          "label": "Moderazione · strike revocato",
+          "defaultSubject": "Uno strike è stato revocato sul tuo account '{{appName}}'",
+          "defaultBody": "Ciao '{{userName}}',\n\nUn nostro moderatore ha revocato uno dei tuoi strike dopo una revisione del caso.\n\nStrike attivi residui: '{{activeCountAfter}}'/3.\n\nSe il tuo account era sospeso e la revoca ha riportato il counter sotto 3, l'accesso è stato riattivato automaticamente.",
+          "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
         }
       }
     },
@@ -1108,6 +1126,7 @@
       "filterVerifiedYes": "✓ Email verificata",
       "filterVerifiedNo": "✗ Email non verificata",
       "filterStatusActive": "Account attivi",
+      "filterStatusWithStrikes": "Con strike attivi",
       "filterStatusDeletionRequested": "Eliminazione richiesta",
       "filterStatusAll": "Tutti (inclusi eliminati)",
       "filterButton": "Filtra",

@@ -57,10 +57,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
+import { PublishedPostToast } from "./PublishedPostToast";
 import { ReactionPopover } from "./ReactionPopover";
-import { ReportPostDialog } from "./ReportPostDialog";
+import { ReportContentDialog } from "./ReportContentDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
@@ -83,14 +85,13 @@ function authorDisplayName(
   author: PostCardData["author"],
   fallback: string,
 ): string {
-  if (author.username) return `@${author.username}`;
+  // Priorità: nome+cognome se presenti (UX più umana, ridotto noise di
+  // @username). Username come fallback SENZA chiocciola — la `@` resta
+  // riservata alle mention nel body. Pattern allineato a LinkedIn.
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  return full || fallback;
-}
-
-function authorInitial(author: PostCardData["author"]): string {
-  const f = (author.username ?? author.firstName ?? "?")[0] ?? "?";
-  return f.toUpperCase();
+  if (full) return full;
+  if (author.username) return author.username;
+  return fallback;
 }
 
 // Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
@@ -153,6 +154,13 @@ type Props = {
    */
   redirectAfterDelete?: string;
   /**
+   * Callback alternativa ai redirectAfter* — se passata, viene chiamata
+   * dopo delete/block confermati invece di fare router.replace. Usata
+   * dalla modale intercepting per chiudere lo slot (router.back).
+   */
+  onDeleted?: () => void;
+  onBlocked?: () => void;
+  /**
    * Mappa lower-name → SYMBOL caricata dal Server Component padre per
    * il match implicito dei coin nel PostBody. Propagata sia al body
    * principale sia al `repostOf` embed. Senza, solo `$TICKER` espliciti
@@ -195,6 +203,8 @@ export function PostCard({
   editWindowMs = EDIT_WINDOW_MS_DEFAULT,
   redirectAfterBlock,
   redirectAfterDelete,
+  onDeleted,
+  onBlocked,
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
@@ -262,6 +272,20 @@ export function PostCard({
   const [deleted, setDeleted] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  // Counter optimistic-display per i repost. Incrementato lato client
+  // dopo successful publish del quote dal modale, senza refetch del feed.
+  const [displayedRepostsCount, setDisplayedRepostsCount] = useState(
+    post.counts.reposts,
+  );
+  // Body lungo nel feed: clamp a 8 righe + toggle "Mostra tutto / Riduci".
+  // SOLO in variant "feed" (in single view il post va sempre intero).
+  // Stessa heuristic di CommentItem ma soglia più generosa (post = 2000
+  // char max vs commenti 1000): 500 char OR >8 newlines.
+  const [postExpanded, setPostExpanded] = useState(false);
+  // ID del quote appena pubblicato → mostra PublishedPostToast con link
+  // al nuovo quote post (stesso pattern di NewPostButton).
+  const [publishedQuoteId, setPublishedQuoteId] = useState<string | null>(null);
   // NB: deleteOpen/reportOpen/blockOpen DEVONO stare qui sopra
   // l'early return `if (deleted || blocked) return null` — altrimenti
   // dopo `setDeleted(true)` il render successivo salta questi useState
@@ -285,10 +309,11 @@ export function PostCard({
     return () => clearInterval(t);
   }, [isAuthor]);
 
-  // User per il composer in edit: fetch solo se l'utente è autore (non
-  // serve a non-autori). useSWR cachato globale ⇒ 1 sola fetch per N card.
+  // User per il composer (edit per gli autori, quote-repost per qualsiasi
+  // utente loggato). useSWR cachato globale ⇒ 1 sola fetch di rete per
+  // tutto il feed (stessa key di NewPostButton). Null = non loggato.
   const { data: currentUser } = useSWR<CurrentUser>(
-    isAuthor ? "/api/user" : null,
+    "/api/user",
     userFetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
   );
@@ -349,12 +374,16 @@ export function PostCard({
 
       setDeleted(true);
 
+      // Priority: onDeleted callback (modale → router.back) >
+      // redirectAfterDelete (single page → "/") > router.refresh (feed).
       // Single-post page (variant="single") passa redirectAfterDelete="/"
       // così la URL morta non resta nella history (back skippa). Sul
       // feed, refresh forza il re-fetch RSC dopo revalidatePath del
       // server action — il FeedList riceve le nuove initialPosts senza
       // il post deleted, e useResetableListState aggiorna lo state.
-      if (redirectAfterDelete) {
+      if (onDeleted) {
+        onDeleted();
+      } else if (redirectAfterDelete) {
         router.replace(redirectAfterDelete);
       } else {
         router.refresh();
@@ -388,7 +417,9 @@ export function PostCard({
       // ripopolare la Router Cache di RSC: il server action ha già
       // chiamato revalidatePath('/', 'layout'), refresh forza il
       // re-fetch immediato del feed corrente.
-      if (redirectAfterBlock) {
+      if (onBlocked) {
+        onBlocked();
+      } else if (redirectAfterBlock) {
         router.replace(redirectAfterBlock);
       } else {
         router.refresh();
@@ -463,19 +494,16 @@ export function PostCard({
             href={`/profile/${post.author.username ?? post.author.id}`}
             className="shrink-0"
           >
-            {post.author.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={post.author.avatarUrl}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
-                {authorInitial(post.author)}
-              </div>
-            )}
+            <UserAvatar
+              user={{
+                id: post.author.id,
+                username: post.author.username,
+                firstName: post.author.firstName,
+                lastName: post.author.lastName,
+                avatarUrl: post.author.avatarUrl,
+              }}
+              size={40}
+            />
           </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
@@ -486,14 +514,12 @@ export function PostCard({
                 {authorDisplayName(post.author, userFallback)}
               </Link>
               <span className="text-xs text-gc-fg-muted">·</span>
-              <Link
-                href={`/post/${post.id}`}
-                className="text-xs text-gc-fg-muted hover:underline"
+              <time
+                dateTime={String(post.createdAt)}
+                className="text-xs text-gc-fg-muted"
               >
-                <time dateTime={String(post.createdAt)}>
-                  {formatRelativeTime(post.createdAt, tTime, locale)}
-                </time>
-              </Link>
+                {formatRelativeTime(post.createdAt, tTime, locale)}
+              </time>
               {displayedEditedAt ? (
                 <span
                   className="text-xs text-gc-fg-muted"
@@ -590,11 +616,32 @@ export function PostCard({
             "vuoto" cada sull'overlay link verso /post/{id}. I Link
             interni a PostBody ($TICKER, @mention, URL) sono <a> nativi
             e catturano da soli il click. */}
-        <PostBody
-          body={displayedBody}
-          coinNameMap={coinNameMap}
-          tickerPreviewMap={tickerPreviewMap}
-        />
+        {(() => {
+          const newlineCount = (displayedBody.match(/\n/g) ?? []).length;
+          const isLong =
+            variant === "feed" &&
+            (displayedBody.length > 500 || newlineCount > 8);
+          return (
+            <>
+              <div className={isLong && !postExpanded ? "line-clamp-8" : undefined}>
+                <PostBody
+                  body={displayedBody}
+                  coinNameMap={coinNameMap}
+                  tickerPreviewMap={tickerPreviewMap}
+                />
+              </div>
+              {isLong ? (
+                <button
+                  type="button"
+                  onClick={() => setPostExpanded((v) => !v)}
+                  className="mt-1 text-xs font-medium text-gc-accent hover:underline"
+                >
+                  {postExpanded ? tCard("collapse") : tCard("expand")}
+                </button>
+              ) : null}
+            </>
+          );
+        })()}
 
         {/* Media gallery: SI interactiveClass — le tile sono <button>
             e click apre il lightbox, non deve navigare al post. */}
@@ -609,12 +656,40 @@ export function PostCard({
             /explore?ticker=. La lista post.tickers resta in dati per
             usi futuri (es. counter trending, ticker page meta). */}
 
-        {/* Quote repost embed: lo lasciamo SOTTO l'overlay così click
-            su area "vuota" dell'embed naviga al post repostante. Se in
-            futuro vorremo che cliccare l'embed apra il TARGET, basta
-            aggiungere un <Link> stretched dentro l'embed con z-[1]. */}
+        {/* Quote repost embed: cliccabile → naviga al TARGET (non al post
+            repostante). Il wrapper è un div con role=link (no <Link> per
+            evitare nested-anchor: PostBody renderizza link interni per
+            ticker/mention). I link interni catturano il loro click; per
+            l'area vuota dell'embed stopPropagation evita il bubble all'
+            article parent (che andrebbe al post repostante). */}
         {post.repostOf ? (
-          <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1">
+          <div
+            role="link"
+            tabIndex={0}
+            aria-label={tCard("open_post")}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (
+                target.closest(
+                  'a, button, [role="menuitem"], [role="menu"], [role="button"]',
+                )
+              ) {
+                return;
+              }
+              const sel =
+                typeof window !== "undefined" ? window.getSelection?.() : null;
+              if (sel && sel.toString().trim().length > 0) return;
+              e.stopPropagation();
+              router.push(`/post/${post.repostOf!.id}`);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.target === e.currentTarget) {
+                e.stopPropagation();
+                router.push(`/post/${post.repostOf!.id}`);
+              }
+            }}
+            className={`${interactiveClass} mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 cursor-pointer hover:bg-gc-bg-1/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent`}
+          >
             <div className="flex items-center gap-1 text-xs text-gc-fg-muted mb-1">
               <Repeat2 size={12} strokeWidth={1.75} aria-hidden />
               {authorDisplayName(post.repostOf.author, userFallback)}
@@ -624,10 +699,31 @@ export function PostCard({
               coinNameMap={coinNameMap}
               tickerPreviewMap={tickerPreviewMap}
             />
+            {/* Media compact: solo la prima image come preview, badge +N
+                se ce ne sono altre. Niente lightbox/carousel — l'utente
+                apre il target dove vede tutte le foto. */}
+            {post.repostOf.media.length > 0 ? (
+              <div className="mt-2 relative rounded-gc-sm overflow-hidden bg-gc-bg-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.repostOf.media[0].thumbUrl}
+                  alt=""
+                  className="w-full max-h-48 object-cover"
+                  loading="lazy"
+                />
+                {post.repostOf.media.length > 1 ? (
+                  <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 text-white text-xs font-medium">
+                    +{post.repostOf.media.length - 1}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : post.repostOfTombstone ? (
           <div className="mt-3 border border-gc-line/60 rounded-gc-sm p-3 bg-gc-bg-1 text-sm text-gc-fg-muted italic">
-            {tCard("repost_tombstone")}
+            {post.repostOfTombstone.reason === "not_visible"
+              ? tCard("repost_tombstone_not_visible")
+              : tCard("repost_tombstone")}
           </div>
         ) : null}
 
@@ -673,14 +769,17 @@ export function PostCard({
           })()}
           <button
             type="button"
-            aria-label={tCard("reposts_aria", { count: post.counts.reposts })}
-            disabled
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed hover:bg-gc-line/40 ${
-              post.counts.reposts > 0 ? "text-gc-pos" : "text-gc-fg-muted"
+            aria-label={tCard("reposts_aria", { count: displayedRepostsCount })}
+            onClick={() => setQuoteOpen(true)}
+            disabled={!currentUser}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gc-line/40 ${
+              displayedRepostsCount > 0 ? "text-gc-pos" : "text-gc-fg-muted"
             }`}
           >
             <Repeat2 size={18} strokeWidth={1.75} />
-            {post.counts.reposts > 0 ? <span>{post.counts.reposts}</span> : null}
+            {displayedRepostsCount > 0 ? (
+              <span>{displayedRepostsCount}</span>
+            ) : null}
           </button>
         </footer>
 
@@ -712,8 +811,8 @@ export function PostCard({
           controllati → niente fetch finché non vengono aperti. */}
       {!isAuthor ? (
         <>
-          <ReportPostDialog
-            postId={post.id}
+          <ReportContentDialog
+            target={{ type: "post", id: post.id }}
             authorDisplayName={authorDisplayName(post.author, userFallback)}
             onWantsToBlockAuthor={onBlock}
             isOpen={reportOpen}
@@ -762,6 +861,33 @@ export function PostCard({
           />
         </>
       ) : null}
+
+      {/* Quote repost modal: disponibile a tutti gli utenti loggati
+          (anche self-repost — vedi pattern Twitter). Mount solo dopo
+          il primo open per non istanziare Dialog/Composer su ogni card
+          del feed. */}
+      {quoteOpen ? (
+        <PostComposerModal
+          open={quoteOpen}
+          onOpenChange={setQuoteOpen}
+          onPublished={(quoteId) => {
+            setDisplayedRepostsCount((c) => c + 1);
+            setPublishedQuoteId(quoteId);
+            setQuoteOpen(false);
+          }}
+          user={currentUser ?? null}
+          quoteTarget={{
+            id: post.id,
+            body: displayedBody,
+            author: post.author,
+          }}
+        />
+      ) : null}
+
+      <PublishedPostToast
+        postId={publishedQuoteId}
+        onDismiss={() => setPublishedQuoteId(null)}
+      />
     </>
   );
 }

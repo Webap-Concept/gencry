@@ -281,22 +281,26 @@ function PreviewBody({
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-row gap-2">
         <Link
           href={`/coins/${symbolLower}`}
           prefetch={false}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
-          <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden />
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
+          <ArrowUpRight size={15} strokeWidth={1.75} aria-hidden />
           {tHover("coin_page")}
         </Link>
         <Link
           href={`/explore?ticker=${symbol}`}
           prefetch={false}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
-          <MessageCircle size={13} strokeWidth={1.75} aria-hidden />
-          {data.postCount24h > 0
-            ? tHover("posts_24h", { count: data.postCount24h })
-            : tHover("see_all_posts")}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gc-fg bg-gc-bg-3 hover:bg-gc-line transition-colors">
+          <MessageCircle size={15} strokeWidth={1.75} aria-hidden />
+          {tHover("posts_short")}
+          {data.postCount24h > 0 ? (
+            <span className="text-gc-fg-3 tabular-nums">
+              {" "}
+              · {data.postCount24h}
+            </span>
+          ) : null}
         </Link>
       </div>
     </div>

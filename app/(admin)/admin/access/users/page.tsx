@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Users" };
 const VALID_STATUSES: AdminUsersStatus[] = [
   "active",
   "deletion_requested",
+  "with_strikes",
   "all",
 ];
 
@@ -270,6 +271,9 @@ export default async function AdminUsersPage({
                   : "var(--admin-text-muted)",
             }}>
             <option value="active">{t("filterStatusActive")}</option>
+            <option value="with_strikes">
+              {t("filterStatusWithStrikes")}
+            </option>
             <option value="deletion_requested">
               {t("filterStatusDeletionRequested")}
             </option>

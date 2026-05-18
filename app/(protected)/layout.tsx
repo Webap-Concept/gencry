@@ -1,5 +1,6 @@
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
@@ -22,8 +23,13 @@ const MFA_SECURITY_PATH = "/settings/security";
 
 export default async function Layout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  // Parallel slot per le modali intercepting routes (es. @modal/(.)post/[id]).
+  // Quando l'URL non matcha nessuna route nello slot, viene renderizzato
+  // @modal/default.tsx (return null). Vedi project_post_modal_intercepting_routes.
+  modal: React.ReactNode;
 }) {
   // PR-1b: locale dall'header x-locale (cookie/Accept-Language/default).
   // PR-5 sovrascriverà con users.locale per l'utente loggato.
@@ -91,8 +97,17 @@ export default async function Layout({
   );
 
   return (
-    <ProtectedShell appLogoUrl={appSettings.app_logo_url} banner={banner}>
+    <ProtectedShell
+      appLogoUrl={appSettings.app_logo_url}
+      banner={banner}
+      notificationsBadge={
+        <Suspense fallback={null}>
+          <NotificationsBadge />
+        </Suspense>
+      }
+    >
       <Suspense fallback={null}>{children}</Suspense>
+      {modal}
     </ProtectedShell>
   );
 }

@@ -1,0 +1,62 @@
+{
+  "errors": {
+    "unauthenticated": "Devi essere connesso per gestire le notifiche."
+  },
+  "ui": {
+    "empty_title": "Nessuna notifica",
+    "empty_description": "Quando qualcuno reagirà, commenterà, citerà o menzionerà i tuoi post, lo vedrai qui.",
+    "unknown_actor": "qualcuno",
+    "unread_dot_aria": "Non letta",
+    "loading_more": "Carico altre…",
+    "and_others": "{count, plural, one {e # altra persona} other {e # altre persone}}",
+    "actors_two": "{first} e {second}",
+    "actors_many": "{first}, {second} {others}"
+  },
+  "admin": {
+    "overview": {
+      "title": "Notifications — Overview",
+      "description": "Notifiche end-user generate dagli eventi social. Fanout zero-latency via trigger DB su posts_outbox.",
+      "health_outbox_backlog": "Outbox da processare",
+      "health_total_today": "Notifiche ultime 24h",
+      "health_total_unread": "Non lette totali",
+      "shortcuts_settings": "Impostazioni",
+      "shortcuts_architecture": "Architettura"
+    },
+    "settings": {
+      "title": "Notifications — Impostazioni",
+      "dedup_window_minutes_label": "Finestra dedup anti-spam (minuti)",
+      "dedup_window_minutes_help": "Una notifica con stesso destinatario, tipo, post, attore entro questa finestra non viene duplicata.",
+      "list_page_size_label": "Notifiche per pagina",
+      "list_page_size_help": "Quante notifiche caricare in 1 batch nella lista /notifiche.",
+      "retention_days_label": "Retention (giorni)",
+      "retention_days_help": "Le notifiche più vecchie di N giorni verranno cancellate dal cron di cleanup (futuro).",
+      "save": "Salva",
+      "saved": "Impostazioni salvate."
+    },
+    "architecture": {
+      "title": "Notifications — Architettura"
+    }
+  },
+  "types": {
+    "post": {
+      "reaction": {
+        "added": "<actor>{name}</actor> ha reagito al tuo post"
+      },
+      "comment": {
+        "created": "<actor>{name}</actor> ha commentato il tuo post",
+        "reaction": {
+          "added": "<actor>{name}</actor> ha reagito al tuo commento"
+        }
+      },
+      "mention": "<actor>{name}</actor> ti ha menzionato in un post",
+      "repost": {
+        "created": "<actor>{name}</actor> ha citato il tuo post"
+      }
+    },
+    "moderation": {
+      "strike_received": "Hai ricevuto uno strike di moderazione (totale: {strike_number}/3)",
+      "banned": "Il tuo account è stato bloccato per aver raggiunto 3 strike",
+      "strike_revoked": "Uno dei tuoi strike è stato revocato da un moderatore"
+    }
+  }
+}

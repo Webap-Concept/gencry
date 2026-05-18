@@ -89,6 +89,23 @@ export type SettingKey =
   | 'email_mfaadminreset_bcc'
   | 'email_mfaadminreset_body'
   | 'email_mfaadminreset_footer'
+  // Moderation strike received (1° o 2° strike, l'autore di un contenuto
+  // segnalato e accettato riceve avviso; ban automatico al 3°).
+  | 'email_modstrike_subject'
+  | 'email_modstrike_bcc'
+  | 'email_modstrike_body'
+  | 'email_modstrike_footer'
+  // Moderation banned (3° strike → soft ban automatico via trigger DB).
+  | 'email_modbanned_subject'
+  | 'email_modbanned_bcc'
+  | 'email_modbanned_body'
+  | 'email_modbanned_footer'
+  // Moderation strike revoked (un mod ha tolto uno strike — possibile
+  // anche il rientro dal ban se count torna sotto 3).
+  | 'email_modstrikerevoked_subject'
+  | 'email_modstrikerevoked_bcc'
+  | 'email_modstrikerevoked_body'
+  | 'email_modstrikerevoked_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -207,6 +224,10 @@ export type SettingKey =
   | 'modules.posts.comments.cache_ttl_seconds'   // unstable_cache TTL per i thread (0..300, 0=off)
   | 'modules.posts.comments.max_body_length'     // CHECK constraint allinea schema (100..2000)
   | 'modules.posts.comments.replies_initial_count' // numero di reply prefetched per root (0..10)
+  // Modulo notifications (end-user social notifications)
+  | 'modules.notifications.dedup_window_minutes'   // finestra anti-spam per fanout trigger (default 60)
+  | 'modules.notifications.list_page_size'         // pagination /notifiche (default 30)
+  | 'modules.notifications.retention_days'         // cron cleanup futuro (default 180)
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -342,6 +363,18 @@ export type AppSettings = {
   email_mfaadminreset_bcc: string | null
   email_mfaadminreset_body: string | null
   email_mfaadminreset_footer: string | null
+  email_modstrike_subject: string | null
+  email_modstrike_bcc: string | null
+  email_modstrike_body: string | null
+  email_modstrike_footer: string | null
+  email_modbanned_subject: string | null
+  email_modbanned_bcc: string | null
+  email_modbanned_body: string | null
+  email_modbanned_footer: string | null
+  email_modstrikerevoked_subject: string | null
+  email_modstrikerevoked_bcc: string | null
+  email_modstrikerevoked_body: string | null
+  email_modstrikerevoked_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -433,6 +466,9 @@ export type AppSettings = {
   'modules.posts.comments.cache_ttl_seconds': string
   'modules.posts.comments.max_body_length': string
   'modules.posts.comments.replies_initial_count': string
+  'modules.notifications.dedup_window_minutes': string
+  'modules.notifications.list_page_size': string
+  'modules.notifications.retention_days': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -540,6 +576,18 @@ const DEFAULTS: AppSettings = {
   email_mfaadminreset_bcc: null,
   email_mfaadminreset_body: null,
   email_mfaadminreset_footer: null,
+  email_modstrike_subject: null,
+  email_modstrike_bcc: null,
+  email_modstrike_body: null,
+  email_modstrike_footer: null,
+  email_modbanned_subject: null,
+  email_modbanned_bcc: null,
+  email_modbanned_body: null,
+  email_modbanned_footer: null,
+  email_modstrikerevoked_subject: null,
+  email_modstrikerevoked_bcc: null,
+  email_modstrikerevoked_body: null,
+  email_modstrikerevoked_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
@@ -631,6 +679,9 @@ const DEFAULTS: AppSettings = {
   'modules.posts.comments.cache_ttl_seconds': '30',
   'modules.posts.comments.max_body_length': '2000',
   'modules.posts.comments.replies_initial_count': '3',
+  'modules.notifications.dedup_window_minutes': '60',
+  'modules.notifications.list_page_size': '30',
+  'modules.notifications.retention_days': '180',
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',

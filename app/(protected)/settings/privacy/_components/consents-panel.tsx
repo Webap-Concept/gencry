@@ -39,21 +39,11 @@ export function ConsentsPanel({
 }) {
   const t = useTranslations("core.settings.privacy.consents");
   return (
-    <div className="space-y-10">
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">
-            {t("sectionTitle")}
-          </h2>
-          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">
-            {t("sectionDescription")}
-          </p>
-        </div>
-
-        <ConsentCard consent={terms} kind="required" />
-        <ConsentCard consent={privacy} kind="required" />
-        <MarketingCard consent={marketing} />
-      </section>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">{t("sectionDescription")}</p>
+      <ConsentCard consent={terms} kind="required" />
+      <ConsentCard consent={privacy} kind="required" />
+      <MarketingCard consent={marketing} />
     </div>
   );
 }

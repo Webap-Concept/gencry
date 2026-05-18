@@ -33,16 +33,11 @@ export type ExportJobVM = {
 export function ExportPanel({ jobs }: { jobs: ExportJobVM[] }) {
   const t = useTranslations("core.settings.privacy.export");
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
-        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
-      </div>
-
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">{t("description")}</p>
       <RequestExportCard hasActiveJob={hasActiveJob(jobs)} />
-
       {jobs.length > 0 && <JobsList jobs={jobs} />}
-    </section>
+    </div>
   );
 }
 

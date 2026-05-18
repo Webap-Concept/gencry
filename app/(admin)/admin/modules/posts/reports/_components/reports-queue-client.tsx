@@ -5,7 +5,7 @@
 // Refactor 2026-05-15: prima 1 row = 1 report, ora 1 row = 1 post con
 // tutte le sue segnalazioni aggregate. La decisione (dismiss/actioned)
 // si applica in batch a tutte le segnalazioni `open` del post.
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,14 +23,24 @@ import type {
   ReportQueueStatus,
   ReportsQueuePage,
 } from "@/lib/modules/posts/queries";
-import { loadMoreReportsAction, reviewReportAction } from "../actions";
+import {
+  getReportDetailsAction,
+  loadMoreReportsAction,
+  reviewReportAction,
+  type ReportDetailRow,
+} from "../actions";
+import { ReportHistory } from "./report-history";
+import { StrikeToggle } from "./strike-toggle";
 
+// Tab semplificati: una segnalazione può solo essere accettata
+// (actioned, contenuto rimosso) o respinta (dismissed). "reviewed" e
+// "all" sono stati rimossi perché aggiungevano rumore senza valore — il
+// flusso reviewReportAction non scrive mai 'reviewed' e l'admin non ha
+// mai motivo di vedere "tutto mescolato".
 const STATUS_TABS: { key: ReportQueueStatus; label: string }[] = [
   { key: "open", label: "Aperti" },
-  { key: "reviewed", label: "Esaminati" },
+  { key: "actioned", label: "Accettati" },
   { key: "dismissed", label: "Respinti" },
-  { key: "actioned", label: "Action presi" },
-  { key: "all", label: "Tutti" },
 ];
 
 const STATUS_BADGE: Record<
@@ -38,9 +48,12 @@ const STATUS_BADGE: Record<
   { label: string; bg: string; fg: string }
 > = {
   open: { label: "Aperto", bg: "#f59e0b22", fg: "#b45309" },
+  // reviewed è uno status legacy nello schema SQL — non emesso dal
+  // flusso attuale, ma se mai esistesse in righe pre-existing lo
+  // mostriamo come "esaminato" neutro per non rompere il render.
   reviewed: { label: "Esaminato", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-muted)" },
   dismissed: { label: "Respinto", bg: "var(--admin-hover-bg)", fg: "var(--admin-text-faint)" },
-  actioned: { label: "Action", bg: "#dc262622", fg: "#dc2626" },
+  actioned: { label: "Accettato", bg: "#dc262622", fg: "#dc2626" },
 };
 
 function formatRelativeTime(date: Date | string): string {
@@ -105,7 +118,7 @@ export function ReportsQueueClient({
           return (
             <Link
               key={tab.key}
-              href={`?status=${tab.key}`}
+              href={`?kind=post&status=${tab.key}`}
               className="flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg font-medium transition-all"
               style={{
                 background: isActive ? "var(--admin-accent)" : "transparent",
@@ -358,6 +371,32 @@ function ReportReviewDialog({
   const [note, setNote] = useState("");
   const [isSubmitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [details, setDetails] = useState<ReportDetailRow[] | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  // Strike toggle: visibile/abilitato SOLO quando il moderatore sceglie
+  // "Accetta" (decision='actioned'). Default off.
+  const [issueStrike, setIssueStrike] = useState(false);
+  const [strikeReason, setStrikeReason] = useState<string>("");
+
+  // Lazy fetch dello storico delle segnalazioni: ogni riga di
+  // posts_reports col suo `details` (che include le note del moderatore
+  // appese dalle review precedenti). Niente loading state visuale
+  // dedicato: la sezione si srotola appena pronta.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await getReportDetailsAction({
+        kind: "post",
+        targetId: row.post.id,
+      });
+      if (cancelled) return;
+      if (res.ok) setDetails(res.rows);
+      else setDetailsError(res.error);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [row.post.id]);
 
   const noOpenLeft = row.openCount === 0;
   const postAlreadyDeleted = !!row.post.deletedAt;
@@ -369,6 +408,11 @@ function ReportReviewDialog({
         postId: row.post.id,
         decision,
         note: note.trim() || null,
+        issueStrike: decision === "actioned" && issueStrike,
+        strikeReason:
+          decision === "actioned" && issueStrike
+            ? strikeReason.trim() || undefined
+            : undefined,
       });
       if (res.ok) {
         onClose();
@@ -513,27 +557,48 @@ function ReportReviewDialog({
             </div>
           ) : null}
 
+          <ReportHistory
+            rows={details}
+            error={detailsError}
+            reasonLabels={reasonLabels}
+          />
+
           {!noOpenLeft ? (
-            <div>
-              <label
-                className="block text-[11px] uppercase tracking-wider mb-1"
-                style={{ color: "var(--admin-text-faint)" }}>
-                Nota interna (opzionale, audit trail su tutte le segnalazioni)
-              </label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Motivazione della decisione, visibile solo ad altri moderatori"
-                rows={2}
-                maxLength={2000}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  background: "var(--admin-page-bg)",
-                  border: "1px solid var(--admin-card-border)",
-                  color: "var(--admin-text)",
-                }}
+            <>
+              <div>
+                <label
+                  className="block text-[11px] uppercase tracking-wider mb-1"
+                  style={{ color: "var(--admin-text-faint)" }}>
+                  Nota interna (opzionale, audit trail su tutte le segnalazioni)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Motivazione della decisione, visibile solo ad altri moderatori"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    background: "var(--admin-page-bg)",
+                    border: "1px solid var(--admin-card-border)",
+                    color: "var(--admin-text)",
+                  }}
+                />
+              </div>
+              <StrikeToggle
+                authorLabel={
+                  row.post.author.username
+                    ? `@${row.post.author.username}`
+                    : "l'autore"
+                }
+                checked={issueStrike}
+                onCheckedChange={setIssueStrike}
+                reason={strikeReason}
+                onReasonChange={setStrikeReason}
+                reasonOptions={Object.keys(reasonLabels)}
+                reasonLabels={reasonLabels}
               />
-            </div>
+            </>
           ) : (
             <p
               className="text-xs italic"

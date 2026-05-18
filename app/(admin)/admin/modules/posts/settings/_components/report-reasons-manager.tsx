@@ -35,7 +35,7 @@ import {
 // Whitelist delle icone Lucide supportate nei report reasons. L'admin
 // può digitare uno di questi nomi nel campo "Icona"; nomi diversi
 // degradano a HelpCircle senza crash. Vedi services/report-reasons.ts
-// per l'omologa whitelist lato user-facing (ReportPostDialog).
+// per l'omologa whitelist lato user-facing (ReportContentDialog).
 const REASON_ICONS: Record<string, LucideIcon> = {
   Ban,
   AlertTriangle,

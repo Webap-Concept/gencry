@@ -435,16 +435,31 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
 
 /**
  * Query "core" posts + author info per N ids. Esclude i soft-deleted.
- * NB: per la visibility la fonte di verità è stata getFeedIds(); qui
- * NON viene riapplicata. Tuttavia il filtro block (mutual) SÌ — se il
- * viewer e l'autore hanno una relazione di block, la row sparisce
- * dall'hydration (utile per quote repost target: l'embed diventa
- * tombstone). Per pagine single-post c'è check visibility esplicito
- * in getPostBySlug.
+ * Visibility:
+ *   - default: NON riapplicata, fonte di verità è getFeedIds() per i feed
+ *     e getPostBySlug() per single-post.
+ *   - enforceVisibility: true → filtro SQL aggiuntivo che esclude righe
+ *     che il viewer non ha diritto di vedere. USATO per repost embed
+ *     target: il quote-poster sceglie la visibility del suo quote, ma
+ *     l'embed del target deve rispettare la visibility del TARGET (no
+ *     leak). Quando il filtro elimina la row, la UI cade su tombstone
+ *     con reason 'not_visible'.
+ *     Gate per kind:
+ *       public    → sempre ok
+ *       members   → viewerUserId != null
+ *       followers → viewerUserId == authorId (modulo follow non esiste
+ *                   ancora: temporaneamente equivalente a 'private'.
+ *                   Quando arriverà, aggiungere il join con la tabella
+ *                   follow qui)
+ *       private   → viewerUserId == authorId
+ *
+ * Filtro block (mutual) applicato sempre — se il viewer e l'autore hanno
+ * una relazione di block, la row sparisce dall'hydration.
  */
 async function selectPostsCore(
   ids: string[],
   viewerUserId?: string,
+  opts: { enforceVisibility?: boolean } = {},
 ): Promise<RawPostRow[]> {
   if (ids.length === 0) return [];
   const rows = await db
@@ -478,9 +493,44 @@ async function selectPostsCore(
         inArray(posts.id, ids),
         isNull(posts.deletedAt),
         viewerNotBlockedOnPosts(viewerUserId),
+        opts.enforceVisibility
+          ? viewerCanSeeVisibility(viewerUserId)
+          : undefined,
       ),
     );
   return rows;
+}
+
+// Filtro visibility per un viewer. Restituisce condizione SQL che
+// passa solo per le righe che il viewer può vedere. Usato per embed
+// target del quote repost (NON per i feed: lì gestisce getFeedIds).
+function viewerCanSeeVisibility(viewerUserId: string | undefined) {
+  if (!viewerUserId) {
+    // Viewer anonimo: solo public.
+    return eq(posts.visibility, "public");
+  }
+  // Viewer loggato: public + members sempre; followers/private solo se
+  // viewer == author (finché il modulo follow non sarà disponibile,
+  // 'followers' è di fatto trattato come 'private').
+  return or(
+    inArray(posts.visibility, ["public", "members"]),
+    eq(posts.authorId, viewerUserId),
+  );
+}
+
+// Specchio JS del filtro SQL `viewerCanSeeVisibility`. Usato post-query
+// per classificare un target embed mancante come 'not_visible' vs
+// 'deleted'. Devono restare allineati (modificarli insieme).
+function viewerCanSeeVisibilityJS(
+  visibility: string,
+  authorId: string,
+  viewerUserId: string | undefined,
+): boolean {
+  if (visibility === "public") return true;
+  if (!viewerUserId) return false;
+  if (visibility === "members") return true;
+  // followers + private: solo se viewer == author
+  return authorId === viewerUserId;
 }
 
 async function selectMediaForPosts(
@@ -590,7 +640,9 @@ async function selectViewerStateForPosts(
  *
  * Repost target (depth=1): se A è quote-repost di B, B viene hydrato e
  * piazzato in A.repostOf. Se B non esiste o è cancellato → A.repostOf
- * resta null e A.repostOfTombstone = { id: B }.
+ * resta null e A.repostOfTombstone = { id: B, reason }: 'deleted' se
+ * B è soft/hard-deleted o block-filtrato, 'not_visible' se B esiste ma
+ * il viewer non ha accesso (visibility members/followers/private).
  */
 export async function getPostsByIds(
   ids: string[],
@@ -609,10 +661,36 @@ export async function getPostsByIds(
     const repostTargetIds = Array.from(
       new Set(core.filter((p) => p.repostOfId).map((p) => p.repostOfId!)),
     );
+    // enforceVisibility: il target embed deve rispettare la SUA visibility,
+    // non quella del quote-poster. Se il viewer non ha accesso → tombstone
+    // reason 'not_visible' (niente leak del body).
     const targetCore = repostTargetIds.length
-      ? await selectPostsCore(repostTargetIds, opts.viewerUserId)
+      ? await selectPostsCore(repostTargetIds, opts.viewerUserId, {
+          enforceVisibility: true,
+        })
       : [];
     const targetCoreById = new Map(targetCore.map((p) => [p.id, p]));
+    // Per i target che NON sono in targetCore, query light per distinguere
+    // 'deleted' (hard-deleted o soft-deleted o block) vs 'not_visible'
+    // (esiste ma visibility-gated). Block-filtered cade volutamente su
+    // 'deleted' per non leakare la relazione di block.
+    const missingTargetIds = repostTargetIds.filter(
+      (id) => !targetCoreById.has(id),
+    );
+    const missingTargetMeta = missingTargetIds.length
+      ? await db
+          .select({
+            id: posts.id,
+            visibility: posts.visibility,
+            authorId: posts.authorId,
+            deletedAt: posts.deletedAt,
+          })
+          .from(posts)
+          .where(inArray(posts.id, missingTargetIds))
+      : [];
+    const missingTargetById = new Map(
+      missingTargetMeta.map((r) => [r.id, r]),
+    );
 
     // Step 3: parallel batch — media, tickers, viewer state
     const allPostIds = [...core.map((p) => p.id), ...targetCore.map((p) => p.id)];
@@ -664,7 +742,20 @@ export async function getPostsByIds(
               : null,
           };
         } else {
-          card.repostOfTombstone = { id: row.repostOfId };
+          // Distinguo 'deleted' vs 'not_visible' usando la query light
+          // su missingTargetById. Block-filtered cade su 'deleted'.
+          const meta = missingTargetById.get(row.repostOfId);
+          const reason: "deleted" | "not_visible" =
+            meta &&
+            !meta.deletedAt &&
+            !viewerCanSeeVisibilityJS(
+              meta.visibility,
+              meta.authorId,
+              opts.viewerUserId,
+            )
+              ? "not_visible"
+              : "deleted";
+          card.repostOfTombstone = { id: row.repostOfId, reason };
         }
       }
       return card;
@@ -738,6 +829,42 @@ export async function getPostBySlug(
 
   const [card] = await getPostsByIds([postId], opts);
   return card ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SEO — sitemap dei post pubblici
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lista compatta (id + createdAt) dei post indicizzabili per la sitemap
+ * `/post/sitemap.xml`. Filtra:
+ *   - visibility = 'public' (solo questi sono visibili ai bot anonimi)
+ *   - deleted_at IS NULL
+ *
+ * Cap a 5000 entries ordinati per createdAt DESC: sitemap.org accetta
+ * fino a 50k URLs per file, ma a quel volume vale la pena passare a
+ * sitemap index. Sotto 5k è 1 sola sitemap, semplice.
+ *
+ * createdAt usato come `lastModified` perché i post non vengono editati
+ * dopo 10min e l'edit non cambia la URL — il timestamp di creazione è
+ * un proxy onesto per il crawler. Edit-window expanded a editedAt
+ * quando arriverà la moderation di admin-edit.
+ */
+export async function getPublicPostsForSitemap(): Promise<
+  Array<{ id: string; createdAt: Date }>
+> {
+  const rows = await db
+    .select({
+      id: posts.id,
+      createdAt: posts.createdAt,
+    })
+    .from(posts)
+    .where(
+      and(eq(posts.visibility, "public"), isNull(posts.deletedAt)),
+    )
+    .orderBy(desc(posts.createdAt))
+    .limit(5000);
+  return rows;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1242,7 +1369,13 @@ export async function getReportsQueue(opts: {
 
   const hasMore = rawGroups.length > limit;
   const sliced = hasMore ? rawGroups.slice(0, limit) : rawGroups;
-  const postIds = sliced.map((g) => g.postId);
+  // postId è nullable a schema (M_posts_010 polimorfismo XOR), ma in
+  // QUESTA query è SEMPRE valorizzato perché Query 1 fa INNER JOIN posts
+  // → esclude row con postId NULL (i comment reports). Filter narrowing
+  // per soddisfare TS.
+  const postIds = sliced
+    .map((g) => g.postId)
+    .filter((id): id is string => id !== null);
 
   // Query 2: reason breakdown per i post della pagina.
   let reasonsByPost: Map<string, Record<string, number>> = new Map();
@@ -1257,6 +1390,7 @@ export async function getReportsQueue(opts: {
       .where(inArray(postsReports.postId, postIds))
       .groupBy(postsReports.postId, postsReports.reason);
     for (const r of reasonRows) {
+      if (!r.postId) continue;
       const map = reasonsByPost.get(r.postId) ?? {};
       map[r.reason] = r.n;
       reasonsByPost.set(r.postId, map);
@@ -1283,6 +1417,7 @@ export async function getReportsQueue(opts: {
       .where(inArray(postsReports.postId, postIds))
       .orderBy(desc(postsReports.createdAt));
     for (const r of reporterRows) {
+      if (!r.postId) continue; // post reports only (comment reports filtrati a monte)
       const arr = recentReportersByPost.get(r.postId) ?? [];
       // Dedup per reporter_id (un utente che segnala 2 volte conta 1).
       if (arr.some((x) => x.id === r.reporterId)) continue;
@@ -1299,52 +1434,60 @@ export async function getReportsQueue(opts: {
   }
 
   // Assemble
-  const rows: ReportQueueGroupRow[] = sliced.map((g) => {
-    const aggregateStatus: ReportQueueAggregateStatus =
-      g.openCount > 0
-        ? "open"
-        : g.actionedCount > 0
-          ? "actioned"
-          : g.dismissedCount > 0
-            ? "dismissed"
-            : "reviewed";
+  // Tutti i `g.postId` sono garantiti non-null dall'INNER JOIN posts a
+  // monte; il narrow esplicito a string serve solo a TS dato che dal
+  // M_posts_010 (polimorfismo post/comment) la colonna è nullable.
+  const rows: ReportQueueGroupRow[] = sliced
+    .filter((g): g is typeof g & { postId: string } => g.postId !== null)
+    .map((g) => {
+      const aggregateStatus: ReportQueueAggregateStatus =
+        g.openCount > 0
+          ? "open"
+          : g.actionedCount > 0
+            ? "actioned"
+            : g.dismissedCount > 0
+              ? "dismissed"
+              : "reviewed";
 
-    const reporters = (recentReportersByPost.get(g.postId) ?? []).map((r) => ({
-      id: r.id,
-      username: r.username,
-      avatarUrl: r.avatarUrl,
-    }));
+      const reporters = (recentReportersByPost.get(g.postId) ?? []).map(
+        (r) => ({
+          id: r.id,
+          username: r.username,
+          avatarUrl: r.avatarUrl,
+        }),
+      );
 
-    return {
-      post: {
-        id: g.postId,
-        authorId: g.postAuthorId,
-        body: g.postBody,
-        deletedAt: g.postDeletedAt,
-        createdAt: g.postCreatedAt,
-        author: {
-          username: g.authorUsername ?? null,
-          avatarUrl: g.authorAvatarUrl ?? null,
+      return {
+        post: {
+          id: g.postId,
+          authorId: g.postAuthorId,
+          body: g.postBody,
+          deletedAt: g.postDeletedAt,
+          createdAt: g.postCreatedAt,
+          author: {
+            username: g.authorUsername ?? null,
+            avatarUrl: g.authorAvatarUrl ?? null,
+          },
         },
-      },
-      firstReportedAt: g.firstAt,
-      lastReportedAt: g.lastAt,
-      totalReports: g.total,
-      openCount: g.openCount,
-      reviewedCount: g.reviewedCount,
-      dismissedCount: g.dismissedCount,
-      actionedCount: g.actionedCount,
-      aggregateStatus,
-      reasonsBreakdown: reasonsByPost.get(g.postId) ?? {},
-      recentReporters: reporters,
-    };
-  });
+        firstReportedAt: g.firstAt,
+        lastReportedAt: g.lastAt,
+        totalReports: g.total,
+        openCount: g.openCount,
+        reviewedCount: g.reviewedCount,
+        dismissedCount: g.dismissedCount,
+        actionedCount: g.actionedCount,
+        aggregateStatus,
+        reasonsBreakdown: reasonsByPost.get(g.postId) ?? {},
+        recentReporters: reporters,
+      };
+    });
 
+  const lastSliced = sliced[sliced.length - 1];
   const nextCursor =
-    hasMore && sliced.length > 0
+    hasMore && lastSliced && lastSliced.postId
       ? encodeCursor({
-          ms: new Date(sliced[sliced.length - 1].lastAt).getTime(),
-          id: sliced[sliced.length - 1].postId,
+          ms: new Date(lastSliced.lastAt).getTime(),
+          id: lastSliced.postId,
         })
       : null;
 
@@ -1395,6 +1538,7 @@ async function countDistinctPostsByAggregate(
   const result = await db.execute(sql`
     SELECT COUNT(*)::int AS n FROM (
       SELECT post_id FROM posts_reports
+      WHERE post_id IS NOT NULL
       GROUP BY post_id
       HAVING ${condition}
     ) sub
@@ -1426,6 +1570,7 @@ export async function getReportsForPost(postId: string): Promise<
     .select({
       id: postsReports.id,
       postId: postsReports.postId,
+      commentId: postsReports.commentId,
       reporterId: postsReports.reporterId,
       reason: postsReports.reason,
       details: postsReports.details,
@@ -1445,6 +1590,360 @@ export async function getReportsForPost(postId: string): Promise<
     report: {
       id: r.id,
       postId: r.postId,
+      commentId: r.commentId,
+      reporterId: r.reporterId,
+      reason: r.reason,
+      details: r.details,
+      status: r.status,
+      reviewedBy: r.reviewedBy,
+      reviewedAt: r.reviewedAt,
+      createdAt: r.createdAt,
+    },
+    reporter: {
+      id: r.reporterId,
+      username: r.reporterUsername ?? null,
+      avatarUrl: r.reporterAvatarUrl ?? null,
+    },
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Reports queue — COMMENT variant (specchio di getReportsQueue ma su
+// posts_comments). Lo schema posts_reports è polimorfico via XOR
+// post_id/comment_id (M_posts_010); il queue admin separa le due
+// modalità in tab distinti per chiarezza dell'operatore.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type CommentReportQueueGroupRow = {
+  comment: {
+    id: string;
+    postId: string;
+    authorId: string;
+    body: string;
+    deletedAt: Date | null;
+    createdAt: Date;
+    author: {
+      username: string | null;
+      avatarUrl: string | null;
+    };
+  };
+  firstReportedAt: Date;
+  lastReportedAt: Date;
+  totalReports: number;
+  openCount: number;
+  reviewedCount: number;
+  dismissedCount: number;
+  actionedCount: number;
+  aggregateStatus: ReportQueueAggregateStatus;
+  reasonsBreakdown: Record<string, number>;
+  recentReporters: Array<{
+    id: string;
+    username: string | null;
+    avatarUrl: string | null;
+  }>;
+};
+
+export type CommentReportsQueuePage = {
+  rows: CommentReportQueueGroupRow[];
+  nextCursor: string | null;
+  countByStatus: Record<Exclude<ReportQueueStatus, "all">, number>;
+};
+
+export async function getCommentReportsQueue(opts: {
+  status: ReportQueueStatus;
+  cursor?: string;
+  limit?: number;
+}): Promise<CommentReportsQueuePage> {
+  const limit = opts.limit ?? DEFAULT_PAGE_SIZE;
+  const commentAuthorProfiles = alias(userProfiles, "comment_author_profile");
+
+  const havingClause = (() => {
+    switch (opts.status) {
+      case "all":
+        return undefined;
+      case "open":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') > 0`;
+      case "actioned":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned') > 0`;
+      case "dismissed":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned') = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'dismissed') > 0`;
+      case "reviewed":
+        return sql`COUNT(*) FILTER (WHERE ${postsReports.status} IN ('open','actioned','dismissed')) = 0
+                   AND COUNT(*) FILTER (WHERE ${postsReports.status} = 'reviewed') > 0`;
+    }
+  })();
+
+  const cursorClause = (() => {
+    if (!opts.cursor) return undefined;
+    const decoded = decodeCursor(opts.cursor);
+    if (!decoded) return undefined;
+    const at = new Date(decoded.ms).toISOString();
+    return sql`(
+      MAX(${postsReports.createdAt}) < ${at}
+      OR (MAX(${postsReports.createdAt}) = ${at} AND ${postsReports.commentId} < ${decoded.id})
+    )`;
+  })();
+
+  const havingCombined =
+    havingClause && cursorClause
+      ? sql`${havingClause} AND ${cursorClause}`
+      : (havingClause ?? cursorClause);
+
+  // Query 1: gruppi paginati con counts + JOIN posts_comments/author.
+  const groupsQuery = db
+    .select({
+      commentId: postsReports.commentId,
+      firstAt: sql<Date>`MIN(${postsReports.createdAt})`.as("first_at"),
+      lastAt: sql<Date>`MAX(${postsReports.createdAt})`.as("last_at"),
+      total: sql<number>`COUNT(*)::int`.as("total"),
+      openCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'open')::int`.as("open_count"),
+      reviewedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'reviewed')::int`.as("reviewed_count"),
+      dismissedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'dismissed')::int`.as("dismissed_count"),
+      actionedCount: sql<number>`COUNT(*) FILTER (WHERE ${postsReports.status} = 'actioned')::int`.as("actioned_count"),
+      commentPostId: postsComments.postId,
+      commentAuthorId: postsComments.authorId,
+      commentBody: postsComments.body,
+      commentDeletedAt: postsComments.deletedAt,
+      commentCreatedAt: postsComments.createdAt,
+      authorUsername: commentAuthorProfiles.username,
+      authorAvatarUrl: commentAuthorProfiles.avatarUrl,
+    })
+    .from(postsReports)
+    .innerJoin(postsComments, eq(postsComments.id, postsReports.commentId))
+    .leftJoin(
+      commentAuthorProfiles,
+      eq(commentAuthorProfiles.userId, postsComments.authorId),
+    )
+    .groupBy(
+      postsReports.commentId,
+      postsComments.postId,
+      postsComments.authorId,
+      postsComments.body,
+      postsComments.deletedAt,
+      postsComments.createdAt,
+      commentAuthorProfiles.username,
+      commentAuthorProfiles.avatarUrl,
+    );
+
+  const rawGroups = await (
+    havingCombined ? groupsQuery.having(havingCombined) : groupsQuery
+  )
+    .orderBy(
+      sql`MAX(${postsReports.createdAt}) DESC`,
+      desc(postsReports.commentId),
+    )
+    .limit(limit + 1);
+
+  const hasMore = rawGroups.length > limit;
+  const sliced = hasMore ? rawGroups.slice(0, limit) : rawGroups;
+  // commentId garantito non-null dall'INNER JOIN.
+  const commentIds = sliced
+    .map((g) => g.commentId)
+    .filter((id): id is string => id !== null);
+
+  // Query 2: reason breakdown.
+  let reasonsByComment: Map<string, Record<string, number>> = new Map();
+  if (commentIds.length > 0) {
+    const reasonRows = await db
+      .select({
+        commentId: postsReports.commentId,
+        reason: postsReports.reason,
+        n: sql<number>`COUNT(*)::int`,
+      })
+      .from(postsReports)
+      .where(inArray(postsReports.commentId, commentIds))
+      .groupBy(postsReports.commentId, postsReports.reason);
+    for (const r of reasonRows) {
+      if (!r.commentId) continue;
+      const map = reasonsByComment.get(r.commentId) ?? {};
+      map[r.reason] = r.n;
+      reasonsByComment.set(r.commentId, map);
+    }
+  }
+
+  // Query 3: recent reporters (max 5 distinti).
+  const reporterAlias = alias(userProfiles, "reporter_profile_q3_comment");
+  let recentReportersByComment: Map<
+    string,
+    Array<{ id: string; username: string | null; avatarUrl: string | null; createdAt: Date }>
+  > = new Map();
+  if (commentIds.length > 0) {
+    const reporterRows = await db
+      .select({
+        commentId: postsReports.commentId,
+        reporterId: postsReports.reporterId,
+        createdAt: postsReports.createdAt,
+        username: reporterAlias.username,
+        avatarUrl: reporterAlias.avatarUrl,
+      })
+      .from(postsReports)
+      .leftJoin(reporterAlias, eq(reporterAlias.userId, postsReports.reporterId))
+      .where(inArray(postsReports.commentId, commentIds))
+      .orderBy(desc(postsReports.createdAt));
+    for (const r of reporterRows) {
+      if (!r.commentId) continue;
+      const arr = recentReportersByComment.get(r.commentId) ?? [];
+      if (arr.some((x) => x.id === r.reporterId)) continue;
+      if (arr.length < 5) {
+        arr.push({
+          id: r.reporterId,
+          username: r.username ?? null,
+          avatarUrl: r.avatarUrl ?? null,
+          createdAt: r.createdAt,
+        });
+        recentReportersByComment.set(r.commentId, arr);
+      }
+    }
+  }
+
+  const rows: CommentReportQueueGroupRow[] = sliced
+    .filter((g): g is typeof g & { commentId: string } => g.commentId !== null)
+    .map((g) => {
+      const aggregateStatus: ReportQueueAggregateStatus =
+        g.openCount > 0
+          ? "open"
+          : g.actionedCount > 0
+            ? "actioned"
+            : g.dismissedCount > 0
+              ? "dismissed"
+              : "reviewed";
+
+      const reporters = (
+        recentReportersByComment.get(g.commentId) ?? []
+      ).map((r) => ({
+        id: r.id,
+        username: r.username,
+        avatarUrl: r.avatarUrl,
+      }));
+
+      return {
+        comment: {
+          id: g.commentId,
+          postId: g.commentPostId,
+          authorId: g.commentAuthorId,
+          body: g.commentBody,
+          deletedAt: g.commentDeletedAt,
+          createdAt: g.commentCreatedAt,
+          author: {
+            username: g.authorUsername ?? null,
+            avatarUrl: g.authorAvatarUrl ?? null,
+          },
+        },
+        firstReportedAt: g.firstAt,
+        lastReportedAt: g.lastAt,
+        totalReports: g.total,
+        openCount: g.openCount,
+        reviewedCount: g.reviewedCount,
+        dismissedCount: g.dismissedCount,
+        actionedCount: g.actionedCount,
+        aggregateStatus,
+        reasonsBreakdown: reasonsByComment.get(g.commentId) ?? {},
+        recentReporters: reporters,
+      };
+    });
+
+  const lastSliced = sliced[sliced.length - 1];
+  const nextCursor =
+    hasMore && lastSliced && lastSliced.commentId
+      ? encodeCursor({
+          ms: new Date(lastSliced.lastAt).getTime(),
+          id: lastSliced.commentId,
+        })
+      : null;
+
+  const [openC, reviewedC, dismissedC, actionedC] = await Promise.all([
+    countDistinctCommentsByAggregate("open"),
+    countDistinctCommentsByAggregate("reviewed"),
+    countDistinctCommentsByAggregate("dismissed"),
+    countDistinctCommentsByAggregate("actioned"),
+  ]);
+
+  return {
+    rows,
+    nextCursor,
+    countByStatus: {
+      open: openC,
+      reviewed: reviewedC,
+      dismissed: dismissedC,
+      actioned: actionedC,
+    },
+  };
+}
+
+async function countDistinctCommentsByAggregate(
+  status: ReportQueueAggregateStatus,
+): Promise<number> {
+  const condition = (() => {
+    switch (status) {
+      case "open":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') > 0`;
+      case "actioned":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'actioned') > 0`;
+      case "dismissed":
+        return sql`COUNT(*) FILTER (WHERE status = 'open') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'actioned') = 0
+                   AND COUNT(*) FILTER (WHERE status = 'dismissed') > 0`;
+      case "reviewed":
+        return sql`COUNT(*) FILTER (WHERE status IN ('open','actioned','dismissed')) = 0
+                   AND COUNT(*) FILTER (WHERE status = 'reviewed') > 0`;
+    }
+  })();
+
+  const result = await db.execute(sql`
+    SELECT COUNT(*)::int AS n FROM (
+      SELECT comment_id FROM posts_reports
+      WHERE comment_id IS NOT NULL
+      GROUP BY comment_id
+      HAVING ${condition}
+    ) sub
+  `);
+  const row = (Array.isArray(result) ? result[0] : (result as { rows?: unknown[] }).rows?.[0]) as
+    | { n?: number }
+    | undefined;
+  return row?.n ?? 0;
+}
+
+/** Tutte le segnalazioni di UN commento specifico, ordered DESC. */
+export async function getReportsForComment(commentId: string): Promise<
+  Array<{
+    report: PostReport;
+    reporter: {
+      id: string;
+      username: string | null;
+      avatarUrl: string | null;
+    };
+  }>
+> {
+  const reporterAlias3 = alias(userProfiles, "reporter_profile_comment_detail");
+  const rows = await db
+    .select({
+      id: postsReports.id,
+      postId: postsReports.postId,
+      commentId: postsReports.commentId,
+      reporterId: postsReports.reporterId,
+      reason: postsReports.reason,
+      details: postsReports.details,
+      status: postsReports.status,
+      reviewedBy: postsReports.reviewedBy,
+      reviewedAt: postsReports.reviewedAt,
+      createdAt: postsReports.createdAt,
+      reporterUsername: reporterAlias3.username,
+      reporterAvatarUrl: reporterAlias3.avatarUrl,
+    })
+    .from(postsReports)
+    .leftJoin(reporterAlias3, eq(reporterAlias3.userId, postsReports.reporterId))
+    .where(eq(postsReports.commentId, commentId))
+    .orderBy(desc(postsReports.createdAt));
+
+  return rows.map((r) => ({
+    report: {
+      id: r.id,
+      postId: r.postId,
+      commentId: r.commentId,
       reporterId: r.reporterId,
       reason: r.reason,
       details: r.details,

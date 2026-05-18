@@ -9,7 +9,6 @@
     "visibility_not_more_restrictive": "Puoi solo restringere la visibilità, non ampliarla.",
     "empty_body": "Scrivi qualcosa prima di pubblicare.",
     "body_too_long": "Il testo è troppo lungo.",
-    "self_repost": "Non puoi ripubblicare un tuo post.",
     "target_unavailable": "Il post non è più disponibile.",
     "cannot_block_self": "Non puoi bloccare te stesso.",
     "reason_not_available": "Motivo di segnalazione non più disponibile.",
@@ -54,12 +53,15 @@
       "new_comments": "{count, plural, =1 {1 nuovo commento} other {# nuovi commenti}} — clicca per caricare"
     },
     "actions": {
-      "reply": "Rispondi"
+      "reply": "Rispondi",
+      "report": "Segnala"
     },
     "composer": {
       "placeholder": "Scrivi un commento…",
       "aria_label": "Testo del commento",
-      "error_generic": "Invio non riuscito. Riprova."
+      "error_generic": "Invio non riuscito. Riprova.",
+      "mention_no_results": "Nessun utente trovato",
+      "mention_loading": "Cerco…"
     }
   },
   "common": {
@@ -105,21 +107,30 @@
     "block_user": "Blocca {name}",
     "report": "Segnala",
     "repost_tombstone": "Post originale rimosso",
+    "repost_tombstone_not_visible": "Post non disponibile",
     "comments_aria": "Commenti{count, plural, =0 {} other {, #}}",
-    "reposts_aria": "Repost{count, plural, =0 {} other {, #}}"
+    "reposts_aria": "Repost{count, plural, =0 {} other {, #}}",
+    "expand": "Mostra tutto",
+    "collapse": "Riduci"
   },
   "composer": {
     "modal_title_new": "Nuovo post",
     "modal_title_edit": "Modifica post",
+    "modal_title_quote": "Riposta con commento",
     "loading_profile": "Caricamento profilo…",
     "change_visibility": "Cambia visibilità",
     "visibility_locked": "Non disponibile (puoi solo rendere più privato)",
     "textarea_placeholder": "Inizia a scrivere…",
+    "quote_placeholder": "Aggiungi un commento…",
     "textarea_aria": "Testo del post",
+    "mention_no_results": "Nessun utente trovato",
+    "mention_loading": "Cerco…",
     "submit_new": "Pubblica",
     "submit_edit": "Salva modifiche",
+    "submit_quote": "Riposta",
     "submitting_new": "Pubblico…",
-    "submitting_edit": "Salvo…"
+    "submitting_edit": "Salvo…",
+    "submitting_quote": "Pubblico riposta…"
   },
   "dialogs": {
     "delete": {
@@ -159,8 +170,8 @@
     }
   },
   "empty_states": {
-    "following_home_title": "La tua home è vuota",
-    "following_home_description": "Qui vedrai i post delle persone che segui. Inizia a esplorare per trovare profili e contenuti che ti interessano.",
+    "following_home_title": "Il tuo Feed è ancora vuoto",
+    "following_home_description": "Appena seguirai qualcuno, i suoi post arriveranno qui. Fai un giro su Esplora: trovi profili attivi, ticker caldi e le discussioni del momento.",
     "following_home_cta": "Vai su Esplora",
     "explore_no_posts_title": "Nessun post da esplorare",
     "explore_no_posts_description": "Non c'è ancora niente di pubblico. Pubblica il primo post per dare il via.",
@@ -202,6 +213,7 @@
     "coin_page": "Pagina coin",
     "posts_24h": "{count} post 24h · vedi tutti",
     "see_all_posts": "Vedi tutti i post",
+    "posts_short": "Post",
     "untracked_message": "{symbol} non è un coin tracciato."
   },
   "trending": {

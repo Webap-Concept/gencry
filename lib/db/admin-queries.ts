@@ -219,9 +219,17 @@ export type AdminUser = {
   deletedAt: Date | null;
   bannedReason: string | null;
   avatarUrl: string | null;
+  /** Counter denormalizzato (0..3) degli strike attivi su questo
+   *  utente. Aggiornato via trigger DB users_strikes_sync_count_trg.
+   *  Al raggiungimento di 3, banned_at viene settato automaticamente. */
+  activeStrikesCount: number;
 };
 
-export type AdminUsersStatus = "active" | "deletion_requested" | "all";
+export type AdminUsersStatus =
+  | "active"
+  | "deletion_requested"
+  | "with_strikes"
+  | "all";
 
 export async function getAdminUsers({
   search = "",
@@ -258,6 +266,9 @@ export async function getAdminUsers({
   // Filtro su deleted_at:
   //   active             -> isNull (default, comportamento storico)
   //   deletion_requested -> isNotNull (mostra solo i soft-deleted in grace o oltre)
+  //   with_strikes       -> isNull deleted_at + active_strikes_count > 0
+  //                         (utenti attivi che hanno almeno 1 strike non
+  //                         revocato; bannati al 3° strike compresi)
   //   all                -> nessun filtro
   const deletionFilter =
     status === "deletion_requested"
@@ -266,8 +277,14 @@ export async function getAdminUsers({
         ? undefined
         : isNull(users.deletedAt);
 
+  // Filtro strike-only: applicato in AND con deletionFilter (entrambi
+  // narrowing). Ortogonale agli altri filter (role/plan/verified).
+  const strikesFilter =
+    status === "with_strikes" ? sql`${users.activeStrikesCount} > 0` : undefined;
+
   const baseWhere = and(
     deletionFilter,
+    strikesFilter,
     lacksAdminPermission(users),
     search
       ? sql`(
@@ -314,6 +331,7 @@ export async function getAdminUsers({
         emailVerified: users.emailVerified,
         createdAt: users.createdAt,
         bannedAt: users.bannedAt,
+        activeStrikesCount: users.activeStrikesCount,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,
@@ -390,6 +408,7 @@ export async function getStaffUsers({
         emailVerified: users.emailVerified,
         createdAt: users.createdAt,
         bannedAt: users.bannedAt,
+        activeStrikesCount: users.activeStrikesCount,
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,

@@ -1,9 +1,15 @@
 "use client";
-// components/modules/posts/ReportPostDialog.tsx
+// components/modules/posts/ReportContentDialog.tsx
 //
-// Modal di segnalazione post. Lista motivi caricata lazy via Server Action
-// alla prima apertura (settings cache 5min → call quasi free). Il modal
-// è controllato dal parent (PostCard): isOpen + onOpenChange + onSubmitted.
+// Modal di segnalazione polimorfica: post o commento. Lista motivi
+// caricata lazy via Server Action alla prima apertura (settings cache
+// 5min → call quasi free). Il modal è controllato dal parent
+// (PostCard / CommentItem): isOpen + onOpenChange + onSubmitted.
+//
+// L'opzione "blocca anche l'autore" è opzionale (passa onWantsToBlockAuthor
+// + authorDisplayName): per i post la mostriamo, per i commenti V1 no
+// (block è mutual ed è già esposto sull'autore del commento via il suo
+// menu dedicato).
 import { useEffect, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -41,13 +47,14 @@ import { Button } from "@/components/ui/button";
 import { GcModal, GcModalContent } from "@/components/ui/gc-modal";
 import {
   getReportReasonsForClient,
-  reportPost,
+  reportContent,
 } from "@/lib/modules/posts/actions";
 import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import type { ReportReason } from "@/lib/modules/posts/services/report-reasons";
 
 type Props = {
-  postId: string;
+  /** Target polimorfico: post o commento. */
+  target: { type: "post" | "comment"; id: string };
   /** Display name autore (es. "@mariotest"). Usato per il prompt "Vuoi
    *  bloccare anche?". Se omesso, lo step finale degrada a sola conferma. */
   authorDisplayName?: string;
@@ -69,8 +76,8 @@ function pickLocalized(
   return byLocale[locale] ?? byLocale.en ?? byLocale.it ?? fallback;
 }
 
-export function ReportPostDialog({
-  postId,
+export function ReportContentDialog({
+  target,
   authorDisplayName,
   onWantsToBlockAuthor,
   isOpen,
@@ -127,8 +134,9 @@ export function ReportPostDialog({
     if (!selectedReason) return;
     setSubmitError(null);
     startSubmit(async () => {
-      const res = await reportPost({
-        postId,
+      const res = await reportContent({
+        targetType: target.type,
+        targetId: target.id,
         reason: selectedReason.key,
         details: details.trim() || null,
       });

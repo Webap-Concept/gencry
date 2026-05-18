@@ -171,10 +171,10 @@ export default async function PostsAdminOverviewPage() {
           />
           <HealthCard
             icon={Zap}
-            title="Upstash KV (feed cache)"
+            title="Upstash KV (cache + mention)"
             ok={upstashOk}
-            okMessage="Cache attiva (feed-cache V2). Credenziali a livello core."
-            ko="Credenziali assenti — feed cache disabilitata (V1 pass-through, fallback DB)"
+            okMessage="Attivo: feed-cache V2 + mention-index autocomplete (ZRANGEBYLEX). Credenziali core condivise."
+            ko="Credenziali assenti — feed cache off (fallback DB); mention autocomplete cade su ILIKE prefix"
             href={`/${adminSlug}/services/redis`}
           />
           <CronCard runs={cronLastRuns} adminSlug={adminSlug} />

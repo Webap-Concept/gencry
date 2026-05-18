@@ -158,6 +158,17 @@ export async function registerViaInvite(
   await addEmailToBloom(invite.email);
   await addUsernameToBloom(username);
 
+  // Sync mention-autocomplete index. Lazy import + try/catch: il
+  // signup non deve fallire se Upstash è down.
+  try {
+    const { syncMentionMember } = await import(
+      "@/lib/modules/posts/services/mention-index"
+    );
+    await syncMentionMember(createdUserId);
+  } catch (err) {
+    console.warn("[staff-invite] syncMentionMember failed:", err);
+  }
+
   // Append-only consent ledger (terms + privacy obbligatori; lo schema Zod
   // sopra garantisce che siano stati spuntati). Marketing non è in form.
   const headersList = await headers();
