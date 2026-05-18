@@ -7,7 +7,10 @@
     "empty_description": "When someone reacts, comments, quotes or mentions your posts, you'll see it here.",
     "unknown_actor": "someone",
     "unread_dot_aria": "Unread",
-    "loading_more": "Loading more…"
+    "loading_more": "Loading more…",
+    "and_others": "{count, plural, one {and # other} other {and # others}}",
+    "actors_two": "{first} and {second}",
+    "actors_many": "{first}, {second} {others}"
   },
   "admin": {
     "overview": {
@@ -37,12 +40,12 @@
   "types": {
     "post": {
       "reaction": {
-        "added": "{actor} reacted to your post with {reaction}"
+        "added": "{actor} reacted to your post"
       },
       "comment": {
         "created": "{actor} commented on your post",
         "reaction": {
-          "added": "{actor} reacted to your comment with {reaction}"
+          "added": "{actor} reacted to your comment"
         }
       },
       "mention": "{actor} mentioned you in a post",

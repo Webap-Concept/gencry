@@ -7,7 +7,10 @@
     "empty_description": "Quando qualcuno reagirà, commenterà, citerà o menzionerà i tuoi post, lo vedrai qui.",
     "unknown_actor": "qualcuno",
     "unread_dot_aria": "Non letta",
-    "loading_more": "Carico altre…"
+    "loading_more": "Carico altre…",
+    "and_others": "{count, plural, one {e # altra persona} other {e # altre persone}}",
+    "actors_two": "{first} e {second}",
+    "actors_many": "{first}, {second} {others}"
   },
   "admin": {
     "overview": {
@@ -37,12 +40,12 @@
   "types": {
     "post": {
       "reaction": {
-        "added": "{actor} ha messo {reaction} al tuo post"
+        "added": "{actor} ha reagito al tuo post"
       },
       "comment": {
         "created": "{actor} ha commentato il tuo post",
         "reaction": {
-          "added": "{actor} ha messo {reaction} al tuo commento"
+          "added": "{actor} ha reagito al tuo commento"
         }
       },
       "mention": "{actor} ti ha menzionato in un post",

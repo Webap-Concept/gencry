@@ -1,18 +1,23 @@
 "use client";
 // components/modules/notifications/NotificationItem.tsx
 //
-// Riga lista per una singola notifica. Render: avatar attore (fallback
-// Bell se actor==null), summary i18n type-specific (con interpolazione
-// di actor + reaction emoji se applicabile), tempo relativo, dot unread.
-// Click → naviga al target risolto da notification-targets.ts.
-//
-// Mark-as-read per-row al click (in aggiunta al bulk on-mount): copre
-// il caso "l'utente apre una notifica vecchia da deep-link" e il caso
-// "nuova notifica arrivata in realtime dopo il bulk mark".
+// Riga lista per una singola notifica. Render:
+//   1. Avatar attore (fallback Bell se actor==null)
+//   2. Summary i18n type-specific con interpolazione `{actor}`
+//      + icona SVG canonica della reaction inline (se applicabile),
+//      da `components/modules/posts/icons/REACTION_ICON`. NON emoji
+//      generici — coerenza con il rest del modulo posts.
+//   3. Preview body (post o commento) line-clamped 2 righe, italic.
+//      Disponibile dal trigger M_notifications_002 in poi; per
+//      notifiche più vecchie cade su null senza rompere.
+//   4. Time relativo + dot unread.
+//   5. Click → naviga al target risolto da notification-targets.ts +
+//      mark-as-read per-row (in aggiunta al bulk on-mount della lista).
 import { useTransition } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Bell } from "lucide-react";
+import { REACTION_ICON } from "@/components/modules/posts/icons";
 import {
   resolveNotificationTarget,
   type NotificationTarget,
@@ -22,14 +27,6 @@ import type {
   NotificationActor,
   NotificationListItem,
 } from "@/lib/modules/notifications/queries";
-
-const REACTION_EMOJI: Record<string, string> = {
-  like: "❤️",
-  bullish: "🐂",
-  bearish: "🐻",
-  to_the_moon: "🚀",
-  dump: "📉",
-};
 
 function actorLabel(actor: NotificationActor | null, fallback: string): string {
   if (!actor) return fallback;
@@ -48,7 +45,6 @@ function formatRelative(date: Date, locale: string): string {
   if (h < 24) return `${h}h`;
   const d = Math.round(h / 24);
   if (d < 7) return `${d}g`;
-  // Oltre 7 giorni: formato corto data locale
   return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
@@ -76,16 +72,22 @@ export function NotificationItem({
   );
 
   const actor = actorLabel(item.actor, tUi("unknown_actor"));
-  const reactionRaw = (item.payload as { reaction?: string })?.reaction;
-  const reaction = reactionRaw ? REACTION_EMOJI[reactionRaw] ?? reactionRaw : "";
   const isUnread = item.readAt === null;
 
-  // Summary i18n. Se target è null (tipo sconosciuto, forward-compat)
-  // → fallback raw "{actor} → {type}" così l'utente vede comunque
-  // qualcosa di leggibile invece di una key i18n mancante.
+  // Summary i18n. Per type sconosciuti (forward-compat) fallback raw.
   const summary = target
-    ? tTypes(target.summaryKey, { actor, reaction })
+    ? tTypes(target.summaryKey, { actor })
     : `${actor} → ${item.type}`;
+
+  // Per commenti il preview rilevante è quello del commento; per gli altri
+  // è il post. Per i quote repost, post_preview = corpo del quote.
+  const preview = target?.commentPreview ?? target?.postPreview ?? null;
+
+  // Icona reaction inline: solo per tipi reaction-based. Renderizzata DOPO
+  // l'avatar e PRIMA del summary, posizionata come "badge" inline.
+  const ReactionIcon = target?.reactionKind
+    ? REACTION_ICON[target.reactionKind]
+    : null;
 
   const handleClick = () => {
     if (!isUnread) return;
@@ -111,8 +113,20 @@ export function NotificationItem({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gc-fg leading-snug">{summary}</p>
-        <p className="text-xs text-gc-fg-muted mt-0.5">
+        <p className="text-sm text-gc-fg leading-snug flex items-center gap-1.5 flex-wrap">
+          {ReactionIcon ? (
+            <span className="inline-flex items-center" aria-hidden>
+              <ReactionIcon size={16} />
+            </span>
+          ) : null}
+          <span>{summary}</span>
+        </p>
+        {preview ? (
+          <p className="text-xs text-gc-fg-muted italic mt-1 line-clamp-2">
+            &ldquo;{preview}&rdquo;
+          </p>
+        ) : null}
+        <p className="text-[11px] text-gc-fg-muted mt-1">
           {formatRelative(item.createdAt, locale)}
         </p>
       </div>
@@ -141,7 +155,6 @@ export function NotificationItem({
     );
   }
 
-  // Tipo sconosciuto / target non risolvibile: riga statica non cliccabile.
   return (
     <div
       className={`block border-b border-gc-line/40 ${

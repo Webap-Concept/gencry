@@ -22,6 +22,8 @@ import {
 } from "@/lib/modules/notifications/actions";
 import type { NotificationListItem } from "@/lib/modules/notifications/queries";
 import { NotificationItem } from "./NotificationItem";
+import { NotificationGroupItem } from "./NotificationGroupItem";
+import { aggregateNotifications } from "./aggregate";
 import { dispatchAllRead } from "./NotificationsBadgeClient";
 
 const MARK_ALL_DELAY_MS = 1500;
@@ -171,22 +173,35 @@ export function NotificationsList({ viewerUserId, initial }: Props) {
     );
   }
 
+  // Aggregazione client-side: stesso type+post+giorno = 1 gruppo.
+  // I tipi non-aggregabili (mention, repost) restano singoli per design.
+  const groups = aggregateNotifications(items);
+
+  const markRead = (id: string) => {
+    const now = new Date();
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, readAt: now } : i)),
+    );
+  };
+
   return (
     <div className="bg-gc-bg-2 border border-gc-line rounded-xl overflow-hidden">
-      {items.map((item) => (
-        <NotificationItem
-          key={item.id}
-          item={item}
-          onMarkedRead={() => {
-            const now = new Date();
-            setItems((prev) =>
-              prev.map((i) =>
-                i.id === item.id ? { ...i, readAt: now } : i,
-              ),
-            );
-          }}
-        />
-      ))}
+      {groups.map((g) =>
+        g.kind === "single" ? (
+          <NotificationItem
+            key={g.item.id}
+            item={g.item}
+            onMarkedRead={() => markRead(g.item.id)}
+          />
+        ) : (
+          <NotificationGroupItem
+            key={`group-${g.representative.id}`}
+            items={g.items}
+            representative={g.representative}
+            onMarkedRead={() => markRead(g.representative.id)}
+          />
+        ),
+      )}
       {nextCursor !== null ? (
         <div
           ref={sentinelRef}
