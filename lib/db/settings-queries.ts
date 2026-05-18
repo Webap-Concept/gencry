@@ -207,6 +207,10 @@ export type SettingKey =
   | 'modules.posts.comments.cache_ttl_seconds'   // unstable_cache TTL per i thread (0..300, 0=off)
   | 'modules.posts.comments.max_body_length'     // CHECK constraint allinea schema (100..2000)
   | 'modules.posts.comments.replies_initial_count' // numero di reply prefetched per root (0..10)
+  // Modulo notifications (end-user social notifications)
+  | 'modules.notifications.dedup_window_minutes'   // finestra anti-spam per fanout trigger (default 60)
+  | 'modules.notifications.list_page_size'         // pagination /notifiche (default 30)
+  | 'modules.notifications.retention_days'         // cron cleanup futuro (default 180)
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -433,6 +437,9 @@ export type AppSettings = {
   'modules.posts.comments.cache_ttl_seconds': string
   'modules.posts.comments.max_body_length': string
   'modules.posts.comments.replies_initial_count': string
+  'modules.notifications.dedup_window_minutes': string
+  'modules.notifications.list_page_size': string
+  'modules.notifications.retention_days': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -631,6 +638,9 @@ const DEFAULTS: AppSettings = {
   'modules.posts.comments.cache_ttl_seconds': '30',
   'modules.posts.comments.max_body_length': '2000',
   'modules.posts.comments.replies_initial_count': '3',
+  'modules.notifications.dedup_window_minutes': '60',
+  'modules.notifications.list_page_size': '30',
+  'modules.notifications.retention_days': '180',
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',

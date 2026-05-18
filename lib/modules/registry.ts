@@ -13,12 +13,14 @@ import type { ModuleManifest } from "./types";
 import { PRICES_MODULE } from "./prices/manifest";
 import { ONBOARDING_MODULE } from "./onboarding/manifest";
 import { POSTS_MODULE } from "./posts/manifest";
+import { NOTIFICATIONS_MODULE } from "./notifications/manifest";
 import { SEEDERS_MODULE } from "./seeders/manifest";
 
 export const INSTALLED_MODULES: ModuleManifest[] = [
   PRICES_MODULE,
   ONBOARDING_MODULE,
   POSTS_MODULE,
+  NOTIFICATIONS_MODULE,
   SEEDERS_MODULE,
 ];
 

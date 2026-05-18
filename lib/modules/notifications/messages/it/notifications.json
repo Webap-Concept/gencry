@@ -1,0 +1,37 @@
+{
+  "errors": {
+    "unauthenticated": "Devi essere connesso per gestire le notifiche."
+  },
+  "admin": {
+    "overview": {
+      "title": "Notifications — Overview",
+      "description": "Notifiche end-user generate dagli eventi social. Fanout zero-latency via trigger DB su posts_outbox.",
+      "health_outbox_backlog": "Outbox da processare",
+      "health_total_today": "Notifiche ultime 24h",
+      "health_total_unread": "Non lette totali",
+      "shortcuts_settings": "Impostazioni",
+      "shortcuts_architecture": "Architettura"
+    },
+    "settings": {
+      "title": "Notifications — Impostazioni",
+      "dedup_window_minutes_label": "Finestra dedup anti-spam (minuti)",
+      "dedup_window_minutes_help": "Una notifica con stesso destinatario, tipo, post, attore entro questa finestra non viene duplicata.",
+      "list_page_size_label": "Notifiche per pagina",
+      "list_page_size_help": "Quante notifiche caricare in 1 batch nella lista /notifiche.",
+      "retention_days_label": "Retention (giorni)",
+      "retention_days_help": "Le notifiche più vecchie di N giorni verranno cancellate dal cron di cleanup (futuro).",
+      "save": "Salva",
+      "saved": "Impostazioni salvate."
+    },
+    "architecture": {
+      "title": "Notifications — Architettura"
+    }
+  },
+  "types": {
+    "post.reaction.added": "{actor} ha messo {reaction} al tuo post",
+    "post.comment.created": "{actor} ha commentato il tuo post",
+    "post.comment.reaction.added": "{actor} ha messo {reaction} al tuo commento",
+    "post.mention": "{actor} ti ha menzionato in un post",
+    "post.repost.created": "{actor} ha citato il tuo post"
+  }
+}

@@ -1734,6 +1734,37 @@ export type NewPostsUserPreferences = typeof postsUserPreferences.$inferInsert;
 export type PostsCronRun    = typeof postsCronRuns.$inferSelect;
 export type NewPostsCronRun = typeof postsCronRuns.$inferInsert;
 
+// ─────────────────────────────────────────────────────────────────────────
+// Module: notifications (end-user social notifications)
+// ─────────────────────────────────────────────────────────────────────────
+// NB: distinto da `adminNotifications` (core, notifiche admin di sistema).
+// Popolata dal trigger `posts_outbox_to_notifications_trg` (M_notifications_001)
+// con dedup integrato. UI scrive solo `read_at` via Server Action.
+export const notifications = pgTable("notifications", {
+  id:         uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+  userId:     uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type:       varchar("type", { length: 64 }).notNull(),
+  actorId:    uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+  postId:     uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  commentId:  uuid("comment_id").references(() => postsComments.id, { onDelete: "cascade" }),
+  payload:    jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  readAt:     timestamp("read_at",    { withTimezone: true }),
+  createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Notification    = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+
+/** Match 1:1 con posts_outbox.event_type — sync col CASE plpgsql del trigger. */
+export const NOTIFICATION_TYPES = [
+  "post.reaction.added",
+  "post.comment.created",
+  "post.comment.reaction.added",
+  "post.mention",
+  "post.repost.created",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
 /**
  * Set di reaction supportate (allineato al CHECK SQL su posts_reactions.reaction).
  * Mantenere in sync con la migration e con i counter columns su `posts`.
