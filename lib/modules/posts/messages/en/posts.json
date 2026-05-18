@@ -159,7 +159,7 @@
     }
   },
   "empty_states": {
-    "following_home_title": "Your home is empty",
+    "following_home_title": "Your Feed is empty",
     "following_home_description": "Here you'll see posts from people you follow. Start exploring to find profiles and content you'll like.",
     "following_home_cta": "Go to Explore",
     "explore_no_posts_title": "Nothing to explore",

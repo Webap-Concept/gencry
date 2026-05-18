@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Compass } from "lucide-react";
+import { Zap } from "lucide-react";
 import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
 import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
@@ -221,7 +221,7 @@ function FollowingEmptyState() {
         aria-hidden
         className="w-12 h-12 rounded-full bg-gc-accent/10 flex items-center justify-center text-gc-accent"
       >
-        <Compass size={22} strokeWidth={1.75} />
+        <Zap size={22} strokeWidth={1.75} />
       </div>
       <div>
         <p className="text-gc-fg font-medium">{tEmpty("following_home_title")}</p>
@@ -231,7 +231,7 @@ function FollowingEmptyState() {
       </div>
       <Link
         href="/explore"
-        className="mt-2 px-4 py-1.5 rounded-full bg-gc-accent text-gc-bg-1 text-sm font-medium hover:brightness-95 transition"
+        className="mt-2 px-4 py-1.5 rounded-full bg-gc-accent text-white text-sm font-medium hover:brightness-95 transition"
       >
         {tEmpty("following_home_cta")}
       </Link>
