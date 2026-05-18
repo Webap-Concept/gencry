@@ -1,3 +1,4 @@
+"use client";
 // components/ui/user-avatar.tsx
 //
 // Avatar utente unificato. Se l'utente ha un avatarUrl valido renderizza
@@ -9,12 +10,12 @@
 //   <UserAvatar user={author} size={40} />
 //   <UserAvatar user={{ username: "webapp" }} size={32} ring />
 //
-// L'avatarUrl viene considerato VALIDO solo se non null/empty/whitespace.
-// Errore di load nel browser (404, CORS) NON viene gestito qui — è caso
-// raro e il fix giusto è caricare un nuovo avatar, non flashare un
-// fallback (che cambierebbe lo zindex/layout in modo confuso). Se in
-// futuro vorremo onError → fallback, basta useState + img onError.
-import type { CSSProperties } from "react";
+// onError fallback: l'avatarUrl può essere valorizzato ma puntare a un
+// file che non esiste (es. R2 mancante, link rotto, utente seeder con
+// URL fake). Quando il browser fail il load, switchiamo al placeholder
+// colorato come se avatarUrl fosse null. Niente flicker su success-path
+// perché lo state parte da false e l'img si carica come al solito.
+import { useState, type CSSProperties } from "react";
 import {
   type AvatarUserLike,
   colorForSeed,
@@ -46,6 +47,7 @@ export function UserAvatar({
   className,
   alt = "",
 }: UserAvatarProps) {
+  const [imgFailed, setImgFailed] = useState(false);
   const boxStyle: CSSProperties = {
     width: size,
     height: size,
@@ -56,14 +58,17 @@ export function UserAvatar({
     className ?? ""
   }`.trim();
 
-  if (hasValidAvatar(user.avatarUrl)) {
+  const showImg = hasValidAvatar(user.avatarUrl) && !imgFailed;
+
+  if (showImg) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={user.avatarUrl}
+        src={user.avatarUrl ?? undefined}
         alt={alt}
         loading="lazy"
         referrerPolicy="no-referrer"
+        onError={() => setImgFailed(true)}
         className={`${baseClass} object-cover`}
         style={boxStyle}
       />
