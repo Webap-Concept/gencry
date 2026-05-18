@@ -1538,6 +1538,7 @@ async function countDistinctPostsByAggregate(
   const result = await db.execute(sql`
     SELECT COUNT(*)::int AS n FROM (
       SELECT post_id FROM posts_reports
+      WHERE post_id IS NOT NULL
       GROUP BY post_id
       HAVING ${condition}
     ) sub
