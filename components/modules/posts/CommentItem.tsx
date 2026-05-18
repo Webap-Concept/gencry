@@ -28,15 +28,12 @@ import type { CommentCardData } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import { PostBody } from "./PostBody";
 import { ReactionPopover } from "./ReactionPopover";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
   if (author.username) return `@${author.username}`;
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
   return full || fallback;
-}
-
-function authorInitial(author: CommentCardData["author"]): string {
-  return ((author.username ?? author.firstName ?? "?")[0] ?? "?").toUpperCase();
 }
 
 function formatRelativeTime(
@@ -131,34 +128,27 @@ export function CommentItem({
   }
 
   const indentCls = variant === "reply" ? "pl-9" : "";
-  const avatarSizeCls = variant === "reply" ? "w-7 h-7 text-[11px]" : "w-9 h-9 text-xs";
+  const avatarSize = variant === "reply" ? 28 : 36;
 
   return (
     <div className={`flex gap-2.5 ${indentCls}`}>
-      {/* Avatar */}
-      {comment.author.avatarUrl ? (
-        <Link
-          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
-          className={`${avatarSizeCls} shrink-0 rounded-full overflow-hidden bg-gc-bg-3`}
-          aria-label={authorDisplayName(comment.author, fallback)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={comment.author.avatarUrl}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </Link>
-      ) : (
-        <Link
-          href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
-          className={`${avatarSizeCls} shrink-0 rounded-full bg-gc-bg-3 text-gc-fg-muted flex items-center justify-center font-medium`}
-          aria-label={authorDisplayName(comment.author, fallback)}
-        >
-          {authorInitial(comment.author)}
-        </Link>
-      )}
+      {/* Avatar — UserAvatar gestisce internamente img vs fallback colorato. */}
+      <Link
+        href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
+        className="shrink-0"
+        aria-label={authorDisplayName(comment.author, fallback)}
+      >
+        <UserAvatar
+          user={{
+            id: comment.author.id,
+            username: comment.author.username,
+            firstName: comment.author.firstName,
+            lastName: comment.author.lastName,
+            avatarUrl: comment.author.avatarUrl,
+          }}
+          size={avatarSize}
+        />
+      </Link>
 
       {/* Body */}
       <div className="flex-1 min-w-0">

@@ -18,8 +18,8 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Bell } from "lucide-react";
 import { REACTION_ICON } from "@/components/modules/posts/icons";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   resolveNotificationTarget,
   type NotificationTarget,
@@ -55,10 +55,8 @@ function formatRelative(date: Date, locale: string): string {
 
 function AvatarStack({
   actors,
-  fallbackBell,
 }: {
   actors: Array<NotificationActor | null>;
-  fallbackBell: boolean;
 }) {
   // Mostra max 2 avatars in overlap (-ml-3 per il secondo).
   const visible = actors.slice(0, 2);
@@ -70,23 +68,7 @@ function AvatarStack({
           className={i === 0 ? "" : "-ml-3"}
           style={{ zIndex: visible.length - i }}
         >
-          {a?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={a.avatarUrl}
-              alt=""
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-gc-bg-2"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-gc-fg-muted ring-2 ring-gc-bg-2">
-              {fallbackBell ? (
-                <Bell size={16} strokeWidth={1.75} aria-hidden />
-              ) : (
-                <span className="text-xs">?</span>
-              )}
-            </div>
-          )}
+          <UserAvatar user={a ?? {}} size={40} ring />
         </div>
       ))}
     </div>
@@ -183,7 +165,6 @@ export function NotificationGroupItem({
     <div className="flex items-start gap-3 px-4 py-3">
       <AvatarStack
         actors={distinctActors.slice(0, 2).map((i) => i.actor)}
-        fallbackBell
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gc-fg leading-snug flex items-center gap-1.5 flex-wrap">

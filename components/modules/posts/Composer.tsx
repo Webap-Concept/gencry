@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { MediaUploader } from "./MediaUploader";
 
 type ComposerUser = {
@@ -66,11 +67,6 @@ function displayHandle(user: ComposerUser, fallback: string): string {
   if (user.username) return `@${user.username}`;
   const full = [user.firstName, user.lastName].filter(Boolean).join(" ");
   return full || fallback;
-}
-
-function initials(user: ComposerUser): string {
-  const f = (user.firstName ?? user.username ?? "?")[0] ?? "?";
-  return f.toUpperCase();
 }
 
 type CreateMode = { kind: "create" };
@@ -203,19 +199,7 @@ export function Composer({
               aria-label={tComp("change_visibility")}
               className="flex items-start gap-3 rounded-lg -m-1 p-1 hover:bg-gc-bg-3/60 transition text-left"
             >
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.avatarUrl}
-                  alt=""
-                  className="w-11 h-11 rounded-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-11 h-11 rounded-full bg-gc-line flex items-center justify-center text-sm font-medium text-gc-fg-muted">
-                  {initials(user)}
-                </div>
-              )}
+              <UserAvatar user={user} size={44} />
               <div className="flex flex-col gap-1 min-w-0">
                 <span className="font-medium text-gc-fg leading-none">
                   {displayHandle(user, userFallback)}

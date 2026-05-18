@@ -17,8 +17,8 @@ import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Bell } from "lucide-react";
 import { REACTION_ICON } from "@/components/modules/posts/icons";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   resolveNotificationTarget,
   type NotificationTarget,
@@ -133,19 +133,7 @@ export function NotificationItem({
 
   const Body = (
     <div className="flex items-start gap-3 px-4 py-3">
-      {item.actor?.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.actor.avatarUrl}
-          alt=""
-          className="w-10 h-10 rounded-full object-cover shrink-0"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-gc-fg-muted shrink-0">
-          <Bell size={18} strokeWidth={1.75} aria-hidden />
-        </div>
-      )}
+      <UserAvatar user={item.actor ?? { id: item.actorId ?? null }} size={40} />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gc-fg leading-snug flex items-center gap-1.5 flex-wrap">
           {ReactionIcon ? (

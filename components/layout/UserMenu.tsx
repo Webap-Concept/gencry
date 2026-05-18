@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { LogOut, Palette, Settings, User as UserIcon } from "lucide-react";
 import { mutate } from "swr";
 import { signOut } from "@/app/(login)/actions";
-import { Avatar } from "@/components/shared/Avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { fullName } from "@/lib/utils";
 
@@ -64,20 +64,20 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
     };
   }, [open, variant]);
 
-  const initial = (user.firstName?.[0] ?? user.email[0] ?? "U").toUpperCase();
   const name = fullName(user);
   const handleLine = user.username ? `@${user.username}` : null;
   // Quando manca il nome non mostriamo "Utente" sopra @username, ma collassiamo
   // la card su una sola riga: handle (se c'è) o email come label primaria.
   const primary = name || handleLine || user.email;
   const secondary = name ? handleLine ?? user.email : null;
+  // Shape minimo richiesto da <UserAvatar>: il componente fa il fallback
+  // colorato deterministico da id/username/email e calcola le iniziali.
   const avatarUser = {
-    handle: user.username ?? "",
-    name: primary,
-    avatar: initial,
-    color: "#5c5146",
-    followers: 0,
-    bio: "",
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
     avatarUrl: user.avatarUrl,
   };
 
@@ -120,7 +120,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
 
   const header = (
     <div className="flex items-center gap-3 px-3 py-3 border-b border-gc-line">
-      <Avatar user={avatarUser} size={40} />
+      <UserAvatar user={avatarUser} size={40} />
       <div className="flex-1 min-w-0">
         <div
           className={`text-[13.5px] font-medium text-gc-fg truncate ${
@@ -183,7 +183,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
           aria-expanded={open}
           className="rounded-full"
         >
-          <Avatar user={avatarUser} size={32} />
+          <UserAvatar user={avatarUser} size={32} />
         </button>
       )}
       {mounted && open
@@ -218,7 +218,14 @@ function DefaultPopoverTrigger({
   onClick,
   open,
 }: {
-  user: { name: string; avatar: string; color: string; avatarUrl?: string | null };
+  user: {
+    id?: string;
+    username?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    avatarUrl?: string | null;
+  };
   label: string;
   sub: string | null;
   headline: string | null;
@@ -235,10 +242,7 @@ function DefaultPopoverTrigger({
       aria-expanded={open}
       className="w-full flex items-center gap-3 px-2 py-1.5 rounded-gc-sm hover:bg-gc-bg-2 transition text-left"
     >
-      <Avatar
-        user={{ ...user, handle: "", followers: 0, bio: "" }}
-        size={40}
-      />
+      <UserAvatar user={user} size={40} />
       <div className="flex-1 min-w-0">
         <div
           className={`text-[13px] font-medium text-gc-fg truncate ${

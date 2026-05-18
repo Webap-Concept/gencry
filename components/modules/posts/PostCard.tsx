@@ -57,6 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
@@ -87,11 +88,6 @@ function authorDisplayName(
   if (author.username) return `@${author.username}`;
   const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
   return full || fallback;
-}
-
-function authorInitial(author: PostCardData["author"]): string {
-  const f = (author.username ?? author.firstName ?? "?")[0] ?? "?";
-  return f.toUpperCase();
 }
 
 // Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
@@ -494,19 +490,16 @@ export function PostCard({
             href={`/profile/${post.author.username ?? post.author.id}`}
             className="shrink-0"
           >
-            {post.author.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={post.author.avatarUrl}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gc-line flex items-center justify-center text-sm text-gc-fg-muted">
-                {authorInitial(post.author)}
-              </div>
-            )}
+            <UserAvatar
+              user={{
+                id: post.author.id,
+                username: post.author.username,
+                firstName: post.author.firstName,
+                lastName: post.author.lastName,
+                avatarUrl: post.author.avatarUrl,
+              }}
+              size={40}
+            />
           </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">

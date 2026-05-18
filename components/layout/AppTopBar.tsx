@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Avatar } from "@/components/shared/Avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserMenu } from "@/components/layout/UserMenu";
 import type { UserWithProfile } from "@/lib/db/schema";
-import { fullName } from "@/lib/utils";
 
 // Topbar visibile <md (mobile/tablet stretto). Stile alla Twitter:
 // logo a sinistra, avatar a destra che apre un bottom-sheet con il menu utente.
@@ -44,14 +43,13 @@ export function AppTopBar() {
               aria-expanded={open}
               className="rounded-full focus:outline-none focus:ring-2 focus:ring-gc-accent"
             >
-              <Avatar
+              <UserAvatar
                 user={{
-                  handle: user.username ?? "",
-                  name: fullName(user),
-                  avatar: (user.firstName?.[0] ?? user.email[0] ?? "U").toUpperCase(),
-                  color: "#5c5146",
-                  followers: 0,
-                  bio: "",
+                  id: user.id,
+                  username: user.username,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  email: user.email,
                   avatarUrl: user.avatarUrl,
                 }}
                 size={32}
