@@ -62,7 +62,7 @@ import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
 import { ReactionPopover } from "./ReactionPopover";
-import { ReportPostDialog } from "./ReportPostDialog";
+import { ReportContentDialog } from "./ReportContentDialog";
 import { BlockUserConfirmDialog } from "./BlockUserConfirmDialog";
 import { DeletePostConfirmDialog } from "./DeletePostConfirmDialog";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
@@ -807,8 +807,8 @@ export function PostCard({
           controllati → niente fetch finché non vengono aperti. */}
       {!isAuthor ? (
         <>
-          <ReportPostDialog
-            postId={post.id}
+          <ReportContentDialog
+            target={{ type: "post", id: post.id }}
             authorDisplayName={authorDisplayName(post.author, userFallback)}
             onWantsToBlockAuthor={onBlock}
             isOpen={reportOpen}

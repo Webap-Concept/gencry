@@ -12,6 +12,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import {
+  Flag,
   Loader2,
   MessageSquare,
   MoreHorizontal,
@@ -28,6 +29,7 @@ import type { CommentCardData } from "@/lib/modules/posts/types";
 import type { PostReactionKind } from "@/lib/db/schema";
 import { PostBody } from "./PostBody";
 import { ReactionPopover } from "./ReactionPopover";
+import { ReportContentDialog } from "./ReportContentDialog";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
@@ -92,6 +94,11 @@ export function CommentItem({
   const ageMs = Date.now() - new Date(comment.createdAt).getTime();
   const canEdit = isOwn && ageMs <= editWindowMs && onEdit && !isDeletedTombstone;
   const canDelete = (isOwn || canModerate) && onDelete && !isDeletedTombstone;
+  // Report visibile a chiunque non sia l'autore e su commenti non tombstoned.
+  // Anche utenti non loggati non vedono il menu (viewerUserId === undefined →
+  // isOwn === false ma il submit Server Action gata cmq).
+  const canReport = !!viewerUserId && !isOwn && !isDeletedTombstone;
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [editingBody, setEditingBody] = useState(comment.body);
@@ -173,7 +180,7 @@ export function CommentItem({
           >
             {formatRelativeTime(comment.createdAt, tTime, locale)}
           </time>
-          {(canEdit || canDelete) && !editing ? (
+          {(canEdit || canDelete || canReport) && !editing ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="p-1 rounded-full text-gc-fg-muted hover:text-gc-fg hover:bg-gc-bg-3 transition"
@@ -200,8 +207,22 @@ export function CommentItem({
                     {tCommon("delete")}
                   </DropdownMenuItem>
                 ) : null}
+                {canReport ? (
+                  <DropdownMenuItem onClick={() => setReportOpen(true)}>
+                    <Flag size={14} strokeWidth={1.75} className="mr-2" />
+                    {t("actions.report")}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : null}
+          {canReport ? (
+            <ReportContentDialog
+              target={{ type: "comment", id: comment.id }}
+              authorDisplayName={authorDisplayName(comment.author, fallback)}
+              isOpen={reportOpen}
+              onOpenChange={setReportOpen}
+            />
           ) : null}
         </div>
 

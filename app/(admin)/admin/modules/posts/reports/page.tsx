@@ -61,6 +61,26 @@ export default async function PostsReportsPage({
 
   return (
     <Suspense fallback={null}>
+      {/* TODO(reports-on-comments): la queue qui sotto raggruppa per
+          post_id via INNER JOIN posts → esclude automaticamente i nuovi
+          comment reports (M_posts_010 ha aggiunto comment_id NULL al
+          schema posts_reports). Le segnalazioni di commenti si
+          accumulano correttamente in DB ma non sono ancora visibili
+          qui: la queue di moderazione per i commenti arriverà in un
+          commit dedicato (richiede refactor del GROUP BY in
+          getReportsQueue oppure una seconda query gemella raggruppata
+          per comment_id). Avviso inline sotto come reminder operativo. */}
+      <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+        ⚠ Da PR-mention/2026-05-18 gli utenti possono segnalare anche i
+        commenti: le righe arrivano nel DB ma la queue qui sotto
+        attualmente mostra SOLO i report sui post. La queue dei
+        commenti arriverà in un commit dedicato. Per verifica veloce:
+        <code className="ml-1">
+          SELECT COUNT(*) FROM posts_reports WHERE comment_id IS NOT
+          NULL AND status = &apos;open&apos;
+        </code>
+        .
+      </div>
       {/* key={status}: forza unmount+remount al cambio status (vedi
           deleted/page.tsx per spiegazione). Senza, useState(initial.rows)
           tiene lo stato vecchio quando l'utente clicca un'altra pill. */}

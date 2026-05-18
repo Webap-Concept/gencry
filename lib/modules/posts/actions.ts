@@ -194,16 +194,28 @@ const CreateQuoteRepostInputSchema = z.object({
   visibility: VisibilitySchema.default("public"),
 });
 
-const ReportPostInputSchema = z.object({
-  postId: UuidSchema,
+const ReportContentInputSchema = z.object({
+  // Polimorfismo discriminato: 'post' o 'comment'. Lo schema SQL ha XOR
+  // su post_id/comment_id (M_posts_010), qui validiamo l'unione.
+  targetType: z.enum(["post", "comment"]),
+  targetId: UuidSchema,
   // Lista dei reason key è admin-editable (vedi services/report-reasons.ts).
   // Qui validiamo solo shape; il match con la lista attiva avviene a runtime
-  // dentro reportPost().
+  // dentro reportContent().
   reason: z
     .string()
     .min(1)
     .max(40)
     .regex(/^[a-z0-9_]+$/),
+  details: z.string().max(2000).optional().nullable(),
+});
+
+// Backward-compat: alias dello schema vecchio (solo post) per i client
+// che non hanno ancora migrato a reportContent. Da rimuovere quando
+// nessuno chiama più reportPost direttamente.
+const ReportPostInputSchema = z.object({
+  postId: UuidSchema,
+  reason: z.string().min(1).max(40).regex(/^[a-z0-9_]+$/),
   details: z.string().max(2000).optional().nullable(),
 });
 
@@ -1073,22 +1085,24 @@ export async function getReportReasonsForClient(): Promise<ReportReason[]> {
   return await getActiveReportReasons();
 }
 
-export async function reportPost(
-  input: z.input<typeof ReportPostInputSchema>,
+/**
+ * Report polimorfico: post O commento. Schema SQL enforced via CHECK
+ * (XOR su post_id/comment_id). Unique constraint impedisce doppio
+ * report dello stesso utente sullo stesso target.
+ */
+export async function reportContent(
+  input: z.input<typeof ReportContentInputSchema>,
 ): Promise<ActionResult> {
   const user = await getUser();
   if (!user) return fail(I18N.unauthenticated);
 
-  const parsed = ReportPostInputSchema.safeParse(input);
+  const parsed = ReportContentInputSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
-  // Reason key validato contro la lista admin-editable corrente. Se
-  // l'admin ha disabilitato/rimosso una reason mentre l'utente aveva
-  // il modal aperto → rifiuta gracefully, il client re-fetcha.
+  // Reason key validato contro la lista admin-editable corrente.
   const reasonDef = await findActiveReportReason(parsed.data.reason);
   if (!reasonDef) return fail("posts.errors.reason_not_available");
 
-  // requiresDetails (es. "other") deve avere details non vuoti.
   const details = (parsed.data.details ?? "").trim();
   if (reasonDef.requiresDetails && details.length === 0) {
     return fail("posts.errors.details_required", { field: "details" });
@@ -1097,24 +1111,63 @@ export async function reportPost(
   const rl = await rateLimitCheck(user.id, "report");
   if (!rl.ok) return fail(I18N.rateLimited, { retryAfter: rl.retryAfter });
 
-  // Verifica che il post esiste (no check su deleted_at: un post cancellato
-  // può comunque essere report-ato — la queue admin lo vedrà tombstoned).
-  const target = await db
-    .select({ id: posts.id })
-    .from(posts)
-    .where(eq(posts.id, parsed.data.postId))
-    .limit(1);
+  // Verifica che il target esiste. Niente check su deleted_at — un
+  // contenuto cancellato può comunque essere report-ato per moderation
+  // post-fatto (la queue admin lo vedrà tombstoned).
+  if (parsed.data.targetType === "post") {
+    const t = await db
+      .select({ id: posts.id })
+      .from(posts)
+      .where(eq(posts.id, parsed.data.targetId))
+      .limit(1);
+    if (!t[0]) return fail(I18N.notFound);
+  } else {
+    const t = await db
+      .select({ id: postsComments.id })
+      .from(postsComments)
+      .where(eq(postsComments.id, parsed.data.targetId))
+      .limit(1);
+    if (!t[0]) return fail(I18N.notFound);
+  }
 
-  if (!target[0]) return fail(I18N.notFound);
-
-  await db.insert(postsReports).values({
-    postId: parsed.data.postId,
-    reporterId: user.id,
-    reason: parsed.data.reason,
-    details: details.length > 0 ? details : null,
-  });
+  try {
+    await db.insert(postsReports).values({
+      postId: parsed.data.targetType === "post" ? parsed.data.targetId : null,
+      commentId:
+        parsed.data.targetType === "comment" ? parsed.data.targetId : null,
+      reporterId: user.id,
+      reason: parsed.data.reason,
+      details: details.length > 0 ? details : null,
+    });
+  } catch (err) {
+    // Unique parziale viola → utente ha già segnalato quel target.
+    // Trattiamo come success idempotente per non leakare lo stato delle
+    // sue segnalazioni precedenti.
+    const msg = String((err as Error)?.message ?? "");
+    if (msg.includes("uq_posts_reports_reporter")) {
+      return { ok: true };
+    }
+    throw err;
+  }
 
   return { ok: true };
+}
+
+/**
+ * @deprecated Backward-compat per i call site che ancora chiamano
+ * reportPost direttamente. Inoltra a reportContent.
+ */
+export async function reportPost(
+  input: z.input<typeof ReportPostInputSchema>,
+): Promise<ActionResult> {
+  const parsed = ReportPostInputSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  return reportContent({
+    targetType: "post",
+    targetId: parsed.data.postId,
+    reason: parsed.data.reason,
+    details: parsed.data.details,
+  });
 }
 
 // ---------------------------------------------------------------------------

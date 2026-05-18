@@ -1369,7 +1369,13 @@ export async function getReportsQueue(opts: {
 
   const hasMore = rawGroups.length > limit;
   const sliced = hasMore ? rawGroups.slice(0, limit) : rawGroups;
-  const postIds = sliced.map((g) => g.postId);
+  // postId è nullable a schema (M_posts_010 polimorfismo XOR), ma in
+  // QUESTA query è SEMPRE valorizzato perché Query 1 fa INNER JOIN posts
+  // → esclude row con postId NULL (i comment reports). Filter narrowing
+  // per soddisfare TS.
+  const postIds = sliced
+    .map((g) => g.postId)
+    .filter((id): id is string => id !== null);
 
   // Query 2: reason breakdown per i post della pagina.
   let reasonsByPost: Map<string, Record<string, number>> = new Map();
@@ -1384,6 +1390,7 @@ export async function getReportsQueue(opts: {
       .where(inArray(postsReports.postId, postIds))
       .groupBy(postsReports.postId, postsReports.reason);
     for (const r of reasonRows) {
+      if (!r.postId) continue;
       const map = reasonsByPost.get(r.postId) ?? {};
       map[r.reason] = r.n;
       reasonsByPost.set(r.postId, map);
@@ -1410,6 +1417,7 @@ export async function getReportsQueue(opts: {
       .where(inArray(postsReports.postId, postIds))
       .orderBy(desc(postsReports.createdAt));
     for (const r of reporterRows) {
+      if (!r.postId) continue; // post reports only (comment reports filtrati a monte)
       const arr = recentReportersByPost.get(r.postId) ?? [];
       // Dedup per reporter_id (un utente che segnala 2 volte conta 1).
       if (arr.some((x) => x.id === r.reporterId)) continue;
@@ -1426,52 +1434,60 @@ export async function getReportsQueue(opts: {
   }
 
   // Assemble
-  const rows: ReportQueueGroupRow[] = sliced.map((g) => {
-    const aggregateStatus: ReportQueueAggregateStatus =
-      g.openCount > 0
-        ? "open"
-        : g.actionedCount > 0
-          ? "actioned"
-          : g.dismissedCount > 0
-            ? "dismissed"
-            : "reviewed";
+  // Tutti i `g.postId` sono garantiti non-null dall'INNER JOIN posts a
+  // monte; il narrow esplicito a string serve solo a TS dato che dal
+  // M_posts_010 (polimorfismo post/comment) la colonna è nullable.
+  const rows: ReportQueueGroupRow[] = sliced
+    .filter((g): g is typeof g & { postId: string } => g.postId !== null)
+    .map((g) => {
+      const aggregateStatus: ReportQueueAggregateStatus =
+        g.openCount > 0
+          ? "open"
+          : g.actionedCount > 0
+            ? "actioned"
+            : g.dismissedCount > 0
+              ? "dismissed"
+              : "reviewed";
 
-    const reporters = (recentReportersByPost.get(g.postId) ?? []).map((r) => ({
-      id: r.id,
-      username: r.username,
-      avatarUrl: r.avatarUrl,
-    }));
+      const reporters = (recentReportersByPost.get(g.postId) ?? []).map(
+        (r) => ({
+          id: r.id,
+          username: r.username,
+          avatarUrl: r.avatarUrl,
+        }),
+      );
 
-    return {
-      post: {
-        id: g.postId,
-        authorId: g.postAuthorId,
-        body: g.postBody,
-        deletedAt: g.postDeletedAt,
-        createdAt: g.postCreatedAt,
-        author: {
-          username: g.authorUsername ?? null,
-          avatarUrl: g.authorAvatarUrl ?? null,
+      return {
+        post: {
+          id: g.postId,
+          authorId: g.postAuthorId,
+          body: g.postBody,
+          deletedAt: g.postDeletedAt,
+          createdAt: g.postCreatedAt,
+          author: {
+            username: g.authorUsername ?? null,
+            avatarUrl: g.authorAvatarUrl ?? null,
+          },
         },
-      },
-      firstReportedAt: g.firstAt,
-      lastReportedAt: g.lastAt,
-      totalReports: g.total,
-      openCount: g.openCount,
-      reviewedCount: g.reviewedCount,
-      dismissedCount: g.dismissedCount,
-      actionedCount: g.actionedCount,
-      aggregateStatus,
-      reasonsBreakdown: reasonsByPost.get(g.postId) ?? {},
-      recentReporters: reporters,
-    };
-  });
+        firstReportedAt: g.firstAt,
+        lastReportedAt: g.lastAt,
+        totalReports: g.total,
+        openCount: g.openCount,
+        reviewedCount: g.reviewedCount,
+        dismissedCount: g.dismissedCount,
+        actionedCount: g.actionedCount,
+        aggregateStatus,
+        reasonsBreakdown: reasonsByPost.get(g.postId) ?? {},
+        recentReporters: reporters,
+      };
+    });
 
+  const lastSliced = sliced[sliced.length - 1];
   const nextCursor =
-    hasMore && sliced.length > 0
+    hasMore && lastSliced && lastSliced.postId
       ? encodeCursor({
-          ms: new Date(sliced[sliced.length - 1].lastAt).getTime(),
-          id: sliced[sliced.length - 1].postId,
+          ms: new Date(lastSliced.lastAt).getTime(),
+          id: lastSliced.postId,
         })
       : null;
 
@@ -1553,6 +1569,7 @@ export async function getReportsForPost(postId: string): Promise<
     .select({
       id: postsReports.id,
       postId: postsReports.postId,
+      commentId: postsReports.commentId,
       reporterId: postsReports.reporterId,
       reason: postsReports.reason,
       details: postsReports.details,
@@ -1572,6 +1589,7 @@ export async function getReportsForPost(postId: string): Promise<
     report: {
       id: r.id,
       postId: r.postId,
+      commentId: r.commentId,
       reporterId: r.reporterId,
       reason: r.reason,
       details: r.details,

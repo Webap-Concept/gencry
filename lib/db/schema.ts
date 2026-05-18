@@ -1588,13 +1588,18 @@ export const postsReports = pgTable(
   "posts_reports",
   {
     id:          uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
-    postId:      uuid("post_id").notNull()
+    // Polimorfismo discriminato via XOR (vedi M_posts_010): valorizzato
+    // ESATTAMENTE 1 tra post_id e comment_id. Enforced lato SQL dal CHECK
+    // `posts_reports_target_xor_chk` (num_nonnulls = 1).
+    postId:      uuid("post_id")
                    .references(() => posts.id, { onDelete: "cascade" }),
+    commentId:   uuid("comment_id")
+                   .references(() => postsComments.id, { onDelete: "cascade" }),
     reporterId:  uuid("reporter_id").notNull()
                    .references(() => users.id, { onDelete: "cascade" }),
     // Key tra quelle attive in app_settings `modules.posts.report_reasons`
     // (vedi lib/modules/posts/services/report-reasons.ts). Validato runtime
-    // dal Server Action reportPost — il CHECK SQL controlla solo length 1..40.
+    // dalla Server Action reportContent — il CHECK SQL controlla solo length 1..40.
     reason:      varchar("reason", { length: 40 }).notNull(),
     details:     text("details"),
     // 'open' | 'reviewed' | 'dismissed' | 'actioned'
