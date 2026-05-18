@@ -20,7 +20,7 @@ export function NotificationsSettingsForm({
 }: {
   initial: NotificationsSettingsInitial;
 }) {
-  const t = useTranslations("modules.notifications.admin.settings");
+  const t = useTranslations("notifications.admin.settings");
   const [state, formAction, pending] = useActionState<
     SettingsSaveResult | null,
     FormData

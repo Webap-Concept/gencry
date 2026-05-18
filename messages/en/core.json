@@ -57,11 +57,6 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password"
   },
-  "notificationsSheet": {
-    "title": "Notifications",
-    "ariaDescription": "List of unread and recent notifications",
-    "markAllRead": "Mark all as read"
-  },
   "pages": {
     "notifications": {
       "title": "Notifications",

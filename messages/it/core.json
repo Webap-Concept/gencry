@@ -57,11 +57,6 @@
     "showPassword": "Mostra password",
     "hidePassword": "Nascondi password"
   },
-  "notificationsSheet": {
-    "title": "Notifiche",
-    "ariaDescription": "Elenco delle notifiche non lette e recenti",
-    "markAllRead": "Segna tutte come lette"
-  },
   "pages": {
     "notifications": {
       "title": "Notifiche",

@@ -63,8 +63,8 @@ export function NotificationItem({
   /** Callback opzionale: la lista parent decrementa lo unread count optimistic. */
   onMarkedRead?: () => void;
 }) {
-  const tTypes = useTranslations("modules.notifications.types");
-  const tUi = useTranslations("modules.notifications.ui");
+  const tTypes = useTranslations("notifications.types");
+  const tUi = useTranslations("notifications.ui");
   const locale = useLocale();
   const [, startTransition] = useTransition();
 

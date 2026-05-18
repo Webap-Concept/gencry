@@ -10,7 +10,6 @@ import {
   Zap,
 } from "lucide-react";
 import useSWR from "swr";
-import { NotificationsSheet } from "@/components/layout/NotificationsSheet";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 import type { UserWithProfile } from "@/lib/db/schema";
@@ -77,23 +76,27 @@ export function AppSidebar({
             </span>
           )}
         </Link>
-        <NotificationsSheet>
-          <button
-            type="button"
-            aria-label={t("notifications")}
-            className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
-          >
-            <Bell size={18} strokeWidth={1.6} />
-            {/* Badge unread real-time del modulo notifications. Sostituisce
-                il vecchio dot statico mockato. Reso null dal componente
-                quando count <= 0. Posizionato top-right come il dot
-                precedente per non rompere il layout. */}
-            <span className="absolute -top-1 -right-1 pointer-events-none">
-              {notificationsBadge}
-            </span>
-            <span className="sr-only">{t("newNotifications")}</span>
-          </button>
-        </NotificationsSheet>
+        {/* Bell → naviga DIRETTAMENTE alla page /notifiche (lista live
+            del modulo notifications). Il drawer mockup precedente è
+            rimosso: avere 2 UI da sincronizzare (drawer + page) con
+            realtime subscribe duplicate è uno sforzo che non aggiunge
+            valore finché non vogliamo un quick-view in stile Twitter.
+            Quando lo vorremo, riaggiungere un <Sheet> con dentro un
+            <NotificationsList> in modalità "compact". */}
+        <Link
+          href="/notifiche"
+          prefetch={false}
+          aria-label={t("notifications")}
+          className="relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-gc-fg-2 hover:bg-gc-bg-2 hover:text-gc-fg transition"
+        >
+          <Bell size={18} strokeWidth={1.6} />
+          {/* Badge unread real-time del modulo notifications. Reso null
+              dal componente quando count <= 0. */}
+          <span className="absolute -top-1 -right-1 pointer-events-none">
+            {notificationsBadge}
+          </span>
+          <span className="sr-only">{t("newNotifications")}</span>
+        </Link>
       </div>
 
       {/* Blocco scrollabile interno: nav + CTA. Scrolla SOLO se eccede

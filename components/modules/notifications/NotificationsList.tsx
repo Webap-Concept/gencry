@@ -35,7 +35,7 @@ type Props = {
 };
 
 export function NotificationsList({ viewerUserId, initial }: Props) {
-  const tUi = useTranslations("modules.notifications.ui");
+  const tUi = useTranslations("notifications.ui");
   const [items, setItems] = useState<NotificationListItem[]>(initial.items);
   const [nextCursor, setNextCursor] = useState<string | null>(initial.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);

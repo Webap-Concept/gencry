@@ -26,7 +26,7 @@ export default async function NotificationsAdminOverviewPage() {
   const [adminSlug, health, t] = await Promise.all([
     getAdminUrlSlug(),
     getNotificationsHealth(),
-    getTranslations("modules.notifications.admin.overview"),
+    getTranslations("notifications.admin.overview"),
   ]);
   const base = `/${adminSlug}/modules/notifications`;
 
