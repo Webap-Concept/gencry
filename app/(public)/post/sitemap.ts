@@ -70,10 +70,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (!siteUrl) return [];
 
-  return postsList.map((p) => ({
-    url: `${siteUrl}/post/${p.id}`,
-    lastModified: p.createdAt,
-    changeFrequency: ageToChangeFreq(p.createdAt),
-    priority: ageToPriority(p.createdAt),
-  }));
+  // Caveat: unstable_cache serializza i Date a string a cache hit
+  // (vedi memory architecture posts §Caveats). Normalizzo qui in
+  // un Date vero prima di passarlo a Next.js (lastModified.getTime)
+  // e alle nostre due helper.
+  return postsList.map((p) => {
+    const created = new Date(p.createdAt);
+    return {
+      url: `${siteUrl}/post/${p.id}`,
+      lastModified: created,
+      changeFrequency: ageToChangeFreq(created),
+      priority: ageToPriority(created),
+    };
+  });
 }
