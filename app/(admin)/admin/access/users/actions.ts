@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendUserDeletedEmail } from "@/lib/email/templates/user-deleted";
+import { sendModerationStrikeRevokedEmail } from "@/lib/email/templates/moderation-strike-revoked";
 import { can } from "@/lib/rbac/can";
 import { requireAdmin, requireAdminSectionPage } from "@/lib/rbac/guards";
 import { revokeStrike } from "@/lib/auth/strikes";
@@ -239,6 +240,32 @@ export async function revokeUserStrikeAction(
       });
     } catch (err) {
       console.warn("[revokeUserStrikeAction] notification failed:", err);
+    }
+
+    // Email transazionale best-effort (fail non rolla la revoke).
+    try {
+      const [recipient] = await db
+        .select({
+          email: users.email,
+          userLocale: users.locale,
+          firstName: userProfiles.firstName,
+        })
+        .from(users)
+        .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .where(eq(users.id, target.userId))
+        .limit(1);
+      if (recipient?.email) {
+        const locale = await resolveRecipientLocale(recipient.userLocale);
+        await sendModerationStrikeRevokedEmail({
+          to: recipient.email,
+          userName: recipient.firstName ?? undefined,
+          activeCountAfter: result.activeStrikesCount,
+          unbanned: result.unbannedNow,
+          locale,
+        });
+      }
+    } catch (err) {
+      console.warn("[revokeUserStrikeAction] email failed:", err);
     }
   }
 

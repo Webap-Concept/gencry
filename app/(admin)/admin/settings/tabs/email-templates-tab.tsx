@@ -105,6 +105,33 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "userName",  value: "{{userName}}" },
     { label: "reason",    value: "{{reason}}" },
   ],
+  modstrike: [
+    { label: "appName",       value: "{{appName}}" },
+    { label: "userEmail",     value: "{{userEmail}}" },
+    { label: "userName",      value: "{{userName}}" },
+    { label: "strikeNumber",  value: "{{strikeNumber}}" },
+    { label: "reason",        value: "{{reason}}" },
+    { label: "sourceType",    value: "{{sourceType}}" },
+    { label: "sourcePreview", value: "{{sourcePreview}}" },
+    { label: "appUrl",        value: "{{appUrl}}" },
+  ],
+  modbanned: [
+    { label: "appName",       value: "{{appName}}" },
+    { label: "userEmail",     value: "{{userEmail}}" },
+    { label: "userName",      value: "{{userName}}" },
+    { label: "reason",        value: "{{reason}}" },
+    { label: "sourceType",    value: "{{sourceType}}" },
+    { label: "sourcePreview", value: "{{sourcePreview}}" },
+    { label: "appUrl",        value: "{{appUrl}}" },
+  ],
+  modstrikerevoked: [
+    { label: "appName",          value: "{{appName}}" },
+    { label: "userEmail",        value: "{{userEmail}}" },
+    { label: "userName",         value: "{{userName}}" },
+    { label: "activeCountAfter", value: "{{activeCountAfter}}" },
+    { label: "unbanned",         value: "{{unbanned}}" },
+    { label: "appUrl",           value: "{{appUrl}}" },
+  ],
 };
 
 const TEMPLATE_IDS = [
@@ -122,6 +149,9 @@ const TEMPLATE_IDS = [
   "mfaenabled",
   "mfadisabled",
   "mfaadminreset",
+  "modstrike",
+  "modbanned",
+  "modstrikerevoked",
 ] as const;
 
 type TemplateId = (typeof TEMPLATE_IDS)[number];
@@ -142,6 +172,9 @@ const TEMPLATE_PREFIX: Record<TemplateId, string> = {
   mfaenabled: "email_mfaenabled",
   mfadisabled: "email_mfadisabled",
   mfaadminreset: "email_mfaadminreset",
+  modstrike: "email_modstrike",
+  modbanned: "email_modbanned",
+  modstrikerevoked: "email_modstrikerevoked",
 };
 
 const TEMPLATE_FILE: Record<TemplateId, string> = {
@@ -159,6 +192,9 @@ const TEMPLATE_FILE: Record<TemplateId, string> = {
   mfaenabled: "lib/email/templates/mfa-enabled.ts",
   mfadisabled: "lib/email/templates/mfa-disabled.ts",
   mfaadminreset: "lib/email/templates/mfa-admin-reset.ts",
+  modstrike: "lib/email/templates/moderation-strike-received.ts",
+  modbanned: "lib/email/templates/moderation-banned.ts",
+  modstrikerevoked: "lib/email/templates/moderation-strike-revoked.ts",
 };
 
 // ---------------------------------------------------------------------------

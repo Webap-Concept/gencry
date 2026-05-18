@@ -17,6 +17,8 @@ import {
   posts,
   postsComments,
   postsReports,
+  users,
+  userProfiles,
   type StrikeSourceType,
 } from "@/lib/db/schema";
 import { getUser } from "@/lib/db/queries";
@@ -24,6 +26,9 @@ import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { issueStrike } from "@/lib/auth/strikes";
 import { invalidateFeedCache } from "@/lib/modules/posts/services/feed-cache";
 import { invalidatePostCache } from "@/lib/modules/posts/services/post-cache";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
+import { sendModerationStrikeReceivedEmail } from "@/lib/email/templates/moderation-strike-received";
+import { sendModerationBannedEmail } from "@/lib/email/templates/moderation-banned";
 import {
   getCommentReportsQueue,
   getReportsForComment,
@@ -119,6 +124,48 @@ async function applyStrikeAndNotify(args: {
     });
   } catch (err) {
     console.warn("[reports] strike notification insert failed:", err);
+  }
+
+  // Email transazionale (best-effort: fail non rolla la moderation
+  // action). Risolvi email + firstName + locale del destinatario.
+  try {
+    const [target] = await db
+      .select({
+        email: users.email,
+        userLocale: users.locale,
+        firstName: userProfiles.firstName,
+      })
+      .from(users)
+      .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(eq(users.id, args.authorId))
+      .limit(1);
+
+    if (target?.email) {
+      const locale = await resolveRecipientLocale(target.userLocale ?? null);
+      const userName = target.firstName ?? undefined;
+      if (result.bannedNow) {
+        await sendModerationBannedEmail({
+          to: target.email,
+          userName,
+          reason: args.reason,
+          sourceType: args.sourceType,
+          sourcePreview: args.sourcePreview,
+          locale,
+        });
+      } else {
+        await sendModerationStrikeReceivedEmail({
+          to: target.email,
+          userName,
+          strikeNumber: result.activeStrikesCount,
+          reason: args.reason,
+          sourceType: args.sourceType,
+          sourcePreview: args.sourcePreview,
+          locale,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[reports] strike email send failed:", err);
   }
 
   return {

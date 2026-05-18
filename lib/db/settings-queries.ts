@@ -89,6 +89,23 @@ export type SettingKey =
   | 'email_mfaadminreset_bcc'
   | 'email_mfaadminreset_body'
   | 'email_mfaadminreset_footer'
+  // Moderation strike received (1° o 2° strike, l'autore di un contenuto
+  // segnalato e accettato riceve avviso; ban automatico al 3°).
+  | 'email_modstrike_subject'
+  | 'email_modstrike_bcc'
+  | 'email_modstrike_body'
+  | 'email_modstrike_footer'
+  // Moderation banned (3° strike → soft ban automatico via trigger DB).
+  | 'email_modbanned_subject'
+  | 'email_modbanned_bcc'
+  | 'email_modbanned_body'
+  | 'email_modbanned_footer'
+  // Moderation strike revoked (un mod ha tolto uno strike — possibile
+  // anche il rientro dal ban se count torna sotto 3).
+  | 'email_modstrikerevoked_subject'
+  | 'email_modstrikerevoked_bcc'
+  | 'email_modstrikerevoked_body'
+  | 'email_modstrikerevoked_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -346,6 +363,18 @@ export type AppSettings = {
   email_mfaadminreset_bcc: string | null
   email_mfaadminreset_body: string | null
   email_mfaadminreset_footer: string | null
+  email_modstrike_subject: string | null
+  email_modstrike_bcc: string | null
+  email_modstrike_body: string | null
+  email_modstrike_footer: string | null
+  email_modbanned_subject: string | null
+  email_modbanned_bcc: string | null
+  email_modbanned_body: string | null
+  email_modbanned_footer: string | null
+  email_modstrikerevoked_subject: string | null
+  email_modstrikerevoked_bcc: string | null
+  email_modstrikerevoked_body: string | null
+  email_modstrikerevoked_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -547,6 +576,18 @@ const DEFAULTS: AppSettings = {
   email_mfaadminreset_bcc: null,
   email_mfaadminreset_body: null,
   email_mfaadminreset_footer: null,
+  email_modstrike_subject: null,
+  email_modstrike_bcc: null,
+  email_modstrike_body: null,
+  email_modstrike_footer: null,
+  email_modbanned_subject: null,
+  email_modbanned_bcc: null,
+  email_modbanned_body: null,
+  email_modbanned_footer: null,
+  email_modstrikerevoked_subject: null,
+  email_modstrikerevoked_bcc: null,
+  email_modstrikerevoked_body: null,
+  email_modstrikerevoked_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults
