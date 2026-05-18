@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-17";
+const REVIEWED_AT = "2026-05-18";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -88,6 +88,7 @@ const SCHEMA_DIAGRAM = `erDiagram
   posts ||--o{ posts_media : "has"
   posts ||--o{ posts_outbox : "emits"
   users ||--o{ posts_user_blocks : "blocks"
+  users ||--|| posts_user_preferences : "1:1"
   posts ||--o{ posts : "repost_of"
 `;
 
@@ -209,8 +210,8 @@ export default function PostsArchitecturePage() {
                 { name: "id",               type: "uuid v7",     note: "PK, ordinabile per tempo" },
                 { name: "author_id",        type: "uuid",        note: "FK users(id), ON DELETE CASCADE" },
                 { name: "body",             type: "text",        note: "max 1000 char (CHECK)" },
-                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Followers richiede modulo follows (non ancora attivo) → effettivamente oggi gate = autore" },
-                { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost" },
+                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Enforce viewer-side in getFeedIds (feed) e selectPostsCore(enforceVisibility:true) (embed target del repost — vedi Caveats §visibility leak fix). 'followers' richiede modulo follows: oggi temp. trattato come 'private' (viewer == author)" },
+                { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost (self-repost ammesso dal 2026-05-18)" },
                 { name: "deleted_at",       type: "timestamptz?", note: "soft delete (autore o admin)" },
                 { name: "deleted_by",       type: "varchar(40)?", note: "'author' | 'moderator', M_posts_006" },
                 { name: "reactions_*",      type: "integer × 5", note: "like, bullish, bearish, to_the_moon, dump — refactor M_posts_008" },
@@ -271,6 +272,17 @@ export default function PostsArchitecturePage() {
               columns={[
                 { name: "PK", type: "(blocker_id, blocked_id)" },
                 { name: "filtro feed", type: "SQL", note: "NOT EXISTS in entrambe le direzioni" },
+              ]}
+            />
+
+            <ArchSchemaTable
+              name="posts_user_preferences"
+              description="Sidecar 1:1 con users per preferenze del modulo (M_posts_009). Riga creata lazy on first set (assenza = default app). Oggi 1 sola preferenza: default_visibility (sticky cross-device per il Composer). Letta da NewPostButton via Server Action + SWR; aggiornata server-side da createPost e createQuoteRepost (best-effort, non blocca la create). Editabile in /settings/privacy → card Post."
+              columns={[
+                { name: "user_id",            type: "uuid",        note: "PK + FK users(id) ON DELETE CASCADE" },
+                { name: "default_visibility", type: "varchar(16)", note: "CHECK enum 4 valori; default 'public'" },
+                { name: "created_at",         type: "timestamptz", note: "default NOW()" },
+                { name: "updated_at",         type: "timestamptz", note: "bump via sql`NOW()` on conflict update" },
               ]}
             />
 
@@ -793,6 +805,18 @@ export default function PostsArchitecturePage() {
               description="Tabella block mutuale + indice per filtri feed"
             />
             <ArchFileLink
+              path="lib/db/migrations/M_posts_009_user_preferences.sql"
+              description="Sidecar 1:1 posts_user_preferences (default_visibility sticky)"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/preferences-actions.ts"
+              description="Server Actions get/set sticky default_visibility"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/components/PostsPrivacyPanel.tsx"
+              description="Radio list nella card Post di /settings/privacy"
+            />
+            <ArchFileLink
               path="components/modules/posts/FeedList.tsx"
               description="Infinite scroll con IntersectionObserver + scroll-parent root"
             />
@@ -869,6 +893,37 @@ export default function PostsArchitecturePage() {
               <code>useResetableListState</code> (auto-reset su prop
               change) + <code>key=&#123;filter&#125;</code> sul parent
               come belt + suspenders.
+            </li>
+            <li>
+              <strong>Visibility leak fix sul repost embed</strong> (2026-05-18):
+              il quote-poster sceglie la SUA visibility, ma l'embed del target
+              deve rispettare la visibility del TARGET. Prima del fix,
+              <code>selectPostsCore</code> in <code>queries.ts</code> hydratava
+              i target del repost senza visibility-gate (solo block check):
+              quoting un post <code>members</code> via un quote <code>public</code>
+              avrebbe leakato il body a viewer anonimi. Fix: opzione
+              <code>enforceVisibility</code> in <code>selectPostsCore</code>,
+              passata <code>true</code> dai target del repost in
+              <code>getPostsByIds</code>. I miss vengono classificati in
+              <code>repostOfTombstone.reason: 'deleted' | 'not_visible'</code>
+              via una query light secondaria; <strong>block-filtered</strong>
+              cade volutamente su <code>'deleted'</code> per non leakare la
+              relazione di block.
+            </li>
+            <li>
+              <strong>viewerCanSeeVisibility (SQL) ↔ viewerCanSeeVisibilityJS</strong>:
+              le due helper in <code>queries.ts</code> devono restare allineate.
+              La SQL filtra le row prima del fetch; la JS classifica i miss in
+              <code>'deleted'</code> vs <code>'not_visible'</code> usando la
+              query light secondaria. Se ne tocchi una, tocca anche l'altra
+              (commento inline lo ricorda).
+            </li>
+            <li>
+              <strong>Modulo follow inesistente → visibility 'followers' = 'private'</strong>:
+              finché non c'è la tabella follow, i due check (SQL e JS) trattano
+              <code>'followers'</code> come <code>'private'</code> (gate
+              <code>viewerUserId == authorId</code>). Quando il modulo arriva,
+              aggiungere il join in entrambe le funzioni.
             </li>
           </ul>
         </ArchSection>
