@@ -49,14 +49,8 @@ CREATE INDEX IF NOT EXISTS "idx_posts_reports_comment"
   ON "posts_reports" ("comment_id", "created_at" DESC)
   WHERE "comment_id" IS NOT NULL;
 
--- ── 5) Anti-doppione: stesso utente NON può segnalare 2 volte lo stesso
---      post (o lo stesso commento). Unique parziali per i 2 casi distinti.
---      Non aggiungiamo "AND status='open'": una segnalazione già reviewed
---      conta come "già fatta", l'utente non deve poter ri-fare flood.
-CREATE UNIQUE INDEX IF NOT EXISTS "uq_posts_reports_reporter_post"
-  ON "posts_reports" ("reporter_id", "post_id")
-  WHERE "post_id" IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS "uq_posts_reports_reporter_comment"
-  ON "posts_reports" ("reporter_id", "comment_id")
-  WHERE "comment_id" IS NOT NULL;
+-- ── 5) Anti-doppione: gli unique parziali (reporter_id × post_id e
+--      reporter_id × comment_id) sono creati da M_posts_011 perché su DB
+--      con dati pre-esistenti potrebbero esserci duplicati che vanno
+--      deduplicati prima di mettere il vincolo. Lascio il riferimento qui
+--      per scoperta: vedi M_posts_011_reports_dedup_unique.sql.
