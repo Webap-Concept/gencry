@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-18";
+const REVIEWED_AT = "2026-05-18 (mention-index)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -346,7 +346,7 @@ export default function PostsArchitecturePage() {
           id="caching"
           title="Strategia di caching"
           icon={Boxes}
-          intro="3 layer di caching coordinati. V1 = solo unstable_cache + revalidateTag. V2 (roadmap) = Upstash KV per feed hot.">
+          intro="4 layer di caching/indici coordinati. V1 = solo unstable_cache + revalidateTag. V2 (attivo) = Upstash KV per feed hot e per mention-index autocomplete.">
           <ol className="list-decimal pl-5 space-y-2">
             <li>
               <strong>Next unstable_cache</strong>: query DB read-only (coin
@@ -369,6 +369,21 @@ export default function PostsArchitecturePage() {
               <code>invalidateFeedCache(scope)</code> usa SCAN+DEL per
               pattern, chiamata sia su mutation post (create/edit/delete)
               sia su block/bookmark/admin-action.
+            </li>
+            <li>
+              <strong>mention-index (V2 Upstash sorted-set attivo)</strong>:
+              {" "}sorted-set globale <code>mention:users</code> (score 0,
+              member <code>username\\x01userId\\x01first\\x01last\\x01avatar</code>)
+              consumato dal popover di autocomplete @mention nei composer
+              (post + commenti). Search via <code>ZRANGEBYLEX</code>{" "}
+              <code>[prefix [prefix\\xff</code> in O(log N), ~5-10ms per
+              keystroke debounced. Sync via{" "}
+              <code>syncMentionMember(userId)</code> chiamato dai 4 punti
+              che creano/cambiano username (signup, staff-invite,
+              onboarding, settings profile). Lazy bootstrap al primo uso
+              con sentinel TTL 7d. Fallback DB ILIKE prefix se Upstash
+              non configurato. Admin rebuild via{" "}
+              <code>rebuildMentionIndexAction</code>.
             </li>
           </ol>
 
@@ -430,6 +445,12 @@ export default function PostsArchitecturePage() {
               description="getCachedFeedIds + invalidateFeedCache. Upstash KV namespace posts:feed:* TTL 60s. Cache-aside con fallback graceful (KV null/errore → DB diretto). Invalidation per scope strutturato via SCAN+DEL pattern."
               filePath="lib/modules/posts/services/feed-cache.ts"
               contract="getCachedFeedIds(key, fallback) → PostListPage"
+            />
+            <ArchHookBox
+              title="Mention index (V2 attivo)"
+              description="Sorted-set Upstash mention:users per l'autocomplete @mention nei composer. Search ZRANGEBYLEX in O(log N), ~5-10ms. Sync via syncMentionMember(userId) chiamato dai 4 punti che toccano username. Lazy bootstrap con sentinel TTL 7d. Fallback DB ILIKE se Upstash non configurato. Admin rebuild = 1 click."
+              filePath="lib/modules/posts/services/mention-index.ts"
+              contract="searchMentionPrefix({prefix, limit, excludeUserIds}) → MentionCandidate[]"
             />
             <ArchHookBox
               title="Media storage R2"
@@ -787,6 +808,18 @@ export default function PostsArchitecturePage() {
             <ArchFileLink
               path="lib/modules/posts/services/feed-cache.ts"
               description="Pattern cache-aside per liste post_id, V1 pass-through, V2 KV"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/services/mention-index.ts"
+              description="Upstash sorted-set per autocomplete @mention nei composer (ZRANGEBYLEX + sync hooks + lazy bootstrap)"
+            />
+            <ArchFileLink
+              path="lib/modules/posts/lib/use-mention-autocomplete.ts"
+              description="Hook React: caret parsing, debounce 200ms, abort, keyboard ↑↓/Enter/Tab/Esc"
+            />
+            <ArchFileLink
+              path="components/modules/posts/MentionPopover.tsx"
+              description="Popover presentazionale (avatar + handle + nome) ancorato sotto la textarea"
             />
             <ArchFileLink
               path="lib/modules/posts/ticker-preview-actions.ts"
