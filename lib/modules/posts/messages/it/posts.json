@@ -165,8 +165,8 @@
     }
   },
   "empty_states": {
-    "following_home_title": "Il tuo Feed è vuoto",
-    "following_home_description": "Qui vedrai i post delle persone che segui. Inizia a esplorare per trovare profili e contenuti che ti interessano.",
+    "following_home_title": "Il tuo Feed è ancora vuoto",
+    "following_home_description": "Appena seguirai qualcuno, i suoi post arriveranno qui. Fai un giro su Esplora: trovi profili attivi, ticker caldi e le discussioni del momento.",
     "following_home_cta": "Vai su Esplora",
     "explore_no_posts_title": "Nessun post da esplorare",
     "explore_no_posts_description": "Non c'è ancora niente di pubblico. Pubblica il primo post per dare il via.",
