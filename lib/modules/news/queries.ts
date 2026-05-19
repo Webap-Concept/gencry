@@ -13,6 +13,7 @@ import {
   mediaAssets,
   newsItems,
   newsSources,
+  pages,
   userProfiles,
   users,
   type NewNewsItem,
@@ -378,6 +379,125 @@ export async function getReviewerName(userId: string): Promise<string | null> {
     .limit(1);
   if (!row) return null;
   return row.username ?? row.email ?? null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Public listing helpers — usati da /news (listing pubblico). Query
+// dedicate che join-ano pages + news_items + media_assets per restituire
+// una shape pronta-per-render in un solo round-trip.
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface NewsCardData {
+  pageId: number;
+  slug: string;
+  title: string;
+  publishedAt: Date | null;
+  excerpt: string | null;
+  heroUrl: string | null;
+  category: string | null;
+}
+
+/**
+ * Parser comune per le row del join pages × news_items × media_assets.
+ * Estrae `excerpt` dai customFields della page (più affidabile della
+ * versione in news_items.generated_excerpt_it che resta storica).
+ */
+function rowToNewsCard(row: {
+  pageId: number;
+  slug: string;
+  title: string;
+  publishedAt: Date | null;
+  customFields: string | null;
+  heroUrl: string | null;
+  category: string | null;
+}): NewsCardData {
+  let excerpt: string | null = null;
+  try {
+    const parsed = JSON.parse(row.customFields ?? "{}") as Record<string, string>;
+    excerpt = parsed.excerpt ?? null;
+  } catch {
+    /* invalid JSON → no excerpt */
+  }
+  return {
+    pageId: row.pageId,
+    slug: row.slug,
+    title: row.title,
+    publishedAt: row.publishedAt,
+    excerpt,
+    heroUrl: row.heroUrl,
+    category: row.category,
+  };
+}
+
+/**
+ * Articoli pubblicati più recenti (per Hero picks, FeatureStory, Essays).
+ * Filtri: pages.page_type='news' AND pages.status='published'.
+ * Join opzionale su news_items per la categoria (l'articolo può esistere
+ * come page senza news_items match se creato a mano dall'admin).
+ */
+export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCardData[]> {
+  const rows = await db
+    .select({
+      pageId: pages.id,
+      slug: pages.slug,
+      title: pages.title,
+      publishedAt: pages.publishedAt,
+      customFields: pages.customFields,
+      heroUrl: mediaAssets.publicUrl,
+      category: newsItems.category,
+    })
+    .from(pages)
+    .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(
+      mediaAssets,
+      // Hero asset id is stored as string in pages.customFields.hero_image;
+      // qui ci appoggiamo a newsItems.heroAssetId che è la fonte canonica.
+      eq(mediaAssets.id, newsItems.heroAssetId),
+    )
+    .where(and(eq(pages.pageType, "news"), eq(pages.status, "published")))
+    .orderBy(desc(pages.publishedAt))
+    .limit(limit);
+
+  return rows.map(rowToNewsCard);
+}
+
+/**
+ * Articoli per gruppo di categorie. Usato dalle 3 colonne del listing
+ * (Mercati / Onchain / Guide ognuna mappa a più category enum del DB).
+ *
+ * NB: il filtro categoria è su news_items.category — se l'admin pubblica
+ * una page news a mano (senza passare dal modulo), non avrà categoria
+ * e NON apparirà in nessuna colonna. Atteso.
+ */
+export async function getNewsCardsByCategories(
+  categories: readonly string[],
+  limit: number,
+): Promise<NewsCardData[]> {
+  if (categories.length === 0) return [];
+  const rows = await db
+    .select({
+      pageId: pages.id,
+      slug: pages.slug,
+      title: pages.title,
+      publishedAt: pages.publishedAt,
+      customFields: pages.customFields,
+      heroUrl: mediaAssets.publicUrl,
+      category: newsItems.category,
+    })
+    .from(pages)
+    .innerJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(mediaAssets, eq(mediaAssets.id, newsItems.heroAssetId))
+    .where(
+      and(
+        eq(pages.pageType, "news"),
+        eq(pages.status, "published"),
+        inArray(newsItems.category, categories as string[]),
+      ),
+    )
+    .orderBy(desc(pages.publishedAt))
+    .limit(limit);
+
+  return rows.map(rowToNewsCard);
 }
 
 /**
