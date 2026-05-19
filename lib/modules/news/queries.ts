@@ -209,41 +209,52 @@ export async function listItemsWithRels(opts: ListItemsOpts = {}): Promise<NewsI
  * Pickup batch per il cron rewriter: prende N items pending_rewrite più
  * vecchi. Marca ai_attempt_count + 1 atomicamente per evitare double-pick
  * tra cron concorrenti.
+ *
+ * IMPORTANTE: usa il builder drizzle .update().returning() invece di raw
+ * SQL `RETURNING *` cast a NewsItem[]. Il cast raw NON fa il mapping
+ * snake_case → camelCase, quindi `item.sourceUrl` era undefined (la
+ * proprietà arrivava come `source_url`). Il builder mappa correttamente.
+ * Il subselect FOR UPDATE SKIP LOCKED resta in raw SQL perché drizzle
+ * non lo espone come API tipata.
  */
 export async function pickPendingRewriteBatch(batchSize: number): Promise<NewsItem[]> {
-  return db.execute(sql`
-    UPDATE news_items
-    SET ai_attempt_count = ai_attempt_count + 1,
-        updated_at = NOW()
-    WHERE id IN (
-      SELECT id FROM news_items
-      WHERE status = 'pending_rewrite'
-      ORDER BY created_at ASC
-      LIMIT ${batchSize}
-      FOR UPDATE SKIP LOCKED
+  return db
+    .update(newsItems)
+    .set({
+      aiAttemptCount: sql`${newsItems.aiAttemptCount} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      sql`${newsItems.id} IN (
+        SELECT id FROM news_items
+        WHERE status = 'pending_rewrite'
+        ORDER BY created_at ASC
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )`,
     )
-    RETURNING *;
-  `).then((res) => res as unknown as NewsItem[]);
+    .returning();
 }
 
 /**
  * Pickup degli items scheduled con due. Stesso pattern del rewriter:
- * SKIP LOCKED per concorrenza, status mosso atomicamente.
+ * SKIP LOCKED per concorrenza, builder drizzle per il mapping camelCase.
  */
 export async function pickDuePublishingBatch(batchSize: number): Promise<NewsItem[]> {
-  return db.execute(sql`
-    UPDATE news_items
-    SET updated_at = NOW()
-    WHERE id IN (
-      SELECT id FROM news_items
-      WHERE status = 'scheduled'
-        AND scheduled_publish_at <= NOW()
-      ORDER BY scheduled_publish_at ASC
-      LIMIT ${batchSize}
-      FOR UPDATE SKIP LOCKED
+  return db
+    .update(newsItems)
+    .set({ updatedAt: new Date() })
+    .where(
+      sql`${newsItems.id} IN (
+        SELECT id FROM news_items
+        WHERE status = 'scheduled'
+          AND scheduled_publish_at <= NOW()
+        ORDER BY scheduled_publish_at ASC
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )`,
     )
-    RETURNING *;
-  `).then((res) => res as unknown as NewsItem[]);
+    .returning();
 }
 
 export async function updateItem(
