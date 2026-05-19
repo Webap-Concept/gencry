@@ -18,7 +18,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { runTusUpload } from "@/lib/client/media-tus-upload";
+import { uploadToR2WithProgress } from "@/lib/client/media-r2-upload";
 import {
   confirmMediaUploadAction,
   createMediaUploadTicketAction,
@@ -427,11 +427,17 @@ function UploadTab({
         return;
       }
 
-      // Step 2: TUS PUT diretto al bucket (resumable + progress reali)
+      // Step 2: PUT diretto a R2 via presigned URL (XHR con progress reali)
       try {
-        await runTusUpload(file, ticket, {
-          onProgress: setProgress,
-        });
+        await uploadToR2WithProgress(
+          file,
+          {
+            uploadUrl: ticket.uploadUrl,
+            uploadHeaders: ticket.uploadHeaders,
+            contentType: ticket.contentType,
+          },
+          { onProgress: setProgress },
+        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : "upload_failed";
         setError(msg);

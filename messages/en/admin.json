@@ -963,6 +963,26 @@
         "savingButton": "Saving…",
         "testButton": "Test connection",
         "testingButton": "Testing…"
+      },
+      "r2Media": {
+        "title": "Media library bucket",
+        "description": "The CMS media library (uploads from /admin/content/media and the page editor) is stored on a dedicated R2 bucket. Egress on R2 is $0, which matters for public/SEO pages. When unconfigured, media uploads fail with an explicit error — there is no Supabase fallback.",
+        "statusConfigured": "Configured",
+        "statusNotConfigured": "Not configured",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "From the R2 token (Account API Token, scoped to this bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensitive. Leave the masked placeholder unchanged to keep the saved value.",
+        "bucketLabel": "Bucket name",
+        "bucketHint": "The bucket dedicated to the CMS media library (e.g. storage).",
+        "bucketPlaceholder": "storage",
+        "publicBaseLabel": "Public base URL",
+        "publicBaseHint": "Custom domain bound to the bucket (no trailing slash). Files become <base>/<storagePath>.",
+        "publicBasePlaceholder": "https://storage.example.com",
+        "saveButton": "Save credentials",
+        "savingButton": "Saving…",
+        "testButton": "Test connection",
+        "testingButton": "Testing…"
       }
     },
     "redis": {

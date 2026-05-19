@@ -3,6 +3,7 @@
 import { getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
 import { checkAvatarsR2Connection } from "@/lib/storage/r2-avatars";
+import { checkMediaR2Connection } from "@/lib/storage/r2-media";
 import {
   createConfigR2Client,
 } from "@/lib/config/snapshot-storage/r2";
@@ -257,6 +258,102 @@ export async function testAvatarR2(
     }
 
     const result = await checkAvatarsR2Connection({
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      publicBaseUrl: publicBase,
+    });
+
+    if (result.ok) {
+      return {
+        success: `R2 connection OK · bucket "${bucket}" reachable.`,
+        timestamp: Date.now(),
+      };
+    }
+
+    const message =
+      result.reason === "forbidden"
+        ? "Forbidden — the token does not have access to this bucket. Check Account ID, Access Key ID and Secret."
+        : result.reason === "not_found"
+          ? `Bucket "${bucket}" not found on this Cloudflare account.`
+          : result.reason === "network"
+            ? "Network error reaching the R2 endpoint. Check connectivity and Account ID."
+            : result.reason === "timeout"
+              ? "Timeout (10s) reaching R2. The endpoint did not respond in time."
+              : `Unexpected error${result.detail ? `: ${result.detail}` : ""}.`;
+
+    return { error: message, timestamp: Date.now() };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Test failed.";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// R2 storage — Media library bucket (CMS uploads).
+// Bucket dedicato per la media library del CMS core (/admin/content/media).
+// Token isolato dal bucket avatar/config per security per-bucket.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function saveMediaR2Settings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const accessKeyId  = ((formData.get("storage.media.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("storage.media.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("storage.media.r2.bucket")            as string) ?? "").trim();
+    const publicBase   = ((formData.get("storage.media.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    await updateAppSetting("storage.media.r2.access_key_id", accessKeyId || null);
+    if (secretRaw && secretRaw !== "********") {
+      await updateAppSetting("storage.media.r2.secret_access_key", secretRaw);
+    } else if (!secretRaw) {
+      await updateAppSetting("storage.media.r2.secret_access_key", null);
+    }
+    await updateAppSetting("storage.media.r2.bucket",          bucket     || null);
+    await updateAppSetting("storage.media.r2.public_base_url", publicBase || null);
+
+    revalidatePath(await getAdminPath("services-cloudflare"));
+    return { success: "Media R2 settings saved.", timestamp: Date.now() };
+  } catch {
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+export async function testMediaR2(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const settings = await getAppSettings();
+    const accountId = (settings["storage.r2.account_id"] ?? "").trim();
+    if (!accountId) {
+      return {
+        error: "Fill in and save the Cloudflare Account ID first.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const accessKeyId  = ((formData.get("storage.media.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("storage.media.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("storage.media.r2.bucket")            as string) ?? "").trim();
+    const publicBase   = ((formData.get("storage.media.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    let secretAccessKey = secretRaw;
+    if (!secretAccessKey || secretAccessKey === "********") {
+      secretAccessKey = (settings["storage.media.r2.secret_access_key"] ?? "").trim();
+    }
+
+    if (!accessKeyId || !secretAccessKey || !bucket || !publicBase) {
+      return {
+        error: "Fill in all 4 R2 fields (and save the secret at least once) before testing.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const result = await checkMediaR2Connection({
       accountId,
       accessKeyId,
       secretAccessKey,

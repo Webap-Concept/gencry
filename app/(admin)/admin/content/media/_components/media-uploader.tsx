@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
-import { runTusUpload } from "@/lib/client/media-tus-upload";
+import { uploadToR2WithProgress } from "@/lib/client/media-r2-upload";
 import {
   isAllowedMime,
   MEDIA_ALLOWED_MIMES,
@@ -67,12 +67,20 @@ export function MediaUploader({
       return { ok: false, error: ticket.error };
     }
 
-    // Step 2: TUS resumable PUT diretto al bucket
+    // Step 2: PUT diretto a R2 via presigned URL (XHR con progress)
     updateItem(item.id, { status: "uploading", progress: 0 });
     try {
-      await runTusUpload(file, ticket, {
-        onProgress: (percent) => updateItem(item.id, { progress: percent }),
-      });
+      await uploadToR2WithProgress(
+        file,
+        {
+          uploadUrl: ticket.uploadUrl,
+          uploadHeaders: ticket.uploadHeaders,
+          contentType: ticket.contentType,
+        },
+        {
+          onProgress: (percent) => updateItem(item.id, { progress: percent }),
+        },
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "upload_failed";
       updateItem(item.id, { status: "error", error: msg });
@@ -145,8 +153,8 @@ export function MediaUploader({
     let okCount = 0;
     let failCount = rejected.length;
     let firstError: string | null = rejected[0]?.reason ?? null;
-    // Serial: rispetta i limiti del browser (TUS apre comunque un POST per
-    // ogni upload), evita di saturare la connessione + dà progress chiaro.
+    // Serial: 1 PUT R2 alla volta. Evita di saturare la connessione + dà
+    // progress chiaro all'utente sulla coda.
     for (let i = 0; i < accepted.length; i++) {
       const item = newItems[i];
       const file = accepted[i];
@@ -253,9 +261,8 @@ export function MediaUploader({
 }
 
 /**
- * Overlay con progress per file, durante l'upload TUS. Sostituisce il
- * vecchio "loading…" generico — ora mostra % reale per ogni file in coda.
- * Blocca l'interazione finché tutti i file sono done/error.
+ * Overlay con progress per file durante l'upload R2. Mostra % reale per
+ * ogni file in coda. Blocca l'interazione finché tutti i file sono done/error.
  */
 function UploadOverlay({ items }: { items: FileItem[] }) {
   const t = useTranslations("admin.content.media.uploader");

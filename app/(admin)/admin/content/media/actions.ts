@@ -63,40 +63,42 @@ export type ActionState =
   | { success: string; timestamp: number }
   | { error: string; timestamp: number };
 
-// ─── Ticket-based upload (TUS resumable) ───────────────────────────────────
+// ─── Ticket-based upload (presigned PUT R2) ────────────────────────────────
 //
-// Vecchio flusso `uploadMediaAssets` (server action che riceveva i file)
-// rimosso: il body limit di Vercel (4.5MB hard cap su tutti i piani)
-// fermava qualunque file >4MB prima di arrivare alla nostra logica. Ora:
+// Vecchio flusso TUS Supabase rimosso (era a sua volta sostituzione del
+// flow body-limit-bound). Ora:
 //
 //   1. `createMediaUploadTicket` — server valida (mime + size + folder),
-//      genera storage_path, INSERT-a una riga draft (confirmed_at=NULL),
-//      minta un JWT short-lived per Supabase TUS, e ritorna il ticket.
-//   2. Client → `tus-js-client` PUT diretto al bucket `media`. Resumable
-//      su drop di rete, progress events reali (% completata).
-//   3. `confirmMediaUpload` — server verifica file presente nel bucket,
+//      genera storage key, INSERT-a una riga draft (confirmed_at=NULL),
+//      minta un presigned PUT R2 (5 min TTL), e ritorna il ticket.
+//   2. Client → fetch/XHR PUT diretto a R2 sull'uploadUrl con il file.
+//      Progress events via XHR upload.onprogress. Niente service-role
+//      lato browser: l'URL è scoped a UNA singola key per 5 min.
+//   3. `confirmMediaUpload` — server verifica file presente (HeadObject),
 //      sanitizza SVG in-place se necessario, e setta `confirmed_at`.
 //
 // Cleanup orphans: cron `media-orphan-cleanup` (vedi
 // `deleteUnconfirmedAssets` in lib/db/media-queries.ts) cancella draft
-// >24h non confermate. Configurabile in Supabase pg_cron.
+// >24h non confermate. Per file orfani su R2 (PUT riuscito ma confirm mai
+// chiamato), TODO post v1: cron che lista bucket e cancella key senza
+// riga DB corrispondente.
 
 export type MediaUploadTicketResult =
   | {
       ok: true;
       assetId: number;
       storagePath: string;
-      uploadToken: string;
-      endpoint: string;
-      bucketName: string;
+      uploadUrl: string;
+      uploadHeaders: Record<string, string>;
       contentType: string;
+      expiresAt: number;
     }
   | { ok: false; error: string };
 
 /**
- * Step 1: validazione server-side + creazione draft + JWT per TUS.
- * Il client non riceve mai service-role; il JWT è scoped al bucket
- * `media` con TTL 2 min (vedi `mintSupabaseUploadJwt`).
+ * Step 1: validazione server-side + creazione draft + presigned PUT R2.
+ * Il client riceve solo un URL temporaneo legato a una specifica key —
+ * niente credenziali R2 trasmesse al browser.
  */
 export async function createMediaUploadTicketAction(input: {
   filename: string;
@@ -132,8 +134,8 @@ export async function createMediaUploadTicketAction(input: {
       userId: user.id,
     });
 
-    // publicUrl è deterministica (getPublicUrl) — la salviamo subito sulla
-    // draft. Sarà valida non appena il file esiste fisicamente nel bucket.
+    // publicUrl deterministica (`<publicBaseUrl>/<storagePath>`): la salviamo
+    // subito nella draft, sarà valida non appena il PUT completa.
     const draft = await createDraftAsset({
       folderId: input.folderId,
       filename,
@@ -148,10 +150,10 @@ export async function createMediaUploadTicketAction(input: {
       ok: true,
       assetId: draft.id,
       storagePath: ticket.storagePath,
-      uploadToken: ticket.uploadToken,
-      endpoint: ticket.endpoint,
-      bucketName: ticket.bucketName,
+      uploadUrl: ticket.uploadUrl,
+      uploadHeaders: ticket.uploadHeaders,
       contentType: ticket.contentType,
+      expiresAt: ticket.expiresAt,
     };
   } catch (err) {
     console.error("[media] createMediaUploadTicketAction failed:", err);

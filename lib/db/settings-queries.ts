@@ -291,6 +291,11 @@ export type SettingKey =
   | 'storage.config.r2.access_key_id'
   | 'storage.config.r2.secret_access_key'
   | 'storage.config.r2.bucket'
+  // Media library bucket (CMS uploads — /admin/content/media, page editor).
+  | 'storage.media.r2.access_key_id'
+  | 'storage.media.r2.secret_access_key'
+  | 'storage.media.r2.bucket'
+  | 'storage.media.r2.public_base_url'
 
 export type AppSettings = {
   app_name: string
@@ -503,6 +508,10 @@ export type AppSettings = {
   'storage.config.r2.access_key_id': string | null
   'storage.config.r2.secret_access_key': string | null
   'storage.config.r2.bucket': string | null
+  'storage.media.r2.access_key_id': string | null
+  'storage.media.r2.secret_access_key': string | null
+  'storage.media.r2.bucket': string | null
+  'storage.media.r2.public_base_url': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -728,6 +737,14 @@ const DEFAULTS: AppSettings = {
   'storage.config.r2.access_key_id': null,
   'storage.config.r2.secret_access_key': null,
   'storage.config.r2.bucket': null,
+  // Media library R2 — bucket dedicato per gli upload del CMS
+  // (/admin/content/media + editor pagine). Egress R2 = $0, fondamentale
+  // per asset serviti su pagine pubbliche/SEO. Tutte e 5 le chiavi richieste
+  // per upload funzionante (no fallback Supabase).
+  'storage.media.r2.access_key_id': null,
+  'storage.media.r2.secret_access_key': null,
+  'storage.media.r2.bucket': null,
+  'storage.media.r2.public_base_url': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
