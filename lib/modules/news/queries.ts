@@ -501,6 +501,35 @@ export async function getNewsCardsByCategories(
 }
 
 /**
+ * Metadata per il rendering del singolo articolo (TemplateNews). Lookup
+ * via published_page_id sull'item che ha originato la page. Ritorna null
+ * se la page non proviene dal modulo news (es. articolo creato a mano
+ * dall'admin via /admin/content/pages senza passare dalla pipeline).
+ */
+export interface NewsArticleMetadata {
+  category: string | null;
+  sourcePublishedAt: Date | null;
+}
+
+export async function getNewsMetadataByPageId(
+  pageId: number,
+): Promise<NewsArticleMetadata | null> {
+  const [row] = await db
+    .select({
+      category: newsItems.category,
+      sourcePublishedAt: newsItems.sourcePublishedAt,
+    })
+    .from(newsItems)
+    .where(eq(newsItems.publishedPageId, pageId))
+    .limit(1);
+  if (!row) return null;
+  return {
+    category: row.category,
+    sourcePublishedAt: row.sourcePublishedAt,
+  };
+}
+
+/**
  * Cleanup helper (no cron in PR-1, ma utile da CLI in futuro): cancella
  * gli items rejected vecchi >N giorni per non far crescere indefinitamente
  * la tabella.
