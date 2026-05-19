@@ -1994,6 +1994,7 @@ export const newsSources = pgTable(
 );
 
 export const NEWS_ITEM_STATUSES = [
+  "proposed",
   "pending_rewrite",
   "review",
   "scheduled",

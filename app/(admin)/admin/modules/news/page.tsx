@@ -63,13 +63,46 @@ export default async function NewsOverviewPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <StatCard label="Pending rewrite" value={counts.pending_rewrite} accent />
-        <StatCard label="Review queue" value={counts.review} accent />
-        <StatCard label="Scheduled" value={counts.scheduled} />
-        <StatCard label="Published" value={counts.published} />
-        <StatCard label="Rejected" value={counts.rejected} muted />
-        <StatCard label="Failed" value={counts.failed} muted />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard
+          label="Proposed"
+          value={counts.proposed}
+          accent
+          href={`/${adminSlug}/modules/news/queue?status=proposed`}
+        />
+        <StatCard
+          label="Review queue"
+          value={counts.review}
+          accent
+          href={`/${adminSlug}/modules/news/queue?status=review`}
+        />
+        <StatCard
+          label="Pending rewrite"
+          value={counts.pending_rewrite}
+          href={`/${adminSlug}/modules/news/queue?status=pending_rewrite`}
+        />
+        <StatCard
+          label="Scheduled"
+          value={counts.scheduled}
+          href={`/${adminSlug}/modules/news/queue?status=scheduled`}
+        />
+        <StatCard
+          label="Published"
+          value={counts.published}
+          href={`/${adminSlug}/modules/news/queue?status=published`}
+        />
+        <StatCard
+          label="Rejected"
+          value={counts.rejected}
+          muted
+          href={`/${adminSlug}/modules/news/queue?status=rejected`}
+        />
+        <StatCard
+          label="Failed"
+          value={counts.failed}
+          muted
+          href={`/${adminSlug}/modules/news/queue?status=failed`}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -128,15 +161,17 @@ function StatCard({
   value,
   accent,
   muted,
+  href,
 }: {
   label: string;
   value: number;
   accent?: boolean;
   muted?: boolean;
+  href?: string;
 }) {
-  return (
+  const inner = (
     <div
-      className="rounded-lg p-4"
+      className="rounded-lg p-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
       style={{
         background: "var(--admin-card-bg)",
         border: `1px solid ${accent ? "var(--admin-accent)" : "var(--admin-card-border)"}`,
@@ -151,6 +186,8 @@ function StatCard({
       </p>
     </div>
   );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
 }
 
 function Card({

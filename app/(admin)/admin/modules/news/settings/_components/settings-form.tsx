@@ -77,6 +77,12 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             defaultValue={settings["modules.news.fetch_max_items_per_source"]}
             hint="Anti-overload cap per ingestion run"
           />
+          <NumberField
+            name="proposedRetentionDays"
+            label="Proposed retention (days)"
+            defaultValue={settings["modules.news.proposed_retention_days"]}
+            hint="Proposte non gestite auto-rigettate dopo N giorni (cleanup-proposed cron)"
+          />
           <SelectField
             name="aiModel"
             label="AI model"

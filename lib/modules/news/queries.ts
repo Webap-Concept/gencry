@@ -128,9 +128,12 @@ export async function markSourceError(id: string, error: string): Promise<void> 
 export async function insertItemIfNew(
   data: Omit<NewNewsItem, "id" | "createdAt" | "updatedAt" | "status">,
 ): Promise<NewsItem | null> {
+  // Default 'proposed': lo scraper raccoglie senza fetch body né LLM call.
+  // L'admin promuove a 'pending_rewrite' via approveItemAction quando vuole
+  // pubblicare quello specifico articolo. Risparmia ~90% sui costi LLM.
   const inserted = await db
     .insert(newsItems)
-    .values({ ...data, status: "pending_rewrite" })
+    .values({ ...data, status: "proposed" })
     .onConflictDoNothing({ target: newsItems.originalHash })
     .returning();
   return inserted[0] ?? null;
@@ -257,6 +260,7 @@ export async function updateItem(
 
 // Contatori per overview admin (dashboard).
 export interface NewsStatusCounts {
+  proposed: number;
   pending_rewrite: number;
   review: number;
   scheduled: number;
@@ -275,6 +279,7 @@ export async function getStatusCounts(): Promise<NewsStatusCounts> {
     .groupBy(newsItems.status);
 
   const out: NewsStatusCounts = {
+    proposed: 0,
     pending_rewrite: 0,
     review: 0,
     scheduled: 0,
@@ -288,6 +293,25 @@ export async function getStatusCounts(): Promise<NewsStatusCounts> {
     }
   }
   return out;
+}
+
+/**
+ * Auto-reject batch: usato dal cron cleanup-proposed. Sposta a 'rejected' i
+ * proposed più vecchi di cutoff. Ritorna il count.
+ */
+export async function autoRejectProposedOlderThan(cutoff: Date): Promise<number> {
+  const updated = await db
+    .update(newsItems)
+    .set({
+      status: "rejected",
+      rejectedReason: "Auto-rejected after retention window",
+      reviewedAt: new Date(),
+    })
+    .where(
+      and(eq(newsItems.status, "proposed"), lt(newsItems.createdAt, cutoff)),
+    )
+    .returning({ id: newsItems.id });
+  return updated.length;
 }
 
 /**

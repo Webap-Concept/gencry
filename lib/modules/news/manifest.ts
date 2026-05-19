@@ -59,6 +59,7 @@ const PIPELINE_CAPACITY: CapacityProfile = {
     { key: "modules.news.rewrite_max_attempts",     label: "Max tentativi LLM prima di fail" },
     { key: "modules.news.ai_model",                 label: "Modello Claude (Sonnet/Haiku)" },
     { key: "modules.news.fetch_max_items_per_source", label: "Max item ingeriti per fetch (per source)" },
+    { key: "modules.news.proposed_retention_days", label: "Proposte auto-rigettate dopo N giorni" },
   ],
   presets: [
     {
@@ -72,6 +73,7 @@ const PIPELINE_CAPACITY: CapacityProfile = {
         "modules.news.rewrite_max_attempts": "3",
         "modules.news.ai_model": "claude-sonnet-4-6",
         "modules.news.fetch_max_items_per_source": "10",
+        "modules.news.proposed_retention_days": "7",
       },
     },
     {
@@ -85,6 +87,7 @@ const PIPELINE_CAPACITY: CapacityProfile = {
         "modules.news.rewrite_max_attempts": "3",
         "modules.news.ai_model": "claude-sonnet-4-6",
         "modules.news.fetch_max_items_per_source": "15",
+        "modules.news.proposed_retention_days": "7",
       },
     },
     {
@@ -98,6 +101,7 @@ const PIPELINE_CAPACITY: CapacityProfile = {
         "modules.news.rewrite_max_attempts": "2",
         "modules.news.ai_model": "claude-sonnet-4-6",
         "modules.news.fetch_max_items_per_source": "25",
+        "modules.news.proposed_retention_days": "5",
       },
     },
     {
@@ -111,6 +115,7 @@ const PIPELINE_CAPACITY: CapacityProfile = {
         "modules.news.rewrite_max_attempts": "2",
         "modules.news.ai_model": "claude-haiku-4-5-20251001",
         "modules.news.fetch_max_items_per_source": "40",
+        "modules.news.proposed_retention_days": "3",
       },
     },
   ],
@@ -201,6 +206,16 @@ export const NEWS_MODULE: ModuleManifest = {
         "Picks scheduled items with scheduled_publish_at <= NOW(), creates a pages row (page_type='news', templateId=news template) wired via customFields (hero_image, excerpt). Marks status=published.",
       purpose:
         "Honors the admin scheduling decisions. Decoupled from review action so the admin can schedule far in advance.",
+    },
+    {
+      jobname: "modules-news-cleanup-proposed",
+      path: "/api/cron/modules/news/cleanup-proposed",
+      schedule: "0 3 * * *",
+      label: "News Cleanup Proposed",
+      description:
+        "Auto-rejects items left in 'proposed' status longer than modules.news.proposed_retention_days. Sets status='rejected' with a flagged rejected_reason. Daily at 03:00.",
+      purpose:
+        "Keeps the propose queue bounded: if the admin doesn't act on a proposal within the retention window, it expires automatically.",
     },
   ],
   capacityProfiles: [PIPELINE_CAPACITY],

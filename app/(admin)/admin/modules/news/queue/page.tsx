@@ -10,12 +10,15 @@ import {
   CalendarClock,
   FileText,
   RefreshCw,
+  Inbox,
 } from "lucide-react";
+import { ProposedRow } from "./_components/proposed-row";
 
 export const metadata: Metadata = { title: "News / Queue" };
 export const dynamic = "force-dynamic";
 
 const STATUS_FILTERS: Array<{ value: NewsItemStatus | "all"; label: string }> = [
+  { value: "proposed", label: "Proposed" },
   { value: "review", label: "Review" },
   { value: "pending_rewrite", label: "Pending rewrite" },
   { value: "scheduled", label: "Scheduled" },
@@ -31,7 +34,8 @@ export default async function NewsQueuePage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const filter = (STATUS_FILTERS.find((s) => s.value === status)?.value ?? "review") as
+  // Default landing = proposed (la prima cosa che l'admin deve approvare).
+  const filter = (STATUS_FILTERS.find((s) => s.value === status)?.value ?? "proposed") as
     | NewsItemStatus
     | "all";
 
@@ -63,15 +67,37 @@ export default async function NewsQueuePage({
         ))}
       </div>
 
+      {filter === "proposed" && items.length > 0 && (
+        <div
+          className="rounded-lg p-3 flex items-start gap-2 text-xs"
+          style={{
+            background: "color-mix(in srgb, var(--admin-accent) 6%, var(--admin-card-bg))",
+            border: "1px solid color-mix(in srgb, var(--admin-accent) 20%, transparent)",
+            color: "var(--admin-text-muted)",
+          }}
+        >
+          <Inbox size={14} className="shrink-0 mt-0.5" style={{ color: "var(--admin-accent)" }} />
+          <div>
+            <strong style={{ color: "var(--admin-text)" }}>Propose-first workflow</strong> — articoli
+            ingeriti dallo scraper, niente fetch body né chiamata LLM finché non clicchi <em>Approve</em>.
+            Quelli non gestiti entro la retention window vengono auto-rigettati.
+          </div>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="text-sm text-center py-12" style={{ color: "var(--admin-text-muted)" }}>
           No items in this status.
         </p>
       ) : (
         <div className="space-y-2">
-          {items.map((it) => (
-            <QueueRow key={it.id} item={it} adminSlug={adminSlug} />
-          ))}
+          {items.map((it) =>
+            filter === "proposed" ? (
+              <ProposedRow key={it.id} item={it} />
+            ) : (
+              <QueueRow key={it.id} item={it} adminSlug={adminSlug} />
+            ),
+          )}
         </div>
       )}
     </div>
@@ -80,6 +106,7 @@ export default async function NewsQueuePage({
 
 function statusBadge(status: NewsItemStatus) {
   const map: Record<NewsItemStatus, { color: string; icon: React.ReactNode; label: string }> = {
+    proposed:        { color: "var(--admin-accent)", icon: <Inbox size={12} />, label: "proposed" },
     pending_rewrite: { color: "#6b7280", icon: <RefreshCw size={12} />, label: "pending rewrite" },
     review:          { color: "var(--admin-accent)", icon: <FileText size={12} />, label: "review" },
     scheduled:       { color: "#0891b2", icon: <CalendarClock size={12} />, label: "scheduled" },

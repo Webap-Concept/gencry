@@ -146,6 +146,7 @@ const settingsSchema = z.object({
   rewriteMaxAttempts: z.coerce.number().int().min(1).max(10),
   aiModel: z.enum(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]),
   fetchMaxItemsPerSource: z.coerce.number().int().min(1).max(100),
+  proposedRetentionDays: z.coerce.number().int().min(1).max(60),
   anthropicApiKey: z.string().trim().optional(),
 });
 
@@ -161,6 +162,7 @@ export async function saveSettingsAction(
     rewriteMaxAttempts: formData.get("rewriteMaxAttempts"),
     aiModel: formData.get("aiModel"),
     fetchMaxItemsPerSource: formData.get("fetchMaxItemsPerSource"),
+    proposedRetentionDays: formData.get("proposedRetentionDays"),
     anthropicApiKey: formData.get("anthropicApiKey") ?? "",
   });
   if (!parsed.success) {
@@ -174,6 +176,7 @@ export async function saveSettingsAction(
   await updateAppSetting("modules.news.rewrite_max_attempts", String(data.rewriteMaxAttempts));
   await updateAppSetting("modules.news.ai_model", data.aiModel);
   await updateAppSetting("modules.news.fetch_max_items_per_source", String(data.fetchMaxItemsPerSource));
+  await updateAppSetting("modules.news.proposed_retention_days", String(data.proposedRetentionDays));
   // Sentinel "********" lascia invariato (pattern già usato nelle Cloudflare cards).
   const key = (data.anthropicApiKey ?? "").trim();
   if (key && key !== "********") {
@@ -280,6 +283,31 @@ export async function scheduleAction(
     reviewedAt: new Date(),
   });
   return { success: `Scheduled for ${when.toISOString()}`, timestamp: Date.now() };
+}
+
+/**
+ * Approve a proposed item: muove lo status a 'pending_rewrite' così il
+ * rewriter cron lo pickerà al prossimo run e farà fetch body + Claude.
+ * Solo da 'proposed' (no-op se già in altri stati).
+ */
+export async function approveItemAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireNewsPermission("modules:news.moderate");
+  const itemId = String(formData.get("itemId") ?? "");
+  if (!itemId) return { error: "Missing itemId", timestamp: Date.now() };
+  const item = await getItemById(itemId);
+  if (!item) return { error: "Item not found", timestamp: Date.now() };
+  if (item.status !== "proposed") {
+    return { error: `Cannot approve from status ${item.status}`, timestamp: Date.now() };
+  }
+  await updateItem(itemId, {
+    status: "pending_rewrite",
+    reviewedBy: user.id,
+    reviewedAt: new Date(),
+  });
+  return { success: "Item approved — queued for LLM rewrite.", timestamp: Date.now() };
 }
 
 export async function rejectAction(

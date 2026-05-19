@@ -489,6 +489,7 @@ function StatusPill({ status }: { status: NewsItemWithRels["status"] }) {
     NewsItemWithRels["status"],
     { color: string; label: string }
   > = {
+    proposed:        { color: "var(--admin-accent)", label: "proposed" },
     pending_rewrite: { color: "#6b7280", label: "pending rewrite" },
     review:          { color: "var(--admin-accent)", label: "review" },
     scheduled:       { color: "#0891b2", label: "scheduled" },

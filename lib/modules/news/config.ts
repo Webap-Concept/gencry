@@ -25,6 +25,9 @@ export interface NewsConfig {
   aiModel: NewsAiModel;
   /** Max items processati per source per fetch RSS (anti-overload). */
   fetchMaxItemsPerSource: number;
+  /** Auto-reject dei proposed più vecchi di N giorni. Cron `cleanup-proposed`
+   *  daily li sposta a status='rejected'. */
+  proposedRetentionDays: number;
   /** API key Anthropic. Null = pipeline rewriter disabilitata (gli items
    *  restano in pending_rewrite ma il cron non ha cosa chiamare). UI admin
    *  mostra warning. */
@@ -38,6 +41,7 @@ const DEFAULTS: NewsConfig = {
   rewriteMaxAttempts: 3,
   aiModel: "claude-sonnet-4-6",
   fetchMaxItemsPerSource: 10,
+  proposedRetentionDays: 7,
   anthropicApiKey: null,
 };
 
@@ -61,6 +65,7 @@ export async function getNewsConfig(): Promise<NewsConfig> {
     rewriteMaxAttempts:     toInt(s["modules.news.rewrite_max_attempts"], DEFAULTS.rewriteMaxAttempts),
     aiModel:                parseAiModel(s["modules.news.ai_model"]),
     fetchMaxItemsPerSource: toInt(s["modules.news.fetch_max_items_per_source"], DEFAULTS.fetchMaxItemsPerSource),
+    proposedRetentionDays:  toInt(s["modules.news.proposed_retention_days"], DEFAULTS.proposedRetentionDays),
     anthropicApiKey:        (s["modules.news.anthropic_api_key"] ?? "").trim() || null,
   };
 }
