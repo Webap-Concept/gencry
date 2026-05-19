@@ -84,7 +84,6 @@ export async function NewsTicker() {
               </span>
               <span className="news-tick-meta">
                 <span className="news-tick-sym">{c.symbol}</span>
-                <span className="news-tick-name">{c.name}</span>
               </span>
               <span className="news-tick-vals">
                 <span className="news-tick-price">{formatPrice(c.price)}</span>
