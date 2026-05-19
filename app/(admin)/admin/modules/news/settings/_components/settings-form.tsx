@@ -2,13 +2,19 @@
 
 import { AdminToast } from "@/app/(admin)/admin/_components/toast";
 import type { AppSettings } from "@/lib/db/settings-queries";
-import { Save, Loader2, Key } from "lucide-react";
+import { FileText, Key, Loader2, RotateCcw, Save } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { saveSettingsAction, type ActionState } from "../../actions";
 
 type ToastState = { message: string; type: "success" | "error" } | null;
 
-export function SettingsForm({ settings }: { settings: AppSettings }) {
+export function SettingsForm({
+  settings,
+  defaultSystemPrompt,
+}: {
+  settings: AppSettings;
+  defaultSystemPrompt: string;
+}) {
   const [toast, setToast] = useState<ToastState>(null);
   const [state, action, isPending] = useActionState<ActionState, FormData>(
     saveSettingsAction,
@@ -24,6 +30,12 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
   }, [state]);
 
   const apiKeyIsSet = Boolean(settings["modules.news.anthropic_api_key"]);
+
+  // System prompt: controllato come state locale così "Reset to default" e
+  // "Show default" funzionano senza ricaricare la pagina. Save legge da qui.
+  const savedSystemPrompt = settings["modules.news.system_prompt"] ?? "";
+  const [systemPrompt, setSystemPrompt] = useState<string>(savedSystemPrompt);
+  const usingDefault = systemPrompt.trim().length === 0;
 
   return (
     <>
@@ -126,6 +138,99 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
               color: "var(--admin-text)",
             }}
           />
+        </div>
+
+        <div className="pt-3 border-t" style={{ borderColor: "var(--admin-card-border)" }}>
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+            <div>
+              <h3
+                className="text-sm font-semibold flex items-center gap-2"
+                style={{ color: "var(--admin-text)" }}
+              >
+                <FileText size={14} style={{ color: "var(--admin-accent)" }} />
+                Rewrite system prompt
+              </h3>
+              <p className="text-xs mt-1" style={{ color: "var(--admin-text-muted)" }}>
+                Le istruzioni editoriali che Claude segue per ogni rewrite. È
+                prosa in italiano, non comandi. Lascia vuoto per usare il prompt
+                di default. NON toccare il blocco{" "}
+                <code>OUTPUT FORMAT</code> finale (lo schema JSON serve al parser
+                server-side).
+              </p>
+            </div>
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0"
+              style={{
+                background: usingDefault
+                  ? "color-mix(in srgb, var(--admin-text-faint) 15%, transparent)"
+                  : "color-mix(in srgb, var(--admin-accent) 15%, transparent)",
+                color: usingDefault ? "var(--admin-text-faint)" : "var(--admin-accent)",
+              }}
+            >
+              {usingDefault ? "Using default" : "Custom override"}
+            </span>
+          </div>
+
+          <textarea
+            name="systemPrompt"
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={20}
+            placeholder={defaultSystemPrompt}
+            spellCheck={false}
+            className="w-full px-3 py-2 rounded-lg text-xs font-mono"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: "var(--admin-text)",
+              lineHeight: 1.5,
+            }}
+          />
+
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setSystemPrompt(defaultSystemPrompt)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{
+                background: "var(--admin-hover-bg)",
+                color: "var(--admin-text)",
+                border: "1px solid var(--admin-card-border)",
+              }}
+              title="Carica il prompt di default nel textarea (poi puoi modificarlo)"
+            >
+              <FileText size={12} />
+              Show default
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  systemPrompt.trim().length > 0 &&
+                  !confirm("Ripristina il prompt di default? Le tue modifiche verranno perse al prossimo Save.")
+                ) {
+                  return;
+                }
+                setSystemPrompt("");
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{
+                background: "var(--admin-hover-bg)",
+                color: "var(--admin-text)",
+                border: "1px solid var(--admin-card-border)",
+              }}
+              title="Svuota il campo: al Save tornerà al default hardcoded"
+            >
+              <RotateCcw size={12} />
+              Reset to default
+            </button>
+            <span
+              className="text-[11px] self-center"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              {systemPrompt.length.toLocaleString()} char
+            </span>
+          </div>
         </div>
 
         <div>

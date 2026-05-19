@@ -26,6 +26,7 @@
 //
 import "server-only";
 
+import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { NewsAiModel } from "./config";
@@ -34,6 +35,19 @@ import { NEWS_CATEGORIES, type NewsCategory } from "./categories";
 export { NEWS_CATEGORIES, type NewsCategory };
 
 export const PROMPT_VERSION = "v1-2026-05-19";
+
+/**
+ * Calcola la versione del prompt da scrivere su news_items.ai_prompt_version.
+ * - Prompt = default hardcoded → ritorna PROMPT_VERSION (es. "v1-2026-05-19")
+ * - Prompt = custom override admin → "custom-<sha256[0..8]>" così cambi
+ *   successivi al prompt sono tracciabili senza salvare il prompt intero
+ *   in ogni riga.
+ */
+export function computePromptVersion(prompt: string): string {
+  if (prompt === DEFAULT_SYSTEM_PROMPT) return PROMPT_VERSION;
+  const hash = createHash("sha256").update(prompt).digest("hex").slice(0, 8);
+  return `custom-${hash}`;
+}
 
 // Cap input perché alcuni feed RSS includono articoli da 20k+ char. Per il
 // rewrite IT 4-6k char di source bastano abbondantemente; oltre paga senza
@@ -49,10 +63,13 @@ const MAX_OUTPUT_TOKENS = 1500;
 // senza dover trascinare l'SDK Anthropic nel bundle.
 
 // ──────────────────────────────────────────────────────────────────────────
-// System prompt — cached (ephemeral 5min). Modifiche qui = bump PROMPT_VERSION.
+// System prompt — cached (ephemeral 5min). L'admin può sovrascriverlo da
+// /admin/modules/news/settings (textarea). Modifiche qui (codice) =
+// bump PROMPT_VERSION; modifiche admin (DB) → ai_prompt_version diventa
+// `custom-<sha256short>` per item.
 // ──────────────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Sei un editor senior della rivista crypto italiana "GenerazioneCrypto".
+export const DEFAULT_SYSTEM_PROMPT = `Sei un editor senior della rivista crypto italiana "GenerazioneCrypto".
 
 OBIETTIVO: ricevi un articolo in lingua inglese da una fonte terza e produci un articolo italiano editoriale ORIGINALE che copre lo stesso argomento. NON è una traduzione: è una riscrittura giornalistica.
 
@@ -98,6 +115,10 @@ export interface RewriterInput {
   sourceUrl: string;  // solo per logging/error context, NON passato all'LLM
   model: NewsAiModel;
   apiKey: string;
+  /** System prompt override. Se omesso/null/vuoto, usa DEFAULT_SYSTEM_PROMPT
+   *  (quello hardcoded più sotto). Permette all'admin di modificare le
+   *  istruzioni editoriali da /admin/modules/news/settings senza deploy. */
+  systemPrompt?: string | null;
 }
 
 export interface RewriterSuccess {
@@ -195,6 +216,11 @@ export async function rewriteArticleToItalian(
 
   const client = new Anthropic({ apiKey: input.apiKey });
   const cleanedBody = sanitizeSourceBody(input.sourceBody);
+  const systemPrompt =
+    input.systemPrompt && input.systemPrompt.trim()
+      ? input.systemPrompt.trim()
+      : DEFAULT_SYSTEM_PROMPT;
+  const promptVersion = computePromptVersion(systemPrompt);
 
   if (cleanedBody.length < 100) {
     return {
@@ -224,9 +250,12 @@ Ora produci l'output JSON.`;
       system: [
         {
           type: "text",
-          text: SYSTEM_PROMPT,
+          text: systemPrompt,
           // Ephemeral cache: 5min TTL. Un batch di N items in <5min paga il
           // system prompt 1 volta sola → cache_read_input_tokens >> input.
+          // Cache key dipende dal contenuto del prompt: se cambi prompt
+          // da admin, la prima call paga full input ma quelle successive
+          // del batch beneficiano della nuova cache key.
           cache_control: { type: "ephemeral" },
         },
       ],
@@ -304,7 +333,7 @@ Ora produci l'output JSON.`;
       cacheReadTokens,
     }),
     model: response.model,
-    promptVersion: PROMPT_VERSION,
+    promptVersion,
     inputTokens,
     outputTokens,
     cacheReadTokens,

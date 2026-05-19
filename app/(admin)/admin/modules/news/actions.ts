@@ -148,6 +148,9 @@ const settingsSchema = z.object({
   fetchMaxItemsPerSource: z.coerce.number().int().min(1).max(100),
   proposedRetentionDays: z.coerce.number().int().min(1).max(60),
   anthropicApiKey: z.string().trim().optional(),
+  // System prompt: opzionale. Vuoto = reset al default hardcoded. Limite
+  // 50k char per safety (un prompt realistico è 1-5k).
+  systemPrompt: z.string().max(50_000).optional(),
 });
 
 export async function saveSettingsAction(
@@ -164,6 +167,7 @@ export async function saveSettingsAction(
     fetchMaxItemsPerSource: formData.get("fetchMaxItemsPerSource"),
     proposedRetentionDays: formData.get("proposedRetentionDays"),
     anthropicApiKey: formData.get("anthropicApiKey") ?? "",
+    systemPrompt: formData.get("systemPrompt") ?? "",
   });
   if (!parsed.success) {
     return { error: "Invalid: " + parsed.error.issues[0].message, timestamp: Date.now() };
@@ -184,6 +188,15 @@ export async function saveSettingsAction(
   } else if (!key) {
     await updateAppSetting("modules.news.anthropic_api_key", null);
   }
+
+  // System prompt override. Stringa vuota → null = reset al default
+  // hardcoded. Niente "********" sentinel qui: il prompt non è sensibile,
+  // l'admin lo vede in chiaro nella textarea.
+  const promptRaw = (data.systemPrompt ?? "").trim();
+  await updateAppSetting(
+    "modules.news.system_prompt",
+    promptRaw.length > 0 ? promptRaw : null,
+  );
 
   return { success: "News settings saved.", timestamp: Date.now() };
 }

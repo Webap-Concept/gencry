@@ -32,6 +32,9 @@ export interface NewsConfig {
    *  restano in pending_rewrite ma il cron non ha cosa chiamare). UI admin
    *  mostra warning. */
   anthropicApiKey: string | null;
+  /** System prompt override admin per il rewriter. Null/empty = usa il
+   *  DEFAULT_SYSTEM_PROMPT hardcoded in lib/modules/news/rewriter.ts. */
+  systemPrompt: string | null;
 }
 
 const DEFAULTS: NewsConfig = {
@@ -43,6 +46,7 @@ const DEFAULTS: NewsConfig = {
   fetchMaxItemsPerSource: 10,
   proposedRetentionDays: 7,
   anthropicApiKey: null,
+  systemPrompt: null,
 };
 
 function toInt(value: string | null | undefined, fallback: number): number {
@@ -67,6 +71,7 @@ export async function getNewsConfig(): Promise<NewsConfig> {
     fetchMaxItemsPerSource: toInt(s["modules.news.fetch_max_items_per_source"], DEFAULTS.fetchMaxItemsPerSource),
     proposedRetentionDays:  toInt(s["modules.news.proposed_retention_days"], DEFAULTS.proposedRetentionDays),
     anthropicApiKey:        (s["modules.news.anthropic_api_key"] ?? "").trim() || null,
+    systemPrompt:           (s["modules.news.system_prompt"] ?? "").trim() || null,
   };
 }
 

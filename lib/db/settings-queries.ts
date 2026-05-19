@@ -237,6 +237,7 @@ export type SettingKey =
   | 'modules.news.fetch_max_items_per_source'      // limit per fetch RSS (anti-overload)
   | 'modules.news.proposed_retention_days'         // auto-reject proposed > N gg (default 7)
   | 'modules.news.anthropic_api_key'               // segret API key Anthropic — NON ENV, app_settings
+  | 'modules.news.system_prompt'                   // override admin del prompt rewriter (null = default hardcoded)
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -518,6 +519,7 @@ export type AppSettings = {
   'modules.news.fetch_max_items_per_source': string
   'modules.news.proposed_retention_days': string
   'modules.news.anthropic_api_key': string | null
+  'modules.news.system_prompt': string | null
   'storage.r2.account_id': string | null
   'storage.avatar.r2.access_key_id': string | null
   'storage.avatar.r2.secret_access_key': string | null
@@ -719,6 +721,7 @@ const DEFAULTS: AppSettings = {
   'modules.news.fetch_max_items_per_source': '10',
   'modules.news.proposed_retention_days': '7',
   'modules.news.anthropic_api_key': null,
+  'modules.news.system_prompt': null,
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',
