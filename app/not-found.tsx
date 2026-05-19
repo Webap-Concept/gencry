@@ -17,9 +17,10 @@ const NOT_FOUND_SEO_PATHNAME = "/404";
 
 export async function generateMetadata(): Promise<Metadata> {
   // In pratica raramente invocato: i 404 da URL inesistenti passano per
-  // (cms)/[...slug]/page.tsx e i meta arrivano dal generateMetadata
-  // di QUEL handler. Lo teniamo defensive — se per qualche caso il
-  // framework lo chiama, vogliamo title valido e placeholder risolti.
+  // app/[locale]/page.tsx o app/[locale]/[...slug]/page.tsx (i fallback
+  // CMS) e i meta arrivano dal generateMetadata di QUEL handler. Lo
+  // teniamo defensive — se per qualche caso il framework lo chiama,
+  // vogliamo title valido e placeholder risolti.
   // Cached: bot/scanner martellano URL inesistenti ed ogni hit, prima,
   // bruciava 2 query DB. Con la cache (60s + revalidateTag su edit admin)
   // restano un cache hit a hit dopo il primo, evitando timeout sul pool
