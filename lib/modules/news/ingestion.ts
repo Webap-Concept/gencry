@@ -251,15 +251,31 @@ export type FetchArticleResult =
  * "fetch failed" generico.
  */
 export async function fetchArticleBody(url: string): Promise<FetchArticleResult> {
+  // Pre-validation: una sourceUrl malformata fa crashare undici con un
+  // TypeError opaco ("Cannot read properties of undefined…") prima ancora
+  // di iniziare il fetch. Validare con `new URL()` ci dà un errore
+  // attribuibile al chiamante.
+  if (!url || typeof url !== "string") {
+    return { ok: false, reason: "network", message: `invalid url (${typeof url})` };
+  }
+  try {
+    new URL(url);
+  } catch {
+    return { ok: false, reason: "network", message: `malformed url: ${url.slice(0, 120)}` };
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ARTICLE_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
+      // NIENTE Accept-Encoding manuale: undici (Node 22 / Next 16) lo
+      // gestisce internamente; impostarlo causa "Cannot read properties of
+      // undefined (reading 'toString')" su risposte brotli/gzip dove la
+      // negotiation interna conflitta col valore esplicito.
       headers: {
         "User-Agent": BROWSER_UA,
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
-        "Accept-Encoding": "gzip, deflate",
       },
       signal: controller.signal,
       cache: "no-store",
@@ -274,10 +290,20 @@ export async function fetchArticleBody(url: string): Promise<FetchArticleResult>
     if (err instanceof Error && err.name === "AbortError") {
       return { ok: false, reason: "timeout" };
     }
+    // Include il nome dell'errore + URL host per facilitare il debug
+    // dall'admin UI (ai_last_error mostra messaggio ma niente stack).
+    const name = err instanceof Error ? err.name : "Error";
+    const msg = err instanceof Error ? err.message : String(err);
+    let host = "";
+    try {
+      host = new URL(url).host;
+    } catch {
+      /* gestito sopra */
+    }
     return {
       ok: false,
       reason: "network",
-      message: err instanceof Error ? err.message : String(err),
+      message: host ? `${name} on ${host}: ${msg}` : `${name}: ${msg}`,
     };
   } finally {
     clearTimeout(timeout);
