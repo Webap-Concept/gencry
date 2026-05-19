@@ -2,7 +2,7 @@
 -- Module: News — 003 system page (/news listing — meta-only)
 -- =============================================================================
 -- Aggiunge la pagina di sistema `news` al CMS. La rotta `/news` è servita dal
--- page handler dedicato (app/(frontend)/news/page.tsx) che renderizza la grid
+-- page handler dedicato (app/(cms)/news/page.tsx) che renderizza la grid
 -- automatica degli articoli pubblicati — la system page in `pages` serve solo
 -- da container amministrativo per editare titolo + meta SEO da
 -- /admin/content/pages.
@@ -44,7 +44,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- ── 2) Meta SEO predefiniti per /news ─────────────────────────────────────
 -- L'admin li modifica da /admin/content/pages selezionando la system page
 -- "News" (oppure direttamente da /admin/seo/meta-tags). Il page handler in
--- app/(frontend)/news/page.tsx fa già `getCachedSeoPage('/news', locale)`,
+-- app/(cms)/news/page.tsx fa già `getCachedSeoPage('/news', locale)`,
 -- quindi i valori qui prendono effetto subito dopo l'esecuzione.
 INSERT INTO seo_pages (
   pathname,

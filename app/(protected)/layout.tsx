@@ -13,7 +13,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { PolicyReconsentSlot } from "./_components/policy-reconsent-slot";
-import "@/app/(frontend)/frontend.css";
+import "@/app/(cms)/frontend.css";
 
 const MFA_SECURITY_PATH = "/settings/security";
 
@@ -41,7 +41,7 @@ export default async function Layout({
     // Guest sulla `/` → landing coming-soon. Niente shell loggata, ma
     // includiamo il footer pubblico così visitatori anonimi hanno accesso
     // ai link legali e al bottone "Preferenze cookie" senza dover
-    // accedere a (frontend)/(login).
+    // accedere a (cms)/(login).
     return (
       <div className="flex min-h-[100dvh] flex-col">
         <div className="flex-1">{children}</div>

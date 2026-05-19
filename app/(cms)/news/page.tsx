@@ -1,6 +1,6 @@
-// app/(frontend)/news/page.tsx
+// app/(cms)/news/page.tsx
 //
-// Listing pubblico /news. Sta in (frontend)/ → eredita il layout
+// Listing pubblico /news. Sta in (cms)/ → eredita il layout
 // pubblico fisso (PublicHeader auth-aware + AppRightRail + PublicFooter).
 // Stessa "vestita" per loggato e anonimo: cambia solo l'angolo destro
 // dell'header (Accedi/Iscriviti vs avatar + "Apri l'app").

@@ -1144,7 +1144,7 @@ export default function PageEditor({
         .tiptap-editor blockquote[data-style="quoted"]::after { content: "\\201D"; position: absolute; right: 0; bottom: -0.6em; font-size: 3em; line-height: 1; color: var(--admin-accent); opacity: 0.5; font-family: Georgia, serif; }
         .tiptap-editor strong { font-weight: 700; }
         /* Editor ↔ frontend WYSIWYG: stessi data-align/float usati in
-           (frontend)/frontend.css. Così quando l'admin imposta align=left,
+           (cms)/frontend.css. Così quando l'admin imposta align=left,
            il testo del paragrafo successivo si avvolge a destra anche
            DENTRO l'editor — niente più discrepanza visiva con il render
            finale online. Niente media query mobile (l'editor è desktop). */

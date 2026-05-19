@@ -9,7 +9,7 @@
 // Caveat:
 //   - Slug pattern: `news/<yyyy-mm-dd>-<slug-from-title>`. Pre-fissato così
 //     da escludere collisioni con altre user pages (lo slug `news` resta
-//     libero per la listing handcrafted in /app/(frontend)/news/page.tsx).
+//     libero per la listing handcrafted in /app/(cms)/news/page.tsx).
 //   - customFields salvati come JSON string (schema pages.custom_fields è
 //     text default '{}', il parser CMS lo decodifica con safe try/catch).
 //   - Hero asset obbligatorio: se manca, ritorna errore. Validato qui
@@ -55,7 +55,7 @@ async function getNewsTemplateId(): Promise<number | null> {
  *   news/<yyyy-mm-dd>-<slug-from-title>
  *
  * Il prefix `news/` resta riservato (la pagina di listing vive su `/news`
- * gestita da un page handler dedicato in app/(frontend)/news/page.tsx).
+ * gestita da un page handler dedicato in app/(cms)/news/page.tsx).
  */
 function buildNewsSlug(title: string, publishedAt: Date): string {
   const date = publishedAt.toISOString().slice(0, 10);

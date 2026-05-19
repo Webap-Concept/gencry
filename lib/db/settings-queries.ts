@@ -839,7 +839,7 @@ export const getAppSettings = cache(getAppSettingsImpl);
 /**
  * "Non bloccante" variant of getAppSettings for public-facing call
  * sites where a transient DB error should NOT translate into a 500:
- * the CMS catch-all router (app/(frontend)/_render/cms-page.tsx) is
+ * the CMS catch-all router (app/(cms)/_render/cms-page.tsx) is
  * the main consumer — losing the appName for one render is not great
  * but is much better than 500 in front of unauthenticated visitors.
  *

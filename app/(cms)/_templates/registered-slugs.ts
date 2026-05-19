@@ -1,7 +1,7 @@
 import { GENERATED_TEMPLATE_MAP } from "./index.generated";
 
 /**
- * Slug per cui esiste un componente React in app/(frontend)/_templates.
+ * Slug per cui esiste un componente React in app/(cms)/_templates.
  * "default" è sempre disponibile (TemplateDefault è il fallback hardcoded).
  *
  * Usato dall'admin per segnalare i template DB privi di componente,

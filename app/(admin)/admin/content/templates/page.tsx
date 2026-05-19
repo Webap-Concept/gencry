@@ -1,4 +1,4 @@
-import { isTemplateSlugRegistered } from "@/app/(frontend)/_templates/registered-slugs";
+import { isTemplateSlugRegistered } from "@/app/(cms)/_templates/registered-slugs";
 import { getAdminPath } from "@/lib/admin-paths";
 import { getAllTemplatesWithPageCount } from "@/lib/db/template-queries";
 import { AlertTriangle, Copy, PanelTop, Plus } from "lucide-react";

@@ -2,8 +2,8 @@
 /**
  * scripts/generate-templates.ts
  *
- * Scansiona app/(frontend)/_templates/Template*.tsx e genera
- * app/(frontend)/_templates/index.generated.ts con:
+ * Scansiona app/(cms)/_templates/Template*.tsx e genera
+ * app/(cms)/_templates/index.generated.ts con:
  *   - import statici (richiesti da Turbopack/webpack)
  *   - mappa slug -> componente derivata dal nome file
  *
@@ -20,7 +20,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEMPLATES_DIR = join(__dirname, "../app/(frontend)/_templates");
+const TEMPLATES_DIR = join(__dirname, "../app/(cms)/_templates");
 const OUTPUT_FILE = join(TEMPLATES_DIR, "index.generated.ts");
 
 /**

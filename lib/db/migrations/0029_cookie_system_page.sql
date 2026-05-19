@@ -9,7 +9,7 @@
 -- Stato iniziale: 'draft'. L'admin DEVE aprire la pagina in
 -- /admin/content/pages, completare il testo e pubblicarla prima di
 -- abilitare il banner (altrimenti il link "Maggiori informazioni"
--- punterebbe a una rotta che ritorna 404, dato che app/(frontend)/[...slug]
+-- punterebbe a una rotta che ritorna 404, dato che app/(cms)/[...slug]
 -- serve solo le pagine con status='published').
 
 INSERT INTO "pages" (

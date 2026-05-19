@@ -70,7 +70,7 @@ export default function GlobalError({
   }
 
   return (
-    // I token `--brand-*` vivono in (frontend)/frontend.css, fuori scope
+    // I token `--brand-*` vivono in (cms)/frontend.css, fuori scope
     // qui (root error boundary, può scattare in admin/login/frontend).
     // Usiamo colori hardcoded così la pagina è sempre visibile.
     <div className="min-h-dvh flex items-center justify-center px-4 bg-[#f5f0e8]">

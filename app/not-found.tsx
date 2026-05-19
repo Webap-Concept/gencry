@@ -17,7 +17,7 @@ const NOT_FOUND_SEO_PATHNAME = "/404";
 
 export async function generateMetadata(): Promise<Metadata> {
   // In pratica raramente invocato: i 404 da URL inesistenti passano per
-  // (frontend)/[...slug]/page.tsx e i meta arrivano dal generateMetadata
+  // (cms)/[...slug]/page.tsx e i meta arrivano dal generateMetadata
   // di QUEL handler. Lo teniamo defensive — se per qualche caso il
   // framework lo chiama, vogliamo title valido e placeholder risolti.
   // Cached: bot/scanner martellano URL inesistenti ed ogni hit, prima,
@@ -47,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // Fallback per URL totalmente fuori dai groups. Renderizzato dal solo
 // root layout: niente frontend.css, quindi i token gc-* sono undefined
 // e lo shell ricade sui colori di base. Per le 404 generate dentro
-// `(frontend)` il file dedicato `app/(frontend)/not-found.tsx` prende
+// `(cms)` il file dedicato `app/(cms)/not-found.tsx` prende
 // la precedenza e produce il rendering completo.
 export default async function NotFound() {
   return <NotFoundShell />;

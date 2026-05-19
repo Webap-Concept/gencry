@@ -8,9 +8,9 @@ import { setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 // Reset/typography per CMS templates (.tpl-*). Era ereditato dal vecchio
-// (frontend)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
+// (cms)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
 // va caricato a questo livello. Vedi project_frontend_css_split.md.
-import "@/app/(frontend)/frontend.css";
+import "@/app/(cms)/frontend.css";
 
 /**
  * Layout outer per le rotte con primo segment dinamico (`/<x>` o `/<x>/...`).
@@ -23,7 +23,7 @@ import "@/app/(frontend)/frontend.css";
  *
  *   2. `<x>` NON è un locale conosciuto (es. `/privacy`, `/blog/post-1`):
  *      Next.js matcha questo route group perché ha priorità sul catch-all
- *      `(frontend)/[...slug]`. I page handler `[locale]/page.tsx` e
+ *      `(cms)/[...slug]`. I page handler `[locale]/page.tsx` e
  *      `[locale]/[...slug]/page.tsx` fanno fallback al rendering CMS
  *      trattando `<x>` come parte dello slug.
  *

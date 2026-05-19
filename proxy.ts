@@ -154,7 +154,7 @@ export async function proxy(request: NextRequest) {
           const fallback = request.nextUrl.clone();
           // Path con underscore-prefix: il CMS catch-all `[...slug]` non
           // troverà mai un page con questo slug → notFound() → renderizza
-          // `(frontend)/not-found.tsx` con frontend.css caricato.
+          // `(cms)/not-found.tsx` con frontend.css caricato.
           fallback.pathname = "/__ip-blocked";
           fallback.search = "";
           return NextResponse.rewrite(fallback);

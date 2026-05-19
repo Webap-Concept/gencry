@@ -7,7 +7,7 @@ import { userProfiles } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
 
 /**
- * Header chrome unica per tutte le pagine in `(frontend)/` (CMS catch-all
+ * Header chrome unica per tutte le pagine in `(cms)/` (CMS catch-all
  * + listing news). Auth-aware lato server:
  *   - anonimo → bottoni "Accedi" + "Iscriviti"
  *   - loggato → avatar + link "Apri l'app" (porta a `/feed`)

@@ -9,7 +9,7 @@
  *
  * Caricamento: il renderer CmsPage emette un <link rel="stylesheet"
  * href="/api/cms/styles.css"> server-side, così il file è incluso solo
- * sulle pagine CMS effettive (non sul layout (frontend) che ospita anche
+ * sulle pagine CMS effettive (non sul layout (cms) che ospita anche
  * footer cookie / 404 / landing).
  *
  * Cache: HTTP `Cache-Control public, max-age=300, swr=60` per ridurre
