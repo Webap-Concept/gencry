@@ -319,9 +319,13 @@ export const SYSTEM_PAGE_KEYS = [
   // - "home" → "/" (slug vuoto), servita dal page handler della homepage
   // - "admin_home" → "/admin", landing del pannello admin
   // - "admin_sign_in" → "/admin/sign-in", login admin (vedi ADMIN_SIGNIN_ROUTE)
+  // - "news" → "/news", listing del blog (servito da app/(frontend)/news/page.tsx).
+  //   Content auto-generato (grid degli articoli pubblicati), l'admin gestisce
+  //   solo titolo + meta SEO via /admin/content/pages.
   "home",
   "admin_home",
   "admin_sign_in",
+  "news",
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
