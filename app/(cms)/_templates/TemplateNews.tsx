@@ -45,7 +45,6 @@ function formatItDateUpper(d: Date): string {
 
 const AUTHOR_NAME = "Redazione";
 const AUTHOR_ROLE = "GenerazioneCrypto";
-const DIFFICULTY_LABEL = "INTERMEDIA"; // mock V1 — diventerà campo template futuro
 
 export async function TemplateNews({ page, fields }: TemplateProps) {
   // `fields.hero_image` è già stato risolto da resolveMediaFields (URL R2
@@ -96,10 +95,6 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
             <span>
               <span className="news-article-meta-key">Lettura</span>{" "}
               <strong>{readingMin} min</strong>
-            </span>
-            <span>
-              <span className="news-article-meta-key">Difficoltà</span>{" "}
-              <strong>{DIFFICULTY_LABEL}</strong>
             </span>
           </div>
         </div>
