@@ -1963,3 +1963,80 @@ export type NewMediaFolder = typeof mediaFolders.$inferInsert;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NewMediaAsset = typeof mediaAssets.$inferInsert;
 export type IpRule = typeof ipRules.$inferSelect;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Module: News (curated content pipeline)
+// Vedi M_news_001_init.sql per schema completo + razionale.
+// ──────────────────────────────────────────────────────────────────────────
+
+export const newsSources = pgTable(
+  "news_sources",
+  {
+    id:             uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    name:           varchar("name", { length: 100 }).notNull(),
+    feedUrl:        text("feed_url").notNull(),
+    feedType:       varchar("feed_type", { length: 16 }).notNull().default("rss").$type<"rss" | "atom">(),
+    active:         boolean("active").notNull().default(true),
+    weight:         integer("weight").notNull().default(1),
+    lastFetchedAt:  timestamp("last_fetched_at", { withTimezone: true }),
+    lastEtag:       text("last_etag"),
+    lastModified:   text("last_modified"),
+    errorCount:     integer("error_count").notNull().default(0),
+    lastError:      text("last_error"),
+    lastErrorAt:    timestamp("last_error_at", { withTimezone: true }),
+    createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const NEWS_ITEM_STATUSES = [
+  "pending_rewrite",
+  "review",
+  "scheduled",
+  "published",
+  "rejected",
+  "failed",
+] as const;
+export type NewsItemStatus = (typeof NEWS_ITEM_STATUSES)[number];
+
+export const newsItems = pgTable(
+  "news_items",
+  {
+    id:                  uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    sourceId:            uuid("source_id").references(() => newsSources.id, { onDelete: "set null" }),
+    sourceUrl:           text("source_url").notNull(),
+    sourceTitle:         text("source_title").notNull(),
+    sourceExcerpt:       text("source_excerpt"),
+    sourcePublishedAt:   timestamp("source_published_at", { withTimezone: true }),
+    originalHash:        varchar("original_hash", { length: 64 }).notNull().unique(),
+    generatedTitleIt:    text("generated_title_it"),
+    generatedBodyItMd:   text("generated_body_it_md"),
+    generatedExcerptIt:  text("generated_excerpt_it"),
+    category:            varchar("category", { length: 40 }),
+    heroAssetId:         integer("hero_asset_id").references(() => mediaAssets.id, { onDelete: "set null" }),
+    status:              varchar("status", { length: 20 }).notNull().default("pending_rewrite").$type<NewsItemStatus>(),
+    scheduledPublishAt:  timestamp("scheduled_publish_at", { withTimezone: true }),
+    publishedAt:         timestamp("published_at", { withTimezone: true }),
+    publishedPageId:     integer("published_page_id").references(() => pages.id, { onDelete: "set null" }),
+    reviewedBy:          uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt:          timestamp("reviewed_at", { withTimezone: true }),
+    rejectedReason:      text("rejected_reason"),
+    editsCount:          integer("edits_count").notNull().default(0),
+    aiModel:             varchar("ai_model", { length: 60 }),
+    aiPromptVersion:     varchar("ai_prompt_version", { length: 20 }),
+    aiCostCents:         integer("ai_cost_cents").notNull().default(0),
+    aiAttemptCount:      integer("ai_attempt_count").notNull().default(0),
+    aiLastError:         text("ai_last_error"),
+    createdAt:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:           timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_news_items_status_created").on(t.status, t.createdAt),
+    index("idx_news_items_source").on(t.sourceId, t.createdAt),
+  ],
+);
+
+export type NewsSource    = typeof newsSources.$inferSelect;
+export type NewNewsSource = typeof newsSources.$inferInsert;
+export type NewsItem      = typeof newsItems.$inferSelect;
+export type NewNewsItem   = typeof newsItems.$inferInsert;
