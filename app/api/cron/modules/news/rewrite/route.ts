@@ -67,29 +67,41 @@ async function runRewrite() {
 
   for (const item of items) {
     try {
-      // 1. Fetch del body completo dall'URL della fonte. Se 404/timeout,
-      //    fallback al source_excerpt (che è sempre presente nel feed).
-      const html = await fetchArticleBody(item.sourceUrl);
-      const bodyForRewrite = html ?? item.sourceExcerpt ?? "";
+      // 1. Fetch del body completo dall'URL della fonte. Se fallisce
+      //    (403 bot detection, 404, timeout, network), fallback al
+      //    source_excerpt RSS prima di scartare l'item.
+      const fetched = await fetchArticleBody(item.sourceUrl);
+      const fetchDetail = fetched.ok
+        ? null
+        : fetched.reason === "http"
+        ? `fetch HTTP ${fetched.status}`
+        : fetched.reason === "timeout"
+        ? "fetch timeout"
+        : `fetch network: ${fetched.message.slice(0, 200)}`;
+
+      const bodyForRewrite =
+        (fetched.ok ? fetched.html : null) ?? item.sourceExcerpt ?? "";
 
       if (!bodyForRewrite || bodyForRewrite.length < 200) {
         // Body troppo corto: non possiamo rewriteare un articolo da niente.
         // Se siamo entro retry attempts, lascia pending; sennò failed.
+        const detail =
+          fetchDetail
+            ? `${fetchDetail}; excerpt ${item.sourceExcerpt?.length ?? 0} chars`
+            : `body too short (${bodyForRewrite.length} chars)`;
         if (item.aiAttemptCount >= cfg.rewriteMaxAttempts) {
           await updateItem(item.id, {
             status: "failed",
-            aiLastError: "Source body too short or unfetchable",
+            aiLastError: `Max attempts reached: ${detail}`,
           });
-          results.push({ id: item.id, status: "failed", error: "no_body_max_attempts" });
+          results.push({ id: item.id, status: "failed", error: `no_body: ${detail}` });
         } else {
-          // Rollback dello status (lo lasciamo pending_rewrite per retry).
-          await updateItem(item.id, {
-            aiLastError: "Source body fetch failed, will retry",
-          });
           // ai_attempt_count è già stato bumped da pickPendingRewriteBatch.
-          // Per "ripristinare" lo status pending_rewrite serve un UPDATE
-          // esplicito (pickPendingRewriteBatch NON cambia lo status).
-          results.push({ id: item.id, status: "no_body" });
+          // Status resta pending_rewrite per retry al prossimo cron.
+          await updateItem(item.id, {
+            aiLastError: `Will retry: ${detail}`,
+          });
+          results.push({ id: item.id, status: "no_body", error: detail });
         }
         continue;
       }

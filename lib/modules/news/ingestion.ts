@@ -228,29 +228,57 @@ export async function ingestSource(
 
 const ARTICLE_FETCH_TIMEOUT_MS = 12_000;
 
+// User-Agent browser-like: Coindesk, Cointelegraph, Decrypt e in generale
+// le testate crypto hanno Cloudflare/Akamai/altri WAF davanti e bloccano
+// con 403 qualunque UA "bot-like" (anche un UA custom innocuo come
+// "Acme-Reader/1.0"). Usare un UA Chrome corrente è la prassi di tutti i
+// reader feed (Feedly, Inoreader, ecc.) e funziona out of the box.
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+export type FetchArticleResult =
+  | { ok: true; html: string }
+  | { ok: false; reason: "http"; status: number }
+  | { ok: false; reason: "timeout" }
+  | { ok: false; reason: "network"; message: string };
+
 /**
  * Scarica il body HTML di un articolo dato il suo URL. Strip è demandato al
- * rewriter (sanitizeSourceBody in rewriter.ts). Ritorna null se 404/timeout/
- * non-200.
+ * rewriter (sanitizeSourceBody in rewriter.ts). Ritorna un risultato
+ * discriminato così il chiamante può loggare il vero motivo del fail
+ * (403 da bot detection, 404, timeout, network) invece di vedere solo
+ * "fetch failed" generico.
  */
-export async function fetchArticleBody(url: string): Promise<string | null> {
+export async function fetchArticleBody(url: string): Promise<FetchArticleResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ARTICLE_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "GenerazioneCrypto-News-Ingestion/1.0",
-        Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
+        "User-Agent": BROWSER_UA,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
+        "Accept-Encoding": "gzip, deflate",
       },
       signal: controller.signal,
       cache: "no-store",
       redirect: "follow",
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { ok: false, reason: "http", status: res.status };
+    }
     const html = await res.text();
-    return html;
-  } catch {
-    return null;
+    return { ok: true, html };
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, reason: "timeout" };
+    }
+    return {
+      ok: false,
+      reason: "network",
+      message: err instanceof Error ? err.message : String(err),
+    };
   } finally {
     clearTimeout(timeout);
   }
