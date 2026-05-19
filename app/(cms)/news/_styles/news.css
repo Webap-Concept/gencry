@@ -24,8 +24,16 @@
 @media (max-width: 700px) { .news-container { padding: 0 18px; } }
 
 /* ============ TICKER ============ */
+/* Sticky sotto il PublicHeader (h-20 = 80px, z-30). z-index 20 < 30
+   così l'header resta sopra al ticker, e backdrop-blur dà profondità
+   quando il contenuto sotto scorre. */
 .news-ticker {
-  background: var(--gc-bg-2);
+  position: sticky;
+  top: 80px;
+  z-index: 20;
+  background: color-mix(in srgb, var(--gc-bg-2) 92%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--gc-line);
 }
 .news-ticker-inner {
