@@ -110,8 +110,8 @@
 
 .news-hero-title {
   font-family: var(--gc-display); font-weight: 400;
-  font-size: clamp(56px, 8vw, 132px);
-  line-height: 0.92; letter-spacing: -0.025em;
+  font-size: clamp(40px, 5.5vw, 88px);
+  line-height: 0.96; letter-spacing: -0.022em;
   margin: 22px 0 0; color: var(--gc-fg); text-wrap: balance;
 }
 .news-hero-title em { font-style: italic; color: var(--gc-accent); }

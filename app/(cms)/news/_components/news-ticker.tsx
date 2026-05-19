@@ -68,7 +68,12 @@ export async function NewsTicker() {
             >
               <span
                 className="news-tick-mark"
-                style={{ background: fallbackBg(c.symbol) }}
+                style={
+                  // Background colorato SOLO se manca l'icona vera: con
+                  // un'icona R2 trasparente (PNG/SVG) il bg arancio si
+                  // vede attraverso e fa pasticcio visivo.
+                  c.imageUrl ? undefined : { background: fallbackBg(c.symbol) }
+                }
               >
                 {c.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

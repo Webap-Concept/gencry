@@ -23,6 +23,7 @@ import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { headers } from "next/headers";
 import { Suspense } from "react";
+import { ResetScrollOnPath } from "./_components/reset-scroll-on-path";
 import "./frontend.css";
 
 export default async function FrontendLayout({
@@ -49,6 +50,7 @@ export default async function FrontendLayout({
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
+      <ResetScrollOnPath />
       <PublicHeader appLogoUrl={appSettings.app_logo_url} />
       <div className="flex-1">
         <div
