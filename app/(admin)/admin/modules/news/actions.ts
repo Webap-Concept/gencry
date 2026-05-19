@@ -268,6 +268,22 @@ async function syncHeroFromForm(
   return currentHeroAssetId;
 }
 
+/**
+ * Stessa logica di syncHeroFromForm ma per il flag autoLinkCoins (checkbox
+ * nel review editor). Form HTML invia "on" se selezionata, undefined sennò.
+ */
+async function syncAutoLinkFromForm(
+  itemId: string,
+  formData: FormData,
+  currentValue: boolean,
+): Promise<void> {
+  const raw = formData.get("autoLinkCoins");
+  const fromForm = raw === "on" || raw === "true" || raw === "1";
+  if (fromForm !== currentValue) {
+    await updateItem(itemId, { autoLinkCoins: fromForm });
+  }
+}
+
 export async function publishNowAction(
   _prev: ActionState,
   formData: FormData,
@@ -283,6 +299,7 @@ export async function publishNowAction(
   if (!heroAssetId) {
     return { error: "Hero image required before publish.", timestamp: Date.now() };
   }
+  await syncAutoLinkFromForm(itemId, formData, item.autoLinkCoins);
 
   const r = await publishNewsItem({ itemId, heroAssetId });
   if (!r.ok) {
@@ -313,6 +330,7 @@ export async function scheduleAction(
   if (!heroAssetId) {
     return { error: "Hero image required before scheduling.", timestamp: Date.now() };
   }
+  await syncAutoLinkFromForm(itemId, formData, item.autoLinkCoins);
 
   await updateItem(itemId, {
     status: "scheduled",

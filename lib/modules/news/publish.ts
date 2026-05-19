@@ -28,7 +28,9 @@ import {
 } from "@/lib/db/schema";
 import { invalidatePageCachesAndSync } from "@/lib/db/pages-queries";
 import { upsertSeoPage } from "@/lib/db/seo-queries";
+import { listCoins } from "@/lib/modules/prices/queries";
 import { slugify } from "@/lib/utils/slugify";
+import { autoLinkCoinsInMarkdown } from "./auto-link";
 
 export type PublishOutcome =
   | { ok: true; pageId: number; slug: string }
@@ -115,7 +117,21 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
 
   const now = new Date();
   const slug = buildNewsSlug(item.generatedTitleIt, now);
-  const contentHtml = markdownToHtml(item.generatedBodyItMd);
+
+  // Optional: auto-link della PRIMA occorrenza di un coin noto verso
+  // /coins/<symbol>. Cap 1 link per articolo. Toggle per-item (checkbox
+  // nel review editor) salvato in item.autoLinkCoins. Se false (default),
+  // skippa la query coins e converte direttamente in HTML.
+  let bodyMd = item.generatedBodyItMd;
+  if (item.autoLinkCoins) {
+    const coins = await listCoins();
+    const result = autoLinkCoinsInMarkdown(
+      bodyMd,
+      coins.map((c) => ({ name: c.name, symbol: c.symbol })),
+    );
+    bodyMd = result.md;
+  }
+  const contentHtml = markdownToHtml(bodyMd);
 
   const customFields = JSON.stringify({
     hero_image: String(input.heroAssetId),

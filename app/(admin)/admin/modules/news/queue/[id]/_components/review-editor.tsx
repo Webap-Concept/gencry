@@ -48,6 +48,7 @@ export function ReviewEditor({
   const [heroAssetId, setHeroAssetId] = useState(
     item.heroAssetId ? String(item.heroAssetId) : "",
   );
+  const [autoLinkCoins, setAutoLinkCoins] = useState<boolean>(item.autoLinkCoins);
 
   const [scheduledAt, setScheduledAt] = useState<string>("");
   const [rejectReason, setRejectReason] = useState("");
@@ -301,6 +302,30 @@ export function ReviewEditor({
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
               Publish
             </h3>
+
+            {/* Auto-link checkbox: shared state for both Publish-now and Schedule
+                forms (hidden inputs send the value at submit). */}
+            <label
+              className="flex items-start gap-2 text-xs cursor-pointer select-none"
+              style={{ color: "var(--admin-text)" }}
+            >
+              <input
+                type="checkbox"
+                checked={autoLinkCoins}
+                onChange={(e) => setAutoLinkCoins(e.target.checked)}
+                className="mt-0.5 shrink-0"
+              />
+              <span>
+                <span className="font-medium">Auto-link mentioned coin</span>{" "}
+                <span style={{ color: "var(--admin-text-muted)" }}>
+                  (cap 1 link/articolo)
+                </span>
+                <span className="block text-[11px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
+                  La prima occorrenza di un coin noto (es. Bitcoin) diventa link a <code>/coins/&lt;symbol&gt;</code>.
+                </span>
+              </span>
+            </label>
+
             <div className="flex gap-2 flex-wrap">
               {/* Save draft */}
               <form action={saveAction}>
@@ -333,6 +358,11 @@ export function ReviewEditor({
               >
                 <input type="hidden" name="itemId" value={item.id} />
                 <input type="hidden" name="heroAssetId" value={heroAssetId} />
+                <input
+                  type="hidden"
+                  name="autoLinkCoins"
+                  value={autoLinkCoins ? "on" : ""}
+                />
                 <button
                   type="submit"
                   disabled={!canPublish || anyPending}
@@ -353,6 +383,11 @@ export function ReviewEditor({
             >
               <input type="hidden" name="itemId" value={item.id} />
               <input type="hidden" name="heroAssetId" value={heroAssetId} />
+              <input
+                type="hidden"
+                name="autoLinkCoins"
+                value={autoLinkCoins ? "on" : ""}
+              />
               <div className="space-y-1.5 flex-1 min-w-[200px]">
                 <label className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
                   Schedule for
