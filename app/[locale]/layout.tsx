@@ -1,7 +1,11 @@
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { getSystemPageSlugs, isLegalsPathname } from "@/lib/db/pages-queries";
+import {
+  getSystemPageSlugs,
+  isLegalsPathname,
+  isNewsPathname,
+} from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
@@ -31,7 +35,13 @@ import "@/app/(cms)/frontend.css";
  * 404 a tutte le pagine CMS pubbliche default-locale. Si limita a
  * settare `setRequestLocale` con il valore corretto e a wrappare lo
  * shell pubblico (header + footer + provider).
+ *
+ * `dynamic = 'force-dynamic'` perché il layout legge `x-pathname` per
+ * decidere logo header / rail / full-bleed: senza, il layout segment
+ * cache può inchiodare il primo path catturato.
  */
+export const dynamic = "force-dynamic";
+
 export default async function LocaleLayout({
   children,
   params,
@@ -54,23 +64,41 @@ export default async function LocaleLayout({
   ]);
   const pathname = headerList.get("x-pathname") ?? "/";
   // Locale prefix: se è presente, strippalo prima di confrontare lo slug
-  // legals (es. /en/privacy → /privacy). Niente effetto per pathname senza
-  // prefix locale.
-  const legalsPath = isLocale(locale)
+  // (legals + news). Es. /en/altcoin/foo → /altcoin/foo. Niente effetto
+  // per pathname senza prefix locale.
+  const normalizedPath = isLocale(locale)
     ? pathname.replace(new RegExp(`^/${locale}(?=/|$)`), "") || "/"
     : pathname;
-  const showRail = !isLegalsPathname(legalsPath, slugs);
+  // Le pagine news (listing /news, articoli /altcoin/foo, /bitcoin/..., …)
+  // hanno layout editoriale dedicato: no rail, full-bleed, logo che
+  // riporta a /news invece che / così l'utente non "esce" dal blog.
+  const isNews = isNewsPathname(normalizedPath);
+  const showRail = !isLegalsPathname(normalizedPath, slugs) && !isNews;
+  const fullBleed = isNews;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
-      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
+      <PublicHeader
+        appLogoUrl={appSettings.app_logo_url}
+        logoHref={isNews ? "/news" : "/"}
+      />
       <div className="flex-1">
-        <div className="mx-auto w-full max-w-7xl flex">
-          <main className="flex flex-1 flex-col min-w-0">{children}</main>
-          {showRail && (
-            <Suspense fallback={null}>
-              <AppRightRail />
-            </Suspense>
+        <div
+          className={
+            fullBleed ? "w-full" : "mx-auto w-full max-w-7xl flex"
+          }
+        >
+          {fullBleed ? (
+            <main className="w-full">{children}</main>
+          ) : (
+            <>
+              <main className="flex flex-1 flex-col min-w-0">{children}</main>
+              {showRail && (
+                <Suspense fallback={null}>
+                  <AppRightRail />
+                </Suspense>
+              )}
+            </>
           )}
         </div>
       </div>

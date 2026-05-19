@@ -26,6 +26,13 @@ import { Suspense } from "react";
 import { ResetScrollOnPath } from "./_components/reset-scroll-on-path";
 import "./frontend.css";
 
+// Il layout usa `headers().get('x-pathname')` per decidere isNews →
+// logo header + rail off + full-bleed. Senza force-dynamic, Next 16 in
+// alcuni casi rende il layout una volta sola e i layout segment cache
+// servono il primo valore di pathname catturato. force-dynamic è la
+// garanzia che ogni request riveda il path corrente.
+export const dynamic = "force-dynamic";
+
 export default async function FrontendLayout({
   children,
 }: {
