@@ -10,6 +10,12 @@ export type ClientNotification = {
   title: string;
   body: string | null;
   link: string | null;
+  /**
+   * JSONB con i template values per il rendering i18n (via
+   * `lib/notifications/registry.ts`). Sempre presente (oggetto vuoto se
+   * il generator non ha emesso metadata).
+   */
+  metadata: Record<string, unknown>;
   createdAt: string;
   readAt: string | null;
   snoozedUntil: string | null;
@@ -27,6 +33,10 @@ export function serializeNotification(n: AdminNotification): ClientNotification 
     title: n.title,
     body: n.body,
     link: n.link,
+    metadata:
+      n.metadata && typeof n.metadata === "object"
+        ? (n.metadata as Record<string, unknown>)
+        : {},
     createdAt: n.createdAt.toISOString(),
     readAt: n.readAt?.toISOString() ?? null,
     snoozedUntil: n.snoozedUntil?.toISOString() ?? null,

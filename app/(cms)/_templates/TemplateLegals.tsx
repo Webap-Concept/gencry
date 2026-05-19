@@ -4,7 +4,7 @@ import type { TemplateProps } from "./types";
 /**
  * Template Legals (privacy, cookie, terms).
  *
- * Header e footer ereditati dal layout `(frontend)`. Corpo a larghezza
+ * Header e footer ereditati dal layout `(cms)`. Corpo a larghezza
  * ridotta per la leggibilità. Theme-aware (token `--gc-*`).
  *
  * Nessun campo custom: usa solo page.title, page.content, page.updatedAt.

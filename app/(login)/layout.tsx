@@ -3,7 +3,7 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { Suspense } from "react";
-import "@/app/(frontend)/frontend.css";
+import "@/app/(cms)/frontend.css";
 
 /**
  * Layout per le pagine di login pubbliche (sign-in, sign-up, forgot-password,

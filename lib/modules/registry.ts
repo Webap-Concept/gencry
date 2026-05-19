@@ -14,6 +14,7 @@ import { PRICES_MODULE } from "./prices/manifest";
 import { ONBOARDING_MODULE } from "./onboarding/manifest";
 import { POSTS_MODULE } from "./posts/manifest";
 import { NOTIFICATIONS_MODULE } from "./notifications/manifest";
+import { NEWS_MODULE } from "./news/manifest";
 import { SEEDERS_MODULE } from "./seeders/manifest";
 
 export const INSTALLED_MODULES: ModuleManifest[] = [
@@ -21,6 +22,7 @@ export const INSTALLED_MODULES: ModuleManifest[] = [
   ONBOARDING_MODULE,
   POSTS_MODULE,
   NOTIFICATIONS_MODULE,
+  NEWS_MODULE,
   SEEDERS_MODULE,
 ];
 

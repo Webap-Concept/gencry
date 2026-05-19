@@ -1,4 +1,4 @@
-import { CmsPage, cmsPageMetadata } from "@/app/(frontend)/_render/cms-page";
+import { CmsPage, cmsPageMetadata } from "@/app/(cms)/_render/cms-page";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
@@ -14,7 +14,7 @@ import type { Metadata } from "next";
  *   - `<x>` ∉ LOCALES: fallback al CMS, trattando `<x>` come parte dello
  *     slug (es. `/blog/post-1` → slug `blog/post-1`). Necessario perché
  *     Next.js matcha `[locale]/[...slug]` con priorità sul
- *     `(frontend)/[...slug]`, quindi senza questo fallback le pagine CMS
+ *     `(cms)/[...slug]`, quindi senza questo fallback le pagine CMS
  *     multi-segmento default-locale sarebbero tutte 404.
  */
 

@@ -70,6 +70,9 @@ export function computeAccountDeletionCandidates(
         email: row.email,
         deletedAt: row.deletedAt.toISOString(),
         purgeAt: purgeDate.toISOString(),
+        // `purgeDate` come stringa YYYY-MM-DD per il rendering i18n
+        // (placeholder semplice, niente Date interpolation lato client).
+        purgeDate: purgeDate.toISOString().slice(0, 10),
         daysRemaining,
       },
     });

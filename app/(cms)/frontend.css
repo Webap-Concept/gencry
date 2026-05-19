@@ -1,7 +1,7 @@
 /*
   frontend.css
   CSS del FRONT UTENTE — caricato in tutti i contesti non-admin:
-  (frontend), [locale], (login), (onboarding), (protected).
+  (cms), [locale], (login), (onboarding), (protected).
   Esclude (admin), che ha il proprio admin.css con i token --admin-*.
 
   Contiene:

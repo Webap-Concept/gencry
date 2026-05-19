@@ -83,7 +83,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   resetNavOrderAction,
   saveNavOrderAction,
@@ -342,6 +342,65 @@ export default function AdminSidebar({
     setOpenGroupKey((prev) => (prev === key ? null : key));
   }
 
+  // ── Hover-to-open / hover-to-close del drawer ────────────────────────────
+  // Delay open ~120ms = evita aperture accidentali sfiorando un trigger.
+  // Delay close ~150ms = copre il salto del mouse trigger→drawer senza
+  // sfarfallio. Switch fra trigger diversi → immediato.
+  const HOVER_OPEN_MS = 120;
+  const HOVER_CLOSE_MS = 150;
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function cancelOpenTimer() {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  }
+  function cancelCloseTimer() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+  function scheduleOpen(key: string) {
+    cancelCloseTimer();
+    // Stesso trigger già aperto → no-op. Trigger diverso con drawer già
+    // aperto → switch immediato (l'utente sta navigando lateralmente).
+    if (openGroupKey === key) {
+      cancelOpenTimer();
+      return;
+    }
+    if (openGroupKey !== null) {
+      cancelOpenTimer();
+      setOpenGroupKey(key);
+      return;
+    }
+    cancelOpenTimer();
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      setOpenGroupKey(key);
+    }, HOVER_OPEN_MS);
+  }
+  function scheduleClose() {
+    cancelOpenTimer();
+    cancelCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      setOpenGroupKey(null);
+    }, HOVER_CLOSE_MS);
+  }
+  function cancelHoverTimers() {
+    cancelOpenTimer();
+    cancelCloseTimer();
+  }
+  // Cleanup al unmount per evitare set state su componente smontato
+  useEffect(() => {
+    return () => {
+      cancelOpenTimer();
+      cancelCloseTimer();
+    };
+  }, []);
+
   // Quando collapsed: mostra testo SOLO se l'utente sta hovering la sidebar
   // O se un drawer è aperto (l'utente ha appena cliccato, deve vedere
   // contesto). Mai in editMode collapsed: il reorder è disabilitato.
@@ -370,12 +429,15 @@ export default function AdminSidebar({
     icon: iconName,
     exact,
     sub,
+    clearDrawerOnHover,
   }: {
     href: string;
     label: string;
     icon: string;
     exact?: boolean;
     sub?: boolean;
+    /** Top-level senza figli: l'hover deve chiudere un eventuale drawer aperto */
+    clearDrawerOnHover?: boolean;
   }) {
     const Icon = ICON_MAP[iconName] ?? Settings;
     const active = isActive(href, exact);
@@ -403,6 +465,12 @@ export default function AdminSidebar({
               ? "color-mix(in srgb, var(--admin-sidebar-bg) 60%, #000 40%)"
               : "var(--admin-sidebar-item-hover-bg)";
             e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
+          }
+          // Hovering un top-level senza figli → l'utente sta puntando
+          // un'altra voce, chiudi il drawer aperto immediatamente.
+          if (clearDrawerOnHover && openGroupKey !== null) {
+            cancelHoverTimers();
+            setOpenGroupKey(null);
           }
         }}
         onMouseLeave={(e) => {
@@ -465,6 +533,7 @@ export default function AdminSidebar({
           e.currentTarget.style.background =
             "var(--admin-sidebar-item-hover-bg)";
           e.currentTarget.style.color = "var(--admin-sidebar-text-active)";
+          scheduleOpen(item.key);
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background =
@@ -476,6 +545,10 @@ export default function AdminSidebar({
           e.currentTarget.style.color = isGroupActive || isOpen
             ? "var(--admin-sidebar-text-active)"
             : "var(--admin-sidebar-text)";
+          // Se l'utente esce prima di 120ms cancella l'apertura.
+          // Se il drawer è già aperto, parte il close-timer (cancellato
+          // se il mouse entra subito nel panel del drawer).
+          scheduleClose();
         }}>
         <Icon
           size={18}
@@ -666,11 +739,14 @@ export default function AdminSidebar({
     return (
       <>
         {/* Overlay scrim — copre solo il content area, non la sidebar (che
-            resta cliccabile per chiudere/cambiare drawer). */}
+            resta cliccabile per chiudere/cambiare drawer). Hover-driven: il
+            mouse che entra nello scrim significa "esco dal drawer" → chiudi.
+            Click resta come fallback (chiusura immediata). */}
         <div
           className="fixed inset-0 z-30 lg:left-[var(--admin-sidebar-width)]"
           style={{ background: "color-mix(in srgb, #000 32%, transparent)" }}
           onClick={onCloseDrawer}
+          onMouseEnter={drawerEdit ? undefined : scheduleClose}
         />
         {/* Panel laterale — desktop: incollato a destra della sidebar.
             Mobile: full-width sotto la sidebar mobile (gestita altrove). */}
@@ -686,7 +762,9 @@ export default function AdminSidebar({
             boxShadow: "8px 0 24px -8px rgba(0,0,0,0.35)",
             animation: "drawer-slide-in 150ms ease-out",
           }}
-          onClick={(e) => e.stopPropagation()}>
+          onClick={(e) => e.stopPropagation()}
+          onMouseEnter={cancelHoverTimers}
+          onMouseLeave={drawerEdit ? undefined : scheduleClose}>
           <div
             className="px-5 py-4"
             style={{ borderBottom: "1px solid var(--admin-sidebar-border)" }}>
@@ -1054,6 +1132,7 @@ export default function AdminSidebar({
                 label={navLabel(item.key, item.label)}
                 icon={item.icon}
                 exact={item.exact}
+                clearDrawerOnHover
               />
             ),
           )

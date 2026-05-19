@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   HardDrive,
+  Image as ImageIcon,
   Loader2,
   Save,
   Shield,
@@ -19,10 +20,12 @@ import {
   saveAvatarR2Settings,
   saveCloudflareSettings,
   saveConfigR2Settings,
+  saveMediaR2Settings,
   saveR2AccountId,
   testAvatarR2,
   testCloudflareSettings,
   testConfigR2,
+  testMediaR2,
   type ActionState,
 } from "../actions";
 
@@ -186,6 +189,7 @@ function R2StorageCard({
       <div className="space-y-3 pt-2">
         <ConfigR2SubCard settings={settings} onToast={onToast} />
         <AvatarR2SubCard settings={settings} onToast={onToast} />
+        <MediaR2SubCard settings={settings} onToast={onToast} />
       </div>
     </Card>
   );
@@ -377,6 +381,97 @@ function AvatarR2SubCard({
             label={t("publicBaseLabel")}
             hint={t("publicBaseHint")}
             defaultValue={settings["storage.avatar.r2.public_base_url"] ?? ""}
+            placeholder={t("publicBasePlaceholder")}
+          />
+        </div>
+
+        <ButtonRow>
+          <SaveButton
+            isSaving={isSaving || isTesting}
+            saveLabel={t("saveButton")}
+            savingLabel={t("savingButton")}
+          />
+          <TestButton
+            type="submit"
+            formAction={testAction}
+            isTesting={isSaving || isTesting}
+            icon={<CheckCircle2 size={15} />}
+            testLabel={t("testButton")}
+            testingLabel={t("testingButton")}
+          />
+        </ButtonRow>
+      </SubCard>
+    </form>
+  );
+}
+
+// ─── Media library sub-card ─────────────────────────────────────────────
+
+function MediaR2SubCard({
+  settings,
+  onToast,
+}: {
+  settings: AppSettings;
+  onToast: (t: ToastState) => void;
+}) {
+  const t = useTranslations("admin.services.cloudflare.r2Media");
+  const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
+    saveMediaR2Settings,
+    {},
+  );
+  const [testState, testAction, isTesting] = useActionState<ActionState, FormData>(
+    testMediaR2,
+    {},
+  );
+  useToastFromAction(saveState, onToast);
+  useToastFromAction(testState, onToast);
+
+  const r2SecretIsSet = Boolean(settings["storage.media.r2.secret_access_key"]);
+  const allFilled =
+    Boolean(settings["storage.r2.account_id"]) &&
+    Boolean(settings["storage.media.r2.access_key_id"]) &&
+    r2SecretIsSet &&
+    Boolean(settings["storage.media.r2.bucket"]) &&
+    Boolean(settings["storage.media.r2.public_base_url"]);
+
+  return (
+    <form action={saveAction}>
+      <SubCard
+        icon={<ImageIcon size={14} style={{ color: "var(--admin-accent)" }} />}
+        title={t("title")}
+        description={t("description")}
+        statusOk={allFilled}
+        statusOkLabel={t("statusConfigured")}
+        statusKoLabel={t("statusNotConfigured")}
+      >
+        <div className="space-y-4 max-w-lg">
+          <Field
+            name="storage.media.r2.access_key_id"
+            label={t("accessKeyIdLabel")}
+            hint={t("accessKeyIdHint")}
+            defaultValue={settings["storage.media.r2.access_key_id"] ?? ""}
+            placeholder=""
+          />
+          <Field
+            name="storage.media.r2.secret_access_key"
+            label={t("secretLabel")}
+            hint={t("secretHint")}
+            defaultValue={r2SecretIsSet ? "********" : ""}
+            placeholder=""
+            type="password"
+          />
+          <Field
+            name="storage.media.r2.bucket"
+            label={t("bucketLabel")}
+            hint={t("bucketHint")}
+            defaultValue={settings["storage.media.r2.bucket"] ?? ""}
+            placeholder={t("bucketPlaceholder")}
+          />
+          <Field
+            name="storage.media.r2.public_base_url"
+            label={t("publicBaseLabel")}
+            hint={t("publicBaseHint")}
+            defaultValue={settings["storage.media.r2.public_base_url"] ?? ""}
             placeholder={t("publicBasePlaceholder")}
           />
         </div>

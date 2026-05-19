@@ -18,6 +18,7 @@ import { updateAppSetting } from "@/lib/db/settings-queries";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { GENERATORS } from "./generators";
 import type { NotificationCandidate } from "./types";
+import { upsertCandidate } from "./upsert";
 
 const THROTTLE_MS = 60 * 60 * 1000; // 1h
 const LAST_RUN_KEY = "notifications_dispatcher_last_run" as const;
@@ -35,83 +36,6 @@ async function getLastRun(): Promise<Date | null> {
 
 async function setLastRun(d: Date): Promise<void> {
   await updateAppSetting(LAST_RUN_KEY, d.toISOString());
-}
-
-async function upsertCandidate(
-  c: NotificationCandidate,
-  requiredPermission: string,
-): Promise<void> {
-  const existing = await db
-    .select()
-    .from(adminNotifications)
-    .where(eq(adminNotifications.dedupKey, c.dedupKey))
-    .limit(1);
-
-  if (existing.length === 0) {
-    await db.insert(adminNotifications).values({
-      type: c.type,
-      severity: c.severity,
-      title: c.title,
-      body: c.body ?? null,
-      link: c.link ?? null,
-      dedupKey: c.dedupKey,
-      requiredPermission,
-      metadata: c.metadata ?? {},
-    });
-    return;
-  }
-
-  const row = existing[0];
-
-  if (row.dismissedAt !== null) {
-    // L'admin ha chiuso manualmente questa notifica. La condizione esiste
-    // ancora nel sistema ma la scelta dell'utente va rispettata: non riaprire.
-    return;
-  }
-
-  if (row.resolvedAt !== null) {
-    // Il sistema aveva auto-risolto (condizione scomparsa) ma ora è tornata
-    // → ri-apri come nuova notifica.
-    await db
-      .update(adminNotifications)
-      .set({
-        type: c.type,
-        severity: c.severity,
-        title: c.title,
-        body: c.body ?? null,
-        link: c.link ?? null,
-        metadata: c.metadata ?? {},
-        requiredPermission,
-        resolvedAt: null,
-        readAt: null,
-        snoozedUntil: null,
-        createdAt: new Date(),
-      })
-      .where(eq(adminNotifications.id, row.id));
-    return;
-  }
-
-  // Già attiva: aggiorna solo i campi descrittivi se cambiati (es. severity
-  // sale a critical mentre invecchia). Non toccare read_at / snoozed_until:
-  // quelle sono scelte dell'utente, vanno rispettate.
-  const needsUpdate =
-    row.severity !== c.severity ||
-    row.title !== c.title ||
-    row.body !== (c.body ?? null) ||
-    row.link !== (c.link ?? null);
-
-  if (needsUpdate) {
-    await db
-      .update(adminNotifications)
-      .set({
-        severity: c.severity,
-        title: c.title,
-        body: c.body ?? null,
-        link: c.link ?? null,
-        metadata: c.metadata ?? {},
-      })
-      .where(eq(adminNotifications.id, row.id));
-  }
 }
 
 /**

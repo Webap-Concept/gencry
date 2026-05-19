@@ -1,5 +1,5 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
-import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(frontend)/_templates/registered-slugs";
+import { REGISTERED_TEMPLATE_SLUGS } from "@/app/(cms)/_templates/registered-slugs";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
 import { PanelTop } from "lucide-react";
 import type { Metadata } from "next";

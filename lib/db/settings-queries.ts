@@ -228,6 +228,15 @@ export type SettingKey =
   | 'modules.notifications.dedup_window_minutes'   // finestra anti-spam per fanout trigger (default 60)
   | 'modules.notifications.list_page_size'         // pagination /notifiche (default 30)
   | 'modules.notifications.retention_days'         // cron cleanup futuro (default 180)
+  // Modulo news (curated content pipeline)
+  | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
+  | 'modules.news.publisher_batch_size'            // cron publisher N items/run
+  | 'modules.news.max_published_per_day'           // guardrail UI: max articoli/giorno scheduling
+  | 'modules.news.rewrite_max_attempts'            // tentativi LLM prima di status=failed
+  | 'modules.news.ai_model'                        // 'claude-sonnet-4-6' | 'claude-haiku-4-5-20251001'
+  | 'modules.news.fetch_max_items_per_source'      // limit per fetch RSS (anti-overload)
+  | 'modules.news.proposed_retention_days'         // auto-reject proposed > N gg (default 7)
+  | 'modules.news.anthropic_api_key'               // segret API key Anthropic — NON ENV, app_settings
   // R2 storage dedicato modulo posts (bucket `social-media`).
   // account_id letto da `storage.r2.account_id` globale.
   | 'modules.posts.r2.access_key_id'
@@ -291,6 +300,11 @@ export type SettingKey =
   | 'storage.config.r2.access_key_id'
   | 'storage.config.r2.secret_access_key'
   | 'storage.config.r2.bucket'
+  // Media library bucket (CMS uploads — /admin/content/media, page editor).
+  | 'storage.media.r2.access_key_id'
+  | 'storage.media.r2.secret_access_key'
+  | 'storage.media.r2.bucket'
+  | 'storage.media.r2.public_base_url'
 
 export type AppSettings = {
   app_name: string
@@ -495,6 +509,15 @@ export type AppSettings = {
   'sentry.replays_on_error_sample_rate': string
   'sentry.send_default_pii': string
   // R2 storage per avatar utente (core feature)
+  // Modulo news
+  'modules.news.rewrite_batch_size': string
+  'modules.news.publisher_batch_size': string
+  'modules.news.max_published_per_day': string
+  'modules.news.rewrite_max_attempts': string
+  'modules.news.ai_model': string
+  'modules.news.fetch_max_items_per_source': string
+  'modules.news.proposed_retention_days': string
+  'modules.news.anthropic_api_key': string | null
   'storage.r2.account_id': string | null
   'storage.avatar.r2.access_key_id': string | null
   'storage.avatar.r2.secret_access_key': string | null
@@ -503,6 +526,10 @@ export type AppSettings = {
   'storage.config.r2.access_key_id': string | null
   'storage.config.r2.secret_access_key': string | null
   'storage.config.r2.bucket': string | null
+  'storage.media.r2.access_key_id': string | null
+  'storage.media.r2.secret_access_key': string | null
+  'storage.media.r2.bucket': string | null
+  'storage.media.r2.public_base_url': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -682,6 +709,16 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.dedup_window_minutes': '60',
   'modules.notifications.list_page_size': '30',
   'modules.notifications.retention_days': '180',
+  // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
+  // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
+  'modules.news.rewrite_batch_size': '3',
+  'modules.news.publisher_batch_size': '5',
+  'modules.news.max_published_per_day': '2',
+  'modules.news.rewrite_max_attempts': '3',
+  'modules.news.ai_model': 'claude-sonnet-4-6',
+  'modules.news.fetch_max_items_per_source': '10',
+  'modules.news.proposed_retention_days': '7',
+  'modules.news.anthropic_api_key': null,
   'modules.posts.r2.access_key_id': null,
   'modules.posts.r2.secret_access_key': null,
   'modules.posts.r2.bucket': 'social-media',
@@ -728,6 +765,14 @@ const DEFAULTS: AppSettings = {
   'storage.config.r2.access_key_id': null,
   'storage.config.r2.secret_access_key': null,
   'storage.config.r2.bucket': null,
+  // Media library R2 — bucket dedicato per gli upload del CMS
+  // (/admin/content/media + editor pagine). Egress R2 = $0, fondamentale
+  // per asset serviti su pagine pubbliche/SEO. Tutte e 5 le chiavi richieste
+  // per upload funzionante (no fallback Supabase).
+  'storage.media.r2.access_key_id': null,
+  'storage.media.r2.secret_access_key': null,
+  'storage.media.r2.bucket': null,
+  'storage.media.r2.public_base_url': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
@@ -794,7 +839,7 @@ export const getAppSettings = cache(getAppSettingsImpl);
 /**
  * "Non bloccante" variant of getAppSettings for public-facing call
  * sites where a transient DB error should NOT translate into a 500:
- * the CMS catch-all router (app/(frontend)/_render/cms-page.tsx) is
+ * the CMS catch-all router (app/(cms)/_render/cms-page.tsx) is
  * the main consumer — losing the appName for one render is not great
  * but is much better than 500 in front of unauthenticated visitors.
  *

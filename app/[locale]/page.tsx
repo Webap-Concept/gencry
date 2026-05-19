@@ -1,4 +1,4 @@
-import { CmsPage, cmsPageMetadata } from "@/app/(frontend)/_render/cms-page";
+import { CmsPage, cmsPageMetadata } from "@/app/(cms)/_render/cms-page";
 import LandingPage from "@/components/landing-page";
 import { getSession } from "@/lib/auth/session";
 import { isLocale } from "@/lib/i18n/config";
@@ -16,7 +16,7 @@ import { redirect } from "next/navigation";
  *   - `<x>` ∉ LOCALES: fallback al CMS catch-all, trattando `<x>` come
  *     slug singolo (es. `/privacy`, `/cookie-policy`). Senza questo
  *     fallback, Next.js matcherebbe `[locale]/page.tsx` con priorità sul
- *     `(frontend)/[...slug]` e tutte le pagine CMS sarebbero 404.
+ *     `(cms)/[...slug]` e tutte le pagine CMS sarebbero 404.
  */
 
 export async function generateMetadata({

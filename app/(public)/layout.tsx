@@ -19,7 +19,7 @@
  * pagare perché la 404 funzioni come pagina indipendente.
  */
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
-import "@/app/(frontend)/frontend.css";
+import "@/app/(cms)/frontend.css";
 
 export default async function PublicLayout({
   children,

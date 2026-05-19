@@ -963,6 +963,26 @@
         "savingButton": "Saving…",
         "testButton": "Test connection",
         "testingButton": "Testing…"
+      },
+      "r2Media": {
+        "title": "Media library bucket",
+        "description": "The CMS media library (uploads from /admin/content/media and the page editor) is stored on a dedicated R2 bucket. Egress on R2 is $0, which matters for public/SEO pages. When unconfigured, media uploads fail with an explicit error — there is no Supabase fallback.",
+        "statusConfigured": "Configured",
+        "statusNotConfigured": "Not configured",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "From the R2 token (Account API Token, scoped to this bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensitive. Leave the masked placeholder unchanged to keep the saved value.",
+        "bucketLabel": "Bucket name",
+        "bucketHint": "The bucket dedicated to the CMS media library (e.g. storage).",
+        "bucketPlaceholder": "storage",
+        "publicBaseLabel": "Public base URL",
+        "publicBaseHint": "Custom domain bound to the bucket (no trailing slash). Files become <base>/<storagePath>.",
+        "publicBasePlaceholder": "https://storage.example.com",
+        "saveButton": "Save credentials",
+        "savingButton": "Saving…",
+        "testButton": "Test connection",
+        "testingButton": "Testing…"
       }
     },
     "redis": {
@@ -3122,6 +3142,28 @@
     "actions": {
       "snoozeSevenDays": "Snooze 7 days",
       "dismiss": "Dismiss"
+    },
+    "types": {
+      "secret_rotation_due": {
+        "title": "Rotate {label}",
+        "body": "Not updated for {ageDays, plural, one {# day} other {# days}} (threshold: {maxAgeDays}d)."
+      },
+      "cron_job_failure": {
+        "title": "Cron failed — {label}",
+        "body": "{consecutive, plural, =1 {Last run failed at {lastTime}.} other {# consecutive failures, latest at {lastTime}.}}"
+      },
+      "account_deletion_requested": {
+        "title": "Account deletion requested: {email}",
+        "body": "Purge scheduled in {daysRemaining, plural, one {# day} other {# days}} ({purgeDate}). Cancel from the user page if requested by mistake."
+      },
+      "suspicious_sessions": {
+        "title": "{severity, select, critical {{count, plural, one {# critical suspicious session} other {# critical suspicious sessions}}} warning {{count, plural, one {# suspicious session warning} other {# suspicious session warnings}}} info {{count, plural, one {# suspicious session notice} other {# suspicious session notices}}} other {{count, plural, one {# suspicious session} other {# suspicious sessions}}}}",
+        "body": "{severity, select, critical {Likely takeover signals detected. Review and revoke if needed.} other {Unusual session patterns detected. Review when possible.}}"
+      },
+      "posts_reports_pending": {
+        "title": "{total, plural, one {# pending content report to review} other {# pending content reports to review}}",
+        "body": "{hasBoth, select, true {{posts, plural, one {# on post} other {# on posts}}, {comments, plural, one {# on comment} other {# on comments}}. Open the moderation queue to triage.} other {{onlyPosts, select, true {{posts, plural, one {# on post} other {# on posts}}. Open the moderation queue to triage.} other {{comments, plural, one {# on comment} other {# on comments}}. Open the moderation queue to triage.}}}}"
+      }
     }
   },
   "tests": {

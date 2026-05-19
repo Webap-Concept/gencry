@@ -17,9 +17,9 @@
 
   Token --admin-* + classi .admin-* sono in app/(admin)/admin.css.
   Reset del frontend pubblico, animazioni gc/gc404 e :focus-visible accent
-  sono in app/(frontend)/frontend.css.
+  sono in app/(cms)/frontend.css.
   Stili dei contenuti CMS (.tpl-content, .cms-figure, blockquote 4 stili)
-  sono in app/(frontend)/cms.css, caricati dal renderer CmsPage.
+  sono in app/(cms)/cms.css, caricati dal renderer CmsPage.
 */
 
 @custom-variant dark (&:is(.dark *));
@@ -202,7 +202,7 @@
   `animate-gc-screen`, ecc.
 
   Le var --background/--foreground/... (shadcn) sono definite qui sopra.
-  Le var --brand- e --gc- sono definite in app/(frontend)/frontend.css —
+  Le var --brand- e --gc- sono definite in app/(cms)/frontend.css —
   l'admin (che non carica frontend.css) vede le utility ma con var nulle:
   per convenzione in admin si usa solo `--admin-*`.
 */

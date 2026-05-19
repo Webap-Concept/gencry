@@ -1,4 +1,4 @@
-import { CmsPage, cmsPageMetadata } from "@/app/(frontend)/_render/cms-page";
+import { CmsPage, cmsPageMetadata } from "@/app/(cms)/_render/cms-page";
 import type { Metadata } from "next";
 
 export async function generateMetadata({

@@ -7,6 +7,10 @@ import {
   markReadAction,
   snoozeAction,
 } from "@/lib/notifications/actions";
+import {
+  renderNotificationBody,
+  renderNotificationTitle,
+} from "@/lib/notifications/render-i18n";
 import type { ClientNotification } from "@/lib/notifications/serializers";
 import {
   AlertTriangle,
@@ -18,6 +22,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -128,6 +133,9 @@ export function NotificationBell({
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const adminSlug = useAdminSlug();
+  // Root-namespace t: il registry contiene path completi
+  // (es. "admin.notifications.types.posts_reports_pending.title").
+  const t = useTranslations();
   // Chiave dell'azione attualmente in volo, es. "snooze:<id>" / "dismiss:<id>" /
   // "markAll" / "read:<id>". Una sola azione per click — basta a evitare che
   // l'utente cliccando un bottone non ottenga feedback (era il problema UX).
@@ -261,6 +269,18 @@ export function NotificationBell({
 
             {items.map((n) => {
               const isUnread = n.readAt === null;
+              const title = renderNotificationTitle(
+                n.type,
+                n.metadata,
+                n.title,
+                t,
+              );
+              const body = renderNotificationBody(
+                n.type,
+                n.metadata,
+                n.body,
+                t,
+              );
               return (
                 <button
                   key={n.id}
@@ -290,7 +310,7 @@ export function NotificationBell({
                           color: "var(--admin-text)",
                           fontWeight: isUnread ? 600 : 500,
                         }}>
-                        {n.title}
+                        {title}
                       </p>
                       <span
                         className="text-[10px] shrink-0 mt-0.5"
@@ -298,11 +318,11 @@ export function NotificationBell({
                         {relativeTime(n.createdAt)}
                       </span>
                     </div>
-                    {n.body && (
+                    {body && (
                       <p
                         className="text-xs mt-1 leading-snug"
                         style={{ color: "var(--admin-text-muted)" }}>
-                        {n.body}
+                        {body}
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-2">

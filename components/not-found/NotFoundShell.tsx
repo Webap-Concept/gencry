@@ -2,9 +2,9 @@
  * NotFoundShell — body condiviso della pagina 404.
  *
  * Usato da entrambi i `not-found.tsx`:
- *   - app/(frontend)/not-found.tsx  (caso normale: 404 generata dentro
+ *   - app/(cms)/not-found.tsx  (caso normale: 404 generata dentro
  *                                    una rotta del group frontend, viene
- *                                    wrappata da (frontend)/layout.tsx
+ *                                    wrappata da (cms)/layout.tsx
  *                                    che importa frontend.css)
  *   - app/not-found.tsx             (fallback root: URL totalmente fuori
  *                                    dai groups; in Next 16 viene
@@ -13,8 +13,8 @@
  *
  * Il root layout NON importa frontend.css (le variabili CSS dei token
  * `--gc-bg`, `--gc-fg` ecc. e i @keyframes `gc-blink` vivono in
- * `(frontend)/frontend.css`). Per questo serve un not-found dentro
- * `(frontend)/`: senza, l'intero shell rimane senza CSS — fondo nero
+ * `(cms)/frontend.css`). Per questo serve un not-found dentro
+ * `(cms)/`: senza, l'intero shell rimane senza CSS — fondo nero
  * e niente animazione del blink.
  */
 import { Crash404 } from "@/components/not-found/Crash404";
@@ -27,9 +27,9 @@ import Link from "next/link";
 // Import diretto di frontend.css: garantisce che i token gc-* (--gc-bg,
 // --gc-fg, ecc.) e i @keyframes (gc-blink, coin-fall) siano disponibili
 // anche quando Next 16 sceglie di renderizzare il root not-found senza
-// passare per (frontend)/layout.tsx. L'import è scoped alla pagina che
+// passare per (cms)/layout.tsx. L'import è scoped alla pagina che
 // renderizza questo shell, quindi non inquina admin/login.
-import "@/app/(frontend)/frontend.css";
+import "@/app/(cms)/frontend.css";
 
 export async function NotFoundShell() {
   // Stesso ragionamento di app/not-found.tsx: la 404 viene martellata da

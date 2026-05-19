@@ -27,7 +27,7 @@ import {
  *   </figure>
  *
  * Frontend lo renderizza pari pari via dangerouslySetInnerHTML; lo styling
- * (float/center/full + responsive) è in `(frontend)/frontend.css`. Lo zoom
+ * (float/center/full + responsive) è in `(cms)/frontend.css`. Lo zoom
  * è gestito dal lightbox client component (`cms-figure-lightbox.tsx`)
  * che scanna `[data-zoom="true"]` nel content renderato.
  *

@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `app/(frontend)/_templates/index.generated.ts` è generato da
+      # `app/(cms)/_templates/index.generated.ts` è generato da
       # scripts/generate-templates.ts (hook predev/prebuild). In locale
       # viene creato prima di dev/build; in CI dobbiamo invocarlo
       # esplicitamente, altrimenti il typecheck fallisce con TS2307 sugli

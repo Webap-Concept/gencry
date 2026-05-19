@@ -1,7 +1,7 @@
-import { CmsFigureLightbox } from "@/app/(frontend)/_render/cms-figure-lightbox";
-import { getDynamicTemplate } from "@/app/(frontend)/_templates/loader";
-import { resolveMediaFields } from "@/app/(frontend)/_templates/resolve-media-fields";
-import { parseCustomFields } from "@/app/(frontend)/_templates/types";
+import { CmsFigureLightbox } from "@/app/(cms)/_render/cms-figure-lightbox";
+import { getDynamicTemplate } from "@/app/(cms)/_templates/loader";
+import { resolveMediaFields } from "@/app/(cms)/_templates/resolve-media-fields";
+import { parseCustomFields } from "@/app/(cms)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
 import { getCachedPageWithTemplate } from "@/lib/db/pages-queries";
 import { getCachedSeoPage } from "@/lib/seo";
@@ -14,7 +14,7 @@ import { notFound } from "next/navigation";
 
 // CSS dei contenuti CMS (.tpl-content, .cms-figure, blockquote 4 stili).
 // Servito da /api/cms/styles.css come <link> server-rendered: il file
-// viene incluso solo sulle pagine CMS effettive (non nel layout (frontend)
+// viene incluso solo sulle pagine CMS effettive (non nel layout (cms)
 // che ospita anche footer cookie / 404 / landing). La sorgente è
 // app_settings[cms.custom_css] con fallback al default seed
 // in lib/cms/default-styles.ts. L'admin lo edita da /admin/content/styles.
@@ -60,7 +60,7 @@ function isReservedPathPrefix(pageSlug: string): boolean {
  * Helper condivisi per il rendering delle pagine CMS dal DB.
  *
  * Sono usati da:
- *   - app/(frontend)/[...slug]/page.tsx       → URL senza prefix locale
+ *   - app/(cms)/[...slug]/page.tsx       → URL senza prefix locale
  *   - app/[locale]/[...slug]/page.tsx         → URL con prefix locale valido
  *   - app/[locale]/page.tsx (fallback)        → URL "/<slug>" che Next.js
  *     matcha come [locale]/page.tsx perché il primo segmento è dinamico:
@@ -168,7 +168,7 @@ export async function CmsPage({
    * Locale già risolto dal caller (es. da `app/[locale]/[...slug]/page.tsx`,
    * dove il prefix locale è catturato dal segment param e quindi NON
    * compare in `slug`). Se non passato, si tenta di detectarlo dal
-   * primo segmento dello slug — utile per `(frontend)/[...slug]/page.tsx`
+   * primo segmento dello slug — utile per `(cms)/[...slug]/page.tsx`
    * quando Next.js matcha multi-segment senza route group locale.
    */
   locale?: Locale;

@@ -43,7 +43,7 @@ postgres_data/
 .env*.local
 
 # auto-generated CMS template registry (rebuilt by predev/prebuild)
-app/(frontend)/_templates/index.generated.ts
+app/(cms)/_templates/index.generated.ts
 
 # Claude Code local settings
 .claude/

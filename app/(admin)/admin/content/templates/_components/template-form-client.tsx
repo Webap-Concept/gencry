@@ -116,7 +116,7 @@ function ImplementationGuide({
     : "TemplateName";
 
   const slugLabel = slug || "template-name";
-  const filePath = `app/(frontend)/_templates/${componentName}.tsx`;
+  const filePath = `app/(cms)/_templates/${componentName}.tsx`;
 
   const fieldsTypeLines =
     fields.length > 0
@@ -694,7 +694,7 @@ export default function TemplateFormClient({
               {componentName}.tsx
             </code>{" "}
             {t("componentMissingPath")}{" "}
-            <code>app/(frontend)/_templates/</code>. {t("componentMissingFallback")}{" "}
+            <code>app/(cms)/_templates/</code>. {t("componentMissingFallback")}{" "}
             <strong>{t("componentMissingFallbackName")}</strong>{" "}
             {t("componentMissingFallbackSuffix")}{" "}
             <strong>{t("componentMissingTabName")}</strong>{" "}

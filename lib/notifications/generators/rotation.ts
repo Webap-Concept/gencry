@@ -105,6 +105,8 @@ export function computeRotationCandidates(
       dedupKey: `rotation:${target.key}`,
       metadata: {
         settingKey: target.key,
+        // `label` esposto per il rendering i18n (vedi NOTIFICATION_REGISTRY).
+        label: target.label,
         ageDays,
         maxAgeDays: target.maxAgeDays,
       },
