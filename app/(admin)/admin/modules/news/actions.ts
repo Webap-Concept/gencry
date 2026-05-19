@@ -235,6 +235,26 @@ export async function saveReviewEditsAction(
   return { success: "Draft saved.", timestamp: Date.now() };
 }
 
+/**
+ * Estrae heroAssetId dal form ed eventualmente lo persiste sul DB se
+ * differisce dal valore corrente. Pattern necessario perché l'admin può
+ * scegliere/cambiare la hero nel picker senza prima cliccare "Save draft",
+ * e i bottoni Publish/Schedule devono comunque vedere l'ultimo valore.
+ */
+async function syncHeroFromForm(
+  itemId: string,
+  formData: FormData,
+  currentHeroAssetId: number | null,
+): Promise<number | null> {
+  const raw = String(formData.get("heroAssetId") ?? "").trim();
+  const fromForm = raw ? Number(raw) : null;
+  if (fromForm && Number.isFinite(fromForm) && fromForm !== currentHeroAssetId) {
+    await updateItem(itemId, { heroAssetId: fromForm });
+    return fromForm;
+  }
+  return currentHeroAssetId;
+}
+
 export async function publishNowAction(
   _prev: ActionState,
   formData: FormData,
@@ -245,11 +265,13 @@ export async function publishNowAction(
 
   const item = await getItemById(itemId);
   if (!item) return { error: "Item not found", timestamp: Date.now() };
-  if (!item.heroAssetId) {
+
+  const heroAssetId = await syncHeroFromForm(itemId, formData, item.heroAssetId);
+  if (!heroAssetId) {
     return { error: "Hero image required before publish.", timestamp: Date.now() };
   }
 
-  const r = await publishNewsItem({ itemId, heroAssetId: item.heroAssetId });
+  const r = await publishNewsItem({ itemId, heroAssetId });
   if (!r.ok) {
     return { error: `Publish failed: ${r.error}`, timestamp: Date.now() };
   }
@@ -273,9 +295,12 @@ export async function scheduleAction(
   }
   const item = await getItemById(itemId);
   if (!item) return { error: "Item not found", timestamp: Date.now() };
-  if (!item.heroAssetId) {
+
+  const heroAssetId = await syncHeroFromForm(itemId, formData, item.heroAssetId);
+  if (!heroAssetId) {
     return { error: "Hero image required before scheduling.", timestamp: Date.now() };
   }
+
   await updateItem(itemId, {
     status: "scheduled",
     scheduledPublishAt: when,

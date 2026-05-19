@@ -332,6 +332,7 @@ export function ReviewEditor({
                 }}
               >
                 <input type="hidden" name="itemId" value={item.id} />
+                <input type="hidden" name="heroAssetId" value={heroAssetId} />
                 <button
                   type="submit"
                   disabled={!canPublish || anyPending}
@@ -351,6 +352,7 @@ export function ReviewEditor({
               style={{ borderColor: "var(--admin-card-border)" }}
             >
               <input type="hidden" name="itemId" value={item.id} />
+              <input type="hidden" name="heroAssetId" value={heroAssetId} />
               <div className="space-y-1.5 flex-1 min-w-[200px]">
                 <label className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
                   Schedule for
