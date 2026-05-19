@@ -80,6 +80,7 @@ import {
   getActiveReportReasons,
   type ReportReason,
 } from "./services/report-reasons";
+import { refreshPostsReportsAdminNotification } from "@/lib/notifications/generators/posts-reports";
 import {
   getInitialRepliesForRoots,
   getRepliesForComment,
@@ -1149,6 +1150,14 @@ export async function reportContent(
     }
     throw err;
   }
+
+  // Notifica admin (rolling-summary in admin_notifications). Fire-and-forget:
+  // un fallimento del refresh non deve bloccare il flusso utente — il
+  // report è già committato e il prossimo tick del dispatcher (1h)
+  // riconcilia comunque il counter.
+  void refreshPostsReportsAdminNotification().catch((e) => {
+    console.warn("[posts.report] admin notification refresh failed:", e);
+  });
 
   return { ok: true };
 }
