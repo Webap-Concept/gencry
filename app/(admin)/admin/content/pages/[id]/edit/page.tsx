@@ -102,10 +102,19 @@ export default async function EditPagePage({
         isSystem={page.isSystem ?? false}
         pageType={page.pageType ?? "page"}
         contentEditable={page.contentEditable ?? true}
-        slugEditable={isSystemSlugEditable({
-          isSystem: page.isSystem ?? false,
-          systemKey: page.systemKey ?? null,
-        })}
+        slugEditable={
+          // System pages seguono la whitelist isSystemSlugEditable; per
+          // gli articoli news lo slug è bloccato lato editor perché
+          // viene generato dal modulo come `<category-prefix>/<slug>`
+          // (vedi buildNewsSlug in lib/modules/news/publish.ts). Editarlo
+          // a mano rompe il pattern URL coerente.
+          page.pageType === "news"
+            ? false
+            : isSystemSlugEditable({
+                isSystem: page.isSystem ?? false,
+                systemKey: page.systemKey ?? null,
+              })
+        }
         locales={locales}
         initialTranslations={translations}
         initialSeoTranslations={seoTranslations}

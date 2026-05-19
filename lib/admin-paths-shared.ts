@@ -40,6 +40,17 @@ export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   "coins",
   "libreria",
   "feed",
+  // News categories — slug riservati per le pagine articolo
+  // (URL pattern: /<category-prefix>/<article-slug>) e per le future
+  // landing categoria (es. /bitcoin che lista tutti gli articoli bitcoin).
+  "news",
+  "bitcoin",
+  "ethereum",
+  "altcoin",
+  "defi",
+  "regolamentazione",
+  "mercati",
+  "tech",
   // Static files served as routes
   "humans.txt",
   "robots.txt",

@@ -53,25 +53,51 @@ async function getNewsTemplateId(): Promise<number | null> {
 }
 
 /**
+ * Mappa category → URL prefix. Lo slug pubblico di ogni articolo news
+ * vive sotto la propria categoria (`/bitcoin/<slug>`, `/altcoin/<slug>`,
+ * ecc.) — SEO con keyword nella path + predisposizione a landing
+ * categoria future (es. `/bitcoin` listing).
+ *
+ * IT per le categorie italianizzabili (`mercati`, `regolamentazione`),
+ * EN dove l'italiano è poco usato anche dai lettori IT (`bitcoin`,
+ * `ethereum`, `defi`).  `other` e null cadono su `news` come fallback.
+ */
+const CATEGORY_URL_PREFIX: Record<string, string> = {
+  bitcoin: "bitcoin",
+  ethereum: "ethereum",
+  altcoin: "altcoin",
+  defi: "defi",
+  regulation: "regolamentazione",
+  market: "mercati",
+  tech: "tech",
+  other: "news",
+};
+
+export function categoryUrlPrefix(category: string | null): string {
+  return CATEGORY_URL_PREFIX[category ?? "other"] ?? "news";
+}
+
+/**
  * Genera lo slug pubblico della page CMS. Convenzione:
- *   news/<slug-from-title>
+ *   <category-prefix>/<slug-from-title>
  *
  * Niente data: i meta SEO sono coperti da published_at strutturato, e lo
  * slug più corto è più leggibile + condivisibile. Le parole con length≤2
  * (e, le, il, i, a, di, da, in, su, al, …) sono droppate per evitare
  * URL gonfiate da stopword e migliorare il keyword density.
  *
- * Il prefix `news/` resta riservato (la pagina di listing vive su `/news`
- * gestita da un page handler dedicato in app/(cms)/news/page.tsx).
+ * Lo slug è snapshot al publish: cambi futuri di category sull'item NON
+ * rinominano la page (niente link rot). Per rinominare manualmente, si
+ * passa dall'editor pages standard.
  */
-function buildNewsSlug(title: string, _publishedAt: Date): string {
+function buildNewsSlug(title: string, category: string | null): string {
   const slugged = slugify(title);
   const meaningful = slugged
     .split("-")
     .filter((w) => w.length >= 3)
     .join("-")
     .slice(0, 80);
-  return `news/${meaningful || "article"}`;
+  return `${categoryUrlPrefix(category)}/${meaningful || "article"}`;
 }
 
 /**
@@ -125,7 +151,7 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
   }
 
   const now = new Date();
-  const slug = buildNewsSlug(item.generatedTitleIt, now);
+  const slug = buildNewsSlug(item.generatedTitleIt, item.category);
 
   // Optional: auto-link della PRIMA occorrenza di un coin noto verso
   // /coins/<symbol>. Cap 1 link per articolo. Toggle per-item (checkbox
