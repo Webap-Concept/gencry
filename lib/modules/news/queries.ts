@@ -21,7 +21,7 @@ import {
   type NewsItemStatus,
   type NewsSource,
 } from "@/lib/db/schema";
-import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
 export type { NewsSource, NewsItem, NewsItemStatus };
@@ -295,6 +295,10 @@ export async function getStatusCounts(): Promise<NewsStatusCounts> {
  * di scheduling "max N/day" e per il widget overview.
  */
 export async function countPublishedBetween(from: Date, to: Date): Promise<number> {
+  // gte/lt invece di sql`${col} >= ${date}`: il driver postgres-js non
+  // marshalla Date passati come raw param SQL ("ERR_INVALID_ARG_TYPE:
+  // Received an instance of Date"), i builder drizzle fanno il toISOString
+  // per i timestamptz.
   const [row] = await db
     .select({ count: sql<number>`cast(count(*) as integer)` })
     .from(newsItems)
@@ -302,8 +306,8 @@ export async function countPublishedBetween(from: Date, to: Date): Promise<numbe
       and(
         eq(newsItems.status, "published"),
         isNotNull(newsItems.publishedAt),
-        sql`${newsItems.publishedAt} >= ${from}`,
-        sql`${newsItems.publishedAt} < ${to}`,
+        gte(newsItems.publishedAt, from),
+        lt(newsItems.publishedAt, to),
       ),
     );
   return row?.count ?? 0;
@@ -319,8 +323,8 @@ export async function countScheduledBetween(from: Date, to: Date): Promise<numbe
     .where(
       and(
         eq(newsItems.status, "scheduled"),
-        sql`${newsItems.scheduledPublishAt} >= ${from}`,
-        sql`${newsItems.scheduledPublishAt} < ${to}`,
+        gte(newsItems.scheduledPublishAt, from),
+        lt(newsItems.scheduledPublishAt, to),
       ),
     );
   return row?.count ?? 0;
