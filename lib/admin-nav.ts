@@ -101,6 +101,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "Activity",
         permission: "admin:sessions",
       },
+      {
+        key: "users-waiting-list",
+        href: "/access/waiting-list",
+        label: "Waiting list",
+        icon: "MailPlus",
+        permission: "admin:users",
+      },
     ],
   },
   {
