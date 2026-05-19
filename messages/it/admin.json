@@ -3122,6 +3122,28 @@
     "actions": {
       "snoozeSevenDays": "Posticipa 7 giorni",
       "dismiss": "Ignora"
+    },
+    "types": {
+      "secret_rotation_due": {
+        "title": "Ruota {label}",
+        "body": "Non aggiornato da {ageDays, plural, one {# giorno} other {# giorni}} (soglia: {maxAgeDays}g)."
+      },
+      "cron_job_failure": {
+        "title": "Cron fallito — {label}",
+        "body": "{consecutive, plural, =1 {Ultima esecuzione fallita alle {lastTime}.} other {# fallimenti consecutivi, ultimo alle {lastTime}.}}"
+      },
+      "account_deletion_requested": {
+        "title": "Richiesta cancellazione account: {email}",
+        "body": "Cancellazione definitiva fra {daysRemaining, plural, one {# giorno} other {# giorni}} ({purgeDate}). Annulla dalla pagina utente se richiesta per errore."
+      },
+      "suspicious_sessions": {
+        "title": "{severity, select, critical {{count, plural, one {# sessione sospetta critica} other {# sessioni sospette critiche}}} warning {{count, plural, one {# avviso di sessione sospetta} other {# avvisi di sessioni sospette}}} info {{count, plural, one {# segnalazione di sessione sospetta} other {# segnalazioni di sessioni sospette}}} other {{count, plural, one {# sessione sospetta} other {# sessioni sospette}}}}",
+        "body": "{severity, select, critical {Probabili segnali di account compromesso. Verifica e revoca se necessario.} other {Pattern di sessione anomali. Verifica appena possibile.}}"
+      },
+      "posts_reports_pending": {
+        "title": "{total, plural, one {# segnalazione in attesa di revisione} other {# segnalazioni in attesa di revisione}}",
+        "body": "{hasBoth, select, true {{posts, plural, one {# su post} other {# su post}}, {comments, plural, one {# su commento} other {# su commenti}}. Apri la coda di moderazione per gestirle.} other {{onlyPosts, select, true {{posts, plural, one {# su post} other {# su post}}. Apri la coda di moderazione per gestirle.} other {{comments, plural, one {# su commento} other {# su commenti}}. Apri la coda di moderazione per gestirle.}}}}"
+      }
     }
   },
   "tests": {

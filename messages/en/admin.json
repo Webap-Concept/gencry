@@ -3122,6 +3122,28 @@
     "actions": {
       "snoozeSevenDays": "Snooze 7 days",
       "dismiss": "Dismiss"
+    },
+    "types": {
+      "secret_rotation_due": {
+        "title": "Rotate {label}",
+        "body": "Not updated for {ageDays, plural, one {# day} other {# days}} (threshold: {maxAgeDays}d)."
+      },
+      "cron_job_failure": {
+        "title": "Cron failed — {label}",
+        "body": "{consecutive, plural, =1 {Last run failed at {lastTime}.} other {# consecutive failures, latest at {lastTime}.}}"
+      },
+      "account_deletion_requested": {
+        "title": "Account deletion requested: {email}",
+        "body": "Purge scheduled in {daysRemaining, plural, one {# day} other {# days}} ({purgeDate}). Cancel from the user page if requested by mistake."
+      },
+      "suspicious_sessions": {
+        "title": "{severity, select, critical {{count, plural, one {# critical suspicious session} other {# critical suspicious sessions}}} warning {{count, plural, one {# suspicious session warning} other {# suspicious session warnings}}} info {{count, plural, one {# suspicious session notice} other {# suspicious session notices}}} other {{count, plural, one {# suspicious session} other {# suspicious sessions}}}}",
+        "body": "{severity, select, critical {Likely takeover signals detected. Review and revoke if needed.} other {Unusual session patterns detected. Review when possible.}}"
+      },
+      "posts_reports_pending": {
+        "title": "{total, plural, one {# pending content report to review} other {# pending content reports to review}}",
+        "body": "{hasBoth, select, true {{posts, plural, one {# on post} other {# on posts}}, {comments, plural, one {# on comment} other {# on comments}}. Open the moderation queue to triage.} other {{onlyPosts, select, true {{posts, plural, one {# on post} other {# on posts}}. Open the moderation queue to triage.} other {{comments, plural, one {# on comment} other {# on comments}}. Open the moderation queue to triage.}}}}"
+      }
     }
   },
   "tests": {

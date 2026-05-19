@@ -5,6 +5,10 @@ import {
   markReadAction,
   snoozeAction,
 } from "@/lib/notifications/actions";
+import {
+  renderNotificationBody,
+  renderNotificationTitle,
+} from "@/lib/notifications/render-i18n";
 import type { ClientNotification } from "@/lib/notifications/serializers";
 import {
   AlertTriangle,
@@ -119,6 +123,10 @@ export function NotificationsList({
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("admin.notifications");
+  // Root-namespace per il registry (espone path completi tipo
+  // "admin.notifications.types.<type>.title"). Distinto da `t` scoped
+  // su "admin.notifications" per non perdere `t.has()` su path completi.
+  const tRoot = useTranslations();
   const locale = useLocale();
   // Chiave dell'azione in volo: "snooze:<id>" o "dismiss:<id>". Una sola
   // alla volta — vedi commento analogo in NotificationBell.
@@ -204,6 +212,18 @@ export function NotificationsList({
           {notifications.map((n) => {
             const badge = statusBadgeKey(n);
             const isActive = !n.dismissedAt && !n.resolvedAt;
+            const title = renderNotificationTitle(
+              n.type,
+              n.metadata,
+              n.title,
+              tRoot,
+            );
+            const body = renderNotificationBody(
+              n.type,
+              n.metadata,
+              n.body,
+              tRoot,
+            );
             return (
               <div
                 key={n.id}
@@ -218,7 +238,7 @@ export function NotificationsList({
                       onClick={() => handleRowClick(n)}
                       className="text-sm font-semibold text-left"
                       style={{ color: "var(--admin-text)" }}>
-                      {n.title}
+                      {title}
                     </button>
                     <span
                       className="text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded shrink-0"
@@ -229,11 +249,11 @@ export function NotificationsList({
                       {t(`status.${badge.key}`)}
                     </span>
                   </div>
-                  {n.body && (
+                  {body && (
                     <p
                       className="text-xs mt-1"
                       style={{ color: "var(--admin-text-muted)" }}>
-                      {n.body}
+                      {body}
                     </p>
                   )}
                   <div

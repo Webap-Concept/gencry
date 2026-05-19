@@ -101,6 +101,9 @@ export function computeCronFailureCandidates(
         jobid: job.jobid,
         consecutiveFailures: consecutive,
         lastErrorMessage: lastError,
+        // Esposti per il rendering i18n (vedi NOTIFICATION_REGISTRY).
+        label,
+        latestTime: formatTime(latest.startTime),
       },
     });
   }
