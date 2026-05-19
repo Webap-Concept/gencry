@@ -13,6 +13,10 @@ import type {
   SeoPageTranslation,
   TemplateField,
 } from "@/lib/db/schema";
+import type {
+  ExtensionFieldOption,
+  PageTemplateExtension,
+} from "@/lib/cms/page-template-extensions";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -191,17 +195,64 @@ function TabBtn({
   );
 }
 
+/**
+ * Normalizza un TemplateField del DB e/o un ExtensionField runtime nella
+ * stessa shape per il render. Usata per fondere i due elenchi (template
+ * DB + extension del modulo registrato sul pageType) in un unico array
+ * ordinato per sortOrder.
+ */
+interface UnifiedField {
+  key: string;
+  type: string;
+  label: string;
+  placeholder: string | null;
+  required: boolean;
+  defaultValue: string | null;
+  options: ExtensionFieldOption[] | null;
+  sortOrder: number;
+  /** "db" = riga template_fields del DB; "module" = aggiunta runtime
+   *  dal modulo via PageTemplateExtension. Usato solo per debug/docs. */
+  source: "db" | "module";
+}
+
 function CustomFieldsBlock({
   template,
   customFields,
   setCustomFields,
+  moduleExtension,
 }: {
   template: TemplateWithFields;
   customFields: Record<string, string>;
   setCustomFields: (v: Record<string, string>) => void;
+  moduleExtension: PageTemplateExtension | null;
 }) {
   const t = useTranslations("admin.content.pages.editor");
-  if (template.fields.length === 0) return null;
+  const dbFields: UnifiedField[] = template.fields.map((f) => ({
+    key: f.fieldKey,
+    type: f.fieldType,
+    label: f.label,
+    placeholder: f.placeholder,
+    required: f.required,
+    defaultValue: f.defaultValue,
+    options: null,
+    sortOrder: f.sortOrder,
+    source: "db",
+  }));
+  const extensionFields: UnifiedField[] = (moduleExtension?.fields ?? []).map((f) => ({
+    key: f.key,
+    type: f.type,
+    label: f.label,
+    placeholder: f.placeholder ?? null,
+    required: f.required ?? false,
+    defaultValue: f.defaultValue ?? null,
+    options: f.options ?? null,
+    sortOrder: f.sortOrder ?? 999,
+    source: "module",
+  }));
+  const allFields = [...dbFields, ...extensionFields].sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
+  if (allFields.length === 0) return null;
   function handleField(key: string, value: string) {
     setCustomFields({ ...customFields, [key]: value });
   }
@@ -218,13 +269,11 @@ function CustomFieldsBlock({
         {t("customFieldsHeading", { name: template.name })}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[...template.fields]
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((field) => (
+        {allFields.map((field) => (
             <div
-              key={field.id}
+              key={`${field.source}-${field.key}`}
               className={
-                field.fieldType === "textarea" || field.fieldType === "richtext"
+                field.type === "textarea" || field.type === "richtext"
                   ? "sm:col-span-2"
                   : ""
               }>
@@ -232,68 +281,70 @@ function CustomFieldsBlock({
                 {field.label}
                 {field.required && <span style={{ color: "#ef4444" }}> *</span>}
               </label>
-              {field.fieldType === "textarea" ||
-              field.fieldType === "richtext" ? (
+              {field.type === "textarea" || field.type === "richtext" ? (
                 <textarea
-                  value={
-                    customFields[field.fieldKey] ?? field.defaultValue ?? ""
-                  }
-                  onChange={(e) => handleField(field.fieldKey, e.target.value)}
+                  value={customFields[field.key] ?? field.defaultValue ?? ""}
+                  onChange={(e) => handleField(field.key, e.target.value)}
                   placeholder={field.placeholder ?? ""}
                   rows={3}
                   style={{ ...inputStyle, resize: "vertical" }}
                 />
-              ) : field.fieldType === "image" ? (
+              ) : field.type === "image" ? (
                 <MediaPickerField
                   imageOnly
-                  value={
-                    customFields[field.fieldKey] ?? field.defaultValue ?? ""
-                  }
-                  onChange={(v) => handleField(field.fieldKey, v)}
+                  value={customFields[field.key] ?? field.defaultValue ?? ""}
+                  onChange={(v) => handleField(field.key, v)}
                   placeholder={field.placeholder ?? undefined}
                 />
-              ) : field.fieldType === "toggle" ? (
+              ) : field.type === "toggle" ? (
                 <div className="flex items-center gap-2 py-2">
                   <input
                     type="checkbox"
-                    id={`cf-${field.fieldKey}`}
+                    id={`cf-${field.key}`}
                     checked={
-                      (customFields[field.fieldKey] ?? field.defaultValue) ===
-                      "true"
+                      (customFields[field.key] ?? field.defaultValue) === "true"
                     }
                     onChange={(e) =>
-                      handleField(
-                        field.fieldKey,
-                        e.target.checked ? "true" : "false",
-                      )
+                      handleField(field.key, e.target.checked ? "true" : "false")
                     }
                     className="w-4 h-4 rounded"
                   />
                   <label
-                    htmlFor={`cf-${field.fieldKey}`}
+                    htmlFor={`cf-${field.key}`}
                     className="text-sm"
                     style={{ color: "var(--admin-text)" }}>
                     {field.label}
                   </label>
                 </div>
+              ) : field.type === "select" ? (
+                <select
+                  value={customFields[field.key] ?? field.defaultValue ?? ""}
+                  onChange={(e) => handleField(field.key, e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="">— seleziona —</option>
+                  {(field.options ?? []).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   type={
-                    field.fieldType === "date"
+                    field.type === "date"
                       ? "date"
-                      : field.fieldType === "number"
+                      : field.type === "number"
                         ? "number"
                         : "text"
                   }
-                  value={
-                    customFields[field.fieldKey] ?? field.defaultValue ?? ""
-                  }
-                  onChange={(e) => handleField(field.fieldKey, e.target.value)}
+                  value={customFields[field.key] ?? field.defaultValue ?? ""}
+                  onChange={(e) => handleField(field.key, e.target.value)}
                   placeholder={field.placeholder ?? ""}
                   style={inputStyle}
                 />
               )}
-              {field.placeholder && field.fieldType !== "toggle" && (
+              {field.placeholder && field.type !== "toggle" && (
                 <p style={hintStyle}>{field.placeholder}</p>
               )}
             </div>
@@ -703,6 +754,7 @@ export default function PageEditor({
   initialTranslations = [],
   initialSeoTranslations = [],
   canManageTemplates = false,
+  moduleExtensions = [],
 }: {
   page?: Page | null;
   seo?: SeoPage | null;
@@ -724,6 +776,12 @@ export default function PageEditor({
    *  template è read-only e la server action ignorerà qualunque
    *  templateId nel form. Default false = "negato by default". */
   canManageTemplates?: boolean;
+  /** Extension registrate dai moduli (via `registerPageTemplateExtension`).
+   *  Il page-editor pesca la giusta extension via `templateSlug` quando
+   *  l'admin sceglie il template — così funziona sia nella /new (dove
+   *  pageType è ancora vuoto al mount) che nell'edit. Vedi
+   *  `lib/cms/page-template-extensions.ts`. */
+  moduleExtensions?: PageTemplateExtension[];
 }) {
   const t = useTranslations("admin.content.pages.editor");
   const router = useRouter();
@@ -837,28 +895,37 @@ export default function PageEditor({
   });
 
   const parentPage = pages.find((p) => p.id === parentId) ?? null;
-  // News pages: prefix derivato dalla categoria scelta nei customFields
-  // (mapping in CATEGORY_URL_PREFIX di lib/modules/news/publish.ts), NON dal
-  // parent CMS. Editor mostra "altcoin/" readonly e l'admin edita solo
-  // la parte dopo lo slash. Per articoli senza categoria (other o vuoto),
-  // fallback a "news/".
-  const newsPrefix =
-    pageType === "news"
-      ? `${
-          (
-            {
-              bitcoin: "bitcoin",
-              ethereum: "ethereum",
-              altcoin: "altcoin",
-              defi: "defi",
-              regulation: "regolamentazione",
-              market: "mercati",
-              tech: "tech",
-            } as Record<string, string>
-          )[(customFields.category ?? "").toLowerCase().trim()] ?? "news"
-        }/`
-      : null;
-  const slugPrefix = newsPrefix ?? (parentPage ? `${parentPage.slug}/` : "");
+  // Template attualmente selezionato: usato sia per il render dei custom
+  // fields sia per pescare l'extension del modulo abbinato (matching per
+  // `templateSlug`). Calcolato qui in cima perché il `moduleSlugPrefix`
+  // sotto ne dipende.
+  const selectedTemplate =
+    templates.find((tpl) => tpl.id === templateId) ?? null;
+  // Extension del modulo che ha "claimato" questo template (es. modulo
+  // news registra `templateSlug: "news"`). Null se nessun modulo ha
+  // registrato per questo template — il page-editor si comporta come
+  // CMS vanilla.
+  const moduleExtension = useMemo<PageTemplateExtension | null>(() => {
+    if (!selectedTemplate) return null;
+    return (
+      moduleExtensions.find((e) => e.templateSlug === selectedTemplate.slug) ??
+      null
+    );
+  }, [moduleExtensions, selectedTemplate?.slug]);
+  // Slug prefix dall'extension del modulo se ne ha registrata una (es.
+  // modulo news → prefix da customFields.category). Il core CMS non
+  // conosce nessun modulo: applica solo la `SlugResolverSpec` passata
+  // come dato dal caller. Senza extension, fallback al pattern parent
+  // CMS standard.
+  const moduleSlugPrefix = (() => {
+    const r = moduleExtension?.slugResolver;
+    if (!r) return null;
+    const value = (customFields[r.fieldKey] ?? "").toLowerCase().trim();
+    const prefix = r.prefixMap[value] ?? r.fallback;
+    return `${prefix}/`;
+  })();
+  const slugPrefix =
+    moduleSlugPrefix ?? (parentPage ? `${parentPage.slug}/` : "");
   const slugLeaf = leafSlug(slug) || slug;
 
   // URL pubblico: solo per pagine pubblicate già salvate
@@ -965,17 +1032,17 @@ export default function PageEditor({
     setSlug(buildFullSlug(slugPrefix, leafVal));
   }
 
-  // Per news pages: quando la categoria nei customFields cambia, ri-applica
-  // il nuovo prefix mantenendo il leaf scelto. Senza questo, cambiare
-  // "altcoin" → "bitcoin" non aggiornerebbe il path finché l'admin non
-  // tocca il campo slug a mano.
+  // Quando il prefix del modulo cambia (perché l'admin ha cambiato il
+  // custom field controllato dallo slug resolver), ri-applica il nuovo
+  // prefix mantenendo il leaf scelto. Senza, cambiare "altcoin" →
+  // "bitcoin" non aggiornerebbe il path finché l'admin non tocca lo slug.
   useEffect(() => {
-    if (!newsPrefix) return;
+    if (!moduleSlugPrefix) return;
     const currentLeaf = leafSlug(slug) || slugify(title);
-    const next = buildFullSlug(newsPrefix, currentLeaf);
+    const next = buildFullSlug(moduleSlugPrefix, currentLeaf);
     if (next !== slug) setSlug(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newsPrefix]);
+  }, [moduleSlugPrefix]);
   function handleParentChange(newParentId: number | null) {
     setParentId(newParentId);
     const leaf = leafSlug(slug) || slugify(title);
@@ -1109,8 +1176,7 @@ export default function PageEditor({
     }));
   }
 
-  const selectedTemplate =
-    templates.find((tpl) => tpl.id === templateId) ?? null;
+  // (selectedTemplate calcolato sopra, vicino a moduleExtension/moduleSlugPrefix)
 
   // Lista pagine selezionabili nel picker "Link a pagina interna":
   //   - solo pubblicate (le draft non sono navigabili e creerebbero link 404)
@@ -1510,11 +1576,13 @@ export default function PageEditor({
 
         {!isMetaOnly &&
           selectedTemplate &&
-          selectedTemplate.fields.length > 0 && (
+          (selectedTemplate.fields.length > 0 ||
+            (moduleExtension?.fields.length ?? 0) > 0) && (
             <CustomFieldsBlock
               template={selectedTemplate}
               customFields={customFields}
               setCustomFields={setCustomFields}
+              moduleExtension={moduleExtension}
             />
           )}
 

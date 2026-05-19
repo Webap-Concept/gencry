@@ -1,8 +1,11 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { getAllPageTemplateExtensions } from "@/lib/cms/page-template-extensions";
 import { getAllPages } from "@/lib/db/pages-queries";
 import { getUser } from "@/lib/db/queries";
 import { getAllTemplates } from "@/lib/db/template-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+// Side-effect: popola il registry delle PageTemplateExtension via i moduli installati.
+import "@/lib/modules/registry";
 import { can } from "@/lib/rbac/can";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
@@ -57,6 +60,7 @@ export default async function NewPagePage({
         initialTemplateId={initialTemplateId}
         templateLocked={templateLocked}
         canManageTemplates={canManageTemplates}
+        moduleExtensions={getAllPageTemplateExtensions()}
       />
     </div>
   );
