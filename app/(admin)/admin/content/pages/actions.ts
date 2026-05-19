@@ -400,7 +400,6 @@ export async function upsertPageAction(
     revalidatePath(`/${data.slug}`);
     if (slugChanged) {
       revalidatePath(`/${originalSlug}`);
-      revalidatePath(await getAdminPath("seo-meta"));
       revalidatePath(await getAdminPath("seo-redirects"));
     }
 
@@ -468,7 +467,6 @@ export async function deletePageAction(
 
     revalidatePath(await getAdminPath("content-pages"));
     revalidatePath(`/${slug}`);
-    revalidatePath(await getAdminPath("seo-meta"));
     // La SEO è stata appena cancellata: invalida la cache `seo` tag.
     updateTag("seo");
     await invalidatePageCachesAndSync();
