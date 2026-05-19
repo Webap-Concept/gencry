@@ -18,20 +18,12 @@
 // generico in `lib/cms/page-template-extensions.ts`.
 
 import { registerPageTemplateExtension } from "@/lib/cms/page-template-extensions";
+import { NEWS_CATEGORY_URL_PREFIX } from "./url-prefixes";
 
-// Stesso mapping di lib/modules/news/publish.ts. Duplicato qui per
-// evitare di trascinare `publish.ts` (server-only) dentro un import
-// chain raggiungibile dal client bundle.
-const CATEGORY_PREFIX: Record<string, string> = {
-  bitcoin: "bitcoin",
-  ethereum: "ethereum",
-  altcoin: "altcoin",
-  defi: "defi",
-  regulation: "regolamentazione",
-  market: "mercati",
-  tech: "tech",
-  other: "news",
-};
+// Mappa categoria → URL prefix: importata da `./url-prefixes.ts`,
+// che è client-safe (zero side-effect server-only). Single source of
+// truth condivisa con `publish.ts` e con il validator slug del CMS.
+const CATEGORY_PREFIX: Record<string, string> = NEWS_CATEGORY_URL_PREFIX;
 
 const CATEGORY_LABELS: Record<string, string> = {
   bitcoin: "Bitcoin",

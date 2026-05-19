@@ -31,6 +31,7 @@ import { upsertSeoPage } from "@/lib/db/seo-queries";
 import { listCoins } from "@/lib/modules/prices/queries";
 import { slugify } from "@/lib/utils/slugify";
 import { autoLinkCoinsInMarkdown } from "./auto-link";
+import { newsCategoryUrlPrefix } from "./url-prefixes";
 
 export type PublishOutcome =
   | { ok: true; pageId: number; slug: string }
@@ -52,30 +53,10 @@ async function getNewsTemplateId(): Promise<number | null> {
   return cachedNewsTemplateId;
 }
 
-/**
- * Mappa category → URL prefix. Lo slug pubblico di ogni articolo news
- * vive sotto la propria categoria (`/bitcoin/<slug>`, `/altcoin/<slug>`,
- * ecc.) — SEO con keyword nella path + predisposizione a landing
- * categoria future (es. `/bitcoin` listing).
- *
- * IT per le categorie italianizzabili (`mercati`, `regolamentazione`),
- * EN dove l'italiano è poco usato anche dai lettori IT (`bitcoin`,
- * `ethereum`, `defi`).  `other` e null cadono su `news` come fallback.
- */
-const CATEGORY_URL_PREFIX: Record<string, string> = {
-  bitcoin: "bitcoin",
-  ethereum: "ethereum",
-  altcoin: "altcoin",
-  defi: "defi",
-  regulation: "regolamentazione",
-  market: "mercati",
-  tech: "tech",
-  other: "news",
-};
-
-export function categoryUrlPrefix(category: string | null): string {
-  return CATEGORY_URL_PREFIX[category ?? "other"] ?? "news";
-}
+// Categoria → URL prefix: la mappa vive in `./url-prefixes.ts` (single
+// source of truth, importata anche da `cms-extension.ts` e dal validator
+// slug). Nessun re-export qui: i caller esterni importano direttamente
+// `newsCategoryUrlPrefix` dal modulo url-prefixes.
 
 /**
  * Genera lo slug pubblico della page CMS. Convenzione:
@@ -97,7 +78,7 @@ function buildNewsSlug(title: string, category: string | null): string {
     .filter((w) => w.length >= 3)
     .join("-")
     .slice(0, 80);
-  return `${categoryUrlPrefix(category)}/${meaningful || "article"}`;
+  return `${newsCategoryUrlPrefix(category)}/${meaningful || "article"}`;
 }
 
 /**

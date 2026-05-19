@@ -51,7 +51,10 @@ export default async function FrontendLayout({
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
       <ResetScrollOnPath />
-      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
+      <PublicHeader
+        appLogoUrl={appSettings.app_logo_url}
+        logoHref={isNews ? "/news" : "/"}
+      />
       <div className="flex-1">
         <div
           className={
