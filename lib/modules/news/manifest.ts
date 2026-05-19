@@ -162,6 +162,13 @@ export const NEWS_MODULE: ModuleManifest = {
       permission: "modules:news",
     },
     {
+      key: "news-cron",
+      href: "/modules/news/cron",
+      label: "Cron",
+      icon: "Clock",
+      permission: "modules:news",
+    },
+    {
       key: "news-settings",
       href: "/modules/news/settings",
       label: "Settings",
