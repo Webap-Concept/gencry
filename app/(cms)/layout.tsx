@@ -14,7 +14,11 @@
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { getSystemPageSlugs, isLegalsPathname } from "@/lib/db/pages-queries";
+import {
+  getSystemPageSlugs,
+  isLegalsPathname,
+  isNewsPathname,
+} from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { setRequestLocaleFromHeaders } from "@/lib/i18n/server";
 import { headers } from "next/headers";
@@ -33,21 +37,41 @@ export default async function FrontendLayout({
     headers(),
   ]);
   const pathname = headerList.get("x-pathname") ?? "/";
-  const showRail = !isLegalsPathname(pathname, slugs);
+  const isNews = isNewsPathname(pathname);
+  // Rail off su: legals (privacy/terms/cookie) + news (layout editoriale
+  // dedicato full-width). Il main occupa tutta la larghezza in quei casi.
+  const showRail = !isLegalsPathname(pathname, slugs) && !isNews;
+  // Niente max-w container quando siamo nel blog: le pagine /news* hanno
+  // un loro layout con .news-container che gestisce padding e centering;
+  // il flex max-w-7xl del layout cms restringerebbe i blocchi full-bleed
+  // (ticker, feature cover) facendoli sembrare incassati.
+  const fullBleed = isNews;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
       <PublicHeader appLogoUrl={appSettings.app_logo_url} />
       <div className="flex-1">
-        <div className="mx-auto w-full max-w-7xl flex">
-          {/* main flex-1 + min-w-0 per non far esplodere il layout con
-              content larghi. Sui legals il rail è disabilitato, quindi
-              il main occupa tutta la larghezza (max-w-7xl). */}
-          <main className="flex flex-1 flex-col min-w-0">{children}</main>
-          {showRail && (
-            <Suspense fallback={null}>
-              <AppRightRail />
-            </Suspense>
+        <div
+          className={
+            fullBleed
+              ? "w-full"
+              : "mx-auto w-full max-w-7xl flex"
+          }
+        >
+          {fullBleed ? (
+            <main className="w-full">{children}</main>
+          ) : (
+            <>
+              {/* main flex-1 + min-w-0 per non far esplodere il layout
+                  con content larghi. Sui legals il rail è disabilitato,
+                  quindi il main occupa tutta la larghezza (max-w-7xl). */}
+              <main className="flex flex-1 flex-col min-w-0">{children}</main>
+              {showRail && (
+                <Suspense fallback={null}>
+                  <AppRightRail />
+                </Suspense>
+              )}
+            </>
           )}
         </div>
       </div>
