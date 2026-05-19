@@ -1,12 +1,9 @@
-// app/(public)/news/page.tsx
+// app/(frontend)/news/page.tsx
 //
-// Listing pubblico /news. Sta in (public)/ per adottare l'adaptive shell:
-//   - utente loggato → ProtectedShell (sidebar + topbar + bottom nav)
-//   - utente anonimo → PublicHeader marketing + footer
-//
-// Lo shell viene wrappato dentro la page (NON dal layout (public)/ che è
-// passthrough), così un eventuale notFound() esce diretto al root
-// app/not-found.tsx — vedi commento in (public)/layout.tsx.
+// Listing pubblico /news. Sta in (frontend)/ → eredita il layout
+// pubblico fisso (PublicHeader auth-aware + AppRightRail + PublicFooter).
+// Stessa "vestita" per loggato e anonimo: cambia solo l'angolo destro
+// dell'header (Accedi/Iscriviti vs avatar + "Apri l'app").
 //
 // Detail page rimane gestita dal catch-all `[...slug]/page.tsx` del CMS.
 
@@ -20,7 +17,6 @@ import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { Calendar } from "lucide-react";
 import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
 import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
-import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 
 const PAGE_SIZE = 20;
 
@@ -114,49 +110,47 @@ export default async function NewsListingPage({
   const news = await getPublishedNews(PAGE_SIZE, offset);
 
   return (
-    <PublicAdaptiveShell>
-      <div className="max-w-5xl mx-auto w-full space-y-8 py-4">
-        <header className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">News</h1>
-          <p className="text-sm text-muted-foreground">
-            Notizie e analisi crypto curate dalla redazione di GenerazioneCrypto.
-          </p>
-        </header>
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <header className="space-y-2">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">News</h1>
+        <p className="text-sm text-muted-foreground">
+          Notizie e analisi crypto curate dalla redazione di GenerazioneCrypto.
+        </p>
+      </header>
 
-        {news.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-16">
-            Nessun articolo pubblicato per il momento. Torna a trovarci a breve.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {news.map((n) => (
-              <NewsCardComponent key={n.id} item={n} />
-            ))}
-          </div>
-        )}
+      {news.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-16">
+          Nessun articolo pubblicato per il momento. Torna a trovarci a breve.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {news.map((n) => (
+            <NewsCardComponent key={n.id} item={n} />
+          ))}
+        </div>
+      )}
 
-        {news.length === PAGE_SIZE && (
-          <div className="flex justify-between pt-6">
-            {pageNum > 1 ? (
-              <Link
-                href={`/news?page=${pageNum - 1}`}
-                className="text-sm underline text-muted-foreground hover:text-foreground"
-              >
-                ← Pagina precedente
-              </Link>
-            ) : (
-              <span />
-            )}
+      {news.length === PAGE_SIZE && (
+        <div className="flex justify-between pt-6">
+          {pageNum > 1 ? (
             <Link
-              href={`/news?page=${pageNum + 1}`}
+              href={`/news?page=${pageNum - 1}`}
               className="text-sm underline text-muted-foreground hover:text-foreground"
             >
-              Pagina successiva →
+              ← Pagina precedente
             </Link>
-          </div>
-        )}
-      </div>
-    </PublicAdaptiveShell>
+          ) : (
+            <span />
+          )}
+          <Link
+            href={`/news?page=${pageNum + 1}`}
+            className="text-sm underline text-muted-foreground hover:text-foreground"
+          >
+            Pagina successiva →
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 
