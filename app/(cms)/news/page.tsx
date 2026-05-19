@@ -12,25 +12,36 @@ import Link from "next/link";
 import { db } from "@/lib/db/drizzle";
 import { mediaAssets, pages } from "@/lib/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getCachedSeoPage } from "@/lib/seo";
+import { getCachedAppSettings, getCachedSeoPage } from "@/lib/seo";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { Calendar } from "lucide-react";
 import { buildOptimizedImageAttrs } from "@/lib/storage/image-optimizer";
 import { IMAGE_PRESETS } from "@/lib/storage/image-widths";
+import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 
 const PAGE_SIZE = 20;
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const seo = await getCachedSeoPage("/news", DEFAULT_LOCALE);
+  // Stesso pattern di cmsPageMetadata in app/(cms)/_render/cms-page.tsx:
+  // i campi seo_pages contengono placeholder mustache (es. "{{appName}}")
+  // che vanno risolti contro app_settings prima di emettere i meta.
+  const [seo, settings] = await Promise.all([
+    getCachedSeoPage("/news", DEFAULT_LOCALE),
+    getCachedAppSettings(),
+  ]);
+  const resolve = (text?: string | null) =>
+    text ? resolvePlaceholders(text, settings) : undefined;
   return {
-    title: seo?.title ?? "News",
+    title: resolve(seo?.title) ?? "News",
     description:
-      seo?.description ?? "Notizie e analisi crypto curate dalla redazione di GenerazioneCrypto.",
+      resolve(seo?.description) ??
+      "Notizie e analisi crypto curate dalla redazione di GenerazioneCrypto.",
     openGraph: {
-      title: seo?.ogTitle ?? seo?.title ?? "News",
-      description: seo?.ogDescription ?? seo?.description ?? undefined,
+      title: resolve(seo?.ogTitle) ?? resolve(seo?.title) ?? "News",
+      description:
+        resolve(seo?.ogDescription) ?? resolve(seo?.description) ?? undefined,
       type: "website",
     },
   };

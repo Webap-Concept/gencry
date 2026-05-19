@@ -63,7 +63,7 @@ export async function PublicHeader({ appLogoUrl }: { appLogoUrl: string | null }
         <nav className="flex items-center gap-2">
           {session ? (
             <Link
-              href="/feed"
+              href="/"
               prefetch={false}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-gc-fg hover:bg-gc-line/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
               aria-label="Apri l'app"
