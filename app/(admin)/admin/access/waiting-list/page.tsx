@@ -11,17 +11,16 @@
 // la tabella regge benissimo un singolo SELECT. Quando supereremo
 // 10k iscritti aggiungeremo cursor pagination.
 
-import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import { getAdminPath } from "@/lib/admin-paths";
 import { db } from "@/lib/db/drizzle";
 import { waitingList } from "@/lib/db/schema";
-import { Download, MailPlus } from "lucide-react";
+import { MailPlus } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { desc, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { ExportCsvButton } from "./_components/export-csv-button";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("admin.access.waitingList");
@@ -75,11 +74,7 @@ export default async function WaitingListPage() {
         subtitle={t("pageSubtitle")}
         actionSlot={
           rows.length > 0 ? (
-            <Link href={exportHref} prefetch={false}>
-              <AdminButton variant="secondary" icon={Download} size="sm">
-                {t("exportCsv")}
-              </AdminButton>
-            </Link>
+            <ExportCsvButton href={exportHref} label={t("exportCsv")} />
           ) : null
         }
       />
