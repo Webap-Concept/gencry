@@ -52,8 +52,14 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
   const heroUrl = fields.hero_image || null;
   const excerpt = fields.excerpt || null;
 
+  // Priorità categoria: customFields.category (snapshot al publish o
+  // valore digitato dall'admin per articoli a mano) → news_items.category
+  // (fallback per articoli storici pre-snapshot) → "news" ultima fallback.
   const metadata = await getNewsMetadataByPageId(page.id);
-  const category = metadata?.category ?? "news";
+  const category =
+    (fields.category && fields.category.trim()) ||
+    metadata?.category ||
+    "news";
 
   const publishedAt = page.publishedAt ?? page.updatedAt;
   const dateLabel = publishedAt ? formatItDateUpper(new Date(publishedAt)) : "—";

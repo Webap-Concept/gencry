@@ -837,7 +837,28 @@ export default function PageEditor({
   });
 
   const parentPage = pages.find((p) => p.id === parentId) ?? null;
-  const slugPrefix = parentPage ? `${parentPage.slug}/` : "";
+  // News pages: prefix derivato dalla categoria scelta nei customFields
+  // (mapping in CATEGORY_URL_PREFIX di lib/modules/news/publish.ts), NON dal
+  // parent CMS. Editor mostra "altcoin/" readonly e l'admin edita solo
+  // la parte dopo lo slash. Per articoli senza categoria (other o vuoto),
+  // fallback a "news/".
+  const newsPrefix =
+    pageType === "news"
+      ? `${
+          (
+            {
+              bitcoin: "bitcoin",
+              ethereum: "ethereum",
+              altcoin: "altcoin",
+              defi: "defi",
+              regulation: "regolamentazione",
+              market: "mercati",
+              tech: "tech",
+            } as Record<string, string>
+          )[(customFields.category ?? "").toLowerCase().trim()] ?? "news"
+        }/`
+      : null;
+  const slugPrefix = newsPrefix ?? (parentPage ? `${parentPage.slug}/` : "");
   const slugLeaf = leafSlug(slug) || slug;
 
   // URL pubblico: solo per pagine pubblicate già salvate
@@ -943,6 +964,18 @@ export default function PageEditor({
   function handleSlugLeafChange(leafVal: string) {
     setSlug(buildFullSlug(slugPrefix, leafVal));
   }
+
+  // Per news pages: quando la categoria nei customFields cambia, ri-applica
+  // il nuovo prefix mantenendo il leaf scelto. Senza questo, cambiare
+  // "altcoin" → "bitcoin" non aggiornerebbe il path finché l'admin non
+  // tocca il campo slug a mano.
+  useEffect(() => {
+    if (!newsPrefix) return;
+    const currentLeaf = leafSlug(slug) || slugify(title);
+    const next = buildFullSlug(newsPrefix, currentLeaf);
+    if (next !== slug) setSlug(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsPrefix]);
   function handleParentChange(newParentId: number | null) {
     setParentId(newParentId);
     const leaf = leafSlug(slug) || slugify(title);

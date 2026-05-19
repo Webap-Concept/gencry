@@ -168,9 +168,14 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
   }
   const contentHtml = markdownToHtml(bodyMd);
 
+  // Snapshot della categoria nei customFields: per articoli creati a mano
+  // dall'editor pages, la categoria vive solo qui; per articoli dal modulo,
+  // duplica news_items.category così il TemplateNews ha sempre accesso
+  // alla categoria anche se in futuro perdiamo il link news_items.
   const customFields = JSON.stringify({
     hero_image: String(input.heroAssetId),
     excerpt: item.generatedExcerptIt ?? "",
+    category: item.category ?? "",
   });
 
   let pageId: number;
