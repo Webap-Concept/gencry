@@ -139,34 +139,10 @@ export function ReviewEditor({
           </div>
         </div>
 
-        {/* Side-by-side editor */}
+        {/* Side-by-side editor: draft (editable) on the left, source +
+            markdown cheatsheet on the right. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* LEFT: source EN (read-only) */}
-          <div
-            className="rounded-lg p-4"
-            style={{
-              background: "var(--admin-card-bg)",
-              border: "1px solid var(--admin-card-border)",
-            }}
-          >
-            <h3 className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-muted)" }}>
-              Source (English — reference only)
-            </h3>
-            <p className="text-sm font-semibold mb-2" style={{ color: "var(--admin-text)" }}>
-              {item.sourceTitle}
-            </p>
-            {item.sourceExcerpt && (
-              <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--admin-text-muted)" }}>
-                {item.sourceExcerpt}
-              </p>
-            )}
-            <p className="text-[11px] mt-3" style={{ color: "var(--admin-text-faint)" }}>
-              The published article will NOT reference this source. Use the original only as
-              context while you edit the Italian version on the right.
-            </p>
-          </div>
-
-          {/* RIGHT: IT generated (editable) */}
+          {/* LEFT: IT generated (editable) */}
           <div
             className="rounded-lg p-4 space-y-3"
             style={{
@@ -261,6 +237,35 @@ export function ReviewEditor({
                 </div>
               </>
             )}
+          </div>
+
+          {/* RIGHT: source EN (read-only) + markdown cheatsheet */}
+          <div className="space-y-4">
+            <div
+              className="rounded-lg p-4"
+              style={{
+                background: "var(--admin-card-bg)",
+                border: "1px solid var(--admin-card-border)",
+              }}
+            >
+              <h3 className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-muted)" }}>
+                Source (English — reference only)
+              </h3>
+              <p className="text-sm font-semibold mb-2" style={{ color: "var(--admin-text)" }}>
+                {item.sourceTitle}
+              </p>
+              {item.sourceExcerpt && (
+                <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--admin-text-muted)" }}>
+                  {item.sourceExcerpt}
+                </p>
+              )}
+              <p className="text-[11px] mt-3" style={{ color: "var(--admin-text-faint)" }}>
+                L&apos;articolo pubblicato NON conterrà riferimenti a questa fonte.
+                Usa l&apos;originale solo come contesto mentre modifichi il draft a sinistra.
+              </p>
+            </div>
+
+            <MarkdownCheatsheet />
           </div>
         </div>
 
@@ -545,5 +550,71 @@ function StatusPill({ status }: { status: NewsItemWithRels["status"] }) {
     >
       {m.label}
     </span>
+  );
+}
+
+/**
+ * Cheatsheet markdown compatto: le 7 cose che servono per quasi tutti gli
+ * articoli editoriali. Solo sintassi che il publish converte realmente
+ * (heading H2, bold, italic, link, lista, blockquote, codice inline).
+ * Non includiamo H1 (il titolo è già un campo separato sopra) né immagini
+ * (le immagini inline sono gestite dopo dal CMS editor post-publish).
+ */
+function MarkdownCheatsheet() {
+  const rows: Array<{ label: string; syntax: string }> = [
+    { label: "Sezione (H2)",   syntax: "## Titolo sezione" },
+    { label: "Sotto-sezione",  syntax: "### Sotto-titolo" },
+    { label: "Grassetto",      syntax: "**parola**" },
+    { label: "Corsivo",        syntax: "*parola*" },
+    { label: "Link",           syntax: "[testo](https://url)" },
+    { label: "Lista puntata",  syntax: "- elemento\n- elemento" },
+    { label: "Citazione",      syntax: "> frase" },
+    { label: "Codice inline",  syntax: "`BTC` o `ETH`" },
+  ];
+  return (
+    <div
+      className="rounded-lg p-4"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}
+    >
+      <h3 className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--admin-text-muted)" }}>
+        Markdown cheatsheet
+      </h3>
+      <p className="text-[11px] mb-3" style={{ color: "var(--admin-text-faint)" }}>
+        Sintassi minima usabile nel body. Niente HTML grezzo, niente H1 (il
+        titolo è già un campo dedicato sopra). Tutto il resto del markdown
+        standard funziona, ma queste sono le cose che ti servono davvero.
+      </p>
+      <dl className="grid grid-cols-1 gap-1.5 text-xs">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="grid grid-cols-[8rem_1fr] gap-3 items-start py-1"
+            style={{ borderBottom: "1px dashed var(--admin-card-border)" }}
+          >
+            <dt style={{ color: "var(--admin-text-muted)" }}>{r.label}</dt>
+            <dd>
+              <code
+                className="text-[11px] px-1.5 py-0.5 rounded whitespace-pre-wrap break-all"
+                style={{
+                  background: "var(--admin-page-bg)",
+                  color: "var(--admin-text)",
+                  border: "1px solid var(--admin-input-border)",
+                  fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                }}
+              >
+                {r.syntax}
+              </code>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[11px] mt-3" style={{ color: "var(--admin-text-faint)" }}>
+        Le righe vuote separano i paragrafi. Per andare a capo dentro lo
+        stesso paragrafo, due spazi a fine riga.
+      </p>
+    </div>
   );
 }
