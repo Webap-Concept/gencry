@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listItemsWithRels, type NewsItemStatus, type NewsItemWithRels } from "@/lib/modules/news/queries";
+import {
+  getStatusCounts,
+  listItemsWithRels,
+  type NewsItemStatus,
+  type NewsItemWithRels,
+} from "@/lib/modules/news/queries";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import {
   Clock,
@@ -39,32 +44,66 @@ export default async function NewsQueuePage({
     | NewsItemStatus
     | "all";
 
-  const items = await listItemsWithRels({
-    status: filter === "all" ? undefined : filter,
-    limit: 100,
-  });
+  // Parallel: items per la tab attiva + counts per tutti gli status (badge tab).
+  const [items, counts, adminSlug] = await Promise.all([
+    listItemsWithRels({
+      status: filter === "all" ? undefined : filter,
+      limit: 100,
+    }),
+    getStatusCounts(),
+    getAdminUrlSlug(),
+  ]);
 
-  const adminSlug = await getAdminUrlSlug();
+  const totalCount =
+    counts.proposed +
+    counts.pending_rewrite +
+    counts.review +
+    counts.scheduled +
+    counts.published +
+    counts.rejected +
+    counts.failed;
+
+  function countFor(value: NewsItemStatus | "all"): number {
+    if (value === "all") return totalCount;
+    return counts[value];
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        {STATUS_FILTERS.map((s) => (
-          <Link
-            key={s.value}
-            href={`/${adminSlug}/modules/news/queue?status=${s.value}`}
-            className="px-3 py-1.5 rounded-md text-xs font-medium"
-            style={{
-              background: filter === s.value ? "var(--admin-accent)" : "var(--admin-card-bg)",
-              color: filter === s.value ? "white" : "var(--admin-text-muted)",
-              border: `1px solid ${
-                filter === s.value ? "var(--admin-accent)" : "var(--admin-card-border)"
-              }`,
-            }}
-          >
-            {s.label}
-          </Link>
-        ))}
+        {STATUS_FILTERS.map((s) => {
+          const isActive = filter === s.value;
+          const n = countFor(s.value);
+          return (
+            <Link
+              key={s.value}
+              href={`/${adminSlug}/modules/news/queue?status=${s.value}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{
+                background: isActive ? "var(--admin-accent)" : "var(--admin-card-bg)",
+                color: isActive ? "white" : "var(--admin-text-muted)",
+                border: `1px solid ${
+                  isActive ? "var(--admin-accent)" : "var(--admin-card-border)"
+                }`,
+              }}
+            >
+              <span>{s.label}</span>
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  background: isActive
+                    ? "color-mix(in srgb, white 22%, transparent)"
+                    : "var(--admin-page-bg)",
+                  color: isActive ? "white" : "var(--admin-text-faint)",
+                  minWidth: "1.25rem",
+                  textAlign: "center",
+                }}
+              >
+                {n}
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
       {filter === "proposed" && items.length > 0 && (
