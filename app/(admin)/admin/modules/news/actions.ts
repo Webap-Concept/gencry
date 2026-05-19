@@ -148,6 +148,9 @@ const settingsSchema = z.object({
   fetchMaxItemsPerSource: z.coerce.number().int().min(1).max(100),
   proposedRetentionDays: z.coerce.number().int().min(1).max(60),
   anthropicApiKey: z.string().trim().optional(),
+  // System prompt: opzionale. Vuoto = reset al default hardcoded. Limite
+  // 50k char per safety (un prompt realistico è 1-5k).
+  systemPrompt: z.string().max(50_000).optional(),
 });
 
 export async function saveSettingsAction(
@@ -164,6 +167,7 @@ export async function saveSettingsAction(
     fetchMaxItemsPerSource: formData.get("fetchMaxItemsPerSource"),
     proposedRetentionDays: formData.get("proposedRetentionDays"),
     anthropicApiKey: formData.get("anthropicApiKey") ?? "",
+    systemPrompt: formData.get("systemPrompt") ?? "",
   });
   if (!parsed.success) {
     return { error: "Invalid: " + parsed.error.issues[0].message, timestamp: Date.now() };
@@ -184,6 +188,15 @@ export async function saveSettingsAction(
   } else if (!key) {
     await updateAppSetting("modules.news.anthropic_api_key", null);
   }
+
+  // System prompt override. Stringa vuota → null = reset al default
+  // hardcoded. Niente "********" sentinel qui: il prompt non è sensibile,
+  // l'admin lo vede in chiaro nella textarea.
+  const promptRaw = (data.systemPrompt ?? "").trim();
+  await updateAppSetting(
+    "modules.news.system_prompt",
+    promptRaw.length > 0 ? promptRaw : null,
+  );
 
   return { success: "News settings saved.", timestamp: Date.now() };
 }
@@ -235,6 +248,42 @@ export async function saveReviewEditsAction(
   return { success: "Draft saved.", timestamp: Date.now() };
 }
 
+/**
+ * Estrae heroAssetId dal form ed eventualmente lo persiste sul DB se
+ * differisce dal valore corrente. Pattern necessario perché l'admin può
+ * scegliere/cambiare la hero nel picker senza prima cliccare "Save draft",
+ * e i bottoni Publish/Schedule devono comunque vedere l'ultimo valore.
+ */
+async function syncHeroFromForm(
+  itemId: string,
+  formData: FormData,
+  currentHeroAssetId: number | null,
+): Promise<number | null> {
+  const raw = String(formData.get("heroAssetId") ?? "").trim();
+  const fromForm = raw ? Number(raw) : null;
+  if (fromForm && Number.isFinite(fromForm) && fromForm !== currentHeroAssetId) {
+    await updateItem(itemId, { heroAssetId: fromForm });
+    return fromForm;
+  }
+  return currentHeroAssetId;
+}
+
+/**
+ * Stessa logica di syncHeroFromForm ma per il flag autoLinkCoins (checkbox
+ * nel review editor). Form HTML invia "on" se selezionata, undefined sennò.
+ */
+async function syncAutoLinkFromForm(
+  itemId: string,
+  formData: FormData,
+  currentValue: boolean,
+): Promise<void> {
+  const raw = formData.get("autoLinkCoins");
+  const fromForm = raw === "on" || raw === "true" || raw === "1";
+  if (fromForm !== currentValue) {
+    await updateItem(itemId, { autoLinkCoins: fromForm });
+  }
+}
+
 export async function publishNowAction(
   _prev: ActionState,
   formData: FormData,
@@ -245,11 +294,14 @@ export async function publishNowAction(
 
   const item = await getItemById(itemId);
   if (!item) return { error: "Item not found", timestamp: Date.now() };
-  if (!item.heroAssetId) {
+
+  const heroAssetId = await syncHeroFromForm(itemId, formData, item.heroAssetId);
+  if (!heroAssetId) {
     return { error: "Hero image required before publish.", timestamp: Date.now() };
   }
+  await syncAutoLinkFromForm(itemId, formData, item.autoLinkCoins);
 
-  const r = await publishNewsItem({ itemId, heroAssetId: item.heroAssetId });
+  const r = await publishNewsItem({ itemId, heroAssetId });
   if (!r.ok) {
     return { error: `Publish failed: ${r.error}`, timestamp: Date.now() };
   }
@@ -273,9 +325,13 @@ export async function scheduleAction(
   }
   const item = await getItemById(itemId);
   if (!item) return { error: "Item not found", timestamp: Date.now() };
-  if (!item.heroAssetId) {
+
+  const heroAssetId = await syncHeroFromForm(itemId, formData, item.heroAssetId);
+  if (!heroAssetId) {
     return { error: "Hero image required before scheduling.", timestamp: Date.now() };
   }
+  await syncAutoLinkFromForm(itemId, formData, item.autoLinkCoins);
+
   await updateItem(itemId, {
     status: "scheduled",
     scheduledPublishAt: when,

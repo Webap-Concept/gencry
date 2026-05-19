@@ -28,7 +28,9 @@ import {
 } from "@/lib/db/schema";
 import { invalidatePageCachesAndSync } from "@/lib/db/pages-queries";
 import { upsertSeoPage } from "@/lib/db/seo-queries";
+import { listCoins } from "@/lib/modules/prices/queries";
 import { slugify } from "@/lib/utils/slugify";
+import { autoLinkCoinsInMarkdown } from "./auto-link";
 
 export type PublishOutcome =
   | { ok: true; pageId: number; slug: string }
@@ -52,15 +54,24 @@ async function getNewsTemplateId(): Promise<number | null> {
 
 /**
  * Genera lo slug pubblico della page CMS. Convenzione:
- *   news/<yyyy-mm-dd>-<slug-from-title>
+ *   news/<slug-from-title>
+ *
+ * Niente data: i meta SEO sono coperti da published_at strutturato, e lo
+ * slug più corto è più leggibile + condivisibile. Le parole con length≤2
+ * (e, le, il, i, a, di, da, in, su, al, …) sono droppate per evitare
+ * URL gonfiate da stopword e migliorare il keyword density.
  *
  * Il prefix `news/` resta riservato (la pagina di listing vive su `/news`
  * gestita da un page handler dedicato in app/(cms)/news/page.tsx).
  */
-function buildNewsSlug(title: string, publishedAt: Date): string {
-  const date = publishedAt.toISOString().slice(0, 10);
-  const titlePart = slugify(title).slice(0, 80) || "article";
-  return `news/${date}-${titlePart}`;
+function buildNewsSlug(title: string, _publishedAt: Date): string {
+  const slugged = slugify(title);
+  const meaningful = slugged
+    .split("-")
+    .filter((w) => w.length >= 3)
+    .join("-")
+    .slice(0, 80);
+  return `news/${meaningful || "article"}`;
 }
 
 /**
@@ -115,7 +126,21 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
 
   const now = new Date();
   const slug = buildNewsSlug(item.generatedTitleIt, now);
-  const contentHtml = markdownToHtml(item.generatedBodyItMd);
+
+  // Optional: auto-link della PRIMA occorrenza di un coin noto verso
+  // /coins/<symbol>. Cap 1 link per articolo. Toggle per-item (checkbox
+  // nel review editor) salvato in item.autoLinkCoins. Se false (default),
+  // skippa la query coins e converte direttamente in HTML.
+  let bodyMd = item.generatedBodyItMd;
+  if (item.autoLinkCoins) {
+    const coins = await listCoins();
+    const result = autoLinkCoinsInMarkdown(
+      bodyMd,
+      coins.map((c) => ({ name: c.name, symbol: c.symbol })),
+    );
+    bodyMd = result.md;
+  }
+  const contentHtml = markdownToHtml(bodyMd);
 
   const customFields = JSON.stringify({
     hero_image: String(input.heroAssetId),

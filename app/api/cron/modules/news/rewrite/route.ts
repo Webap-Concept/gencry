@@ -113,6 +113,9 @@ async function runRewrite() {
         sourceUrl: item.sourceUrl,
         model: cfg.aiModel,
         apiKey: cfg.anthropicApiKey,
+        // Override admin (null/empty = default hardcoded). Tracking via
+        // ai_prompt_version: "v1-2026-05-19" se default, "custom-<hash>" se override.
+        systemPrompt: cfg.systemPrompt,
       });
 
       if (r.ok) {

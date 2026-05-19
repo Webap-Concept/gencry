@@ -2032,6 +2032,11 @@ export const newsItems = pgTable(
     aiCostCents:         integer("ai_cost_cents").notNull().default(0),
     aiAttemptCount:      integer("ai_attempt_count").notNull().default(0),
     aiLastError:         text("ai_last_error"),
+    // Per-item flag: se true, al publish il modulo trasforma la prima
+    // occorrenza del nome di un coin noto (Bitcoin, Ethereum, …) in link
+    // verso /coins/<symbol>. Cap 1 link per articolo, scelta dall'admin
+    // nel review editor. Default false.
+    autoLinkCoins:       boolean("auto_link_coins").notNull().default(false),
     createdAt:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt:           timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

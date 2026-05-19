@@ -453,6 +453,19 @@ export function isLegalsPathname(
   return false;
 }
 
+/**
+ * Ritorna true se il pathname appartiene alla sezione news del blog
+ * (listing /news oppure articolo singolo /news/<yyyy-mm-dd>-<slug>).
+ * Le pagine news hanno un layout editoriale full-width dedicato (ticker
+ * + hero + colonne) e NON devono mostrare il right rail dell'app — il
+ * blog è una sezione separata, non parte del social/app shell.
+ */
+export function isNewsPathname(pathname: string): boolean {
+  if (!pathname) return false;
+  const firstSegment = pathname.replace(/^\/+/, "").split("/")[0]?.toLowerCase();
+  return firstSegment === "news";
+}
+
 export async function getSystemPageSlugs(): Promise<Record<string, string>> {
   try {
     const { readSystemPageSlugsSnapshot, SnapshotUnavailableError } =
