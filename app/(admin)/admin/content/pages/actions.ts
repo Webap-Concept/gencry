@@ -2,7 +2,10 @@
 
 import { getAdminPath, getAdminUrlSlug } from "@/lib/admin-paths";
 import { isUniqueConstraintError } from "@/lib/auth/race-condition";
+import { getAllPageTemplateExtensions } from "@/lib/cms/page-template-extensions";
 import { validateCmsSlug } from "@/lib/cms-reserved-slugs";
+// Side-effect: popola il registry delle PageTemplateExtension via i moduli installati.
+import "@/lib/modules/registry";
 import { logContentActivity } from "@/lib/db/content-activity";
 import {
   deletePageCascade,
@@ -244,7 +247,28 @@ export async function upsertPageAction(
   // sono editabili dall'utente.
   if (!slugLocked) {
     const adminUrlSlug = await getAdminUrlSlug();
-    const validation = validateCmsSlug(data.slug, adminUrlSlug);
+    // Whitelist primi-segmenti dichiarati dall'extension del modulo che
+    // ha "claimato" questo template (es. news → bitcoin/altcoin/…/news).
+    // Senza extension la whitelist è vuota e la guard si comporta come
+    // prima. Lookup non-bloccante: se il template id non risolve, niente
+    // whitelist e si applica solo la guard standard.
+    let allowedFirstSegments: string[] = [];
+    if (effectiveTemplateId) {
+      const { getTemplateById } = await import("@/lib/db/template-queries");
+      const tpl = await getTemplateById(effectiveTemplateId);
+      if (tpl) {
+        const ext = getAllPageTemplateExtensions().find(
+          (e) => e.templateSlug === tpl.slug,
+        );
+        const resolver = ext?.slugResolver;
+        if (resolver) {
+          allowedFirstSegments = [
+            ...new Set([...Object.values(resolver.prefixMap), resolver.fallback]),
+          ];
+        }
+      }
+    }
+    const validation = validateCmsSlug(data.slug, adminUrlSlug, allowedFirstSegments);
     if (!validation.ok) {
       const key =
         validation.reason === "first-segment-reserved"
@@ -259,7 +283,7 @@ export async function upsertPageAction(
       if (locale === DEFAULT_LOCALE) continue; // già coperto da data.slug
       const trSlug = trData[locale]?.slug?.trim();
       if (!trSlug) continue;
-      const trVal = validateCmsSlug(trSlug, adminUrlSlug);
+      const trVal = validateCmsSlug(trSlug, adminUrlSlug, allowedFirstSegments);
       if (!trVal.ok) {
         const key =
           trVal.reason === "first-segment-reserved"
