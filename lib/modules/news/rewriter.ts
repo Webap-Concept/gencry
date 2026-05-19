@@ -29,6 +29,9 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { NewsAiModel } from "./config";
+import { NEWS_CATEGORIES, type NewsCategory } from "./categories";
+
+export { NEWS_CATEGORIES, type NewsCategory };
 
 export const PROMPT_VERSION = "v1-2026-05-19";
 
@@ -41,19 +44,9 @@ const MAX_INPUT_CHARS = 6000;
 // editoriale GenerazioneCrypto.
 const MAX_OUTPUT_TOKENS = 1500;
 
-// Categorie ammesse — la LLM sceglie tra queste, niente stringhe libere.
-// Allineate con i temi crypto della piattaforma.
-export const NEWS_CATEGORIES = [
-  "bitcoin",
-  "ethereum",
-  "altcoin",
-  "defi",
-  "regulation",
-  "market",
-  "tech",
-  "other",
-] as const;
-export type NewsCategory = (typeof NEWS_CATEGORIES)[number];
+// Categorie ammesse: import dal file client-safe (vedi categories.ts).
+// Tenute lì perché il review editor (client component) le usa nel dropdown
+// senza dover trascinare l'SDK Anthropic nel bundle.
 
 // ──────────────────────────────────────────────────────────────────────────
 // System prompt — cached (ephemeral 5min). Modifiche qui = bump PROMPT_VERSION.
