@@ -385,7 +385,27 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Edge invocations sono contate da Vercel per OGNI request che colpisce
+  // il middleware. Escludiamo tutto ciò che non beneficia di
+  // auth/locale/redirect logic — riduce significativamente il counter al
+  // crescere del traffico (vedi memory project_scale_prep_plan).
+  //
+  // ESCLUSI:
+  //   - _next/static, _next/image: asset framework Next
+  //   - favicon.ico + estensioni immagine: asset statici client
+  //   - api/cron/*: cron handler già autenticati con CRON_SECRET nel
+  //     route handler, il middleware non aggiunge security
+  //   - manifest.webmanifest, robots.txt, humans.txt, sitemap.xml:
+  //     file pubblici serviti da route handler dedicati, niente auth
+  //   - estensioni .txt / .xml / .json a livello root: stessa logica
+  //
+  // NON ESCLUSI (anche se sembrerebbe ovvio):
+  //   - _vercel/* e .well-known/*: il middleware deve gestirli con
+  //     short-circuit a 404 perché altrimenti cadono nel catch-all CMS
+  //     e Next 16 ha un bug RSC (transformAlgorithm crash). Lasciamo
+  //     che il middleware risponda 404 secco — costa 1 invocation ma
+  //     evita il crash dello stream.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/cron|manifest\\.webmanifest|robots\\.txt|humans\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

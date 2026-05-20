@@ -198,6 +198,12 @@ export async function putMediaObject(opts: {
       Key: opts.key,
       Body: opts.body,
       ContentType: opts.contentType,
+      // Cache aggressiva: la key è immutabile (UUID + variant suffix,
+      // mai sovrascritta). Una nuova variante = nuova key = nuovo URL,
+      // quindi CDN/browser cache non possono servire stale.
+      // Default R2 era ~4h, Lighthouse lo segnalava come "inefficient
+      // cache lifetime" per asset immutabili.
+      CacheControl: "public, max-age=31536000, immutable",
     }),
   );
 }

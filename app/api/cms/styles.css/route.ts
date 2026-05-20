@@ -12,11 +12,12 @@
  * sulle pagine CMS effettive (non sul layout (cms) che ospita anche
  * footer cookie / 404 / landing).
  *
- * Cache: HTTP `Cache-Control public, max-age=300, swr=60` per ridurre
- * round-trip al DB sui visitatori. La server action di save invalida il
- * tag `cms-styles` (vedi /admin/content/styles/actions.ts) — il route
- * handler usa fetch tag via revalidateTag dal lato admin per forzare
- * il refresh edge/CDN. La cache HTTP scade comunque dopo 5 minuti.
+ * Cache: HTTP `Cache-Control public, max-age=31536000, immutable`. Il
+ * caller include sempre `?v=<stylesVersion>` (= updated_at della
+ * key cms.custom_css) → quando l'admin salva un nuovo CSS, l'URL
+ * cambia di sicuro e CDN/browser fanno cache miss. Quindi possiamo
+ * trattare ogni versione come immutabile, eliminando il TTL 5min
+ * che Lighthouse segnalava come "inefficient cache lifetime".
  */
 import { DEFAULT_CMS_STYLES } from "@/lib/cms/default-styles";
 import { db } from "@/lib/db/drizzle";
@@ -47,7 +48,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "text/css; charset=utf-8",
-      "Cache-Control": "public, max-age=300, stale-while-revalidate=60",
+      "Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 }
