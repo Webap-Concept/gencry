@@ -21,7 +21,17 @@ import { getSession } from "@/lib/auth/session";
  * Fallback: lettering testuale "generazione" + "crypto" colorato in
  * accent (lo stesso pattern di AppTopBar).
  */
-export async function PublicHeader({ appLogoUrl }: { appLogoUrl: string | null }) {
+export async function PublicHeader({
+  appLogoUrl,
+  logoHref = "/",
+}: {
+  appLogoUrl: string | null;
+  /** Destinazione del logo. Default "/" (homepage). Il layout (cms)
+   *  passa "/news" quando siamo dentro la sezione blog (listing,
+   *  articoli, landing categoria) così il logo riporta al feed
+   *  editoriale invece che alla home generale. */
+  logoHref?: string;
+}) {
   // Read parallela: sessione + (solo se loggato) avatar URL del profilo.
   // session è già cache-ata per request, profile lookup è 1 indexed SELECT.
   const session = await getSession();
@@ -39,7 +49,7 @@ export async function PublicHeader({ appLogoUrl }: { appLogoUrl: string | null }
     <header className="sticky top-0 z-30 bg-gc-bg/85 backdrop-blur border-b border-gc-line">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-4">
         <Link
-          href="/"
+          href={logoHref}
           prefetch={false}
           className="flex items-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent rounded"
           aria-label="Home"

@@ -37,26 +37,24 @@
   border-bottom: 1px solid var(--gc-line);
 }
 .news-ticker-inner {
-  display: grid;
-  grid-template-columns: auto repeat(6, 1fr);
+  display: flex;
   align-items: stretch;
-}
-@media (max-width: 1000px) {
-  .news-ticker-inner { grid-template-columns: auto repeat(3, 1fr); }
-  .news-tick:nth-child(n+5) { display: none; }
-}
-@media (max-width: 600px) {
-  .news-ticker-inner { grid-template-columns: auto repeat(2, 1fr); }
-  .news-tick:nth-child(n+4) { display: none; }
+  /* Niente min-width: 0 sul container — è il viewport sotto a
+     gestire l'overflow del track animato. */
 }
 .news-ticker-label {
   display: inline-flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
   padding: 12px 22px 12px 0;
   font-family: var(--gc-mono); font-size: 10.5px;
   text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--gc-fg-3);
   border-right: 1px solid var(--gc-line);
   margin-right: 4px;
+}
+@media (max-width: 600px) {
+  .news-ticker-label { padding: 10px 14px 10px 0; gap: 6px; font-size: 10px; }
+  .news-ticker-label em { font-size: 13px; }
 }
 .news-ticker-label em {
   font-family: var(--gc-display); font-style: italic; font-size: 14px;
@@ -71,13 +69,49 @@
   70% { box-shadow: 0 0 0 6px rgba(120,180,145,0); }
   100% { box-shadow: 0 0 0 0 rgba(120,180,145,0); }
 }
+
+/* Viewport: nasconde la parte di track che eccede orizzontalmente.
+   `min-width: 0` è il fix classico per non far esplodere il flex
+   parent (senza, il viewport prende la sua width "preferita" = somma
+   dei figli, e sforerebbe come faceva il vecchio grid). */
+.news-ticker-viewport {
+  flex: 1; min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 30px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 30px), transparent 100%);
+}
+/* Track: contiene 2 copie consecutive del set coin. Trasla -50%
+   linear-infinite → loop seamless (la seconda metà entra in scena
+   esattamente quando finisce la prima). Durata in proporzione al
+   numero di coin per mantenere velocità costante a vista. */
+.news-ticker-track {
+  display: inline-flex;
+  width: max-content;
+  animation: news-ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+.news-ticker-viewport:hover .news-ticker-track {
+  /* Pausa su hover desktop — affordance "voglio leggere meglio". */
+  animation-play-state: paused;
+}
+@keyframes news-ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker-track { animation: none; }
+  /* Senza animazione l'utente non vede oltre il viewport → mostra
+     un overflow scrollabile manualmente come fallback accessibile. */
+  .news-ticker-viewport { overflow-x: auto; }
+}
+
 .news-tick {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 16px;
+  flex-shrink: 0;
   border-right: 1px solid var(--gc-line);
   transition: background 0.12s;
 }
-.news-tick:last-child { border-right: 0; }
 .news-tick:hover { background: var(--gc-bg-3); }
 .news-tick-mark {
   width: 26px; height: 26px; border-radius: 7px;
@@ -88,7 +122,6 @@
 .news-tick-mark img { width: 100%; height: 100%; border-radius: 7px; object-fit: cover; }
 .news-tick-meta { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .news-tick-sym { font-family: var(--gc-mono); font-size: 11px; font-weight: 500; color: var(--gc-fg); letter-spacing: 0.04em; }
-.news-tick-name { font-size: 10.5px; color: var(--gc-fg-3); margin-top: 1px; }
 .news-tick-vals { margin-left: auto; text-align: right; line-height: 1.1; }
 .news-tick-price { font-family: var(--gc-mono); font-size: 12.5px; font-weight: 500; color: var(--gc-fg); font-variant-numeric: tabular-nums; }
 .news-tick-change { font-family: var(--gc-mono); font-size: 11px; font-variant-numeric: tabular-nums; margin-top: 1px; }
@@ -249,6 +282,91 @@
 .news-feat-cta:hover { filter: brightness(1.08); }
 .news-feat-cta em { font-family: var(--gc-display); font-style: italic; color: var(--gc-accent); font-size: 16px; line-height: 1; }
 
+/* ============ FEATURED GRID (3×2) ============ */
+.news-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin: 64px 0;
+}
+@media (max-width: 1000px) { .news-featured-grid { grid-template-columns: repeat(2, 1fr); gap: 22px; } }
+@media (max-width: 640px)  { .news-featured-grid { grid-template-columns: 1fr; gap: 18px; } }
+
+.news-fg-card {
+  display: flex; flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+.news-fg-card:hover { transform: translateY(-2px); }
+.news-fg-card:hover .news-fg-title { color: var(--gc-accent); }
+
+.news-fg-cover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--gc-bg-3);
+  overflow: hidden;
+  border-radius: 14px;
+}
+.news-fg-cover img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.news-fg-cat {
+  position: absolute; top: 14px; left: 14px;
+  display: inline-flex; align-items: center;
+  font-family: var(--gc-mono); font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(245,236,220,0.92);
+  color: #1a1a1a;
+  border: 1px solid rgba(0,0,0,0.06);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.news-fg-body {
+  padding: 16px 4px 4px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.news-fg-title {
+  font-family: var(--gc-display); font-weight: 400;
+  font-size: clamp(20px, 1.8vw, 24px);
+  line-height: 1.15; letter-spacing: -0.01em;
+  margin: 0; color: var(--gc-fg);
+  transition: color 0.12s;
+  text-wrap: balance;
+}
+.news-fg-title em { font-style: italic; color: var(--gc-accent); }
+.news-fg-excerpt {
+  font-size: 14px; color: var(--gc-fg-2);
+  margin: 0; line-height: 1.55; text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-fg-foot {
+  margin-top: 8px;
+  display: flex; align-items: center; gap: 10px;
+}
+.news-fg-avatar {
+  width: 28px; height: 28px; border-radius: 999px;
+  background: var(--gc-accent);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--gc-display); font-style: italic;
+  font-size: 14px; line-height: 1;
+  flex-shrink: 0;
+}
+.news-fg-foot-meta { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.news-fg-author { font-size: 12.5px; color: var(--gc-fg); }
+.news-fg-date {
+  font-family: var(--gc-mono); font-size: 10.5px;
+  color: var(--gc-fg-3); text-transform: uppercase; letter-spacing: 0.06em;
+}
+
 /* ============ COLUMNS ============ */
 .news-columns {
   display: grid; grid-template-columns: repeat(3, 1fr);
@@ -394,89 +512,6 @@
 }
 .news-empty em { font-family: var(--gc-display); font-style: italic; color: var(--gc-accent); font-size: 18px; }
 
-/* ============ WATCHLIST PROMO (static V1) ============ */
-.news-promo {
-  margin: 64px 0;
-  background: var(--gc-fg);
-  color: var(--gc-bg);
-  border-radius: 18px;
-  padding: 56px;
-  display: grid; grid-template-columns: 1.2fr 1fr;
-  gap: 56px; align-items: center;
-  position: relative; overflow: hidden;
-}
-.news-promo::before {
-  content: '$'; position: absolute;
-  bottom: -100px; right: -10px;
-  font-family: var(--gc-display); font-style: italic;
-  font-size: 480px; line-height: 1;
-  color: rgba(250,139,30,0.10);
-  pointer-events: none;
-}
-@media (max-width: 800px) { .news-promo { grid-template-columns: 1fr; padding: 36px; gap: 28px; } }
-.news-promo-eyebrow {
-  font-family: var(--gc-mono); font-size: 11px;
-  text-transform: uppercase; letter-spacing: 0.12em;
-  color: rgba(245,236,220,0.55);
-  display: inline-flex; align-items: center; gap: 8px;
-}
-.news-promo-eyebrow em { font-family: var(--gc-display); font-style: italic; color: var(--gc-accent); text-transform: none; letter-spacing: 0; font-size: 14px; }
-.news-promo-title {
-  font-family: var(--gc-display); font-weight: 400;
-  font-size: clamp(34px, 4.4vw, 54px);
-  line-height: 1.0; letter-spacing: -0.018em;
-  margin: 16px 0 0; color: var(--gc-bg); text-wrap: balance;
-}
-.news-promo-title em { font-style: italic; color: var(--gc-accent); }
-.news-promo-sub {
-  font-size: 15.5px; color: rgba(245,236,220,0.75);
-  margin: 16px 0 0; max-width: 44ch; text-wrap: pretty;
-}
-.news-promo-actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
-.news-promo-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 11px 20px; border-radius: 999px;
-  font-size: 13.5px; font-weight: 500;
-  background: var(--gc-accent); color: #fff;
-}
-.news-promo-btn.news-promo-btn-ghost { background: transparent; color: var(--gc-bg); border: 1px solid rgba(245,236,220,0.22); }
-.news-promo-btn:hover { filter: brightness(1.08); }
-.news-promo-card {
-  position: relative; z-index: 1;
-  background: rgba(245,236,220,0.06);
-  border: 1px solid rgba(245,236,220,0.14);
-  border-radius: 14px;
-  padding: 22px;
-  backdrop-filter: blur(10px);
-}
-.news-promo-card-h {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding-bottom: 12px; margin-bottom: 12px;
-  border-bottom: 1px solid rgba(245,236,220,0.10);
-  font-family: var(--gc-mono); font-size: 10.5px;
-  text-transform: uppercase; letter-spacing: 0.1em;
-  color: rgba(245,236,220,0.55);
-}
-.news-promo-card-h em { font-family: var(--gc-display); font-style: italic; font-size: 14px; color: var(--gc-bg); text-transform: none; letter-spacing: 0; }
-.news-promo-row {
-  display: grid; grid-template-columns: 28px 1fr auto auto;
-  gap: 12px; align-items: center;
-  padding: 8px 0;
-  font-family: var(--gc-mono); font-size: 12px;
-}
-.news-promo-row + .news-promo-row { border-top: 1px solid rgba(245,236,220,0.06); }
-.news-promo-row .news-promo-mark {
-  width: 22px; height: 22px; border-radius: 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--gc-display); font-style: italic; font-size: 12px;
-  color: #fff; line-height: 1;
-}
-.news-promo-row .news-promo-sym { color: var(--gc-bg); letter-spacing: 0.04em; }
-.news-promo-row .news-promo-price { color: rgba(245,236,220,0.85); font-variant-numeric: tabular-nums; text-align: right; }
-.news-promo-row .news-promo-chg { font-variant-numeric: tabular-nums; text-align: right; min-width: 60px; }
-.news-promo-row .news-promo-chg.news-pos { color: var(--gc-green); }
-.news-promo-row .news-promo-chg.news-neg { color: #e89886; }
-
 /* ============ SINGLE ARTICLE (TemplateNews) ============ */
 .news-article-wrap {
   padding: 56px 0 48px;
@@ -559,6 +594,40 @@
 .news-article-meta-key { opacity: 0.7; }
 .news-article-meta strong {
   color: var(--gc-fg); font-weight: 500; margin-left: 2px;
+}
+
+/* Mobile compact: byline su 1 riga, avatar piccolo, meta inline a
+   destra del nome. L'hr-top sopra al byline è ridondante con il lead
+   sopra (l'occhio già separa) → margine ridotto invece di toglierlo
+   per non rompere il rhythm. */
+@media (max-width: 700px) {
+  .news-article-hr { margin: 20px 0; }
+  .news-article-byline {
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+  .news-article-author { gap: 10px; min-width: 0; flex-shrink: 0; }
+  .news-article-avatar { width: 32px; height: 32px; font-size: 16px; }
+  .news-article-author-meta { line-height: 1.15; min-width: 0; }
+  .news-article-author-name { font-size: 13px; }
+  .news-article-author-role {
+    font-size: 10px; margin-top: 1px;
+    /* Su 1 riga il ruolo "GenerazioneCrypto" può eccedere → truncate. */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .news-article-meta {
+    gap: 10px;
+    font-size: 10px; letter-spacing: 0.05em;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  /* Su mobile droppiamo la label "Pubblicato/Lettura" e teniamo solo
+     i valori per non sforare. Le strong restano leggibili e i key
+     vengono nascosti via CSS — niente cambio JSX. */
+  .news-article-meta .news-article-meta-key { display: none; }
+  .news-article-meta strong { margin-left: 0; }
 }
 
 /* Hero image full-bleed */

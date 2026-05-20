@@ -245,6 +245,10 @@ export async function saveReviewEditsAction(
       editsCount: sql`${newsItems.editsCount} + 1`,
     })
     .where(eq(newsItems.id, parsed.data.itemId));
+
+  // Hero asset processing avviene al confirm upload del media library
+  // (vedi confirmMediaUploadAction → processMediaAsset). Qui non serve
+  // re-triggerare: l'asset è già processato quando finisce nel picker.
   return { success: "Draft saved.", timestamp: Date.now() };
 }
 

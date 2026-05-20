@@ -63,12 +63,21 @@ const SLUG_FORMAT_REGEX = /^[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
  *      rinominato — il proxy.ts comunque rifiuta `/admin/*` quando lo
  *      slug runtime è diverso.
  *
+ * `allowedFirstSegments` (opt) = whitelist da bypassare il check del primo
+ * segmento. Usato quando un modulo dichiara di "possedere" un prefix
+ * (es. news registra `altcoin/`, `bitcoin/`, …): in quel caso lo slug
+ * `altcoin/foo` salvato come pagina news è legittimo anche se `altcoin`
+ * è in reserved. La whitelist NON sblocca il match esatto: `altcoin` da
+ * solo resta riservato per evitare collisioni con la futura landing
+ * categoria.
+ *
  * NB: NON verifica unicità contro `pages.slug` — quello è un check DB
  * a parte, gestito dal server action via UNIQUE constraint.
  */
 export function validateCmsSlug(
   slug: string,
   adminUrlSlug: string,
+  allowedFirstSegments?: readonly string[],
 ): CmsSlugValidationResult {
   const trimmed = slug.trim().toLowerCase();
   if (trimmed === "" || !SLUG_FORMAT_REGEX.test(trimmed)) {
@@ -93,9 +102,16 @@ export function validateCmsSlug(
     };
   }
 
-  // Match sul primo segmento di slug nested (es. "admincontrol/foo")
+  // Match sul primo segmento di slug nested (es. "admincontrol/foo").
+  // Bypass se il primo segmento è nella whitelist dichiarata dal caller
+  // (tipicamente derivata da `PageTemplateExtension.slugResolver.prefixMap`).
   const firstSegment = trimmed.split("/")[0];
-  if (firstSegment !== trimmed && reserved.has(firstSegment)) {
+  const whitelisted = !!allowedFirstSegments?.includes(firstSegment);
+  if (
+    firstSegment !== trimmed &&
+    reserved.has(firstSegment) &&
+    !whitelisted
+  ) {
     return {
       ok: false,
       reason: "first-segment-reserved",

@@ -16,13 +16,14 @@ import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { NewsColumns, type NewsColumnGroup } from "./_components/news-columns";
 import { NewsEssays } from "./_components/news-essays";
 import { NewsFeatureStory } from "./_components/news-feature-story";
+import { NewsFeaturedGrid } from "./_components/news-featured-grid";
 import { NewsHero } from "./_components/news-hero";
 import { NewsNewsletter } from "./_components/news-newsletter";
 import { NewsTicker } from "./_components/news-ticker";
-import { NewsWatchlistPromo } from "./_components/news-watchlist-promo";
 import "./_styles/news.css";
 
 const PAGE_SIZE = 24; // fetch più del necessario, redistribuiamo nei blocchi
+const FEATURED_GRID_COUNT = 6;
 const ESSAYS_COUNT = 6;
 const COLUMN_LIMIT = 4;
 
@@ -78,20 +79,23 @@ export default async function NewsListingPage() {
             trovarci a breve.
           </p>
         </div>
-        <NewsWatchlistPromo />
         <NewsNewsletter />
       </>
     );
   }
 
-  // Slicing: featureStory + 2 picks + 6 essays + 3 colonne.
-  // - feature = il più recente
-  // - picks = i 2 successivi
-  // - essays = i 6 dopo i picks (può overlappare con quelli usati nelle
-  //   colonne, è OK: meglio ridondanza che blocchi vuoti)
+  // Slicing — gli indici partono da 0 e avanzano lineari:
+  //   - featureStory = il più recente (0)
+  //   - picks        = i 2 successivi (1..2) usati nell'hero
+  //   - featuredGrid = i 6 dopo i picks (3..8) — griglia 3×2 sotto il feature
+  //   - essays       = i 6 dopo la grid (9..14) per la sezione long-form
+  // Se non ci sono abbastanza articoli, gli slice ritornano array più
+  // corti e i componenti gestiscono il loro empty-state internamente.
   const featureStory = recent[0] ?? null;
   const picks = recent.slice(1, 3);
-  const essays = recent.slice(3, 3 + ESSAYS_COUNT);
+  const featuredGrid = recent.slice(3, 3 + FEATURED_GRID_COUNT);
+  const essaysStart = 3 + FEATURED_GRID_COUNT;
+  const essays = recent.slice(essaysStart, essaysStart + ESSAYS_COUNT);
 
   const groups: NewsColumnGroup[] = COLUMN_MAP.map((c, i) => ({
     name: c.name,
@@ -104,9 +108,9 @@ export default async function NewsListingPage() {
       <NewsTicker />
       <NewsHero picks={picks} />
       <NewsFeatureStory featured={featureStory} />
+      <NewsFeaturedGrid items={featuredGrid} />
       <NewsColumns groups={groups} />
       <NewsEssays essays={essays} />
-      <NewsWatchlistPromo />
       <NewsNewsletter />
     </>
   );

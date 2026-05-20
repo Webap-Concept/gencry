@@ -394,6 +394,10 @@ export interface NewsCardData {
   publishedAt: Date | null;
   excerpt: string | null;
   heroUrl: string | null;
+  /** Varianti webp processate (hero/card/thumb) — popolate al pick
+   *  hero in review. Null per articoli pre-processing. I renderer
+   *  fanno fallback su `heroUrl` con `pickHeroVariantUrl()`. */
+  heroVariants: unknown | null;
   category: string | null;
 }
 
@@ -409,6 +413,7 @@ function rowToNewsCard(row: {
   publishedAt: Date | null;
   customFields: string | null;
   heroUrl: string | null;
+  heroVariants: unknown | null;
   category: string | null;
 }): NewsCardData {
   let excerpt: string | null = null;
@@ -425,6 +430,7 @@ function rowToNewsCard(row: {
     publishedAt: row.publishedAt,
     excerpt,
     heroUrl: row.heroUrl,
+    heroVariants: row.heroVariants,
     category: row.category,
   };
 }
@@ -434,6 +440,13 @@ function rowToNewsCard(row: {
  * Filtri: pages.page_type='news' AND pages.status='published'.
  * Join opzionale su news_items per la categoria (l'articolo può esistere
  * come page senza news_items match se creato a mano dall'admin).
+ *
+ * Hero asset: la source of truth è `pages.custom_fields.hero_image`
+ * (lo stesso campo usato da TemplateNews via resolveMediaFields).
+ * Joinare su `news_items.hero_asset_id` lascerebbe scoperti gli articoli
+ * in cui l'admin ha cambiato l'hero dal page editor CMS — quel flow non
+ * sincronizza news_items. Cast JSONB sicuro: NULLIF protegge contro
+ * `pages.custom_fields` mancante o senza chiave `hero_image`.
  */
 export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCardData[]> {
   const rows = await db
@@ -444,15 +457,14 @@ export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCa
       publishedAt: pages.publishedAt,
       customFields: pages.customFields,
       heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
       category: newsItems.category,
     })
     .from(pages)
     .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
     .leftJoin(
       mediaAssets,
-      // Hero asset id is stored as string in pages.customFields.hero_image;
-      // qui ci appoggiamo a newsItems.heroAssetId che è la fonte canonica.
-      eq(mediaAssets.id, newsItems.heroAssetId),
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
     )
     .where(and(eq(pages.pageType, "news"), eq(pages.status, "published")))
     .orderBy(desc(pages.publishedAt))
@@ -482,11 +494,17 @@ export async function getNewsCardsByCategories(
       publishedAt: pages.publishedAt,
       customFields: pages.customFields,
       heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
       category: newsItems.category,
     })
     .from(pages)
     .innerJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
-    .leftJoin(mediaAssets, eq(mediaAssets.id, newsItems.heroAssetId))
+    // Hero da pages.custom_fields (source of truth, vedi commento in
+    // getRecentPublishedNewsCards).
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
     .where(
       and(
         eq(pages.pageType, "news"),
@@ -509,23 +527,37 @@ export async function getNewsCardsByCategories(
 export interface NewsArticleMetadata {
   category: string | null;
   sourcePublishedAt: Date | null;
+  /** Varianti webp dell'hero (media_assets.variants). Null se l'asset
+   *  non è ancora stato processato — il TemplateNews fa fallback su
+   *  `fields.hero_image` (URL originale già resolved). */
+  heroVariants: unknown | null;
 }
 
 export async function getNewsMetadataByPageId(
   pageId: number,
 ): Promise<NewsArticleMetadata | null> {
+  // Hero variants: pesca via pages.custom_fields.hero_image (source of
+  // truth) e non via news_items.hero_asset_id che può essere null se
+  // l'admin ha cambiato l'hero dal page editor CMS.
   const [row] = await db
     .select({
       category: newsItems.category,
       sourcePublishedAt: newsItems.sourcePublishedAt,
+      heroVariants: mediaAssets.variants,
     })
     .from(newsItems)
+    .leftJoin(pages, eq(pages.id, newsItems.publishedPageId))
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
     .where(eq(newsItems.publishedPageId, pageId))
     .limit(1);
   if (!row) return null;
   return {
     category: row.category,
     sourcePublishedAt: row.sourcePublishedAt,
+    heroVariants: row.heroVariants,
   };
 }
 

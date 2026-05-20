@@ -1,4 +1,5 @@
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { getAllPageTemplateExtensions } from "@/lib/cms/page-template-extensions";
 import {
   getAllPages,
   getEnabledLocales,
@@ -10,6 +11,8 @@ import { isSystemSlugEditable } from "@/lib/db/schema";
 import { getSeoPage, getSeoPageTranslations } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getAllTemplates, getTemplateById } from "@/lib/db/template-queries";
+// Side-effect: popola il registry delle PageTemplateExtension via i moduli installati.
+import "@/lib/modules/registry";
 import { can } from "@/lib/rbac/can";
 import { FileText } from "lucide-react";
 import type { Metadata } from "next";
@@ -110,6 +113,7 @@ export default async function EditPagePage({
         initialTranslations={translations}
         initialSeoTranslations={seoTranslations}
         canManageTemplates={canManageTemplates}
+        moduleExtensions={getAllPageTemplateExtensions()}
       />
     </div>
   );

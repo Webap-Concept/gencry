@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  CoinChart,
+  CoinChartLazy,
   CoinIcon,
   CoinPriceLabel,
   MiniSparkline,
@@ -153,7 +153,7 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
         actions={<HeaderActions isAuthed={isAuthed} />}
         sparklineAriaLabel={tLabels("weekly_chart_aria")}
       />
-      <CoinChart symbol={coin.symbol} initialSeries={initialSeries} />
+      <CoinChartLazy symbol={coin.symbol} initialSeries={initialSeries} />
       <StatsGrid coin={coin} />
       {/* Post recenti che menzionano questo coin. Server Component
           riusa la stessa pipeline visibility/block del feed. Anonimi

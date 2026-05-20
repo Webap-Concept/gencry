@@ -1955,6 +1955,11 @@ export const mediaAssets = pgTable(
     // pulisce le draft >24h non confermate (utente abbandona, browser
     // crash, network drop a metà PUT). Vedi migration 0038.
     confirmedAt: timestamp("confirmed_at"),
+    // Varianti webp processate on-demand quando l'asset diventa l'hero
+    // di un articolo news (vedi lib/modules/news/services/hero-processor.ts).
+    // Shape: { hero: {url,w,h,size}, card: {...}, thumb: {...} }.
+    // null = mai processato (asset usato in altri contesti del CMS).
+    variants: jsonb("variants"),
   },
   (t) => [
     index("idx_media_assets_folder").on(t.folderId),

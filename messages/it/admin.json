@@ -1611,6 +1611,17 @@
         "permissionRequired": "Non hai il permesso admin:sessions."
       }
     },
+    "waitingList": {
+      "metaTitle": "Waiting list",
+      "pageTitle": "Waiting list",
+      "pageSubtitle": "Email registrate dalla landing pre-lancio. Pronte per la comunicazione di apertura.",
+      "totalCount": "{count, plural, one {# iscritto} other {# iscritti}}",
+      "emptyState": "Nessuna email iscritta finora.",
+      "colEmail": "Email",
+      "colIp": "IP",
+      "colDate": "Iscritto il",
+      "exportCsv": "Esporta CSV"
+    },
     "permissions": {
       "metaTitle": "Utenti / Permessi",
       "breadcrumbUsers": "Utenti",
@@ -3225,6 +3236,7 @@
     "users-roles": "Ruoli",
     "users-permissions": "Permessi",
     "users-sessions": "Sessioni",
+    "users-waiting-list": "Waiting list",
     "content-group": "Contenuti",
     "content-pages": "Pagine",
     "content-templates": "Template",

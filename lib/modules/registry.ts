@@ -17,6 +17,12 @@ import { NOTIFICATIONS_MODULE } from "./notifications/manifest";
 import { NEWS_MODULE } from "./news/manifest";
 import { SEEDERS_MODULE } from "./seeders/manifest";
 
+// Side-effect imports: registrano estensioni del CMS page-editor
+// (campi custom aggiuntivi + slug resolvers). Vedi
+// `lib/cms/page-template-extensions.ts` per il pattern del registry.
+// Aggiungere qui ogni futuro modulo che vuole estendere il page-editor.
+import "./news/cms-extension";
+
 export const INSTALLED_MODULES: ModuleManifest[] = [
   PRICES_MODULE,
   ONBOARDING_MODULE,

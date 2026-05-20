@@ -1611,6 +1611,17 @@
         "permissionRequired": "You do not have the admin:sessions permission."
       }
     },
+    "waitingList": {
+      "metaTitle": "Waiting list",
+      "pageTitle": "Waiting list",
+      "pageSubtitle": "Emails captured from the pre-launch landing. Ready for the go-live announcement.",
+      "totalCount": "{count, plural, one {# subscriber} other {# subscribers}}",
+      "emptyState": "No emails subscribed yet.",
+      "colEmail": "Email",
+      "colIp": "IP",
+      "colDate": "Subscribed on",
+      "exportCsv": "Export CSV"
+    },
     "permissions": {
       "metaTitle": "Users / Permissions",
       "breadcrumbUsers": "Users",
@@ -3225,6 +3236,7 @@
     "users-roles": "Roles",
     "users-permissions": "Permissions",
     "users-sessions": "Sessions",
+    "users-waiting-list": "Waiting list",
     "content-group": "Content",
     "content-pages": "Pages",
     "content-templates": "Templates",

@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import type { NewsCardData } from "@/lib/modules/news/queries";
+import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
 
 function formatItDate(d: Date): string {
   return d.toLocaleDateString("it-IT", {
@@ -25,7 +26,12 @@ export function NewsFeatureStory({ featured }: { featured: NewsCardData | null }
         <Link href={`/${featured.slug}`} prefetch={false} className="news-feat-cover">
           {featured.heroUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={featured.heroUrl} alt="" />
+            <img
+              src={pickMediaVariantUrl(featured.heroVariants, featured.heroUrl, "hero")}
+              alt=""
+              loading="eager"
+              fetchPriority="high"
+            />
           )}
           <span className="news-feat-cover-tag">
             <em>↳</em> In copertina

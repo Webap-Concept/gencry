@@ -1,12 +1,12 @@
 // lib/modules/posts/services/media-processor.ts
 //
-// Impl reale: scarica l'originale da R2, genera 2 varianti webp con
-// sharp (full 2048px lato lungo q80, thumb 400px q70), upload su R2,
-// cancella l'originale, aggiorna la row posts_media con i 2 URL.
+// Impl reale: scarica l'originale da R2, genera 2 varianti webp via
+// la pipeline pura `lib/storage/image-pipeline.ts` (full 2048px q80,
+// thumb 400px q70), upload su R2, cancella l'originale, aggiorna la
+// row posts_media con i 2 URL.
 //
-// Sharp `.rotate()` SENZA argomenti applica EXIF orientation alla
-// matrice di pixel e poi rimuove i tag EXIF dall'output — la privacy
-// nota GPS sparisce by-default. webp() inoltre non riemette EXIF.
+// EXIF strip + privacy GPS sono gestiti dalla pipeline (vedi
+// image-pipeline.ts per i dettagli).
 //
 // Hookable: questa è l'impl V1. V2 (quando volumi giustificano)
 // sostituirà con Cloudflare Worker + R2 Queue + photon-wasm; la
@@ -14,10 +14,10 @@
 // modifiche al chiamante (Server Action confirmPostMediaUpload).
 import "server-only";
 
-import sharp from "sharp";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import { postsMedia } from "@/lib/db/schema";
+import { processImageToWebpVariants } from "@/lib/storage/image-pipeline";
 import {
   deletePostMediaObject,
   getPostMediaObjectBuffer,
@@ -28,10 +28,10 @@ import {
   putPostMediaObject,
 } from "../storage";
 
-const FULL_MAX_SIDE  = 2048;
-const FULL_QUALITY   = 80;
-const THUMB_MAX_SIDE = 400;
-const THUMB_QUALITY  = 70;
+const POSTS_VARIANTS = [
+  { name: "full",  maxSide: 2048, quality: 80 },
+  { name: "thumb", maxSide: 400,  quality: 70 },
+] as const;
 
 export type ProcessPostMediaResult = {
   fullUrl: string;
@@ -102,28 +102,17 @@ export async function processPostMedia(
   const head = await headPostMedia(cfg, asset.storageKey);
   if (!head.exists) throw new MediaProcessorMissingUploadError();
 
-  // Scarica originale, processa.
+  // Scarica originale, processa via pipeline condivisa.
   const raw = await getPostMediaObjectBuffer(cfg, asset.storageKey);
-  const pipeline = sharp(raw, { failOn: "error" }).rotate(); // EXIF strip + orientation
-
-  // Leggo i metadata della full per popolare width/height nel DB.
-  const fullBuf = await pipeline
-    .clone()
-    .resize({ width: FULL_MAX_SIDE, height: FULL_MAX_SIDE, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: FULL_QUALITY })
-    .toBuffer({ resolveWithObject: true });
-
-  const thumbBuf = await pipeline
-    .clone()
-    .resize({ width: THUMB_MAX_SIDE, height: THUMB_MAX_SIDE, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: THUMB_QUALITY })
-    .toBuffer();
+  const variants = await processImageToWebpVariants(raw, POSTS_VARIANTS);
+  const full  = variants.find((v) => v.name === "full")!;
+  const thumb = variants.find((v) => v.name === "thumb")!;
 
   const { full: fullKey, thumb: thumbKey } = postMediaVariantKeys(asset.storageKey);
 
   await Promise.all([
-    putPostMediaObject({ cfg, key: fullKey,  body: fullBuf.data,  contentType: "image/webp" }),
-    putPostMediaObject({ cfg, key: thumbKey, body: thumbBuf,      contentType: "image/webp" }),
+    putPostMediaObject({ cfg, key: fullKey,  body: full.buffer,  contentType: "image/webp" }),
+    putPostMediaObject({ cfg, key: thumbKey, body: thumb.buffer, contentType: "image/webp" }),
   ]);
 
   // L'originale non serve più — risparmiamo storage e bandwidth nel cleanup.
@@ -131,8 +120,6 @@ export async function processPostMedia(
 
   const fullUrl  = getPostMediaPublicUrl(cfg, fullKey);
   const thumbUrl = getPostMediaPublicUrl(cfg, thumbKey);
-  const width    = fullBuf.info.width  ?? null;
-  const height   = fullBuf.info.height ?? null;
 
   await db
     .update(postsMedia)
@@ -140,10 +127,10 @@ export async function processPostMedia(
       storageKey: fullKey,  // aggiornata perché ora rappresenta il full webp
       fullUrl,
       thumbUrl,
-      width,
-      height,
+      width:  full.width,
+      height: full.height,
       mimeType: "image/webp",
-      sizeBytes: fullBuf.data.byteLength,
+      sizeBytes: full.sizeBytes,
       confirmedAt: new Date(),
     })
     .where(eq(postsMedia.id, assetId));
@@ -151,8 +138,8 @@ export async function processPostMedia(
   return {
     fullUrl,
     thumbUrl,
-    width:  width  ?? 0,
-    height: height ?? 0,
+    width:  full.width,
+    height: full.height,
   };
 }
 

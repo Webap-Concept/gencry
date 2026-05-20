@@ -8,6 +8,8 @@
 // QUESTO file. I server importano da `lib/admin-paths.ts` (che re-exporta
 // queste costanti per comodità).
 
+import { getNewsUrlPrefixes } from "@/lib/modules/news/url-prefixes";
+
 /** Default hardcoded usato come fallback se il setting non è ancora scritto
  *  in DB (es. pre-migration 0037 o tabella vuota). */
 export const DEFAULT_ADMIN_URL_SLUG = "admin";
@@ -18,6 +20,11 @@ export const DEFAULT_ADMIN_URL_SLUG = "admin";
  * controlla anche contro la tabella `pages` (server-side) per evitare
  * collisioni dinamiche con CMS pages create dall'admin.
  */
+// I prefix delle news (bitcoin, altcoin, regolamentazione, mercati, …)
+// arrivano dal modulo news (`url-prefixes.ts`, single source of truth).
+// Sono reserved per due ragioni: (a) il pattern URL degli articoli è
+// `/<prefix>/<slug>`, (b) la futura landing categoria abita esattamente
+// quel prefix root.
 export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   // Next internals
   "_next",
@@ -40,6 +47,8 @@ export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   "coins",
   "libreria",
   "feed",
+  // News prefix (categorie articoli + landing categoria future)
+  ...getNewsUrlPrefixes(),
   // Static files served as routes
   "humans.txt",
   "robots.txt",

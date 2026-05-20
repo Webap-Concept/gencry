@@ -309,8 +309,13 @@ const signUpSchema = z
       .regex(/[A-Z]/, "validation.zod.passwordUppercase")
       .regex(/[0-9]/, "validation.zod.passwordNumber")
       .regex(/[^a-zA-Z0-9]/, "validation.zod.passwordSpecial"),
-    acceptTerms: z.string(),
-    acceptPrivacy: z.string(),
+    // Checkbox HTML: se non spuntata, il form NON invia il campo
+    // (non manda "off", semplicemente omette la chiave). Marchiamo
+    // optional così Zod accetta undefined e il refine sotto può
+    // dare il messaggio i18n corretto invece dello Zod default
+    // "expected string, received undefined".
+    acceptTerms: z.string().optional(),
+    acceptPrivacy: z.string().optional(),
     acceptMarketing: z.string().optional(),
   })
   .refine((data) => data.acceptTerms === "on", {

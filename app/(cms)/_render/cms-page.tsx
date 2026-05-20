@@ -60,16 +60,18 @@ function isReservedPathPrefix(pageSlug: string): boolean {
  * Helper condivisi per il rendering delle pagine CMS dal DB.
  *
  * Sono usati da:
- *   - app/(cms)/[...slug]/page.tsx       → URL senza prefix locale
- *   - app/[locale]/[...slug]/page.tsx         → URL con prefix locale valido
- *   - app/[locale]/page.tsx (fallback)        → URL "/<slug>" che Next.js
- *     matcha come [locale]/page.tsx perché il primo segmento è dinamico:
- *     se il segmento NON è un locale conosciuto, va trattato come slug CMS
- *   - app/[locale]/[...slug]/page.tsx (fallback) → idem ma multi-segmento
+ *   - app/[locale]/page.tsx              → URL "/<slug>" (single-segment).
+ *     Next matcha sempre prima `[locale]/page.tsx` perché [locale] è
+ *     un dynamic param standard: se il segmento NON è un locale
+ *     conosciuto, va trattato come slug CMS (fallback).
+ *   - app/[locale]/[...slug]/page.tsx    → URL multi-segmento. Stesso
+ *     pattern: prefix locale valido oppure fallback con primo segmento
+ *     parte dello slug.
  *
- * Rendendo questi tre handler tutti delegati a un singolo helper,
- * evitiamo che `/privacy` (1 segmento) o `/blog/post-1` (2+ segmenti)
- * vengano persi dal routing nel Modello E i18n.
+ * (Esisteva anche `app/(cms)/[...slug]/page.tsx` come catch-all senza
+ * prefix locale — rimosso come dead code: i dynamic param `[locale]`
+ * vincono sempre sui catch-all `[...slug]` nella route resolution di
+ * Next.js, quindi quella entry non era mai invocata.)
  */
 
 export async function cmsPageMetadata({
@@ -168,8 +170,8 @@ export async function CmsPage({
    * Locale già risolto dal caller (es. da `app/[locale]/[...slug]/page.tsx`,
    * dove il prefix locale è catturato dal segment param e quindi NON
    * compare in `slug`). Se non passato, si tenta di detectarlo dal
-   * primo segmento dello slug — utile per `(cms)/[...slug]/page.tsx`
-   * quando Next.js matcha multi-segment senza route group locale.
+   * primo segmento dello slug — utile quando il caller non sa già
+   * se quel segmento è un locale o parte dello slug CMS.
    */
   locale?: Locale;
 }) {

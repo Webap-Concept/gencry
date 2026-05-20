@@ -1,12 +1,6 @@
-import { AppRightRail } from "@/components/layout/AppRightRail";
-import { PublicFooter } from "@/components/layout/PublicFooter";
-import { PublicHeader } from "@/components/layout/PublicHeader";
-import { getSystemPageSlugs, isLegalsPathname } from "@/lib/db/pages-queries";
-import { getAppSettingsSafe } from "@/lib/db/settings-queries";
+import { PublicCmsShell } from "@/components/layout/PublicCmsShell";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { setRequestLocale } from "next-intl/server";
-import { headers } from "next/headers";
-import { Suspense } from "react";
 // Reset/typography per CMS templates (.tpl-*). Era ereditato dal vecchio
 // (cms)/layout.tsx, ora rimosso: il fallback CMS arriva qui, quindi
 // va caricato a questo livello. Vedi project_frontend_css_split.md.
@@ -29,9 +23,15 @@ import "@/app/(cms)/frontend.css";
  *
  * Questo layout NON deve `notFound()` su locale invalido — sennò spara
  * 404 a tutte le pagine CMS pubbliche default-locale. Si limita a
- * settare `setRequestLocale` con il valore corretto e a wrappare lo
- * shell pubblico (header + footer + provider).
+ * settare `setRequestLocale` con il valore corretto e a delegare il
+ * chrome al `<PublicCmsShell>` condiviso (passando il locale per lo
+ * strip del prefix nell'header lookup).
  */
+// `dynamic = 'force-dynamic'` perché lo shell legge `x-pathname`:
+// senza, il layout segment cache può inchiodare il primo path
+// catturato e i fix di chrome non si vedono al refresh.
+export const dynamic = "force-dynamic";
+
 export default async function LocaleLayout({
   children,
   params,
@@ -47,36 +47,12 @@ export default async function LocaleLayout({
   // e copre tutte le route della app.
   setRequestLocale(effectiveLocale);
 
-  const [appSettings, slugs, headerList] = await Promise.all([
-    getAppSettingsSafe(),
-    getSystemPageSlugs(),
-    headers(),
-  ]);
-  const pathname = headerList.get("x-pathname") ?? "/";
-  // Locale prefix: se è presente, strippalo prima di confrontare lo slug
-  // legals (es. /en/privacy → /privacy). Niente effetto per pathname senza
-  // prefix locale.
-  const legalsPath = isLocale(locale)
-    ? pathname.replace(new RegExp(`^/${locale}(?=/|$)`), "") || "/"
-    : pathname;
-  const showRail = !isLegalsPathname(legalsPath, slugs);
-
+  // Lo shell strippa il prefix locale dal pathname (es. /en/altcoin/foo
+  // → /altcoin/foo) prima del match isNews/isLegals: passiamo il locale
+  // solo se è realmente un locale (non quando è parte dello slug CMS).
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
-      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
-      <div className="flex-1">
-        <div className="mx-auto w-full max-w-7xl flex">
-          <main className="flex flex-1 flex-col min-w-0">{children}</main>
-          {showRail && (
-            <Suspense fallback={null}>
-              <AppRightRail />
-            </Suspense>
-          )}
-        </div>
-      </div>
-      <Suspense fallback={null}>
-        <PublicFooter />
-      </Suspense>
-    </div>
+    <PublicCmsShell localePrefix={isLocale(locale) ? locale : undefined}>
+      {children}
+    </PublicCmsShell>
   );
 }

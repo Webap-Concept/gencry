@@ -17,6 +17,7 @@
 // time è calcolato runtime dal body text (200 wpm standard).
 
 import { getNewsMetadataByPageId } from "@/lib/modules/news/queries";
+import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
 import type { TemplateProps } from "./types";
 // Riusa i token + le classi `.news-article-*` definite per il blog.
 import "@/app/(cms)/news/_styles/news.css";
@@ -52,8 +53,14 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
   const heroUrl = fields.hero_image || null;
   const excerpt = fields.excerpt || null;
 
+  // Priorità categoria: customFields.category (snapshot al publish o
+  // valore digitato dall'admin per articoli a mano) → news_items.category
+  // (fallback per articoli storici pre-snapshot) → "news" ultima fallback.
   const metadata = await getNewsMetadataByPageId(page.id);
-  const category = metadata?.category ?? "news";
+  const category =
+    (fields.category && fields.category.trim()) ||
+    metadata?.category ||
+    "news";
 
   const publishedAt = page.publishedAt ?? page.updatedAt;
   const dateLabel = publishedAt ? formatItDateUpper(new Date(publishedAt)) : "—";
@@ -101,11 +108,18 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
 
         <hr className="news-article-hr" />
 
-        {/* HERO image full-bleed */}
+        {/* HERO image full-bleed — usa la variante webp se l'asset è
+            stato processato (vedi lib/modules/news/services/hero-processor.ts).
+            Fallback all'URL originale per articoli pre-processing. */}
         {heroUrl && (
           <figure className="news-article-hero">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={heroUrl} alt={page.title} />
+            <img
+              src={pickMediaVariantUrl(metadata?.heroVariants, heroUrl, "hero")}
+              alt={page.title}
+              loading="eager"
+              fetchPriority="high"
+            />
           </figure>
         )}
 
