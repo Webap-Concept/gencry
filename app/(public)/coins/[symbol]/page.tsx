@@ -212,13 +212,19 @@ function CoinHeader({
         </div>
       </div>
       <div className="flex flex-col items-end gap-3">
-        <MiniSparkline
-          id={coin.symbol}
-          points={coin.weeklySparkline}
-          width={180}
-          height={60}
-          ariaLabel={sparklineAriaLabel}
-        />
+        {/* Su mobile la sparkline mini comprimerebbe il blocco prezzo
+            (lo troncava a "$77,3..."); la nascondiamo perché il chart
+            grande sotto la copre comunque. Da sm in su torna utile come
+            "preview" del trend settimanale accanto al titolo. */}
+        <div className="hidden sm:block">
+          <MiniSparkline
+            id={coin.symbol}
+            points={coin.weeklySparkline}
+            width={180}
+            height={60}
+            ariaLabel={sparklineAriaLabel}
+          />
+        </div>
         {actions}
       </div>
     </header>
@@ -435,7 +441,7 @@ function CoinDetailSkeleton() {
           <div className="h-3 w-24 rounded bg-gc-bg-3" />
           <div className="h-8 w-32 rounded bg-gc-bg-3 mt-4" />
         </div>
-        <div className="w-[180px] h-[60px] rounded bg-gc-bg-3" />
+        <div className="hidden sm:block w-[180px] h-[60px] rounded bg-gc-bg-3" />
       </div>
       <div className="rounded-2xl bg-gc-bg-2 border border-dashed border-gc-line aspect-[16/7]" />
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">

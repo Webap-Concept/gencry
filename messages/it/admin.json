@@ -223,6 +223,18 @@
         "favicon": {
           "label": "Favicon",
           "hint": "Icona della tab del browser. PNG, SVG o ICO, idealmente 32×32 o 64×64."
+        },
+        "og-image": {
+          "label": "OG image default",
+          "hint": "Immagine usata come og:image quando la pagina non ne specifica una propria. Raster, ideale 1200×630 (1.91:1), max 1MB."
+        },
+        "pwa-icon-192": {
+          "label": "PWA icon 192×192",
+          "hint": "Icona dell'app per Add to Home Screen (Android/iOS). PNG quadrato 192×192."
+        },
+        "pwa-icon-512": {
+          "label": "PWA icon 512×512",
+          "hint": "Versione grande per splash screen e dispositivi ad alta risoluzione. PNG quadrato 512×512."
         }
       },
       "upload": "Carica",
@@ -979,6 +991,26 @@
         "publicBaseLabel": "URL pubblico base",
         "publicBaseHint": "Custom domain bindato al bucket (senza slash finale). I file diventano <base>/<storagePath>.",
         "publicBasePlaceholder": "https://storage.example.com",
+        "saveButton": "Salva credenziali",
+        "savingButton": "Salvataggio…",
+        "testButton": "Testa connessione",
+        "testingButton": "Test in corso…"
+      },
+      "r2Assets": {
+        "title": "Bucket brand assets",
+        "description": "Logo, favicon, OG image default e icone PWA. Sono gli asset più richiesti del sito (caricati su ogni page view: header, footer, meta OG), quindi il bucket dedicato isola i token e separa i log di accesso. L'egress R2 è $0 — particolarmente utile qui dove il traffico è alto e ripetitivo.",
+        "statusConfigured": "Configurato",
+        "statusNotConfigured": "Non configurato",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "Dal token R2 (Account API Token, scoped al bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensibile. Lascia il placeholder mascherato invariato per mantenere il valore salvato.",
+        "bucketLabel": "Nome del bucket",
+        "bucketHint": "Bucket dedicato agli asset di brand (es. assets).",
+        "bucketPlaceholder": "assets",
+        "publicBaseLabel": "URL pubblico base",
+        "publicBaseHint": "Custom domain bindato al bucket (senza slash finale). I file diventano <base>/<slot>-<timestamp>.<ext>.",
+        "publicBasePlaceholder": "https://assets.example.com",
         "saveButton": "Salva credenziali",
         "savingButton": "Salvataggio…",
         "testButton": "Testa connessione",

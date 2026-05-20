@@ -7,7 +7,10 @@
 
 import Link from "next/link";
 import type { NewsCardData } from "@/lib/modules/news/queries";
-import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
+import {
+  getMediaSrcset,
+  pickMediaVariantUrl,
+} from "@/lib/storage/media-asset-processor";
 
 function formatItDate(d: Date): string {
   return d.toLocaleDateString("it-IT", {
@@ -28,6 +31,11 @@ export function NewsFeatureStory({ featured }: { featured: NewsCardData | null }
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={pickMediaVariantUrl(featured.heroVariants, featured.heroUrl, "hero")}
+              srcSet={getMediaSrcset(featured.heroVariants)}
+              // Cover story home: ~50% del max-w-1320 container su
+              // desktop (grid 1.05fr 1fr) → ~720px max; full-bleed sotto
+              // 900px (grid collassa a 1fr).
+              sizes="(max-width: 900px) 100vw, 720px"
               alt=""
               loading="eager"
               fetchPriority="high"

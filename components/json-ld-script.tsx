@@ -5,15 +5,25 @@
  * recupera la configurazione SEO della pagina dal DB (cached 60s),
  * e inietta uno <script type="application/ld+json"> nell'<head> se abilitato.
  *
- * Non renderizza nulla se:
+ * Per Article/BlogPosting emette i campi richiesti da Google per la
+ * validation Rich Results (image, datePublished, dateModified, author,
+ * publisher con logo). Senza questi il Rich Results Test dà errore
+ * "Missing field". `datePublished` viene pescato dalla pages.published_at
+ * (lookup separato cached) per i CMS articoli; fallback a updatedAt
+ * per le pagine che non hanno un page CMS associato.
+ *
+ * Niente JSON-LD se:
  * - jsonLdEnabled è false
  * - jsonLdType è null/undefined
  * - la pagina non ha una riga nella tabella seo_pages
  */
 
 import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { db } from "@/lib/db/drizzle";
+import { pages } from "@/lib/db/schema";
 import { getSeoPage } from "@/lib/db/seo-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { unstable_cache } from "next/cache";
 
@@ -27,6 +37,24 @@ const getCachedSettings = unstable_cache(
   () => getAppSettings(),
   ["json-ld-settings"],
   { revalidate: 60, tags: ["settings"] },
+);
+
+/**
+ * Lookup published_at della page CMS dato il pathname. Ritorna null se
+ * non esiste una page published con quello slug — i caller (es. system
+ * pages, route handler) cadono su seo_page.updatedAt come fallback.
+ */
+const getPagePublishedAt = unstable_cache(
+  async (slug: string): Promise<Date | null> => {
+    const [row] = await db
+      .select({ publishedAt: pages.publishedAt })
+      .from(pages)
+      .where(and(eq(pages.slug, slug), eq(pages.status, "published")))
+      .limit(1);
+    return row?.publishedAt ?? null;
+  },
+  ["json-ld-page-published-at"],
+  { revalidate: 60, tags: ["pages"] },
 );
 
 /** Identica alla funzione in lib/seo.ts — replicata per evitare import cross-layer. */
@@ -71,6 +99,11 @@ export async function JsonLdScript() {
   const name = resolve(page.title) || appName;
   const description = resolve(page.description);
 
+  // OG image cascade: priorità seo_pages.og_image > global default
+  // (app_og_image_url). Usato come `image` per Article/BlogPosting che
+  // lo richiedono obbligatoriamente.
+  const image = page.ogImage ?? settings.app_og_image_url ?? undefined;
+
   // Costruisce il base object JSON-LD con i campi disponibili nel DB
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -78,19 +111,55 @@ export async function JsonLdScript() {
     name,
     ...(description ? { description } : {}),
     ...(siteUrl ? { url: siteUrl } : {}),
-    ...(page.ogImage ? { image: page.ogImage } : {}),
+    ...(image ? { image } : {}),
   };
 
-  // Campi aggiuntivi specifici per tipo
+  // Campi aggiuntivi specifici per tipo.
+  //
+  // Article/BlogPosting: Google richiede image + datePublished +
+  // dateModified + author + publisher.logo per validare il rich result.
+  // Senza questi campi il Rich Results Test dà errore "Missing field"
+  // e l'articolo non guadagna l'enhanced SERP card.
   if (page.jsonLdType === "Article" || page.jsonLdType === "BlogPosting") {
     jsonLd.headline = name;
+    // Strip "/" leading per fare match con pages.slug ("/news/foo" → "news/foo")
+    const slug = pathname.replace(/^\/+/, "");
+    const publishedAt = slug ? await getPagePublishedAt(slug) : null;
+    if (publishedAt) {
+      jsonLd.datePublished = publishedAt.toISOString();
+    }
     if (page.updatedAt) {
       jsonLd.dateModified = page.updatedAt.toISOString();
     }
+    // author come Organization (l'app stessa). Quando avremo un sistema
+    // di autori reali per le news, passeremo a Person + name reale.
+    jsonLd.author = {
+      "@type": "Organization",
+      name: appName,
+      ...(domain ? { url: domain } : {}),
+    };
+    // publisher con logo: Google preferisce un'ImageObject (non solo
+    // url stringa). Usiamo app_logo_url se configurato.
+    jsonLd.publisher = {
+      "@type": "Organization",
+      name: appName,
+      ...(domain ? { url: domain } : {}),
+      ...(settings.app_logo_url
+        ? {
+            logo: {
+              "@type": "ImageObject",
+              url: settings.app_logo_url,
+            },
+          }
+        : {}),
+    };
   }
 
   if (page.jsonLdType === "Organization" || page.jsonLdType === "LocalBusiness") {
     jsonLd.url = domain || siteUrl || "";
+    if (settings.app_logo_url) {
+      jsonLd.logo = settings.app_logo_url;
+    }
   }
 
   return (

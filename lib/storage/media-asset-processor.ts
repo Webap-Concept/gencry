@@ -255,3 +255,31 @@ export function pickMediaVariantUrl(
   if (isCompleteVariants(variants)) return variants[which].url;
   return fallbackPublicUrl;
 }
+
+/**
+ * Costruisce la stringa `srcset` con tutte le varianti webp disponibili,
+ * pronta per <img srcSet={...}>. Il browser sceglie automaticamente la
+ * variante più adatta in base a viewport effettivo + devicePixelRatio.
+ *
+ * Esempio output:
+ *   "<thumb> 400w, <card> 800w, <hero> 1600w"
+ *
+ * Width dichiarate usano `w` come la *width reale* della variante:
+ *   thumb 400w (lato lungo 400px)
+ *   card  800w (lato lungo 800px)
+ *   hero  1600w (lato lungo 1600px)
+ *
+ * Ritorna `undefined` se le varianti non sono ancora popolate (asset
+ * pre-processing): il caller serve solo `src` fallback senza srcset
+ * — il browser si limita a quella, niente regressione visiva.
+ *
+ * IMPORTANTE: senza un attributo `sizes` complementare il browser
+ * tratta srcset come se ogni candidato fosse al 100vw. Per ottenere
+ * il risparmio voluto su mobile/desktop, il caller DEVE passare anche
+ * un `sizes` che descriva quanto largo apparirà l'<img> a vista
+ * (es. "(max-width: 700px) 100vw, 1024px").
+ */
+export function getMediaSrcset(variants: unknown): string | undefined {
+  if (!isCompleteVariants(variants)) return undefined;
+  return `${variants.thumb.url} 400w, ${variants.card.url} 800w, ${variants.hero.url} 1600w`;
+}

@@ -17,11 +17,13 @@ import {
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  saveAssetsR2Settings,
   saveAvatarR2Settings,
   saveCloudflareSettings,
   saveConfigR2Settings,
   saveMediaR2Settings,
   saveR2AccountId,
+  testAssetsR2,
   testAvatarR2,
   testCloudflareSettings,
   testConfigR2,
@@ -190,6 +192,7 @@ function R2StorageCard({
         <ConfigR2SubCard settings={settings} onToast={onToast} />
         <AvatarR2SubCard settings={settings} onToast={onToast} />
         <MediaR2SubCard settings={settings} onToast={onToast} />
+        <AssetsR2SubCard settings={settings} onToast={onToast} />
       </div>
     </Card>
   );
@@ -472,6 +475,97 @@ function MediaR2SubCard({
             label={t("publicBaseLabel")}
             hint={t("publicBaseHint")}
             defaultValue={settings["storage.media.r2.public_base_url"] ?? ""}
+            placeholder={t("publicBasePlaceholder")}
+          />
+        </div>
+
+        <ButtonRow>
+          <SaveButton
+            isSaving={isSaving || isTesting}
+            saveLabel={t("saveButton")}
+            savingLabel={t("savingButton")}
+          />
+          <TestButton
+            type="submit"
+            formAction={testAction}
+            isTesting={isSaving || isTesting}
+            icon={<CheckCircle2 size={15} />}
+            testLabel={t("testButton")}
+            testingLabel={t("testingButton")}
+          />
+        </ButtonRow>
+      </SubCard>
+    </form>
+  );
+}
+
+// ─── Brand assets sub-card ──────────────────────────────────────────────
+
+function AssetsR2SubCard({
+  settings,
+  onToast,
+}: {
+  settings: AppSettings;
+  onToast: (t: ToastState) => void;
+}) {
+  const t = useTranslations("admin.services.cloudflare.r2Assets");
+  const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
+    saveAssetsR2Settings,
+    {},
+  );
+  const [testState, testAction, isTesting] = useActionState<ActionState, FormData>(
+    testAssetsR2,
+    {},
+  );
+  useToastFromAction(saveState, onToast);
+  useToastFromAction(testState, onToast);
+
+  const r2SecretIsSet = Boolean(settings["storage.assets.r2.secret_access_key"]);
+  const allFilled =
+    Boolean(settings["storage.r2.account_id"]) &&
+    Boolean(settings["storage.assets.r2.access_key_id"]) &&
+    r2SecretIsSet &&
+    Boolean(settings["storage.assets.r2.bucket"]) &&
+    Boolean(settings["storage.assets.r2.public_base_url"]);
+
+  return (
+    <form action={saveAction}>
+      <SubCard
+        icon={<HardDrive size={14} style={{ color: "var(--admin-accent)" }} />}
+        title={t("title")}
+        description={t("description")}
+        statusOk={allFilled}
+        statusOkLabel={t("statusConfigured")}
+        statusKoLabel={t("statusNotConfigured")}
+      >
+        <div className="space-y-4 max-w-lg">
+          <Field
+            name="storage.assets.r2.access_key_id"
+            label={t("accessKeyIdLabel")}
+            hint={t("accessKeyIdHint")}
+            defaultValue={settings["storage.assets.r2.access_key_id"] ?? ""}
+            placeholder=""
+          />
+          <Field
+            name="storage.assets.r2.secret_access_key"
+            label={t("secretLabel")}
+            hint={t("secretHint")}
+            defaultValue={r2SecretIsSet ? "********" : ""}
+            placeholder=""
+            type="password"
+          />
+          <Field
+            name="storage.assets.r2.bucket"
+            label={t("bucketLabel")}
+            hint={t("bucketHint")}
+            defaultValue={settings["storage.assets.r2.bucket"] ?? ""}
+            placeholder={t("bucketPlaceholder")}
+          />
+          <Field
+            name="storage.assets.r2.public_base_url"
+            label={t("publicBaseLabel")}
+            hint={t("publicBaseHint")}
+            defaultValue={settings["storage.assets.r2.public_base_url"] ?? ""}
             placeholder={t("publicBasePlaceholder")}
           />
         </div>

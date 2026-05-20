@@ -226,6 +226,25 @@ const BRAND_SLOTS = [
     settingKey: "app_favicon_url" as const,
     accept: "image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon",
   },
+  // OG image default: usato come fallback su <meta og:image> per le pagine
+  // senza un'OG image specifica. Raster only (Twitter/FB non rendono SVG).
+  // Aspect ratio ideale 1200x630 (1.91:1) — la guida è nella hint i18n.
+  {
+    slot: "og-image" as const,
+    settingKey: "app_og_image_url" as const,
+    accept: "image/png,image/jpeg,image/webp",
+  },
+  // PWA icons (Add to Home Screen / manifest): consigliato PNG quadrato.
+  {
+    slot: "pwa-icon-192" as const,
+    settingKey: "app_pwa_icon_192_url" as const,
+    accept: "image/png,image/webp",
+  },
+  {
+    slot: "pwa-icon-512" as const,
+    settingKey: "app_pwa_icon_512_url" as const,
+    accept: "image/png,image/webp",
+  },
 ];
 
 function BrandAssetsCard({
@@ -278,7 +297,13 @@ function BrandAssetRow({
   currentUrl,
   onToast,
 }: {
-  slot: "logo" | "logo-variant" | "favicon";
+  slot:
+    | "logo"
+    | "logo-variant"
+    | "favicon"
+    | "og-image"
+    | "pwa-icon-192"
+    | "pwa-icon-512";
   accept: string;
   currentUrl: string | null;
   onToast: ToastSetter;

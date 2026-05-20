@@ -258,14 +258,9 @@ export function SeoFields({
     WebPage: t("jsonLdHint_WebPage"),
     Article: t("jsonLdHint_Article"),
     BlogPosting: t("jsonLdHint_BlogPosting"),
-    Product: t("jsonLdHint_Product"),
-    FAQPage: t("jsonLdHint_FAQPage"),
-    BreadcrumbList: t("jsonLdHint_BreadcrumbList"),
     Organization: t("jsonLdHint_Organization"),
     LocalBusiness: t("jsonLdHint_LocalBusiness"),
     Person: t("jsonLdHint_Person"),
-    Event: t("jsonLdHint_Event"),
-    VideoObject: t("jsonLdHint_VideoObject"),
   };
 
   const isDefaultLang = activeLang === DEFAULT_LOCALE;
