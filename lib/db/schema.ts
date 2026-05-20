@@ -1516,6 +1516,10 @@ export const posts = pgTable(
     commentsCount:    integer("comments_count").notNull().default(0),
     repostsCount:     integer("reposts_count").notNull().default(0),
     bookmarksCount:   integer("bookmarks_count").notNull().default(0),
+    // Flag "commenti disabilitati" — TRUE blocca l'aggiunta di commenti
+    // (anche all'autore) e l'UI sostituisce la sezione con un banner.
+    // Vedi M_posts_012_comments_disabled.sql.
+    commentsDisabled: boolean("comments_disabled").notNull().default(false),
     // body_tsv: GENERATED ALWAYS, gestito a livello SQL — non esposto via Drizzle
   },
 );

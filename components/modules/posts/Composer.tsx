@@ -19,7 +19,15 @@
 // Il parent (PostComposerModal) owns il post-success (toast, close).
 import { useCallback, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Globe, Lock, Repeat2, UserCheck, Users } from "lucide-react";
+import {
+  Globe,
+  Lock,
+  MessageCircle,
+  MessageCircleOff,
+  Repeat2,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import {
   createPost,
   createQuoteRepost,
@@ -143,6 +151,9 @@ export function Composer({
   const [visibility, setVisibility] = useState<PostVisibility>(
     isEdit ? mode.initialVisibility : createDefault,
   );
+  // Toggle "disabilita commenti" — solo create/quote (in edit mode il
+  // toggle è hide: post-publish editing è fuori scope V1).
+  const [commentsDisabled, setCommentsDisabled] = useState(false);
   const [mediaIds, setMediaIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -176,21 +187,29 @@ export function Composer({
           repostOfId: mode.target.id,
           body,
           visibility,
+          commentsDisabled,
         });
         if (res.ok) {
           setBody("");
           setVisibility(visibility);
+          setCommentsDisabled(false);
           onPublished?.(res.data!.postId);
         } else {
           setError(tErr(res.error, res));
         }
       } else {
-        const res = await createPost({ body, visibility, mediaIds });
+        const res = await createPost({
+          body,
+          visibility,
+          mediaIds,
+          commentsDisabled,
+        });
         if (res.ok) {
           setBody("");
           // Reset alla preferenza appena salvata server-side (sticky):
           // l'utente vede il prossimo composer già impostato sull'ultima scelta.
           setVisibility(visibility);
+          setCommentsDisabled(false);
           setMediaIds([]);
           onPublished?.(res.data!.postId);
         } else {
@@ -337,13 +356,40 @@ export function Composer({
         <MediaUploader onMediaIdsChange={setMediaIds} disabled={isPending} />
       ) : null}
 
-      {/* Footer: counter + submit */}
+      {/* Footer: counter + comments toggle + submit */}
       <div className="flex items-center gap-3 px-5 pb-4">
         <span
           className={`text-xs ${remaining < 0 ? "text-gc-danger" : "text-gc-fg-muted"}`}
         >
           {remaining}
         </span>
+        {/* Comments toggle — solo create/quote. Cliccando si flippa lo
+            stato; icona + tooltip indicano se i commenti saranno
+            abilitati (default) o disabilitati. */}
+        {!isEdit ? (
+          <button
+            type="button"
+            onClick={() => setCommentsDisabled((v) => !v)}
+            disabled={isPending}
+            aria-pressed={commentsDisabled}
+            title={
+              commentsDisabled
+                ? tComp("comments_disabled_tooltip")
+                : tComp("comments_enabled_tooltip")
+            }
+            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
+              commentsDisabled
+                ? "text-gc-danger bg-gc-danger/10 hover:bg-gc-danger/15"
+                : "text-gc-fg-muted hover:bg-gc-bg-3/60"
+            }`}
+          >
+            {commentsDisabled ? (
+              <MessageCircleOff size={16} strokeWidth={1.75} />
+            ) : (
+              <MessageCircle size={16} strokeWidth={1.75} />
+            )}
+          </button>
+        ) : null}
         <div className="flex-1" />
         <button
           type="button"

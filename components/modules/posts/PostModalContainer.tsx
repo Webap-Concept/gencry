@@ -100,6 +100,7 @@ export function PostModalContainer({ data, viewer }: Props) {
             <CommentsThread
               postId={post.id}
               postVisibility={post.visibility}
+              commentsDisabled={post.commentsDisabled}
               viewerUserId={viewer?.id}
               viewerProfile={
                 viewer

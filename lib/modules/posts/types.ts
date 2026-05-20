@@ -80,6 +80,10 @@ export type PostCardData = {
   tickers: string[];
   media: PostMediaPublic[];
   viewer: PostViewerState | null;
+  /** TRUE quando l'autore ha disabilitato i commenti su questo post.
+   *  La UI nasconde il composer e mostra un banner; il server rifiuta
+   *  comunque l'aggiunta. Vedi M_posts_012_comments_disabled.sql. */
+  commentsDisabled: boolean;
 };
 
 export type PostListPage = {

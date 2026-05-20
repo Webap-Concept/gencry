@@ -381,6 +381,7 @@ type RawPostRow = {
   reactionsToTheMoon: number;
   reactionsDump: number;
   commentsCount: number;
+  commentsDisabled: boolean;
   repostsCount: number;
   bookmarksCount: number;
   authorUsername: string | null;
@@ -430,6 +431,7 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
     editedAt: row.editedAt,
     createdAt: row.createdAt,
     counts,
+    commentsDisabled: row.commentsDisabled,
   };
 }
 
@@ -478,6 +480,7 @@ async function selectPostsCore(
       reactionsToTheMoon: posts.reactionsToTheMoon,
       reactionsDump:      posts.reactionsDump,
       commentsCount: posts.commentsCount,
+      commentsDisabled: posts.commentsDisabled,
       repostsCount: posts.repostsCount,
       bookmarksCount: posts.bookmarksCount,
       authorUsername: userProfiles.username,
@@ -720,6 +723,7 @@ export async function getPostsByIds(
         viewer: opts.viewerUserId
           ? viewerMap.get(row.id) ?? { ownReactions: [], bookmarked: false }
           : null,
+        commentsDisabled: coreCard.commentsDisabled,
       };
       if (row.repostOfId) {
         const target = targetCoreById.get(row.repostOfId);
@@ -740,6 +744,7 @@ export async function getPostsByIds(
             viewer: opts.viewerUserId
               ? viewerMap.get(target.id) ?? { ownReactions: [], bookmarked: false }
               : null,
+            commentsDisabled: targetCore.commentsDisabled,
           };
         } else {
           // Distinguo 'deleted' vs 'not_visible' usando la query light

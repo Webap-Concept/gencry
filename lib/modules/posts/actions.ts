@@ -107,6 +107,7 @@ const I18N = {
   emptyBody: "posts.errors.empty_body",
   bodyTooLong: "posts.errors.body_too_long",
   targetUnavailable: "posts.errors.target_unavailable",
+  commentsDisabled: "posts.errors.comments_disabled",
 } as const;
 
 const VISIBILITY_RANK: Record<PostVisibility, number> = {
@@ -143,6 +144,12 @@ const CreatePostInputSchema = z.object({
    * (UPDATE post_id) dentro la transaction del createPost.
    */
   mediaIds: z.array(UuidSchema).max(10).optional(),
+  /**
+   * Quando TRUE il post non accetta commenti (anche dall'autore).
+   * Default FALSE = comportamento storico, commenti abilitati. Vedi
+   * M_posts_012_comments_disabled.sql + createComment guard.
+   */
+  commentsDisabled: z.boolean().default(false),
 });
 
 const EditPostInputSchema = z.object({
@@ -193,6 +200,8 @@ const CreateQuoteRepostInputSchema = z.object({
   // visibility public NON allarga il target — l'embed viene gated server-side
   // in hydration). Default 'public' se omesso (back-compat client legacy).
   visibility: VisibilitySchema.default("public"),
+  /** Vedi CreatePostInputSchema.commentsDisabled. Default FALSE. */
+  commentsDisabled: z.boolean().default(false),
 });
 
 const ReportContentInputSchema = z.object({
@@ -338,6 +347,7 @@ export async function createPost(
         authorId: user.id,
         body: bodyCheck.body,
         visibility: parsed.data.visibility,
+        commentsDisabled: parsed.data.commentsDisabled,
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
     const synced = await syncTickersAndMentions(
@@ -639,6 +649,21 @@ export async function createComment(
 
   const rl = await rateLimitCheck(user.id, "comment");
   if (!rl.ok) return fail(I18N.rateLimited, { retryAfter: rl.retryAfter });
+
+  // Guard server-side: blocca anche l'autore se il post ha commenti
+  // disabilitati. Coerente con il pattern Instagram (owner non bypassa).
+  // Senza questo, un client maleducato che POSTa direttamente la server
+  // action by-passerebbe la UI senza guard.
+  const [target] = await db
+    .select({
+      commentsDisabled: posts.commentsDisabled,
+      deletedAt: posts.deletedAt,
+    })
+    .from(posts)
+    .where(eq(posts.id, parsed.data.postId))
+    .limit(1);
+  if (!target || target.deletedAt) return fail(I18N.notFound);
+  if (target.commentsDisabled) return fail(I18N.commentsDisabled);
 
   // Il service valida body length internamente e lancia su errore
   try {
@@ -985,6 +1010,7 @@ export async function createQuoteRepost(
         body: bodyCheck.body,
         visibility: parsed.data.visibility,
         repostOfId: parsed.data.repostOfId,
+        commentsDisabled: parsed.data.commentsDisabled,
       })
       .returning({ id: posts.id, createdAt: posts.createdAt });
     await syncTickersAndMentions(tx, inserted.id, bodyCheck.body, inserted.createdAt);
