@@ -22,6 +22,7 @@ import {
   type NewsItemStatus,
   type NewsSource,
 } from "@/lib/db/schema";
+import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
@@ -600,33 +601,46 @@ export interface NewsArticleMetadata {
    *  non è ancora stato processato — il TemplateNews fa fallback su
    *  `fields.hero_image` (URL originale già resolved). */
   heroVariants: unknown | null;
+  /** Slug della page parent (es. "news/bitcoin" per articolo figlio
+   *  della categoria, "news" per articolo other/null figlio diretto
+   *  della home). Null se la page non ha parent_id (caso degenerato
+   *  per articoli pre-migration; il TemplateNews fa fallback su
+   *  `category` da news_items). Fonte primaria della categoria
+   *  pubblica post-refactor. */
+  parentSlug: string | null;
 }
 
 export async function getNewsMetadataByPageId(
   pageId: number,
 ): Promise<NewsArticleMetadata | null> {
-  // Hero variants: pesca via pages.custom_fields.hero_image (source of
-  // truth) e non via news_items.hero_asset_id che può essere null se
-  // l'admin ha cambiato l'hero dal page editor CMS.
+  // Query parte da `pages` (non da `news_items`) per coprire anche gli
+  // articoli creati a mano dall'admin senza row in news_items. Joins:
+  //   - news_items: LEFT, opt → category + sourcePublishedAt come fallback
+  //   - parent page (alias): LEFT → parent.slug come fonte primaria categoria
+  //   - media_assets: LEFT → hero variants via custom_fields.hero_image
+  const parentPages = alias(pages, "parent_pages");
   const [row] = await db
     .select({
       category: newsItems.category,
       sourcePublishedAt: newsItems.sourcePublishedAt,
       heroVariants: mediaAssets.variants,
+      parentSlug: parentPages.slug,
     })
-    .from(newsItems)
-    .leftJoin(pages, eq(pages.id, newsItems.publishedPageId))
+    .from(pages)
+    .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(parentPages, eq(parentPages.id, pages.parentId))
     .leftJoin(
       mediaAssets,
       sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
     )
-    .where(eq(newsItems.publishedPageId, pageId))
+    .where(eq(pages.id, pageId))
     .limit(1);
   if (!row) return null;
   return {
     category: row.category,
     sourcePublishedAt: row.sourcePublishedAt,
     heroVariants: row.heroVariants,
+    parentSlug: row.parentSlug,
   };
 }
 

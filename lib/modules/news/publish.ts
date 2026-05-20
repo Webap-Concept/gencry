@@ -248,14 +248,13 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
   }
   const contentHtml = markdownToHtml(bodyMd);
 
-  // Snapshot della categoria nei customFields: per articoli creati a mano
-  // dall'editor pages, la categoria vive solo qui; per articoli dal modulo,
-  // duplica news_items.category così il TemplateNews ha sempre accesso
-  // alla categoria anche se in futuro perdiamo il link news_items.
+  // customFields: post refactor news-categories-as-cms-pages la categoria
+  // non vive più qui (la fonte autoritativa è il parent_id CMS, da cui il
+  // TemplateNews ricava la categoria via parent.slug). Restano hero_image
+  // ed excerpt che sono ancora module-owned.
   const customFields = JSON.stringify({
     hero_image: String(input.heroAssetId),
     excerpt: item.generatedExcerptIt ?? "",
-    category: item.category ?? "",
   });
 
   let pageId: number;

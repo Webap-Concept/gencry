@@ -42,16 +42,6 @@ export const NEWS_CATEGORY_URL_PREFIX: Record<NewsCategory, string> = {
 void (NEWS_CATEGORIES satisfies readonly NewsCategory[]);
 
 /**
- * Tutti gli URL prefix usati dal modulo news, deduplicati. La duplicazione
- * (Set) non è ottimizzazione: `regulation→regolamentazione`,
- * `market→mercati` ecc. producono prefix unique. `other→news` invece
- * collide con il prefix "news" letterale → il Set lo accorpa.
- */
-export function getNewsUrlPrefixes(): readonly string[] {
-  return Array.from(new Set(Object.values(NEWS_CATEGORY_URL_PREFIX)));
-}
-
-/**
  * Risolve codice → prefix con fallback su "news" (per category
  * nulla / sconosciuta). Esposto come helper invece che inline lookup
  * per evitare divergenza tra publish-time e read-time.
