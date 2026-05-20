@@ -126,8 +126,12 @@ export async function generatePageMetadata(
   const canonical = siteUrl ? `${siteUrl}${pathname}` : undefined;
   const robots = mapRobots(row?.robots);
 
-  // OG image: DB override vince, altrimenti default passato dal caller.
-  const ogImage = row?.ogImage ?? defaults?.image;
+  // OG image: priorità DB override > default passato dal caller >
+  // global fallback `app_og_image_url` (configurato dall'admin in
+  // /settings/general). Quest'ultimo evita che le pagine senza OG
+  // image esplicita finiscano senza card social.
+  const ogImage =
+    row?.ogImage ?? defaults?.image ?? settings.app_og_image_url ?? undefined;
 
   // metadataBase: serve a Next per risolvere URL relativi (es. l'OG image
   // colocated `opengraph-image.tsx`) in URL assoluti. Settandolo
