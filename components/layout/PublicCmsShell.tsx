@@ -32,18 +32,19 @@ import {
   isNewsPathname,
 } from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
-import { getActiveNewsCategories } from "@/lib/modules/news/queries";
+import { getCachedActiveNewsCategories } from "@/lib/modules/news/queries";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 
-// Menu news CMS-driven: la lista delle voci (label + href) viene dal DB.
-// `getActiveNewsCategories` ritorna le page categoria con ≥1 articolo
-// published, ordinate per `pages.sort_order` (seedato in migration
-// M_news_007 in ordine editoriale: bitcoin=10 → tech=80). Label =
-// `pages.title`, così rinominare una categoria dall'admin si rifletta
-// subito in menu senza override hardcoded.
+// Menu news CMS-driven: la lista delle voci (label + href) viene dal DB
+// (cached 60s, invalidato dal tag "pages" al publish articolo / admin save).
+// Ritorna le page categoria con ≥1 articolo published, ordinate per
+// `pages.sort_order` (seedato in migration M_news_007 in ordine
+// editoriale: bitcoin=10 → tech=80). Label = `pages.title`, così
+// rinominare una categoria dall'admin si rifletta subito in menu senza
+// override hardcoded.
 async function buildNewsMenu(): Promise<NewsMenuItem[]> {
-  const active = await getActiveNewsCategories();
+  const active = await getCachedActiveNewsCategories();
   return active.map((cat) => ({
     label: cat.title,
     href: `/${cat.slug}`,

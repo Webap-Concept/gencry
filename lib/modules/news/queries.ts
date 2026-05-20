@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/schema";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { createHash } from "node:crypto";
 
 export type { NewsSource, NewsItem, NewsItemStatus };
@@ -480,6 +481,42 @@ export async function getActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
     )
     .orderBy(pages.sortOrder, pages.title);
   return rows.map(({ slug, title }) => ({ slug, title }));
+}
+
+/**
+ * Wrapper cached di `getActiveNewsCategories` usato dal menu della navbar
+ * (hot path: ogni request in contesto news chiama questa funzione).
+ *
+ * Cache:
+ *   - TTL 60s — ragionevole per un menu che cambia raramente (la lista
+ *     delle categorie attive cambia solo quando un articolo viene
+ *     pubblicato in una categoria che era vuota, o quando una page
+ *     categoria viene rinominata dall'admin).
+ *   - Tag "pages" — riusato da `invalidatePageCachesAndSync` chiamato
+ *     sia dal publish dell'articolo (lib/modules/news/publish.ts) sia
+ *     da qualunque admin save di una page (lib/db/pages-queries.ts).
+ *     Fan-out accettabile: invalidare insieme tutte le caches `pages`
+ *     è il pattern già adottato nel progetto, e i call site downstream
+ *     sono pochi.
+ *
+ * Resilient: se la query fallisce, fallback a fresh fetch (try/catch
+ * fuori dalla cache così l'errore non viene cachato per 60s).
+ */
+export async function getCachedActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
+  const cached = unstable_cache(
+    () => getActiveNewsCategories(),
+    ["active-news-categories"],
+    { revalidate: 60, tags: ["pages"] },
+  );
+  try {
+    return await cached();
+  } catch (err) {
+    console.warn(
+      "[getCachedActiveNewsCategories] cache lookup failed, falling back to fresh fetch",
+      err,
+    );
+    return await getActiveNewsCategories();
+  }
 }
 
 /**
