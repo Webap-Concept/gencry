@@ -28,6 +28,7 @@ import {
 import { publishNewsItem } from "@/lib/modules/news/publish";
 import { ingestSource } from "@/lib/modules/news/ingestion";
 import { getNewsConfig } from "@/lib/modules/news/config";
+import { processHeroAsset } from "@/lib/modules/news/services/hero-processor";
 
 async function requireNewsPermission(perm: "modules:news" | "modules:news.moderate") {
   const user = await requireAdmin();
@@ -245,6 +246,17 @@ export async function saveReviewEditsAction(
       editsCount: sql`${newsItems.editsCount} + 1`,
     })
     .where(eq(newsItems.id, parsed.data.itemId));
+
+  // Hero processing on-demand: appena l'admin sceglie/conferma l'hero
+  // generiamo le 3 varianti webp (hero/card/thumb). Idempotente: se
+  // l'asset è già processato no-op. ~1-2s a freddo, accettabile UX
+  // dentro Save draft. Non blocchiamo il return su errore: i renderer
+  // hanno fallback al publicUrl originale.
+  if (heroId) {
+    await processHeroAsset(heroId).catch((err) => {
+      console.error("[news.review] hero processing failed:", err);
+    });
+  }
   return { success: "Draft saved.", timestamp: Date.now() };
 }
 
@@ -263,6 +275,11 @@ async function syncHeroFromForm(
   const fromForm = raw ? Number(raw) : null;
   if (fromForm && Number.isFinite(fromForm) && fromForm !== currentHeroAssetId) {
     await updateItem(itemId, { heroAssetId: fromForm });
+    // Hero cambiato → triggera processing varianti (idempotente).
+    // Vedi commento in saveReviewEditsAction.
+    await processHeroAsset(fromForm).catch((err) => {
+      console.error("[news.review] hero processing failed:", err);
+    });
     return fromForm;
   }
   return currentHeroAssetId;

@@ -17,6 +17,7 @@
 // time è calcolato runtime dal body text (200 wpm standard).
 
 import { getNewsMetadataByPageId } from "@/lib/modules/news/queries";
+import { pickHeroVariantUrl } from "@/lib/modules/news/services/hero-processor";
 import type { TemplateProps } from "./types";
 // Riusa i token + le classi `.news-article-*` definite per il blog.
 import "@/app/(cms)/news/_styles/news.css";
@@ -107,11 +108,17 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
 
         <hr className="news-article-hr" />
 
-        {/* HERO image full-bleed */}
+        {/* HERO image full-bleed — usa la variante webp se l'asset è
+            stato processato (vedi lib/modules/news/services/hero-processor.ts).
+            Fallback all'URL originale per articoli pre-processing. */}
         {heroUrl && (
           <figure className="news-article-hero">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={heroUrl} alt={page.title} />
+            <img
+              src={pickHeroVariantUrl(metadata?.heroVariants, heroUrl, "hero")}
+              alt={page.title}
+              loading="eager"
+            />
           </figure>
         )}
 

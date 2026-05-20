@@ -394,6 +394,10 @@ export interface NewsCardData {
   publishedAt: Date | null;
   excerpt: string | null;
   heroUrl: string | null;
+  /** Varianti webp processate (hero/card/thumb) — popolate al pick
+   *  hero in review. Null per articoli pre-processing. I renderer
+   *  fanno fallback su `heroUrl` con `pickHeroVariantUrl()`. */
+  heroVariants: unknown | null;
   category: string | null;
 }
 
@@ -409,6 +413,7 @@ function rowToNewsCard(row: {
   publishedAt: Date | null;
   customFields: string | null;
   heroUrl: string | null;
+  heroVariants: unknown | null;
   category: string | null;
 }): NewsCardData {
   let excerpt: string | null = null;
@@ -425,6 +430,7 @@ function rowToNewsCard(row: {
     publishedAt: row.publishedAt,
     excerpt,
     heroUrl: row.heroUrl,
+    heroVariants: row.heroVariants,
     category: row.category,
   };
 }
@@ -444,6 +450,7 @@ export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCa
       publishedAt: pages.publishedAt,
       customFields: pages.customFields,
       heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
       category: newsItems.category,
     })
     .from(pages)
@@ -482,6 +489,7 @@ export async function getNewsCardsByCategories(
       publishedAt: pages.publishedAt,
       customFields: pages.customFields,
       heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
       category: newsItems.category,
     })
     .from(pages)
@@ -509,6 +517,10 @@ export async function getNewsCardsByCategories(
 export interface NewsArticleMetadata {
   category: string | null;
   sourcePublishedAt: Date | null;
+  /** Varianti webp dell'hero (media_assets.variants). Null se l'asset
+   *  non è ancora stato processato — il TemplateNews fa fallback su
+   *  `fields.hero_image` (URL originale già resolved). */
+  heroVariants: unknown | null;
 }
 
 export async function getNewsMetadataByPageId(
@@ -518,14 +530,17 @@ export async function getNewsMetadataByPageId(
     .select({
       category: newsItems.category,
       sourcePublishedAt: newsItems.sourcePublishedAt,
+      heroVariants: mediaAssets.variants,
     })
     .from(newsItems)
+    .leftJoin(mediaAssets, eq(mediaAssets.id, newsItems.heroAssetId))
     .where(eq(newsItems.publishedPageId, pageId))
     .limit(1);
   if (!row) return null;
   return {
     category: row.category,
     sourcePublishedAt: row.sourcePublishedAt,
+    heroVariants: row.heroVariants,
   };
 }
 
