@@ -17,9 +17,9 @@
 // l'admin gestisce solo titolo + descrizione + SEO + ordinamento.
 
 import { getNewsCardsByParentPageId } from "@/lib/modules/news/queries";
-import { NewsFeaturedGrid } from "../news/_components/news-featured-grid";
-import { NewsNewsletter } from "../news/_components/news-newsletter";
-import "../news/_styles/news.css";
+import { NewsFeaturedGrid } from "./news/news-featured-grid";
+import { NewsNewsletter } from "./news/news-newsletter";
+import "./news/news.css";
 import type { TemplateProps } from "./types";
 
 const CATEGORY_PAGE_SIZE = 60;

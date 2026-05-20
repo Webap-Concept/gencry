@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-essays.tsx
+// app/(cms)/_templates/news/news-essays.tsx
 //
 // Grid 3 colonne di articoli "long-form". V1: gli ultimi 3 articoli per
 // data dopo i picks Hero + il Feature (esclusi via offset nella query

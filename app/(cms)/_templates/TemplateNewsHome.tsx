@@ -1,29 +1,28 @@
 // app/(cms)/_templates/TemplateNewsHome.tsx
 //
 // Template della home blog /news. Auto-discovered dal loader via slug
-// "news-home". La logica è la stessa che viveva in app/(cms)/news/page.tsx
-// (file route-based che verrà cancellato in step 4 del refactor
-// news-categories-as-cms-pages, una volta che la migration SQL avrà
-// promosso la page "news" da system meta-only a system_key=null +
-// contentEditable=false via template.rules.contentLocked).
+// "news-home". La page CMS "news" è ora una normal page (non più
+// system meta-only) col template news-home assegnato — il routing
+// catch-all `[locale]/[...slug]` la serve via CmsPage senza file route
+// dedicato.
 //
-// Composizione di blocchi server-component sotto app/(cms)/news/_components/.
-// Niente custom field: la pagina non legge `fields`, prende solo i dati
-// dalle query news. SEO e og:image arrivano da seo_pages + cascade in
-// cms-page.tsx, non serve generateMetadata qui.
+// Composizione di blocchi server-component sotto ./news/. Niente custom
+// field: la pagina non legge `fields`, prende solo i dati dalle query
+// news. SEO e og:image arrivano da seo_pages + cascade in cms-page.tsx,
+// non serve generateMetadata qui.
 
 import {
   getNewsCardsByCategories,
   getRecentPublishedNewsCards,
 } from "@/lib/modules/news/queries";
-import { NewsColumns, type NewsColumnGroup } from "../news/_components/news-columns";
-import { NewsEssays } from "../news/_components/news-essays";
-import { NewsFeatureStory } from "../news/_components/news-feature-story";
-import { NewsFeaturedGrid } from "../news/_components/news-featured-grid";
-import { NewsHero } from "../news/_components/news-hero";
-import { NewsNewsletter } from "../news/_components/news-newsletter";
-import { NewsTicker } from "../news/_components/news-ticker";
-import "../news/_styles/news.css";
+import { NewsColumns, type NewsColumnGroup } from "./news/news-columns";
+import { NewsEssays } from "./news/news-essays";
+import { NewsFeatureStory } from "./news/news-feature-story";
+import { NewsFeaturedGrid } from "./news/news-featured-grid";
+import { NewsHero } from "./news/news-hero";
+import { NewsNewsletter } from "./news/news-newsletter";
+import { NewsTicker } from "./news/news-ticker";
+import "./news/news.css";
 import type { TemplateProps } from "./types";
 
 const PAGE_SIZE = 24; // fetch più del necessario, redistribuiamo nei blocchi

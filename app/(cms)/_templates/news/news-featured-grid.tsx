@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-featured-grid.tsx
+// app/(cms)/_templates/news/news-featured-grid.tsx
 //
 // Griglia 3×2 di card sotto la "feature story". Stile mockup Claude
 // Design: cover image full-bleed sopra, pill categoria top-left, sotto

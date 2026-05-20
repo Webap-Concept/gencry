@@ -23,7 +23,7 @@ import {
 } from "@/lib/storage/media-asset-processor";
 import type { TemplateProps } from "./types";
 // Riusa i token + le classi `.news-article-*` definite per il blog.
-import "@/app/(cms)/news/_styles/news.css";
+import "./news/news.css";
 
 const WORDS_PER_MINUTE = 200;
 

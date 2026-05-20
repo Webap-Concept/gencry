@@ -1,6 +1,6 @@
 "use client";
 
-// app/(cms)/news/_components/news-newsletter.tsx
+// app/(cms)/_templates/news/news-newsletter.tsx
 //
 // Form newsletter del blog. V1 stub: submit conferma localmente senza
 // chiamare backend (non c'è ancora il modulo newsletter). Quando arriverà,
