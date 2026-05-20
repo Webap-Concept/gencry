@@ -440,6 +440,13 @@ function rowToNewsCard(row: {
  * Filtri: pages.page_type='news' AND pages.status='published'.
  * Join opzionale su news_items per la categoria (l'articolo può esistere
  * come page senza news_items match se creato a mano dall'admin).
+ *
+ * Hero asset: la source of truth è `pages.custom_fields.hero_image`
+ * (lo stesso campo usato da TemplateNews via resolveMediaFields).
+ * Joinare su `news_items.hero_asset_id` lascerebbe scoperti gli articoli
+ * in cui l'admin ha cambiato l'hero dal page editor CMS — quel flow non
+ * sincronizza news_items. Cast JSONB sicuro: NULLIF protegge contro
+ * `pages.custom_fields` mancante o senza chiave `hero_image`.
  */
 export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCardData[]> {
   const rows = await db
@@ -457,9 +464,7 @@ export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCa
     .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
     .leftJoin(
       mediaAssets,
-      // Hero asset id is stored as string in pages.customFields.hero_image;
-      // qui ci appoggiamo a newsItems.heroAssetId che è la fonte canonica.
-      eq(mediaAssets.id, newsItems.heroAssetId),
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
     )
     .where(and(eq(pages.pageType, "news"), eq(pages.status, "published")))
     .orderBy(desc(pages.publishedAt))
@@ -494,7 +499,12 @@ export async function getNewsCardsByCategories(
     })
     .from(pages)
     .innerJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
-    .leftJoin(mediaAssets, eq(mediaAssets.id, newsItems.heroAssetId))
+    // Hero da pages.custom_fields (source of truth, vedi commento in
+    // getRecentPublishedNewsCards).
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
     .where(
       and(
         eq(pages.pageType, "news"),
@@ -526,6 +536,9 @@ export interface NewsArticleMetadata {
 export async function getNewsMetadataByPageId(
   pageId: number,
 ): Promise<NewsArticleMetadata | null> {
+  // Hero variants: pesca via pages.custom_fields.hero_image (source of
+  // truth) e non via news_items.hero_asset_id che può essere null se
+  // l'admin ha cambiato l'hero dal page editor CMS.
   const [row] = await db
     .select({
       category: newsItems.category,
@@ -533,7 +546,11 @@ export async function getNewsMetadataByPageId(
       heroVariants: mediaAssets.variants,
     })
     .from(newsItems)
-    .leftJoin(mediaAssets, eq(mediaAssets.id, newsItems.heroAssetId))
+    .leftJoin(pages, eq(pages.id, newsItems.publishedPageId))
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
     .where(eq(newsItems.publishedPageId, pageId))
     .limit(1);
   if (!row) return null;
