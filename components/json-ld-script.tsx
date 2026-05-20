@@ -63,6 +63,21 @@ function resolvePlaceholders(text: string, appName: string): string {
   return text.replace(/\{\{appName\}\}/gi, appName);
 }
 
+/**
+ * Coerce a Date|string|null|undefined into ISO 8601 or undefined.
+ * Necessario perché `unstable_cache` serializza in JSON e i campi Date
+ * tornano come stringhe ISO al deserialize — chiamare `.toISOString()`
+ * direttamente fa crashare il render con "c.toISOString is not a
+ * function" sulle pagine che hanno JSON-LD abilitato (vedi bug
+ * 2026-05-20: tutte le pagine articolo crashavano dopo questo refactor).
+ */
+function toIsoSafe(value: Date | string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value.toISOString();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
 export async function JsonLdScript() {
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") ?? "/";
@@ -125,11 +140,13 @@ export async function JsonLdScript() {
     // Strip "/" leading per fare match con pages.slug ("/news/foo" → "news/foo")
     const slug = pathname.replace(/^\/+/, "");
     const publishedAt = slug ? await getPagePublishedAt(slug) : null;
-    if (publishedAt) {
-      jsonLd.datePublished = publishedAt.toISOString();
+    const datePublished = toIsoSafe(publishedAt);
+    if (datePublished) {
+      jsonLd.datePublished = datePublished;
     }
-    if (page.updatedAt) {
-      jsonLd.dateModified = page.updatedAt.toISOString();
+    const dateModified = toIsoSafe(page.updatedAt);
+    if (dateModified) {
+      jsonLd.dateModified = dateModified;
     }
     // author come Organization (l'app stessa). Quando avremo un sistema
     // di autori reali per le news, passeremo a Person + name reale.
