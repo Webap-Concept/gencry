@@ -1,16 +1,8 @@
-import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
-
-// Bundle analyzer: attivo solo quando si lancia `ANALYZE=true pnpm build`.
-// Genera 3 report HTML in .next/analyze/ (client/edge/nodejs) — apri
-// .next/analyze/client.html nel browser per il treemap interattivo.
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === "true",
-});
 
 const nextConfig: NextConfig = {
   // ---------------------------------------------------------------------------
@@ -165,4 +157,4 @@ const withSentry = (cfg: NextConfig): NextConfig => {
   }) as NextConfig;
 };
 
-export default withBundleAnalyzer(withSentry(withNextIntl(nextConfig)));
+export default withSentry(withNextIntl(nextConfig));
