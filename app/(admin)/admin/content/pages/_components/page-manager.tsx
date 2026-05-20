@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronLeft,
+  Calendar,
   ChevronRight,
   ExternalLink,
   Eye,
@@ -39,7 +40,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
@@ -64,6 +65,21 @@ interface DeleteTarget {
 type PagesTab = "user" | "system";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+/**
+ * Formatta una Date in stile "21 mag 2026" localizzato. Usato dal badge
+ * inline accanto al titolo del row per dare visibilità immediata della
+ * data di pubblicazione senza dover aprire l'editor.
+ */
+function formatPublishedDate(date: Date | string, locale: string): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const intlLocale = locale === "en" ? "en-US" : "it-IT";
+  return d.toLocaleDateString(intlLocale, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function parseRules(
   raw: string | null | undefined,
 ): Record<string, unknown> {
@@ -383,11 +399,16 @@ function PageRow({
   pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
+  const locale = useLocale();
   const adminSlug = useAdminSlug();
   const allChildren = allPages.filter((p) => p.parentId === page.id);
   const hasChildren = allChildren.length > 0;
   const isExpanded = expandedIds.has(page.id);
   const isPublished = page.status === "published";
+  const publishedLabel =
+    isPublished && page.publishedAt
+      ? formatPublishedDate(page.publishedAt, locale)
+      : null;
   const tplName = templates.find((t) => t.id === page.templateId)?.name;
   const isPendingToggle = pendingToggleId === page.id;
   const indent = depth * 20;
@@ -555,6 +576,24 @@ function PageRow({
                 {page.title}
               </button>
             </Tooltip>
+
+            {/* Badge data di pubblicazione — inline accanto al titolo.
+                Mostrato solo per pagine published con published_at valorizzato:
+                draft / scheduled non hanno una data utile da esporre qui. */}
+            {publishedLabel && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap"
+                style={{
+                  color: "var(--admin-text-faint)",
+                  background: "var(--admin-hover-bg)",
+                  border: "1px solid var(--admin-card-border)",
+                }}
+                title={t("rowPublishedOnAria", { date: publishedLabel })}
+              >
+                <Calendar size={10} strokeWidth={1.75} />
+                {publishedLabel}
+              </span>
+            )}
 
             {/* Inline + child — solo per pagine non-system. Stop
                 propagation per non triggerare il toggle expand del row. */}

@@ -2041,6 +2041,7 @@
         "rowPublish": "Publish",
         "rowUnpublish": "Unpublish",
         "rowDelete": "Delete page",
+        "rowPublishedOnAria": "Published on {date}",
         "statusPublished": "Published",
         "statusDraft": "Draft",
         "emptyUserLabel": "No pages created",

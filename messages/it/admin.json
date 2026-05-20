@@ -2041,6 +2041,7 @@
         "rowPublish": "Pubblica",
         "rowUnpublish": "De-pubblica",
         "rowDelete": "Elimina pagina",
+        "rowPublishedOnAria": "Pubblicata il {date}",
         "statusPublished": "Pubblicata",
         "statusDraft": "Bozza",
         "emptyUserLabel": "Nessuna pagina creata",
