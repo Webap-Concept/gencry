@@ -6,10 +6,20 @@
 //   - dal cron publisher (per gli scheduled con due)
 //   - dalla server action "Publish now" admin dalla review page
 //
+// Modello slug (post refactor news-categories-as-cms-pages, mag 2026):
+//   - L'articolo è una page CMS figlia della page categoria. La page
+//     categoria (es. `news/bitcoin`, `news/mercati`) esiste come row in
+//     `pages` con template `news-category`, parent /news. Lo slug
+//     dell'articolo è composto come `<parent.slug>/<leaf>` esattamente
+//     come fa il page-editor admin client-side — la fonte di verità per
+//     il prefix categoria è il DB (pages.slug), non più la mappa
+//     hardcoded di `url-prefixes.ts`. Quella mappa resta solo per
+//     risolvere `news_items.category` → categoria-page-slug nel lookup
+//     iniziale.
+//   - Articoli con category='other'/NULL → parent = page /news (home),
+//     slug `news/<leaf>` (senza segmento categoria intermedio).
+//
 // Caveat:
-//   - Slug pattern: `news/<yyyy-mm-dd>-<slug-from-title>`. Pre-fissato così
-//     da escludere collisioni con altre user pages (lo slug `news` resta
-//     libero per la listing handcrafted in /app/(cms)/news/page.tsx).
 //   - customFields salvati come JSON string (schema pages.custom_fields è
 //     text default '{}', il parser CMS lo decodifica con safe try/catch).
 //   - Hero asset obbligatorio: se manca, ritorna errore. Validato qui
@@ -53,32 +63,108 @@ async function getNewsTemplateId(): Promise<number | null> {
   return cachedNewsTemplateId;
 }
 
-// Categoria → URL prefix: la mappa vive in `./url-prefixes.ts` (single
-// source of truth, importata anche da `cms-extension.ts` e dal validator
-// slug). Nessun re-export qui: i caller esterni importano direttamente
-// `newsCategoryUrlPrefix` dal modulo url-prefixes.
+// Categoria → URL prefix: la mappa vive in `./url-prefixes.ts` ed è usata
+// SOLO per risolvere `news_items.category` → slug della categoria-page
+// (`news/<prefix>`) nel lookup. La fonte di verità per i path categoria
+// resta `pages.slug` nel DB — la mappa è il "ponte" tra l'enum
+// editoriale `news_items.category` e la page CMS corrispondente.
 
 /**
- * Genera lo slug pubblico della page CMS. Convenzione:
- *   <category-prefix>/<slug-from-title>
+ * Trova (o crea on-the-fly se assente) la page CMS categoria sotto cui
+ * l'articolo deve essere agganciato. Ritorna { pageId, slug } da usare
+ * come parent dell'articolo + prefix per comporre lo slug articolo.
  *
- * Niente data: i meta SEO sono coperti da published_at strutturato, e lo
- * slug più corto è più leggibile + condivisibile. Le parole con length≤2
- * (e, le, il, i, a, di, da, in, su, al, …) sono droppate per evitare
- * URL gonfiate da stopword e migliorare il keyword density.
- *
- * Lo slug è snapshot al publish: cambi futuri di category sull'item NON
- * rinominano la page (niente link rot). Per rinominare manualmente, si
- * passa dall'editor pages standard.
+ * Casi:
+ *   - category='other' o NULL → parent = page /news (la home blog).
+ *     Slug articolo finale: `news/<leaf>`.
+ *   - altri → cerca `pages WHERE slug = 'news/<prefix>'`. Se trovata
+ *     (caso normale post-migration M_news_007), usa quella. Se NON
+ *     trovata (caso degenerato, es. admin ha cancellato la categoria
+ *     dal DB) → la crea on-the-fly con template `news-category`,
+ *     parent /news, status 'published'. Bypassa la server action RBAC
+ *     `upsertPageAction` perché siamo in contesto cron non-authed.
  */
-function buildNewsSlug(title: string, category: string | null): string {
+async function getOrCreateCategoryPage(
+  category: string | null,
+): Promise<{ pageId: number; slug: string } | { error: string }> {
+  const prefix = newsCategoryUrlPrefix(category);
+
+  // Home page /news — esiste sempre post-migration (è anche l'home blog).
+  const [home] = await db
+    .select({ id: pages.id, slug: pages.slug })
+    .from(pages)
+    .where(eq(pages.slug, "news"))
+    .limit(1);
+  if (!home) {
+    return {
+      error:
+        "news_home_page_missing — run M_news_007_categories_as_pages.sql in Supabase Editor",
+    };
+  }
+
+  // other/NULL → parent diretto = home.
+  if (prefix === "news") {
+    return { pageId: home.id, slug: home.slug };
+  }
+
+  const categorySlug = `news/${prefix}`;
+  const [existing] = await db
+    .select({ id: pages.id, slug: pages.slug })
+    .from(pages)
+    .where(eq(pages.slug, categorySlug))
+    .limit(1);
+  if (existing) return { pageId: existing.id, slug: existing.slug };
+
+  // Creazione on-the-fly (degenerato): seedare la categoria mancante.
+  const [tplRow] = await db
+    .select({ id: pageTemplates.id })
+    .from(pageTemplates)
+    .where(eq(pageTemplates.slug, "news-category"))
+    .limit(1);
+  if (!tplRow) {
+    return {
+      error:
+        "news_category_template_missing — run M_news_007_categories_as_pages.sql in Supabase Editor",
+    };
+  }
+  const now = new Date();
+  const title = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  const [inserted] = await db
+    .insert(pages)
+    .values({
+      slug: categorySlug,
+      title,
+      content: "",
+      status: "published",
+      publishedAt: now,
+      parentId: home.id,
+      templateId: tplRow.id,
+      pageType: "page",
+      visibility: "public",
+      isSystem: false,
+      contentEditable: true,
+    })
+    .returning({ id: pages.id, slug: pages.slug });
+  return { pageId: inserted.id, slug: inserted.slug };
+}
+
+/**
+ * Compone il leaf slug dell'articolo a partire dal titolo. Le parole con
+ * length<3 (e, le, il, i, a, di, da, in, su, al, …) sono droppate per
+ * evitare URL gonfiate da stopword e migliorare keyword density. Cap 80
+ * char come prima del refactor.
+ *
+ * NB: non più "slug completo" — è solo il LAST segment. Lo slug pubblico
+ * finale è composto in `publishNewsItem` come `<parentSlug>/<leaf>`.
+ */
+function buildArticleLeafSlug(title: string): string {
   const slugged = slugify(title);
   const meaningful = slugged
     .split("-")
     .filter((w) => w.length >= 3)
     .join("-")
     .slice(0, 80);
-  return `${newsCategoryUrlPrefix(category)}/${meaningful || "article"}`;
+  return meaningful || "article";
 }
 
 /**
@@ -132,7 +218,20 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
   }
 
   const now = new Date();
-  const slug = buildNewsSlug(item.generatedTitleIt, item.category);
+
+  // Lookup (o creazione) della category page sotto cui agganciare l'articolo.
+  // Slug articolo = `<categoryPage.slug>/<leafSlug>` — stessa composizione
+  // del page-editor admin client-side ([page-editor.tsx:1051]).
+  // NB: per re-publish (item.publishedPageId già settato) NON ricalcoliamo
+  // né slug né parent — restano snapshot al primo publish per evitare link
+  // rot, come prima del refactor.
+  const categoryLookup = await getOrCreateCategoryPage(item.category);
+  if ("error" in categoryLookup) {
+    return { ok: false, error: categoryLookup.error };
+  }
+  const leaf = buildArticleLeafSlug(item.generatedTitleIt);
+  const slug = `${categoryLookup.slug}/${leaf}`;
+  const parentPageId = categoryLookup.pageId;
 
   // Optional: auto-link della PRIMA occorrenza di un coin noto verso
   // /coins/<symbol>. Cap 1 link per articolo. Toggle per-item (checkbox
@@ -188,6 +287,7 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
         content: contentHtml,
         status: "published",
         publishedAt: now,
+        parentId: parentPageId,
         templateId,
         customFields,
         pageType: "news",

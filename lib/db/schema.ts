@@ -319,13 +319,12 @@ export const SYSTEM_PAGE_KEYS = [
   // - "home" → "/" (slug vuoto), servita dal page handler della homepage
   // - "admin_home" → "/admin", landing del pannello admin
   // - "admin_sign_in" → "/admin/sign-in", login admin (vedi ADMIN_SIGNIN_ROUTE)
-  // - "news" → "/news", listing del blog (servito da app/(cms)/news/page.tsx).
-  //   Content auto-generato (grid degli articoli pubblicati), l'admin gestisce
-  //   solo titolo + meta SEO via /admin/content/pages.
+  // NB: la system_key "news" è stata droppata dalla migration
+  // M_news_007_categories_as_pages — la pagina /news è ora una normal CMS
+  // page legata al template `news-home`, non più una system meta-only page.
   "home",
   "admin_home",
   "admin_sign_in",
-  "news",
 ] as const;
 export type SystemPageKey = (typeof SYSTEM_PAGE_KEYS)[number];
 
