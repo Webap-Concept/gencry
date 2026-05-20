@@ -24,6 +24,7 @@
 import { AppRightRail } from "@/components/layout/AppRightRail";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import type { NewsMenuItem } from "@/components/layout/NewsNavMenu";
 import { ResetScrollOnPath } from "@/app/(cms)/_components/reset-scroll-on-path";
 import {
   getSystemPageSlugs,
@@ -31,8 +32,42 @@ import {
   isNewsPathname,
 } from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
+import { getActiveNewsCategories } from "@/lib/modules/news/queries";
+import { newsCategoryUrlPrefix } from "@/lib/modules/news/url-prefixes";
 import { headers } from "next/headers";
 import { Suspense } from "react";
+
+// Ordine fisso editoriale delle voci menu (Bitcoin first, "other" droppato
+// perché /news è già la home dell'archivio). Solo le voci la cui categoria
+// ha ≥1 articolo published (vedi getActiveNewsCategories) finiscono in UI.
+//
+// Link per ora: `/news#cat-<prefix>` come placeholder — le landing
+// categoria reali (/altcoin, /bitcoin, …) verranno in PR successiva
+// (decisione 2026-05-20). Quando esisteranno, basta sostituire l'href.
+const NEWS_MENU_EDITORIAL_ORDER: ReadonlyArray<{
+  category: string;
+  label: string;
+}> = [
+  { category: "bitcoin",    label: "Bitcoin" },
+  { category: "ethereum",   label: "Ethereum" },
+  { category: "altcoin",    label: "Altcoin" },
+  { category: "defi",       label: "DeFi" },
+  { category: "market",     label: "Mercati" },
+  { category: "regulation", label: "Regolamentazione" },
+  { category: "tech",       label: "Tech" },
+];
+
+async function buildNewsMenu(): Promise<NewsMenuItem[]> {
+  const active = await getActiveNewsCategories();
+  return NEWS_MENU_EDITORIAL_ORDER.filter((it) => active.has(it.category)).map(
+    (it) => ({
+      label: it.label,
+      // /news#cat-<urlprefix>: usa il prefix italianizzato (regolamentazione,
+      // mercati) coerente con il path degli articoli (/regolamentazione/...).
+      href: `/news#cat-${newsCategoryUrlPrefix(it.category)}`,
+    }),
+  );
+}
 
 export async function PublicCmsShell({
   children,
@@ -59,12 +94,18 @@ export async function PublicCmsShell({
   const showRail = !isLegalsPathname(pathname, slugs) && !isNews;
   const fullBleed = isNews;
 
+  // Menu news: 1 query DB cached, eseguita solo in contesto news per non
+  // pagare il roundtrip su pagine non-news (la cache `unstable_cache`
+  // futura potrebbe muovere questo in lazy senza cambio API).
+  const newsMenu = isNews ? await buildNewsMenu() : undefined;
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
       <ResetScrollOnPath />
       <PublicHeader
         appLogoUrl={appSettings.app_logo_url}
         logoHref={isNews ? "/news" : "/"}
+        newsMenu={newsMenu}
       />
       <div className="flex-1">
         <div className={fullBleed ? "w-full" : "mx-auto w-full max-w-7xl flex"}>
