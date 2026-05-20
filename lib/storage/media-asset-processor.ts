@@ -195,9 +195,19 @@ export async function processMediaAsset(assetId: number): Promise<ProcessResult>
   // Cancella l'originale (zero storage waste, allineato a posts).
   await deleteMediaObject(cfg, asset.storagePath);
 
+  // Aggiorna `publicUrl` puntando alla variante `card`: tutti i caller
+  // che leggono `media_assets.publicUrl` senza guardare `variants`
+  // (media library list, picker preview, ecc.) continuano a funzionare
+  // senza serve refactor. `card` è la taglia intermedia, va bene sia
+  // per preview admin che per rendering generale. `storagePath` resta
+  // invariato come identity key (delete sarà idempotente: 404 no-op).
   await db
     .update(mediaAssets)
-    .set({ variants: variantsJson })
+    .set({
+      variants: variantsJson,
+      publicUrl: variantsJson.card.url,
+      mime: "image/webp",
+    })
     .where(eq(mediaAssets.id, assetId));
 
   return variantsJson;
