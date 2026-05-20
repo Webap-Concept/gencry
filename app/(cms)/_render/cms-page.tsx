@@ -3,9 +3,11 @@ import { getDynamicTemplate } from "@/app/(cms)/_templates/loader";
 import { resolveMediaFields } from "@/app/(cms)/_templates/resolve-media-fields";
 import { parseCustomFields } from "@/app/(cms)/_templates/types";
 import { getCmsStylesVersion } from "@/lib/cms/styles-version";
+import { getAssetById } from "@/lib/db/media-queries";
 import { getCachedPageWithTemplate } from "@/lib/db/pages-queries";
 import { getCachedSeoPage } from "@/lib/seo";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
+import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n/config";
 import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
@@ -149,13 +151,51 @@ export async function cmsPageMetadata({
   const title = resolve(seo?.title) ?? page?.title ?? undefined;
   const description = resolve(seo?.description);
 
+  // OG image cascade per pagine CMS:
+  //   1. seo.ogImage              → admin override esplicito su /admin/seo
+  //   2. primo template field image con valore in customFields → variante hero
+  //      (scan agnostico al nome del field: funziona per news, future guide,
+  //      qualunque template con un campo image)
+  //   3. app_og_image_url         → global fallback (vedi /settings/general)
+  //
+  // Niente og:image alla fine = niente <meta og:image> (mai mostriamo
+  // placeholder fake), il client cade sulla card fallback social.
+  let ogImageFromTemplate: string | undefined;
+  if (!seo?.ogImage && page?.template?.fields && page.customFields) {
+    try {
+      const customFields = JSON.parse(page.customFields) as Record<string, string>;
+      const imageField = page.template.fields
+        .filter((f) => f.fieldType === "image")
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .find((f) => customFields[f.fieldKey]?.trim());
+      if (imageField) {
+        const assetId = Number(customFields[imageField.fieldKey]);
+        if (Number.isInteger(assetId) && assetId > 0) {
+          const asset = await getAssetById(assetId);
+          if (asset) {
+            ogImageFromTemplate = pickMediaVariantUrl(
+              asset.variants,
+              asset.publicUrl,
+              "hero",
+            );
+          }
+        }
+      }
+    } catch {
+      // customFields malformato → skip silenziosamente, cascade prosegue
+    }
+  }
+
+  const ogImage =
+    seo?.ogImage ?? ogImageFromTemplate ?? settings.app_og_image_url ?? undefined;
+
   return {
     title,
     description,
     openGraph: {
       title: resolve(seo?.ogTitle) ?? title,
       description: resolve(seo?.ogDescription) ?? description,
-      ...(seo?.ogImage ? { images: [{ url: seo.ogImage }] } : {}),
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     robots: seo?.robots || undefined,
   };
