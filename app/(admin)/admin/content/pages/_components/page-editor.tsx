@@ -41,6 +41,7 @@ import {
   Bold,
   Calendar,
   Code,
+  Code2,
   Eye,
   EyeOff,
   GitBranch,
@@ -65,6 +66,12 @@ import { Fragment } from "react";
 import { MediaPicker } from "../../media/_components/media-picker";
 import { MediaPickerField } from "../../media/_components/media-picker-field";
 import { EditorPageHeader } from "../../../_components/editor-page-header";
+import {
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import { upsertPageAction } from "../actions";
 import PlaceholderHint from "./placeholder-hint";
 
@@ -1092,6 +1099,26 @@ export default function PageEditor({
       .run();
   }
   const [internalLinkOpen, setInternalLinkOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [sourceValue, setSourceValue] = useState("");
+  function handleOpenSource() {
+    if (!editor) return;
+    setSourceValue(editor.getHTML());
+    setSourceOpen(true);
+  }
+  function handleApplySource() {
+    if (!editor) return;
+    // Tiptap valida l'HTML contro gli extension schemi: tag non noti
+    // (es. <table>) vengono droppati silenziosamente. Lo dichiariamo
+    // come hint nel dialog. parseOptions.preserveWhitespace mantiene
+    // formatting per textarea che usa <pre>-style paste.
+    editor
+      .chain()
+      .focus()
+      .setContent(sourceValue, { emitUpdate: true, parseOptions: { preserveWhitespace: "full" } })
+      .run();
+    setSourceOpen(false);
+  }
   function handleInternalLinkPicked(p: InternalLinkPage) {
     if (!editor) return;
     const { from, to, empty } = editor.state.selection;
@@ -1766,6 +1793,12 @@ export default function PageEditor({
                   title={t("toolbarSeparator")}>
                   <Minus size={15} />
                 </TBtn>
+                <TDivider />
+                <TBtn
+                  onClick={handleOpenSource}
+                  title={t("toolbarSource")}>
+                  <Code2 size={15} />
+                </TBtn>
               </div>
               <div className="px-3 pt-2">
                 <PlaceholderHint onInsert={handleInsertPlaceholder} />
@@ -1789,6 +1822,45 @@ export default function PageEditor({
                 onClose={() => setLinkDialogOpen(false)}
                 onSubmit={handleLinkDialogSubmit}
               />
+              <AdminDialog open={sourceOpen} onOpenChange={setSourceOpen}>
+                <AdminDialogContent
+                  icon={Code2}
+                  title={t("sourceDialogTitle")}
+                  description={t("sourceDialogDescription")}
+                  size="xl"
+                  footer={
+                    <>
+                      <AdminDialogCancelButton onClick={() => setSourceOpen(false)}>
+                        {t("sourceDialogCancel")}
+                      </AdminDialogCancelButton>
+                      <AdminDialogConfirmButton onClick={handleApplySource}>
+                        {t("sourceDialogApply")}
+                      </AdminDialogConfirmButton>
+                    </>
+                  }>
+                  <textarea
+                    value={sourceValue}
+                    onChange={(e) => setSourceValue(e.target.value)}
+                    spellCheck={false}
+                    rows={20}
+                    className="w-full px-3 py-2 rounded-lg text-xs leading-relaxed"
+                    style={{
+                      background: "var(--admin-page-bg)",
+                      border: "1px solid var(--admin-input-border)",
+                      color: "var(--admin-text)",
+                      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                      resize: "vertical",
+                      minHeight: "320px",
+                    }}
+                    placeholder="<h2>Heading</h2>&#10;<p>Paragraph...</p>"
+                  />
+                  <p
+                    className="text-xs mt-3 leading-relaxed"
+                    style={{ color: "var(--admin-text-faint)" }}>
+                    {t("sourceDialogHint")}
+                  </p>
+                </AdminDialogContent>
+              </AdminDialog>
             </>
           )}
           {activeTab === "struttura" && (
