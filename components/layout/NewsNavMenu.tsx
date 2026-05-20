@@ -15,10 +15,9 @@
 // fatto, niente JS richiesto per il render iniziale). Solo l'apertura
 // del drawer richiede client interactivity → questo file `"use client"`.
 //
-// I link per ora puntano tutti a `/news#cat-<slug>` come placeholder:
-// le landing categoria reali (es. `/altcoin`) verranno in PR successiva
-// — quando esistono, basta aggiornare l'`href` qui (o passarlo già fatto
-// dal server lato PublicCmsShell).
+// href: URL reale della page categoria CMS (es. `/news/bitcoin`,
+// `/news/mercati`). Costruito server-side da `buildNewsMenu` in
+// PublicCmsShell leggendo le active categories dal DB.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -35,7 +34,7 @@ import { Button } from "@/components/ui/button";
 export interface NewsMenuItem {
   /** Etichetta visibile (es. "Bitcoin"). */
   label: string;
-  /** href finale (oggi `/news#cat-<slug>`, futuro `/<slug>`). */
+  /** href della page categoria CMS, es. `/news/bitcoin`. */
   href: string;
 }
 

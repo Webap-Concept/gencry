@@ -1,27 +1,22 @@
 // lib/modules/news/url-prefixes.ts
 //
-// Single source of truth della mappa categoria → URL prefix per il
-// modulo news. NIENTE `server-only` qui: è importato sia da
-// `publish.ts` (server) che da `cms-extension.ts` (registry runtime,
-// client-reachable). Tenere il file privo di side-effect server-only
-// (no DB, no env, no fs) altrimenti il client bundle esplode.
+// Mappa categoria → URL prefix per il modulo news. NIENTE `server-only`:
+// il file è puro (no DB, no env, no fs) e potrebbe finire in qualunque
+// bundle senza side-effect.
 //
 // Convenzione:
 //   - Codici categoria EN (allineati a NEWS_CATEGORIES in categories.ts)
 //   - URL prefix mescolati IT/EN secondo readability italiana:
 //     `regulation → regolamentazione`, `market → mercati`,
 //     `bitcoin/ethereum/defi` restano EN perché usati anche dagli IT.
-//   - `other` cade su `news` come fallback (slug listing dell'archivio).
+//   - `other` cade su `news` come fallback (l'articolo finisce figlio
+//     diretto di /news, non sotto una categoria).
 //
-// L'URL prefix viene usato:
-//   - Per costruire lo slug pubblico di un articolo (`<prefix>/<slug>`)
-//   - Come reserved slug dell'admin (impedisce CMS pages "rogue" che
-//     colliderebbero con la routing news)
-//   - Dal validator slug del page-editor (bypass primo segmento se
-//     coincide con uno di questi prefix e il template è "news")
-//   - Da `isNewsPathname()` per riconoscere il contesto news anche
-//     dentro un articolo (es. /altcoin/foo) → layout full-bleed +
-//     logo che punta a /news invece che /
+// Post refactor news-categories-as-cms-pages (mag 2026), il mapping
+// serve SOLO al publisher (publish.ts) per risolvere
+// `news_items.category` → slug della page categoria CMS (`news/<prefix>`)
+// alla quale agganciare il nuovo articolo. La fonte autoritativa per
+// l'URL pubblico è `pages.slug`, non più questa mappa.
 
 import { NEWS_CATEGORIES, type NewsCategory } from "./categories";
 

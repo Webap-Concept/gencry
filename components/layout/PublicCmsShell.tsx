@@ -15,7 +15,7 @@
 //
 // `localePrefix` (opt): il layout `[locale]/layout.tsx` deve poter
 // strippare il prefix locale dal pathname prima del match (es.
-// `/en/altcoin/foo` → `/altcoin/foo`). `(cms)/layout.tsx` non riceve
+// `/en/news/bitcoin` → `/news/bitcoin`). `(cms)/layout.tsx` non riceve
 // mai un prefix locale (le sue rotte sono senza), quindi non lo passa.
 // Tenere la logica di stripping qui dentro evita di centralizzare
 // conoscenza i18n nello shell, ma comunque sposta in unico posto la

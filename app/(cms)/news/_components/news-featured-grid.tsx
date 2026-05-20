@@ -16,8 +16,9 @@ import {
 } from "@/lib/storage/media-asset-processor";
 
 // Etichette IT dei badge categoria (uppercase, mostrate nel pill).
-// Allineate con CATEGORY_LABELS di `cms-extension.ts` ma "frontend voice":
-// più editoriale (es. "Regolamentazione" invece di "Regulation").
+// "Frontend voice" — più editoriale rispetto al codice enum
+// (es. "Regolamentazione" invece di "Regulation"). Map locale al
+// componente perché serve solo qui per il pill della card.
 const CATEGORY_LABEL: Record<string, string> = {
   bitcoin: "Bitcoin",
   ethereum: "Ethereum",

@@ -268,10 +268,11 @@ export async function upsertPageAction(
   if (!slugLocked) {
     const adminUrlSlug = await getAdminUrlSlug();
     // Whitelist primi-segmenti dichiarati dall'extension del modulo che
-    // ha "claimato" questo template (es. news → bitcoin/altcoin/…/news).
-    // Senza extension la whitelist è vuota e la guard si comporta come
-    // prima. Lookup non-bloccante: se il template id non risolve, niente
-    // whitelist e si applica solo la guard standard.
+    // ha "claimato" questo template. Senza extension la whitelist è
+    // vuota e la guard si comporta come prima. Lookup non-bloccante:
+    // se il template id non risolve, niente whitelist e si applica
+    // solo la guard standard. (Nessun modulo registra slugResolver al
+    // momento — il news cms-extension è stato droppato in mag 2026.)
     let allowedFirstSegments: string[] = [];
     if (effectiveTemplateId) {
       const { getTemplateById } = await import("@/lib/db/template-queries");
