@@ -84,10 +84,20 @@ const BRANDING_SLOT_TO_KEY = {
   logo: "app_logo_url",
   "logo-variant": "app_logo_variant_url",
   favicon: "app_favicon_url",
+  "og-image": "app_og_image_url",
+  "pwa-icon-192": "app_pwa_icon_192_url",
+  "pwa-icon-512": "app_pwa_icon_512_url",
 } as const;
 
 function isBrandingSlot(value: unknown): value is BrandingSlot {
-  return value === "logo" || value === "logo-variant" || value === "favicon";
+  return (
+    value === "logo" ||
+    value === "logo-variant" ||
+    value === "favicon" ||
+    value === "og-image" ||
+    value === "pwa-icon-192" ||
+    value === "pwa-icon-512"
+  );
 }
 
 export async function uploadBrandingAssetAction(

@@ -983,6 +983,26 @@
         "savingButton": "Saving…",
         "testButton": "Test connection",
         "testingButton": "Testing…"
+      },
+      "r2Assets": {
+        "title": "Brand assets bucket",
+        "description": "Logo, favicon, default OG image and PWA icons. These are the most-requested assets on the site (loaded on every page view: header, footer, meta OG), so a dedicated bucket isolates the token and access logs. R2 egress is $0 — particularly useful here where traffic is high and repetitive.",
+        "statusConfigured": "Configured",
+        "statusNotConfigured": "Not configured",
+        "accessKeyIdLabel": "Access key ID",
+        "accessKeyIdHint": "From the R2 token (Account API Token, scoped to this bucket, \"Object Read & Write\").",
+        "secretLabel": "Secret access key",
+        "secretHint": "Sensitive. Leave the masked placeholder unchanged to keep the saved value.",
+        "bucketLabel": "Bucket name",
+        "bucketHint": "Bucket dedicated to brand assets (e.g. assets).",
+        "bucketPlaceholder": "assets",
+        "publicBaseLabel": "Public base URL",
+        "publicBaseHint": "Custom domain bound to the bucket (no trailing slash). Files become <base>/<slot>-<timestamp>.<ext>.",
+        "publicBasePlaceholder": "https://assets.example.com",
+        "saveButton": "Save credentials",
+        "savingButton": "Saving…",
+        "testButton": "Test connection",
+        "testingButton": "Testing…"
       }
     },
     "redis": {

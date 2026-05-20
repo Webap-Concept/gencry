@@ -11,6 +11,9 @@ export type SettingKey =
   | 'app_logo_url'
   | 'app_logo_variant_url'
   | 'app_favicon_url'
+  | 'app_og_image_url'
+  | 'app_pwa_icon_192_url'
+  | 'app_pwa_icon_512_url'
   | 'maintenance_mode'
   | 'registrations_enabled'
   | 'modules.onboarding.enabled'  // 'true'|'false' — wizard /onboarding post-signup obbligatorio o saltato (modulo onboarding)
@@ -306,6 +309,13 @@ export type SettingKey =
   | 'storage.media.r2.secret_access_key'
   | 'storage.media.r2.bucket'
   | 'storage.media.r2.public_base_url'
+  // Assets bucket (brand: logo, favicon, OG default, PWA icons) — vedi
+  // lib/storage/r2-assets.ts. Bucket separato per audit/access-key
+  // isolation; serve gli asset più popolari del sito (sempre cachati).
+  | 'storage.assets.r2.access_key_id'
+  | 'storage.assets.r2.secret_access_key'
+  | 'storage.assets.r2.bucket'
+  | 'storage.assets.r2.public_base_url'
 
 export type AppSettings = {
   app_name: string
@@ -314,6 +324,9 @@ export type AppSettings = {
   app_logo_url: string | null
   app_logo_variant_url: string | null
   app_favicon_url: string | null
+  app_og_image_url: string | null
+  app_pwa_icon_192_url: string | null
+  app_pwa_icon_512_url: string | null
   maintenance_mode: string
   registrations_enabled: string
   'modules.onboarding.enabled': string
@@ -532,6 +545,10 @@ export type AppSettings = {
   'storage.media.r2.secret_access_key': string | null
   'storage.media.r2.bucket': string | null
   'storage.media.r2.public_base_url': string | null
+  'storage.assets.r2.access_key_id': string | null
+  'storage.assets.r2.secret_access_key': string | null
+  'storage.assets.r2.bucket': string | null
+  'storage.assets.r2.public_base_url': string | null
 }
 
 const DEFAULTS: AppSettings = {
@@ -541,6 +558,9 @@ const DEFAULTS: AppSettings = {
   app_logo_url: null,
   app_logo_variant_url: null,
   app_favicon_url: null,
+  app_og_image_url: null,
+  app_pwa_icon_192_url: null,
+  app_pwa_icon_512_url: null,
   maintenance_mode: 'false',
   registrations_enabled: 'true',
   'modules.onboarding.enabled': 'true',
@@ -776,6 +796,14 @@ const DEFAULTS: AppSettings = {
   'storage.media.r2.secret_access_key': null,
   'storage.media.r2.bucket': null,
   'storage.media.r2.public_base_url': null,
+  // R2 storage per brand assets (logo, favicon, OG default, PWA icons) —
+  // null finché l'admin non configura via /admin/services/cloudflare. Asset
+  // più popolari del sito (serviti su ogni page view): egress 0 di R2 è
+  // particolarmente impattante qui.
+  'storage.assets.r2.access_key_id': null,
+  'storage.assets.r2.secret_access_key': null,
+  'storage.assets.r2.bucket': null,
+  'storage.assets.r2.public_base_url': null,
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

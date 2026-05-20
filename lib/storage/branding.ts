@@ -1,13 +1,49 @@
+// lib/storage/branding.ts
+//
+// Layer "logico" del branding admin. Astrazione dei concept slot/limit
+// sopra al backend R2 storage (lib/storage/r2-assets.ts).
+//
+// Prima del 2026-05-20 questo file usava Supabase Storage. Migrazione
+// a R2 voluta perché logo e favicon sono gli asset più richiesti del
+// sito (header + footer + meta OG su ogni page view) e Supabase egress
+// era il primo a esaurirsi. R2 ha 0 egress.
+//
+// API pubblica `uploadBrandingAsset` / `deleteBrandingAsset` invariata
+// nella firma — i caller (admin settings actions, email layout, ecc.)
+// non si accorgono del cambio backend.
 import "server-only";
 
-import { getStorageClient } from "@/lib/storage/supabase";
+import {
+  deleteAssetObject,
+  extractKeyFromPublicUrl,
+  getAssetPublicUrl,
+  loadAssetsR2Config,
+  putAssetObject,
+} from "@/lib/storage/r2-assets";
 
-export const BRANDING_BUCKET = "branding";
+// Slot estesi 2026-05-20:
+//   - logo / logo-variant / favicon  → header/footer/tab del sito
+//   - og-image                       → meta og:image default per share social
+//   - pwa-icon-192 / pwa-icon-512    → icone manifest PWA (Add to Home Screen)
+export type BrandingSlot =
+  | "logo"
+  | "logo-variant"
+  | "favicon"
+  | "og-image"
+  | "pwa-icon-192"
+  | "pwa-icon-512";
 
-export type BrandingSlot = "logo" | "logo-variant" | "favicon";
+export const BRANDING_SLOTS: readonly BrandingSlot[] = [
+  "logo",
+  "logo-variant",
+  "favicon",
+  "og-image",
+  "pwa-icon-192",
+  "pwa-icon-512",
+] as const;
 
 export const BRANDING_LIMITS = {
-  maxBytes: 1024 * 1024, // 1 MB
+  maxBytes: 1024 * 1024, // 1 MB — anche per OG image è sufficiente con compressione decente
   allowedMime: [
     "image/png",
     "image/jpeg",
@@ -32,9 +68,11 @@ function extFromMime(mime: string): string {
 }
 
 /**
- * Upload a branding asset. Generates a unique filename so the public URL
- * changes on each upload (avoids CDN cache pinning to the old image).
- * Returns the public URL.
+ * Upload di un brand asset su R2. Filename = `<slot>-<timestamp>.<ext>`
+ * → key univoca per ogni upload (cache CDN / browser non vede mai uno
+ * stale: nuovo upload = nuovo URL = cache miss naturale).
+ *
+ * Ritorna la public URL pronta da salvare in app_settings.
  */
 export async function uploadBrandingAsset(
   slot: BrandingSlot,
@@ -49,42 +87,38 @@ export async function uploadBrandingAsset(
     );
   }
 
-  const supabase = getStorageClient();
-  const ext = extFromMime(file.type);
-  const path = `${slot}-${Date.now()}.${ext}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadErr } = await supabase.storage
-    .from(BRANDING_BUCKET)
-    .upload(path, buffer, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: "31536000", // 1 anno (URL cambia ad ogni upload)
-    });
-
-  if (uploadErr) {
-    throw new Error(`Upload fallito: ${uploadErr.message}`);
+  const cfg = await loadAssetsR2Config();
+  if (!cfg) {
+    throw new Error(
+      "Storage R2 per gli asset di brand non configurato. " +
+        "Completa /admin/services/cloudflare → R2 storage (assets).",
+    );
   }
 
-  const { data } = supabase.storage
-    .from(BRANDING_BUCKET)
-    .getPublicUrl(path);
+  const ext = extFromMime(file.type);
+  const key = `${slot}-${Date.now()}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-  return data.publicUrl;
+  await putAssetObject({
+    cfg,
+    key,
+    body: buffer,
+    contentType: file.type,
+  });
+
+  return getAssetPublicUrl(cfg, key);
 }
 
 /**
- * Delete a previously uploaded asset by its public URL.
- * No-op if the URL doesn't belong to our bucket.
+ * Cancella un asset dato il public URL. No-op se l'URL non appartiene
+ * al bucket R2 (es. URL legacy Supabase, che non possiamo cancellare
+ * da qui — la fonte legacy va pulita a parte).
  */
 export async function deleteBrandingAsset(publicUrl: string | null): Promise<void> {
   if (!publicUrl) return;
-  const marker = `/object/public/${BRANDING_BUCKET}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return;
-  const path = publicUrl.slice(idx + marker.length);
-  if (!path) return;
-  const supabase = getStorageClient();
-  await supabase.storage.from(BRANDING_BUCKET).remove([path]);
+  const cfg = await loadAssetsR2Config();
+  if (!cfg) return;
+  const key = extractKeyFromPublicUrl(cfg, publicUrl);
+  if (!key) return;
+  await deleteAssetObject(cfg, key);
 }

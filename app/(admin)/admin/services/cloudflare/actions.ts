@@ -2,6 +2,7 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import { getAppSettings, updateAppSetting } from "@/lib/db/settings-queries";
+import { checkAssetsR2Connection } from "@/lib/storage/r2-assets";
 import { checkAvatarsR2Connection } from "@/lib/storage/r2-avatars";
 import { checkMediaR2Connection } from "@/lib/storage/r2-media";
 import {
@@ -354,6 +355,102 @@ export async function testMediaR2(
     }
 
     const result = await checkMediaR2Connection({
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      publicBaseUrl: publicBase,
+    });
+
+    if (result.ok) {
+      return {
+        success: `R2 connection OK · bucket "${bucket}" reachable.`,
+        timestamp: Date.now(),
+      };
+    }
+
+    const message =
+      result.reason === "forbidden"
+        ? "Forbidden — the token does not have access to this bucket. Check Account ID, Access Key ID and Secret."
+        : result.reason === "not_found"
+          ? `Bucket "${bucket}" not found on this Cloudflare account.`
+          : result.reason === "network"
+            ? "Network error reaching the R2 endpoint. Check connectivity and Account ID."
+            : result.reason === "timeout"
+              ? "Timeout (10s) reaching R2. The endpoint did not respond in time."
+              : `Unexpected error${result.detail ? `: ${result.detail}` : ""}.`;
+
+    return { error: message, timestamp: Date.now() };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Test failed.";
+    return { error: message, timestamp: Date.now() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// R2 storage — Assets bucket (brand: logo, favicon, OG default, PWA icons).
+// Asset più popolari del sito (header/footer/og su ogni page view) →
+// bucket dedicato + R2 egress 0 = win significativo su Supabase Free.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function saveAssetsR2Settings(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const accessKeyId  = ((formData.get("storage.assets.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("storage.assets.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("storage.assets.r2.bucket")            as string) ?? "").trim();
+    const publicBase   = ((formData.get("storage.assets.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    await updateAppSetting("storage.assets.r2.access_key_id", accessKeyId || null);
+    if (secretRaw && secretRaw !== "********") {
+      await updateAppSetting("storage.assets.r2.secret_access_key", secretRaw);
+    } else if (!secretRaw) {
+      await updateAppSetting("storage.assets.r2.secret_access_key", null);
+    }
+    await updateAppSetting("storage.assets.r2.bucket",          bucket     || null);
+    await updateAppSetting("storage.assets.r2.public_base_url", publicBase || null);
+
+    revalidatePath(await getAdminPath("services-cloudflare"));
+    return { success: "Assets R2 settings saved.", timestamp: Date.now() };
+  } catch {
+    return { error: "Save failed.", timestamp: Date.now() };
+  }
+}
+
+export async function testAssetsR2(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const settings = await getAppSettings();
+    const accountId = (settings["storage.r2.account_id"] ?? "").trim();
+    if (!accountId) {
+      return {
+        error: "Fill in and save the Cloudflare Account ID first.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const accessKeyId  = ((formData.get("storage.assets.r2.access_key_id")     as string) ?? "").trim();
+    const secretRaw    = ((formData.get("storage.assets.r2.secret_access_key") as string) ?? "").trim();
+    const bucket       = ((formData.get("storage.assets.r2.bucket")            as string) ?? "").trim();
+    const publicBase   = ((formData.get("storage.assets.r2.public_base_url")   as string) ?? "").trim().replace(/\/+$/, "");
+
+    let secretAccessKey = secretRaw;
+    if (!secretAccessKey || secretAccessKey === "********") {
+      secretAccessKey = (settings["storage.assets.r2.secret_access_key"] ?? "").trim();
+    }
+
+    if (!accessKeyId || !secretAccessKey || !bucket || !publicBase) {
+      return {
+        error: "Fill in all 4 R2 fields (and save the secret at least once) before testing.",
+        timestamp: Date.now(),
+      };
+    }
+
+    const result = await checkAssetsR2Connection({
       accountId,
       accessKeyId,
       secretAccessKey,
