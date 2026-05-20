@@ -436,27 +436,50 @@ function rowToNewsCard(row: {
   };
 }
 
+export interface ActiveNewsCategory {
+  /** Slug completo della page categoria (es. "news/bitcoin"). */
+  slug: string;
+  /** Titolo della page categoria — letto direttamente da `pages.title`
+   *  così che rinominare la categoria dall'admin si rifletta subito in
+   *  menu, senza override hardcoded lato componente. */
+  title: string;
+}
+
 /**
- * Set delle categorie con almeno 1 articolo pubblicato. Usato dal menu
- * news della navbar (header pubblico) per mostrare solo le voci che
- * hanno effettivamente contenuto cliccabile dietro. SELECT DISTINCT
- * server-side perché preferiamo la dedup del DB a un Set lato app
- * (rete + JSON parse più piccoli, niente differenza perf reale).
+ * Categorie news con almeno 1 articolo pubblicato. Usato dal menu news
+ * della navbar (header pubblico) per mostrare solo le voci che hanno
+ * effettivamente contenuto cliccabile dietro.
+ *
+ * Modello post refactor news-categories-as-cms-pages: ogni categoria è
+ * una page CMS figlia di /news con slug `news/<prefix>` (vedi migration
+ * M_news_007). Una categoria è "attiva" se esiste almeno una page
+ * `page_type='news' AND status='published'` con `parent_id` = id di quella
+ * page categoria. Articoli figli diretti di /news (other/NULL category)
+ * non contribuiscono — il filtro `parent.slug LIKE 'news/%'` li esclude.
+ *
+ * Ordinamento: `parent.sort_order` (seedata in migration in ordine
+ * editoriale: bitcoin=10, ethereum=20, …, tech=80), poi titolo come
+ * tie-breaker stabile.
  */
-export async function getActiveNewsCategories(): Promise<Set<string>> {
+export async function getActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
+  const articlePages = alias(pages, "article_pages");
   const rows = await db
-    .selectDistinct({ category: newsItems.category })
-    .from(newsItems)
-    .innerJoin(
-      pages,
-      and(eq(pages.id, newsItems.publishedPageId), eq(pages.status, "published")),
+    .selectDistinct({
+      slug: pages.slug,
+      title: pages.title,
+      sortOrder: pages.sortOrder,
+    })
+    .from(articlePages)
+    .innerJoin(pages, eq(pages.id, articlePages.parentId))
+    .where(
+      and(
+        eq(articlePages.pageType, "news"),
+        eq(articlePages.status, "published"),
+        sql`${pages.slug} LIKE 'news/%'`,
+      ),
     )
-    .where(isNotNull(newsItems.category));
-  const set = new Set<string>();
-  for (const r of rows) {
-    if (r.category) set.add(r.category);
-  }
-  return set;
+    .orderBy(pages.sortOrder, pages.title);
+  return rows.map(({ slug, title }) => ({ slug, title }));
 }
 
 /**

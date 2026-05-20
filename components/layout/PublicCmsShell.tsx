@@ -33,40 +33,21 @@ import {
 } from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 import { getActiveNewsCategories } from "@/lib/modules/news/queries";
-import { newsCategoryUrlPrefix } from "@/lib/modules/news/url-prefixes";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 
-// Ordine fisso editoriale delle voci menu (Bitcoin first, "other" droppato
-// perché /news è già la home dell'archivio). Solo le voci la cui categoria
-// ha ≥1 articolo published (vedi getActiveNewsCategories) finiscono in UI.
-//
-// Link per ora: `/news#cat-<prefix>` come placeholder — le landing
-// categoria reali (/altcoin, /bitcoin, …) verranno in PR successiva
-// (decisione 2026-05-20). Quando esisteranno, basta sostituire l'href.
-const NEWS_MENU_EDITORIAL_ORDER: ReadonlyArray<{
-  category: string;
-  label: string;
-}> = [
-  { category: "bitcoin",    label: "Bitcoin" },
-  { category: "ethereum",   label: "Ethereum" },
-  { category: "altcoin",    label: "Altcoin" },
-  { category: "defi",       label: "DeFi" },
-  { category: "market",     label: "Mercati" },
-  { category: "regulation", label: "Regolamentazione" },
-  { category: "tech",       label: "Tech" },
-];
-
+// Menu news CMS-driven: la lista delle voci (label + href) viene dal DB.
+// `getActiveNewsCategories` ritorna le page categoria con ≥1 articolo
+// published, ordinate per `pages.sort_order` (seedato in migration
+// M_news_007 in ordine editoriale: bitcoin=10 → tech=80). Label =
+// `pages.title`, così rinominare una categoria dall'admin si rifletta
+// subito in menu senza override hardcoded.
 async function buildNewsMenu(): Promise<NewsMenuItem[]> {
   const active = await getActiveNewsCategories();
-  return NEWS_MENU_EDITORIAL_ORDER.filter((it) => active.has(it.category)).map(
-    (it) => ({
-      label: it.label,
-      // /news#cat-<urlprefix>: usa il prefix italianizzato (regolamentazione,
-      // mercati) coerente con il path degli articoli (/regolamentazione/...).
-      href: `/news#cat-${newsCategoryUrlPrefix(it.category)}`,
-    }),
-  );
+  return active.map((cat) => ({
+    label: cat.title,
+    href: `/${cat.slug}`,
+  }));
 }
 
 export async function PublicCmsShell({
