@@ -85,6 +85,19 @@ export default async function EditPagePage({
     }
   }
 
+  // --- Template rules della page corrente (slugLocked + contentLocked) ---
+  let templateSlugLocked = false;
+  let templateContentLocked = false;
+  if (page.templateId) {
+    const pageTemplate = await getTemplateById(page.templateId);
+    if (pageTemplate) {
+      const { parseTemplateRules } = await import("@/lib/cms/template-rules");
+      const rules = parseTemplateRules(pageTemplate.rules);
+      templateSlugLocked = rules.slugLocked === true;
+      templateContentLocked = rules.contentLocked === true;
+    }
+  }
+
   const t = await getTranslations("admin.content.pages");
 
   return (
@@ -104,11 +117,20 @@ export default async function EditPagePage({
         templateLocked={templateLocked}
         isSystem={page.isSystem ?? false}
         pageType={page.pageType ?? "page"}
-        contentEditable={page.contentEditable ?? true}
-        slugEditable={isSystemSlugEditable({
-          isSystem: page.isSystem ?? false,
-          systemKey: page.systemKey ?? null,
-        })}
+        // contentLocked dal template ha priorità su contentEditable per-page:
+        // se il template dice "no body", l'editor nasconde sempre il tab
+        // Contenuto, anche se la singola page avrebbe contentEditable=true.
+        contentEditable={
+          templateContentLocked ? false : (page.contentEditable ?? true)
+        }
+        // slugLocked dal template applica come secondo motivo di lock,
+        // oltre al lock system-page già esistente.
+        slugEditable={
+          isSystemSlugEditable({
+            isSystem: page.isSystem ?? false,
+            systemKey: page.systemKey ?? null,
+          }) && !templateSlugLocked
+        }
         locales={locales}
         initialTranslations={translations}
         initialSeoTranslations={seoTranslations}
