@@ -22,7 +22,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, User, X } from "lucide-react";
+import { Menu, User } from "lucide-react";
 import {
   Sheet,
   SheetClose,
@@ -51,7 +51,7 @@ export function NewsNavDesktop({ items }: { items: NewsMenuItem[] }) {
           key={it.href}
           href={it.href}
           prefetch={false}
-          className="px-3 py-1.5 rounded-md text-sm font-medium text-gc-fg-2 hover:text-gc-fg hover:bg-gc-line/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
+          className="px-3.5 py-1.5 rounded-full text-sm font-medium text-gc-fg-2 hover:text-gc-fg hover:bg-gc-line/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
         >
           {it.label}
         </Link>
@@ -69,9 +69,13 @@ export function NewsNavDesktop({ items }: { items: NewsMenuItem[] }) {
 export function NewsNavMobileDrawer({
   items,
   isLoggedIn,
+  appLogoUrl,
 }: {
   items: NewsMenuItem[];
   isLoggedIn: boolean;
+  /** Logo dell'app mostrato come header del drawer (stesso che la top-bar
+   *  centra in modalità mobile). Fallback testuale se null. */
+  appLogoUrl: string | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -86,18 +90,24 @@ export function NewsNavMobileDrawer({
         </button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] sm:w-[320px] bg-gc-bg border-gc-line p-0 flex flex-col">
+        {/* SheetTitle resta sr-only per accessibilità: la visuale è il logo.
+            La X di chiusura è quella default di shadcn Sheet
+            (showCloseButton=true di default in absolute top-4 right-4)
+            — niente bisogno di emetterne una manuale. */}
         <SheetTitle className="sr-only">Menu news</SheetTitle>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gc-line">
-          <span className="font-medium text-gc-fg text-sm">News</span>
-          <SheetClose asChild>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center w-8 h-8 rounded-md text-gc-fg-2 hover:bg-gc-line/40 transition-colors"
-              aria-label="Chiudi menu"
-            >
-              <X size={16} />
-            </button>
-          </SheetClose>
+        <div className="flex items-center px-5 py-4 border-b border-gc-line h-20">
+          {appLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={appLogoUrl}
+              alt="Generazione Crypto"
+              className="h-12 w-auto"
+            />
+          ) : (
+            <span className="font-medium text-base leading-none tracking-[-0.01em] text-gc-fg">
+              generazione<span className="text-gc-accent">crypto</span>
+            </span>
+          )}
         </div>
 
         <nav
