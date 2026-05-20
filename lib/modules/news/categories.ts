@@ -7,6 +7,7 @@ export const NEWS_CATEGORIES = [
   "bitcoin",
   "ethereum",
   "altcoin",
+  "stablecoin",
   "defi",
   "regulation",
   "market",

@@ -22,6 +22,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   bitcoin: "Bitcoin",
   ethereum: "Ethereum",
   altcoin: "Altcoin",
+  stablecoin: "Stablecoin",
   defi: "DeFi",
   regulation: "Regolamentazione",
   market: "Mercati",

@@ -29,6 +29,7 @@ export const NEWS_CATEGORY_URL_PREFIX: Record<NewsCategory, string> = {
   bitcoin: "bitcoin",
   ethereum: "ethereum",
   altcoin: "altcoin",
+  stablecoin: "stablecoin",
   defi: "defi",
   regulation: "regolamentazione",
   market: "mercati",
