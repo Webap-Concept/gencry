@@ -10,7 +10,7 @@
 
 import Link from "next/link";
 import type { NewsCardData } from "@/lib/modules/news/queries";
-import { pickHeroVariantUrl } from "@/lib/modules/news/services/hero-processor";
+import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
 
 // Etichette IT dei badge categoria (uppercase, mostrate nel pill).
 // Allineate con CATEGORY_LABELS di `cms-extension.ts` ma "frontend voice":
@@ -57,7 +57,7 @@ export function NewsFeaturedGrid({ items }: { items: NewsCardData[] }) {
                 {item.heroUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={pickHeroVariantUrl(item.heroVariants, item.heroUrl, "card")}
+                    src={pickMediaVariantUrl(item.heroVariants, item.heroUrl, "card")}
                     alt=""
                     loading="lazy"
                   />

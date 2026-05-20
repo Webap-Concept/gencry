@@ -29,6 +29,7 @@ import {
   type MediaMime,
   verifyAndConfirmMedia,
 } from "@/lib/storage/media";
+import { processMediaAsset } from "@/lib/storage/media-asset-processor";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { slugify } from "@/lib/utils/slugify";
 import { getTranslations } from "next-intl/server";
@@ -234,11 +235,27 @@ export async function confirmMediaUploadAction(input: {
     // non serve aggiornarla qui. Settiamo solo confirmed_at.
     await confirmAsset(draft.id);
 
+    // Genera varianti webp (hero/card/thumb) per ogni immagine raster
+    // sopra MIN_SIDE_PX. Best-effort: se sharp/R2 falliscono, l'asset
+    // resta servibile come originale (i renderer fanno fallback via
+    // pickMediaVariantUrl). Errore loggato, niente block dell'action.
+    //
+    // Ritorniamo l'URL della variante `hero` se generata, sennò l'URL
+    // originale: così il client (media picker) mostra subito l'asset
+    // ottimizzato senza serve un altro round-trip.
+    let publicUrlOut = verify.publicUrl;
+    try {
+      const variants = await processMediaAsset(draft.id);
+      if (variants) publicUrlOut = variants.hero.url;
+    } catch (err) {
+      console.error("[media] processMediaAsset failed for", draft.id, err);
+    }
+
     return {
       ok: true,
       asset: {
         id: draft.id,
-        publicUrl: verify.publicUrl,
+        publicUrl: publicUrlOut,
         filename: draft.filename,
         mime: draft.mime,
         sizeBytes: draft.sizeBytes,

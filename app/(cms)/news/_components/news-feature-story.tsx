@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import type { NewsCardData } from "@/lib/modules/news/queries";
-import { pickHeroVariantUrl } from "@/lib/modules/news/services/hero-processor";
+import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
 
 function formatItDate(d: Date): string {
   return d.toLocaleDateString("it-IT", {
@@ -27,7 +27,7 @@ export function NewsFeatureStory({ featured }: { featured: NewsCardData | null }
           {featured.heroUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={pickHeroVariantUrl(featured.heroVariants, featured.heroUrl, "hero")}
+              src={pickMediaVariantUrl(featured.heroVariants, featured.heroUrl, "hero")}
               alt=""
               loading="eager"
             />
