@@ -118,6 +118,7 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
               src={pickMediaVariantUrl(metadata?.heroVariants, heroUrl, "hero")}
               alt={page.title}
               loading="eager"
+              fetchPriority="high"
             />
           </figure>
         )}

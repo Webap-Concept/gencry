@@ -30,6 +30,7 @@ export function NewsFeatureStory({ featured }: { featured: NewsCardData | null }
               src={pickMediaVariantUrl(featured.heroVariants, featured.heroUrl, "hero")}
               alt=""
               loading="eager"
+              fetchPriority="high"
             />
           )}
           <span className="news-feat-cover-tag">
