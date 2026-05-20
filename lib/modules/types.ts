@@ -44,6 +44,30 @@ export interface ModulePermission {
   description?: string;
 }
 
+/**
+ * Sitemap pubblica esposta dal modulo. Solo metadata declarativo: il file
+ * fisico app/<...>/sitemap.ts continua a vivere nel modulo, il manifest
+ * lo "annuncia" al core CMS (per la dashboard admin /admin/seo/sitemap
+ * e per le righe `Sitemap:` del robots.txt).
+ */
+export interface ModuleSitemap {
+  /** Path pubblico, root-relative, della sitemap. Es. "/coins/sitemap.xml". */
+  url: string;
+  /** Label visibile nella dashboard admin. Es. "Coin pages". */
+  label: string;
+  /** Lazy import di una function async che ritorna { count, lastModified }
+   *  per la card admin. Eseguita SOLO quando l'admin apre la pagina
+   *  sitemap (mai al boot del registry). Safe-to-fail: se errore o
+   *  assente, la card mostra solo URL + bottone "Apri".
+   *
+   *  Convenzione: il default export del modulo dinamico (es.
+   *  `./sitemap-stats.ts`) è la function stessa, così l'import è
+   *  un tree-shakable side-effect-free chunk. */
+  loadStats?: () => Promise<{
+    default: () => Promise<{ count: number; lastModified: Date | null }>;
+  }>;
+}
+
 export interface ModuleManifest {
   /** Identificativo univoco del modulo (slug url-safe) */
   slug: string;

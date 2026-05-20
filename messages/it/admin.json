@@ -2780,8 +2780,14 @@
       "pageSubtitle": "Generazione automatica del file sitemap.xml.",
       "pageSubtitleBefore": "Generazione automatica del file",
       "pageSubtitleAfter": ".",
-      "placeholderTitle": "In arrivo",
-      "placeholderBody": "La generazione automatica della sitemap XML verrà implementata in una prossima versione. Potrai configurare le priorità, le frequenze di aggiornamento e le pagine da escludere."
+      "introTitle": "Sitemap pubbliche",
+      "introBody": "La sitemap principale del CMS è generata automaticamente da tutte le pagine pubblicate. I moduli installati possono dichiarare ulteriori sitemap (es. articoli, post, prezzi) che vengono auto-elencate qui sotto e linkate dal robots.txt.",
+      "cardCmsPagesLabel": "Pagine CMS",
+      "cardCountLabel": "URL",
+      "cardLastModifiedLabel": "Ultimo aggiornamento",
+      "cardLastModifiedUnknown": "—",
+      "cardOpenButton": "Apri",
+      "cardStatsError": "Statistiche non disponibili"
     },
     "form": {
       "titleEdit": "Modifica meta SEO",
