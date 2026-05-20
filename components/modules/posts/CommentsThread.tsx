@@ -511,9 +511,12 @@ export function CommentsThread({
         />
       ) : null}
 
-      {/* Lista root + reply */}
+      {/* Lista root + reply. Quando commentsDisabled=TRUE il banner sopra
+          già spiega lo stato → non duplichiamo con il placeholder "empty". */}
       {root.length === 0 ? (
-        <p className="py-4 text-center text-sm text-gc-fg-muted">{t("empty")}</p>
+        commentsDisabled ? null : (
+          <p className="py-4 text-center text-sm text-gc-fg-muted">{t("empty")}</p>
+        )
       ) : (
         <ul className="space-y-4 list-none">
           {root.map((c) => {

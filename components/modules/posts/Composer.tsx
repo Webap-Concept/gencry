@@ -44,6 +44,12 @@ import {
 import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import { useMentionAutocomplete } from "@/lib/modules/posts/lib/use-mention-autocomplete";
 import { searchUsersForMention } from "@/lib/modules/posts/actions";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MediaUploader } from "./MediaUploader";
 import { MentionPopover } from "./MentionPopover";
@@ -364,31 +370,42 @@ export function Composer({
           {remaining}
         </span>
         {/* Comments toggle — solo create/quote. Cliccando si flippa lo
-            stato; icona + tooltip indicano se i commenti saranno
+            stato; icona + Tooltip shadcn indicano se i commenti saranno
             abilitati (default) o disabilitati. */}
         {!isEdit ? (
-          <button
-            type="button"
-            onClick={() => setCommentsDisabled((v) => !v)}
-            disabled={isPending}
-            aria-pressed={commentsDisabled}
-            title={
-              commentsDisabled
-                ? tComp("comments_disabled_tooltip")
-                : tComp("comments_enabled_tooltip")
-            }
-            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
-              commentsDisabled
-                ? "text-gc-danger bg-gc-danger/10 hover:bg-gc-danger/15"
-                : "text-gc-fg-muted hover:bg-gc-bg-3/60"
-            }`}
-          >
-            {commentsDisabled ? (
-              <MessageCircleOff size={16} strokeWidth={1.75} />
-            ) : (
-              <MessageCircle size={16} strokeWidth={1.75} />
-            )}
-          </button>
+          <TooltipProvider delayDuration={250}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setCommentsDisabled((v) => !v)}
+                  disabled={isPending}
+                  aria-pressed={commentsDisabled}
+                  aria-label={
+                    commentsDisabled
+                      ? tComp("comments_disabled_tooltip")
+                      : tComp("comments_enabled_tooltip")
+                  }
+                  className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
+                    commentsDisabled
+                      ? "text-gc-danger bg-gc-danger/10 hover:bg-gc-danger/15"
+                      : "text-gc-fg-muted hover:bg-gc-bg-3/60"
+                  }`}
+                >
+                  {commentsDisabled ? (
+                    <MessageCircleOff size={16} strokeWidth={1.75} />
+                  ) : (
+                    <MessageCircle size={16} strokeWidth={1.75} />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                {commentsDisabled
+                  ? tComp("comments_disabled_tooltip")
+                  : tComp("comments_enabled_tooltip")}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : null}
         <div className="flex-1" />
         <button
