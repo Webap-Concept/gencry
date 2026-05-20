@@ -45,6 +45,34 @@ export interface ModulePermission {
 }
 
 /**
+ * GDPR data export hook esposto dal modulo. Il core export
+ * (`lib/account/gdpr-export.ts`) raccoglie i dati base dell'utente +
+ * itera questo registry per chiedere ad ogni modulo "dammi i dati di
+ * questo userId che sono di tua competenza".
+ *
+ * Il default export del modulo dinamico è una function async
+ * `(userId) => Promise<unknown>` che ritorna l'oggetto serializzabile.
+ * Il payload risultante finisce sotto `modules.<key>` del JSON
+ * dell'export (vedi GDPR_EXPORT_SCHEMA_VERSION).
+ *
+ * Convenzioni operative:
+ *   - INCLUDE solo dati DELL'UTENTE (suoi post, suoi commenti, sue
+ *     reactions). Mai body di contenuti di terzi (es. body di un post
+ *     altrui che l'utente ha bookmarkato → solo postId + timestamp).
+ *   - Truncation cap consigliato (10k entries) con flag `truncated`.
+ *   - Niente segreti (token, hash). Niente dati di altri utenti che
+ *     potrebbero violare la loro privacy.
+ */
+export interface ModuleGdprExport {
+  /** Slug dello modulo nel payload finale, es. "posts" → modules.posts. */
+  key: string;
+  /** Lazy import di `() => default(userId)`. Server-only. */
+  loadCollector: () => Promise<{
+    default: (userId: string) => Promise<unknown>;
+  }>;
+}
+
+/**
  * Sitemap pubblica esposta dal modulo. Solo metadata declarativo: il file
  * fisico app/<...>/sitemap.ts continua a vivere nel modulo, il manifest
  * lo "annuncia" al core CMS (per la dashboard admin /admin/seo/sitemap
