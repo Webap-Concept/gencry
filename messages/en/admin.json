@@ -223,6 +223,18 @@
         "favicon": {
           "label": "Favicon",
           "hint": "Browser tab icon. PNG, SVG or ICO, ideally 32×32 or 64×64."
+        },
+        "og-image": {
+          "label": "Default OG image",
+          "hint": "Used as og:image when a page doesn't specify its own. Raster, ideally 1200×630 (1.91:1), max 1MB."
+        },
+        "pwa-icon-192": {
+          "label": "PWA icon 192×192",
+          "hint": "App icon for Add to Home Screen (Android/iOS). 192×192 square PNG."
+        },
+        "pwa-icon-512": {
+          "label": "PWA icon 512×512",
+          "hint": "Large variant for splash screen and high-density devices. 512×512 square PNG."
         }
       },
       "upload": "Upload",
