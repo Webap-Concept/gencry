@@ -436,6 +436,29 @@ function rowToNewsCard(row: {
 }
 
 /**
+ * Set delle categorie con almeno 1 articolo pubblicato. Usato dal menu
+ * news della navbar (header pubblico) per mostrare solo le voci che
+ * hanno effettivamente contenuto cliccabile dietro. SELECT DISTINCT
+ * server-side perché preferiamo la dedup del DB a un Set lato app
+ * (rete + JSON parse più piccoli, niente differenza perf reale).
+ */
+export async function getActiveNewsCategories(): Promise<Set<string>> {
+  const rows = await db
+    .selectDistinct({ category: newsItems.category })
+    .from(newsItems)
+    .innerJoin(
+      pages,
+      and(eq(pages.id, newsItems.publishedPageId), eq(pages.status, "published")),
+    )
+    .where(isNotNull(newsItems.category));
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.category) set.add(r.category);
+  }
+  return set;
+}
+
+/**
  * Articoli pubblicati più recenti (per Hero picks, FeatureStory, Essays).
  * Filtri: pages.page_type='news' AND pages.status='published'.
  * Join opzionale su news_items per la categoria (l'articolo può esistere
