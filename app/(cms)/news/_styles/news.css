@@ -37,26 +37,24 @@
   border-bottom: 1px solid var(--gc-line);
 }
 .news-ticker-inner {
-  display: grid;
-  grid-template-columns: auto repeat(6, 1fr);
+  display: flex;
   align-items: stretch;
-}
-@media (max-width: 1000px) {
-  .news-ticker-inner { grid-template-columns: auto repeat(3, 1fr); }
-  .news-tick:nth-child(n+5) { display: none; }
-}
-@media (max-width: 600px) {
-  .news-ticker-inner { grid-template-columns: auto repeat(2, 1fr); }
-  .news-tick:nth-child(n+4) { display: none; }
+  /* Niente min-width: 0 sul container — è il viewport sotto a
+     gestire l'overflow del track animato. */
 }
 .news-ticker-label {
   display: inline-flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
   padding: 12px 22px 12px 0;
   font-family: var(--gc-mono); font-size: 10.5px;
   text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--gc-fg-3);
   border-right: 1px solid var(--gc-line);
   margin-right: 4px;
+}
+@media (max-width: 600px) {
+  .news-ticker-label { padding: 10px 14px 10px 0; gap: 6px; font-size: 10px; }
+  .news-ticker-label em { font-size: 13px; }
 }
 .news-ticker-label em {
   font-family: var(--gc-display); font-style: italic; font-size: 14px;
@@ -71,13 +69,49 @@
   70% { box-shadow: 0 0 0 6px rgba(120,180,145,0); }
   100% { box-shadow: 0 0 0 0 rgba(120,180,145,0); }
 }
+
+/* Viewport: nasconde la parte di track che eccede orizzontalmente.
+   `min-width: 0` è il fix classico per non far esplodere il flex
+   parent (senza, il viewport prende la sua width "preferita" = somma
+   dei figli, e sforerebbe come faceva il vecchio grid). */
+.news-ticker-viewport {
+  flex: 1; min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 30px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 30px), transparent 100%);
+}
+/* Track: contiene 2 copie consecutive del set coin. Trasla -50%
+   linear-infinite → loop seamless (la seconda metà entra in scena
+   esattamente quando finisce la prima). Durata in proporzione al
+   numero di coin per mantenere velocità costante a vista. */
+.news-ticker-track {
+  display: inline-flex;
+  width: max-content;
+  animation: news-ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+.news-ticker-viewport:hover .news-ticker-track {
+  /* Pausa su hover desktop — affordance "voglio leggere meglio". */
+  animation-play-state: paused;
+}
+@keyframes news-ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker-track { animation: none; }
+  /* Senza animazione l'utente non vede oltre il viewport → mostra
+     un overflow scrollabile manualmente come fallback accessibile. */
+  .news-ticker-viewport { overflow-x: auto; }
+}
+
 .news-tick {
   display: flex; align-items: center; gap: 11px;
   padding: 10px 16px;
+  flex-shrink: 0;
   border-right: 1px solid var(--gc-line);
   transition: background 0.12s;
 }
-.news-tick:last-child { border-right: 0; }
 .news-tick:hover { background: var(--gc-bg-3); }
 .news-tick-mark {
   width: 26px; height: 26px; border-radius: 7px;
@@ -560,6 +594,40 @@
 .news-article-meta-key { opacity: 0.7; }
 .news-article-meta strong {
   color: var(--gc-fg); font-weight: 500; margin-left: 2px;
+}
+
+/* Mobile compact: byline su 1 riga, avatar piccolo, meta inline a
+   destra del nome. L'hr-top sopra al byline è ridondante con il lead
+   sopra (l'occhio già separa) → margine ridotto invece di toglierlo
+   per non rompere il rhythm. */
+@media (max-width: 700px) {
+  .news-article-hr { margin: 20px 0; }
+  .news-article-byline {
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+  .news-article-author { gap: 10px; min-width: 0; flex-shrink: 0; }
+  .news-article-avatar { width: 32px; height: 32px; font-size: 16px; }
+  .news-article-author-meta { line-height: 1.15; min-width: 0; }
+  .news-article-author-name { font-size: 13px; }
+  .news-article-author-role {
+    font-size: 10px; margin-top: 1px;
+    /* Su 1 riga il ruolo "GenerazioneCrypto" può eccedere → truncate. */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .news-article-meta {
+    gap: 10px;
+    font-size: 10px; letter-spacing: 0.05em;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  /* Su mobile droppiamo la label "Pubblicato/Lettura" e teniamo solo
+     i valori per non sforare. Le strong restano leggibili e i key
+     vengono nascosti via CSS — niente cambio JSX. */
+  .news-article-meta .news-article-meta-key { display: none; }
+  .news-article-meta strong { margin-left: 0; }
 }
 
 /* Hero image full-bleed */
