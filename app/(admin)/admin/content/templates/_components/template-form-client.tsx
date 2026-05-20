@@ -442,6 +442,17 @@ export default function TemplateFormClient({
     return [];
   });
 
+  // Template-level locks. Stato boolean letto/scritto in
+  // template.rules.{slugLocked,contentLocked}. Vedi lib/cms/template-rules.ts
+  // per la semantica completa: in breve, slugLocked fissa lo slug dopo il
+  // primo save di una page, contentLocked nasconde il tab Contenuto.
+  const [slugLocked, setSlugLocked] = useState<boolean>(
+    template?.rules?.slugLocked === true,
+  );
+  const [contentLocked, setContentLocked] = useState<boolean>(
+    template?.rules?.contentLocked === true,
+  );
+
   const [fields, setFields] = useState<FieldDraft[]>(
     (template?.fields ?? []).map((f) => ({
       _id: uid(),
@@ -539,6 +550,8 @@ export default function TemplateFormClient({
       );
 
       fd.set("allowedChildTemplateIdsJson", JSON.stringify(allowedChildIds));
+      if (slugLocked) fd.set("slugLocked", "on");
+      if (contentLocked) fd.set("contentLocked", "on");
 
       await saveAction(fd);
       setSavedAt(
@@ -963,24 +976,105 @@ export default function TemplateFormClient({
       )}
 
       {activeTab === "rules" && (
-        <section
-          className="rounded-xl p-5 mb-6"
-          style={{
-            background: "var(--admin-card-bg)",
-            border: "1px solid var(--admin-border)",
-          }}>
-          <div className="mb-5">
-            <h2
-              className="text-sm font-semibold mb-1"
-              style={{ color: "var(--admin-text)" }}>
-              {t("rulesHeading")}
-            </h2>
-            <p
-              className="text-xs leading-relaxed"
-              style={{ color: "var(--admin-text-muted)" }}>
-              {t("rulesDescription")}
-            </p>
-          </div>
+        <>
+          {/* Page-level locks (slugLocked + contentLocked) — card autonoma.
+              UI minimale: applicano a ogni page che usa questo template.
+              Vedi lib/cms/template-rules.ts per la semantica completa. */}
+          <section
+            className="rounded-xl p-5 mb-5"
+            style={{
+              background: "var(--admin-card-bg)",
+              border: "1px solid var(--admin-border)",
+            }}>
+            <div className="mb-4">
+              <h2
+                className="text-sm font-semibold mb-1"
+                style={{ color: "var(--admin-text)" }}>
+                Vincoli sulle pagine
+              </h2>
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: "var(--admin-text-muted)" }}>
+                Comportamenti che si applicano a tutte le pagine create con questo template.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                className="flex items-start gap-3 rounded-lg px-4 py-3 cursor-pointer transition-colors"
+                style={{
+                  background: slugLocked
+                    ? "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-input-bg))"
+                    : "var(--admin-input-bg)",
+                  border: slugLocked
+                    ? "1px solid color-mix(in srgb, var(--admin-accent) 35%, transparent)"
+                    : "1px solid var(--admin-border)",
+                }}>
+                <input
+                  type="checkbox"
+                  checked={slugLocked}
+                  onChange={(e) => setSlugLocked(e.target.checked)}
+                  className="w-4 h-4 rounded shrink-0 mt-0.5"
+                  style={{ accentColor: "var(--admin-accent)" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: "var(--admin-text)" }}>
+                    Slug bloccato dopo la prima creazione
+                  </p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: "var(--admin-text-muted)" }}>
+                    Le pagine create con questo template fissano lo slug al primo save: l&apos;input diventa read-only e la server action rifiuta tentativi di rinomina. Utile per pagine con URL stabile (home blog, landing categoria, ecc.) senza dover ricorrere a <em>is_system</em>.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className="flex items-start gap-3 rounded-lg px-4 py-3 cursor-pointer transition-colors"
+                style={{
+                  background: contentLocked
+                    ? "color-mix(in srgb, var(--admin-accent) 8%, var(--admin-input-bg))"
+                    : "var(--admin-input-bg)",
+                  border: contentLocked
+                    ? "1px solid color-mix(in srgb, var(--admin-accent) 35%, transparent)"
+                    : "1px solid var(--admin-border)",
+                }}>
+                <input
+                  type="checkbox"
+                  checked={contentLocked}
+                  onChange={(e) => setContentLocked(e.target.checked)}
+                  className="w-4 h-4 rounded shrink-0 mt-0.5"
+                  style={{ accentColor: "var(--admin-accent)" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: "var(--admin-text)" }}>
+                    Content bloccato (solo SEO + meta editabili)
+                  </p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: "var(--admin-text-muted)" }}>
+                    Il rich-text editor non appare nelle pagine con questo template; il rendering del body è fatto interamente dal componente template (es. listing categoria, home blog). L&apos;admin può comunque editare titolo, slug e SEO.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          {/* Allowed child templates — card separata. */}
+          <section
+            className="rounded-xl p-5 mb-6"
+            style={{
+              background: "var(--admin-card-bg)",
+              border: "1px solid var(--admin-border)",
+            }}>
+            <div className="mb-5">
+              <h2
+                className="text-sm font-semibold mb-1"
+                style={{ color: "var(--admin-text)" }}>
+                {t("rulesHeading")}
+              </h2>
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: "var(--admin-text-muted)" }}>
+                {t("rulesDescription")}
+              </p>
+            </div>
 
           {availableTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
@@ -1087,7 +1181,8 @@ export default function TemplateFormClient({
               </p>
             </div>
           )}
-        </section>
+          </section>
+        </>
       )}
 
       {activeTab === "implementation" && (

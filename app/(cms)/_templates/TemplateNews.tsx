@@ -23,7 +23,7 @@ import {
 } from "@/lib/storage/media-asset-processor";
 import type { TemplateProps } from "./types";
 // Riusa i token + le classi `.news-article-*` definite per il blog.
-import "@/app/(cms)/news/_styles/news.css";
+import "./news/news.css";
 
 const WORDS_PER_MINUTE = 200;
 
@@ -56,13 +56,23 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
   const heroUrl = fields.hero_image || null;
   const excerpt = fields.excerpt || null;
 
-  // Priorità categoria: customFields.category (snapshot al publish o
-  // valore digitato dall'admin per articoli a mano) → news_items.category
-  // (fallback per articoli storici pre-snapshot) → "news" ultima fallback.
+  // Priorità categoria (post refactor news-categories-as-cms-pages):
+  //   1. parent.slug (es. "news/bitcoin" → "bitcoin") — fonte autoritativa
+  //      del modello CMS gerarchico, in sync con l'URL pubblico.
+  //   2. news_items.category — fallback per articoli pre-migration o
+  //      con parent_id non valorizzato (caso degenerato).
+  //   3. customFields.category — fallback storico per articoli pubblicati
+  //      prima del refactor che hanno lo snapshot nei custom fields.
+  //   4. "news" — ultima fallback.
   const metadata = await getNewsMetadataByPageId(page.id);
+  const categoryFromParent =
+    metadata?.parentSlug?.startsWith("news/")
+      ? metadata.parentSlug.slice("news/".length)
+      : null;
   const category =
-    (fields.category && fields.category.trim()) ||
+    categoryFromParent ||
     metadata?.category ||
+    (fields.category && fields.category.trim()) ||
     "news";
 
   const publishedAt = page.publishedAt ?? page.updatedAt;

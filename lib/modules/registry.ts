@@ -21,7 +21,9 @@ import { SEEDERS_MODULE } from "./seeders/manifest";
 // (campi custom aggiuntivi + slug resolvers). Vedi
 // `lib/cms/page-template-extensions.ts` per il pattern del registry.
 // Aggiungere qui ogni futuro modulo che vuole estendere il page-editor.
-import "./news/cms-extension";
+// (Nessun modulo registrato al momento — il news cms-extension è
+// stato droppato col refactor news-categories-as-cms-pages: la
+// categoria ora è data dal parent_id CMS, niente custom field.)
 
 export const INSTALLED_MODULES: ModuleManifest[] = [
   PRICES_MODULE,

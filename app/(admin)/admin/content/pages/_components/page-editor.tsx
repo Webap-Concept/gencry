@@ -1358,8 +1358,8 @@ export default function PageEditor({
           )}
           <div className="p-5 space-y-4">
             {activeLang === DEFAULT_LOCALE ? (
-              /* ── Default locale: same as before ── */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              /* ── Default locale: title + slug uno per riga, sempre. ── */
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label style={labelStyle}>{t("titleLabel")}</label>
                   <input
@@ -1462,8 +1462,8 @@ export default function PageEditor({
                 </div>
               </div>
             ) : (
-              /* ── Non-default locale: locale title + slug ── */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              /* ── Non-default locale: locale title + slug uno per riga, sempre. ── */
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label style={labelStyle}>{t("langTitleLabel")}</label>
                   <input

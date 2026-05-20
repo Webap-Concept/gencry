@@ -22,7 +22,9 @@ import {
   type NewsItemStatus,
   type NewsSource,
 } from "@/lib/db/schema";
+import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { createHash } from "node:crypto";
 
 export type { NewsSource, NewsItem, NewsItemStatus };
@@ -435,27 +437,86 @@ function rowToNewsCard(row: {
   };
 }
 
+export interface ActiveNewsCategory {
+  /** Slug completo della page categoria (es. "news/bitcoin"). */
+  slug: string;
+  /** Titolo della page categoria — letto direttamente da `pages.title`
+   *  così che rinominare la categoria dall'admin si rifletta subito in
+   *  menu, senza override hardcoded lato componente. */
+  title: string;
+}
+
 /**
- * Set delle categorie con almeno 1 articolo pubblicato. Usato dal menu
- * news della navbar (header pubblico) per mostrare solo le voci che
- * hanno effettivamente contenuto cliccabile dietro. SELECT DISTINCT
- * server-side perché preferiamo la dedup del DB a un Set lato app
- * (rete + JSON parse più piccoli, niente differenza perf reale).
+ * Categorie news con almeno 1 articolo pubblicato. Usato dal menu news
+ * della navbar (header pubblico) per mostrare solo le voci che hanno
+ * effettivamente contenuto cliccabile dietro.
+ *
+ * Modello post refactor news-categories-as-cms-pages: ogni categoria è
+ * una page CMS figlia di /news con slug `news/<prefix>` (vedi migration
+ * M_news_007). Una categoria è "attiva" se esiste almeno una page
+ * `page_type='news' AND status='published'` con `parent_id` = id di quella
+ * page categoria. Articoli figli diretti di /news (other/NULL category)
+ * non contribuiscono — il filtro `parent.slug LIKE 'news/%'` li esclude.
+ *
+ * Ordinamento: `parent.sort_order` (seedata in migration in ordine
+ * editoriale: bitcoin=10, ethereum=20, …, tech=80), poi titolo come
+ * tie-breaker stabile.
  */
-export async function getActiveNewsCategories(): Promise<Set<string>> {
+export async function getActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
+  const articlePages = alias(pages, "article_pages");
   const rows = await db
-    .selectDistinct({ category: newsItems.category })
-    .from(newsItems)
-    .innerJoin(
-      pages,
-      and(eq(pages.id, newsItems.publishedPageId), eq(pages.status, "published")),
+    .selectDistinct({
+      slug: pages.slug,
+      title: pages.title,
+      sortOrder: pages.sortOrder,
+    })
+    .from(articlePages)
+    .innerJoin(pages, eq(pages.id, articlePages.parentId))
+    .where(
+      and(
+        eq(articlePages.pageType, "news"),
+        eq(articlePages.status, "published"),
+        sql`${pages.slug} LIKE 'news/%'`,
+      ),
     )
-    .where(isNotNull(newsItems.category));
-  const set = new Set<string>();
-  for (const r of rows) {
-    if (r.category) set.add(r.category);
+    .orderBy(pages.sortOrder, pages.title);
+  return rows.map(({ slug, title }) => ({ slug, title }));
+}
+
+/**
+ * Wrapper cached di `getActiveNewsCategories` usato dal menu della navbar
+ * (hot path: ogni request in contesto news chiama questa funzione).
+ *
+ * Cache:
+ *   - TTL 60s — ragionevole per un menu che cambia raramente (la lista
+ *     delle categorie attive cambia solo quando un articolo viene
+ *     pubblicato in una categoria che era vuota, o quando una page
+ *     categoria viene rinominata dall'admin).
+ *   - Tag "pages" — riusato da `invalidatePageCachesAndSync` chiamato
+ *     sia dal publish dell'articolo (lib/modules/news/publish.ts) sia
+ *     da qualunque admin save di una page (lib/db/pages-queries.ts).
+ *     Fan-out accettabile: invalidare insieme tutte le caches `pages`
+ *     è il pattern già adottato nel progetto, e i call site downstream
+ *     sono pochi.
+ *
+ * Resilient: se la query fallisce, fallback a fresh fetch (try/catch
+ * fuori dalla cache così l'errore non viene cachato per 60s).
+ */
+export async function getCachedActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
+  const cached = unstable_cache(
+    () => getActiveNewsCategories(),
+    ["active-news-categories"],
+    { revalidate: 60, tags: ["pages"] },
+  );
+  try {
+    return await cached();
+  } catch (err) {
+    console.warn(
+      "[getCachedActiveNewsCategories] cache lookup failed, falling back to fresh fetch",
+      err,
+    );
+    return await getActiveNewsCategories();
   }
-  return set;
 }
 
 /**
@@ -542,6 +603,52 @@ export async function getNewsCardsByCategories(
 }
 
 /**
+ * Articoli figli di una page categoria. Usato da TemplateNewsCategory
+ * (listing della pagina /news/<categoria>) nel modello post-refactor
+ * news-categories-as-cms-pages.
+ *
+ * Differenze rispetto a `getNewsCardsByCategories`:
+ *   - Filtro su `pages.parent_id = parentPageId` (gerarchia CMS), non
+ *     su `news_items.category` (enum). Funziona anche per articoli creati
+ *     a mano dall'admin che non hanno una row in news_items.
+ *   - Il join su news_items resta LEFT (per ricavare il pill categoria
+ *     della card) ma non condiziona la presenza in lista.
+ */
+export async function getNewsCardsByParentPageId(
+  parentPageId: number,
+  limit: number,
+): Promise<NewsCardData[]> {
+  const rows = await db
+    .select({
+      pageId: pages.id,
+      slug: pages.slug,
+      title: pages.title,
+      publishedAt: pages.publishedAt,
+      customFields: pages.customFields,
+      heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
+      category: newsItems.category,
+    })
+    .from(pages)
+    .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
+    .where(
+      and(
+        eq(pages.pageType, "news"),
+        eq(pages.status, "published"),
+        eq(pages.parentId, parentPageId),
+      ),
+    )
+    .orderBy(desc(pages.publishedAt))
+    .limit(limit);
+
+  return rows.map(rowToNewsCard);
+}
+
+/**
  * Metadata per il rendering del singolo articolo (TemplateNews). Lookup
  * via published_page_id sull'item che ha originato la page. Ritorna null
  * se la page non proviene dal modulo news (es. articolo creato a mano
@@ -554,33 +661,46 @@ export interface NewsArticleMetadata {
    *  non è ancora stato processato — il TemplateNews fa fallback su
    *  `fields.hero_image` (URL originale già resolved). */
   heroVariants: unknown | null;
+  /** Slug della page parent (es. "news/bitcoin" per articolo figlio
+   *  della categoria, "news" per articolo other/null figlio diretto
+   *  della home). Null se la page non ha parent_id (caso degenerato
+   *  per articoli pre-migration; il TemplateNews fa fallback su
+   *  `category` da news_items). Fonte primaria della categoria
+   *  pubblica post-refactor. */
+  parentSlug: string | null;
 }
 
 export async function getNewsMetadataByPageId(
   pageId: number,
 ): Promise<NewsArticleMetadata | null> {
-  // Hero variants: pesca via pages.custom_fields.hero_image (source of
-  // truth) e non via news_items.hero_asset_id che può essere null se
-  // l'admin ha cambiato l'hero dal page editor CMS.
+  // Query parte da `pages` (non da `news_items`) per coprire anche gli
+  // articoli creati a mano dall'admin senza row in news_items. Joins:
+  //   - news_items: LEFT, opt → category + sourcePublishedAt come fallback
+  //   - parent page (alias): LEFT → parent.slug come fonte primaria categoria
+  //   - media_assets: LEFT → hero variants via custom_fields.hero_image
+  const parentPages = alias(pages, "parent_pages");
   const [row] = await db
     .select({
       category: newsItems.category,
       sourcePublishedAt: newsItems.sourcePublishedAt,
       heroVariants: mediaAssets.variants,
+      parentSlug: parentPages.slug,
     })
-    .from(newsItems)
-    .leftJoin(pages, eq(pages.id, newsItems.publishedPageId))
+    .from(pages)
+    .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(parentPages, eq(parentPages.id, pages.parentId))
     .leftJoin(
       mediaAssets,
       sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
     )
-    .where(eq(newsItems.publishedPageId, pageId))
+    .where(eq(pages.id, pageId))
     .limit(1);
   if (!row) return null;
   return {
     category: row.category,
     sourcePublishedAt: row.sourcePublishedAt,
     heroVariants: row.heroVariants,
+    parentSlug: row.parentSlug,
   };
 }
 

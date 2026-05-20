@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-hero.tsx
+// app/(cms)/_templates/news/news-hero.tsx
 //
 // Hero del blog: titolo grande editoriale + 2 picks (i 2 articoli più
 // recenti). Le metriche (numero articoli, lettori, tempo medio, ultimo

@@ -3,7 +3,6 @@ import { pages, pageTemplates, pageVersions, pageTranslations, appLocales, templ
 import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
-import { getNewsUrlPrefixes } from "@/lib/modules/news/url-prefixes";
 
 export type { PageTranslation, AppLocale };
 
@@ -457,24 +456,19 @@ export function isLegalsPathname(
 /**
  * Ritorna true se il pathname appartiene alla sezione news del blog:
  *   - listing /news
- *   - articolo singolo (es. /altcoin/<slug>, /bitcoin/<slug>, …)
- *   - landing categoria root futura (es. /altcoin che lista tutti
- *     gli articoli altcoin)
+ *   - home blog (/news)
+ *   - landing categoria (/news/bitcoin, /news/mercati, …)
+ *   - articolo singolo (/news/bitcoin/<slug>, /news/<slug> per other)
  *
- * Il primo segmento viene confrontato con i prefix dichiarati dal
- * modulo news (`getNewsUrlPrefixes()`, single source of truth). Le
- * pagine news hanno un layout editoriale full-width dedicato (ticker
- * + hero + colonne) e NON devono mostrare il right rail dell'app — il
- * blog è una sezione separata, non parte del social/app shell.
+ * Post refactor news-categories-as-cms-pages (mag 2026), tutti i path
+ * news vivono sotto il segmento top-level /news. Pre-refactor il check
+ * era contro i prefix categoria top-level (bitcoin, altcoin, …) ma ora
+ * basta un prefix match sul primo segmento.
  */
 export function isNewsPathname(pathname: string): boolean {
   if (!pathname) return false;
-  const firstSegment = pathname
-    .replace(/^\/+/, "")
-    .split("/")[0]
-    ?.toLowerCase();
-  if (!firstSegment) return false;
-  return getNewsUrlPrefixes().includes(firstSegment);
+  const normalized = pathname.replace(/^\/+/, "").toLowerCase();
+  return normalized === "news" || normalized.startsWith("news/");
 }
 
 export async function getSystemPageSlugs(): Promise<Record<string, string>> {

@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-columns.tsx
+// app/(cms)/_templates/news/news-columns.tsx
 //
 // 3 colonne tematiche del listing. Ogni colonna raggruppa N categorie
 // del DB sotto un label editoriale. La mappatura sta qui (config),

@@ -1,63 +1,47 @@
-// app/(cms)/news/page.tsx
+// app/(cms)/_templates/TemplateNewsHome.tsx
 //
-// Home blog /news. Adatta dal mockup Claude Design ai dati reali del DB.
-// Composizione di blocchi server-component sotto _components/; lo stile
-// vive in _styles/news.css. Il layout (cms)/layout.tsx wrappa già con
-// PublicHeader auth-aware + PublicFooter, qui ci pensiamo solo al corpo.
+// Template della home blog /news. Auto-discovered dal loader via slug
+// "news-home". La page CMS "news" è ora una normal page (non più
+// system meta-only) col template news-home assegnato — il routing
+// catch-all `[locale]/[...slug]` la serve via CmsPage senza file route
+// dedicato.
+//
+// Composizione di blocchi server-component sotto ./news/. Niente custom
+// field: la pagina non legge `fields`, prende solo i dati dalle query
+// news. SEO e og:image arrivano da seo_pages + cascade in cms-page.tsx,
+// non serve generateMetadata qui.
 
-import type { Metadata } from "next";
-import { getCachedAppSettings, getCachedSeoPage } from "@/lib/seo";
-import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import {
   getNewsCardsByCategories,
   getRecentPublishedNewsCards,
 } from "@/lib/modules/news/queries";
-import { resolvePlaceholders } from "@/lib/utils/content-placeholders";
-import { NewsColumns, type NewsColumnGroup } from "./_components/news-columns";
-import { NewsEssays } from "./_components/news-essays";
-import { NewsFeatureStory } from "./_components/news-feature-story";
-import { NewsFeaturedGrid } from "./_components/news-featured-grid";
-import { NewsHero } from "./_components/news-hero";
-import { NewsNewsletter } from "./_components/news-newsletter";
-import { NewsTicker } from "./_components/news-ticker";
-import "./_styles/news.css";
+import { NewsColumns, type NewsColumnGroup } from "./news/news-columns";
+import { NewsEssays } from "./news/news-essays";
+import { NewsFeatureStory } from "./news/news-feature-story";
+import { NewsFeaturedGrid } from "./news/news-featured-grid";
+import { NewsHero } from "./news/news-hero";
+import { NewsNewsletter } from "./news/news-newsletter";
+import { NewsTicker } from "./news/news-ticker";
+import "./news/news.css";
+import type { TemplateProps } from "./types";
 
 const PAGE_SIZE = 24; // fetch più del necessario, redistribuiamo nei blocchi
 const FEATURED_GRID_COUNT = 6;
 const ESSAYS_COUNT = 6;
 const COLUMN_LIMIT = 4;
 
-// Mappa categorie del DB → colonne tematiche editoriali.
+// Mappa categorie del DB → colonne tematiche editoriali. Resta categoria-based
+// in questa milestone; in step 5 del refactor passerà a parent-page-based
+// (le 7 categorie diventano page CMS figlie di /news).
 const COLUMN_MAP: ReadonlyArray<{ name: string; sub: string; categories: string[] }> = [
   { name: "Mercati", sub: "→ Live & analisi",   categories: ["market", "bitcoin"] },
   { name: "Onchain", sub: "→ Ethereum & DeFi",  categories: ["ethereum", "defi", "altcoin"] },
   { name: "Guide",   sub: "→ Tech & policy",    categories: ["tech", "regulation", "other"] },
 ];
 
-export const dynamic = "force-dynamic";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const [seo, settings] = await Promise.all([
-    getCachedSeoPage("/news", DEFAULT_LOCALE),
-    getCachedAppSettings(),
-  ]);
-  const resolve = (text?: string | null) =>
-    text ? resolvePlaceholders(text, settings) : undefined;
-  return {
-    title: resolve(seo?.title) ?? "News",
-    description:
-      resolve(seo?.description) ??
-      "Notizie e analisi crypto curate dalla redazione di GenerazioneCrypto.",
-    openGraph: {
-      title: resolve(seo?.ogTitle) ?? resolve(seo?.title) ?? "News",
-      description:
-        resolve(seo?.ogDescription) ?? resolve(seo?.description) ?? undefined,
-      type: "website",
-    },
-  };
-}
-
-export default async function NewsListingPage() {
+// `fields` non usato: il template non ha custom field configurabili.
+// `template` non usato: nessuna logica condizionale sulla configurazione.
+export async function TemplateNewsHome(_props: TemplateProps) {
   // 1 query "fat" per i recenti + N query mirate per le colonne. Mai più
   // di una decina di query, query DB cached per request via React `cache`.
   const [recent, ...byColumn] = await Promise.all([

@@ -65,11 +65,11 @@ const SLUG_FORMAT_REGEX = /^[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
  *
  * `allowedFirstSegments` (opt) = whitelist da bypassare il check del primo
  * segmento. Usato quando un modulo dichiara di "possedere" un prefix
- * (es. news registra `altcoin/`, `bitcoin/`, …): in quel caso lo slug
- * `altcoin/foo` salvato come pagina news è legittimo anche se `altcoin`
- * è in reserved. La whitelist NON sblocca il match esatto: `altcoin` da
- * solo resta riservato per evitare collisioni con la futura landing
- * categoria.
+ * via `PageTemplateExtension.slugResolver.prefixMap`. La whitelist NON
+ * sblocca il match esatto sul prefix da solo (resta riservato per
+ * evitare collisioni con la landing del prefix stesso). Nessun modulo
+ * registra slugResolver al momento — la whitelist è quindi sempre
+ * vuota, ma la feature resta in piedi per moduli futuri.
  *
  * NB: NON verifica unicità contro `pages.slug` — quello è un check DB
  * a parte, gestito dal server action via UNIQUE constraint.

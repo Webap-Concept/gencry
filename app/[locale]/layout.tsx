@@ -47,8 +47,8 @@ export default async function LocaleLayout({
   // e copre tutte le route della app.
   setRequestLocale(effectiveLocale);
 
-  // Lo shell strippa il prefix locale dal pathname (es. /en/altcoin/foo
-  // → /altcoin/foo) prima del match isNews/isLegals: passiamo il locale
+  // Lo shell strippa il prefix locale dal pathname (es. /en/news/bitcoin
+  // → /news/bitcoin) prima del match isNews/isLegals: passiamo il locale
   // solo se è realmente un locale (non quando è parte dello slug CMS).
   return (
     <PublicCmsShell localePrefix={isLocale(locale) ? locale : undefined}>

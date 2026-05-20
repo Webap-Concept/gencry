@@ -52,7 +52,18 @@ export async function saveTemplateAction(formData: FormData) {
     }
   }
 
-  const rules = { allowedChildTemplateIds };
+  // Template-level locks (vedi lib/cms/template-rules.ts).
+  // Checkbox: presenti = "on", assenti = undefined → drop nei rules
+  // serializzati (vedi serializeTemplateRules behaviour).
+  const slugLocked = formData.get("slugLocked") === "on";
+  const contentLocked = formData.get("contentLocked") === "on";
+
+  const { serializeTemplateRules } = await import("@/lib/cms/template-rules");
+  const rulesJson = serializeTemplateRules({
+    allowedChildTemplateIds,
+    slugLocked,
+    contentLocked,
+  });
 
   const fieldsJson = formData.get("fieldsJson") as string | null;
   let fields: Omit<NewTemplateField, "templateId">[] = [];
@@ -69,7 +80,7 @@ export async function saveTemplateAction(formData: FormData) {
     name,
     slug,
     description,
-    rules: JSON.stringify(rules),
+    rules: rulesJson,
   };
 
   await upsertTemplate(id, templateData, fields);

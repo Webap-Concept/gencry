@@ -202,6 +202,7 @@ export async function upsertPageAction(
   let slugLocked = false;
   let wasEverPublished = false;
   let existingSystemKey: string | null = null;
+  let isExistingPage = false;
   // Template enforcement: se l'utente non ha content:templates, ignoriamo
   // qualunque templateId arrivato dal form (anche manipolato via DOM/curl)
   // e — per pagine esistenti — manteniamo il template già assegnato.
@@ -217,6 +218,7 @@ export async function upsertPageAction(
     const { isSystemSlugEditable } = await import("@/lib/db/schema");
     const existing = await getPageById(Number(id));
     if (existing) {
+      isExistingPage = true;
       slugLocked = !isSystemSlugEditable({
         isSystem: existing.isSystem ?? false,
         systemKey: existing.systemKey ?? null,
@@ -237,6 +239,24 @@ export async function upsertPageAction(
   const effectiveTemplateId = canManageTemplates
     ? (templateId ? Number(templateId) : null)
     : existingTemplateId;
+
+  // Template-level locks (slugLocked + contentLocked): pesco la rules e
+  // applico in additione al lock system-page. Slug lock template-side
+  // vale solo per page già esistenti (la prima creazione lascia che
+  // l'admin / la pipeline scelga lo slug; dopo, fisso).
+  let templateContentLocked = false;
+  if (effectiveTemplateId) {
+    const { getTemplateById } = await import("@/lib/db/template-queries");
+    const tpl = await getTemplateById(effectiveTemplateId);
+    if (tpl) {
+      const { parseTemplateRules, isSlugReadonly, isContentReadonly } =
+        await import("@/lib/cms/template-rules");
+      const rules = parseTemplateRules(tpl.rules);
+      if (isSlugReadonly(rules, isExistingPage)) slugLocked = true;
+      if (isContentReadonly(rules)) templateContentLocked = true;
+    }
+  }
+
   if (slugChanged && slugLocked) {
     return { error: tErrors("slugBound") };
   }
@@ -248,10 +268,11 @@ export async function upsertPageAction(
   if (!slugLocked) {
     const adminUrlSlug = await getAdminUrlSlug();
     // Whitelist primi-segmenti dichiarati dall'extension del modulo che
-    // ha "claimato" questo template (es. news → bitcoin/altcoin/…/news).
-    // Senza extension la whitelist è vuota e la guard si comporta come
-    // prima. Lookup non-bloccante: se il template id non risolve, niente
-    // whitelist e si applica solo la guard standard.
+    // ha "claimato" questo template. Senza extension la whitelist è
+    // vuota e la guard si comporta come prima. Lookup non-bloccante:
+    // se il template id non risolve, niente whitelist e si applica
+    // solo la guard standard. (Nessun modulo registra slugResolver al
+    // momento — il news cms-extension è stato droppato in mag 2026.)
     let allowedFirstSegments: string[] = [];
     if (effectiveTemplateId) {
       const { getTemplateById } = await import("@/lib/db/template-queries");
@@ -296,10 +317,26 @@ export async function upsertPageAction(
     }
   }
 
+  // Template contentLocked: ignora il content arrivato dal form (l'admin
+  // non lo dovrebbe nemmeno aver visto perché la UI nasconde il tab
+  // Contenuto, ma defense-in-depth contro chiamate raw alla server action).
+  // Per page nuove: content vuoto. Per page esistenti: preserva l'attuale.
+  let effectiveContent = data.content;
+  if (templateContentLocked) {
+    if (id) {
+      const { getPageById } = await import("@/lib/db/pages-queries");
+      const existing = await getPageById(Number(id));
+      effectiveContent = existing?.content ?? "";
+    } else {
+      effectiveContent = "";
+    }
+  }
+
   try {
     const savedId = await upsertPage({
       ...(id ? { id: Number(id) } : {}),
       ...data,
+      content: effectiveContent,
       publishedAt: resolvedPublishedAt,
       expiresAt: resolvedExpiresAt,
       parentId: parentId ? Number(parentId) : null,

@@ -89,7 +89,7 @@ OUTPUT FORMAT (obbligatorio): un solo blocco JSON valido, niente testo prima o d
   "title": "Titolo italiano editoriale, 50-90 caratteri, niente punto finale, no clickbait",
   "body_md": "Articolo italiano in markdown (400-700 parole). 2-4 sezioni con ## H2. Niente menzione della fonte.",
   "excerpt": "Riassunto in italiano, 1-2 frasi, 120-160 caratteri totali. Per listing card + meta description SEO.",
-  "category": "una di: bitcoin | ethereum | altcoin | defi | regulation | market | tech | other"
+  "category": "una di: bitcoin | ethereum | altcoin | stablecoin | defi | regulation | market | tech | other"
 }`;
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-featured-grid.tsx
+// app/(cms)/_templates/news/news-featured-grid.tsx
 //
 // Griglia 3×2 di card sotto la "feature story". Stile mockup Claude
 // Design: cover image full-bleed sopra, pill categoria top-left, sotto
@@ -16,12 +16,14 @@ import {
 } from "@/lib/storage/media-asset-processor";
 
 // Etichette IT dei badge categoria (uppercase, mostrate nel pill).
-// Allineate con CATEGORY_LABELS di `cms-extension.ts` ma "frontend voice":
-// più editoriale (es. "Regolamentazione" invece di "Regulation").
+// "Frontend voice" — più editoriale rispetto al codice enum
+// (es. "Regolamentazione" invece di "Regulation"). Map locale al
+// componente perché serve solo qui per il pill della card.
 const CATEGORY_LABEL: Record<string, string> = {
   bitcoin: "Bitcoin",
   ethereum: "Ethereum",
   altcoin: "Altcoin",
+  stablecoin: "Stablecoin",
   defi: "DeFi",
   regulation: "Regolamentazione",
   market: "Mercati",

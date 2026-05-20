@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-ticker.tsx
+// app/(cms)/_templates/news/news-ticker.tsx
 //
 // Live coin ticker mostrato sotto l'header sulla home blog. Layout:
 //

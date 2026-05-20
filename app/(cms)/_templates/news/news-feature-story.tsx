@@ -1,4 +1,4 @@
-// app/(cms)/news/_components/news-feature-story.tsx
+// app/(cms)/_templates/news/news-feature-story.tsx
 //
 // Card grande "feature story" sotto l'hero. Mostra l'articolo più
 // recente con hero image full-bleed + excerpt + CTA. Se non c'è un
