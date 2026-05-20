@@ -542,6 +542,52 @@ export async function getNewsCardsByCategories(
 }
 
 /**
+ * Articoli figli di una page categoria. Usato da TemplateNewsCategory
+ * (listing della pagina /news/<categoria>) nel modello post-refactor
+ * news-categories-as-cms-pages.
+ *
+ * Differenze rispetto a `getNewsCardsByCategories`:
+ *   - Filtro su `pages.parent_id = parentPageId` (gerarchia CMS), non
+ *     su `news_items.category` (enum). Funziona anche per articoli creati
+ *     a mano dall'admin che non hanno una row in news_items.
+ *   - Il join su news_items resta LEFT (per ricavare il pill categoria
+ *     della card) ma non condiziona la presenza in lista.
+ */
+export async function getNewsCardsByParentPageId(
+  parentPageId: number,
+  limit: number,
+): Promise<NewsCardData[]> {
+  const rows = await db
+    .select({
+      pageId: pages.id,
+      slug: pages.slug,
+      title: pages.title,
+      publishedAt: pages.publishedAt,
+      customFields: pages.customFields,
+      heroUrl: mediaAssets.publicUrl,
+      heroVariants: mediaAssets.variants,
+      category: newsItems.category,
+    })
+    .from(pages)
+    .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
+    .leftJoin(
+      mediaAssets,
+      sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
+    )
+    .where(
+      and(
+        eq(pages.pageType, "news"),
+        eq(pages.status, "published"),
+        eq(pages.parentId, parentPageId),
+      ),
+    )
+    .orderBy(desc(pages.publishedAt))
+    .limit(limit);
+
+  return rows.map(rowToNewsCard);
+}
+
+/**
  * Metadata per il rendering del singolo articolo (TemplateNews). Lookup
  * via published_page_id sull'item che ha originato la page. Ritorna null
  * se la page non proviene dal modulo news (es. articolo creato a mano
