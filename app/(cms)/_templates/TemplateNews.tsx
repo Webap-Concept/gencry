@@ -17,7 +17,10 @@
 // time è calcolato runtime dal body text (200 wpm standard).
 
 import { getNewsMetadataByPageId } from "@/lib/modules/news/queries";
-import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
+import {
+  getMediaSrcset,
+  pickMediaVariantUrl,
+} from "@/lib/storage/media-asset-processor";
 import type { TemplateProps } from "./types";
 // Riusa i token + le classi `.news-article-*` definite per il blog.
 import "@/app/(cms)/news/_styles/news.css";
@@ -116,6 +119,12 @@ export async function TemplateNews({ page, fields }: TemplateProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pickMediaVariantUrl(metadata?.heroVariants, heroUrl, "hero")}
+              srcSet={getMediaSrcset(metadata?.heroVariants)}
+              // Article body: full viewport sotto 700px (mobile/tablet
+              // verticale), max ~1024px sopra (la news-container è larga
+              // ~1024 dentro l'article wrap). Browser sceglie card 800w
+              // su mobile, hero 1600w su retina desktop.
+              sizes="(max-width: 700px) 100vw, 1024px"
               alt={page.title}
               loading="eager"
               fetchPriority="high"

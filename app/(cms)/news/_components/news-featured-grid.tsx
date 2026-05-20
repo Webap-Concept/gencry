@@ -10,7 +10,10 @@
 
 import Link from "next/link";
 import type { NewsCardData } from "@/lib/modules/news/queries";
-import { pickMediaVariantUrl } from "@/lib/storage/media-asset-processor";
+import {
+  getMediaSrcset,
+  pickMediaVariantUrl,
+} from "@/lib/storage/media-asset-processor";
 
 // Etichette IT dei badge categoria (uppercase, mostrate nel pill).
 // Allineate con CATEGORY_LABELS di `cms-extension.ts` ma "frontend voice":
@@ -58,6 +61,11 @@ export function NewsFeaturedGrid({ items }: { items: NewsCardData[] }) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={pickMediaVariantUrl(item.heroVariants, item.heroUrl, "card")}
+                    srcSet={getMediaSrcset(item.heroVariants)}
+                    // Grid 3 col su desktop (~400px), 2 col su tablet
+                    // (~50vw), 1 col mobile (100vw). Browser sceglie
+                    // thumb 400w su desktop, card 800w su tablet/mobile.
+                    sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 400px"
                     alt=""
                     loading="lazy"
                   />
