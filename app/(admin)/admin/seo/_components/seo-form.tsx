@@ -260,7 +260,6 @@ export function SeoFields({
     BlogPosting: t("jsonLdHint_BlogPosting"),
     Product: t("jsonLdHint_Product"),
     FAQPage: t("jsonLdHint_FAQPage"),
-    BreadcrumbList: t("jsonLdHint_BreadcrumbList"),
     Organization: t("jsonLdHint_Organization"),
     LocalBusiness: t("jsonLdHint_LocalBusiness"),
     Person: t("jsonLdHint_Person"),
