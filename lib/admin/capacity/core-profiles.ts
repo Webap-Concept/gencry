@@ -30,14 +30,17 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         name: "Supabase Postgres",
         plan: "Free",
         limits: [
-          "500 MB storage",
-          "2 GB egress/mese",
-          "Pool max 60 connessioni",
+          "500 MB DB storage",
+          "5 GB egress/mese",
+          "60 connessioni dirette / 200 pooler",
           "Auto-pausa dopo 7 giorni inattività",
+          "50.000 MAU inclusi",
+          "Max 2 progetti attivi",
         ],
-        upgradeAt: "Pro ($25/mo) quando storage > 400 MB OR egress > 1.5 GB/mese",
+        upgradeAt:
+          "Pro ($25/mo) quando storage > 400 MB OR egress > 4 GB/mese OR MAU > 40k",
         upgradePath:
-          "Upgrade Supabase a Pro (8 GB storage, 250 GB egress, no auto-pause).",
+          "Supabase Pro ($25/mo): 8 GB storage, 250 GB egress, 100k MAU, no auto-pause, $10/mo compute credits.",
         docsUrl: "https://supabase.com/pricing",
         monthlyCost: 0,
       },
@@ -79,11 +82,12 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         plan: "Free",
         limits: [
           "200 connessioni concorrenti",
-          "2 M messaggi/mese",
+          "2 milioni messaggi/mese",
         ],
-        upgradeAt: "Pro quando > 150 concurrent connections regolari",
+        upgradeAt:
+          "Pro ($25/mo) quando > 150 concurrent connections regolari OR > 1.5M msg/mese",
         upgradePath:
-          "Upgrade Supabase Pro (500 conn) oppure swap a Ably/Pusher via service hookable.",
+          "Supabase Pro: 500 connessioni, 5M messaggi/mese. Oppure swap a Ably/Pusher via service hookable.",
         docsUrl: "https://supabase.com/docs/guides/realtime",
         monthlyCost: 0,
       },
@@ -99,11 +103,11 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         plan: "Free",
         limits: [
           "1 GB storage totale",
-          "2 GB egress/mese",
+          "5 GB egress/mese",
         ],
-        upgradeAt: "Pro a 800 MB storage o 1.5 GB egress/mese",
+        upgradeAt: "Pro ($25/mo) a 800 MB storage OR 4 GB egress/mese",
         upgradePath:
-          "Upgrade Supabase Pro (100 GB storage, 250 GB egress).",
+          "Supabase Pro: 100 GB storage, 250 GB egress.",
         docsUrl: "https://supabase.com/docs/guides/storage",
         monthlyCost: 0,
       },
@@ -143,10 +147,13 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
           "3.000 emails/mese",
           "100 emails/giorno",
           "1 dominio verificato",
+          "1.000 contatti audience",
+          "30 giorni retention log",
         ],
-        upgradeAt: "Pro ($20/mo) a 2.500 emails/mese regolari o > 80/giorno",
+        upgradeAt:
+          "Pro ($20/mo) a 2.500 emails/mese regolari OR > 80 emails/giorno",
         upgradePath:
-          "Upgrade Resend Pro (50k emails/mese, 10 domini) oppure swap a Postmark/SendGrid via service hookable.",
+          "Resend Pro ($20/mo, 50k emails) o Scale ($35/mo, 100k emails) — multipli domini. Swap a Postmark/SendGrid via service hookable.",
         docsUrl: "https://resend.com/pricing",
         monthlyCost: 0,
       },
@@ -161,14 +168,16 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         name: "Vercel",
         plan: "Hobby",
         limits: [
-          "100 GB bandwidth/mese",
-          "100k function invocations/giorno",
-          "6.000 build minutes/mese",
+          "100 GB Fast Data Transfer/mese",
+          "1M Function Invocations/mese",
+          "1M Edge Requests/mese",
+          "5.000 Image Transformations/mese",
           "Solo uso non-commerciale",
         ],
-        upgradeAt: "Pro ($20/mo) quando bandwidth > 80 GB/mese OR si va commercial",
+        upgradeAt:
+          "Pro ($20/user/mese) quando bandwidth > 80 GB/mese OR invocations > 800k/mese OR si va commercial",
         upgradePath:
-          "Upgrade Vercel Pro (1 TB bandwidth, 1M invocations/giorno, uso commerciale ammesso).",
+          "Vercel Pro ($20/user + $20 di usage credit): 1 TB bandwidth, 10M edge requests, function invocations a $0.60/1M overage, uso commerciale ammesso.",
         docsUrl: "https://vercel.com/pricing",
         monthlyCost: 0,
       },
@@ -184,14 +193,16 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         plan: "Developer (Free)",
         limits: [
           "5.000 errors/mese",
-          "10k performance units/mese",
+          "5 M tracing spans/mese",
+          "50 session replays/mese",
           "1 GB attachments",
-          "1 user",
+          "1 utente",
+          "30 giorni retention",
         ],
         upgradeAt:
-          "Team ($26/mo) a 4.000 errors/mese regolari OR > 1 dev",
+          "Team ($26/mo billed yearly) a 4.000 errors/mese regolari OR > 1 dev OR replays > 40/mese",
         upgradePath:
-          "Upgrade Sentry Team (50k errors, 100k perf, 5 users) — paghi per platform unit ad uso.",
+          "Sentry Team ($26/mo): 50k errors, 5M spans, utenti illimitati, 90 giorni retention, dashboard custom + Seer AI (sub aggiuntiva).",
         docsUrl: "https://sentry.io/pricing/",
         monthlyCost: 0,
         // Probe live legge errors accepted mese da Sentry stats v2 API.
