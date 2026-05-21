@@ -6,7 +6,7 @@
 // — quando avremo `reading_time` o un flag editoriale, filtreremo qui.
 
 import Link from "next/link";
-import type { NewsCardData } from "@/lib/modules/news/queries";
+import type { NewsCardData } from "@/lib/cms/news-feed-queries";
 
 function formatItDate(d: Date | null): string {
   if (!d) return "—";

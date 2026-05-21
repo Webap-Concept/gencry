@@ -6,7 +6,7 @@
 // niente (la page sopra gestisce l'empty state globale).
 
 import Link from "next/link";
-import type { NewsCardData } from "@/lib/modules/news/queries";
+import type { NewsCardData } from "@/lib/cms/news-feed-queries";
 import {
   getMediaSrcset,
   pickMediaVariantUrl,

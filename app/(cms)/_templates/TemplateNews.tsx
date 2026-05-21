@@ -16,7 +16,7 @@
 // Author / Difficoltà sono V1 hardcoded (non c'è schema ancora). Reading
 // time è calcolato runtime dal body text (200 wpm standard).
 
-import { getNewsMetadataByPageId } from "@/lib/modules/news/queries";
+import { getNewsMetadataByPageId } from "@/lib/cms/news-feed-queries";
 import {
   getMediaSrcset,
   pickMediaVariantUrl,

@@ -16,7 +16,7 @@
 // Niente content rich-text: il template viene usato con `contentLocked`,
 // l'admin gestisce solo titolo + descrizione + SEO + ordinamento.
 
-import { getNewsCardsByParentPageId } from "@/lib/modules/news/queries";
+import { getNewsCardsByParentPageId } from "@/lib/cms/news-feed-queries";
 import { NewsFeaturedGrid } from "./news/news-featured-grid";
 import { NewsNewsletter } from "./news/news-newsletter";
 import "./news/news.css";

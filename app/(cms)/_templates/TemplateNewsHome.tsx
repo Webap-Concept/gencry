@@ -22,7 +22,7 @@
 import {
   getNewsCardsByCategories,
   getRecentPublishedNewsCards,
-} from "@/lib/modules/news/queries";
+} from "@/lib/cms/news-feed-queries";
 import { NewsColumns, type NewsColumnGroup } from "./news/news-columns";
 import { NewsEssays } from "./news/news-essays";
 import { NewsFeatureStory } from "./news/news-feature-story";
