@@ -123,6 +123,31 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+// ─── In-process result cache ──────────────────────────────────────────────
+//
+// Cache locale del RISULTATO finale di checkEmailAvailability /
+// checkUsernameAvailability. Skip sia i 7 GETBIT che l'eventuale SQL
+// confirm in caso di hit. TTL 60s: copre la finestra "typing del form
+// signup ripete lo stesso valore N volte". Invalidazione write-through
+// in addEmail/addUsername quando un signup completa.
+//
+// Vedi feedback_redis_consumer_optimization_pattern.md per il razionale.
+//
+// Tradeoff staleness: max 60s di drift sulla disponibilità — utente A
+// vede "available", B registra subito dopo → A al submit riceve errore.
+// Cache lambda-local (non broadcast) → drift dipende da orchestrazione
+// Vercel. signupAction fa comunque il check finale dentro la
+// transaction, quindi è solo UX, niente data corruption.
+const CHECK_CACHE_TTL_MS = 60 * 1000;
+const emailCheckCache = new Map<
+  string,
+  { result: BloomEmailCheckResult; expiry: number }
+>();
+const usernameCheckCache = new Map<
+  string,
+  { result: BloomEmailCheckResult; expiry: number }
+>();
+
 // ─── Public API ───────────────────────────────────────────────────────────
 
 /**
@@ -142,6 +167,9 @@ export async function addEmailToBloom(email: string): Promise<void> {
   const positions = getBitPositions(normalized);
   const commands = positions.map((pos) => ["SETBIT", BLOOM_KEY_EMAILS, pos, 1]);
   await redisPipeline(commands);
+  // Write-through invalidation: il prossimo check su questa email vede
+  // subito "taken" (a parte i lambda warm altri, che vedranno entro TTL).
+  emailCheckCache.delete(normalized);
 }
 
 /**
@@ -165,6 +193,9 @@ export async function addEmailsBulkToBloom(emails: string[]): Promise<void> {
   if (commands.length > 0) {
     await redisPipeline(commands);
   }
+  // Bulk re-seed (es. setup script) → cache completa è potenzialmente
+  // stale, più semplice clearare tutto che invalidare 1-per-1.
+  emailCheckCache.clear();
 }
 
 /**
@@ -182,6 +213,13 @@ export async function checkEmailAvailability(
 ): Promise<BloomEmailCheckResult> {
   const normalized = normalizeEmail(email);
 
+  // In-process result cache: hit = 0 Redis cmd + 0 SQL.
+  const now = Date.now();
+  const cached = emailCheckCache.get(normalized);
+  if (cached && now < cached.expiry) {
+    return cached.result;
+  }
+
   try {
     const positions = getBitPositions(normalized);
     const commands = positions.map((pos) => ["GETBIT", BLOOM_KEY_EMAILS, pos]);
@@ -189,7 +227,9 @@ export async function checkEmailAvailability(
     const possiblyPresent = results.every((bit) => bit === 1);
 
     if (!possiblyPresent) {
-      return { available: true, checkedViaDb: false };
+      const result: BloomEmailCheckResult = { available: true, checkedViaDb: false };
+      emailCheckCache.set(normalized, { result, expiry: now + CHECK_CACHE_TTL_MS });
+      return result;
     }
 
     const existing = await db
@@ -198,9 +238,15 @@ export async function checkEmailAvailability(
       .where(eq(users.email, normalized))
       .limit(1);
 
-    return { available: existing.length === 0, checkedViaDb: true };
+    const result: BloomEmailCheckResult = {
+      available: existing.length === 0,
+      checkedViaDb: true,
+    };
+    emailCheckCache.set(normalized, { result, expiry: now + CHECK_CACHE_TTL_MS });
+    return result;
   } catch (err) {
-    // Redis non raggiungibile → fallback diretto al DB
+    // Redis non raggiungibile → fallback diretto al DB. NON cachiamo qui:
+    // se Redis riprende, vogliamo ri-popolare la cache dal path normale.
     console.error("[bloom] Redis unavailable, falling back to DB:", err);
     const existing = await db
       .select({ id: users.id })
@@ -224,12 +270,21 @@ export async function addUsernameToBloom(username: string): Promise<void> {
     1,
   ]);
   await redisPipeline(commands);
+  // Write-through invalidation: il prossimo check vede subito "taken".
+  usernameCheckCache.delete(normalized);
 }
 
 export async function checkUsernameAvailability(
   username: string,
 ): Promise<BloomEmailCheckResult> {
   const normalized = username.trim().toLowerCase();
+
+  // In-process result cache: hit = 0 Redis cmd + 0 SQL.
+  const now = Date.now();
+  const cached = usernameCheckCache.get(normalized);
+  if (cached && now < cached.expiry) {
+    return cached.result;
+  }
 
   try {
     const positions = getBitPositions(normalized);
@@ -242,7 +297,9 @@ export async function checkUsernameAvailability(
     const possiblyPresent = results.every((bit) => bit === 1);
 
     if (!possiblyPresent) {
-      return { available: true, checkedViaDb: false };
+      const result: BloomEmailCheckResult = { available: true, checkedViaDb: false };
+      usernameCheckCache.set(normalized, { result, expiry: now + CHECK_CACHE_TTL_MS });
+      return result;
     }
 
     const existing = await db
@@ -251,7 +308,12 @@ export async function checkUsernameAvailability(
       .where(eq(userProfiles.username, normalized))
       .limit(1);
 
-    return { available: existing.length === 0, checkedViaDb: true };
+    const result: BloomEmailCheckResult = {
+      available: existing.length === 0,
+      checkedViaDb: true,
+    };
+    usernameCheckCache.set(normalized, { result, expiry: now + CHECK_CACHE_TTL_MS });
+    return result;
   } catch (err) {
     console.error("[bloom] Redis unavailable, falling back to DB:", err);
     const existing = await db
