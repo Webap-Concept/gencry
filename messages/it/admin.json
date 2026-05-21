@@ -3469,6 +3469,28 @@
           "failed": "Fallito"
         }
       },
+      "capacityOverview": {
+        "title": "Capacity overview",
+        "description": "Tier di scala corrente per i servizi core (Postgres, Upstash, Realtime, R2, ecc.) e per i moduli installati. Indica dove siamo, cosa scalare quando.",
+        "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — dominante: {worst}",
+        "empty": "Nessun profilo capacity dichiarato.",
+        "groups": {
+          "core": "Core",
+          "modules": "Moduli"
+        },
+        "tier": {
+          "alpha": "alpha",
+          "beta": "beta",
+          "growth": "growth",
+          "scale": "scale"
+        },
+        "tierBreakdown": {
+          "alpha": "{count} in alpha",
+          "beta": "{count} in beta",
+          "growth": "{count} in growth",
+          "scale": "{count} in scale"
+        }
+      },
       "sentryErrors": {
         "title": "Errori Sentry",
         "description": "Ultime 24h di issue non risolte da Sentry.",

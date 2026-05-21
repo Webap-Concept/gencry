@@ -180,6 +180,12 @@ export interface CapacityProfile {
   /** Tier corrente in cui il modulo opera. Mostrato come badge. */
   currentTier: CapacityTier;
   resources: CapacityResource[];
-  tunables: CapacityTunable[];
-  presets: CapacityPreset[];
+  /** Tunables/presets opzionali. I profili core dei servizi di sistema
+   *  (vedi `lib/admin/capacity/core-profiles.ts`) non hanno preset per-
+   *  scope perché i parametri di sistema (es. pool DB, statement timeout)
+   *  non sono "preset di feature" — sono settings globali. Il dashboard
+   *  widget gestisce graceful l'assenza. I moduli applicativi (posts,
+   *  news, ecc.) DEVONO continuare a dichiararli per il form preset. */
+  tunables?: CapacityTunable[];
+  presets?: CapacityPreset[];
 }

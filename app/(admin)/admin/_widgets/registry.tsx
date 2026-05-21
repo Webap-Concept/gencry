@@ -10,6 +10,7 @@ import SuspiciousSessionsWidget from "./suspicious-sessions/widget";
 import GdprExportsWidget from "./gdpr-exports/widget";
 import SentryErrorsWidget from "./sentry-errors/widget";
 import ConfigSnapshotWidget from "./config-snapshot/widget";
+import CapacityOverviewWidget from "./capacity-overview/widget";
 
 // Server-only mapping from widget id → component. Kept apart from meta.ts
 // so the customize modal (client) can import metadata without dragging in
@@ -27,6 +28,6 @@ export const WIDGET_COMPONENTS: Record<string, ComponentType> = {
   "signups-trend": SignupsTrendWidget,
   "recent-signups": RecentSignupsWidget,
   "suspicious-sessions": SuspiciousSessionsWidget,
-  "gdpr-exports": GdprExportsWidget,
-  "sentry-errors": SentryErrorsWidget,
+  "gdpr-exports": GdprExportsWidget,  "sentry-errors": SentryErrorsWidget,
+  "capacity-overview": CapacityOverviewWidget,
 };

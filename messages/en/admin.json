@@ -3469,6 +3469,28 @@
           "failed": "Failed"
         }
       },
+      "capacityOverview": {
+        "title": "Capacity overview",
+        "description": "Current scale tier for the core services (Postgres, Upstash, Realtime, R2, etc.) and for installed modules. Tells you where you are and what to scale next.",
+        "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant: {worst}",
+        "empty": "No capacity profiles declared.",
+        "groups": {
+          "core": "Core",
+          "modules": "Modules"
+        },
+        "tier": {
+          "alpha": "alpha",
+          "beta": "beta",
+          "growth": "growth",
+          "scale": "scale"
+        },
+        "tierBreakdown": {
+          "alpha": "{count} in alpha",
+          "beta": "{count} in beta",
+          "growth": "{count} in growth",
+          "scale": "{count} in scale"
+        }
+      },
       "sentryErrors": {
         "title": "Sentry errors",
         "description": "Last 24h unresolved issues from Sentry.",
