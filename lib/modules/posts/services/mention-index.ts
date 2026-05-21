@@ -20,9 +20,9 @@
 // Hookable: se Upstash non è configurato, search ritorna fallback DB
 // (vedi searchMentionPrefix). Niente throw, niente downtime.
 import "server-only";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, ilike, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { userProfiles } from "@/lib/db/schema";
+import { users, userProfiles } from "@/lib/db/schema";
 import { getRedisClient } from "@/lib/kv/sdk";
 
 /** Sorted-set globale degli username. Score uniforme (0) — l'ordering
@@ -171,6 +171,8 @@ export async function syncMentionMember(userId: string): Promise<void> {
     const redis = await getRedisClient();
     if (!redis) return;
 
+    // INNER JOIN con users + filter deletedAt/bannedAt: un utente in
+    // pending delete o bannato NON è mentionabile, va rimosso dall'indice.
     const [row] = await db
       .select({
         userId: userProfiles.userId,
@@ -180,12 +182,19 @@ export async function syncMentionMember(userId: string): Promise<void> {
         avatarUrl: userProfiles.avatarUrl,
       })
       .from(userProfiles)
-      .where(eq(userProfiles.userId, userId))
+      .innerJoin(users, eq(users.id, userProfiles.userId))
+      .where(
+        and(
+          eq(userProfiles.userId, userId),
+          isNull(users.deletedAt),
+          isNull(users.bannedAt),
+        ),
+      )
       .limit(1);
 
     if (!row || !row.username) {
-      // Profilo senza username → l'utente non è mentionabile, assicura
-      // che non sia rimasto un member orfano dall'eventuale rename a null.
+      // Profilo senza username, deletato o bannato → l'utente non è
+      // mentionabile, assicura che non sia rimasto un member orfano.
       await removeMentionMember(userId);
       return;
     }
@@ -256,26 +265,35 @@ export async function searchMentionPrefix(opts: {
 }
 
 /** Fallback DB quando Upstash è down/non-configurato. Mantiene la
- *  stessa shape di output così il caller non se ne accorge. */
+ *  stessa shape di output così il caller non se ne accorge.
+ *  INNER JOIN con users + filter deletedAt/bannedAt: stesso filtro
+ *  applicato al rebuild dell'indice, così i due path non divergono. */
 async function searchMentionPrefixFromDb(
   prefix: string,
   limit: number,
   exclude: Set<string>,
 ): Promise<MentionCandidate[]> {
-  // ILIKE prefix% su username, sortato. L'indice esistente lo gestisce.
-  const rows = await db.query.userProfiles.findMany({
-    where: (up, { ilike, and: a, isNotNull: nn }) =>
-      a(nn(up.username), ilike(up.username, `${prefix}%`)),
-    columns: {
-      userId: true,
-      username: true,
-      firstName: true,
-      lastName: true,
-      avatarUrl: true,
-    },
-    orderBy: (up, { asc }) => [asc(up.username)],
-    limit: limit + exclude.size + 4,
-  });
+  const rows = await db
+    .select({
+      userId: userProfiles.userId,
+      username: userProfiles.username,
+      firstName: userProfiles.firstName,
+      lastName: userProfiles.lastName,
+      avatarUrl: userProfiles.avatarUrl,
+    })
+    .from(userProfiles)
+    .innerJoin(users, eq(users.id, userProfiles.userId))
+    .where(
+      and(
+        isNotNull(userProfiles.username),
+        ilike(userProfiles.username, `${prefix}%`),
+        isNull(users.deletedAt),
+        isNull(users.bannedAt),
+      ),
+    )
+    .orderBy(asc(userProfiles.username))
+    .limit(limit + exclude.size + 4);
+
   const out: MentionCandidate[] = [];
   for (const r of rows) {
     if (!r.username) continue;
@@ -306,6 +324,9 @@ export async function rebuildMentionIndex(): Promise<{
   const redis = await getRedisClient();
   if (!redis) return { scanned: 0, indexed: 0 };
 
+  // INNER JOIN con users + filter deletedAt/bannedAt: il rebuild non
+  // deve reinserire utenti soft-deleted o bannati (sarebbero subito un
+  // bug di privacy + UX).
   const rows = await db
     .select({
       userId: userProfiles.userId,
@@ -315,7 +336,14 @@ export async function rebuildMentionIndex(): Promise<{
       avatarUrl: userProfiles.avatarUrl,
     })
     .from(userProfiles)
-    .where(isNotNull(userProfiles.username));
+    .innerJoin(users, eq(users.id, userProfiles.userId))
+    .where(
+      and(
+        isNotNull(userProfiles.username),
+        isNull(users.deletedAt),
+        isNull(users.bannedAt),
+      ),
+    );
 
   // Clear + repopulate in 1 pipeline. ZADD multi-member in batch da 200
   // per restare comodi sotto i limiti payload Upstash.
