@@ -14,8 +14,9 @@
 //   Senza queste 3 settings → la probe ritorna { error: "missing_token" }
 //   e la card capacity mostra solo i dati dichiarati. Nessun crash.
 //
-// Quota Free = 10k commands/giorno → il numero ritornato è "today's
-// commands consumed", `period: "daily"`.
+// Quota Free corrente (2026) = 500k commands/mese → la probe somma i
+// daily_requests del mese in corso, `period: "monthly"`. Allineato al
+// counter "X / 500k per month" del dashboard Upstash.
 //
 // Safe-to-fail in tutti i rami: token mancante, http error, payload
 // imprevisto → `{ error: <code> }`. Mai throw.
@@ -24,7 +25,7 @@ import "server-only";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import type { CapacityUsageProbe } from "@/lib/modules/types";
 
-const UPSTASH_FREE_COMMANDS_PER_DAY = 10_000;
+const UPSTASH_FREE_COMMANDS_PER_MONTH = 500_000;
 
 interface UpstashDatabaseResponse {
   daily_requests?: Array<{ date?: string; requests?: number }>;
@@ -90,17 +91,20 @@ export default async function probeUpstashUsage(): Promise<
     }
     const json = (await res.json()) as UpstashDatabaseResponse;
 
-    // daily_requests è ordinato cronologicamente; prendiamo l'ultimo
-    // datapoint che, su Upstash, rappresenta il count del giorno corrente.
-    const today = json.daily_requests?.[json.daily_requests.length - 1];
-    const current = Number(today?.requests ?? 0);
-    const max = UPSTASH_FREE_COMMANDS_PER_DAY;
+    // Somma le requests di tutti i daily_requests del MESE CORRENTE.
+    // Pattern: filtro per prefisso YYYY-MM sul campo `date`. Robusto
+    // a ordine asc/desc dell'array e a date format ISO (`YYYY-MM-DD`).
+    const monthPrefix = new Date().toISOString().slice(0, 7); // "2026-05"
+    const current = (json.daily_requests ?? [])
+      .filter((d) => typeof d.date === "string" && d.date.startsWith(monthPrefix))
+      .reduce((sum, d) => sum + Number(d.requests ?? 0), 0);
+    const max = UPSTASH_FREE_COMMANDS_PER_MONTH;
     return {
       current,
       max,
-      unit: "commands/day",
+      unit: "commands",
       percent: Math.min(1, current / max),
-      period: "daily",
+      period: "monthly",
       measuredAt: new Date(),
     };
   } catch (err) {

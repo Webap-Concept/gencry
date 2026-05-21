@@ -52,18 +52,19 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         name: "Upstash Redis",
         plan: "Free",
         limits: [
-          "10.000 comandi/giorno",
+          "500.000 comandi/mese",
           "256 MB storage",
-          "1 GB bandwidth/mese",
+          "50 GB bandwidth/mese",
         ],
-        upgradeAt: "Pay-as-you-go quando comandi/giorno > 8k regolarmente",
+        upgradeAt: "Pay-as-you-go quando comandi/mese > 400k regolarmente",
         upgradePath:
           "Switch a Pay-as-you-go ($0.20 per 100k comandi) — niente cap, scale lineare.",
         docsUrl: "https://upstash.com/pricing",
         monthlyCost: 0,
-        // Probe live richiede `upstash_management_api_key` +
-        // `upstash_management_database_id` in app_settings. Senza →
-        // graceful fail con error="missing_token", card resta visibile.
+        // Probe live richiede `upstash_management_email` +
+        // `upstash_management_api_key` + `upstash_management_database_id`
+        // in app_settings. Senza → graceful fail con error="missing_token",
+        // card resta visibile.
         loadUsage: () => import("./probes/upstash"),
       },
     ],
