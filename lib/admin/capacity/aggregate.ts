@@ -27,9 +27,12 @@ export interface CapacityRow {
   /** Label del modulo (vuoto per core), usato come prefisso visivo. */
   moduleLabel: string | null;
   profile: CapacityProfile;
-  /** Link admin per editare i tunables. Null per core (read-only).
-   *  Per i moduli, punta alla loro pagina settings/scope se rilevante. */
-  editHref: string | null;
+  /** Path RELATIVO (senza prefisso adminSlug runtime) per la pagina di
+   *  edit dei tunables del profilo. Null per core (read-only — il file
+   *  `core-profiles.ts` è la sorgente di verità, niente UI per ora).
+   *  Il widget compone l'href finale con
+   *  `buildAdminPathFromSlug(adminSlug, editPath)`. */
+  editPath: string | null;
 }
 
 export interface CapacityOverview {
@@ -61,7 +64,7 @@ export async function getCapacityOverview(): Promise<CapacityOverview> {
       moduleSlug: null,
       moduleLabel: null,
       profile,
-      editHref: null,
+      editPath: null,
     });
   }
 
@@ -77,10 +80,12 @@ export async function getCapacityOverview(): Promise<CapacityOverview> {
         moduleLabel: mod.label,
         profile,
         // Convenzione: ogni modulo che dichiara uno scope tunable ha una
-        // pagina admin `/admin/modules/<slug>/<scope>`. Link best-effort
-        // — se la pagina non esiste, l'admin atterra su 404 (segnale
-        // che il modulo ha dichiarato uno scope senza creare la UI).
-        editHref: `/admin/modules/${mod.slug}/${profile.scope}`,
+        // pagina admin `modules/<slug>/<scope>` sotto l'admin URL slug
+        // runtime. Path RELATIVO senza prefisso — il widget compone
+        // l'href finale con `buildAdminPathFromSlug(adminSlug, …)`.
+        // Best-effort: se la pagina non esiste, l'admin atterra su 404
+        // (segnale che il modulo ha dichiarato uno scope senza UI).
+        editPath: `modules/${mod.slug}/${profile.scope}`,
       });
     }
   }

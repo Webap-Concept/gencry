@@ -7,6 +7,8 @@ import {
   getCapacityOverview,
   type CapacityRow,
 } from "@/lib/admin/capacity/aggregate";
+import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { CapacityTier } from "@/lib/modules/types";
 
 // Tier color coding: alpha = "siamo molto in basso, fragile sotto carico"
@@ -20,9 +22,10 @@ const TIER_COLORS: Record<CapacityTier, { bg: string; fg: string }> = {
 };
 
 export default async function CapacityOverviewWidget() {
-  const [overview, t] = await Promise.all([
+  const [overview, t, adminSlug] = await Promise.all([
     getCapacityOverview(),
     getTranslations("admin.dashboard.widgets.capacityOverview"),
+    getAdminUrlSlug(),
   ]);
 
   const coreRows = overview.rows.filter((r) => r.group === "core");
@@ -63,12 +66,22 @@ export default async function CapacityOverviewWidget() {
 
         {/* Core profiles */}
         {coreRows.length > 0 && (
-          <Section title={t("groups.core")} rows={coreRows} tierLabels={t} />
+          <Section
+            title={t("groups.core")}
+            rows={coreRows}
+            tierLabels={t}
+            adminSlug={adminSlug}
+          />
         )}
 
         {/* Module profiles */}
         {moduleRows.length > 0 && (
-          <Section title={t("groups.modules")} rows={moduleRows} tierLabels={t} />
+          <Section
+            title={t("groups.modules")}
+            rows={moduleRows}
+            tierLabels={t}
+            adminSlug={adminSlug}
+          />
         )}
 
         {overview.rows.length === 0 && (
@@ -85,10 +98,12 @@ function Section({
   title,
   rows,
   tierLabels,
+  adminSlug,
 }: {
   title: string;
   rows: ReadonlyArray<CapacityRow>;
   tierLabels: Awaited<ReturnType<typeof getTranslations<"admin.dashboard.widgets.capacityOverview">>>;
+  adminSlug: string;
 }) {
   return (
     <div>
@@ -110,6 +125,7 @@ function Section({
             key={row.id}
             row={row}
             tierLabel={tierLabels(`tier.${row.profile.currentTier}`)}
+            adminSlug={adminSlug}
             isLast={i === rows.length - 1}
           />
         ))}
@@ -121,10 +137,12 @@ function Section({
 function ProfileRow({
   row,
   tierLabel,
+  adminSlug,
   isLast,
 }: {
   row: CapacityRow;
   tierLabel: string;
+  adminSlug: string;
   isLast: boolean;
 }) {
   const tier = row.profile.currentTier;
@@ -195,11 +213,12 @@ function ProfileRow({
     </div>
   );
 
-  if (row.editHref) {
+  if (row.editPath) {
+    const href = buildAdminPathFromSlug(adminSlug, row.editPath);
     return (
       <li>
         <Link
-          href={row.editHref}
+          href={href}
           prefetch={false}
           className="block rounded transition-colors hover:bg-[var(--admin-hover-bg)] -mx-1 px-1">
           {content}
