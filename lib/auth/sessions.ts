@@ -379,10 +379,26 @@ async function readCache(sessionId: string): Promise<CachedSession | null> {
   }
 }
 
+/**
+ * Throttle in-process del SET. Risolve un pattern visto via UPSTASH_DEBUG:
+ * proxy + layouts + RSC stream chunks chiamavano `maybeTouchLastSeen`
+ * ognuno separatamente generando 4 SET sulla stessa key per UNO solo
+ * page-load. Con questo throttle: 1 SET ogni 30s per sessionId per
+ * processo. In edge runtime ogni invocation è isolata (la Map non
+ * sopravvive cross-cold-start) → degrada al comportamento pre-throttle,
+ * mai peggio. In Node runtime + Vercel warm lambda ~elimina i SET
+ * duplicati. */
+const WRITE_THROTTLE_MS = 30_000;
+const lastWriteAt = new Map<string, number>();
+
 async function writeCache(
   sessionId: string,
   payload: CachedSession,
 ): Promise<void> {
+  const now = Date.now();
+  const last = lastWriteAt.get(sessionId);
+  if (last && now - last < WRITE_THROTTLE_MS) return;
+  lastWriteAt.set(sessionId, now);
   try {
     await redisCmd<string>([
       "SET",
@@ -392,11 +408,14 @@ async function writeCache(
       String(CACHE_TTL_SECONDS),
     ]);
   } catch (err) {
+    // Su errore reset il timestamp per permettere il retry alla prossima.
+    lastWriteAt.delete(sessionId);
     console.error("[sessions/cache] writeCache failed:", err);
   }
 }
 
 async function invalidateCache(sessionId: string): Promise<void> {
+  lastWriteAt.delete(sessionId);
   try {
     await redisCmd<number>(["DEL", CACHE_PREFIX + sessionId]);
   } catch (err) {
