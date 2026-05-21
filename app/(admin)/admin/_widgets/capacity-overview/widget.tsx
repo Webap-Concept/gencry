@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { Gauge } from "lucide-react";
+import { ArrowRight, Gauge } from "lucide-react";
 
 import WidgetCard from "@/app/(admin)/admin/_components/widget-card";
 import {
@@ -88,6 +88,19 @@ export default async function CapacityOverviewWidget() {
           <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
             {t("empty")}
           </p>
+        )}
+
+        {/* Footer link verso la pagina di dettaglio espansa: l'admin
+            arriva al breakdown completo (resources, limits, upgradePath,
+            docs link) senza dover memorizzare la URL. */}
+        {overview.rows.length > 0 && (
+          <Link
+            href={buildAdminPathFromSlug(adminSlug, "capacity")}
+            prefetch={false}
+            className="inline-flex items-center gap-1 text-xs mt-1 self-start"
+            style={{ color: "var(--admin-accent)" }}>
+            {t("seeAll")} <ArrowRight size={12} />
+          </Link>
         )}
       </div>
     </WidgetCard>

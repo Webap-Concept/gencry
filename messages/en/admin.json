@@ -11,6 +11,33 @@
     "error": "Error",
     "success": "Success"
   },
+  "capacity": {
+    "breadcrumb": "Capacity",
+    "title": "Tier and resources",
+    "subtitle": "Current state of core services and installed modules: limits, upgrade thresholds, and the scaling path.",
+    "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant tier: {worst}",
+    "empty": "No capacity profiles declared.",
+    "configureButton": "Configure",
+    "upgradeAtLabel": "Upgrade threshold",
+    "upgradePathLabel": "Path",
+    "docsLink": "Provider docs",
+    "groups": {
+      "core": "Core services",
+      "modules": "Installed modules"
+    },
+    "tier": {
+      "alpha": "alpha",
+      "beta": "beta",
+      "growth": "growth",
+      "scale": "scale"
+    },
+    "tierBreakdown": {
+      "alpha": "{count} in alpha",
+      "beta": "{count} in beta",
+      "growth": "{count} in growth",
+      "scale": "{count} in scale"
+    }
+  },
   "shell": {
     "dashboardTitle": "Admin Dashboard",
     "dashboardTitleShort": "Admin",
@@ -3474,6 +3501,7 @@
         "description": "Current scale tier for the core services (Postgres, Upstash, Realtime, R2, etc.) and for installed modules. Tells you where you are and what to scale next.",
         "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant: {worst}",
         "empty": "No capacity profiles declared.",
+        "seeAll": "See all",
         "groups": {
           "core": "Core",
           "modules": "Modules"

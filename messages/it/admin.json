@@ -11,6 +11,33 @@
     "error": "Errore",
     "success": "Successo"
   },
+  "capacity": {
+    "breadcrumb": "Capacity",
+    "title": "Tier e risorse",
+    "subtitle": "Stato corrente per i servizi core e per i moduli installati: limiti, soglie di upgrade e percorso di scaling.",
+    "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — tier dominante: {worst}",
+    "empty": "Nessun profilo capacity dichiarato.",
+    "configureButton": "Configura",
+    "upgradeAtLabel": "Soglia upgrade",
+    "upgradePathLabel": "Percorso",
+    "docsLink": "Documentazione provider",
+    "groups": {
+      "core": "Servizi core",
+      "modules": "Moduli installati"
+    },
+    "tier": {
+      "alpha": "alpha",
+      "beta": "beta",
+      "growth": "growth",
+      "scale": "scale"
+    },
+    "tierBreakdown": {
+      "alpha": "{count} in alpha",
+      "beta": "{count} in beta",
+      "growth": "{count} in growth",
+      "scale": "{count} in scale"
+    }
+  },
   "shell": {
     "dashboardTitle": "Pannello Admin",
     "dashboardTitleShort": "Admin",
@@ -3474,6 +3501,7 @@
         "description": "Tier di scala corrente per i servizi core (Postgres, Upstash, Realtime, R2, ecc.) e per i moduli installati. Indica dove siamo, cosa scalare quando.",
         "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — dominante: {worst}",
         "empty": "Nessun profilo capacity dichiarato.",
+        "seeAll": "Vedi tutto",
         "groups": {
           "core": "Core",
           "modules": "Moduli"
