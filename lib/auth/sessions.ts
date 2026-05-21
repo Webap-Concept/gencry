@@ -364,14 +364,40 @@ export async function listActiveSessions(params: {
 // Cache helpers (Redis Upstash)
 // ---------------------------------------------------------------------------
 
+/**
+ * Cache in-process del readCache. Risolve un pattern visto via
+ * UPSTASH_DEBUG: anche con `React.cache()` su `getValidSession`,
+ * Turbopack dev (e potenzialmente parallel routes / Suspense boundary
+ * in prod) NON dedupa affidabilmente cross-chunk → vedevamo 5 GET
+ * `session:*` per UN page-load admin.
+ *
+ * TTL 5s: copre la finestra "render di una page (≤200ms) + cleanup"
+ * senza rendere stale per la finestra umana. Worst case di propagazione
+ * revoca: 5s (local) + 60s (Redis TTL) = 65s totali, vs 60s di prima.
+ * Trascurabile.
+ *
+ * writeCache + invalidateCache fanno `delete` qui per forzare un
+ * refresh immediato (write-through invalidation).
+ */
+const LOCAL_READ_TTL_MS = 5_000;
+const localReadCache = new Map<
+  string,
+  { value: CachedSession | null; expiry: number }
+>();
+
 async function readCache(sessionId: string): Promise<CachedSession | null> {
+  const now = Date.now();
+  const local = localReadCache.get(sessionId);
+  if (local && now < local.expiry) return local.value;
+
   try {
     const raw = await redisCmd<string | null>([
       "GET",
       CACHE_PREFIX + sessionId,
     ]);
-    if (!raw) return null;
-    return JSON.parse(raw) as CachedSession;
+    const parsed = raw ? (JSON.parse(raw) as CachedSession) : null;
+    localReadCache.set(sessionId, { value: parsed, expiry: now + LOCAL_READ_TTL_MS });
+    return parsed;
   } catch (err) {
     // Redis down → fallback DB. Niente crash.
     console.error("[sessions/cache] readCache failed:", err);
@@ -399,6 +425,12 @@ async function writeCache(
   const last = lastWriteAt.get(sessionId);
   if (last && now - last < WRITE_THROTTLE_MS) return;
   lastWriteAt.set(sessionId, now);
+  // Update locale: il prossimo readCache vede subito il nuovo payload
+  // senza fare round-trip Redis. Coerente perché lo abbiamo appena scritto.
+  localReadCache.set(sessionId, {
+    value: payload,
+    expiry: now + LOCAL_READ_TTL_MS,
+  });
   try {
     await redisCmd<string>([
       "SET",
@@ -408,14 +440,16 @@ async function writeCache(
       String(CACHE_TTL_SECONDS),
     ]);
   } catch (err) {
-    // Su errore reset il timestamp per permettere il retry alla prossima.
+    // Su errore reset entrambi: il prossimo readCache deve riprovare.
     lastWriteAt.delete(sessionId);
+    localReadCache.delete(sessionId);
     console.error("[sessions/cache] writeCache failed:", err);
   }
 }
 
 async function invalidateCache(sessionId: string): Promise<void> {
   lastWriteAt.delete(sessionId);
+  localReadCache.delete(sessionId);
   try {
     await redisCmd<number>(["DEL", CACHE_PREFIX + sessionId]);
   } catch (err) {
