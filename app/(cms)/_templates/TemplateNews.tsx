@@ -1,6 +1,6 @@
 // app/(cms)/_templates/TemplateNews.tsx
 //
-// Template del singolo articolo blog (page_type='news'). Auto-discovered
+// Template del singolo articolo blog (template slug "news"). Auto-discovered
 // dal loader via il slug "news" del template DB (seedato in M_news_002).
 //
 // Layout fedele al design fornito 2026-05-19:
@@ -16,7 +16,7 @@
 // Author / Difficoltà sono V1 hardcoded (non c'è schema ancora). Reading
 // time è calcolato runtime dal body text (200 wpm standard).
 
-import { getNewsMetadataByPageId } from "@/lib/modules/news/queries";
+import { getNewsMetadataByPageId } from "@/lib/cms/news-feed-queries";
 import {
   getMediaSrcset,
   pickMediaVariantUrl,

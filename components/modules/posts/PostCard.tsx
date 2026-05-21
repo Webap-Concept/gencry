@@ -35,6 +35,7 @@ import {
   BookmarkCheck,
   Flag,
   MessageCircle,
+  MessageCircleOff,
   MoreHorizontal,
   Pencil,
   Repeat2,
@@ -739,7 +740,22 @@ export function PostCard({
             // Color stateful: se ci sono commenti, l'icona+count diventano
             // arancio (gc-accent). Se la thread è espansa, vince il chip
             // bg-gc-bg-3. Altrimenti grigio muted con hover standard.
+            // Quando commentsDisabled=TRUE → icona "off" + non-clickable
+            // (niente apertura thread, niente navigation), tooltip
+            // localizzato. Il counter resta nascosto (è sempre 0).
             const hasComments = post.counts.comments > 0;
+            if (post.commentsDisabled) {
+              return (
+                <span
+                  role="status"
+                  aria-label={tCard("comments_disabled_aria")}
+                  title={tCard("comments_disabled_aria")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-gc-fg-muted/60 cursor-not-allowed"
+                >
+                  <MessageCircleOff size={18} strokeWidth={1.75} />
+                </span>
+              );
+            }
             const baseCommentsCls = commentsOpen
               ? "bg-gc-line/50 text-gc-fg"
               : hasComments
@@ -793,6 +809,7 @@ export function PostCard({
             <CommentsThreadLazy
               postId={post.id}
               postVisibility={post.visibility}
+              commentsDisabled={post.commentsDisabled}
               viewerUserId={commentsThreadProps.viewerUserId}
               viewerProfile={commentsThreadProps.viewerProfile}
               liveMode={commentsThreadProps.liveMode}

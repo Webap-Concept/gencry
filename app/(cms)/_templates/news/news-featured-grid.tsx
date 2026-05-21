@@ -9,7 +9,7 @@
 // resta vuota con background neutro (skeleton-style).
 
 import Link from "next/link";
-import type { NewsCardData } from "@/lib/modules/news/queries";
+import type { NewsCardData } from "@/lib/cms/news-feed-queries";
 import {
   getMediaSrcset,
   pickMediaVariantUrl,

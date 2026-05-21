@@ -20,9 +20,13 @@ const POSTS_FEED_TAG = "posts:feed";
 
 /**
  * Cache 5 min: la sitemap non deve essere fresca a 60s; i bot non
- * crawlano così spesso. Tag `posts:feed` è già invalidato dalle
- * Server Action di create/delete (services/feed-cache.ts) → la
- * sitemap si rigenera quando il feed cambia.
+ * crawlano così spesso. Decisione: nessuna invalidazione esplicita del
+ * tag `posts:feed` dalle Server Action di create/delete/visibility — su
+ * un sito attivo l'invalidation costante terrebbe la cache sempre
+ * "fredda" e ogni request bot farebbe full scan (5000 row LIMIT). 5min
+ * di stale accettabili: ben sotto la frequenza di crawl di Google.
+ * Il tag resta dichiarato per uso futuro (es. revalidate manuale
+ * dall'admin "Forza refresh sitemap").
  */
 const fetchPostsForSitemap = unstable_cache(
   async () => getPublicPostsForSitemap(),

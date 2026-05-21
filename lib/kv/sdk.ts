@@ -21,6 +21,7 @@ import "server-only";
 
 import { Redis } from "@upstash/redis";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { logRedisSdkCall } from "./instrumentation";
 
 const CLIENT_CACHE_TTL_MS = 60_000;
 
@@ -53,9 +54,48 @@ export async function getRedisClient(): Promise<Redis | null> {
   const token = settings.upstash_redis_rest_token?.trim();
   if (!url || !token) return null;
 
-  const client = new Redis({ url, token });
+  const raw = new Redis({ url, token });
+  const client = instrumentRedisClient(raw);
   _cached = { client, expiry: now + CLIENT_CACHE_TTL_MS };
   return client;
+}
+
+/**
+ * Wrap del client SDK in un Proxy che logga ogni metodo invocato.
+ * Conta 1 command per chiamata (allineato con il billing Upstash) salvo
+ * per `pipeline()` / `multi()`: in quel caso il logging avviene quando
+ * il caller chiama `.exec()` sul builder, contando come N comandi.
+ * Vedi `lib/kv/instrumentation.ts` per il dettaglio.
+ *
+ * Performance: il Proxy è quasi free in V8 (~1µs per access). Lo
+ * lasceremo finché serve diagnosticare il consumo Upstash.
+ */
+function instrumentRedisClient(raw: Redis): Redis {
+  return new Proxy(raw, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== "function") return value;
+      // Skip wrap di metodi non-comando (es. internal, options, etc.)
+      const propStr = String(prop);
+      if (propStr.startsWith("_") || propStr === "constructor") return value;
+      return function (this: unknown, ...args: unknown[]) {
+        const t0 = Date.now();
+        const result = (value as (...a: unknown[]) => unknown).apply(
+          target,
+          args,
+        );
+        if (result instanceof Promise) {
+          return result.then((r) => {
+            logRedisSdkCall(propStr, args[0], Date.now() - t0);
+            return r;
+          });
+        }
+        // Metodi sync (es. `pipeline()` builder) → non logghiamo qui;
+        // il logging avverrà al `.exec()` del builder che è async.
+        return result;
+      };
+    },
+  }) as Redis;
 }
 
 /**

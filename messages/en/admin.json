@@ -11,6 +11,42 @@
     "error": "Error",
     "success": "Success"
   },
+  "capacity": {
+    "breadcrumb": "Capacity",
+    "title": "Tier and resources",
+    "subtitle": "Current state of core services and installed modules: limits, upgrade thresholds, and the scaling path.",
+    "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant tier: {worst}",
+    "totalMonthlyCost": "Declared cost: ${cost}/month",
+    "monthlyCostTooltip": "Declared plan cost. Does NOT include runtime overage — always cross-check with the provider's dashboard.",
+    "empty": "No capacity profiles declared.",
+    "configureButton": "Configure",
+    "upgradeAtLabel": "Upgrade threshold",
+    "upgradePathLabel": "Path",
+    "docsLink": "Provider docs",
+    "usageNotAvailable": "Live usage not available",
+    "usageErrorPrefix": "Probe error",
+    "usagePeriod": {
+      "daily": "today",
+      "monthly": "this month",
+      "concurrent": "concurrent"
+    },
+    "groups": {
+      "core": "Core services",
+      "modules": "Installed modules"
+    },
+    "tier": {
+      "alpha": "alpha",
+      "beta": "beta",
+      "growth": "growth",
+      "scale": "scale"
+    },
+    "tierBreakdown": {
+      "alpha": "{count} in alpha",
+      "beta": "{count} in beta",
+      "growth": "{count} in growth",
+      "scale": "{count} in scale"
+    }
+  },
   "shell": {
     "dashboardTitle": "Admin Dashboard",
     "dashboardTitleShort": "Admin",
@@ -2041,6 +2077,8 @@
         "rowPublish": "Publish",
         "rowUnpublish": "Unpublish",
         "rowDelete": "Delete page",
+        "rowPublishedOnAria": "Published on {date}",
+        "childrenToggleAria": "{count, plural, =1 {1 child page — click to expand/collapse} other {# child pages — click to expand/collapse}}",
         "statusPublished": "Published",
         "statusDraft": "Draft",
         "emptyUserLabel": "No pages created",
@@ -2150,6 +2188,12 @@
         "toolbarQuoteRemove": "Remove blockquote",
         "toolbarImage": "Insert image",
         "toolbarSeparator": "Separator",
+        "toolbarSource": "View HTML source",
+        "sourceDialogTitle": "HTML source",
+        "sourceDialogDescription": "Edit the raw HTML of the content. Tags the editor doesn't support (e.g. <table>) may be dropped when returning to the rich-text view.",
+        "sourceDialogHint": "The editor only renders tags it understands: unsupported tags and attributes are stripped when you click \"Apply\". For complex copy (cookie policy, privacy, etc.) prefer headings + paragraphs + lists over tables.",
+        "sourceDialogCancel": "Cancel",
+        "sourceDialogApply": "Apply",
         "linkPrompt": "Link URL:",
         "linkDialogInsertTitle": "Insert link",
         "linkDialogEditTitle": "Edit link",
@@ -2780,8 +2824,14 @@
       "pageSubtitle": "Automatic generation of the sitemap.xml file.",
       "pageSubtitleBefore": "Automatic generation of the",
       "pageSubtitleAfter": "file.",
-      "placeholderTitle": "Coming soon",
-      "placeholderBody": "Automatic XML sitemap generation will be implemented in a future release. You will be able to configure priorities, update frequencies, and pages to exclude."
+      "introTitle": "Public sitemaps",
+      "introBody": "The main CMS sitemap is generated automatically from every published page. Installed modules can declare additional sitemaps (e.g. articles, posts, prices) that are auto-listed below and linked from robots.txt.",
+      "cardCmsPagesLabel": "CMS pages",
+      "cardCountLabel": "URLs",
+      "cardLastModifiedLabel": "Last update",
+      "cardLastModifiedUnknown": "—",
+      "cardOpenButton": "Open",
+      "cardStatsError": "Stats not available"
     },
     "form": {
       "titleEdit": "Edit SEO meta",
@@ -3453,6 +3503,30 @@
           "processing": "Processing",
           "ready": "Ready",
           "failed": "Failed"
+        }
+      },
+      "capacityOverview": {
+        "title": "Capacity overview",
+        "description": "Current scale tier for the core services (Postgres, Upstash, Realtime, R2, etc.) and for installed modules. Tells you where you are and what to scale next.",
+        "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant: {worst}",
+        "totalMonthlyCost": "Declared cost: ${cost}/month",
+        "empty": "No capacity profiles declared.",
+        "seeAll": "See all",
+        "groups": {
+          "core": "Core",
+          "modules": "Modules"
+        },
+        "tier": {
+          "alpha": "alpha",
+          "beta": "beta",
+          "growth": "growth",
+          "scale": "scale"
+        },
+        "tierBreakdown": {
+          "alpha": "{count} in alpha",
+          "beta": "{count} in beta",
+          "growth": "{count} in growth",
+          "scale": "{count} in scale"
         }
       },
       "sentryErrors": {

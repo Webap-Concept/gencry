@@ -116,7 +116,6 @@ export default async function EditPagePage({
         appName={settings?.app_name ?? ""}
         templateLocked={templateLocked}
         isSystem={page.isSystem ?? false}
-        pageType={page.pageType ?? "page"}
         // contentLocked dal template ha priorità su contentEditable per-page:
         // se il template dice "no body", l'editor nasconde sempre il tab
         // Contenuto, anche se la singola page avrebbe contentEditable=true.

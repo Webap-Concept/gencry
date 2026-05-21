@@ -6,6 +6,14 @@
 // catch-all `[locale]/[...slug]` la serve via CmsPage senza file route
 // dedicato.
 //
+// IMPORTANTE: questo file vive nel CMS core (`app/(cms)/_templates/`),
+// non dentro `lib/modules/news/`. Il modulo news AUTOMATIZZA un flusso
+// (RSS ingestion → AI rewrite → publish con questo template) che un
+// admin potrebbe replicare a mano. Se il modulo viene disinstallato:
+// queste template restano + la page /news resta + gli articoli pubblicati
+// restano. L'admin continua a creare manualmente nuovi articoli
+// selezionando il template `news` + categoria come parent.
+//
 // Composizione di blocchi server-component sotto ./news/. Niente custom
 // field: la pagina non legge `fields`, prende solo i dati dalle query
 // news. SEO e og:image arrivano da seo_pages + cascade in cms-page.tsx,
@@ -14,7 +22,7 @@
 import {
   getNewsCardsByCategories,
   getRecentPublishedNewsCards,
-} from "@/lib/modules/news/queries";
+} from "@/lib/cms/news-feed-queries";
 import { NewsColumns, type NewsColumnGroup } from "./news/news-columns";
 import { NewsEssays } from "./news/news-essays";
 import { NewsFeatureStory } from "./news/news-feature-story";

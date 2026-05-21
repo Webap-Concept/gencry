@@ -198,6 +198,20 @@ async function performDeletion(params: {
     }),
   ]);
 
+  // Rimuove l'utente dall'indice mention Upstash (sorted-set globale per
+  // l'autocomplete @). Best-effort: errore loggato ma non bloccante per il
+  // flusso GDPR. Senza questo, l'utente pending-delete restava mentionable
+  // fino al prossimo rebuild dell'indice (bug visto in dev 2026-05-21).
+  // Import dinamico per evitare di accoppiare il core al modulo posts.
+  try {
+    const { removeMentionMember } = await import(
+      "@/lib/modules/posts/services/mention-index"
+    );
+    await removeMentionMember(userId);
+  } catch (err) {
+    console.error("[account/deletion] mention-index removal failed:", err);
+  }
+
   try {
     const graceDays = await getDeletionGraceDays();
     const purgeDate = new Date(

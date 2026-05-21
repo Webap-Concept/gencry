@@ -125,7 +125,7 @@ export const NEWS_MODULE: ModuleManifest = {
   slug: "news",
   label: "News",
   description:
-    "Curated news pipeline: scrape English RSS sources, rewrite in Italian with Claude, admin review with side-by-side editor + hero upload, schedule and publish as CMS pages (page_type=news).",
+    "Curated news pipeline: scrape English RSS sources, rewrite in Italian with Claude, admin review with side-by-side editor + hero upload, schedule and publish as CMS pages (template=news).",
   version: "0.1.0",
   icon: "Newspaper",
   permission: "modules:news",
@@ -210,7 +210,7 @@ export const NEWS_MODULE: ModuleManifest = {
       schedule: "*/15 * * * *",
       label: "News Publisher (scheduled → CMS)",
       description:
-        "Picks scheduled items with scheduled_publish_at <= NOW(), creates a pages row (page_type='news', templateId=news template) wired via customFields (hero_image, excerpt). Marks status=published.",
+        "Picks scheduled items with scheduled_publish_at <= NOW(), creates a pages row (templateId=news template) wired via customFields (hero_image, excerpt). Marks status=published.",
       purpose:
         "Honors the admin scheduling decisions. Decoupled from review action so the admin can schedule far in advance.",
     },

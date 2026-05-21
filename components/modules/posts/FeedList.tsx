@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Zap } from "lucide-react";
-import { loadMoreFeed } from "@/lib/modules/posts/feed-actions";
+import { loadMoreFeed, type LoadMoreFeedResult } from "@/lib/modules/posts/feed-actions";
 import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
@@ -23,6 +23,60 @@ import { findScrollParent } from "@/lib/hooks/use-is-stuck";
 import { useResetableListState } from "@/lib/hooks/use-resetable-list-state";
 import { usePostsError } from "@/lib/modules/posts/lib/use-posts-error";
 import { PostCard } from "./PostCard";
+
+/**
+ * Page size dinamico (#7 dal feed optimization backlog):
+ *   - First page (SSR) = 20 (already shipped come prop).
+ *   - Pages successive = 30 (utente engaged → vale la pena fetcheare più
+ *     contenuto per ridurre round-trip + percepire scroll più liscio).
+ * Server-side `clampPageSize` in feed-actions.ts cappa difensivamente a 50.
+ */
+const LOAD_MORE_PAGE_SIZE = 30;
+
+/**
+ * Smart "load more" retry (#5):
+ *   - 3 tentativi automatici trasparenti su fail della Server Action o
+ *     errore di rete (es. mobile flaky).
+ *   - Backoff esponenziale: 600ms, 1200ms, 2400ms (capped a 3 retry).
+ *   - Solo se anche il 4° invio fallisce, mostriamo il messaggio di
+ *     errore + l'utente vede il bottone "Riprova" (il fallback button
+ *     era già nel DOM per accessibility, ora serve anche per recovery).
+ *
+ * Math: 600 → 1200 → 2400 = ~4s total wait nel worst case, sufficiente
+ * per superare la maggior parte degli hiccup di rete senza far percepire
+ * l'attesa come "bloccante".
+ */
+const RETRY_MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 600;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function loadMoreWithRetry(
+  call: () => Promise<LoadMoreFeedResult>,
+): Promise<LoadMoreFeedResult> {
+  let lastError: LoadMoreFeedResult = { ok: false, error: "posts.errors.unknown" };
+  for (let attempt = 0; attempt <= RETRY_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await call();
+      if (res.ok) return res;
+      lastError = res;
+    } catch (err) {
+      // Network error / Server Action crash: lo trattiamo come retry
+      // candidate. Loggiamo solo l'ultimo (dopo il finale fail) per non
+      // inquinare la console con i tentativi normali.
+      lastError = {
+        ok: false,
+        error: err instanceof Error ? err.message : "posts.errors.unknown",
+      };
+    }
+    if (attempt < RETRY_MAX_ATTEMPTS) {
+      await sleep(RETRY_BASE_DELAY_MS * Math.pow(2, attempt));
+    }
+  }
+  return lastError;
+}
 
 export type FeedListSource =
   | { kind: "tab"; tab: FeedTab }
@@ -85,17 +139,26 @@ export function FeedList(props: Props) {
     startTransition(async () => {
       const input =
         props.source.kind === "tab"
-          ? { kind: "tab" as const, tab: props.source.tab, cursor: nextCursor }
+          ? {
+              kind: "tab" as const,
+              tab: props.source.tab,
+              cursor: nextCursor,
+              pageSize: LOAD_MORE_PAGE_SIZE,
+            }
           : {
               kind: "ticker" as const,
               ticker: props.source.ticker,
               cursor: nextCursor,
+              pageSize: LOAD_MORE_PAGE_SIZE,
             };
-      const res = await loadMoreFeed(input);
+      const res = await loadMoreWithRetry(() => loadMoreFeed(input));
       if (res.ok) {
         appendRows(res.data.posts, res.data.nextCursor);
       } else {
         // loadMoreFeed non ha retryAfter/field nel fail branch, basta key.
+        // Mostra l'errore SOLO dopo il fallimento di tutti i retry (vedi
+        // loadMoreWithRetry). Il fallback button "Riprova" sotto resta
+        // visibile per recovery manuale.
         setError(tErr(res.error));
       }
     });

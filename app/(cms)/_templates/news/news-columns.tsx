@@ -5,7 +5,7 @@
 // niente colonne se la categoria non ha articoli.
 
 import Link from "next/link";
-import type { NewsCardData } from "@/lib/modules/news/queries";
+import type { NewsCardData } from "@/lib/cms/news-feed-queries";
 
 export interface NewsColumnGroup {
   name: string;

@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronLeft,
+  Calendar,
   ChevronRight,
   ExternalLink,
   Eye,
@@ -39,7 +40,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
@@ -64,6 +65,21 @@ interface DeleteTarget {
 type PagesTab = "user" | "system";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+/**
+ * Formatta una Date in stile "21 mag 2026" localizzato. Usato dal badge
+ * inline accanto al titolo del row per dare visibilità immediata della
+ * data di pubblicazione senza dover aprire l'editor.
+ */
+function formatPublishedDate(date: Date | string, locale: string): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const intlLocale = locale === "en" ? "en-US" : "it-IT";
+  return d.toLocaleDateString(intlLocale, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function parseRules(
   raw: string | null | undefined,
 ): Record<string, unknown> {
@@ -383,11 +399,16 @@ function PageRow({
   pageThumbnails: Record<number, PageThumb[]>;
 }) {
   const t = useTranslations("admin.content.pages.manager");
+  const locale = useLocale();
   const adminSlug = useAdminSlug();
   const allChildren = allPages.filter((p) => p.parentId === page.id);
   const hasChildren = allChildren.length > 0;
   const isExpanded = expandedIds.has(page.id);
   const isPublished = page.status === "published";
+  const publishedLabel =
+    isPublished && page.publishedAt
+      ? formatPublishedDate(page.publishedAt, locale)
+      : null;
   const tplName = templates.find((t) => t.id === page.templateId)?.name;
   const isPendingToggle = pendingToggleId === page.id;
   const indent = depth * 20;
@@ -452,7 +473,7 @@ function PageRow({
       <div
         ref={sortable.setNodeRef}
         onClick={() => { if (hasChildren) toggleExpand(page.id); }}
-        className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors group"
+        className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl transition-colors group"
         style={{
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
@@ -469,16 +490,17 @@ function PageRow({
         onMouseLeave={(e) =>
           ((e.currentTarget as HTMLDivElement).style.border = "1px solid var(--admin-card-border)")
         }>
-        {/* Drag handle: durante search/quando è disabilitato il drag,
-            il bottone resta visibile ma inerte. Stoppa la propagazione
-            del click così non triggera il toggleExpand sulla riga. */}
+        {/* Drag handle: nascosto su mobile (drag raro su touch, ruba ~28px
+            di spazio orizzontale prezioso). Su >= sm: durante search/quando
+            il drag è disabilitato, il bottone resta visibile ma inerte.
+            Stop propagation per non triggerare il toggleExpand della riga. */}
         <button
           type="button"
           aria-label={t("dragHandleLabel")}
           {...sortable.attributes}
           {...sortable.listeners}
           onClick={stopRow}
-          className="flex items-center justify-center w-5 h-6 rounded shrink-0 transition-colors"
+          className="hidden sm:flex items-center justify-center w-5 h-6 rounded shrink-0 transition-colors"
           style={{
             color: "var(--admin-text-faint)",
             cursor: "grab",
@@ -494,21 +516,23 @@ function PageRow({
           }}>
           <GripVertical size={14} />
         </button>
-        <span
-          className="flex items-center justify-center w-6 h-6 rounded shrink-0"
-          style={{ color: hasChildren ? "var(--admin-text-muted)" : "transparent" }}>
-          <ChevronRight
-            size={14}
-            style={{
-              transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 160ms ease",
-            }}
-          />
-        </span>
-
+        {/* Chevron + count children unificati in un singolo pill cliccabile.
+            Prima erano due elementi visivi separati (chevron statico +
+            badge "+N" statico) con il click che viveva sull'intera row.
+            Ora il pill è il toggle esplicito, più affordant e ~30px più
+            compatto sull'asse orizzontale (cruciale su mobile). Quando
+            non ci sono figli, lasciamo uno spacer minimo per allineare
+            verticalmente i titoli tra siblings con/senza figli. */}
         {hasChildren ? (
-          <span
-            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand(page.id);
+            }}
+            aria-expanded={isExpanded}
+            aria-label={t("childrenToggleAria", { count: allChildren.length })}
+            className="flex items-center gap-0.5 pl-1 pr-1.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors cursor-pointer"
             style={{
               background: isExpanded
                 ? "color-mix(in srgb, var(--admin-accent) 14%, var(--admin-card-bg))"
@@ -517,13 +541,18 @@ function PageRow({
               border: isExpanded
                 ? "1px solid color-mix(in srgb, var(--admin-accent) 28%, transparent)"
                 : "1px solid color-mix(in srgb, var(--admin-text-faint) 22%, transparent)",
-              minWidth: "28px",
-              justifyContent: "center",
             }}>
-            +{allChildren.length}
-          </span>
+            <ChevronRight
+              size={12}
+              style={{
+                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 160ms ease",
+              }}
+            />
+            {allChildren.length}
+          </button>
         ) : (
-          <span className="w-7 shrink-0" />
+          <span className="w-4 sm:w-7 shrink-0" />
         )}
 
         <span
@@ -555,6 +584,24 @@ function PageRow({
                 {page.title}
               </button>
             </Tooltip>
+
+            {/* Badge data di pubblicazione — inline accanto al titolo.
+                Mostrato solo per pagine published con published_at valorizzato:
+                draft / scheduled non hanno una data utile da esporre qui. */}
+            {publishedLabel && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap"
+                style={{
+                  color: "var(--admin-text-faint)",
+                  background: "var(--admin-hover-bg)",
+                  border: "1px solid var(--admin-card-border)",
+                }}
+                title={t("rowPublishedOnAria", { date: publishedLabel })}
+              >
+                <Calendar size={10} strokeWidth={1.75} />
+                {publishedLabel}
+              </span>
+            )}
 
             {/* Inline + child — solo per pagine non-system. Stop
                 propagation per non triggerare il toggle expand del row. */}

@@ -24,9 +24,9 @@ export function resolveCapacityCurrentTier(
   profile: CapacityProfile,
   settings: Record<string, string | null | undefined>,
 ): ResolvedCapacityTier {
-  for (const preset of profile.presets) {
+  for (const preset of profile.presets ?? []) {
     let match = true;
-    for (const tunable of profile.tunables) {
+    for (const tunable of profile.tunables ?? []) {
       const presetValue = preset.values[tunable.key];
       // Se il preset non dichiara un valore per questo tunable, skip
       // (alcuni preset variano solo alcuni tunables — vedi MEDIA dove

@@ -11,6 +11,42 @@
     "error": "Errore",
     "success": "Successo"
   },
+  "capacity": {
+    "breadcrumb": "Capacity",
+    "title": "Tier e risorse",
+    "subtitle": "Stato corrente per i servizi core e per i moduli installati: limiti, soglie di upgrade e percorso di scaling.",
+    "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — tier dominante: {worst}",
+    "totalMonthlyCost": "Costo dichiarato: ${cost}/mese",
+    "monthlyCostTooltip": "Costo dichiarato del piano. NON include overage runtime — verifica sempre il dashboard del provider.",
+    "empty": "Nessun profilo capacity dichiarato.",
+    "configureButton": "Configura",
+    "upgradeAtLabel": "Soglia upgrade",
+    "upgradePathLabel": "Percorso",
+    "docsLink": "Documentazione provider",
+    "usageNotAvailable": "Uso live non disponibile",
+    "usageErrorPrefix": "Errore probe",
+    "usagePeriod": {
+      "daily": "oggi",
+      "monthly": "questo mese",
+      "concurrent": "concorrente"
+    },
+    "groups": {
+      "core": "Servizi core",
+      "modules": "Moduli installati"
+    },
+    "tier": {
+      "alpha": "alpha",
+      "beta": "beta",
+      "growth": "growth",
+      "scale": "scale"
+    },
+    "tierBreakdown": {
+      "alpha": "{count} in alpha",
+      "beta": "{count} in beta",
+      "growth": "{count} in growth",
+      "scale": "{count} in scale"
+    }
+  },
   "shell": {
     "dashboardTitle": "Pannello Admin",
     "dashboardTitleShort": "Admin",
@@ -2041,6 +2077,8 @@
         "rowPublish": "Pubblica",
         "rowUnpublish": "De-pubblica",
         "rowDelete": "Elimina pagina",
+        "rowPublishedOnAria": "Pubblicata il {date}",
+        "childrenToggleAria": "{count, plural, =1 {1 pagina figlia — clicca per espandere/collassare} other {# pagine figlie — clicca per espandere/collassare}}",
         "statusPublished": "Pubblicata",
         "statusDraft": "Bozza",
         "emptyUserLabel": "Nessuna pagina creata",
@@ -2150,6 +2188,12 @@
         "toolbarQuoteRemove": "Rimuovi citazione",
         "toolbarImage": "Inserisci immagine",
         "toolbarSeparator": "Separatore",
+        "toolbarSource": "Visualizza codice HTML",
+        "sourceDialogTitle": "Codice HTML",
+        "sourceDialogDescription": "Modifica direttamente l'HTML del contenuto. Tag non supportati dall'editor (es. <table>) potrebbero essere droppati al ritorno alla vista rich-text.",
+        "sourceDialogHint": "L'editor mostra solo i tag che capisce: tag o attributi non riconosciuti vengono rimossi al click di \"Applica\". Per testi complessi (cookie policy, privacy, ecc.) preferisci heading + paragrafi + liste rispetto alle tabelle.",
+        "sourceDialogCancel": "Annulla",
+        "sourceDialogApply": "Applica",
         "linkPrompt": "URL del link:",
         "linkDialogInsertTitle": "Inserisci link",
         "linkDialogEditTitle": "Modifica link",
@@ -2780,8 +2824,14 @@
       "pageSubtitle": "Generazione automatica del file sitemap.xml.",
       "pageSubtitleBefore": "Generazione automatica del file",
       "pageSubtitleAfter": ".",
-      "placeholderTitle": "In arrivo",
-      "placeholderBody": "La generazione automatica della sitemap XML verrà implementata in una prossima versione. Potrai configurare le priorità, le frequenze di aggiornamento e le pagine da escludere."
+      "introTitle": "Sitemap pubbliche",
+      "introBody": "La sitemap principale del CMS è generata automaticamente da tutte le pagine pubblicate. I moduli installati possono dichiarare ulteriori sitemap (es. articoli, post, prezzi) che vengono auto-elencate qui sotto e linkate dal robots.txt.",
+      "cardCmsPagesLabel": "Pagine CMS",
+      "cardCountLabel": "URL",
+      "cardLastModifiedLabel": "Ultimo aggiornamento",
+      "cardLastModifiedUnknown": "—",
+      "cardOpenButton": "Apri",
+      "cardStatsError": "Statistiche non disponibili"
     },
     "form": {
       "titleEdit": "Modifica meta SEO",
@@ -3453,6 +3503,30 @@
           "processing": "In corso",
           "ready": "Pronto",
           "failed": "Fallito"
+        }
+      },
+      "capacityOverview": {
+        "title": "Capacity overview",
+        "description": "Tier di scala corrente per i servizi core (Postgres, Upstash, Realtime, R2, ecc.) e per i moduli installati. Indica dove siamo, cosa scalare quando.",
+        "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — dominante: {worst}",
+        "totalMonthlyCost": "Costo dichiarato: ${cost}/mese",
+        "empty": "Nessun profilo capacity dichiarato.",
+        "seeAll": "Vedi tutto",
+        "groups": {
+          "core": "Core",
+          "modules": "Moduli"
+        },
+        "tier": {
+          "alpha": "alpha",
+          "beta": "beta",
+          "growth": "growth",
+          "scale": "scale"
+        },
+        "tierBreakdown": {
+          "alpha": "{count} in alpha",
+          "beta": "{count} in beta",
+          "growth": "{count} in growth",
+          "scale": "{count} in scale"
         }
       },
       "sentryErrors": {

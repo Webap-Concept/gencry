@@ -21,18 +21,33 @@ import type { PostCardData } from "./types";
 /**
  * Tipo discriminato per i diversi feed paginabili da Explore/Home.
  * "discover"/"following" → getFeedIds. "ticker" → getTickerFeedIds.
+ *
+ * `pageSize` opzionale: il client invia 30 dalle pagine 2+ (utente
+ * engaged → meno round-trip), la first page resta 20 (SSR, time-to-first
+ * paint priority). Server-side cap 50 difensivo: niente requests
+ * arbitrariamente grosse da client-tampering.
  */
 export type LoadMoreFeedInput =
   | {
       kind: "tab";
       tab: FeedTab;
       cursor: string | null;
+      pageSize?: number;
     }
   | {
       kind: "ticker";
       ticker: string;
       cursor: string | null;
+      pageSize?: number;
     };
+
+const MAX_PAGE_SIZE = 50;
+
+function clampPageSize(raw: number | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  if (!Number.isFinite(raw) || raw < 1) return undefined;
+  return Math.min(Math.floor(raw), MAX_PAGE_SIZE);
+}
 
 export type LoadMoreFeedResult =
   | {
@@ -49,6 +64,8 @@ export async function loadMoreFeed(
 ): Promise<LoadMoreFeedResult> {
   const user = await getUser();
 
+  const pageSize = clampPageSize(input.pageSize);
+
   if (input.kind === "tab") {
     if (input.tab !== "discover" && input.tab !== "following") {
       return { ok: false, error: "posts.feed.invalid_tab" };
@@ -57,6 +74,7 @@ export async function loadMoreFeed(
       tab: input.tab,
       viewerUserId: user?.id,
       cursor: input.cursor ?? undefined,
+      pageSize,
     });
     const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
     return {
@@ -74,6 +92,7 @@ export async function loadMoreFeed(
     ticker: tickerNorm,
     viewerUserId: user?.id,
     cursor: input.cursor ?? undefined,
+    pageSize,
   });
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
   return {

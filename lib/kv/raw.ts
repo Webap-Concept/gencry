@@ -23,6 +23,7 @@
 import "server-only";
 
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { logRedisCmd, logRedisPipeline } from "./instrumentation";
 
 const REQUEST_TIMEOUT_MS = 2000;
 
@@ -73,6 +74,7 @@ export async function redisCmd<T = unknown>(
   command: (string | number)[],
 ): Promise<T> {
   const { url, token } = await getRedisConfig();
+  const t0 = Date.now();
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -88,6 +90,7 @@ export async function redisCmd<T = unknown>(
   }
   const json = (await res.json()) as { result: T; error?: string };
   if (json.error) throw new Error(`[kv/raw] ${json.error}`);
+  logRedisCmd(command, Date.now() - t0);
   return json.result;
 }
 
@@ -100,6 +103,7 @@ export async function redisPipeline(
   commands: (string | number)[][],
 ): Promise<unknown[]> {
   const { url, token } = await getRedisConfig();
+  const t0 = Date.now();
   const res = await fetch(`${url}/pipeline`, {
     method: "POST",
     headers: {
@@ -114,6 +118,7 @@ export async function redisPipeline(
     throw new Error(`[kv/raw] pipeline HTTP ${res.status}: ${text}`);
   }
   const json = (await res.json()) as { result: unknown; error?: string }[];
+  logRedisPipeline(commands, Date.now() - t0);
   return json.map((r) => r.result);
 }
 

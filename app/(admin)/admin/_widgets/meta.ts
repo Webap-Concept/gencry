@@ -86,6 +86,15 @@ export const DASHBOARD_WIDGETS_META: ReadonlyArray<WidgetMeta> = [
     defaultSize: { w: 6, h: 3 },
   },
   {
+    id: "capacity-overview",
+    titleKey: "widgets.capacityOverview.title",
+    descriptionKey: "widgets.capacityOverview.description",
+    defaultEnabled: true,
+    // Lista di ~10-15 righe (core + moduli) → 4 row di altezza con
+    // scroll interno per future espansioni (più moduli installati).
+    defaultSize: { w: 6, h: 4 },
+  },
+  {
     id: "sentry-errors",
     titleKey: "widgets.sentryErrors.title",
     descriptionKey: "widgets.sentryErrors.description",

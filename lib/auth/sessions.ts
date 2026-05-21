@@ -7,6 +7,7 @@
 // idle timeout senza dover aspettare la scadenza del cookie.
 
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db/drizzle";
 import { sessions } from "@/lib/db/schema";
 import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
@@ -153,8 +154,17 @@ export type ValidatedSession = {
  * Valida una sessione lookup-first cache, fallback DB. Se la sessione è
  * scaduta, idle-timeoutata o revocata ritorna null. Aggiorna `last_seen_at`
  * con throttle (no DB write se entro LAST_SEEN_THROTTLE_MS dall'ultimo).
+ *
+ * Wrapped in `React.cache()`: all'interno della stessa RSC render, chiamate
+ * multiple con lo stesso `sessionId` (proxy + layout + nested layouts +
+ * page + slot paralleli) si deduplicano a UN solo GET su Redis. Senza
+ * questo wrap il feed faceva ~16 GET `session:*` per page-load. Scope è
+ * per-request: zero rischio di leak cross-utente. Edge runtime (proxy.ts)
+ * non beneficia ma non regredisce.
  */
-export async function getValidSession(
+export const getValidSession = cache(_getValidSession);
+
+async function _getValidSession(
   sessionId: string,
 ): Promise<ValidatedSession | null> {
   const cached = await readCache(sessionId);
@@ -354,14 +364,40 @@ export async function listActiveSessions(params: {
 // Cache helpers (Redis Upstash)
 // ---------------------------------------------------------------------------
 
+/**
+ * Cache in-process del readCache. Risolve un pattern visto via
+ * UPSTASH_DEBUG: anche con `React.cache()` su `getValidSession`,
+ * Turbopack dev (e potenzialmente parallel routes / Suspense boundary
+ * in prod) NON dedupa affidabilmente cross-chunk → vedevamo 5 GET
+ * `session:*` per UN page-load admin.
+ *
+ * TTL 5s: copre la finestra "render di una page (≤200ms) + cleanup"
+ * senza rendere stale per la finestra umana. Worst case di propagazione
+ * revoca: 5s (local) + 60s (Redis TTL) = 65s totali, vs 60s di prima.
+ * Trascurabile.
+ *
+ * writeCache + invalidateCache fanno `delete` qui per forzare un
+ * refresh immediato (write-through invalidation).
+ */
+const LOCAL_READ_TTL_MS = 5_000;
+const localReadCache = new Map<
+  string,
+  { value: CachedSession | null; expiry: number }
+>();
+
 async function readCache(sessionId: string): Promise<CachedSession | null> {
+  const now = Date.now();
+  const local = localReadCache.get(sessionId);
+  if (local && now < local.expiry) return local.value;
+
   try {
     const raw = await redisCmd<string | null>([
       "GET",
       CACHE_PREFIX + sessionId,
     ]);
-    if (!raw) return null;
-    return JSON.parse(raw) as CachedSession;
+    const parsed = raw ? (JSON.parse(raw) as CachedSession) : null;
+    localReadCache.set(sessionId, { value: parsed, expiry: now + LOCAL_READ_TTL_MS });
+    return parsed;
   } catch (err) {
     // Redis down → fallback DB. Niente crash.
     console.error("[sessions/cache] readCache failed:", err);
@@ -369,10 +405,32 @@ async function readCache(sessionId: string): Promise<CachedSession | null> {
   }
 }
 
+/**
+ * Throttle in-process del SET. Risolve un pattern visto via UPSTASH_DEBUG:
+ * proxy + layouts + RSC stream chunks chiamavano `maybeTouchLastSeen`
+ * ognuno separatamente generando 4 SET sulla stessa key per UNO solo
+ * page-load. Con questo throttle: 1 SET ogni 30s per sessionId per
+ * processo. In edge runtime ogni invocation è isolata (la Map non
+ * sopravvive cross-cold-start) → degrada al comportamento pre-throttle,
+ * mai peggio. In Node runtime + Vercel warm lambda ~elimina i SET
+ * duplicati. */
+const WRITE_THROTTLE_MS = 30_000;
+const lastWriteAt = new Map<string, number>();
+
 async function writeCache(
   sessionId: string,
   payload: CachedSession,
 ): Promise<void> {
+  const now = Date.now();
+  const last = lastWriteAt.get(sessionId);
+  if (last && now - last < WRITE_THROTTLE_MS) return;
+  lastWriteAt.set(sessionId, now);
+  // Update locale: il prossimo readCache vede subito il nuovo payload
+  // senza fare round-trip Redis. Coerente perché lo abbiamo appena scritto.
+  localReadCache.set(sessionId, {
+    value: payload,
+    expiry: now + LOCAL_READ_TTL_MS,
+  });
   try {
     await redisCmd<string>([
       "SET",
@@ -382,11 +440,16 @@ async function writeCache(
       String(CACHE_TTL_SECONDS),
     ]);
   } catch (err) {
+    // Su errore reset entrambi: il prossimo readCache deve riprovare.
+    lastWriteAt.delete(sessionId);
+    localReadCache.delete(sessionId);
     console.error("[sessions/cache] writeCache failed:", err);
   }
 }
 
 async function invalidateCache(sessionId: string): Promise<void> {
+  lastWriteAt.delete(sessionId);
+  localReadCache.delete(sessionId);
   try {
     await redisCmd<number>(["DEL", CACHE_PREFIX + sessionId]);
   } catch (err) {

@@ -11,6 +11,7 @@ import { db } from "@/lib/db/drizzle";
 import {
   activityLogs,
   gdprExportJobs,
+  notifications,
   oauthAccounts,
   trustedDevices,
   userProfiles,
@@ -22,12 +23,20 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { uploadGdprExport, getGdprExportSignedUrl, deleteGdprExport } from "@/lib/storage/gdpr-exports";
 import { sendGdprExportReadyEmail } from "@/lib/email/templates/gdpr-export-ready";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
+import { MODULE_GDPR_EXPORTS } from "@/lib/modules/gdpr-export-registry";
 
-/** Schema dell'export — bumpare a ogni breaking change del payload. */
-export const GDPR_EXPORT_SCHEMA_VERSION = 1;
+/** Schema dell'export — bumpare a ogni breaking change del payload.
+ *  v1: user/profile/subscription/oauth/devices/consents/activityLogs.
+ *  v2 (mag 2026): aggiunti `notifications` e `modules.<key>` (hook GDPR
+ *  per modulo via MODULE_GDPR_EXPORTS — posts + futuri). */
+export const GDPR_EXPORT_SCHEMA_VERSION = 2;
 
 /** Tetto sui record di activity log inclusi nell'export. */
 const ACTIVITY_LOGS_LIMIT = 5000;
+/** Tetto su notifications incluse. Stesso ordine di grandezza di
+ *  activityLogs: la maggior parte degli utenti ne ha <500, ma utenti
+ *  attivi sui post possono accumulare velocemente. */
+const NOTIFICATIONS_LIMIT = 5000;
 
 /** Giorni di vita del file nel bucket prima del purge. */
 export const GDPR_EXPORT_RETENTION_DAYS = 7;
@@ -119,7 +128,61 @@ export async function collectGdprUserData(userId: string) {
     .orderBy(desc(activityLogs.timestamp))
     .limit(ACTIVITY_LOGS_LIMIT + 1);
 
-  const truncated = logs.length > ACTIVITY_LOGS_LIMIT;
+  const truncatedLogs = logs.length > ACTIVITY_LOGS_LIMIT;
+
+  // Notifications storiche ricevute dall'utente. actorId/postId/commentId
+  // li includiamo as-is: sono riferimenti opachi a contenuti che possono
+  // benissimo essere stati cancellati nel frattempo. Non leakkiamo body
+  // di contenuti di terzi.
+  const notifs = await db
+    .select({
+      id: notifications.id,
+      type: notifications.type,
+      actorId: notifications.actorId,
+      postId: notifications.postId,
+      commentId: notifications.commentId,
+      payload: notifications.payload,
+      readAt: notifications.readAt,
+      createdAt: notifications.createdAt,
+    })
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(NOTIFICATIONS_LIMIT + 1);
+
+  const truncatedNotifs = notifs.length > NOTIFICATIONS_LIMIT;
+
+  // Collector per modulo: ogni modulo installato che ha dichiarato un
+  // ModuleGdprExport contribuisce con la propria sezione sotto
+  // `modules.<key>`. Promise.allSettled: un modulo che fallisce
+  // (es. tabella mancante in env staging) non deve abbattere l'intero
+  // export — la sezione del modulo cade a `null` con un campo `error`.
+  const moduleResults = await Promise.allSettled(
+    MODULE_GDPR_EXPORTS.map(async (mod) => {
+      const loaded = await mod.loadCollector();
+      const data = await loaded.default(userId);
+      return { key: mod.key, data };
+    }),
+  );
+
+  const modules: Record<string, unknown> = {};
+  for (let i = 0; i < moduleResults.length; i++) {
+    const result = moduleResults[i];
+    const meta = MODULE_GDPR_EXPORTS[i];
+    if (result.status === "fulfilled") {
+      modules[result.value.key] = result.value.data;
+    } else {
+      const message =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
+      console.error(
+        `[gdpr-export] module collector "${meta.key}" failed:`,
+        result.reason,
+      );
+      modules[meta.key] = { error: message };
+    }
+  }
 
   // Sanitizza il payload: passwordHash via, oauth tokens via, device_token via.
   const { passwordHash: _ph, ...userPublic } = user;
@@ -148,9 +211,15 @@ export async function collectGdprUserData(userId: string) {
     },
     activityLogs: {
       items: logs.slice(0, ACTIVITY_LOGS_LIMIT),
-      truncated,
+      truncated: truncatedLogs,
       limit: ACTIVITY_LOGS_LIMIT,
     },
+    notifications: {
+      items: notifs.slice(0, NOTIFICATIONS_LIMIT),
+      truncated: truncatedNotifs,
+      limit: NOTIFICATIONS_LIMIT,
+    },
+    modules,
   };
 }
 

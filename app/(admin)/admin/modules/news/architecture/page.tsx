@@ -26,7 +26,7 @@ export default function NewsArchitecturePage() {
       <Section title="Pipeline overview">
         <p>
           The module turns English RSS/Atom feeds into Italian articles published as CMS pages
-          (<code>page_type=&quot;news&quot;</code>). Three crons drive the pipeline:
+          (<code>template=&quot;news&quot;</code>). Three crons drive the pipeline:
         </p>
         <ol className="list-decimal list-inside space-y-1.5 mt-2">
           <li>
@@ -79,7 +79,7 @@ pending_rewrite ──(max attempts / permanent error)─► failed
       <Section title="CMS bridge">
         <p>
           On publish the module writes a row in <code>pages</code> with{" "}
-          <code>page_type=&apos;news&apos;</code>, slug pattern{" "}
+          <code>template=&apos;news&apos;</code>, slug pattern{" "}
           <code>news/&lt;yyyy-mm-dd&gt;-&lt;title-slug&gt;</code>, custom fields encoded as JSON
           (<code>hero_image</code> = media_asset_id, <code>excerpt</code> = string). The template
           id is looked up from <code>page_templates.slug = &apos;news&apos;</code> (seeded by{" "}

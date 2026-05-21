@@ -63,6 +63,7 @@ import {
   addUsernameToBloom,
   checkUsernameAvailability,
   ensureBloomFilter,
+  invalidateBloomCheckCache,
   invalidateRedisConfigCache,
 } from "@/lib/bloom/bloom-filter";
 
@@ -74,6 +75,7 @@ describe("Bloom Filter — Username", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     invalidateRedisConfigCache();
+    invalidateBloomCheckCache();
     process.env.UPSTASH_REDIS_REST_URL   = "https://fake.upstash.io";
     process.env.UPSTASH_REDIS_REST_TOKEN = "fake-token";
   });

@@ -58,7 +58,7 @@ export function CapacityProfileHeader({
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {profile.presets.map((p) => (
+        {(profile.presets ?? []).map((p) => (
           <AdminButton
             key={p.id}
             type="button"

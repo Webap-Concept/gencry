@@ -5,7 +5,7 @@
 // aggiornamento) sono V1 hardcoded — diventeranno widget admin futuri.
 
 import Link from "next/link";
-import type { NewsCardData } from "@/lib/modules/news/queries";
+import type { NewsCardData } from "@/lib/cms/news-feed-queries";
 
 const HERO_TITLE = (
   <>

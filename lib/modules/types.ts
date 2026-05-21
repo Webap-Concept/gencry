@@ -44,6 +44,58 @@ export interface ModulePermission {
   description?: string;
 }
 
+/**
+ * GDPR data export hook esposto dal modulo. Il core export
+ * (`lib/account/gdpr-export.ts`) raccoglie i dati base dell'utente +
+ * itera questo registry per chiedere ad ogni modulo "dammi i dati di
+ * questo userId che sono di tua competenza".
+ *
+ * Il default export del modulo dinamico è una function async
+ * `(userId) => Promise<unknown>` che ritorna l'oggetto serializzabile.
+ * Il payload risultante finisce sotto `modules.<key>` del JSON
+ * dell'export (vedi GDPR_EXPORT_SCHEMA_VERSION).
+ *
+ * Convenzioni operative:
+ *   - INCLUDE solo dati DELL'UTENTE (suoi post, suoi commenti, sue
+ *     reactions). Mai body di contenuti di terzi (es. body di un post
+ *     altrui che l'utente ha bookmarkato → solo postId + timestamp).
+ *   - Truncation cap consigliato (10k entries) con flag `truncated`.
+ *   - Niente segreti (token, hash). Niente dati di altri utenti che
+ *     potrebbero violare la loro privacy.
+ */
+export interface ModuleGdprExport {
+  /** Slug dello modulo nel payload finale, es. "posts" → modules.posts. */
+  key: string;
+  /** Lazy import di `() => default(userId)`. Server-only. */
+  loadCollector: () => Promise<{
+    default: (userId: string) => Promise<unknown>;
+  }>;
+}
+
+/**
+ * Sitemap pubblica esposta dal modulo. Solo metadata declarativo: il file
+ * fisico app/<...>/sitemap.ts continua a vivere nel modulo, il manifest
+ * lo "annuncia" al core CMS (per la dashboard admin /admin/seo/sitemap
+ * e per le righe `Sitemap:` del robots.txt).
+ */
+export interface ModuleSitemap {
+  /** Path pubblico, root-relative, della sitemap. Es. "/coins/sitemap.xml". */
+  url: string;
+  /** Label visibile nella dashboard admin. Es. "Coin pages". */
+  label: string;
+  /** Lazy import di una function async che ritorna { count, lastModified }
+   *  per la card admin. Eseguita SOLO quando l'admin apre la pagina
+   *  sitemap (mai al boot del registry). Safe-to-fail: se errore o
+   *  assente, la card mostra solo URL + bottone "Apri".
+   *
+   *  Convenzione: il default export del modulo dinamico (es.
+   *  `./sitemap-stats.ts`) è la function stessa, così l'import è
+   *  un tree-shakable side-effect-free chunk. */
+  loadStats?: () => Promise<{
+    default: () => Promise<{ count: number; lastModified: Date | null }>;
+  }>;
+}
+
 export interface ModuleManifest {
   /** Identificativo univoco del modulo (slug url-safe) */
   slug: string;
@@ -99,6 +151,54 @@ export interface CapacityResource {
   upgradePath: string;
   /** Link doc del provider per quick reference. */
   docsUrl?: string;
+  /** Costo mensile dichiarato del piano corrente (USD). Aggiornato a mano
+   *  quando si fa upgrade reale del piano. Sommato dalla dashboard
+   *  capacity per il totale "stai spendendo $X/mo in capacity". 0 = free.
+   *  Note: NON include overage runtime (es. comandi Upstash sopra il free
+   *  tier). Per costi accurati, fare cross-check col dashboard del provider. */
+  monthlyCost?: number;
+  /** Lazy import server-only di una probe live che legge l'usage corrente
+   *  dall'API del provider. Eseguita solo quando l'admin apre la pagina
+   *  capacity (mai al boot). Safe-to-fail: ritornare `{ error }` se token
+   *  mancante o API down — la card mostra solo i dati dichiarati.
+   *
+   *  Return può essere:
+   *    - singolo `CapacityUsageProbe` (1 metrica, es. Sentry "errori mese")
+   *    - array di `CapacityUsageProbe` (più metriche per la stessa
+   *      risorsa, es. Upstash "commands mese" + "commands oggi")
+   *    - `{ error }` se la chiamata fallisce — il renderer mostra
+   *      messaggio "non disponibile" + codice nel tooltip.
+   *
+   *  Convenzione: `default` export = function async. */
+  loadUsage?: () => Promise<{
+    default: () => Promise<
+      CapacityUsageProbe | CapacityUsageProbe[] | { error: string }
+    >;
+  }>;
+}
+
+/**
+ * Snapshot di uso live di una risorsa esterna, restituito dai probe
+ * (`CapacityResource.loadUsage`). Mostra "siamo a 1.2 GB / 8 GB" o
+ * "45k / 100k commands oggi".
+ */
+export interface CapacityUsageProbe {
+  /** Valore corrente misurato. */
+  current: number;
+  /** Limite del tier (es. 500_000 per Upstash Free commands/mese).
+   *  Null quando la metrica non ha un cap dichiarato (es. "commands
+   *  oggi" — Upstash non fissa una quota giornaliera nel free 2026,
+   *  ma vogliamo comunque vedere il numero). Renderer skip la barra
+   *  + percentuale quando null. */
+  max: number | null;
+  /** Unità i18n-friendly: "commands", "GB", "invocations", ecc. */
+  unit: string;
+  /** 0..1 — percentuale di utilizzo. Renderer la ignora se `max` è null. */
+  percent: number;
+  /** Periodo di misura ("daily" | "monthly" | "concurrent"). i18n key. */
+  period: string;
+  /** Quando il dato è stato letto dalla provider API. */
+  measuredAt: Date;
 }
 
 export interface CapacityTunable {
@@ -128,6 +228,12 @@ export interface CapacityProfile {
   /** Tier corrente in cui il modulo opera. Mostrato come badge. */
   currentTier: CapacityTier;
   resources: CapacityResource[];
-  tunables: CapacityTunable[];
-  presets: CapacityPreset[];
+  /** Tunables/presets opzionali. I profili core dei servizi di sistema
+   *  (vedi `lib/admin/capacity/core-profiles.ts`) non hanno preset per-
+   *  scope perché i parametri di sistema (es. pool DB, statement timeout)
+   *  non sono "preset di feature" — sono settings globali. Il dashboard
+   *  widget gestisce graceful l'assenza. I moduli applicativi (posts,
+   *  news, ecc.) DEVONO continuare a dichiararli per il form preset. */
+  tunables?: CapacityTunable[];
+  presets?: CapacityPreset[];
 }

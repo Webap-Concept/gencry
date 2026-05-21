@@ -21,6 +21,25 @@ import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Sync l'indice mention Upstash dopo un cambio di stato users
+ * (bannedAt/deletedAt). syncMentionMember verifica internamente lo stato
+ * corrente: utente valido → re-add, deletato/bannato → remove. Best-effort:
+ * errore loggato ma non blocca l'action (un Upstash down non deve impedire
+ * a un admin di bannare un utente). Import dinamico per non accoppiare il
+ * core admin al modulo posts.
+ */
+async function syncMentionIndexFor(userId: string): Promise<void> {
+  try {
+    const { syncMentionMember } = await import(
+      "@/lib/modules/posts/services/mention-index"
+    );
+    await syncMentionMember(userId);
+  } catch (err) {
+    console.error("[admin/users] mention-index sync failed:", err);
+  }
+}
+
 export async function banUser(userId: string, reason?: string) {
   await requireAdmin();
   const t = await getTranslations("admin.access.users.actionErrors");
@@ -47,6 +66,7 @@ export async function banUser(userId: string, reason?: string) {
       updatedAt: new Date(),
     })
     .where(eq(users.id, userId));
+  await syncMentionIndexFor(userId);
   revalidatePath(await getAdminPath("users-list"));
 }
 
@@ -68,6 +88,7 @@ export async function unbanUser(userId: string) {
     .update(users)
     .set({ bannedAt: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
+  await syncMentionIndexFor(userId);
   revalidatePath(await getAdminPath("users-list"));
 }
 
@@ -103,6 +124,8 @@ export async function deleteUser(userId: string) {
     .update(users)
     .set({ deletedAt, updatedAt: deletedAt })
     .where(eq(users.id, userId));
+
+  await syncMentionIndexFor(userId);
 
   await db.insert(activityLogs).values({
     userId: adminUser.id,
@@ -156,6 +179,8 @@ export async function cancelUserDeletion(userId: string) {
     .update(users)
     .set({ deletedAt: null, updatedAt: now })
     .where(eq(users.id, userId));
+
+  await syncMentionIndexFor(userId);
 
   await db.insert(activityLogs).values({
     userId: adminUser.id,

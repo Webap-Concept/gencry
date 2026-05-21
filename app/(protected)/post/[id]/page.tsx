@@ -21,7 +21,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/db/queries";
-import { getPostBySlug } from "@/lib/modules/posts/queries";
+import { getCachedPostBySlugForMetadata } from "@/lib/modules/posts/queries";
 import { getPostPageData } from "@/lib/modules/posts/post-page-data";
 import { generatePageMetadata } from "@/lib/seo";
 import { PostCard } from "@/components/modules/posts/PostCard";
@@ -49,15 +49,15 @@ function postAuthorLabel(author: {
 }
 
 /**
- * Metadata SEO + share social. Chiama solo `getPostBySlug` (più leggero
- * di `getPostPageData`) — qui servono author/body/visibility/media,
- * non comments/coinNameMap/tickerPreview. Cache fan-in implicita: la
- * page chiama `getPostPageData` che a sua volta chiama `getPostBySlug`,
- * Next dedupli per request.
+ * Metadata SEO + share social. Chiama il wrapper cached
+ * `getCachedPostBySlugForMetadata` (5min TTL + tag `post:{id}`),
+ * non `getPostBySlug` raw: il path generateMetadata è il più caldo
+ * (ogni preview link / crawler / bot hit lo invoca) ed era 1 query DB
+ * per ogni hit.
  *
- * Post non pubblici → `robots: { index: false, follow: false }` per
- * impedire indicizzazione di contenuti gated. Sitemap è
- * complementare (lista solo public).
+ * Post non pubblici → wrapper ritorna null (gate visibility con
+ * viewerUserId undefined) → metadata fallback `Post` + noindex.
+ * Niente leakage di body/author di post private/followers.
  */
 export async function generateMetadata({
   params,
@@ -66,9 +66,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   // Viewer anonimo: i bot non sono loggati, quindi solo i post public
-  // hanno dati. Per altri, getPostBySlug ritorna null → metadata
-  // generica + noindex.
-  const post = await getPostBySlug(id);
+  // hanno dati. Per altri, il wrapper cached ritorna null → metadata
+  // generica + noindex. Cache 5min + tag `post:{id}` invalidato dalle
+  // 3 Server Action che cambiano body/author/visibility/media
+  // (editPost, softDeletePost, restorePost). Hot path: ogni preview
+  // link social, ogni crawler bot, ogni share — skip query DB.
+  const post = await getCachedPostBySlugForMetadata(id);
   const pathname = `/post/${id}`;
 
   if (!post) {

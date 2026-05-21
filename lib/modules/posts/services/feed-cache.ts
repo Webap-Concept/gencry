@@ -49,6 +49,66 @@ const TTL_SECONDS = 60;
  *  Upstash — bilancia roundtrip vs memoria server-side. */
 const SCAN_BATCH = 100;
 
+// ─── In-process feed cache ────────────────────────────────────────────────
+//
+// Dedupa i fan-out di getCachedFeedIds dentro lo stesso lambda warm. In
+// Next dev/prod, una page-load del feed può triggerare 2-5 GET sulla
+// stessa key (proxy + layout + parallel @modal slot + prefetch su hover
+// di link interno). TTL 3s = invisibile in UX, copre la finestra del
+// render + i prefetch immediati. Invalidazione: clear per glob pattern
+// dentro `invalidateFeedCache` (write-through lambda-local).
+//
+// Cap a 200 entries per evitare memory leak su warm lambda long-running.
+// Quando pieno, scarta le entry expired prima; se ancora pieno, scarta
+// la più vecchia (FIFO sull'ordine d'inserimento Map).
+//
+// Vedi feedback_redis_consumer_optimization_pattern.md.
+const LOCAL_TTL_MS = 3_000;
+const LOCAL_CAP = 200;
+const localFeedCache = new Map<
+  string,
+  { value: PostListPage; expiry: number }
+>();
+
+function localGet(k: string): PostListPage | null {
+  const now = Date.now();
+  const hit = localFeedCache.get(k);
+  if (!hit) return null;
+  if (now >= hit.expiry) {
+    localFeedCache.delete(k);
+    return null;
+  }
+  return hit.value;
+}
+
+function localSet(k: string, value: PostListPage): void {
+  if (localFeedCache.size >= LOCAL_CAP) {
+    // Sweep expired entries prima di scartare per FIFO.
+    const now = Date.now();
+    for (const [key, entry] of localFeedCache) {
+      if (now >= entry.expiry) localFeedCache.delete(key);
+    }
+    if (localFeedCache.size >= LOCAL_CAP) {
+      const firstKey = localFeedCache.keys().next().value;
+      if (firstKey) localFeedCache.delete(firstKey);
+    }
+  }
+  localFeedCache.set(k, { value, expiry: Date.now() + LOCAL_TTL_MS });
+}
+
+/** Convert un glob Upstash-pattern (`*`) in regex JS per il match locale. */
+function globToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
+}
+
+function localInvalidatePattern(pattern: string): void {
+  const re = globToRegex(pattern);
+  for (const k of localFeedCache.keys()) {
+    if (re.test(k)) localFeedCache.delete(k);
+  }
+}
+
 function namespacedKey(key: string): string {
   // Il caller passa già una key strutturata tipo "discover:anon:0:20".
   // Aggiungiamo solo il prefix per evitare collisioni con altri moduli.
@@ -68,13 +128,21 @@ export async function getCachedFeedIds(
   key: string,
   fallback: () => Promise<PostListPage>,
 ): Promise<PostListPage> {
+  const k = namespacedKey(key);
+
+  // L1: in-process cache (TTL 3s). Hit = 0 Redis cmd. Vedi commento al top.
+  const local = localGet(k);
+  if (local) return local;
+
   const client = await getRedisClient();
   if (!client) return fallback();
 
-  const k = namespacedKey(key);
   try {
     const hit = await client.get<PostListPage>(k);
-    if (hit && Array.isArray(hit.ids)) return hit;
+    if (hit && Array.isArray(hit.ids)) {
+      localSet(k, hit);
+      return hit;
+    }
   } catch (err) {
     // KV down / corrotto / mismatch shape → fallback senza pollute il log
     // con stack — è informativo, non un errore applicativo.
@@ -88,6 +156,7 @@ export async function getCachedFeedIds(
   } catch (err) {
     console.warn("[feed-cache] write failed", { key: k, err: String(err) });
   }
+  localSet(k, fresh);
   return fresh;
 }
 
@@ -97,11 +166,16 @@ export async function getCachedFeedIds(
  * implementati ('followersOf') è un no-op silenzioso.
  */
 export async function invalidateFeedCache(scope: FeedCacheScope): Promise<void> {
-  const client = await getRedisClient();
-  if (!client) return;
-
   const patterns = scopeToPatterns(scope);
   if (patterns.length === 0) return;
+
+  // L1 invalidation: clear le matching key dalla local cache PRIMA del
+  // round-trip Redis. Lambda-local (non broadcast cross-lambda) ma sul
+  // lambda che ha appena scritto è quello che serve di più.
+  for (const pattern of patterns) localInvalidatePattern(pattern);
+
+  const client = await getRedisClient();
+  if (!client) return;
 
   for (const pattern of patterns) {
     try {

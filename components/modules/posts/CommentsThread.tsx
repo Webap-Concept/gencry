@@ -19,7 +19,7 @@
 //   - getInitialRepliesForRoots batched (window function) — no N+1
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Lock } from "lucide-react";
 import {
   createComment as createCommentAction,
   editComment as editCommentAction,
@@ -82,6 +82,11 @@ export type CommentsThreadProps = {
   initialData?: CommentsThreadInitialData | null;
   /** Mappa name → SYMBOL per inline match coin names nel body. */
   coinNameMap?: Record<string, string>;
+  /** Quando TRUE, il composer (root + reply) è nascosto e mostriamo un
+   *  banner "commenti disabilitati dall'autore". La lista di eventuali
+   *  commenti pre-esistenti resta read-only. Vedi
+   *  M_posts_012_comments_disabled.sql + guard server-side in createComment. */
+  commentsDisabled?: boolean;
 };
 
 export function CommentsThread({
@@ -97,6 +102,7 @@ export function CommentsThread({
   editWindowMs,
   initialData,
   coinNameMap,
+  commentsDisabled = false,
 }: CommentsThreadProps) {
   const t = useTranslations("posts.comments");
   const postIsPublic = postVisibility === "public";
@@ -476,12 +482,26 @@ export function CommentsThread({
     );
   }
 
-  const composerEnabled = Boolean(viewerUserId);
+  const composerEnabled = Boolean(viewerUserId) && !commentsDisabled;
 
   return (
     <div className="mt-3 space-y-3">
       {/* Banner realtime "X nuovi commenti" — non-disruptive */}
       <CommentsBanner count={signal.newCount} onClick={handleBannerClick} />
+
+      {/* Banner "commenti disabilitati dall'autore" — sostituisce visivamente
+          il composer quando il post ha commentsDisabled=TRUE. La lista di
+          commenti pre-esistenti (improbabile in V1, ma futura: edit
+          post-publish) resta read-only sotto. */}
+      {commentsDisabled ? (
+        <div
+          className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm text-gc-fg-muted bg-gc-bg-3/40 border border-gc-line/40"
+          role="status"
+        >
+          <Lock size={14} strokeWidth={1.75} aria-hidden />
+          <span>{t("disabled_by_author")}</span>
+        </div>
+      ) : null}
 
       {/* Composer root (sempre in cima per dare visibilità all'azione) */}
       {composerEnabled && !replyingTo ? (
@@ -491,9 +511,12 @@ export function CommentsThread({
         />
       ) : null}
 
-      {/* Lista root + reply */}
+      {/* Lista root + reply. Quando commentsDisabled=TRUE il banner sopra
+          già spiega lo stato → non duplichiamo con il placeholder "empty". */}
       {root.length === 0 ? (
-        <p className="py-4 text-center text-sm text-gc-fg-muted">{t("empty")}</p>
+        commentsDisabled ? null : (
+          <p className="py-4 text-center text-sm text-gc-fg-muted">{t("empty")}</p>
+        )
       ) : (
         <ul className="space-y-4 list-none">
           {root.map((c) => {

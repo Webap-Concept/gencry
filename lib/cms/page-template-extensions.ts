@@ -60,13 +60,8 @@ export interface SlugResolverSpec {
 
 export interface PageTemplateExtension {
   /** Discriminator: `page_templates.slug` su cui l'extension si applica.
-   *  Es. "news" per il modulo News article. Stable across rename del
-   *  pageType (una page può cambiare type, il template slug no). */
+   *  Es. "news" per il modulo News article. */
   templateSlug: string;
-  /** Page type da applicare automaticamente quando questo template è
-   *  selezionato dall'editor (es. "news"). Senza, il pageType resta
-   *  quello del page corrente. */
-  pageType?: string;
   fields: ExtensionField[];
   slugResolver?: SlugResolverSpec;
 }

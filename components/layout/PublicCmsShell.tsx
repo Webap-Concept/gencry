@@ -32,7 +32,7 @@ import {
   isNewsPathname,
 } from "@/lib/db/pages-queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
-import { getCachedActiveNewsCategories } from "@/lib/modules/news/queries";
+import { getCachedActiveNewsCategories } from "@/lib/cms/news-feed-queries";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 

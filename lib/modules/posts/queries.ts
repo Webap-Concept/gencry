@@ -5,17 +5,21 @@
 // keyset su (created_at, id) — niente OFFSET, scala lineare con N posts.
 //
 // Layer di caching (hookable):
-//   - getCachedFeedIds(key, fallback)  → KV `feed:{key}` TTL ~60s in V2
-//   - getCachedPosts(ids,  fallback)   → KV `post:{id}` TTL ~5min in V2
-// In V1 entrambi sono pass-through (vedi services/{feed,post}-cache.ts).
-// Tutte le query feed-ids passano da getCachedFeedIds così quando KV
-// arriva non dobbiamo cercare i call site.
+//   - getCachedFeedIds(key, fallback)  → ✅ V2 Upstash KV TTL 60s
+//                                        (services/feed-cache.ts, dal 17/05/26)
+//   - getCachedPosts(ids,  fallback)   → ❌ V1 pass-through (services/post-cache.ts).
+//                                        V2 KV `post:{id}` TTL 5min in roadmap
+//                                        ma non urgente: il bottleneck era il
+//                                        feed-ids, non l'hydration single.
+// Tutte le query feed-ids passano da getCachedFeedIds; nessun call site da
+// cercare quando upgraderemo la post hydration cache.
 //
 // Visibility enforcement: gestita SQL-side. Le query NON ritornano post
 // che il viewer non ha diritto di vedere — il filtraggio successivo in
 // UI è una difesa in profondità, non la fonte di verità.
 import { and, asc, desc, eq, gt, inArray, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db/drizzle";
 import {
   POST_REACTION_KINDS,
@@ -381,6 +385,7 @@ type RawPostRow = {
   reactionsToTheMoon: number;
   reactionsDump: number;
   commentsCount: number;
+  commentsDisabled: boolean;
   repostsCount: number;
   bookmarksCount: number;
   authorUsername: string | null;
@@ -430,6 +435,7 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
     editedAt: row.editedAt,
     createdAt: row.createdAt,
     counts,
+    commentsDisabled: row.commentsDisabled,
   };
 }
 
@@ -478,6 +484,7 @@ async function selectPostsCore(
       reactionsToTheMoon: posts.reactionsToTheMoon,
       reactionsDump:      posts.reactionsDump,
       commentsCount: posts.commentsCount,
+      commentsDisabled: posts.commentsDisabled,
       repostsCount: posts.repostsCount,
       bookmarksCount: posts.bookmarksCount,
       authorUsername: userProfiles.username,
@@ -720,6 +727,7 @@ export async function getPostsByIds(
         viewer: opts.viewerUserId
           ? viewerMap.get(row.id) ?? { ownReactions: [], bookmarked: false }
           : null,
+        commentsDisabled: coreCard.commentsDisabled,
       };
       if (row.repostOfId) {
         const target = targetCoreById.get(row.repostOfId);
@@ -740,6 +748,7 @@ export async function getPostsByIds(
             viewer: opts.viewerUserId
               ? viewerMap.get(target.id) ?? { ownReactions: [], bookmarked: false }
               : null,
+            commentsDisabled: targetCore.commentsDisabled,
           };
         } else {
           // Distinguo 'deleted' vs 'not_visible' usando la query light
@@ -829,6 +838,46 @@ export async function getPostBySlug(
 
   const [card] = await getPostsByIds([postId], opts);
   return card ?? null;
+}
+
+/**
+ * Wrapper cache-friendly di `getPostBySlug` USATO SOLO da `generateMetadata`
+ * della post page (SEO + OG/Twitter card).
+ *
+ * Sicurezza: chiamato SENZA viewerUserId → la visibility-gate interna nega
+ * private/followers (ritorna null) e la metadata cade sul fallback
+ * "Post" + noindex. Per i post public, la PostCardData ritornata è
+ * deterministicamente identica per chiunque (no viewer state nel render
+ * di OG image/title/description) → cacheable globalmente.
+ *
+ * Cache: 5 min + tag `post:{id}`. Invalidato dalle 3 Server Action che
+ * cambiano body/author/visibility/media:
+ *   - editPost, softDeletePost, restorePost
+ * Le mutation viewer-specific (toggleReaction/bookmark) NON invalidano —
+ * non cambiano i campi usati dal metadata.
+ *
+ * Hot path: ogni share Slack/Twitter, ogni crawler GoogleBot/Bingbot,
+ * ogni hit di preview link. Prima: 1 query DB ad ogni hit. Ora: 1 query
+ * ogni 5min per post hot, fan-out su crawler bot innocuo.
+ */
+export async function getCachedPostBySlugForMetadata(
+  postId: string,
+): Promise<PostCardData | null> {
+  if (!UUID_REGEX.test(postId)) return null;
+  const cached = unstable_cache(
+    () => getPostBySlug(postId),
+    ["post-metadata", postId],
+    { revalidate: 300, tags: [`post:${postId}`] },
+  );
+  try {
+    return await cached();
+  } catch (err) {
+    console.warn(
+      `[getCachedPostBySlugForMetadata] cache failed for ${postId}, falling back to fresh`,
+      err,
+    );
+    return await getPostBySlug(postId);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

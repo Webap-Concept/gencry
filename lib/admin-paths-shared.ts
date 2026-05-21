@@ -18,10 +18,14 @@ export const DEFAULT_ADMIN_URL_SLUG = "admin";
  * controlla anche contro la tabella `pages` (server-side) per evitare
  * collisioni dinamiche con CMS pages create dall'admin.
  *
- * NB: post refactor news-categories-as-cms-pages (mag 2026), i prefix
- * delle categorie news vivono SOTTO `news/...` (es. `news/bitcoin`) e
- * non occupano più i segmenti top-level. Basta riservare `news` come
- * top-level — l'UNIQUE su `pages.slug` protegge i sub-segmenti.
+ * NB: "news" NON è in lista (post refactor news-categories-as-cms-pages,
+ * mag 2026): la page `/news` è ora una normal CMS page, gli articoli
+ * sono sue figlie legittime (`news/bitcoin/...`). Aggiungerla qui
+ * bloccherebbe la creazione di pages nested in `validateCmsSlug` che usa
+ * la stessa lista per il check first-segment. La protezione contro
+ * "admin URL slug = news" è garantita dal check separato di collisione
+ * con `pages.slug` (server-side), eseguito comunque per ogni candidato
+ * admin URL slug.
  */
 export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   // Next internals
@@ -45,7 +49,6 @@ export const ADMIN_RESERVED_SLUGS: readonly string[] = [
   "coins",
   "libreria",
   "feed",
-  "news",
   // Static files served as routes
   "humans.txt",
   "robots.txt",

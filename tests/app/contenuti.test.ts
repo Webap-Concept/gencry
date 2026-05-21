@@ -26,7 +26,6 @@ const schema = z.object({
   parentId: z.string().optional(),
   templateId: z.string().optional(),
   customFields: z.string().optional(),
-  pageType: z.string().optional(),
   sortOrder: z.string().optional(),
 });
 
