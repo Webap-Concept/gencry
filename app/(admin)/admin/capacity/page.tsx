@@ -2,6 +2,14 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { ExternalLink, Gauge, Settings2 } from "lucide-react";
 
+// Force dynamic: la page legge `app_settings` (con cache snapshot R2
+// cross-request) + chiama probes live verso API esterne (Sentry/Upstash).
+// Cacchearla a livello RSC porterebbe a `{ error: missing_token }`
+// congelato anche dopo che l'admin ha aggiornato le credenziali e
+// re-sync-ato lo snapshot. Le probe stesse hanno cache TTL 5min lato
+// fetch → niente perdita di perf reale.
+export const dynamic = "force-dynamic";
+
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
 import {
   getCapacityOverview,
