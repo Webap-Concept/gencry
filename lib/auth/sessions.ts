@@ -7,6 +7,7 @@
 // idle timeout senza dover aspettare la scadenza del cookie.
 
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db/drizzle";
 import { sessions } from "@/lib/db/schema";
 import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
@@ -153,8 +154,17 @@ export type ValidatedSession = {
  * Valida una sessione lookup-first cache, fallback DB. Se la sessione è
  * scaduta, idle-timeoutata o revocata ritorna null. Aggiorna `last_seen_at`
  * con throttle (no DB write se entro LAST_SEEN_THROTTLE_MS dall'ultimo).
+ *
+ * Wrapped in `React.cache()`: all'interno della stessa RSC render, chiamate
+ * multiple con lo stesso `sessionId` (proxy + layout + nested layouts +
+ * page + slot paralleli) si deduplicano a UN solo GET su Redis. Senza
+ * questo wrap il feed faceva ~16 GET `session:*` per page-load. Scope è
+ * per-request: zero rischio di leak cross-utente. Edge runtime (proxy.ts)
+ * non beneficia ma non regredisce.
  */
-export async function getValidSession(
+export const getValidSession = cache(_getValidSession);
+
+async function _getValidSession(
   sessionId: string,
 ): Promise<ValidatedSession | null> {
   const cached = await readCache(sessionId);
