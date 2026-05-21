@@ -4,12 +4,14 @@
 // database via Upstash Management API (`/v2/redis/database/{id}`).
 //
 // Setup richiesto (NON automatico):
-//   - Generare un Management API token sul dashboard Upstash:
-//     Account → Management API → Create API key
-//   - Salvarlo in `app_settings` come:
-//       - `upstash_management_api_key`   (string)
+//   - Generare un Management API key sul dashboard Upstash:
+//     Account → Management API → Create API key (Read-Only consigliato)
+//   - Salvarla in `app_settings` come:
+//       - `upstash_management_email`       (email account Upstash)
+//       - `upstash_management_api_key`     (api key)
 //       - `upstash_management_database_id` (uuid del database)
-//   Senza queste 2 settings → la probe ritorna { error: "missing_token" }
+//   Auth = Basic email:api_key (formato Upstash standard, NON Bearer).
+//   Senza queste 3 settings → la probe ritorna { error: "missing_token" }
 //   e la card capacity mostra solo i dati dichiarati. Nessun crash.
 //
 // Quota Free = 10k commands/giorno → il numero ritornato è "today's
@@ -32,6 +34,9 @@ export default async function probeUpstashUsage(): Promise<
   CapacityUsageProbe | { error: string }
 > {
   const settings = await getAppSettings();
+  const email = (settings as Record<string, string | null>)[
+    "upstash_management_email"
+  ]?.trim();
   const apiKey = (settings as Record<string, string | null>)[
     "upstash_management_api_key"
   ]?.trim();
@@ -39,7 +44,7 @@ export default async function probeUpstashUsage(): Promise<
     "upstash_management_database_id"
   ]?.trim();
 
-  if (!apiKey || !databaseId) {
+  if (!email || !apiKey || !databaseId) {
     // Diagnostic temporaneo: dump delle chiavi upstash_* viste dal layer
     // settings (snapshot R2 o DB). Utile per discriminare:
     //   - "(none)" → snapshot/DB completamente vuoto (sync fallito).
@@ -61,15 +66,17 @@ export default async function probeUpstashUsage(): Promise<
     return { error: "missing_token" };
   }
 
-  // Upstash management auth = Basic con email:apiKey. Alcuni token
-  // accettano Bearer; fallback a Basic se il primo dà 401. Per ora
-  // usiamo Bearer (formato standard dei nuovi management token).
+  // Upstash management auth = Basic con email:apiKey (formato standard
+  // documentato in upstash.com/docs/devops/developer-api). NON Bearer:
+  // Bearer dà 401 unauthorized, è quello che ci ha bruciato la prima volta.
+  const basicAuth =
+    "Basic " + Buffer.from(`${email}:${apiKey}`).toString("base64");
   try {
     const res = await fetch(
       `https://api.upstash.com/v2/redis/database/${encodeURIComponent(databaseId)}`,
       {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: basicAuth,
           Accept: "application/json",
         },
         next: { revalidate: 300 },

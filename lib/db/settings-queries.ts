@@ -126,6 +126,8 @@ export type SettingKey =
   // Upstash management API (per dashboard capacity probe — lettura
   // usage daily commands. Read-only token, vedi
   // lib/admin/capacity/probes/upstash.ts).
+  // Auth = Basic con email + api_key, formato Upstash standard.
+  | 'upstash_management_email'
   | 'upstash_management_api_key'
   | 'upstash_management_database_id'
   // Google OAuth
@@ -422,6 +424,7 @@ export type AppSettings = {
   upstash_redis_rest_url: string | null
   upstash_redis_rest_token: string | null
   // Upstash management API
+  upstash_management_email: string | null
   upstash_management_api_key: string | null
   upstash_management_database_id: string | null
   // Google OAuth
@@ -657,6 +660,7 @@ const DEFAULTS: AppSettings = {
   bf_alert_threshold: '20',
   upstash_redis_rest_url: null,
   upstash_redis_rest_token: null,
+  upstash_management_email: null,
   upstash_management_api_key: null,
   upstash_management_database_id: null,
   google_client_id: null,
