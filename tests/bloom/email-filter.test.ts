@@ -60,6 +60,7 @@ import {
     addEmailsBulkToBloom,
     checkEmailAvailability,
     ensureBloomFilter,
+    invalidateBloomCheckCache,
     invalidateRedisConfigCache,
 } from "@/lib/bloom/bloom-filter";
 
@@ -75,6 +76,7 @@ describe("Bloom Filter — Email", () => {
     // from the previous test and never call getAppSettings() again,
     // breaking tests that mock getAppSettings with different values.
     invalidateRedisConfigCache();
+    invalidateBloomCheckCache();
     process.env.UPSTASH_REDIS_REST_URL = "https://fake.upstash.io";
     process.env.UPSTASH_REDIS_REST_TOKEN = "fake-token";
   });

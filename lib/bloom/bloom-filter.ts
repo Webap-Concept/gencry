@@ -148,6 +148,17 @@ const usernameCheckCache = new Map<
   { result: BloomEmailCheckResult; expiry: number }
 >();
 
+/**
+ * Svuota le cache locali dei check email/username. Usato dai test per
+ * isolare le assertion tra `beforeEach` (la cache process-wide riterrebbe
+ * i risultati tra test contigui che usano gli stessi input). NON chiamare
+ * in production: la cache è il punto del fix di oggi.
+ */
+export function invalidateBloomCheckCache(): void {
+  emailCheckCache.clear();
+  usernameCheckCache.clear();
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────
 
 /**
