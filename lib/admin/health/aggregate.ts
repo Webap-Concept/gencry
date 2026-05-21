@@ -7,11 +7,15 @@
 // and returns a uniform ServiceHealth shape — never throws.
 //
 // The public `getHealthSnapshot` is wrapped in `unstable_cache` with a
-// 60s TTL so the dashboard widget never fans out 6 outbound HTTP calls
-// per page load: the first viewer pays the cost, everyone within the
-// next minute reads from the cache. Set `HEALTH_SNAPSHOT_TAG` and call
-// `revalidateTag` from a connection-test action if you ever want to
-// invalidate sooner.
+// 10-minute TTL so the dashboard widget never fans out 6 outbound HTTP
+// calls per page load: the first viewer pays the cost, everyone within
+// the next 10 minutes reads from the cache. Bumped from 60s to 600s on
+// 2026-05-21 to cut Upstash PINGs from 1440/day to 144/day (-90%) plus
+// equivalent savings on DB/Supabase/Resend/Cloudflare. Set
+// `HEALTH_SNAPSHOT_TAG` and call `revalidateTag` from a connection-test
+// action if you ever want to invalidate sooner; the dedicated
+// `/admin/services/<svc>` pages already expose a "Test connection"
+// button that bypasses this cache entirely.
 //
 // Sentry note: the probe does NOT send a live event. A live envelope
 // POST every 60s would flood the project with synthetic events; we just
@@ -288,5 +292,5 @@ async function fetchHealthSnapshotUncached(): Promise<HealthSnapshot> {
 export const getHealthSnapshot = unstable_cache(
   fetchHealthSnapshotUncached,
   ["admin-health-snapshot-v1"],
-  { tags: [HEALTH_SNAPSHOT_TAG], revalidate: 60 },
+  { tags: [HEALTH_SNAPSHOT_TAG], revalidate: 600 },
 );
