@@ -1,6 +1,7 @@
 {
   "errors": {
     "unauthenticated": "Devi accedere per continuare.",
+    "unknown": "Si è verificato un errore. Riprova.",
     "banned": "Il tuo account è stato sospeso.",
     "rate_limited": "Hai fatto troppe operazioni di recente. Riprova tra {retryAfter} secondi.",
     "not_found": "Contenuto non trovato.",

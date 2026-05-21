@@ -1,6 +1,7 @@
 {
   "errors": {
     "unauthenticated": "You need to sign in to continue.",
+    "unknown": "Something went wrong. Try again.",
     "banned": "Your account has been suspended.",
     "rate_limited": "You're doing this too often. Try again in {retryAfter} seconds.",
     "not_found": "Content not found.",
