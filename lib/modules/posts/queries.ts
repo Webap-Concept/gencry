@@ -5,11 +5,14 @@
 // keyset su (created_at, id) — niente OFFSET, scala lineare con N posts.
 //
 // Layer di caching (hookable):
-//   - getCachedFeedIds(key, fallback)  → KV `feed:{key}` TTL ~60s in V2
-//   - getCachedPosts(ids,  fallback)   → KV `post:{id}` TTL ~5min in V2
-// In V1 entrambi sono pass-through (vedi services/{feed,post}-cache.ts).
-// Tutte le query feed-ids passano da getCachedFeedIds così quando KV
-// arriva non dobbiamo cercare i call site.
+//   - getCachedFeedIds(key, fallback)  → ✅ V2 Upstash KV TTL 60s
+//                                        (services/feed-cache.ts, dal 17/05/26)
+//   - getCachedPosts(ids,  fallback)   → ❌ V1 pass-through (services/post-cache.ts).
+//                                        V2 KV `post:{id}` TTL 5min in roadmap
+//                                        ma non urgente: il bottleneck era il
+//                                        feed-ids, non l'hydration single.
+// Tutte le query feed-ids passano da getCachedFeedIds; nessun call site da
+// cercare quando upgraderemo la post hydration cache.
 //
 // Visibility enforcement: gestita SQL-side. Le query NON ritornano post
 // che il viewer non ha diritto di vedere — il filtraggio successivo in
