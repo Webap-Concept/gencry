@@ -40,6 +40,24 @@ export default async function probeUpstashUsage(): Promise<
   ]?.trim();
 
   if (!apiKey || !databaseId) {
+    // Diagnostic temporaneo: dump delle chiavi upstash_* viste dal layer
+    // settings (snapshot R2 o DB). Utile per discriminare:
+    //   - "(none)" → snapshot/DB completamente vuoto (sync fallito).
+    //   - "upstash_redis_rest_url=len:..., upstash_redis_rest_token=len:..." senza
+    //      management_* → il sync R2 NON ha incluso le nuove key (stale).
+    //   - tutte presenti con `len:N` plausibile → il problema è altrove.
+    // Rimuovere questo log a setup confermato.
+    const upstashKeys = Object.keys(settings as Record<string, unknown>)
+      .filter((k) => k.startsWith("upstash"))
+      .map((k) => {
+        const v = (settings as Record<string, string | null>)[k];
+        return `${k}=${v ? `len:${v.length}` : "null/missing"}`;
+      })
+      .join(", ");
+    console.warn(
+      "[probe/upstash] missing_token. Snapshot keys upstash_* =",
+      upstashKeys || "(none)",
+    );
     return { error: "missing_token" };
   }
 
