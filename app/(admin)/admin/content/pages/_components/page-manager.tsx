@@ -473,7 +473,7 @@ function PageRow({
       <div
         ref={sortable.setNodeRef}
         onClick={() => { if (hasChildren) toggleExpand(page.id); }}
-        className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors group"
+        className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl transition-colors group"
         style={{
           background: "var(--admin-card-bg)",
           border: "1px solid var(--admin-card-border)",
@@ -490,16 +490,17 @@ function PageRow({
         onMouseLeave={(e) =>
           ((e.currentTarget as HTMLDivElement).style.border = "1px solid var(--admin-card-border)")
         }>
-        {/* Drag handle: durante search/quando è disabilitato il drag,
-            il bottone resta visibile ma inerte. Stoppa la propagazione
-            del click così non triggera il toggleExpand sulla riga. */}
+        {/* Drag handle: nascosto su mobile (drag raro su touch, ruba ~28px
+            di spazio orizzontale prezioso). Su >= sm: durante search/quando
+            il drag è disabilitato, il bottone resta visibile ma inerte.
+            Stop propagation per non triggerare il toggleExpand della riga. */}
         <button
           type="button"
           aria-label={t("dragHandleLabel")}
           {...sortable.attributes}
           {...sortable.listeners}
           onClick={stopRow}
-          className="flex items-center justify-center w-5 h-6 rounded shrink-0 transition-colors"
+          className="hidden sm:flex items-center justify-center w-5 h-6 rounded shrink-0 transition-colors"
           style={{
             color: "var(--admin-text-faint)",
             cursor: "grab",
@@ -515,21 +516,23 @@ function PageRow({
           }}>
           <GripVertical size={14} />
         </button>
-        <span
-          className="flex items-center justify-center w-6 h-6 rounded shrink-0"
-          style={{ color: hasChildren ? "var(--admin-text-muted)" : "transparent" }}>
-          <ChevronRight
-            size={14}
-            style={{
-              transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 160ms ease",
-            }}
-          />
-        </span>
-
+        {/* Chevron + count children unificati in un singolo pill cliccabile.
+            Prima erano due elementi visivi separati (chevron statico +
+            badge "+N" statico) con il click che viveva sull'intera row.
+            Ora il pill è il toggle esplicito, più affordant e ~30px più
+            compatto sull'asse orizzontale (cruciale su mobile). Quando
+            non ci sono figli, lasciamo uno spacer minimo per allineare
+            verticalmente i titoli tra siblings con/senza figli. */}
         {hasChildren ? (
-          <span
-            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand(page.id);
+            }}
+            aria-expanded={isExpanded}
+            aria-label={t("childrenToggleAria", { count: allChildren.length })}
+            className="flex items-center gap-0.5 pl-1 pr-1.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors cursor-pointer"
             style={{
               background: isExpanded
                 ? "color-mix(in srgb, var(--admin-accent) 14%, var(--admin-card-bg))"
@@ -538,13 +541,18 @@ function PageRow({
               border: isExpanded
                 ? "1px solid color-mix(in srgb, var(--admin-accent) 28%, transparent)"
                 : "1px solid color-mix(in srgb, var(--admin-text-faint) 22%, transparent)",
-              minWidth: "28px",
-              justifyContent: "center",
             }}>
-            +{allChildren.length}
-          </span>
+            <ChevronRight
+              size={12}
+              style={{
+                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 160ms ease",
+              }}
+            />
+            {allChildren.length}
+          </button>
         ) : (
-          <span className="w-7 shrink-0" />
+          <span className="w-4 sm:w-7 shrink-0" />
         )}
 
         <span

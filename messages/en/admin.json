@@ -2042,6 +2042,7 @@
         "rowUnpublish": "Unpublish",
         "rowDelete": "Delete page",
         "rowPublishedOnAria": "Published on {date}",
+        "childrenToggleAria": "{count, plural, =1 {1 child page — click to expand/collapse} other {# child pages — click to expand/collapse}}",
         "statusPublished": "Published",
         "statusDraft": "Draft",
         "emptyUserLabel": "No pages created",

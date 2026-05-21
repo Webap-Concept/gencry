@@ -2042,6 +2042,7 @@
         "rowUnpublish": "De-pubblica",
         "rowDelete": "Elimina pagina",
         "rowPublishedOnAria": "Pubblicata il {date}",
+        "childrenToggleAria": "{count, plural, =1 {1 pagina figlia — clicca per espandere/collassare} other {# pagine figlie — clicca per espandere/collassare}}",
         "statusPublished": "Pubblicata",
         "statusDraft": "Bozza",
         "emptyUserLabel": "Nessuna pagina creata",
