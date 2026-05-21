@@ -27,12 +27,25 @@ import type { CapacityUsageProbe } from "@/lib/modules/types";
 
 const UPSTASH_FREE_COMMANDS_PER_MONTH = 500_000;
 
-interface UpstashDatabaseResponse {
-  daily_requests?: Array<{ date?: string; requests?: number }>;
+// Shape Get Database Stats (/v2/redis/stats/:id). Documentato qui:
+// https://upstash.com/docs/devops/developer-api/redis/get_database_stats
+// Campi rilevanti per la probe usage:
+//   - `total_monthly_requests` (number) — counter totale del mese in
+//      corso. È esattamente quello mostrato sul dashboard
+//      ("X / 500k per month"). Lo usiamo direttamente.
+//   - `dailyrequests` (note: no underscore) — array di datapoints
+//      `{ x: <timestamp_ms>, y: <count> }`. Fallback se monthly assente.
+// Altri campi disponibili (non usati qui): throughput, diskusage,
+// keyspace, latencies, ecc.
+interface UpstashStatsResponse {
+  total_monthly_requests?: number;
+  total_monthly_read_requests?: number;
+  total_monthly_write_requests?: number;
+  dailyrequests?: Array<{ x?: number; y?: number }>;
 }
 
 export default async function probeUpstashUsage(): Promise<
-  CapacityUsageProbe | { error: string }
+  CapacityUsageProbe[] | { error: string }
 > {
   const settings = await getAppSettings();
   const email = (settings as Record<string, string | null>)[
@@ -74,7 +87,7 @@ export default async function probeUpstashUsage(): Promise<
     "Basic " + Buffer.from(`${email}:${apiKey}`).toString("base64");
   try {
     const res = await fetch(
-      `https://api.upstash.com/v2/redis/database/${encodeURIComponent(databaseId)}`,
+      `https://api.upstash.com/v2/redis/stats/${encodeURIComponent(databaseId)}`,
       {
         headers: {
           Authorization: basicAuth,
@@ -89,24 +102,50 @@ export default async function probeUpstashUsage(): Promise<
     if (!res.ok) {
       return { error: `http_${res.status}` };
     }
-    const json = (await res.json()) as UpstashDatabaseResponse;
+    const json = (await res.json()) as UpstashStatsResponse;
+    const measuredAt = new Date();
 
-    // Somma le requests di tutti i daily_requests del MESE CORRENTE.
-    // Pattern: filtro per prefisso YYYY-MM sul campo `date`. Robusto
-    // a ordine asc/desc dell'array e a date format ISO (`YYYY-MM-DD`).
-    const monthPrefix = new Date().toISOString().slice(0, 7); // "2026-05"
-    const current = (json.daily_requests ?? [])
-      .filter((d) => typeof d.date === "string" && d.date.startsWith(monthPrefix))
-      .reduce((sum, d) => sum + Number(d.requests ?? 0), 0);
-    const max = UPSTASH_FREE_COMMANDS_PER_MONTH;
-    return {
-      current,
-      max,
-      unit: "commands",
-      percent: Math.min(1, current / max),
-      period: "monthly",
-      measuredAt: new Date(),
-    };
+    // Metrica 1 — Mensile (counter aggregato dashboard "X / 500k per month").
+    // Fallback a somma dei dailyrequests del mese se il campo è assente.
+    let monthly = 0;
+    if (typeof json.total_monthly_requests === "number") {
+      monthly = json.total_monthly_requests;
+    } else if (json.dailyrequests) {
+      const monthStartMs = Date.UTC(
+        measuredAt.getUTCFullYear(),
+        measuredAt.getUTCMonth(),
+        1,
+      );
+      monthly = json.dailyrequests
+        .filter((d) => typeof d.x === "number" && d.x >= monthStartMs)
+        .reduce((sum, d) => sum + Number(d.y ?? 0), 0);
+    }
+    const monthlyMax = UPSTASH_FREE_COMMANDS_PER_MONTH;
+
+    // Metrica 2 — Giornaliera (ultimo datapoint disponibile, di solito oggi).
+    // Upstash Free 2026 non ha quota giornaliera → `max: null` → renderer
+    // mostra solo il numero senza barra. Utile come segnale di trend.
+    const lastDp = json.dailyrequests?.[json.dailyrequests.length - 1];
+    const daily = Number(lastDp?.y ?? 0);
+
+    return [
+      {
+        current: monthly,
+        max: monthlyMax,
+        unit: "commands",
+        percent: Math.min(1, monthly / monthlyMax),
+        period: "monthly",
+        measuredAt,
+      },
+      {
+        current: daily,
+        max: null,
+        unit: "commands",
+        percent: 0,
+        period: "daily",
+        measuredAt,
+      },
+    ];
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "network",

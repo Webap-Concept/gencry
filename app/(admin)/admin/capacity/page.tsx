@@ -338,15 +338,18 @@ function ProfileCard({
 }
 
 /**
- * Riga compatta che mostra l'usage live di una risorsa: barra di
- * progress + numero current/max + periodo. Colori:
+ * Riga compatta che mostra l'usage live di una risorsa: 1 o più metriche
+ * (es. Upstash ritorna "mensile" + "giornaliera"). Per ogni metrica:
+ * barra di progress + numero current/max + periodo. Colori barra:
  *   - <60%  → verde
  *   - 60-85% → ambra
  *   - >85% → rosso
+ * Se `max` è null (metrica senza cap, es. commands oggi su free 2026),
+ * niente barra né percentuale — solo il count.
  *
- * Se la probe ha fallito (error), mostra messaggio neutro "n/d" con
- * tooltip del codice errore (utile per dev — es. "missing_token"
- * suggerisce di configurare le credenziali).
+ * Se la probe ha fallito (error), mostra messaggio neutro con tooltip
+ * del codice errore (utile per dev — "missing_token" suggerisce di
+ * configurare le credenziali).
  */
 function UsageRow({
   probe,
@@ -365,15 +368,33 @@ function UsageRow({
       </p>
     );
   }
-  const pct = Math.round(probe.percent * 100);
-  const barColor =
-    probe.percent < 0.6
+  return (
+    <div className="space-y-1.5 mb-2">
+      {probe.map((p, i) => (
+        <UsageMetric key={i} probe={p} t={t} />
+      ))}
+    </div>
+  );
+}
+
+function UsageMetric({
+  probe,
+  t,
+}: {
+  probe: import("@/lib/modules/types").CapacityUsageProbe;
+  t: Awaited<ReturnType<typeof getTranslations<"admin.capacity">>>;
+}) {
+  const hasMax = typeof probe.max === "number" && probe.max > 0;
+  const pct = hasMax ? Math.round(probe.percent * 100) : 0;
+  const barColor = !hasMax
+    ? "var(--admin-text-faint)"
+    : probe.percent < 0.6
       ? "#16a34a"
       : probe.percent < 0.85
         ? "#d97706"
         : "#ef4444";
   return (
-    <div className="mb-2">
+    <div>
       <div className="flex items-baseline justify-between mb-1">
         <p
           className="text-[11px]"
@@ -381,34 +402,45 @@ function UsageRow({
           <span style={{ color: "var(--admin-text)" }}>
             {probe.current.toLocaleString()}
           </span>
-          {" / "}
-          {probe.max.toLocaleString()} {probe.unit}{" "}
+          {hasMax ? (
+            <>
+              {" / "}
+              {(probe.max as number).toLocaleString()}{" "}
+            </>
+          ) : (
+            " "
+          )}
+          {probe.unit}{" "}
           <span style={{ color: "var(--admin-text-faint)" }}>
             · {t(`usagePeriod.${probe.period}`)}
           </span>
         </p>
-        <span
-          className="text-[10px] font-semibold"
-          style={{ color: barColor }}>
-          {pct}%
-        </span>
+        {hasMax && (
+          <span
+            className="text-[10px] font-semibold"
+            style={{ color: barColor }}>
+            {pct}%
+          </span>
+        )}
       </div>
-      <div
-        style={{
-          height: 4,
-          borderRadius: 2,
-          background: "var(--admin-hover-bg)",
-          overflow: "hidden",
-        }}>
+      {hasMax && (
         <div
           style={{
-            width: `${Math.min(100, pct)}%`,
-            height: "100%",
-            background: barColor,
-            transition: "width 200ms ease",
-          }}
-        />
-      </div>
+            height: 4,
+            borderRadius: 2,
+            background: "var(--admin-hover-bg)",
+            overflow: "hidden",
+          }}>
+          <div
+            style={{
+              width: `${Math.min(100, pct)}%`,
+              height: "100%",
+              background: barColor,
+              transition: "width 200ms ease",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

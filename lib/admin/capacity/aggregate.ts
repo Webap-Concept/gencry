@@ -41,10 +41,12 @@ export interface CapacityRow {
 
 /** Per ogni risorsa, lo snapshot live (se la risorsa ha `loadUsage`).
  *  Key: `<rowId>::<resourceName>` per disambiguare resources con stesso
- *  name in profili diversi. Mai null: `{ error }` se la probe fallisce. */
+ *  name in profili diversi. Mai null: `{ error }` se la probe fallisce.
+ *  Le probe possono ritornare 1 o più metriche; qui le normalizziamo
+ *  sempre come array (singolo probe → `[probe]`). */
 export type ResourceUsageMap = Record<
   string,
-  CapacityUsageProbe | { error: string }
+  CapacityUsageProbe[] | { error: string }
 >;
 
 export function resourceUsageKey(rowId: string, resourceName: string): string {
@@ -150,7 +152,9 @@ export async function resolveUsageProbes(
 ): Promise<ResourceUsageMap> {
   const tasks: Array<{
     key: string;
-    promise: Promise<CapacityUsageProbe | { error: string }>;
+    promise: Promise<
+      CapacityUsageProbe | CapacityUsageProbe[] | { error: string }
+    >;
   }> = [];
 
   for (const row of rows) {
@@ -176,7 +180,15 @@ export async function resolveUsageProbes(
   for (let i = 0; i < tasks.length; i++) {
     const result = settled[i];
     if (result.status === "fulfilled") {
-      map[tasks[i].key] = result.value;
+      // Normalizza singolo probe → array di 1. Lascia { error } passare.
+      const value = result.value;
+      if (value && typeof value === "object" && "error" in value) {
+        map[tasks[i].key] = value;
+      } else if (Array.isArray(value)) {
+        map[tasks[i].key] = value;
+      } else {
+        map[tasks[i].key] = [value as CapacityUsageProbe];
+      }
     } else {
       map[tasks[i].key] = {
         error:

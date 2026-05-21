@@ -161,9 +161,19 @@ export interface CapacityResource {
    *  dall'API del provider. Eseguita solo quando l'admin apre la pagina
    *  capacity (mai al boot). Safe-to-fail: ritornare `{ error }` se token
    *  mancante o API down — la card mostra solo i dati dichiarati.
+   *
+   *  Return può essere:
+   *    - singolo `CapacityUsageProbe` (1 metrica, es. Sentry "errori mese")
+   *    - array di `CapacityUsageProbe` (più metriche per la stessa
+   *      risorsa, es. Upstash "commands mese" + "commands oggi")
+   *    - `{ error }` se la chiamata fallisce — il renderer mostra
+   *      messaggio "non disponibile" + codice nel tooltip.
+   *
    *  Convenzione: `default` export = function async. */
   loadUsage?: () => Promise<{
-    default: () => Promise<CapacityUsageProbe | { error: string }>;
+    default: () => Promise<
+      CapacityUsageProbe | CapacityUsageProbe[] | { error: string }
+    >;
   }>;
 }
 
@@ -175,12 +185,15 @@ export interface CapacityResource {
 export interface CapacityUsageProbe {
   /** Valore corrente misurato. */
   current: number;
-  /** Limite del tier (es. 100_000 per Upstash Free commands/day). */
-  max: number;
-  /** Unità i18n-friendly: "commands/day", "GB", "invocations/day", ecc. */
+  /** Limite del tier (es. 500_000 per Upstash Free commands/mese).
+   *  Null quando la metrica non ha un cap dichiarato (es. "commands
+   *  oggi" — Upstash non fissa una quota giornaliera nel free 2026,
+   *  ma vogliamo comunque vedere il numero). Renderer skip la barra
+   *  + percentuale quando null. */
+  max: number | null;
+  /** Unità i18n-friendly: "commands", "GB", "invocations", ecc. */
   unit: string;
-  /** 0..1 — percentuale di utilizzo. Usato dal renderer per badge
-   *  ✅/⚠/🔴 e progress bar. */
+  /** 0..1 — percentuale di utilizzo. Renderer la ignora se `max` è null. */
   percent: number;
   /** Periodo di misura ("daily" | "monthly" | "concurrent"). i18n key. */
   period: string;
