@@ -369,7 +369,6 @@ export const pages = pgTable("pages", {
     onDelete: "set null",
   }),
   customFields: text("custom_fields").default("{}"),
-  pageType: varchar("page_type", { length: 50 }).notNull().default("page"),
   sortOrder: integer("sort_order").notNull().default(0),
   isSystem: boolean("is_system").notNull().default(false),
   systemKey: varchar("system_key", {

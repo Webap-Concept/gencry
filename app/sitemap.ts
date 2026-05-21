@@ -1,9 +1,9 @@
 // app/sitemap.ts
 //
 // Sitemap principale del CMS — feature core, sempre presente.
-// Genera /sitemap.xml con tutte le `pages` published+public, qualunque
-// page_type (page, news, ecc.). Le news post-refactor sono normali CMS
-// pages → cadono dentro automaticamente.
+// Genera /sitemap.xml con tutte le `pages` published+public. Le news
+// post-refactor sono normali CMS pages → cadono dentro automaticamente.
+// Discriminator semantico ("è una news?") = template slug (NEWS_TEMPLATE_SLUG).
 //
 // Sitemap dei moduli (coins, posts, ecc.) restano file separati nei loro
 // route group e vengono dichiarate dal `ModuleManifest.sitemap`. Il
@@ -23,7 +23,7 @@
 //     /admin), cms-page.tsx fa notFound() su quelle.
 
 import { db } from "@/lib/db/drizzle";
-import { pages } from "@/lib/db/schema";
+import { pages, pageTemplates } from "@/lib/db/schema";
 import { getSiteUrl } from "@/lib/seo";
 import { and, eq, or } from "drizzle-orm";
 import type { MetadataRoute } from "next";
@@ -31,11 +31,15 @@ import { unstable_cache } from "next/cache";
 
 const CMS_PAGES_TAG = "pages";
 const ENTRIES_CAP = 5000;
+const NEWS_TEMPLATE_SLUG = "news";
 
 interface CmsSitemapRow {
   slug: string;
   updatedAt: Date;
-  pageType: string;
+  /** Template slug della page (es. "news", "news-home", "news-category",
+   *  "page", null se la page non ha template). Discriminator semantico
+   *  per la derivazione di priority/changeFrequency. */
+  templateSlug: string | null;
 }
 
 const fetchCmsPagesForSitemap = unstable_cache(
@@ -44,9 +48,10 @@ const fetchCmsPagesForSitemap = unstable_cache(
       .select({
         slug: pages.slug,
         updatedAt: pages.updatedAt,
-        pageType: pages.pageType,
+        templateSlug: pageTemplates.slug,
       })
       .from(pages)
+      .leftJoin(pageTemplates, eq(pageTemplates.id, pages.templateId))
       .where(
         and(
           eq(pages.status, "published"),
@@ -76,14 +81,14 @@ const fetchCmsPagesForSitemap = unstable_cache(
 );
 
 /**
- * Priority + changeFrequency derivate dal page_type + slug pattern.
+ * Priority + changeFrequency derivate dal template slug + slug pattern.
  * Logica intentionalmente semplice (no DB column override): se in futuro
  * serve fine-tune per-page, aggiungere campi opzionali `sitemap_priority`
  * + `sitemap_changefreq` sulla pages table.
  */
 function deriveSitemapHints(
   slug: string,
-  pageType: string,
+  templateSlug: string | null,
 ): {
   priority: number;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
@@ -91,17 +96,19 @@ function deriveSitemapHints(
   // Homepage
   if (slug === "") return { priority: 1.0, changeFrequency: "daily" };
 
-  if (pageType === "news") {
-    // home blog `slug='news'`
-    if (slug === "news") return { priority: 0.9, changeFrequency: "daily" };
-    const segments = slug.split("/");
-    // Page categoria (es. "news/bitcoin"): 2 segmenti totali, page CMS
-    // creata dalla migration M_news_007.
-    if (segments.length === 2) {
-      return { priority: 0.8, changeFrequency: "daily" };
-    }
-    // Articolo news (3+ segmenti es. "news/bitcoin/foo-bar", oppure
-    // "news/foo-bar" per other/NULL category).
+  // Home news (`slug='news'` con template "news-home").
+  if (templateSlug === "news-home" || slug === "news") {
+    return { priority: 0.9, changeFrequency: "daily" };
+  }
+
+  // Categoria news (`slug='news/<x>'` con template "news-category").
+  if (templateSlug === "news-category") {
+    return { priority: 0.8, changeFrequency: "daily" };
+  }
+
+  // Articolo news (template "news"). Slug tipico
+  // `news/<categoria>/<leaf>` oppure `news/<leaf>` per other/NULL.
+  if (templateSlug === NEWS_TEMPLATE_SLUG) {
     return { priority: 0.7, changeFrequency: "daily" };
   }
 
@@ -123,7 +130,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const updated = new Date(row.updatedAt);
     const { priority, changeFrequency } = deriveSitemapHints(
       row.slug,
-      row.pageType,
+      row.templateSlug,
     );
     const url = row.slug === "" ? siteUrl : `${siteUrl}/${row.slug}`;
     return { url, lastModified: updated, changeFrequency, priority };

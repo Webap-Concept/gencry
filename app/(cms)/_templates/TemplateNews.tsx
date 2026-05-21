@@ -1,6 +1,6 @@
 // app/(cms)/_templates/TemplateNews.tsx
 //
-// Template del singolo articolo blog (page_type='news'). Auto-discovered
+// Template del singolo articolo blog (template slug "news"). Auto-discovered
 // dal loader via il slug "news" del template DB (seedato in M_news_002).
 //
 // Layout fedele al design fornito 2026-05-19:

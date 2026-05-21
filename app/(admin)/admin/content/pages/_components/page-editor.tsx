@@ -205,7 +205,7 @@ function TabBtn({
 /**
  * Normalizza un TemplateField del DB e/o un ExtensionField runtime nella
  * stessa shape per il render. Usata per fondere i due elenchi (template
- * DB + extension del modulo registrato sul pageType) in un unico array
+ * DB + extension del modulo registrato sul templateSlug) in un unico array
  * ordinato per sortOrder.
  */
 interface UnifiedField {
@@ -754,7 +754,6 @@ export default function PageEditor({
   initialTemplateId = null,
   templateLocked = false,
   isSystem = false,
-  pageType = "page",
   contentEditable = true,
   slugEditable = true,
   locales = [],
@@ -773,7 +772,6 @@ export default function PageEditor({
   initialTemplateId?: number | null;
   templateLocked?: boolean;
   isSystem?: boolean;
-  pageType?: string;
   contentEditable?: boolean;
   slugEditable?: boolean;
   locales?: AppLocale[];
@@ -785,8 +783,7 @@ export default function PageEditor({
   canManageTemplates?: boolean;
   /** Extension registrate dai moduli (via `registerPageTemplateExtension`).
    *  Il page-editor pesca la giusta extension via `templateSlug` quando
-   *  l'admin sceglie il template — così funziona sia nella /new (dove
-   *  pageType è ancora vuoto al mount) che nell'edit. Vedi
+   *  l'admin sceglie il template. Vedi
    *  `lib/cms/page-template-extensions.ts`. */
   moduleExtensions?: PageTemplateExtension[];
 }) {
@@ -1310,9 +1307,8 @@ export default function PageEditor({
           name="customFields"
           value={JSON.stringify(customFields)}
         />
-        {/* isSystem e pageType: necessari per il versioning automatico */}
+        {/* isSystem: necessario per il versioning automatico */}
         <input type="hidden" name="isSystem" value={isSystem ? "1" : "0"} />
-        <input type="hidden" name="pageType" value={pageType} />
         {/* Traduzioni per locale non-default — tutti hidden input controlled */}
         {nonDefaultLocales.map((loc) => (
           <Fragment key={loc.code}>

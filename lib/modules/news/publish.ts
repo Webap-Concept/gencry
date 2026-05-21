@@ -1,7 +1,7 @@
 // lib/modules/news/publish.ts
 //
 // Bridge CMS: prende un news_item (in stato review o scheduled), crea/aggiorna
-// la corrispondente row in `pages` con page_type='news', muove lo stato a
+// la corrispondente row in `pages` con template "news", muove lo stato a
 // `published`. Chiamato:
 //   - dal cron publisher (per gli scheduled con due)
 //   - dalla server action "Publish now" admin dalla review page
@@ -139,7 +139,6 @@ async function getOrCreateCategoryPage(
       publishedAt: now,
       parentId: home.id,
       templateId: tplRow.id,
-      pageType: "page",
       visibility: "public",
       isSystem: false,
       contentEditable: true,
@@ -270,7 +269,6 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
         publishedAt: now,
         templateId,
         customFields,
-        pageType: "news",
         visibility: "public",
         updatedAt: now,
       })
@@ -289,7 +287,6 @@ export async function publishNewsItem(input: PublishInput): Promise<PublishOutco
         parentId: parentPageId,
         templateId,
         customFields,
-        pageType: "news",
         visibility: "public",
         isSystem: false,
         contentEditable: true,

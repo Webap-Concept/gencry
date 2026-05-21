@@ -1,0 +1,25 @@
+-- M_news_008_drop_page_type.sql
+--
+-- Drop column `pages.page_type` (ridondante).
+--
+-- Razionale (2026-05-21): il discriminator "questa pagina è una news?" era
+-- duplicato fra `pages.page_type='news'` e `page_templates.slug='news'`.
+-- Le query feed (`lib/cms/news-feed-queries.ts`) e la sitemap ora usano
+-- direttamente `page_templates.slug` come single source of truth. Un
+-- articolo è una news perché ha il template "news"; la gerarchia
+-- categoria↔articolo continua a vivere su `parent_id`.
+--
+-- Side effects:
+--   - Le pagine create manualmente con qualunque `page_type` ma con
+--     template "news" diventano automaticamente visibili nelle listing
+--     news (era il bug originario: l'admin creava una news figlia di
+--     una categoria scegliendo il template "news" ma `page_type` restava
+--     'page' → invisibile nelle 3 query feed).
+--   - L'API admin upsertPage non riceve più `pageType` dal form.
+--   - L'extension `PageTemplateExtension.pageType` opzionale è stata
+--     rimossa: il modulo news non la usava più dopo questo refactor.
+--
+-- Rollback: re-add column con default 'page' e back-fill da template
+-- slug per le news esistenti. Sconsigliato — riapre la duplicazione.
+
+ALTER TABLE pages DROP COLUMN IF EXISTS page_type;

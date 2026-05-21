@@ -56,7 +56,6 @@ const schema = z.object({
   parentId: z.string().optional(),
   templateId: z.string().optional(),
   customFields: z.string().optional(),
-  pageType: z.string().optional(),
   sortOrder: z.string().optional(),
   // Necessario per il versioning automatico delle pagine di sistema
   isSystem: z.string().optional(),
@@ -84,7 +83,6 @@ export async function upsertPageAction(
     parentId: formData.get("parentId") || undefined,
     templateId: formData.get("templateId") || undefined,
     customFields: formData.get("customFields") || undefined,
-    pageType: formData.get("pageType") || undefined,
     sortOrder: formData.get("sortOrder") || undefined,
     isSystem: formData.get("isSystem") || undefined,
   };
@@ -111,7 +109,7 @@ export async function upsertPageAction(
     }
     // For the catch-all path, append the field name to the generic
     // message so the admin sees WHICH field tripped validation
-    // (e.g. "Dati non validi — campo: pageType"). The technical Zod
+    // (e.g. "Dati non validi — campo: templateId"). The technical Zod
     // code stays in the server logs.
     const fieldPath = first?.path?.join(".") || "?";
     const base = tErrors("invalidData");
@@ -160,7 +158,6 @@ export async function upsertPageAction(
     parentId,
     templateId,
     customFields,
-    pageType,
     sortOrder,
     isSystem,
     ...data
@@ -342,7 +339,6 @@ export async function upsertPageAction(
       parentId: parentId ? Number(parentId) : null,
       templateId: effectiveTemplateId,
       customFields: JSON.stringify(parsedCustomFields),
-      pageType: pageType ?? "page",
       sortOrder: sortOrder ? Number(sortOrder) : 0,
       // Passa isSystem a upsertPage così il versioning automatico funziona
       isSystem: isSystem === "1" || isSystem === "true",

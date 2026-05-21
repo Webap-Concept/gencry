@@ -34,10 +34,17 @@ import {
   mediaAssets,
   newsItems,
   pages,
+  pageTemplates,
 } from "@/lib/db/schema";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
+
+/** Slug del page template che identifica un articolo news. Discriminator
+ *  semantico post-2026-05-21 (rimozione di pages.page_type ridondante).
+ *  Una page "è una news" perché usa il template "news" — punto. La
+ *  gerarchia (parent_id) resta indipendente e copre la categorizzazione. */
+const NEWS_TEMPLATE_SLUG = "news";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types pubblici
@@ -123,7 +130,7 @@ function rowToNewsCard(row: {
 
 /**
  * Articoli pubblicati più recenti (per Hero picks, FeatureStory, Essays).
- * Filtri: pages.page_type='news' AND pages.status='published'.
+ * Filtri: template.slug='news' AND pages.status='published'.
  * Join opzionale su news_items per la categoria.
  *
  * Hero asset: la source of truth è `pages.custom_fields.hero_image`
@@ -144,12 +151,18 @@ export async function getRecentPublishedNewsCards(limit: number): Promise<NewsCa
       category: newsItems.category,
     })
     .from(pages)
+    .innerJoin(pageTemplates, eq(pageTemplates.id, pages.templateId))
     .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
     .leftJoin(
       mediaAssets,
       sql`${mediaAssets.id} = NULLIF(${pages.customFields}::jsonb->>'hero_image', '')::int`,
     )
-    .where(and(eq(pages.pageType, "news"), eq(pages.status, "published")))
+    .where(
+      and(
+        eq(pageTemplates.slug, NEWS_TEMPLATE_SLUG),
+        eq(pages.status, "published"),
+      ),
+    )
     .orderBy(desc(pages.publishedAt))
     .limit(limit);
 
@@ -181,6 +194,7 @@ export async function getNewsCardsByCategories(
       category: newsItems.category,
     })
     .from(pages)
+    .innerJoin(pageTemplates, eq(pageTemplates.id, pages.templateId))
     .innerJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
     .leftJoin(
       mediaAssets,
@@ -188,7 +202,7 @@ export async function getNewsCardsByCategories(
     )
     .where(
       and(
-        eq(pages.pageType, "news"),
+        eq(pageTemplates.slug, NEWS_TEMPLATE_SLUG),
         eq(pages.status, "published"),
         inArray(newsItems.category, categories as string[]),
       ),
@@ -227,6 +241,7 @@ export async function getNewsCardsByParentPageId(
       category: newsItems.category,
     })
     .from(pages)
+    .innerJoin(pageTemplates, eq(pageTemplates.id, pages.templateId))
     .leftJoin(newsItems, eq(newsItems.publishedPageId, pages.id))
     .leftJoin(
       mediaAssets,
@@ -234,7 +249,7 @@ export async function getNewsCardsByParentPageId(
     )
     .where(
       and(
-        eq(pages.pageType, "news"),
+        eq(pageTemplates.slug, NEWS_TEMPLATE_SLUG),
         eq(pages.status, "published"),
         eq(pages.parentId, parentPageId),
       ),
@@ -295,7 +310,7 @@ export async function getNewsMetadataByPageId(
  * Modello post refactor news-categories-as-cms-pages: ogni categoria è
  * una page CMS figlia di /news con slug `news/<prefix>` (migration
  * M_news_007). Una categoria è "attiva" se esiste almeno una page
- * `page_type='news' AND status='published'` con `parent_id` = id di
+ * `template.slug='news' AND status='published'` con `parent_id` = id di
  * quella page categoria. Articoli figli diretti di /news (other/NULL
  * category) non contribuiscono — filtro `parent.slug LIKE 'news/%'` li
  * esclude.
@@ -313,10 +328,11 @@ export async function getActiveNewsCategories(): Promise<ActiveNewsCategory[]> {
       sortOrder: pages.sortOrder,
     })
     .from(articlePages)
+    .innerJoin(pageTemplates, eq(pageTemplates.id, articlePages.templateId))
     .innerJoin(pages, eq(pages.id, articlePages.parentId))
     .where(
       and(
-        eq(articlePages.pageType, "news"),
+        eq(pageTemplates.slug, NEWS_TEMPLATE_SLUG),
         eq(articlePages.status, "published"),
         sql`${pages.slug} LIKE 'news/%'`,
       ),
