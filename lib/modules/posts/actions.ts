@@ -496,6 +496,15 @@ export async function editPost(
   for (const t of tickerSet) await feedInvalidate({ ticker: t });
   for (const m of mentionSet) await feedInvalidate({ mentionsOf: m });
 
+  // Invalidate Next cache tag della post page metadata (5min TTL).
+  // updateTag (Next 16 single-arg variant) perché siamo in Server Action.
+  try {
+    const { updateTag } = await import("next/cache");
+    updateTag(`post:${parsed.data.postId}`);
+  } catch (err) {
+    console.error("[editPost] updateTag failed", err);
+  }
+
   return { ok: true };
 }
 
@@ -541,6 +550,15 @@ export async function softDeletePost(
   await feedInvalidate({ followersOf: user.id });
   for (const t of tickersBefore) await feedInvalidate({ ticker: t.ticker });
   for (const m of mentionsBefore) await feedInvalidate({ mentionsOf: m.uid });
+
+  // Invalida Next cache tag della post page metadata (5min TTL).
+  // updateTag (Next 16 single-arg variant) perché siamo in Server Action.
+  try {
+    const { updateTag } = await import("next/cache");
+    updateTag(`post:${parsed.data}`);
+  } catch (err) {
+    console.error("[softDeletePost] updateTag failed", err);
+  }
 
   // Invalida la Router Cache (RSC payload) di tutto il (protected)
   // layout: dopo il soft-delete il post deve sparire da feed/profilo/

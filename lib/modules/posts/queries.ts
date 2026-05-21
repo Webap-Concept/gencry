@@ -16,6 +16,7 @@
 // UI è una difesa in profondità, non la fonte di verità.
 import { and, asc, desc, eq, gt, inArray, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db/drizzle";
 import {
   POST_REACTION_KINDS,
@@ -834,6 +835,46 @@ export async function getPostBySlug(
 
   const [card] = await getPostsByIds([postId], opts);
   return card ?? null;
+}
+
+/**
+ * Wrapper cache-friendly di `getPostBySlug` USATO SOLO da `generateMetadata`
+ * della post page (SEO + OG/Twitter card).
+ *
+ * Sicurezza: chiamato SENZA viewerUserId → la visibility-gate interna nega
+ * private/followers (ritorna null) e la metadata cade sul fallback
+ * "Post" + noindex. Per i post public, la PostCardData ritornata è
+ * deterministicamente identica per chiunque (no viewer state nel render
+ * di OG image/title/description) → cacheable globalmente.
+ *
+ * Cache: 5 min + tag `post:{id}`. Invalidato dalle 3 Server Action che
+ * cambiano body/author/visibility/media:
+ *   - editPost, softDeletePost, restorePost
+ * Le mutation viewer-specific (toggleReaction/bookmark) NON invalidano —
+ * non cambiano i campi usati dal metadata.
+ *
+ * Hot path: ogni share Slack/Twitter, ogni crawler GoogleBot/Bingbot,
+ * ogni hit di preview link. Prima: 1 query DB ad ogni hit. Ora: 1 query
+ * ogni 5min per post hot, fan-out su crawler bot innocuo.
+ */
+export async function getCachedPostBySlugForMetadata(
+  postId: string,
+): Promise<PostCardData | null> {
+  if (!UUID_REGEX.test(postId)) return null;
+  const cached = unstable_cache(
+    () => getPostBySlug(postId),
+    ["post-metadata", postId],
+    { revalidate: 300, tags: [`post:${postId}`] },
+  );
+  try {
+    return await cached();
+  } catch (err) {
+    console.warn(
+      `[getCachedPostBySlugForMetadata] cache failed for ${postId}, falling back to fresh`,
+      err,
+    );
+    return await getPostBySlug(postId);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
