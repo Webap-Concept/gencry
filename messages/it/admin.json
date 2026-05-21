@@ -16,11 +16,20 @@
     "title": "Tier e risorse",
     "subtitle": "Stato corrente per i servizi core e per i moduli installati: limiti, soglie di upgrade e percorso di scaling.",
     "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — tier dominante: {worst}",
+    "totalMonthlyCost": "Costo dichiarato: ${cost}/mese",
+    "monthlyCostTooltip": "Costo dichiarato del piano. NON include overage runtime — verifica sempre il dashboard del provider.",
     "empty": "Nessun profilo capacity dichiarato.",
     "configureButton": "Configura",
     "upgradeAtLabel": "Soglia upgrade",
     "upgradePathLabel": "Percorso",
     "docsLink": "Documentazione provider",
+    "usageNotAvailable": "Uso live non disponibile",
+    "usageErrorPrefix": "Errore probe",
+    "usagePeriod": {
+      "daily": "oggi",
+      "monthly": "questo mese",
+      "concurrent": "concorrente"
+    },
     "groups": {
       "core": "Servizi core",
       "modules": "Moduli installati"
@@ -3500,6 +3509,7 @@
         "title": "Capacity overview",
         "description": "Tier di scala corrente per i servizi core (Postgres, Upstash, Realtime, R2, ecc.) e per i moduli installati. Indica dove siamo, cosa scalare quando.",
         "summary": "{total, plural, =1 {1 profilo monitorato} other {# profili monitorati}} — dominante: {worst}",
+        "totalMonthlyCost": "Costo dichiarato: ${cost}/mese",
         "empty": "Nessun profilo capacity dichiarato.",
         "seeAll": "Vedi tutto",
         "groups": {

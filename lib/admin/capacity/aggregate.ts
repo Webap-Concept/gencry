@@ -13,7 +13,11 @@
 import "server-only";
 
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
-import type { CapacityProfile, CapacityTier } from "@/lib/modules/types";
+import type {
+  CapacityProfile,
+  CapacityTier,
+  CapacityUsageProbe,
+} from "@/lib/modules/types";
 import { CORE_CAPACITY_PROFILES } from "./core-profiles";
 
 export interface CapacityRow {
@@ -35,6 +39,18 @@ export interface CapacityRow {
   editPath: string | null;
 }
 
+/** Per ogni risorsa, lo snapshot live (se la risorsa ha `loadUsage`).
+ *  Key: `<rowId>::<resourceName>` per disambiguare resources con stesso
+ *  name in profili diversi. Mai null: `{ error }` se la probe fallisce. */
+export type ResourceUsageMap = Record<
+  string,
+  CapacityUsageProbe | { error: string }
+>;
+
+export function resourceUsageKey(rowId: string, resourceName: string): string {
+  return `${rowId}::${resourceName}`;
+}
+
 export interface CapacityOverview {
   rows: ReadonlyArray<CapacityRow>;
   summary: {
@@ -43,6 +59,9 @@ export interface CapacityOverview {
     /** Il tier "peggiore" (alpha < beta < growth < scale) presente:
      *  pratica per il summary line "mostly alpha". */
     worstTier: CapacityTier;
+    /** Somma dei `monthlyCost` dichiarati su ogni resource. USD/mese.
+     *  Non include overage runtime — vedi caveat in core-profiles.ts. */
+    totalMonthlyCost: number;
   };
 }
 
@@ -90,7 +109,7 @@ export async function getCapacityOverview(): Promise<CapacityOverview> {
     }
   }
 
-  // Summary
+  // Summary: tier breakdown + worst + cost totale
   const byTier: Record<CapacityTier, number> = {
     alpha: 0,
     beta: 0,
@@ -98,15 +117,74 @@ export async function getCapacityOverview(): Promise<CapacityOverview> {
     scale: 0,
   };
   let worstTier: CapacityTier = "scale";
+  let totalMonthlyCost = 0;
   for (const r of rows) {
     byTier[r.profile.currentTier]++;
     if (TIER_ORDER[r.profile.currentTier] < TIER_ORDER[worstTier]) {
       worstTier = r.profile.currentTier;
     }
+    for (const res of r.profile.resources) {
+      totalMonthlyCost += res.monthlyCost ?? 0;
+    }
   }
 
   return {
     rows,
-    summary: { total: rows.length, byTier, worstTier },
+    summary: { total: rows.length, byTier, worstTier, totalMonthlyCost },
   };
+}
+
+/**
+ * Probe live di usage per le risorse che hanno dichiarato `loadUsage`.
+ * Lazy + parallel via Promise.allSettled — una probe che crasha non
+ * abbatte l'intera dashboard, e i probe vengono caricati solo quando
+ * l'admin apre la pagina capacity (mai al boot del registry).
+ *
+ * Ritorna mappa keyed per `resourceUsageKey(rowId, resourceName)`. La UI
+ * legge `usage[resourceUsageKey(r.id, res.name)]` e degrada a "n/d"
+ * (resource senza loadUsage) o renderizza l'errore (resource con
+ * loadUsage che ha fallito — es. token mancante).
+ */
+export async function resolveUsageProbes(
+  rows: ReadonlyArray<CapacityRow>,
+): Promise<ResourceUsageMap> {
+  const tasks: Array<{
+    key: string;
+    promise: Promise<CapacityUsageProbe | { error: string }>;
+  }> = [];
+
+  for (const row of rows) {
+    for (const res of row.profile.resources) {
+      if (!res.loadUsage) continue;
+      const key = resourceUsageKey(row.id, res.name);
+      const promise = (async () => {
+        try {
+          const mod = await res.loadUsage!();
+          return await mod.default();
+        } catch (err) {
+          return {
+            error: err instanceof Error ? err.message : "probe_load_failed",
+          };
+        }
+      })();
+      tasks.push({ key, promise });
+    }
+  }
+
+  const settled = await Promise.allSettled(tasks.map((t) => t.promise));
+  const map: ResourceUsageMap = {};
+  for (let i = 0; i < tasks.length; i++) {
+    const result = settled[i];
+    if (result.status === "fulfilled") {
+      map[tasks[i].key] = result.value;
+    } else {
+      map[tasks[i].key] = {
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      };
+    }
+  }
+  return map;
 }

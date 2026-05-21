@@ -16,11 +16,20 @@
     "title": "Tier and resources",
     "subtitle": "Current state of core services and installed modules: limits, upgrade thresholds, and the scaling path.",
     "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant tier: {worst}",
+    "totalMonthlyCost": "Declared cost: ${cost}/month",
+    "monthlyCostTooltip": "Declared plan cost. Does NOT include runtime overage — always cross-check with the provider's dashboard.",
     "empty": "No capacity profiles declared.",
     "configureButton": "Configure",
     "upgradeAtLabel": "Upgrade threshold",
     "upgradePathLabel": "Path",
     "docsLink": "Provider docs",
+    "usageNotAvailable": "Live usage not available",
+    "usageErrorPrefix": "Probe error",
+    "usagePeriod": {
+      "daily": "today",
+      "monthly": "this month",
+      "concurrent": "concurrent"
+    },
     "groups": {
       "core": "Core services",
       "modules": "Installed modules"
@@ -3500,6 +3509,7 @@
         "title": "Capacity overview",
         "description": "Current scale tier for the core services (Postgres, Upstash, Realtime, R2, etc.) and for installed modules. Tells you where you are and what to scale next.",
         "summary": "{total, plural, =1 {1 profile monitored} other {# profiles monitored}} — dominant: {worst}",
+        "totalMonthlyCost": "Declared cost: ${cost}/month",
         "empty": "No capacity profiles declared.",
         "seeAll": "See all",
         "groups": {

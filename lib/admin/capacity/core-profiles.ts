@@ -39,6 +39,7 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Upgrade Supabase a Pro (8 GB storage, 250 GB egress, no auto-pause).",
         docsUrl: "https://supabase.com/pricing",
+        monthlyCost: 0,
       },
     ],
   },
@@ -59,6 +60,11 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Switch a Pay-as-you-go ($0.20 per 100k comandi) — niente cap, scale lineare.",
         docsUrl: "https://upstash.com/pricing",
+        monthlyCost: 0,
+        // Probe live richiede `upstash_management_api_key` +
+        // `upstash_management_database_id` in app_settings. Senza →
+        // graceful fail con error="missing_token", card resta visibile.
+        loadUsage: () => import("./probes/upstash"),
       },
     ],
   },
@@ -78,6 +84,7 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Upgrade Supabase Pro (500 conn) oppure swap a Ably/Pusher via service hookable.",
         docsUrl: "https://supabase.com/docs/guides/realtime",
+        monthlyCost: 0,
       },
     ],
   },
@@ -97,6 +104,7 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Upgrade Supabase Pro (100 GB storage, 250 GB egress).",
         docsUrl: "https://supabase.com/docs/guides/storage",
+        monthlyCost: 0,
       },
     ],
   },
@@ -118,6 +126,7 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Pay-as-you-go: $0.015/GB storage, $4.50 per 1M Class A, $0.36 per 1M Class B. Egress sempre gratis.",
         docsUrl: "https://www.cloudflare.com/products/r2/",
+        monthlyCost: 0,
       },
     ],
   },
@@ -138,6 +147,7 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Upgrade Resend Pro (50k emails/mese, 10 domini) oppure swap a Postmark/SendGrid via service hookable.",
         docsUrl: "https://resend.com/pricing",
+        monthlyCost: 0,
       },
     ],
   },
@@ -159,6 +169,33 @@ export const CORE_CAPACITY_PROFILES: ReadonlyArray<CapacityProfile> = [
         upgradePath:
           "Upgrade Vercel Pro (1 TB bandwidth, 1M invocations/giorno, uso commerciale ammesso).",
         docsUrl: "https://vercel.com/pricing",
+        monthlyCost: 0,
+      },
+    ],
+  },
+  {
+    scope: "core-monitoring",
+    label: "Error monitoring (Sentry)",
+    currentTier: "alpha",
+    resources: [
+      {
+        name: "Sentry",
+        plan: "Developer (Free)",
+        limits: [
+          "5.000 errors/mese",
+          "10k performance units/mese",
+          "1 GB attachments",
+          "1 user",
+        ],
+        upgradeAt:
+          "Team ($26/mo) a 4.000 errors/mese regolari OR > 1 dev",
+        upgradePath:
+          "Upgrade Sentry Team (50k errors, 100k perf, 5 users) — paghi per platform unit ad uso.",
+        docsUrl: "https://sentry.io/pricing/",
+        monthlyCost: 0,
+        // Probe live legge errors accepted mese da Sentry stats v2 API.
+        // Riusa SENTRY_API_AUTH_TOKEN già in env (vedi lib/sentry/issues.ts).
+        loadUsage: () => import("./probes/sentry"),
       },
     ],
   },

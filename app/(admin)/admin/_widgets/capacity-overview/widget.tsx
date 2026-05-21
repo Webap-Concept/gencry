@@ -64,6 +64,16 @@ export default async function CapacityOverviewWidget() {
           ) : null}
         </div>
 
+        {/* Costo totale dichiarato (somma di monthlyCost). Mostrato
+            sempre — anche $0 è informazione utile. */}
+        <p
+          className="text-xs"
+          style={{ margin: 0, color: "var(--admin-text-muted)" }}>
+          {t("totalMonthlyCost", {
+            cost: overview.summary.totalMonthlyCost.toFixed(2),
+          })}
+        </p>
+
         {/* Core profiles */}
         {coreRows.length > 0 && (
           <Section

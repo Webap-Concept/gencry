@@ -151,6 +151,41 @@ export interface CapacityResource {
   upgradePath: string;
   /** Link doc del provider per quick reference. */
   docsUrl?: string;
+  /** Costo mensile dichiarato del piano corrente (USD). Aggiornato a mano
+   *  quando si fa upgrade reale del piano. Sommato dalla dashboard
+   *  capacity per il totale "stai spendendo $X/mo in capacity". 0 = free.
+   *  Note: NON include overage runtime (es. comandi Upstash sopra il free
+   *  tier). Per costi accurati, fare cross-check col dashboard del provider. */
+  monthlyCost?: number;
+  /** Lazy import server-only di una probe live che legge l'usage corrente
+   *  dall'API del provider. Eseguita solo quando l'admin apre la pagina
+   *  capacity (mai al boot). Safe-to-fail: ritornare `{ error }` se token
+   *  mancante o API down — la card mostra solo i dati dichiarati.
+   *  Convenzione: `default` export = function async. */
+  loadUsage?: () => Promise<{
+    default: () => Promise<CapacityUsageProbe | { error: string }>;
+  }>;
+}
+
+/**
+ * Snapshot di uso live di una risorsa esterna, restituito dai probe
+ * (`CapacityResource.loadUsage`). Mostra "siamo a 1.2 GB / 8 GB" o
+ * "45k / 100k commands oggi".
+ */
+export interface CapacityUsageProbe {
+  /** Valore corrente misurato. */
+  current: number;
+  /** Limite del tier (es. 100_000 per Upstash Free commands/day). */
+  max: number;
+  /** Unità i18n-friendly: "commands/day", "GB", "invocations/day", ecc. */
+  unit: string;
+  /** 0..1 — percentuale di utilizzo. Usato dal renderer per badge
+   *  ✅/⚠/🔴 e progress bar. */
+  percent: number;
+  /** Periodo di misura ("daily" | "monthly" | "concurrent"). i18n key. */
+  period: string;
+  /** Quando il dato è stato letto dalla provider API. */
+  measuredAt: Date;
 }
 
 export interface CapacityTunable {
