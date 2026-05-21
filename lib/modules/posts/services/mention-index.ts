@@ -35,6 +35,41 @@ const MENTION_SET_KEY = "mention:users";
 const BOOTSTRAP_SENTINEL_KEY = "mention:bootstrapped";
 const BOOTSTRAP_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/**
+ * In-process cache della sentinel. La sentinel cambia ogni 7gg (TTL) o
+ * quando `rebuildMentionIndex` la riscrive. Cachare per 5min in-process
+ * elimina la GET ridondante ad ogni search (vedi pattern documentato
+ * in [[redis-consumer-optimization-pattern]]).
+ */
+const SENTINEL_CACHE_TTL_MS = 5 * 60 * 1000;
+let sentinelCachedAt = 0;
+let sentinelCachedValue: string | null = null;
+
+/**
+ * In-process cache dei risultati di `searchMentionPrefix`. Key derivata
+ * da (prefix + excludeUserIds sorted joined). TTL 10s: copre la finestra
+ * "typing rapido cancella+riscrive uguale" senza stale-rendere visibile
+ * un nuovo user appena registrato per troppo tempo. La invalidazione su
+ * add/remove/replace è lambda-local (non broadcast) — accettabile per
+ * autocomplete (worst case: nuovo user invisibile per 10s).
+ */
+const SEARCH_CACHE_TTL_MS = 10 * 1000;
+const searchResultCache = new Map<
+  string,
+  { value: MentionCandidate[]; expiry: number }
+>();
+
+function searchCacheKey(prefix: string, excludeIds: string[]): string {
+  // Sort per stabilità della key indipendente dall'ordine input.
+  return prefix + "|" + [...excludeIds].sort().join(",");
+}
+
+function invalidateLocalCaches(): void {
+  searchResultCache.clear();
+  // Non tocchiamo sentinelCached: la sentinel è "ho mai bootstrappato",
+  // non cambia per add/remove di un singolo member.
+}
+
 /** Separatore inline per i campi nel member string. `\x01` (SOH, ASCII 1)
  *  perché non può apparire in username/nome (validation usa [a-z0-9_]
  *  + nomi human) e non si confonde con whitespace nel testo plain. */
@@ -86,6 +121,7 @@ export async function addMentionMember(u: MentionCandidate): Promise<void> {
   const redis = await getRedisClient();
   if (!redis) return; // Upstash non configurato → no-op silent
   await redis.zadd(MENTION_SET_KEY, { score: 0, member: encodeMember(u) });
+  invalidateLocalCaches();
 }
 
 /** Rimuove un member identificato da userId. Richiede un lookup linear
@@ -108,6 +144,7 @@ export async function removeMentionMember(userId: string): Promise<void> {
   });
   if (toRemove.length === 0) return;
   await redis.zrem(MENTION_SET_KEY, ...toRemove);
+  invalidateLocalCaches();
 }
 
 /** Sostituisce un member quando l'username (o altro campo cached) cambia.
@@ -185,6 +222,14 @@ export async function searchMentionPrefix(opts: {
   const redis = await getRedisClient();
   if (!redis) return searchMentionPrefixFromDb(prefix, limit, exclude);
 
+  // In-process result cache (vedi commento al top): hit = 0 Redis cmd.
+  const cacheKey = searchCacheKey(prefix, opts.excludeUserIds ?? []);
+  const now = Date.now();
+  const cached = searchResultCache.get(cacheKey);
+  if (cached && now < cached.expiry) {
+    return cached.value.slice(0, limit);
+  }
+
   // ZRANGEBYLEX: `[<prefix>` inclusive min, `[<prefix>\xff` upper bound.
   // Sovra-fetch (limit + exclude.size) per compensare eventuali esclusi.
   const overFetch = limit + exclude.size + 4;
@@ -203,6 +248,10 @@ export async function searchMentionPrefix(opts: {
     out.push(decoded);
     if (out.length >= limit) break;
   }
+  searchResultCache.set(cacheKey, {
+    value: out,
+    expiry: now + SEARCH_CACHE_TTL_MS,
+  });
   return out;
 }
 
@@ -296,15 +345,28 @@ export async function rebuildMentionIndex(): Promise<{
   }
 
   await redis.set(BOOTSTRAP_SENTINEL_KEY, "1", { ex: BOOTSTRAP_TTL_SECONDS });
+  // Update sentinel cache locale + clear result cache: l'indice è
+  // stato rebuildato, qualunque risultato cached è potenzialmente stale.
+  sentinelCachedValue = "1";
+  sentinelCachedAt = Date.now();
+  invalidateLocalCaches();
   return { scanned: rows.length, indexed };
 }
 
 /** Lazy bootstrap: chiamato dal search SE non c'è la sentinel. Non blocca
- *  il search corrente (fire-and-forget), il prossimo arriverà già caldo. */
+ *  il search corrente (fire-and-forget), il prossimo arriverà già caldo.
+ *  Usa una in-process cache TTL 5min sulla sentinel: la sentinel cambia
+ *  ogni 7gg, GET ridondante ad ogni search era spreco netto. */
 export async function ensureMentionIndexBootstrapped(): Promise<void> {
+  const now = Date.now();
+  if (sentinelCachedValue && now - sentinelCachedAt < SENTINEL_CACHE_TTL_MS) {
+    return; // cache hit: la sentinel era presente, niente rebuild necessario
+  }
   const redis = await getRedisClient();
   if (!redis) return;
-  const sentinel = await redis.get(BOOTSTRAP_SENTINEL_KEY);
+  const sentinel = await redis.get<string>(BOOTSTRAP_SENTINEL_KEY);
+  sentinelCachedAt = now;
+  sentinelCachedValue = sentinel ?? null;
   if (sentinel) return;
   // Fire and forget — il search corrente cade su DB fallback se l'indice
   // è vuoto, il prossimo userà l'indice rebuildato.
