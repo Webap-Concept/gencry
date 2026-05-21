@@ -145,7 +145,7 @@ export function CommentItem({
     <div className={`flex gap-2.5 ${indentCls}`}>
       {/* Avatar — UserAvatar gestisce internamente img vs fallback colorato. */}
       <Link
-        href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
+        href={comment.author.username ? `/u/${comment.author.username}` : "#"}
         className="shrink-0"
         aria-label={authorDisplayName(comment.author, fallback)}
       >
@@ -165,7 +165,7 @@ export function CommentItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-xs">
           <Link
-            href={comment.author.username ? `/profile/${comment.author.username}` : "#"}
+            href={comment.author.username ? `/u/${comment.author.username}` : "#"}
             className="font-medium text-gc-fg hover:underline"
           >
             {authorDisplayName(comment.author, fallback)}

@@ -492,7 +492,7 @@ export function PostCard({
         {/* Header: autore + time + visibility */}
         <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
           <Link
-            href={`/profile/${post.author.username ?? post.author.id}`}
+            href={`/u/${post.author.username ?? post.author.id}`}
             className="shrink-0"
           >
             <UserAvatar
@@ -509,7 +509,7 @@ export function PostCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
               <Link
-                href={`/profile/${post.author.username ?? post.author.id}`}
+                href={`/u/${post.author.username ?? post.author.id}`}
                 className="font-medium text-gc-fg hover:underline"
               >
                 {authorDisplayName(post.author, userFallback)}

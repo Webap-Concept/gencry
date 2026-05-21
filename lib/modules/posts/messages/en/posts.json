@@ -40,6 +40,10 @@
     "loading_more": "Loading…",
     "end_reached": "The market is saturated, there's nothing else to see."
   },
+  "profile": {
+    "posts_aria": "Posts published by the user",
+    "empty_state": "No posts published yet."
+  },
   "comments": {
     "empty_body": "Write something before commenting.",
     "body_too_long": "Your comment is too long.",

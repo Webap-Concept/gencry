@@ -40,6 +40,10 @@
     "loading_more": "Carico…",
     "end_reached": "Il mercato è saturo, non c'è altro da vedere."
   },
+  "profile": {
+    "posts_aria": "Post pubblicati dall'utente",
+    "empty_state": "Nessun post pubblicato per il momento."
+  },
   "comments": {
     "empty_body": "Scrivi qualcosa prima di commentare.",
     "body_too_long": "Il commento è troppo lungo.",
