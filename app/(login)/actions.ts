@@ -25,10 +25,7 @@ import {
 } from "@/lib/auth/trusted-device";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { sendDeviceVerificationEmail } from "@/lib/email/templates/device-verification";
-import {
-  isUniqueConstraintError,
-  resolveConflictField,
-} from "@/lib/auth/race-condition";
+import { isUniqueConstraintError } from "@/lib/auth/race-condition";
 import {
   checkAvailabilityRateLimit,
   checkRateLimit,
@@ -42,10 +39,8 @@ import {
   hashPassword,
   setSession,
 } from "@/lib/auth/session";
-import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import {
   addEmailToBloom,
-  addUsernameToBloom,
   checkEmailAvailability,
   checkUsernameAvailability,
   ensureBloomFilter,
@@ -289,18 +284,11 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
 
 const signUpSchema = z
   .object({
-    // firstName e lastName non sono raccolti nella form di registrazione:
-    // vengono inseriti dall'utente nella pagina del profilo dopo la registrazione.
-    username: z
-      .string()
-      .min(3, "validation.zod.usernameMin")
-      .max(50, "validation.zod.usernameMax")
-      .superRefine((value, ctx) => {
-        const result = validateUsernameFormat(value);
-        if (!result.ok) {
-          ctx.addIssue({ code: "custom", message: result.error });
-        }
-      }),
+    // firstName, lastName, username NON sono raccolti nel form di registrazione.
+    // - firstName/lastName: pagina profilo
+    // - username: wizard /onboarding (uniforme con flusso OAuth) — riduce la
+    //   superficie d'attacco bot sul bloom availability check, che ora vive
+    //   solo in `setOnboardingUsername` dietro getUser().
     email: z.email("validation.zod.emailInvalid"),
     password: z
       .string()
@@ -328,9 +316,10 @@ const signUpSchema = z
   });
 
 export const signUp = validatedAction(signUpSchema, async (data, formData) => {
-  const { username, email, password } = data;
-  // firstName e lastName non presenti in questa fase: saranno null nel DB
-  // fino a quando l'utente non li compila dalla pagina del profilo.
+  const { email, password } = data;
+  // firstName, lastName, username non presenti in questa fase:
+  // - firstName/lastName → pagina profilo
+  // - username → wizard /onboarding (riempie userProfiles.username, oggi NULL)
   const t = await getTranslations("auth");
 
   const settings = await getAppSettings();
@@ -370,17 +359,13 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     };
   }
 
-  // Three blacklist checks in parallel — they hit disjoint sources
-  // (Redis-cached IP list, DB disposable_domains, in-memory blocked
-  // usernames) and have no inter-dependencies. The error-priority
-  // order (IP → domain → username) is preserved by checking the
-  // resolved booleans below in the same sequence — a user sees the
-  // same error message they would have seen with the previous
-  // sequential flow.
-  const [ipBlocked, domainBlocked, usernameBlocked] = await Promise.all([
+  // Due blacklist check in parallel: IP (Redis-cached) + email domain
+  // (DB disposable_domains). La blacklist username non vive più qui:
+  // si applica nel wizard /onboarding, dove l'utente sceglie lo username
+  // dietro sessione autenticata.
+  const [ipBlocked, domainBlocked] = await Promise.all([
     isIpBlacklisted(ip),
     isDomainBlacklisted(email),
-    isUsernameBlacklisted(username),
   ]);
 
   if (ipBlocked) {
@@ -395,27 +380,12 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     };
   }
 
-  if (usernameBlocked) {
-    return {
-      error: t("actionErrors.signUp.usernameBlocked"),
-      email,
-      password,
-    };
-  }
-
   await ensureBloomFilter();
 
-  const [emailAvailability, usernameAvailability] = await Promise.all([
-    checkEmailAvailability(email),
-    checkUsernameAvailability(username),
-  ]);
+  const emailAvailability = await checkEmailAvailability(email);
 
   if (!emailAvailability.available) {
     return { error: t("actionErrors.signUp.emailTaken"), email, password };
-  }
-
-  if (!usernameAvailability.available) {
-    return { error: t("actionErrors.signUp.usernameTaken"), email, password };
   }
 
   const { termsVersion, privacyVersion, marketingVersion } =
@@ -461,42 +431,18 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     throw err;
   }
 
-  try {
-    await db.insert(userProfiles).values({
-      userId: createdUser.id,
-      // firstName e lastName lasciati null: l'utente li inserirà dal profilo
-      username,
-    });
-  } catch (err: unknown) {
-    if (isUniqueConstraintError(err)) {
-      await db.delete(users).where(eq(users.id, createdUser.id));
-      await recordSignupAttempt(ip);
-      return {
-        error: t("actionErrors.signUp.usernameRace"),
-        email,
-        password,
-      };
-    }
-    throw err;
-  }
+  // Profilo "vuoto": firstName/lastName/username tutti NULL. Username verrà
+  // valorizzato dal wizard /onboarding (step 0), che applica gli stessi check
+  // (format + length + blacklist + bloom + unique) ma dietro getUser().
+  // L'insert resta nel critical path per garantire un row userProfiles per
+  // ogni user (FK e join semplificati ovunque).
+  await db.insert(userProfiles).values({ userId: createdUser.id });
 
-  // All three are best-effort and independent (bloom updates touch
-  // Redis; consent ledger appends a row). Running them in parallel
-  // saves ~2 round-trips on the critical signup path. Promise.allSettled
-  // preserves the original behavior — a failure in one doesn't block
-  // the others (the consent-ledger comment below was already explicit
-  // about this), and we just log rejections in dev for visibility.
+  // Side effects best-effort indipendenti. Bloom username + mention-index
+  // sync NON sono qui: vengono triggerati da setOnboardingUsername quando
+  // l'utente sceglie effettivamente uno username.
   const sideEffects = await Promise.allSettled([
     addEmailToBloom(createdUser.email),
-    addUsernameToBloom(username),
-    // Indice mention-autocomplete (Upstash sorted-set). Lazy import per
-    // evitare di trascinare il grafo modulo posts nel bundle login.
-    (async () => {
-      const { syncMentionMember } = await import(
-        "@/lib/modules/posts/services/mention-index"
-      );
-      await syncMentionMember(createdUser.id);
-    })(),
     // Append-only consent ledger (GDPR Art. 7(1)). Best-effort: errori
     // interni non bloccano il signup. La cattura di IP/UA segue la
     // strategy configurata in /admin/compliance/gdpr.
@@ -594,10 +540,21 @@ export async function checkEmailAction(email: string) {
 // checkUsernameAction — usa checkAvailabilityRateLimit (non login!)
 // ---------------------------------------------------------------------------
 
+// Auth-gated: l'unico consumer è il wizard /onboarding, sempre dietro
+// sessione. Bloccare l'accesso anonimo annulla il vettore d'attacco bot
+// sul bloom filter Redis di username availability (prima il form signup
+// chiamava questa action senza sessione, esponendola al traffico anonimo).
+// Rate-limit per IP resta come secondo strato.
 export async function checkUsernameAction(
   username: string,
 ): Promise<{ available: boolean; error?: string }> {
   const t = await getTranslations("auth");
+
+  const user = await getUser();
+  if (!user) {
+    return { available: false, error: t("actionErrors.common.unauthorized") };
+  }
+
   const headersList = await headers();
   const ip =
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
