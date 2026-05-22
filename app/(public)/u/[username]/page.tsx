@@ -138,6 +138,7 @@ async function ProfilePageBody({
                 isAuthor={viewerUserId === post.author.id}
                 variant="feed"
                 coinNameMap={coinNameMap}
+                viewerLoggedOut={!viewerUserId}
               />
             </li>
           ))}

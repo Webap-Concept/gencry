@@ -195,6 +195,17 @@ type Props = {
     repliesInitialCount: number;
     maxBodyLength: number;
   };
+  /**
+   * Quando true, il click sulla card fa full navigation
+   * (window.location.assign) invece di router.push.
+   *
+   * Why: il parallel slot @modal del layout (protected) intercetta
+   * /post/[id] solo per i loggati. Per anon, il client-side push fa
+   * sì che Next mounti uno slot vuoto e la page standalone non si
+   * vede ("solo footer"). Il refresh manuale risolve perché bypassa
+   * l'intercept. Con la full nav forziamo lo stesso path.
+   */
+  viewerLoggedOut?: boolean;
 };
 
 export function PostCard({
@@ -209,6 +220,7 @@ export function PostCard({
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
+  viewerLoggedOut,
 }: Props) {
   const router = useRouter();
   const t = useTranslations("posts");
@@ -450,6 +462,18 @@ export function PostCard({
   // positioning, ma niente z-index richiesto.
   const interactiveClass = "relative";
 
+  const navigateToPost = () => {
+    const url = `/post/${post.id}`;
+    // Anon: full navigation per saltare il parallel slot @modal del
+    // layout (protected) che intercetta il client-side push e svuota
+    // il render. Loggati: router.push (apre la modale intercept).
+    if (viewerLoggedOut) {
+      window.location.assign(url);
+    } else {
+      router.push(url);
+    }
+  };
+
   const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
     if (!isClickable) return;
     // Skip se l'utente ha selezionato testo (vuole copiare, non navigare)
@@ -464,13 +488,13 @@ export function PostCard({
     ) {
       return;
     }
-    router.push(`/post/${post.id}`);
+    navigateToPost();
   };
 
   const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (!isClickable) return;
     if (e.key === "Enter" && e.target === e.currentTarget) {
-      router.push(`/post/${post.id}`);
+      navigateToPost();
     }
   };
 
