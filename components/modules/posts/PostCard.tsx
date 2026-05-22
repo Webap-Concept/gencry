@@ -323,39 +323,58 @@ export function PostCard({
 
   if (deleted || blocked) return null;
 
+  /**
+   * Gate auth per le azioni interattive. Anon → full-nav a /sign-up con
+   * `?next=` per tornare al post dopo il signup. Loggato → esegue l'action.
+   * Centralizzato qui per evitare la duplicazione su ogni handler
+   * (reaction, bookmark, repost, comment, block).
+   */
+  const requireAuth = (action: () => void): void => {
+    if (viewer.isLoggedIn) {
+      action();
+      return;
+    }
+    const next = encodeURIComponent(`/post/${post.id}`);
+    window.location.assign(`/sign-up?next=${next}`);
+  };
+
   const onToggleReaction = (kind: PostReactionKind) => {
-    const wasActive = confirmedReaction === kind;
-    const previousOwn = confirmedReaction;
-    const newReaction = wasActive ? null : kind;
-    startTransition(async () => {
-      setOptimisticReaction(newReaction);
-      applyCountsDelta({
-        remove: previousOwn ?? undefined,
-        add: wasActive ? undefined : kind,
-      });
-      const res = await toggleReaction({ postId: post.id, reaction: kind });
-      if (res.ok) {
-        // Confermo il nuovo stato lato client così, quando la transition
-        // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
-        setConfirmedReaction(newReaction);
-        setConfirmedCounts((prev) => {
-          const next = { ...prev };
-          if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
-          if (!wasActive) next[kind] = next[kind] + 1;
-          return next;
+    requireAuth(() => {
+      const wasActive = confirmedReaction === kind;
+      const previousOwn = confirmedReaction;
+      const newReaction = wasActive ? null : kind;
+      startTransition(async () => {
+        setOptimisticReaction(newReaction);
+        applyCountsDelta({
+          remove: previousOwn ?? undefined,
+          add: wasActive ? undefined : kind,
         });
-      }
-      // Fail → niente setConfirmed: l'ottimistico decade naturalmente
-      // e la UI torna al valore confirmed precedente (rollback gratis).
+        const res = await toggleReaction({ postId: post.id, reaction: kind });
+        if (res.ok) {
+          // Confermo il nuovo stato lato client così, quando la transition
+          // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
+          setConfirmedReaction(newReaction);
+          setConfirmedCounts((prev) => {
+            const next = { ...prev };
+            if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
+            if (!wasActive) next[kind] = next[kind] + 1;
+            return next;
+          });
+        }
+        // Fail → niente setConfirmed: l'ottimistico decade naturalmente
+        // e la UI torna al valore confirmed precedente (rollback gratis).
+      });
     });
   };
 
   const onToggleBookmark = () => {
-    const next = !confirmedBookmarked;
-    startTransition(async () => {
-      setOptimisticBookmarked(next);
-      const res = await toggleBookmark({ postId: post.id });
-      if (res.ok) setConfirmedBookmarked(next);
+    requireAuth(() => {
+      const next = !confirmedBookmarked;
+      startTransition(async () => {
+        setOptimisticBookmarked(next);
+        const res = await toggleBookmark({ postId: post.id });
+        if (res.ok) setConfirmedBookmarked(next);
+      });
     });
   };
 
@@ -394,13 +413,13 @@ export function PostCard({
     });
   };
 
-  const onReport = () => setReportOpen(true);
+  const onReport = () => requireAuth(() => setReportOpen(true));
 
   // Block flow (mutual): conferma modale → action → nascondi card.
   // Lo stato `blocked` agisce come hide locale immediato (UX snappy);
   // il server invaliderà i feed così al prossimo paint la card sparisce
   // anche dagli altri tab. Il post puntuale (/post/[id]) ritornerà 404.
-  const onBlock = () => setBlockOpen(true);
+  const onBlock = () => requireAuth(() => setBlockOpen(true));
   const onBlockConfirmed = () => {
     setBlockOpen(false);
     startTransition(async () => {
@@ -775,12 +794,18 @@ export function PostCard({
               : hasComments
                 ? "text-gc-accent hover:bg-gc-line/40"
                 : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg";
+            // Anon: il toggle inline manda fuori dal post a /sign-up tramite
+            // requireAuth. Se non c'è commentsThreadProps il link va alla
+            // post page (per anon stessa esperienza, requireAuth lì non serve
+            // perché la nav è già full e la page è pubblica).
             return commentsThreadProps && variant === "feed" ? (
               <button
                 type="button"
                 aria-label={tCard("comments_aria", { count: post.counts.comments })}
                 aria-expanded={commentsOpen}
-                onClick={() => setCommentsOpen((o) => !o)}
+                onClick={() =>
+                  requireAuth(() => setCommentsOpen((o) => !o))
+                }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
               >
                 <MessageCircle size={18} strokeWidth={1.75} />
@@ -800,9 +825,8 @@ export function PostCard({
           <button
             type="button"
             aria-label={tCard("reposts_aria", { count: displayedRepostsCount })}
-            onClick={() => setQuoteOpen(true)}
-            disabled={!currentUser}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gc-line/40 ${
+            onClick={() => requireAuth(() => setQuoteOpen(true))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition hover:bg-gc-line/40 ${
               displayedRepostsCount > 0 ? "text-gc-pos" : "text-gc-fg-muted"
             }`}
           >
