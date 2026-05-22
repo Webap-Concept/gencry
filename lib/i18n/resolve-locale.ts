@@ -74,7 +74,17 @@ export function extractLocaleFromPathname(pathname: string): {
  * Stima il locale per una request senza prefix nell'URL (zone non-prefix:
  * auth/admin/protected). Edge runtime (proxy.ts), niente DB.
  *
- * Priorità: cookie NEXT_LOCALE → Accept-Language → DEFAULT_LOCALE.
+ * Priorità: cookie NEXT_LOCALE → DEFAULT_LOCALE.
+ *
+ * Decisione 2026-05-22: rimosso lo step Accept-Language. Generazione
+ * Crypto è italiano-first; rispettare l'header del browser (spesso
+ * "en-US,en;q=0.9" anche su sistemi italiani) forniva inglese a default
+ * agli anonimi, contro l'intenzione del prodotto. Chi vuole inglese:
+ *   - clicca il LanguageSwitcher → cookie NEXT_LOCALE=en
+ *   - oppure setta `users.locale='en'` nelle settings (lo riceve dal
+ *     layout dei loggati via setRequestLocale)
+ *   - oppure atterra su un link prefix /en/... (CMS catch-all)
+ *
  * NB: `users.locale` non è raggiungibile da Edge senza round-trip al DB.
  * I Server Component dei layout, che hanno DB, sovrascrivono questo guess
  * chiamando `setRequestLocale(user.locale)` quando l'utente è loggato.
@@ -83,35 +93,5 @@ export function guessLocaleFromRequest(request: NextRequest): Locale {
   const cookieValue = request.cookies.get(LOCALE_COOKIE_NAME)?.value;
   if (cookieValue && isLocale(cookieValue)) return cookieValue;
 
-  const acceptLanguage = request.headers.get("accept-language");
-  if (acceptLanguage) {
-    const parsed = parseAcceptLanguage(acceptLanguage);
-    for (const tag of parsed) {
-      // Match "en", "en-US", "en-us"
-      const base = tag.split("-")[0]?.toLowerCase();
-      if (base && (LOCALES as readonly string[]).includes(base)) {
-        return base as Locale;
-      }
-    }
-  }
-
   return DEFAULT_LOCALE;
-}
-
-/**
- * Parsa Accept-Language ordinato per qualità (q=1.0 prima).
- * Esempio: "it-IT,it;q=0.9,en;q=0.7" → ["it-IT","it","en"]
- */
-function parseAcceptLanguage(header: string): string[] {
-  return header
-    .split(",")
-    .map((part) => {
-      const [tag, ...params] = part.trim().split(";");
-      const qParam = params.find((p) => p.trim().startsWith("q="));
-      const q = qParam ? parseFloat(qParam.trim().slice(2)) : 1;
-      return { tag: tag.trim(), q: isFinite(q) ? q : 0 };
-    })
-    .filter((x) => x.tag.length > 0)
-    .sort((a, b) => b.q - a.q)
-    .map((x) => x.tag);
 }
