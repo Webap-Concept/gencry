@@ -131,14 +131,14 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
     getSiteUrl(),
   ]);
 
-  const isAuthed = Boolean(session);
+  const isLoggedIn = Boolean(session);
   const tCommon = await getTranslations("prices.common");
   const tLabels = await getTranslations("prices.labels");
 
   return (
     <>
       <CoinJsonLd coin={coin} siteUrl={siteUrl} />
-      {isAuthed && (
+      {isLoggedIn && (
         <Link
           href="/explore"
           prefetch={false}
@@ -150,7 +150,7 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
       )}
       <CoinHeader
         coin={coin}
-        actions={<HeaderActions isAuthed={isAuthed} />}
+        actions={<HeaderActions isLoggedIn={isLoggedIn} />}
         sparklineAriaLabel={tLabels("weekly_chart_aria")}
       />
       <CoinChartLazy symbol={coin.symbol} initialSeries={initialSeries} />
@@ -159,7 +159,7 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
           riusa la stessa pipeline visibility/block del feed. Anonimi
           vedono solo i public posts, loggati anche i members. */}
       <CoinRelatedPostsSection symbol={coin.symbol} limit={5} />
-      {!isAuthed && <AnonymousCta coinName={coin.name} />}
+      {!isLoggedIn && <AnonymousCta coinName={coin.name} />}
     </>
   );
 }
@@ -231,8 +231,8 @@ function CoinHeader({
   );
 }
 
-async function HeaderActions({ isAuthed }: { isAuthed: boolean }) {
-  if (!isAuthed) return null;
+async function HeaderActions({ isLoggedIn }: { isLoggedIn: boolean }) {
+  if (!isLoggedIn) return null;
   const tCommon = await getTranslations("prices.common");
   // Placeholder finché le feature reali non esistono. Disabled per non
   // fingere interattività; reso visibile per dare anteprima visiva.

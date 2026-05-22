@@ -78,11 +78,7 @@ export async function PublicHeader({
         {/* Mobile: hamburger a sinistra SOLO quando c'è il menu news.
             Senza menu il layout mobile resta come prima (logo a sinistra). */}
         {hasMenu && (
-          <NewsNavMobileDrawer
-            items={newsMenu!}
-            isLoggedIn={isLoggedIn}
-            appLogoUrl={appLogoUrl}
-          />
+          <NewsNavMobileDrawer items={newsMenu!} appLogoUrl={appLogoUrl} />
         )}
 
         {/* Logo. In modalità news+mobile il logo si centra perché flex-1

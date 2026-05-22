@@ -794,18 +794,30 @@ export function PostCard({
               : hasComments
                 ? "text-gc-accent hover:bg-gc-line/40"
                 : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg";
-            // Anon: il toggle inline manda fuori dal post a /sign-up tramite
-            // requireAuth. Se non c'è commentsThreadProps il link va alla
-            // post page (per anon stessa esperienza, requireAuth lì non serve
-            // perché la nav è già full e la page è pubblica).
+            // Anon: il bottone "Commenta" punta sempre a /sign-up via
+            // requireAuth, mai apre il thread inline ne` la post page.
+            // L'utente puo` comunque cliccare la card per visualizzare il
+            // post (incl. commenti) come anon — ma il bottone "commenta"
+            // dichiara intent di scrivere, quindi va al signup.
+            if (!viewer.isLoggedIn) {
+              return (
+                <button
+                  type="button"
+                  aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                  onClick={() => requireAuth(() => {})}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+                >
+                  <MessageCircle size={18} strokeWidth={1.75} />
+                  {hasComments ? <span>{post.counts.comments}</span> : null}
+                </button>
+              );
+            }
             return commentsThreadProps && variant === "feed" ? (
               <button
                 type="button"
                 aria-label={tCard("comments_aria", { count: post.counts.comments })}
                 aria-expanded={commentsOpen}
-                onClick={() =>
-                  requireAuth(() => setCommentsOpen((o) => !o))
-                }
+                onClick={() => setCommentsOpen((o) => !o)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
               >
                 <MessageCircle size={18} strokeWidth={1.75} />
