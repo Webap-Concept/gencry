@@ -574,76 +574,82 @@ export function PostCard({
               </p>
             ) : null}
           </div>
-          {/* Top-right toolbar */}
-          <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={tCard("options_menu")}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+          {/* Top-right toolbar. Nascosto per anon: tutte le voci
+              (Salva/Blocca/Segnala) rimandano comunque a /sign-up via
+              requireAuth, e "Apri post" è ridondante col click sulla
+              card stessa. Per loggati: menu completo con action context
+              (autore vs non-autore). */}
+          {viewer.isLoggedIn ? (
+            <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={tCard("options_menu")}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
                 >
-                  <MoreHorizontal size={18} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
-              >
-                <DropdownMenuItem onSelect={onToggleBookmark}>
-                  {bookmarked ? (
-                    <BookmarkCheck size={16} strokeWidth={1.75} />
-                  ) : (
-                    <Bookmark size={16} strokeWidth={1.75} />
-                  )}
-                  {bookmarked
-                    ? tCard("bookmark_remove")
-                    : tCard("bookmark_save")}
-                </DropdownMenuItem>
-                {variant === "feed" ? (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/post/${post.id}`}>
-                      <ArrowUpRight size={16} strokeWidth={1.75} />
-                      {tCard("open_post")}
-                    </Link>
+                  <DropdownMenuItem onSelect={onToggleBookmark}>
+                    {bookmarked ? (
+                      <BookmarkCheck size={16} strokeWidth={1.75} />
+                    ) : (
+                      <Bookmark size={16} strokeWidth={1.75} />
+                    )}
+                    {bookmarked
+                      ? tCard("bookmark_remove")
+                      : tCard("bookmark_save")}
                   </DropdownMenuItem>
-                ) : null}
-                {canEdit ? (
-                  <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                    <Pencil size={16} strokeWidth={1.75} />
-                    {tCard("edit")}
-                  </DropdownMenuItem>
-                ) : null}
-                {!isAuthor ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={onBlock}>
-                      <UserMinus size={16} strokeWidth={1.75} />
-                      {tCard("block_user", {
-                        name: authorDisplayName(post.author, userFallback),
-                      })}
+                  {variant === "feed" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/post/${post.id}`}>
+                        <ArrowUpRight size={16} strokeWidth={1.75} />
+                        {tCard("open_post")}
+                      </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={onReport}>
-                      <Flag size={16} strokeWidth={1.75} />
-                      {tCard("report")}
+                  ) : null}
+                  {canEdit ? (
+                    <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                      <Pencil size={16} strokeWidth={1.75} />
+                      {tCard("edit")}
                     </DropdownMenuItem>
-                  </>
-                ) : null}
-                {isAuthor ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={onDelete}
-                      className="text-gc-danger focus:text-gc-danger"
-                    >
-                      <Trash2 size={16} strokeWidth={1.75} />
-                      {tCard("delete")}
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  ) : null}
+                  {!isAuthor ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={onBlock}>
+                        <UserMinus size={16} strokeWidth={1.75} />
+                        {tCard("block_user", {
+                          name: authorDisplayName(post.author, userFallback),
+                        })}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={onReport}>
+                        <Flag size={16} strokeWidth={1.75} />
+                        {tCard("report")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  {isAuthor ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={onDelete}
+                        className="text-gc-danger focus:text-gc-danger"
+                      >
+                        <Trash2 size={16} strokeWidth={1.75} />
+                        {tCard("delete")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
         </header>
 
         {/* Body: NON interactiveClass — vogliamo che click su testo
