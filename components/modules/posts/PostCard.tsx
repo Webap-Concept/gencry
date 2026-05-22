@@ -27,6 +27,7 @@ import {
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useViewer } from "@/components/auth/ViewerProvider";
 import { useLocale, useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -195,17 +196,6 @@ type Props = {
     repliesInitialCount: number;
     maxBodyLength: number;
   };
-  /**
-   * Quando true, il click sulla card fa full navigation
-   * (window.location.assign) invece di router.push.
-   *
-   * Why: il parallel slot @modal del layout (protected) intercetta
-   * /post/[id] solo per i loggati. Per anon, il client-side push fa
-   * sì che Next mounti uno slot vuoto e la page standalone non si
-   * vede ("solo footer"). Il refresh manuale risolve perché bypassa
-   * l'intercept. Con la full nav forziamo lo stesso path.
-   */
-  viewerLoggedOut?: boolean;
 };
 
 export function PostCard({
@@ -220,9 +210,9 @@ export function PostCard({
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
-  viewerLoggedOut,
 }: Props) {
   const router = useRouter();
+  const viewer = useViewer();
   const t = useTranslations("posts");
   const tCard = useTranslations("posts.card");
   const tVis = useTranslations("posts.visibility");
@@ -467,7 +457,7 @@ export function PostCard({
     // Anon: full navigation per saltare il parallel slot @modal del
     // layout (protected) che intercetta il client-side push e svuota
     // il render. Loggati: router.push (apre la modale intercept).
-    if (viewerLoggedOut) {
+    if (!viewer.isLoggedIn) {
       window.location.assign(url);
     } else {
       router.push(url);
