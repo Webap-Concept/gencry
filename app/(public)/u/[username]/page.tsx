@@ -113,32 +113,36 @@ async function ProfilePageBody({
     getCoinNameMap(),
   ]);
 
+  // Layout: top section in grid 2-col (header sx + sidebar dx con Info /
+  // Most cited coins). I post stanno SOTTO la grid e occupano tutta la
+  // larghezza disponibile dello shell. Le sezioni (Watchlist / Activity /
+  // Discussioni / Voti / Media) torneranno come pulsante nell'header
+  // quando ci saranno i moduli — niente tabs in v1.
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_280px] max-w-5xl">
-      <div className="space-y-6 min-w-0">
+    <div className="space-y-6 max-w-5xl">
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <ProfileHeader profile={profile} stats={stats} />
-        <ProfileTabs activeTab="posts" />
-        {posts.length === 0 ? (
-          <EmptyState message={tComp("empty_state")} />
-        ) : (
-          <ul className="space-y-3" aria-label={tComp("posts_aria")}>
-            {posts.map((post) => (
-              <li key={post.id}>
-                <PostCard
-                  post={post}
-                  isAuthor={viewerUserId === post.author.id}
-                  variant="feed"
-                  coinNameMap={coinNameMap}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        <aside className="hidden lg:block space-y-4">
+          <InfoCard profile={profile} t={t} />
+          {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
+        </aside>
       </div>
-      <aside className="hidden lg:block space-y-4">
-        <InfoCard profile={profile} t={t} />
-        {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
-      </aside>
+      {posts.length === 0 ? (
+        <EmptyState message={tComp("empty_state")} />
+      ) : (
+        <ul className="space-y-3" aria-label={tComp("posts_aria")}>
+          {posts.map((post) => (
+            <li key={post.id}>
+              <PostCard
+                post={post}
+                isAuthor={viewerUserId === post.author.id}
+                variant="feed"
+                coinNameMap={coinNameMap}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -255,60 +259,6 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
         <StatLabel labelKey="joined" />
       </p>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------------------
-
-async function ProfileTabs({ activeTab }: { activeTab: "posts" }) {
-  const t = await getTranslations("core.pages.profile.tabs");
-  // Tutti i tab tranne "posts" sono disabled in v1: i loro contenuti
-  // dipendono da moduli non ancora disponibili (watchlist, activity,
-  // discussioni, voti, media). Mostrarli aiuta l'utente a percepire la
-  // roadmap, ma li gateamo per non simulare interattività.
-  const tabs: Array<{ key: string; enabled: boolean }> = [
-    { key: "posts", enabled: true },
-    { key: "watchlist", enabled: false },
-    { key: "activity", enabled: false },
-    { key: "discussions", enabled: false },
-    { key: "votes", enabled: false },
-    { key: "media", enabled: false },
-  ];
-  return (
-    <nav
-      className="flex items-end gap-6 border-b border-gc-line overflow-x-auto"
-      aria-label={t("aria")}
-    >
-      {tabs.map((tab) => {
-        const isActive = tab.key === activeTab;
-        const baseClass = "pb-2.5 text-sm whitespace-nowrap transition-colors";
-        if (!tab.enabled) {
-          return (
-            <span
-              key={tab.key}
-              className={`${baseClass} text-gc-fg-3/50 cursor-not-allowed`}
-              title={t("coming_soon")}
-            >
-              {t(tab.key)}
-            </span>
-          );
-        }
-        return (
-          <span
-            key={tab.key}
-            className={`${baseClass} ${
-              isActive
-                ? "text-gc-fg border-b-2 border-gc-accent -mb-px"
-                : "text-gc-fg-2 hover:text-gc-fg"
-            }`}
-          >
-            {t(tab.key)}
-          </span>
-        );
-      })}
-    </nav>
   );
 }
 
