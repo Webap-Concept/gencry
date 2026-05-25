@@ -152,7 +152,7 @@ export function NewPostsBannerSlot({
         aria-label={t("aria_label")}
         className="pointer-events-auto inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-white text-sm font-semibold transition-transform duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2"
         style={{
-          background: "linear-gradient(135deg, #5da383 0%, #a3d3b9 100%)",
+          background: "linear-gradient(0deg, #5da383 0%, #a3d3b9 100%)",
           boxShadow:
             "0 10px 28px -8px rgba(125, 190, 158, 0.65), 0 3px 10px rgba(18, 57, 40, 0.22)",
         }}
