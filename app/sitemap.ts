@@ -18,9 +18,20 @@
 // Esclude:
 //   - status != 'published'
 //   - visibility != 'public' (private/draft)
-//   - system pages meta-only (is_system=true AND content_editable=false):
-//     sono container amministrativi senza un URL navigabile (es. /sign-in,
-//     /admin), cms-page.tsx fa notFound() su quelle.
+//   - TUTTE le system pages (is_system=true) → cookie/privacy/terms/marketing/
+//     404/sign-in/sign-up/verify-email/forgot-password/reset-password/admin/
+//     admin-sign-in. Sono pagine di servizio: non sono target SEO, indicizzarle
+//     produce solo noise. Footer link è sufficiente per la discoverability
+//     di privacy/terms (Google li indicizza comunque via crawl).
+//   - ECCEZIONE whitelist: la sola system page `home` (slug vuoto, ovvero la
+//     homepage `/`) viene inclusa con priority 1.0, come da convenzione SEO
+//     standard (la homepage DEVE essere in sitemap).
+//
+// Se in futuro serve indicizzare un'altra system page (raro), allargare la
+// whitelist `eq(pages.systemKey, "home")` aggiungendo `inArray(pages.systemKey,
+// [...])` con le keys whitelisted. Non usare `content_editable=true` come
+// proxy: è un boolean operativo (può l'admin editare il body?) non un
+// segnale SEO (deve apparire in sitemap?).
 
 import { db } from "@/lib/db/drizzle";
 import { pages, pageTemplates } from "@/lib/db/schema";
@@ -56,11 +67,14 @@ const fetchCmsPagesForSitemap = unstable_cache(
         and(
           eq(pages.status, "published"),
           eq(pages.visibility, "public"),
-          // Esclude system meta-only pages: sono container admin senza
-          // URL navigabile pubblico.
+          // User pages (is_system=false) sempre incluse. Tra le system
+          // pages, solo la homepage (`system_key='home'`, slug vuoto) →
+          // tutto il resto (cookie, privacy, terms, marketing, 404,
+          // sign-in, ecc.) viene escluso. Vedi il commento di apertura
+          // del file per il razionale e come allargare la whitelist.
           or(
             eq(pages.isSystem, false),
-            eq(pages.contentEditable, true),
+            eq(pages.systemKey, "home"),
           ),
         ),
       )
