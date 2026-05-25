@@ -38,7 +38,12 @@ import {
 } from "@/lib/db/schema";
 import { getCachedFeedIds } from "./services/feed-cache";
 import { getCachedPosts } from "./services/post-cache";
-import { isBlockedBetween, notBlockedBy } from "./services/blocks";
+import {
+  getBlockedIdsForViewer,
+  isBlockedBetween,
+  notBlockedBy,
+  notBlockedByIds,
+} from "./services/blocks";
 import { cursorFromRow, decodeCursor, encodeCursor } from "./lib/cursor";
 import type {
   CommentCardData,
@@ -131,6 +136,10 @@ function cursorClauseCommentsDesc(cursor: ReturnType<typeof decodeCursor>) {
  * Anonymous (no viewerUserId) → nessun filtro. Loggato → NOT EXISTS sui
  * `posts_user_blocks` in entrambe le direzioni (mutual). Vedi service
  * `notBlockedBy` per il dettaglio del fragment SQL.
+ *
+ * Usato dai caller che NON pre-caricano il Set (commenti, polling, hub).
+ * I 5 hot path del feed usano `viewerNotBlockedByIdsPrecomputed` con il
+ * Set caricato 1 volta per request via `getBlockedIdsForViewer`.
  */
 function viewerNotBlockedOnPosts(viewerUserId: string | undefined) {
   if (!viewerUserId) return undefined;
@@ -141,6 +150,22 @@ function viewerNotBlockedOnPosts(viewerUserId: string | undefined) {
 function viewerNotBlockedOnComments(viewerUserId: string | undefined) {
   if (!viewerUserId) return undefined;
   return notBlockedBy(viewerUserId, postsComments.authorId);
+}
+
+/**
+ * Variante KV-set: usata dai 5 hot path del feed. Il caller pre-carica
+ * il Set degli id bloccati 1 volta per request (React.cache dedupa fan-
+ * out) e lo passa qui. Empty set / anonimo → undefined (no filtro).
+ *
+ * Vantaggio vs `viewerNotBlockedOnPosts`: 1 fetch KV per request vs N
+ * sub-query DB (una per query feed). Stale tollerabile 5min (TTL KV) +
+ * 30s (L1 in-process) — block è azione rara.
+ */
+function viewerNotBlockedByIdsOnPosts(
+  blockedIds: ReadonlySet<string> | undefined,
+) {
+  if (!blockedIds) return undefined;
+  return notBlockedByIds(blockedIds, posts.authorId);
 }
 
 /**
@@ -190,6 +215,10 @@ export async function getFeedIds(opts: {
     return { ids: [], nextCursor: null };
   }
 
+  const blockedIds = opts.viewerUserId
+    ? await getBlockedIdsForViewer(opts.viewerUserId)
+    : undefined;
+
   return getCachedFeedIds(
     `discover:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -200,7 +229,7 @@ export async function getFeedIds(opts: {
           and(
             isNull(posts.deletedAt),
             discoverVisibilityClause(opts.viewerUserId),
-            viewerNotBlockedOnPosts(opts.viewerUserId),
+            viewerNotBlockedByIdsOnPosts(blockedIds),
             cursorClause(cursor),
           ),
         )
@@ -219,6 +248,9 @@ export async function getProfileFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
+  const blockedIds = opts.viewerUserId
+    ? await getBlockedIdsForViewer(opts.viewerUserId)
+    : undefined;
   return getCachedFeedIds(
     `profile:${opts.authorId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -230,7 +262,7 @@ export async function getProfileFeedIds(opts: {
             eq(posts.authorId, opts.authorId),
             isNull(posts.deletedAt),
             profileVisibilityClause(opts.authorId, opts.viewerUserId),
-            viewerNotBlockedOnPosts(opts.viewerUserId),
+            viewerNotBlockedByIdsOnPosts(blockedIds),
             cursorClause(cursor),
           ),
         )
@@ -251,6 +283,9 @@ export async function getTickerFeedIds(opts: {
   const cursor = decodeCursor(opts.cursor);
   // Ticker normalizzato uppercase (CHECK SQL li impone così).
   const tickerNorm = opts.ticker.toUpperCase();
+  const blockedIds = opts.viewerUserId
+    ? await getBlockedIdsForViewer(opts.viewerUserId)
+    : undefined;
   return getCachedFeedIds(
     `ticker:${tickerNorm}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -263,7 +298,7 @@ export async function getTickerFeedIds(opts: {
             eq(postsTickers.ticker, tickerNorm),
             isNull(posts.deletedAt),
             discoverVisibilityClause(opts.viewerUserId),
-            viewerNotBlockedOnPosts(opts.viewerUserId),
+            viewerNotBlockedByIdsOnPosts(blockedIds),
             cursor
               ? or(
                   lt(postsTickers.createdAt, new Date(cursor.ms)),
@@ -335,6 +370,9 @@ export async function getMentionsFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
+  const blockedIds = opts.viewerUserId
+    ? await getBlockedIdsForViewer(opts.viewerUserId)
+    : undefined;
   return getCachedFeedIds(
     `mentions:${opts.targetUserId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -347,7 +385,7 @@ export async function getMentionsFeedIds(opts: {
             eq(postsMentions.mentionedUserId, opts.targetUserId),
             isNull(posts.deletedAt),
             discoverVisibilityClause(opts.viewerUserId),
-            viewerNotBlockedOnPosts(opts.viewerUserId),
+            viewerNotBlockedByIdsOnPosts(blockedIds),
             cursor
               ? or(
                   lt(postsMentions.createdAt, new Date(cursor.ms)),
@@ -465,9 +503,20 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
 async function selectPostsCore(
   ids: string[],
   viewerUserId?: string,
-  opts: { enforceVisibility?: boolean } = {},
+  opts: {
+    enforceVisibility?: boolean;
+    /** Set precomputato dei block per il viewer. Quando presente,
+     *  evita la sub-query NOT EXISTS e usa NOT IN sul Set. Opzionale —
+     *  i caller non-feed (single post by slug) possono ometterlo. */
+    blockedIds?: ReadonlySet<string>;
+  } = {},
 ): Promise<RawPostRow[]> {
   if (ids.length === 0) return [];
+  // Se il caller ha pre-caricato il Set lo usiamo (1 KV fetch ammortizzato
+  // su tutte le query del request). Altrimenti fallback a sub-query SQL.
+  const blockClause = opts.blockedIds
+    ? viewerNotBlockedByIdsOnPosts(opts.blockedIds)
+    : viewerNotBlockedOnPosts(viewerUserId);
   const rows = await db
     .select({
       id: posts.id,
@@ -499,7 +548,7 @@ async function selectPostsCore(
       and(
         inArray(posts.id, ids),
         isNull(posts.deletedAt),
-        viewerNotBlockedOnPosts(viewerUserId),
+        blockClause,
         opts.enforceVisibility
           ? viewerCanSeeVisibility(viewerUserId)
           : undefined,
@@ -657,9 +706,17 @@ export async function getPostsByIds(
 ): Promise<PostCardData[]> {
   if (ids.length === 0) return [];
 
+  // Pre-carica il Set dei block 1 volta per request (React.cache dedupa
+  // se anche altri caller del request lo invocano: getFeedIds + hydration).
+  const blockedIds = opts.viewerUserId
+    ? await getBlockedIdsForViewer(opts.viewerUserId)
+    : undefined;
+
   return getCachedPosts(ids, async (missingIds) => {
     // Step 1: core posts (filtra anche per block tra viewer e autore)
-    const core = await selectPostsCore(missingIds, opts.viewerUserId);
+    const core = await selectPostsCore(missingIds, opts.viewerUserId, {
+      blockedIds,
+    });
     if (core.length === 0) return [];
 
     // Step 2: repost targets (depth 1) — anche il target è block-filtrato:
@@ -674,6 +731,7 @@ export async function getPostsByIds(
     const targetCore = repostTargetIds.length
       ? await selectPostsCore(repostTargetIds, opts.viewerUserId, {
           enforceVisibility: true,
+          blockedIds,
         })
       : [];
     const targetCoreById = new Map(targetCore.map((p) => [p.id, p]));
