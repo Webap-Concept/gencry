@@ -38,8 +38,52 @@ const KV_TTL_SECONDS = 5 * 60;
 const LOCAL_TTL_MS = 30_000;
 const LOCAL_CAP = 1_000;
 
+// Hit/miss metrics — counter giornalieri (TTL 7 giorni) in Upstash. La
+// probe `post-cache-hit-rate.ts` legge gli ultimi 7 giorni e calcola il
+// rate. Fire-and-forget: 1 INCR pipelined dopo MGET, no latenza extra
+// percepita (~50µs). Vedi project_post_cache_v25_followup.md.
+const METRICS_KEY_PREFIX = "posts:cache:metrics:";
+const METRICS_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 function kvKey(postId: string): string {
   return `${KV_KEY_PREFIX}${postId}`;
+}
+
+function metricsKey(kind: "hits" | "misses", isoDate: string): string {
+  return `${METRICS_KEY_PREFIX}${kind}:${isoDate}`;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Fire-and-forget metrics counter. Non await-ed dal caller — un INCR
+ * fallito non deve mai degradare l'hydration. Il setEx mette TTL solo
+ * al primo INCR del giorno (idempotente).
+ */
+function bumpMetric(
+  client: Awaited<ReturnType<typeof getRedisClient>>,
+  kind: "hits" | "misses",
+  count: number,
+): void {
+  if (!client || count <= 0) return;
+  const k = metricsKey(kind, todayIso());
+  // expire opportunistico: SET TTL al primo INCR. Cmd successivi
+  // mantengono il TTL già impostato (Upstash EXPIRE non resetta se NX
+  // non è settato — qui semplifichiamo con un SET + EXPIRE pipeline-able).
+  client
+    .incrby(k, count)
+    .then(() => {
+      // Set TTL solo se la key è "young" (< 60s). Si potrebbe usare
+      // EXPIREAT ma sarebbe più cmd. Semplicità: EXPIRE ad ogni call
+      // (idempotente, non reset il TTL al valore — sì in realtà sì,
+      // ma il TTL è sempre METRICS_TTL_SECONDS, quindi safe).
+      return client.expire(k, METRICS_TTL_SECONDS);
+    })
+    .catch(() => {
+      // Swallow: metriche sono best-effort.
+    });
 }
 
 type LocalEntry<T> = { value: T; expiry: number };
@@ -115,16 +159,27 @@ export const getCachedPostHydrationBatch = cache(
     try {
       const keys = l1Missing.map(kvKey);
       const values = await client.mget<Array<T | null>>(...keys);
+      let l2Hits = 0;
+      let l2Misses = 0;
       for (let i = 0; i < l1Missing.length; i++) {
         const id = l1Missing[i];
         const v = values[i];
         if (v && typeof v === "object") {
           hits.set(id, v);
           localSet(id, v);
+          l2Hits++;
         } else {
           missing.push(id);
+          l2Misses++;
         }
       }
+      // Fire-and-forget metrics. L1 hits non sono contati (no Redis cmd
+      // per def), quindi il rate calcolato è "Redis-side hit rate":
+      // l2Hits / (l2Hits + l2Misses). Va interpretato come "quanto la
+      // L2 KV cache lavora effettivamente" — quando questo cala sotto
+      // 50% serve V2.5 transitive invalidation (vedi memory).
+      bumpMetric(client, "hits", l2Hits);
+      bumpMetric(client, "misses", l2Misses);
     } catch (err) {
       console.warn("[post-cache] mget miss-on-error", { count: l1Missing.length, err: String(err) });
       // KV down → tutti a missing

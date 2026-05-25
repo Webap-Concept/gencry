@@ -13,25 +13,25 @@
 // Loggati: vedono `public + members`. Anonimi non passano qui (la
 // rotta è in `(protected)`); l'apertura ai non-loggati arriverà col
 // PR-9 SEO + adaptive `(public)` layout.
-import "server-only";
-import { Suspense } from "react";
-import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import { Search } from "lucide-react";
+import { CoinSummaryCard } from "@/components/modules/coins/coin-summary-card";
+import { FeedList } from "@/components/modules/posts/FeedList";
+import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
+import { TrendingCoinsRow } from "@/components/modules/posts/TrendingCoinsRow";
 import { getUser } from "@/lib/db/queries";
+import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
+import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import {
   getFeedIds,
   getPostsByIds,
   getTickerFeedIds,
 } from "@/lib/modules/posts/queries";
-import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
-import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
-import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
-import { FeedList } from "@/components/modules/posts/FeedList";
-import { TrendingCoinsRow } from "@/components/modules/posts/TrendingCoinsRow";
-import { NewPostsBannerSlot } from "@/components/modules/posts/NewPostsBannerSlot";
-import { CoinSummaryCard } from "@/components/modules/coins/coin-summary-card";
+import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
+import { Search } from "lucide-react";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
+import "server-only";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("posts.explore");
@@ -103,14 +103,14 @@ export default async function ExplorePage({
         coin ? (
           <CoinSummaryCard coin={coin} />
         ) : (
-          <div className="max-w-2xl mx-auto px-4 pt-6">
+          <div className="max-w-2xl mx-auto pt-6">
             <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">
               <strong>${ticker}</strong> {tExp("untracked_fallback")}
             </div>
           </div>
         )
       ) : (
-        <div className="max-w-2xl mx-auto px-4 pt-6">
+        <div className="max-w-2xl mx-auto pt-6">
           <Suspense fallback={null}>
             <TrendingCoinsRow />
           </Suspense>
@@ -184,7 +184,9 @@ async function ExploreEmptyState({ ticker }: { ticker: string | null }) {
         <Search size={22} strokeWidth={1.75} />
       </div>
       <div>
-        <p className="text-gc-fg font-medium">{tEmpty("explore_no_posts_title")}</p>
+        <p className="text-gc-fg font-medium">
+          {tEmpty("explore_no_posts_title")}
+        </p>
         <p className="text-sm text-gc-fg-muted mt-1 max-w-sm">
           {tEmpty("explore_no_posts_description")}
         </p>
