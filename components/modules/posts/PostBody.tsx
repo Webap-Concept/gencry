@@ -241,7 +241,7 @@ export function PostBody({
         }
         if (t.type === "mention") {
           return (
-            <Link key={i} href={`/profile/${t.username}`} className={LINK_CLASS}>
+            <Link key={i} href={`/u/${t.username}`} className={LINK_CLASS}>
               @{t.username}
             </Link>
           );

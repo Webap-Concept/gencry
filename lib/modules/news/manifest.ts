@@ -11,9 +11,12 @@
 //   admin review/edit/schedule
 //   cron publisher (15min) → news_items.status='published' + pages row
 //
-// Capacity profiles del modulo. Singolo scope "pipeline" perché tutte le
-// quote (max scheduled/giorno, batch size cron, retention items) si
-// muovono insieme col tier scelto dall'admin.
+// Module capacity profiles. Single "pipeline" scope because all the
+// quotas (max scheduled/day, cron batch size, items retention) move
+// together with the tier chosen by the admin.
+//
+// Strings here are intentionally EN-only (no i18n lookup): these are
+// admin/dev-facing technical notes, not user-facing UI copy.
 
 import type { CapacityProfile, ModuleManifest } from "@/lib/modules/types";
 
@@ -27,45 +30,45 @@ const PIPELINE_CAPACITY: CapacityProfile = {
       plan: "Pay-as-you-go",
       limits: [
         "Sonnet 4.6 ~$3/Mtok input, $15/Mtok output",
-        "Prompt caching attivo sul system prompt (-90% sui costi input ripetuti)",
-        "Stima ~$0.02/articolo (800 tok in, 1200 tok out)",
+        "Prompt caching enabled on the system prompt (-90% on repeated input cost)",
+        "Estimate ~$0.02/article (800 tok in, 1200 tok out)",
       ],
-      upgradeAt: "AI cost mensile > $50 oppure latency p95 > 8s",
+      upgradeAt: "AI monthly cost > $50 or p95 latency > 8s",
       upgradePath:
-        "Down-shift a Haiku 4.5 per fonti 'fidate' (preset whitelist) o aumentare cache hit via prompt fixed sezioni",
+        "Down-shift to Haiku 4.5 for 'trusted' sources (preset whitelist) or increase cache hits via fixed prompt sections",
       docsUrl: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching",
     },
     {
       name: "Supabase Postgres (news_items)",
       plan: "Free",
-      limits: ["500MB DB share", "Indici parziali su status='scheduled'|'pending_rewrite'"],
-      upgradeAt: "news_items > 100k righe (~years at 50/day)",
-      upgradePath: "Cron cleanup di items rejected >30 giorni + eventuale Supabase Pro",
+      limits: ["500MB DB share", "Partial indexes on status='scheduled'|'pending_rewrite'"],
+      upgradeAt: "news_items > 100k rows (~years at 50/day)",
+      upgradePath: "Cron cleanup of rejected items >30 days + possibly Supabase Pro",
       docsUrl: "https://supabase.com/pricing",
     },
     {
       name: "Cloudflare R2 (bucket storage, prefix news/)",
-      plan: "Free (shared col media library CMS)",
-      limits: ["10GB storage gratuiti", "Egress $0"],
+      plan: "Free (shared with the CMS media library)",
+      limits: ["10GB free storage", "Egress $0"],
       upgradeAt: "Storage > 8GB",
-      upgradePath: "R2 pay-as-you-go: ~$0.015/GB sopra free tier",
+      upgradePath: "R2 pay-as-you-go: ~$0.015/GB above the free tier",
       docsUrl: "https://developers.cloudflare.com/r2/pricing/",
     },
   ],
   tunables: [
-    { key: "modules.news.rewrite_batch_size",       label: "Cron rewrite batch (items/run)" },
-    { key: "modules.news.publisher_batch_size",     label: "Cron publisher batch (items/run)" },
-    { key: "modules.news.max_published_per_day",    label: "Max articoli pubblicati/giorno" },
-    { key: "modules.news.rewrite_max_attempts",     label: "Max tentativi LLM prima di fail" },
-    { key: "modules.news.ai_model",                 label: "Modello Claude (Sonnet/Haiku)" },
-    { key: "modules.news.fetch_max_items_per_source", label: "Max item ingeriti per fetch (per source)" },
-    { key: "modules.news.proposed_retention_days", label: "Proposte auto-rigettate dopo N giorni" },
+    { key: "modules.news.rewrite_batch_size",       label: "Rewrite cron batch (items/run)" },
+    { key: "modules.news.publisher_batch_size",     label: "Publisher cron batch (items/run)" },
+    { key: "modules.news.max_published_per_day",    label: "Max articles published/day" },
+    { key: "modules.news.rewrite_max_attempts",     label: "Max LLM attempts before fail" },
+    { key: "modules.news.ai_model",                 label: "Claude model (Sonnet/Haiku)" },
+    { key: "modules.news.fetch_max_items_per_source", label: "Max items ingested per fetch (per source)" },
+    { key: "modules.news.proposed_retention_days", label: "Proposals auto-rejected after N days" },
   ],
   presets: [
     {
       id: "alpha",
-      label: "Alpha (1-2 articoli/giorno)",
-      description: "Setup conservativo: pipeline lenta, costi minimi, controllo manuale stretto.",
+      label: "Alpha (1-2 articles/day)",
+      description: "Conservative setup: slow pipeline, minimal cost, tight manual oversight.",
       values: {
         "modules.news.rewrite_batch_size": "3",
         "modules.news.publisher_batch_size": "5",
@@ -78,8 +81,8 @@ const PIPELINE_CAPACITY: CapacityProfile = {
     },
     {
       id: "beta",
-      label: "Beta (3-5 articoli/giorno)",
-      description: "Pipeline più rapida ma sempre HIL. Aumenta batch rewrite per smaltire la queue.",
+      label: "Beta (3-5 articles/day)",
+      description: "Faster pipeline but still HIL. Higher rewrite batch to drain the queue.",
       values: {
         "modules.news.rewrite_batch_size": "5",
         "modules.news.publisher_batch_size": "10",
@@ -92,8 +95,8 @@ const PIPELINE_CAPACITY: CapacityProfile = {
     },
     {
       id: "growth",
-      label: "Growth (10+ articoli/giorno)",
-      description: "Sonnet su tutto, batch grande. Considerare alert su AI cost mensile.",
+      label: "Growth (10+ articles/day)",
+      description: "Sonnet everywhere, large batches. Consider alerts on monthly AI cost.",
       values: {
         "modules.news.rewrite_batch_size": "10",
         "modules.news.publisher_batch_size": "20",
@@ -106,8 +109,8 @@ const PIPELINE_CAPACITY: CapacityProfile = {
     },
     {
       id: "scale",
-      label: "Scale (alto volume, costi sotto controllo)",
-      description: "Switch a Haiku per ridurre costi 5x. Quality minore ma volumi alti, admin review compensa.",
+      label: "Scale (high volume, cost under control)",
+      description: "Switch to Haiku to cut costs 5x. Lower quality but high volume — admin review compensates.",
       values: {
         "modules.news.rewrite_batch_size": "20",
         "modules.news.publisher_batch_size": "30",

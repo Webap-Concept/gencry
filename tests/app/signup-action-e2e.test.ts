@@ -323,10 +323,9 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(mockAddEmailToBloom).toHaveBeenCalledWith("mario@example.com");
     });
 
-    it("aggiunge username al Bloom filter dopo l'insert", async () => {
-      await callSignUp();
-      expect(mockAddUsernameToBloom).toHaveBeenCalledWith("mario_rossi");
-    });
+    // NOTE: gli username NON vengono più aggiunti al Bloom filter durante
+    // il signup — la scelta dello username avviene nel wizard /onboarding
+    // (refactor 2785ac69). Test coverage si è spostata su onboarding action.
 
     // firstName non è più raccolto in fase di registrazione:
     // sendSignupVerificationEmail riceve undefined come terzo argomento.
@@ -356,14 +355,14 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(result).toMatchObject({ redirected: true, url: "/verify-email" });
     });
 
-    // userProfiles viene inserito solo con username; firstName e lastName
-    // sono null nel DB fino a quando l'utente non li compila dal profilo.
-    it("inserisce userProfiles con solo username (firstName/lastName null)", async () => {
+    // userProfiles viene inserito vuoto (firstName/lastName/username tutti
+    // NULL). Lo username viene scelto nel wizard /onboarding (refactor
+    // 2785ac69) e popolato lì.
+    it("inserisce userProfiles vuoto (username/firstName/lastName null)", async () => {
       await callSignUp();
-      expect(mockProfilesValues).toHaveBeenCalledWith(
-        expect.objectContaining({ username: "mario_rossi" }),
-      );
+      expect(mockProfilesValues).toHaveBeenCalled();
       const callArg = mockProfilesValues.mock.calls[0][0] as Record<string, unknown>;
+      expect(callArg.username).toBeUndefined();
       expect(callArg.firstName).toBeUndefined();
       expect(callArg.lastName).toBeUndefined();
     });
@@ -439,12 +438,9 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(mockUsersReturning).not.toHaveBeenCalled();
     });
 
-    it("blocca username nella blacklist", async () => {
-      mockIsUsernameBlacklisted.mockResolvedValue(true);
-      const result = await callSignUp();
-      expect(result).toMatchObject({ error: expect.stringContaining("username non è disponibile") });
-      expect(mockUsersReturning).not.toHaveBeenCalled();
-    });
+    // NOTE: la blacklist username non viene più applicata nel signup
+    // (refactor 2785ac69 — username scelto nel wizard /onboarding).
+    // Test coverage si è spostata sulle action di onboarding.
   });
 
   // ─── Bloom filter guards ──────────────────────────────────────────────────
@@ -456,12 +452,8 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(mockUsersReturning).not.toHaveBeenCalled();
     });
 
-    it("restituisce errore se username già in uso", async () => {
-      mockCheckUsernameAvailability.mockResolvedValue({ available: false, checkedViaDb: true });
-      const result = await callSignUp();
-      expect(result).toMatchObject({ error: expect.stringContaining("username è già in uso") });
-      expect(mockUsersReturning).not.toHaveBeenCalled();
-    });
+    // NOTE: il check Bloom availability su username non avviene più nel
+    // signup (refactor 2785ac69). Resta solo nel wizard /onboarding.
   });
 
   // ─── Race conditions ──────────────────────────────────────────────────────
@@ -474,14 +466,9 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(mockRecordSignupAttempt).toHaveBeenCalledWith("1.2.3.4");
     });
 
-    it("gestisce race condition su username (unique constraint userProfiles) → elimina user orfano + recordSignupAttempt", async () => {
-      mockProfilesValues.mockRejectedValueOnce(new Error("unique violation"));
-      mockIsUniqueConstraintError.mockReturnValueOnce(true);
-      const result = await callSignUp();
-      expect(result).toMatchObject({ error: expect.stringContaining("username è appena stato scelto") });
-      expect(mockDbDeleteWhere).toHaveBeenCalled();
-      expect(mockRecordSignupAttempt).toHaveBeenCalledWith("1.2.3.4");
-    });
+    // NOTE: la race condition su username unique constraint non si verifica
+    // più nel signup (userProfiles viene inserito con username=NULL —
+    // refactor 2785ac69). La race ora vive nelle action di onboarding.
   });
 
   // ─── Email verification fallback ──────────────────────────────────────────
@@ -535,10 +522,9 @@ describe("signUpAction — flusso end-to-end", () => {
       expect(mockGetAppSettings).not.toHaveBeenCalled();
     });
 
-    it("rifiuta username con caratteri non ammessi", async () => {
-      const result = await callSignUp({ username: "mario rossi!" });
-      expect(result).toMatchObject({ error: expect.anything() });
-      expect(mockGetAppSettings).not.toHaveBeenCalled();
-    });
+    // NOTE: la validazione username (regex caratteri ammessi) non è più
+    // parte dello schema signup (refactor 2785ac69 — username scelto nel
+    // wizard /onboarding). Lo schema signup oggi ignora il campo username
+    // se passato. Test coverage si è spostata su onboarding action.
   });
 });

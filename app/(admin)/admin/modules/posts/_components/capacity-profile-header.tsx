@@ -1,33 +1,34 @@
 "use client";
 // app/(admin)/admin/modules/posts/_components/capacity-profile-header.tsx
 //
-// Componente condiviso per il header "Capacity Profile" dei form admin
-// dei tunables di scala. Mostra:
-//   - Tier corrente come badge
-//   - Bottoni preset (alpha/beta/growth/scale) — applicano valori al
-//     form callback `onApplyPreset` SENZA salvare (l'utente clicca Salva)
-//   - Disclosure con dettaglio delle risorse esterne (limits + upgradeAt
+// Shared component for the "Capacity Profile" header of admin forms for
+// scale tunables. Shows:
+//   - Current tier as a badge
+//   - Preset buttons (alpha/beta/growth/scale) — apply values via the
+//     `onApplyPreset` form callback WITHOUT saving (user clicks Save)
+//   - Disclosure with external-resource details (limits + upgradeAt
 //     + upgradePath + docs link)
 //
-// Estratto dal form Comments per riuso cross-scope (rate-limits,
-// retention, media). Vedi memoria feedback_capacity_profile_pattern.
+// Extracted from the Comments form for cross-scope reuse (rate-limits,
+// retention, media). See memory feedback_capacity_profile_pattern.
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import type {
   CapacityPreset,
   CapacityProfile,
   CapacityTier,
 } from "@/lib/modules/types";
+import { useTranslations } from "next-intl";
 
 export type CapacityProfileHeaderProps = {
   profile: CapacityProfile;
-  /** Override del tier mostrato come "corrente". Se omesso, usa
-   *  `profile.currentTier` (statico dal manifest). Caller server-side
-   *  passa il valore derived da
-   *  `resolveCapacityCurrentTier(profile, settings)` per riflettere i
-   *  valori effettivi salvati in app_settings. */
+  /** Override of the tier shown as "current". If omitted, falls back to
+   *  `profile.currentTier` (static from the manifest). Server-side caller
+   *  passes the value derived from
+   *  `resolveCapacityCurrentTier(profile, settings)` to reflect the
+   *  actual values saved in app_settings. */
   currentTier?: CapacityTier | "custom";
-  /** Callback invocato dal click su un preset. Il caller setta i suoi
-   *  state in base ai `preset.values` (mappa setting_key → string). */
+  /** Callback invoked on preset click. The caller updates its own state
+   *  from `preset.values` (setting_key → string map). */
   onApplyPreset: (preset: CapacityPreset) => void;
 };
 
@@ -36,12 +37,13 @@ export function CapacityProfileHeader({
   currentTier,
   onApplyPreset,
 }: CapacityProfileHeaderProps) {
+  const t = useTranslations("admin.capacityProfileHeader");
   const resolvedTier = currentTier ?? profile.currentTier;
   return (
     <div className="rounded-md border border-[var(--admin-card-border)] bg-[var(--admin-input-bg)] p-3 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs uppercase tracking-wide text-[var(--admin-text-muted)]">
-          Tier corrente:
+          {t("currentTier")}
         </span>
         <span
           className="inline-block text-xs font-semibold rounded px-2 py-0.5"
@@ -53,7 +55,7 @@ export function CapacityProfileHeader({
           {resolvedTier}
         </span>
         <span className="text-xs text-[var(--admin-text-muted)] sm:ml-auto">
-          Applica preset di calibrazione:
+          {t("applyPreset")}
         </span>
       </div>
 
@@ -74,7 +76,7 @@ export function CapacityProfileHeader({
 
       <details className="text-xs text-[var(--admin-text-muted)]">
         <summary className="cursor-pointer hover:text-[var(--admin-text)]">
-          Risorse esterne usate ({profile.resources.length})
+          {t("externalResources", { count: profile.resources.length })}
         </summary>
         <ul className="mt-2 space-y-2">
           {profile.resources.map((r) => (
@@ -89,13 +91,13 @@ export function CapacityProfileHeader({
                 </span>
               </div>
               <div className="text-[var(--admin-text-muted)]">
-                Limiti: {r.limits.join(" · ")}
+                {t("limits")}: {r.limits.join(" · ")}
               </div>
               <div className="text-[var(--admin-text-muted)]">
-                Upgrade a: {r.upgradeAt}
+                {t("upgradeAt")}: {r.upgradeAt}
               </div>
               <div className="text-[var(--admin-text-muted)]">
-                Cosa fare: {r.upgradePath}
+                {t("upgradePath")}: {r.upgradePath}
               </div>
               {r.docsUrl ? (
                 <a
@@ -104,7 +106,7 @@ export function CapacityProfileHeader({
                   rel="noopener noreferrer"
                   className="text-[var(--admin-accent)] hover:underline"
                 >
-                  Docs ↗
+                  {t("docs")} ↗
                 </a>
               ) : null}
             </li>

@@ -40,6 +40,10 @@
     "loading_more": "Carico…",
     "end_reached": "Il mercato è saturo, non c'è altro da vedere."
   },
+  "profile": {
+    "posts_aria": "Post pubblicati dall'utente",
+    "empty_state": "Nessun post pubblicato per il momento."
+  },
   "comments": {
     "empty_body": "Scrivi qualcosa prima di commentare.",
     "body_too_long": "Il commento è troppo lungo.",
@@ -236,5 +240,9 @@
     "subtitle": "Post pubblici della community in ordine cronologico.",
     "discussions_about": "Discussioni su: {ticker}",
     "untracked_fallback": "non è ancora tracciato nel modulo prezzi — vedi sotto i post che lo menzionano."
+  },
+  "new_posts_banner": {
+    "label": "{count, plural, one {# nuovo post} other {# nuovi post}}",
+    "aria_label": "Mostra i nuovi post"
   }
 }

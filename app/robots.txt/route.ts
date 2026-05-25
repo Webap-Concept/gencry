@@ -72,7 +72,12 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, stale-while-revalidate=60",
+      // max-age=60 (era 3600): permette all'admin di vedere gli effetti
+      // delle modifiche entro 1 minuto. Il CDN/browser cache HTTP standard
+      // NON è invalidata da `revalidatePath` (quello tocca la cache
+      // Next.js interna). I bot crawler chiedono robots.txt <1x/giorno —
+      // 60s di freshness è ampiamente sufficiente.
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
     },
   });
 }

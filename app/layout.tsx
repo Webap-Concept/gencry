@@ -1,9 +1,11 @@
+import { ViewerProvider, type Viewer } from "@/components/auth/ViewerProvider";
 import { CookieBanner } from "@/components/cookie-banner/cookie-banner";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
 import { SentryClientBoot } from "@/components/sentry-client-boot";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { getUser } from "@/lib/db/queries";
 import { readCookieConsent } from "@/lib/cookie-consent/cookie";
 import {
   buildServiceCategoryMap,
@@ -173,6 +175,7 @@ export default async function RootLayout({
     cookieServices,
     cookieRegistry,
     sentryServerCfg,
+    viewerUser,
   ] = await Promise.all([
     getActiveSnippets(),
     getAppSettings(),
@@ -187,7 +190,26 @@ export default async function RootLayout({
     getCookieRegistry(),
     // Sentry — solo i campi safe-da-esporre al client (mai authToken).
     loadSentryConfig(),
+    // Viewer per il ViewerProvider client-side. getUser() è gia cached
+    // via React.cache() + Redis (vedi project_session_cache_optimization),
+    // quindi questa chiamata aggiuntiva non genera extra fetch — riusa
+    // quella che gia` fanno i layout downstream.
+    getUser(),
   ]);
+
+  const viewer: Viewer = viewerUser
+    ? {
+        isLoggedIn: true,
+        userId: viewerUser.id,
+        displayName:
+          [viewerUser.firstName, viewerUser.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          viewerUser.username ||
+          null,
+      }
+    : { isLoggedIn: false, userId: null, displayName: null };
 
   const sentryClientCfg = toClientConfig(sentryServerCfg);
 
@@ -297,20 +319,22 @@ export default async function RootLayout({
       </head>
       <body className="min-h-[100dvh] bg-gc-bg text-gc-fg">
         <NextIntlClientProvider locale={lang} messages={messages}>
-          {isMaintenance ? (
-            <MaintenancePage />
-          ) : (
-            <Suspense fallback={null}>
-              <DynamicWrapper>{children}</DynamicWrapper>
-            </Suspense>
-          )}
-          {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
-          {showCookieBanner && (
-            <CookieBanner
-              policyUrl={cookiePolicyUrl}
-              services={cookieServices}
-            />
-          )}
+          <ViewerProvider viewer={viewer}>
+            {isMaintenance ? (
+              <MaintenancePage />
+            ) : (
+              <Suspense fallback={null}>
+                <DynamicWrapper>{children}</DynamicWrapper>
+              </Suspense>
+            )}
+            {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
+            {showCookieBanner && (
+              <CookieBanner
+                policyUrl={cookiePolicyUrl}
+                services={cookieServices}
+              />
+            )}
+          </ViewerProvider>
         </NextIntlClientProvider>
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}
         <BodyEndSnippets snippets={bodySnippets} />

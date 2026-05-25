@@ -96,6 +96,71 @@ export interface ModuleSitemap {
   }>;
 }
 
+/**
+ * Scaling trigger dichiarato dal modulo. Il widget admin
+ * `<ScalingTriggersWidget>` (e l'aggregator `collectAllScalingTriggers`)
+ * raccoglie tutti gli scalingTriggers dei moduli installati + i core
+ * triggers cross-cutting e renderizza una tile per ognuno con valore
+ * corrente vs threshold (semaforo verde/giallo/rosso) + link al design
+ * memo "cosa fare quando si attiva".
+ *
+ * Filosofia: il source-of-truth dei trigger di scaling vive accanto al
+ * codice del modulo (manifest), non in documentazione separata. Quando
+ * un modulo viene rimosso/uninstallato, i suoi trigger spariscono dal
+ * widget automaticamente.
+ */
+export interface ScalingTrigger {
+  /** Id stabile, namespaced col modulo (es. "posts.post-cache-hit-rate"). */
+  id: string;
+  /** Etichetta human-readable nel widget. */
+  label: string;
+  /** Breve descrizione del "cosa misura e perché". Mostrata in tooltip. */
+  description: string;
+  /**
+   * Lazy import server-only di una probe live che misura il valore corrente.
+   * Safe-to-fail: ritorna `{ error }` se la probe non può misurare
+   * (credenziali mancanti, API down). Il renderer mostra "n/d" + warning.
+   *
+   * `value` è null per i trigger marcati `manualCheck` (probe non possibile).
+   * `unit` è una stringa libera ("%", "DAU", "MB", "connections").
+   * `formatted` opzionale override del rendering (es. "3.5K").
+   *
+   * Convenzione: il default export del file dinamico = function async.
+   */
+  loadMeasure?: () => Promise<{
+    default: () => Promise<{
+      value: number | null;
+      unit: string;
+      formatted?: string;
+      error?: string;
+    }>;
+  }>;
+  /** Soglia oltre la quale (o sotto la quale, vedi `direction`) il trigger
+   *  diventa "critical" e va azione. */
+  threshold: number;
+  /** Soglia "warn" — heads-up prima del critical. Default 0.75 * threshold
+   *  per `higher-is-worse`, 1.5 * threshold per `lower-is-worse`. */
+  warnThreshold?: number;
+  /**
+   * - `higher-is-worse`: il valore supera la soglia → bad (es. DAU vs cap).
+   * - `lower-is-worse`: il valore scende sotto la soglia → bad (es. hit rate).
+   */
+  direction: "higher-is-worse" | "lower-is-worse";
+  /** Unità mostrata nel widget (override del unit della probe quando serve). */
+  displayUnit?: string;
+  /** Escape hatch immediato manuale, mostrato accanto al trigger quando
+   *  status >= warn. Es. "passa live_mode_post_page da subscribe a poll
+   *  in /admin/modules/posts/settings". */
+  softMitigation?: string;
+  /** Link al design memo / architecture page che spiega cosa fare quando
+   *  il trigger si attiva. */
+  action: { docsHref: string; summary: string };
+  /** Se true: nessuna probe automatica disponibile. Il widget mostra
+   *  "manual check needed" + link al dashboard esterno. Utile per
+   *  metriche che richiedono accesso a UI provider (Supabase Realtime). */
+  manualCheck?: boolean;
+}
+
 export interface ModuleManifest {
   /** Identificativo univoco del modulo (slug url-safe) */
   slug: string;

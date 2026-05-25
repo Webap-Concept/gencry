@@ -27,6 +27,7 @@ import {
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useViewer } from "@/components/auth/ViewerProvider";
 import { useLocale, useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -211,6 +212,7 @@ export function PostCard({
   commentsThreadProps,
 }: Props) {
   const router = useRouter();
+  const viewer = useViewer();
   const t = useTranslations("posts");
   const tCard = useTranslations("posts.card");
   const tVis = useTranslations("posts.visibility");
@@ -321,39 +323,58 @@ export function PostCard({
 
   if (deleted || blocked) return null;
 
+  /**
+   * Gate auth per le azioni interattive. Anon → full-nav a /sign-up con
+   * `?next=` per tornare al post dopo il signup. Loggato → esegue l'action.
+   * Centralizzato qui per evitare la duplicazione su ogni handler
+   * (reaction, bookmark, repost, comment, block).
+   */
+  const requireAuth = (action: () => void): void => {
+    if (viewer.isLoggedIn) {
+      action();
+      return;
+    }
+    const next = encodeURIComponent(`/post/${post.id}`);
+    window.location.assign(`/sign-up?next=${next}`);
+  };
+
   const onToggleReaction = (kind: PostReactionKind) => {
-    const wasActive = confirmedReaction === kind;
-    const previousOwn = confirmedReaction;
-    const newReaction = wasActive ? null : kind;
-    startTransition(async () => {
-      setOptimisticReaction(newReaction);
-      applyCountsDelta({
-        remove: previousOwn ?? undefined,
-        add: wasActive ? undefined : kind,
-      });
-      const res = await toggleReaction({ postId: post.id, reaction: kind });
-      if (res.ok) {
-        // Confermo il nuovo stato lato client così, quando la transition
-        // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
-        setConfirmedReaction(newReaction);
-        setConfirmedCounts((prev) => {
-          const next = { ...prev };
-          if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
-          if (!wasActive) next[kind] = next[kind] + 1;
-          return next;
+    requireAuth(() => {
+      const wasActive = confirmedReaction === kind;
+      const previousOwn = confirmedReaction;
+      const newReaction = wasActive ? null : kind;
+      startTransition(async () => {
+        setOptimisticReaction(newReaction);
+        applyCountsDelta({
+          remove: previousOwn ?? undefined,
+          add: wasActive ? undefined : kind,
         });
-      }
-      // Fail → niente setConfirmed: l'ottimistico decade naturalmente
-      // e la UI torna al valore confirmed precedente (rollback gratis).
+        const res = await toggleReaction({ postId: post.id, reaction: kind });
+        if (res.ok) {
+          // Confermo il nuovo stato lato client così, quando la transition
+          // decade, useOptimistic ritorna a `confirmed` = già il valore nuovo.
+          setConfirmedReaction(newReaction);
+          setConfirmedCounts((prev) => {
+            const next = { ...prev };
+            if (previousOwn) next[previousOwn] = Math.max(0, next[previousOwn] - 1);
+            if (!wasActive) next[kind] = next[kind] + 1;
+            return next;
+          });
+        }
+        // Fail → niente setConfirmed: l'ottimistico decade naturalmente
+        // e la UI torna al valore confirmed precedente (rollback gratis).
+      });
     });
   };
 
   const onToggleBookmark = () => {
-    const next = !confirmedBookmarked;
-    startTransition(async () => {
-      setOptimisticBookmarked(next);
-      const res = await toggleBookmark({ postId: post.id });
-      if (res.ok) setConfirmedBookmarked(next);
+    requireAuth(() => {
+      const next = !confirmedBookmarked;
+      startTransition(async () => {
+        setOptimisticBookmarked(next);
+        const res = await toggleBookmark({ postId: post.id });
+        if (res.ok) setConfirmedBookmarked(next);
+      });
     });
   };
 
@@ -392,13 +413,13 @@ export function PostCard({
     });
   };
 
-  const onReport = () => setReportOpen(true);
+  const onReport = () => requireAuth(() => setReportOpen(true));
 
   // Block flow (mutual): conferma modale → action → nascondi card.
   // Lo stato `blocked` agisce come hide locale immediato (UX snappy);
   // il server invaliderà i feed così al prossimo paint la card sparisce
   // anche dagli altri tab. Il post puntuale (/post/[id]) ritornerà 404.
-  const onBlock = () => setBlockOpen(true);
+  const onBlock = () => requireAuth(() => setBlockOpen(true));
   const onBlockConfirmed = () => {
     setBlockOpen(false);
     startTransition(async () => {
@@ -450,6 +471,18 @@ export function PostCard({
   // positioning, ma niente z-index richiesto.
   const interactiveClass = "relative";
 
+  const navigateToPost = () => {
+    const url = `/post/${post.id}`;
+    // Anon: full navigation per saltare il parallel slot @modal del
+    // layout (protected) che intercetta il client-side push e svuota
+    // il render. Loggati: router.push (apre la modale intercept).
+    if (!viewer.isLoggedIn) {
+      window.location.assign(url);
+    } else {
+      router.push(url);
+    }
+  };
+
   const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
     if (!isClickable) return;
     // Skip se l'utente ha selezionato testo (vuole copiare, non navigare)
@@ -464,13 +497,13 @@ export function PostCard({
     ) {
       return;
     }
-    router.push(`/post/${post.id}`);
+    navigateToPost();
   };
 
   const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (!isClickable) return;
     if (e.key === "Enter" && e.target === e.currentTarget) {
-      router.push(`/post/${post.id}`);
+      navigateToPost();
     }
   };
 
@@ -492,7 +525,7 @@ export function PostCard({
         {/* Header: autore + time + visibility */}
         <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
           <Link
-            href={`/profile/${post.author.username ?? post.author.id}`}
+            href={`/u/${post.author.username ?? post.author.id}`}
             className="shrink-0"
           >
             <UserAvatar
@@ -509,7 +542,7 @@ export function PostCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
               <Link
-                href={`/profile/${post.author.username ?? post.author.id}`}
+                href={`/u/${post.author.username ?? post.author.id}`}
                 className="font-medium text-gc-fg hover:underline"
               >
                 {authorDisplayName(post.author, userFallback)}
@@ -541,76 +574,82 @@ export function PostCard({
               </p>
             ) : null}
           </div>
-          {/* Top-right toolbar */}
-          <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={tCard("options_menu")}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+          {/* Top-right toolbar. Nascosto per anon: tutte le voci
+              (Salva/Blocca/Segnala) rimandano comunque a /sign-up via
+              requireAuth, e "Apri post" è ridondante col click sulla
+              card stessa. Per loggati: menu completo con action context
+              (autore vs non-autore). */}
+          {viewer.isLoggedIn ? (
+            <div className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={tCard("options_menu")}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-gc-fg-muted hover:bg-gc-bg-3 hover:text-gc-fg"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
                 >
-                  <MoreHorizontal size={18} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="min-w-[200px] bg-gc-modal-bg border-gc-modal-border text-gc-fg"
-              >
-                <DropdownMenuItem onSelect={onToggleBookmark}>
-                  {bookmarked ? (
-                    <BookmarkCheck size={16} strokeWidth={1.75} />
-                  ) : (
-                    <Bookmark size={16} strokeWidth={1.75} />
-                  )}
-                  {bookmarked
-                    ? tCard("bookmark_remove")
-                    : tCard("bookmark_save")}
-                </DropdownMenuItem>
-                {variant === "feed" ? (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/post/${post.id}`}>
-                      <ArrowUpRight size={16} strokeWidth={1.75} />
-                      {tCard("open_post")}
-                    </Link>
+                  <DropdownMenuItem onSelect={onToggleBookmark}>
+                    {bookmarked ? (
+                      <BookmarkCheck size={16} strokeWidth={1.75} />
+                    ) : (
+                      <Bookmark size={16} strokeWidth={1.75} />
+                    )}
+                    {bookmarked
+                      ? tCard("bookmark_remove")
+                      : tCard("bookmark_save")}
                   </DropdownMenuItem>
-                ) : null}
-                {canEdit ? (
-                  <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                    <Pencil size={16} strokeWidth={1.75} />
-                    {tCard("edit")}
-                  </DropdownMenuItem>
-                ) : null}
-                {!isAuthor ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={onBlock}>
-                      <UserMinus size={16} strokeWidth={1.75} />
-                      {tCard("block_user", {
-                        name: authorDisplayName(post.author, userFallback),
-                      })}
+                  {variant === "feed" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/post/${post.id}`}>
+                        <ArrowUpRight size={16} strokeWidth={1.75} />
+                        {tCard("open_post")}
+                      </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={onReport}>
-                      <Flag size={16} strokeWidth={1.75} />
-                      {tCard("report")}
+                  ) : null}
+                  {canEdit ? (
+                    <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                      <Pencil size={16} strokeWidth={1.75} />
+                      {tCard("edit")}
                     </DropdownMenuItem>
-                  </>
-                ) : null}
-                {isAuthor ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={onDelete}
-                      className="text-gc-danger focus:text-gc-danger"
-                    >
-                      <Trash2 size={16} strokeWidth={1.75} />
-                      {tCard("delete")}
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  ) : null}
+                  {!isAuthor ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={onBlock}>
+                        <UserMinus size={16} strokeWidth={1.75} />
+                        {tCard("block_user", {
+                          name: authorDisplayName(post.author, userFallback),
+                        })}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={onReport}>
+                        <Flag size={16} strokeWidth={1.75} />
+                        {tCard("report")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  {isAuthor ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={onDelete}
+                        className="text-gc-danger focus:text-gc-danger"
+                      >
+                        <Trash2 size={16} strokeWidth={1.75} />
+                        {tCard("delete")}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
         </header>
 
         {/* Body: NON interactiveClass — vogliamo che click su testo
@@ -761,6 +800,24 @@ export function PostCard({
               : hasComments
                 ? "text-gc-accent hover:bg-gc-line/40"
                 : "text-gc-fg-muted hover:bg-gc-line/40 hover:text-gc-fg";
+            // Anon: il bottone "Commenta" punta sempre a /sign-up via
+            // requireAuth, mai apre il thread inline ne` la post page.
+            // L'utente puo` comunque cliccare la card per visualizzare il
+            // post (incl. commenti) come anon — ma il bottone "commenta"
+            // dichiara intent di scrivere, quindi va al signup.
+            if (!viewer.isLoggedIn) {
+              return (
+                <button
+                  type="button"
+                  aria-label={tCard("comments_aria", { count: post.counts.comments })}
+                  onClick={() => requireAuth(() => {})}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition ${baseCommentsCls}`}
+                >
+                  <MessageCircle size={18} strokeWidth={1.75} />
+                  {hasComments ? <span>{post.counts.comments}</span> : null}
+                </button>
+              );
+            }
             return commentsThreadProps && variant === "feed" ? (
               <button
                 type="button"
@@ -786,9 +843,8 @@ export function PostCard({
           <button
             type="button"
             aria-label={tCard("reposts_aria", { count: displayedRepostsCount })}
-            onClick={() => setQuoteOpen(true)}
-            disabled={!currentUser}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gc-line/40 ${
+            onClick={() => requireAuth(() => setQuoteOpen(true))}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition hover:bg-gc-line/40 ${
               displayedRepostsCount > 0 ? "text-gc-pos" : "text-gc-fg-muted"
             }`}
           >

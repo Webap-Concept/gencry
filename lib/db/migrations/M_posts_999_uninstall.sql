@@ -62,6 +62,8 @@ DROP FUNCTION IF EXISTS posts_bookmarks_counter_trg();
 DROP FUNCTION IF EXISTS posts_repost_counter_trg();
 DROP FUNCTION IF EXISTS posts_repost_outbox_trg();
 DROP FUNCTION IF EXISTS posts_mentions_outbox_trg();
+DROP FUNCTION IF EXISTS posts_comments_broadcast_trg();
+DROP FUNCTION IF EXISTS posts_feed_broadcast_trg();
 
 -- ── 7) Droppa la funzione uuid_generate_v7 ────────────────────────────────
 -- NB: la funzione potrebbe essere usata da altri moduli futuri. Non droppare

@@ -11,6 +11,7 @@ import { ExternalLink, Gauge, Settings2 } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 import { AdminSectionHeader } from "@/app/(admin)/admin/_components/section-header";
+import { ScalingTriggersWidget } from "@/app/(admin)/admin/_components/scaling-triggers/scaling-triggers-widget";
 import {
   getCapacityOverview,
   resolveUsageProbes,
@@ -99,6 +100,11 @@ export default async function CapacityPage() {
           })}
         </p>
       </div>
+
+      {/* Scaling triggers widget — measure live vs thresholds dichiarate
+          dai moduli. Vive sopra le profile section perché è la prima
+          cosa che vuoi vedere ad ogni entrata: "sto dentro o fuori?". */}
+      <ScalingTriggersWidget />
 
       {coreRows.length > 0 && (
         <ProfileSection

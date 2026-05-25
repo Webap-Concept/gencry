@@ -63,6 +63,15 @@ export const users = pgTable("users", {
   // chain (cookie / Accept-Language / default app). Sovrascrive il cookie
   // per le zone non-prefix (admin, settings, profilo, ecc.).
   locale: varchar("locale", { length: 5 }),
+  /** Visibilità del profilo pubblico (/u/<username>):
+   *  - "public": chiunque (anche anon) vede header + feed
+   *  - "protected": header visibile, ma il feed posts richiede follow
+   *    approvato. No-op v1 (modulo follows non ancora attivo).
+   *  Aggiunto 2026-05-21 via M_users_profile_001_visibility.sql. */
+  profileVisibility: varchar("profile_visibility", { length: 20 })
+    .notNull()
+    .default("public")
+    .$type<"public" | "protected">(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),

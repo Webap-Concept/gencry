@@ -40,7 +40,7 @@ function actorLabel(actor: NotificationActor | null, fallback: string): string {
  *  null se actor null. */
 function actorProfileHref(actor: NotificationActor | null): string | null {
   if (!actor) return null;
-  return `/profile/${actor.username ?? actor.id}`;
+  return `/u/${actor.username ?? actor.id}`;
 }
 
 function formatRelative(date: Date, locale: string): string {

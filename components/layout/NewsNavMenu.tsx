@@ -22,6 +22,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, User } from "lucide-react";
+import { useViewer } from "@/components/auth/ViewerProvider";
 import {
   Sheet,
   SheetClose,
@@ -67,15 +68,14 @@ export function NewsNavDesktop({ items }: { items: NewsMenuItem[] }) {
  */
 export function NewsNavMobileDrawer({
   items,
-  isLoggedIn,
   appLogoUrl,
 }: {
   items: NewsMenuItem[];
-  isLoggedIn: boolean;
   /** Logo dell'app mostrato come header del drawer (stesso che la top-bar
    *  centra in modalità mobile). Fallback testuale se null. */
   appLogoUrl: string | null;
 }) {
+  const { isLoggedIn } = useViewer();
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>

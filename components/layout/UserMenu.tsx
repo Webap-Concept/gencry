@@ -94,7 +94,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   const menuBody = (
     <>
       <MenuItem
-        href="/profile"
+        href={user.username ? `/u/${user.username}` : "/settings/profile"}
         icon={<UserIcon size={16} strokeWidth={1.6} />}
         label={t("profile")}
         onClick={close}

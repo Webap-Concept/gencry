@@ -47,6 +47,15 @@
       "scale": "{count} in scale"
     }
   },
+  "capacityProfileHeader": {
+    "currentTier": "Tier corrente:",
+    "applyPreset": "Applica preset di calibrazione:",
+    "externalResources": "Risorse esterne usate ({count})",
+    "limits": "Limiti",
+    "upgradeAt": "Upgrade a",
+    "upgradePath": "Cosa fare",
+    "docs": "Docs"
+  },
   "shell": {
     "dashboardTitle": "Pannello Admin",
     "dashboardTitleShort": "Admin",

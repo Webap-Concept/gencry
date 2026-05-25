@@ -4,19 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionState } from "@/lib/auth/middleware";
-import { validateUsernameFormat } from "@/lib/auth/username-validator";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { Check, Eye, EyeOff, Loader2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
-import {
-  checkEmailAction,
-  checkUsernameAction,
-  signIn,
-  signUp,
-} from "./actions";
+import { checkEmailAction, signIn, signUp } from "./actions";
 
 // ---------------------------------------------------------------------------
 // Icona Google SVG inline (no dipendenze esterne)
@@ -106,12 +100,8 @@ export function Login({
   const [emailError, setEmailError] = useState("");
   const [emailAvailable, setEmailAvailable] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
-  const [usernameAvailable, setUsernameAvailable] = useState(false);
-  const [checkingUsername, setCheckingUsername] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
-  const [usernameError, setUsernameError] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptMarketing, setAcceptMarketing] = useState(false);
@@ -182,39 +172,10 @@ export function Login({
     }
   };
 
-  const validateUsername = async (value: string) => {
-    if (!value) {
-      setUsernameError("");
-      setUsernameAvailable(false);
-      return;
-    }
-    if (value.length < 3) {
-      setUsernameError(t("validation.usernameMinLength"));
-      setUsernameAvailable(false);
-      return;
-    }
-    const formatCheck = validateUsernameFormat(value);
-    if (!formatCheck.ok) {
-      setUsernameError(formatCheck.error);
-      setUsernameAvailable(false);
-      return;
-    }
-
-    setCheckingUsername(true);
-    setUsernameAvailable(false);
-    try {
-      const result = await checkUsernameAction(value);
-      setUsernameError(result.error ?? "");
-      setUsernameAvailable(Boolean(result.available));
-    } catch {
-      setUsernameError(t("validation.usernameCheckFailed"));
-      setUsernameAvailable(false);
-    } finally {
-      setCheckingUsername(false);
-    }
-  };
-
-  // Guard client-side: mostra errori inline invece di bloccare il bottone
+  // Guard client-side: mostra errori inline invece di bloccare il bottone.
+  // Lo username NON è più qui: lo si sceglie nel wizard /onboarding (uniforme
+  // con il flusso OAuth) per ridurre la superficie d'attacco bot sul bloom
+  // filter Redis di availability check.
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (mode !== "signup") return;
 
@@ -226,7 +187,6 @@ export function Login({
 
     if (
       emailError ||
-      usernameError ||
       !allPasswordRulesPassed ||
       !acceptTerms ||
       !acceptPrivacy
@@ -300,68 +260,6 @@ export function Login({
                 onSubmit={handleSubmit}>
                 <input type="hidden" name="redirect" value={redirect || ""} />
                 <input type="hidden" name="priceId" value={priceId || ""} />
-
-                {mode === "signup" && (
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="username"
-                      className="text-xs font-semibold uppercase tracking-wide text-brand-label">
-                      {t("fields.username")}
-                    </Label>
-                    <div
-                      className={`flex rounded-full overflow-hidden border transition-colors ${
-                        usernameError
-                          ? "border-brand-destructive"
-                          : username && !usernameError
-                            ? "border-brand-accent"
-                            : "border-brand-border"
-                      } focus-within:ring-2 focus-within:ring-brand-accent focus-within:ring-offset-0`}>
-                      <span className="flex items-center px-3 text-sm font-semibold select-none">
-                        @
-                      </span>
-                      <Input
-                        id="username"
-                        name="username"
-                        type="text"
-                        autoComplete="username"
-                        required
-                        minLength={3}
-                        maxLength={50}
-                        placeholder={t("fields.usernamePlaceholder")}
-                        value={username}
-                        onChange={(e) => {
-                          setUsername(e.target.value);
-                          validateUsername(e.target.value);
-                        }}
-                        onBlur={(e) => {
-                          void validateUsername(e.target.value);
-                        }}
-                        aria-invalid={!!usernameError}
-                        className="flex-1 rounded-none border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                      />
-                    </div>
-                    {checkingUsername && (
-                      <p className="text-xs flex items-center gap-1 text-brand-text-muted">
-                        <Loader2 className="h-3 w-3 animate-spin" />{" "}
-                        {t("validation.usernameChecking")}
-                      </p>
-                    )}
-                    {usernameError && (
-                      <p className="text-xs flex items-center gap-1 text-brand-destructive">
-                        <X className="h-3 w-3" /> {usernameError}
-                      </p>
-                    )}
-                    {username &&
-                      !usernameError &&
-                      usernameAvailable &&
-                      !checkingUsername && (
-                        <p className="text-xs flex items-center gap-1 text-brand-accent-hover">
-                          <Check className="h-3 w-3" />{" "}
-                          {t("validation.usernameAvailable")}
-                        </p>
-                      )}
-                  </div>
-                )}
 
                 <div className="space-y-1.5">
                   <Label
@@ -604,7 +502,7 @@ export function Login({
 
                 <Button
                   type="submit"
-                  disabled={pending || checkingEmail || checkingUsername}
+                  disabled={pending || checkingEmail}
                   className="w-full">
                   {pending ? (
                     <>

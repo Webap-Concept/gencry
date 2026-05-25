@@ -64,7 +64,26 @@
     },
     "profile": {
       "title": "Profilo",
-      "description": "Il tuo profilo, le tue watchlist, i tuoi follower. Arriva presto."
+      "description": "Il tuo profilo, le tue watchlist, i tuoi follower. Arriva presto.",
+      "stats": {
+        "follower": "Follower",
+        "following": "Segue",
+        "posts": "Post",
+        "joined": "Iscritto a"
+      },
+      "tabs": {
+        "aria": "Sezioni del profilo",
+        "coming_soon": "In arrivo",
+        "posts": "Post",
+        "watchlist": "Watchlist",
+        "activity": "Attività",
+        "discussions": "Discussioni",
+        "votes": "Voti",
+        "media": "Media"
+      },
+      "info_title": "Info",
+      "info_joined": "Iscritto a",
+      "top_coins_title": "Coin più citate"
     }
   },
   "settings": {

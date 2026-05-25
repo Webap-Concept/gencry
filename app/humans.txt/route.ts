@@ -42,7 +42,10 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, stale-while-revalidate=60",
+      // max-age=60 (era 3600): permette all'admin di vedere gli effetti
+      // delle modifiche entro 1 minuto (vedi /robots.txt route per il
+      // razionale completo).
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
     },
   });
 }

@@ -10,13 +10,16 @@
 // Design completo del modulo: vedi memory project_module_posts_architecture.
 import type { CapacityProfile, ModuleManifest } from "@/lib/modules/types";
 
-// Capacity profiles del modulo Posts. 1 profilo per "feature autonoma"
-// (vedi memoria feedback_capacity_profile_pattern). La UI admin di
-// ogni tab legge il profilo via lookup `scope`.
+// Capacity profiles for the Posts module. 1 profile per "autonomous
+// feature" (see memory feedback_capacity_profile_pattern). The admin UI
+// of each tab reads the profile via `scope` lookup.
 //
-// Scopes definiti:
+// Strings here are intentionally EN-only (no i18n lookup): these are
+// admin/dev-facing technical notes, not user-facing UI copy.
+//
+// Scopes defined:
 //   - "comments" → live mode + reply prefetch + cache TTL
-//   - "rate-limits" → Upstash sliding window per post/reaction/etc (placeholder, attesa Upstash + form admin dedicato)
+//   - "rate-limits" → Upstash sliding window per post/reaction/etc (placeholder, waiting for Upstash + dedicated admin form)
 //   - "retention" → outbox/orphan-media/deleted grace days (placeholder)
 //   - "media" → R2 (max images per post, body length, link preview cache) (placeholder)
 
@@ -29,13 +32,13 @@ const COMMENTS_CAPACITY: CapacityProfile = {
       name: "Supabase Realtime (Broadcast)",
       plan: "Free",
       limits: [
-        "200 conn concorrenti",
-        "2M msg/mese",
-        "100 msg/sec per conn",
+        "200 concurrent connections",
+        "2M msg/month",
+        "100 msg/sec per connection",
       ],
-      upgradeAt: "500 viewer simultanei o concurrent conn > 70% del limite",
+      upgradeAt: "500 simultaneous viewers or concurrent conn > 70% of limit",
       upgradePath:
-        "Supabase Pro (500 conn) OR swap a Ably/Pusher via service hookable comments-realtime.ts",
+        "Supabase Pro (500 conn) OR swap to Ably/Pusher via the hookable service comments-realtime.ts",
       docsUrl: "https://supabase.com/docs/guides/realtime",
     },
     {
@@ -43,24 +46,24 @@ const COMMENTS_CAPACITY: CapacityProfile = {
       plan: "Free",
       limits: [
         "500MB DB share",
-        "200 conn concorrenti via pool",
+        "200 concurrent connections via pool",
       ],
-      upgradeAt: "p95 query > 100ms (M_posts_007 indici parziali coprono il fan-out)",
+      upgradeAt: "p95 query > 100ms (M_posts_007 partial indexes cover the fan-out)",
       upgradePath:
-        "Upgrade Supabase Pro ($25/mo) — sblocca 8GB DB e 500 conn",
+        "Upgrade to Supabase Pro ($25/mo) — unlocks 8GB DB and 500 conn",
       docsUrl: "https://supabase.com/pricing",
     },
     {
       name: "Upstash KV (feed cache) — CORE",
       plan: "Free / pay-as-you-go",
       limits: [
-        "10k req/giorno (free tier)",
+        "10k req/day (free tier)",
         "256MB max DB (free)",
-        "TTL 60s su posts:feed:* (feed-cache.ts)",
+        "TTL 60s on posts:feed:* (feed-cache.ts)",
       ],
-      upgradeAt: "Throughput > 10k req/giorno o miss rate > 50%",
+      upgradeAt: "Throughput > 10k req/day or miss rate > 50%",
       upgradePath:
-        "Pay-as-you-go Upstash ~$10/mo a 1k MAU. Credenziali a livello CORE (upstash_redis_rest_url/_token) — setup unico in /admin/services/redis, riusato cross-modulo.",
+        "Pay-as-you-go Upstash ~$10/mo at 1k MAU. Credentials at CORE level (upstash_redis_rest_url/_token) — single setup in /admin/services/redis, reused cross-module.",
       docsUrl: "https://upstash.com/pricing",
     },
   ],
@@ -76,7 +79,7 @@ const COMMENTS_CAPACITY: CapacityProfile = {
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Realtime aggressivo, niente cache aggressive — feedback immediato per chiusura early-stage.",
+      description: "Aggressive realtime, no aggressive caching — immediate feedback for early-stage closure.",
       values: {
         "modules.posts.comments.live_mode_post_page": "subscribe",
         "modules.posts.comments.live_mode_feed": "subscribe",
@@ -88,7 +91,7 @@ const COMMENTS_CAPACITY: CapacityProfile = {
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Subscribe sulla page, poll nel feed per non saturare conn realtime. Cache un po' più aggressiva.",
+      description: "Subscribe on the page, poll on the feed to avoid saturating realtime conns. Slightly more aggressive cache.",
       values: {
         "modules.posts.comments.live_mode_post_page": "subscribe",
         "modules.posts.comments.live_mode_feed": "poll",
@@ -100,7 +103,7 @@ const COMMENTS_CAPACITY: CapacityProfile = {
     {
       id: "growth",
       label: "Growth (1k-10k MAU)",
-      description: "Realtime solo su page dedicata, poll ovunque, cache lunga. Conviene anche attivare Upstash KV + Supabase Pro.",
+      description: "Realtime only on the dedicated page, poll everywhere else, long cache. Also worth enabling Upstash KV + Supabase Pro.",
       values: {
         "modules.posts.comments.live_mode_post_page": "subscribe",
         "modules.posts.comments.live_mode_feed": "poll",
@@ -112,7 +115,7 @@ const COMMENTS_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Realtime off di default — banner via poll lungo. Cache aggressiva. Necessita single-channel pooling (V2 future) + Upstash + Supabase Pro + monitoring proattivo.",
+      description: "Realtime off by default — banner via long poll. Aggressive cache. Requires single-channel pooling (future V2) + Upstash + Supabase Pro + proactive monitoring.",
       values: {
         "modules.posts.comments.live_mode_post_page": "poll",
         "modules.posts.comments.live_mode_feed": "off",
@@ -124,10 +127,10 @@ const COMMENTS_CAPACITY: CapacityProfile = {
   ],
 };
 
-// Placeholder profiles — capacity dichiarata oggi anche se i form admin
-// dedicati non esistono ancora (vivono dentro il tab Settings generale
-// o sotto la pagina del modulo). Quando aggiungeremo form admin
-// dedicati, useranno questi profili via lookup scope.
+// Placeholder profiles — capacity declared today even if the dedicated
+// admin forms do not exist yet (they live inside the general Settings
+// tab or under the module page). When we add dedicated admin forms,
+// they will use these profiles via scope lookup.
 
 const RATE_LIMITS_CAPACITY: CapacityProfile = {
   scope: "rate-limits",
@@ -136,27 +139,27 @@ const RATE_LIMITS_CAPACITY: CapacityProfile = {
   resources: [
     {
       name: "Upstash KV (sliding window) — CORE",
-      plan: "Configurato (cluster condiviso con feed-cache)",
-      limits: ["10k req/giorno (free tier)", "stub V1: services/rate-limit.ts ritorna ok=true"],
-      upgradeAt: "Apertura registrazione pubblica → swap impl V2 sliding window",
+      plan: "Configured (shared cluster with feed-cache)",
+      limits: ["10k req/day (free tier)", "V1 stub: services/rate-limit.ts returns ok=true"],
+      upgradeAt: "Public signup opens → swap V2 sliding-window impl",
       upgradePath:
-        "Pay-as-you-go Upstash ~$10/mo a 1k MAU — service rate-limit.ts oggi pass-through, swap a impl Upstash sliding window senza toccare i caller. Credenziali a livello CORE — già configurate in /admin/services/redis.",
+        "Pay-as-you-go Upstash ~$10/mo at 1k MAU — service rate-limit.ts is pass-through today, swap to Upstash sliding-window impl without touching callers. Credentials at CORE level — already configured in /admin/services/redis.",
       docsUrl: "https://upstash.com/pricing",
     },
   ],
   tunables: [
-    { key: "modules.posts.rate_limit_post_per_hour",     label: "Post per ora" },
-    { key: "modules.posts.rate_limit_reaction_per_min",  label: "Reaction per min" },
-    { key: "modules.posts.rate_limit_comment_per_min",   label: "Comment per min" },
-    { key: "modules.posts.rate_limit_repost_per_hour",   label: "Repost per ora" },
-    { key: "modules.posts.rate_limit_report_per_hour",   label: "Report per ora" },
-    { key: "modules.posts.rate_limit_media_per_hour",    label: "Media upload per ora" },
+    { key: "modules.posts.rate_limit_post_per_hour",     label: "Posts per hour" },
+    { key: "modules.posts.rate_limit_reaction_per_min",  label: "Reactions per min" },
+    { key: "modules.posts.rate_limit_comment_per_min",   label: "Comments per min" },
+    { key: "modules.posts.rate_limit_repost_per_hour",   label: "Reposts per hour" },
+    { key: "modules.posts.rate_limit_report_per_hour",   label: "Reports per hour" },
+    { key: "modules.posts.rate_limit_media_per_hour",    label: "Media uploads per hour" },
   ],
   presets: [
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Limits permissivi — early users hanno comportamento legittimo, no spam.",
+      description: "Permissive limits — early users behave legitimately, no spam.",
       values: {
         "modules.posts.rate_limit_post_per_hour": "10",
         "modules.posts.rate_limit_reaction_per_min": "60",
@@ -169,7 +172,7 @@ const RATE_LIMITS_CAPACITY: CapacityProfile = {
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Limits leggermente più stretti su post/repost per evitare flood casuale.",
+      description: "Slightly tighter limits on post/repost to avoid accidental flooding.",
       values: {
         "modules.posts.rate_limit_post_per_hour": "8",
         "modules.posts.rate_limit_reaction_per_min": "60",
@@ -182,7 +185,7 @@ const RATE_LIMITS_CAPACITY: CapacityProfile = {
     {
       id: "growth",
       label: "Growth (1k-10k MAU)",
-      description: "Limits realistici per traffico pubblico: post 5/h è plenty per un utente vero, scoraggia bot.",
+      description: "Realistic limits for public traffic: 5 posts/h is plenty for a real user and discourages bots.",
       values: {
         "modules.posts.rate_limit_post_per_hour": "5",
         "modules.posts.rate_limit_reaction_per_min": "40",
@@ -195,7 +198,7 @@ const RATE_LIMITS_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Limits stretti + monitoring abuse. Considerare captcha sui write action di nuovi account.",
+      description: "Tight limits + abuse monitoring. Consider captcha on write actions for new accounts.",
       values: {
         "modules.posts.rate_limit_post_per_hour": "5",
         "modules.posts.rate_limit_reaction_per_min": "30",
@@ -217,9 +220,9 @@ const RETENTION_CAPACITY: CapacityProfile = {
       name: "Supabase Postgres (posts_outbox, soft-deleted posts)",
       plan: "Free",
       limits: ["500MB DB share"],
-      upgradeAt: "outbox > 100k righe non processate o storage > 80%",
+      upgradeAt: "outbox > 100k unprocessed rows or storage > 80%",
       upgradePath:
-        "Aumentare cleanup cadenza + ridurre retention days. In ultima istanza Supabase Pro.",
+        "Increase cleanup cadence + reduce retention days. As a last resort, Supabase Pro.",
       docsUrl: "https://supabase.com/pricing",
     },
     {
@@ -228,7 +231,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
       limits: ["10GB storage"],
       upgradeAt: "Storage > 8GB",
       upgradePath:
-        "Cron orphan-media-cleanup giornaliero + restringere grace hours.",
+        "Daily orphan-media-cleanup cron + tighten grace hours.",
       docsUrl: "https://developers.cloudflare.com/r2/pricing/",
     },
   ],
@@ -242,7 +245,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Retention massima per debug iniziale: outbox 45gg, orphan 24h, link preview 30gg.",
+      description: "Max retention for early debugging: outbox 45d, orphan 24h, link preview 30d.",
       values: {
         "modules.posts.outbox_retention_days": "45",
         "modules.posts.orphan_media_grace_hours": "24",
@@ -253,7 +256,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Retention bilanciata: outbox 30gg, orphan 24h, link preview 30gg.",
+      description: "Balanced retention: outbox 30d, orphan 24h, link preview 30d.",
       values: {
         "modules.posts.outbox_retention_days": "30",
         "modules.posts.orphan_media_grace_hours": "24",
@@ -264,7 +267,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "growth",
       label: "Growth (1k-10k MAU)",
-      description: "Outbox retention più aggressiva (15gg) per limitare storage. Orphan grace ridotto.",
+      description: "More aggressive outbox retention (15d) to limit storage. Reduced orphan grace.",
       values: {
         "modules.posts.outbox_retention_days": "15",
         "modules.posts.orphan_media_grace_hours": "12",
@@ -275,7 +278,7 @@ const RETENTION_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Cleanup aggressivo. Outbox 7gg, orphan 6h. Link preview cache più lunga per ridurre fetch esterni.",
+      description: "Aggressive cleanup. Outbox 7d, orphan 6h. Longer link preview cache to reduce external fetches.",
       values: {
         "modules.posts.outbox_retention_days": "7",
         "modules.posts.orphan_media_grace_hours": "6",
@@ -296,34 +299,34 @@ const MEDIA_CAPACITY: CapacityProfile = {
       plan: "Free",
       limits: [
         "10GB storage",
-        "1M ops Classe A/mese",
-        "10M ops Classe B/mese",
+        "1M Class A ops/month",
+        "10M Class B ops/month",
       ],
-      upgradeAt: "Storage > 8GB o ops > 80%",
+      upgradeAt: "Storage > 8GB or ops > 80%",
       upgradePath:
-        "R2 è pay-as-you-go (~$0.015/GB/mese sopra free tier) — auto-scale, no upgrade manuale",
+        "R2 is pay-as-you-go (~$0.015/GB/month above the free tier) — auto-scale, no manual upgrade",
       docsUrl: "https://developers.cloudflare.com/r2/pricing/",
     },
     {
       name: "Vercel (image processing via sharp)",
       plan: "Hobby/Free",
-      limits: ["100GB-hours/mese di Serverless compute"],
-      upgradeAt: "p95 image processing > 2s o budget compute > 70%",
+      limits: ["100GB-hours/month of Serverless compute"],
+      upgradeAt: "p95 image processing > 2s or compute budget > 70%",
       upgradePath:
-        "Vercel Pro ($20/mo) OR swap a Cloudflare Worker + R2 Queue (vedi roadmap)",
+        "Vercel Pro ($20/mo) OR swap to Cloudflare Worker + R2 Queue (see roadmap)",
       docsUrl: "https://vercel.com/pricing",
     },
   ],
   tunables: [
-    { key: "modules.posts.max_body_length",      label: "Max body length post (char)" },
-    { key: "modules.posts.max_images_per_post",  label: "Max immagini per post" },
-    { key: "modules.posts.edit_window_minutes",  label: "Edit window post (min)" },
+    { key: "modules.posts.max_body_length",      label: "Max post body length (chars)" },
+    { key: "modules.posts.max_images_per_post",  label: "Max images per post" },
+    { key: "modules.posts.edit_window_minutes",  label: "Post edit window (min)" },
   ],
   presets: [
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Beta tester: edit window 15min (margine per correggere), max immagini 4, body 2000 char.",
+      description: "Beta testers: 15min edit window (margin to fix), max 4 images, 2000 char body.",
       values: {
         "modules.posts.max_body_length": "2000",
         "modules.posts.max_images_per_post": "4",
@@ -333,7 +336,7 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "beta",
       label: "Beta (100-1k MAU)",
-      description: "Edit window standard 10min (Twitter-like). Body e immagini invariati.",
+      description: "Standard 10min edit window (Twitter-like). Body and images unchanged.",
       values: {
         "modules.posts.max_body_length": "2000",
         "modules.posts.max_images_per_post": "4",
@@ -343,7 +346,7 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "growth",
       label: "Growth (1k-10k MAU)",
-      description: "Body ridotto a 1500 char per scoraggiare wall-of-text. Edit window 10min.",
+      description: "Body reduced to 1500 chars to discourage wall-of-text. 10min edit window.",
       values: {
         "modules.posts.max_body_length": "1500",
         "modules.posts.max_images_per_post": "4",
@@ -353,7 +356,7 @@ const MEDIA_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Body 1000 char + max 3 immagini per ridurre R2 ops. Edit window 5min per stabilità thread.",
+      description: "1000 char body + max 3 images to reduce R2 ops. 5min edit window for thread stability.",
       values: {
         "modules.posts.max_body_length": "1000",
         "modules.posts.max_images_per_post": "3",

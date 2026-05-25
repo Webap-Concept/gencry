@@ -64,7 +64,10 @@ import {
   softDeleteComment as commentsSoftDeleteService,
 } from "./services/comments";
 import { toggleBookmark as bookmarksToggleService } from "./services/bookmarks";
-import { toggleUserBlock as blocksToggleService } from "./services/blocks";
+import {
+  invalidateBlockedIdsForViewer,
+  toggleUserBlock as blocksToggleService,
+} from "./services/blocks";
 import {
   ensureMentionIndexBootstrapped,
   rebuildMentionIndex,
@@ -1105,6 +1108,13 @@ export async function toggleUserBlock(
   await feedInvalidate("discover");
   await feedInvalidate({ user: user.id });
   await feedInvalidate({ user: parsed.data.blockedUserId });
+
+  // KV-set blocchi: invalida le 2 chiavi mutual. Senza questa invalidation,
+  // la finestra di stale (fino a 5min KV + 30s L1) lascerebbe il feed
+  // mostrare/nascondere il vecchio stato. Mutual → entrambi i Set cambiano
+  // (uno acquisisce l'altro nella propria block list).
+  await invalidateBlockedIdsForViewer(user.id);
+  await invalidateBlockedIdsForViewer(parsed.data.blockedUserId);
 
   // Invalida la Next.js Router Cache (client-side RSC payload) di
   // tutto il route group (protected). Necessario perché il viewer,
