@@ -33,20 +33,20 @@ export const CORE_SCALING_TRIGGERS: ScalingTrigger[] = [
   },
   {
     id: "core.db-pool",
-    label: "DB pool utilization",
+    label: "DB pool active",
     description:
-      "Connessioni totali correnti al DB Postgres vs max=30 dichiarato dal pool drizzle. Saturazione frequente = pagine in attesa di connessione → spinner forever (vedi project_rsc_prefetch_fanout_bug).",
+      "Query in esecuzione *ora* (state='active' in pg_stat_activity) vs max=30 del pool drizzle. Misura il workload, non l'occupazione del pool: connessioni idle in pool warm sono normali e non contate. Il dettaglio total/pool è nel formatted per spot-check di eventuali idle leak.",
     loadMeasure: () => import("./probes/db-pool-utilization"),
-    threshold: 24,
-    warnThreshold: 18,
+    threshold: 20,
+    warnThreshold: 10,
     direction: "higher-is-worse",
-    displayUnit: "conn",
+    displayUnit: "active",
     softMitigation:
-      "Audit fan-out query per request (è la causa storica della saturazione) prima di alzare max. Cache by default le query in /admin layout (vedi feedback_db_pool_caution).",
+      "Audit fan-out query per request (è la causa storica della saturazione, vedi project_rsc_prefetch_fanout_bug). Cache by default le query in /admin layout (vedi feedback_db_pool_caution). Solo dopo, considera bump max in lib/db/drizzle.ts.",
     action: {
       docsHref: "/admin/capacity",
       summary:
-        "Saturazione pool DB. Possibili azioni: bump max in lib/db/drizzle.ts; verifica fan-out RSC prefetch; upgrade piano DB se necessario.",
+        "Active connections alto: c'è un workload picco o un fan-out RSC fuori controllo. Verifica /admin layout query count, poi valuta cache aggressiva o bump pool max.",
     },
   },
 ];

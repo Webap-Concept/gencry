@@ -1,9 +1,16 @@
 import "server-only";
 // lib/admin/scaling-triggers/probes/db-pool-utilization.ts
 //
-// Probe utilizzazione pool DB. Legge `pg_stat_activity` per il count
-// di connessioni attive sul cluster. Confronto vs `max=30` dichiarato
-// in lib/db/drizzle.ts (drizzle pool, vedi project_rsc_prefetch_fanout_bug).
+// Probe utilizzazione pool DB. Misura ACTIVE connections (query in
+// esecuzione *ora*) come segnale di workload — NON `total` perché il
+// pool drizzle mantiene fino a max=30 connessioni warm idle e quel
+// numero non riflette saturazione (vedi project_rsc_prefetch_fanout_bug).
+//
+// `total` è esposto solo come info nel `formatted`. Se total cresce
+// regolarmente vicino al cap senza active corrispondente, è un segnale
+// di idle leak (connessioni mai rilasciate) — diagnosticabile a vista
+// nel widget. Non lo allarmiamo automaticamente perché il caso
+// pratico è raro.
 //
 // Limit: pg_stat_activity vede TUTTE le connessioni al DB (incluse
 // quelle di altri client se condividi il database). Per ambienti
@@ -35,14 +42,12 @@ export default async function probeDbPoolUtilization(): Promise<{
       : ((rows as { rows?: Array<{ active: number; total: number }> }).rows ?? []);
     const active = list[0]?.active ?? 0;
     const total = list[0]?.total ?? 0;
-    // Numerator: total connections (active + idle nel pool drizzle),
-    // così il watermark conta anche le idle "occupate" dal pool.
     return {
-      value: total,
-      unit: "connections",
-      formatted: `${total}/${POOL_MAX_DECLARED} (${active} active)`,
+      value: active,
+      unit: "active conn",
+      formatted: `${active} active / ${total} pooled (max ${POOL_MAX_DECLARED})`,
     };
   } catch (err) {
-    return { value: null, unit: "connections", error: String(err) };
+    return { value: null, unit: "active conn", error: String(err) };
   }
 }
