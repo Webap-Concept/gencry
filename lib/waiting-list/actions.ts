@@ -11,7 +11,7 @@
 
 import { db } from "@/lib/db/drizzle";
 import { waitingList } from "@/lib/db/schema";
-import { isDisposableDomain } from "@/lib/auth/disposable-domains";
+import { isDomainBlacklisted } from "@/lib/auth/blacklist";
 import {
   checkGeneralRateLimit,
   recordGeneralAttempt,
@@ -64,7 +64,7 @@ export async function joinWaitingListAction(
   }
 
   // 3. Anti-disposable (stessa lista usata in signup)
-  if (await isDisposableDomain(email)) {
+  if (await isDomainBlacklisted(email)) {
     return {
       ok: false,
       error: "Per la waiting list serve un'email non temporanea.",

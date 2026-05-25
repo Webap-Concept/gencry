@@ -2,7 +2,6 @@
 
 import { getAdminPath } from "@/lib/admin-paths";
 import { invalidateBlockedUsernamesCache } from "@/lib/auth/blocked-usernames";
-import { invalidateDisposableDomainsCache } from "@/lib/auth/disposable-domains";
 import { addUsernameToBloom } from "@/lib/bloom/bloom-filter";
 import { invalidateSnippetCountCache } from "@/lib/db/cookie-services-queries";
 import { getUser } from "@/lib/db/queries";
@@ -337,7 +336,6 @@ export async function addDisposableDomainAction(
       .insert(disposableDomains)
       .values({ domain: clean })
       .onConflictDoNothing();
-    invalidateDisposableDomainsCache();
     revalidatePath(await getAdminPath("security-blocked-domains"));
     return { success: `"${clean}" aggiunto.`, timestamp: Date.now() };
   } catch {
@@ -352,7 +350,6 @@ export async function removeDisposableDomainAction(
     await db
       .delete(disposableDomains)
       .where(eq(disposableDomains.domain, domain.trim().toLowerCase()));
-    invalidateDisposableDomainsCache();
     revalidatePath(await getAdminPath("security-blocked-domains"));
     return { success: `"${domain}" rimosso.`, timestamp: Date.now() };
   } catch {
@@ -371,7 +368,6 @@ export async function bulkImportDisposableDomainsAction(
       .filter(Boolean)
       .map((domain) => ({ domain }));
     await db.insert(disposableDomains).values(values).onConflictDoNothing();
-    invalidateDisposableDomainsCache();
     revalidatePath(await getAdminPath("security-blocked-domains"));
     return {
       success: `${values.length} domini importati con successo.`,
