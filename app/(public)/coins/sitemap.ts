@@ -81,7 +81,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return coins.map((c) => ({
     url: `${siteUrl}/coins/${c.symbol.toLowerCase()}`,
-    lastModified: c.lastUpdated,
+    // unstable_cache JSON-serializza i Date a string sui cache hit. Next.js
+    // poi chiama internamente `.toISOString()` su `lastModified` durante la
+    // serializzazione della sitemap.xml → senza il `new Date()` wrap il
+    // cache hit produrrebbe TypeError. Stesso pattern già fixato in
+    // app/sitemap.ts e app/(public)/post/sitemap.ts.
+    lastModified: new Date(c.lastUpdated),
     changeFrequency: rankToChangeFreq(c.marketCapRank),
     priority: rankToPriority(c.marketCapRank),
   }));
