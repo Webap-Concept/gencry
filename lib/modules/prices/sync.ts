@@ -190,6 +190,25 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
 /**
  * Upsert intelligente: aggiorna solo i coin il cui prezzo è cambiato di
  * almeno `delta` rispetto al valore corrente (riduce churn su Realtime).
+ *
+ * Batched: i quote da scrivere sono raccolti in 2 sotto-array e committati
+ * in 2 INSERT bulk con ON CONFLICT DO UPDATE — invece di 1 query per coin
+ * come faceva la versione legacy (audit egress 2026-05-25: ~850K calls/mese
+ * al pooler solo da questo loop).
+ *
+ *   - `withSparkline`: quote con sparkline fresca → upsert sovrascrive
+ *     anche `weekly_sparkline` + `weekly_sparkline_at`.
+ *   - `coreOnly`: quote senza sparkline (es. DexScreener) → upsert aggiorna
+ *     SOLO price/change24h/volume24h/last_updated, lasciando intatti
+ *     i campi sparkline esistenti (niente cancellazione accidentale).
+ *
+ * Il pre-filter delta resta identico al comportamento precedente: skip se
+ * la differenza relativa è sotto la soglia E non abbiamo nuova sparkline.
+ *
+ * NB: l'`excluded` pseudo-table di Postgres referenzia i valori dell'INSERT
+ * conflittuale — è il modo canonico di "usa quello che ho appena provato a
+ * inserire" dentro un ON CONFLICT DO UPDATE bulk. Drizzle accetta `sql\`...\``
+ * come valore in `set` per esprimerlo.
  */
 async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number> {
   if (quotes.length === 0) return 0;
@@ -204,8 +223,21 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   const existing = new Map<string, number>();
   for (const r of existingRows) existing.set(r.symbol, Number(r.price));
 
-  let updatedCount = 0;
   const now = new Date();
+  type CoreRow = {
+    symbol: string;
+    price: string;
+    change24h: string | null;
+    volume24h: string | null;
+    source: string;
+    lastUpdated: Date;
+  };
+  type SparklineRow = CoreRow & {
+    weeklySparkline: number[];
+    weeklySparklineAt: Date;
+  };
+  const withSparkline: SparklineRow[] = [];
+  const coreOnly: CoreRow[] = [];
 
   for (const q of quotes) {
     const hasSparkline = q.sparkline7d !== null && q.sparkline7d.length >= 2;
@@ -221,35 +253,66 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
       }
     }
 
-    const sparklineSet = hasSparkline
-      ? { weeklySparkline: q.sparkline7d, weeklySparklineAt: now }
-      : {};
+    const core: CoreRow = {
+      symbol: q.symbol,
+      price: String(q.price),
+      change24h: q.change24h !== null ? String(q.change24h) : null,
+      volume24h: q.volume24h !== null ? String(q.volume24h) : null,
+      source: "coingecko",
+      lastUpdated: now,
+    };
+    if (hasSparkline) {
+      withSparkline.push({
+        ...core,
+        weeklySparkline: q.sparkline7d as number[],
+        weeklySparklineAt: now,
+      });
+    } else {
+      coreOnly.push(core);
+    }
+  }
 
+  // ── Batch 1: rows con sparkline fresca (sovrascrive anche weekly_*) ──
+  if (withSparkline.length > 0) {
     await db
       .insert(pricesData)
-      .values({
-        symbol: q.symbol,
-        price: String(q.price),
-        change24h: q.change24h !== null ? String(q.change24h) : null,
-        volume24h: q.volume24h !== null ? String(q.volume24h) : null,
-        source: "coingecko",
-        lastUpdated: now,
-        ...sparklineSet,
-      })
+      .values(withSparkline)
       .onConflictDoUpdate({
         target: pricesData.symbol,
         set: {
-          price: String(q.price),
-          change24h: q.change24h !== null ? String(q.change24h) : null,
-          volume24h: q.volume24h !== null ? String(q.volume24h) : null,
-          lastUpdated: now,
-          ...sparklineSet,
+          price:             sql`excluded.price`,
+          change24h:         sql`excluded.change_24h`,
+          volume24h:         sql`excluded.volume_24h`,
+          source:            sql`excluded.source`,
+          lastUpdated:       sql`excluded.last_updated`,
+          weeklySparkline:   sql`excluded.weekly_sparkline`,
+          weeklySparklineAt: sql`excluded.weekly_sparkline_at`,
         },
       });
-    updatedCount++;
   }
 
-  return updatedCount;
+  // ── Batch 2: rows SENZA sparkline (preserva weekly_* esistenti) ──
+  // Importante: weekly_sparkline / weekly_sparkline_at NON nel set →
+  // i campi esistenti restano intatti su ON CONFLICT. Per gli INSERT
+  // first-time (no row precedente), defaults DB li imposterà a NULL —
+  // accettabile, la prossima sync con sparkline li popolerà.
+  if (coreOnly.length > 0) {
+    await db
+      .insert(pricesData)
+      .values(coreOnly)
+      .onConflictDoUpdate({
+        target: pricesData.symbol,
+        set: {
+          price:       sql`excluded.price`,
+          change24h:   sql`excluded.change_24h`,
+          volume24h:   sql`excluded.volume_24h`,
+          source:      sql`excluded.source`,
+          lastUpdated: sql`excluded.last_updated`,
+        },
+      });
+  }
+
+  return withSparkline.length + coreOnly.length;
 }
 
 /**

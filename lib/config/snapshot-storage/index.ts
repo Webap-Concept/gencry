@@ -16,10 +16,17 @@ import {
   createConfigR2Client,
   type ConfigR2Config,
 } from "./r2";
-import { fetchAppSettingsRaw } from "@/lib/db/settings-queries";
+import { fetchAppSettingsKeysRaw } from "@/lib/db/settings-queries";
 
 export type { SnapshotStorage } from "./types";
 export { SnapshotStorageError } from "./types";
+
+const R2_CONFIG_KEYS = [
+  "storage.r2.account_id",
+  "storage.config.r2.access_key_id",
+  "storage.config.r2.secret_access_key",
+  "storage.config.r2.bucket",
+] as const;
 
 /**
  * Legge la config R2 dedicata snapshot direttamente dal DB.
@@ -29,9 +36,15 @@ export { SnapshotStorageError } from "./types";
  * `accountId` viene dalla chiave GLOBAL `storage.r2.account_id` (account
  * Cloudflare unico). `access_key_id` / `secret_access_key` / `bucket` sono
  * specifici di QUESTO bucket per isolamento di security.
+ *
+ * Performance: usa `fetchAppSettingsKeysRaw` (query WHERE key IN ...) per
+ * leggere SOLO le 4 keys necessarie invece di tutta la tabella app_settings
+ * (~103 rows). Importante perché questa funzione viene chiamata 1 volta
+ * per cold start lambda — col SELECT * stavamo bruciando ~2.5 GB/mese di
+ * egress Supabase solo qui (audit del 2026-05-25).
  */
 export async function loadSnapshotR2Config(): Promise<ConfigR2Config | null> {
-  const s = await fetchAppSettingsRaw();
+  const s = await fetchAppSettingsKeysRaw(R2_CONFIG_KEYS);
   const accountId       = (s["storage.r2.account_id"]               ?? "").trim();
   const accessKeyId     = (s["storage.config.r2.access_key_id"]     ?? "").trim();
   const secretAccessKey = (s["storage.config.r2.secret_access_key"] ?? "").trim();

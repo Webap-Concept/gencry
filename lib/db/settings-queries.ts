@@ -840,8 +840,42 @@ async function fetchAppSettings(): Promise<AppSettings> {
  *
  * NON usare nei caller applicativi normali: paga 1 query DB ogni volta,
  * non è cached. Tutto il resto del codice usa `getAppSettings`.
+ *
+ * Preferire `fetchAppSettingsKeysRaw(keys)` quando servono solo poche keys
+ * (es. caricare le 4 credenziali R2): -95% egress vs SELECT *.
  */
 export const fetchAppSettingsRaw = fetchAppSettings;
+
+/**
+ * Variante targeted di `fetchAppSettingsRaw`: legge SOLO le keys richieste
+ * invece di tutta la tabella. Usata dai caller "chicken-egg" che hanno
+ * bisogno di poche credenziali per bootstrap (snapshot R2, ecc.) e non
+ * possono passare per il sistema cache.
+ *
+ * Ritorna un Partial: keys assenti o con value NULL sono undefined. Il
+ * caller decide come gestire l'assenza (di solito: ritornare null e fare
+ * fallback).
+ *
+ * Performance: 1 query DB con WHERE key IN (...) — Postgres usa l'index
+ * sulla PRIMARY KEY di app_settings (key è PK). Egress proporzionale al
+ * count delle keys richieste, NON al count totale della tabella.
+ */
+export async function fetchAppSettingsKeysRaw<K extends string>(
+  keys: readonly K[],
+): Promise<Partial<Record<K, string>>> {
+  if (keys.length === 0) return {};
+  const rows = await db
+    .select({ key: appSettings.key, value: appSettings.value })
+    .from(appSettings)
+    .where(inArray(appSettings.key, keys as unknown as string[]));
+  const out: Partial<Record<K, string>> = {};
+  for (const row of rows) {
+    if (row.value !== null) {
+      (out as Record<string, string>)[row.key] = row.value;
+    }
+  }
+  return out;
+}
 
 /**
  * Hot path "global" — cached via React `cache()` per request E (quando R2
