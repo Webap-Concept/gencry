@@ -83,5 +83,55 @@ export function bootSentryClient(): void {
       /^safari-web-extension:\/\//i,
       /^edge:\/\//i,
     ],
+
+    /**
+     * Filtra "Failed to fetch" / "Load failed" generati da:
+     *   1. Lighthouse / PageSpeed Insights audit (User-Agent contiene
+     *      `Nexus 5X Build/MMB29P` o `HeadlessChrome` o `Chrome-Lighthouse`).
+     *      Lighthouse chiude il browser context prima che fetch lunghe
+     *      completino → falso positivo.
+     *   2. Beacon GTM (`?gtm_latency=...`) cancellato dal browser quando
+     *      l'utente naviga via prima del completamento. Anche questi
+     *      sono frequenti su Vercel Preview con PageSpeed auto-check.
+     *
+     * Combo AND: drop SOLO se "Failed to fetch" + (Lighthouse UA OR
+     * gtm_latency nei breadcrumbs). Veri "Failed to fetch" applicativi
+     * (es. nostra Server Action down) NON vengono droppati.
+     */
+    beforeSend(event, hint) {
+      const message =
+        hint?.originalException instanceof Error
+          ? hint.originalException.message
+          : event.exception?.values?.[0]?.value ?? "";
+
+      const isFetchFail =
+        /failed to fetch|load failed|networkerror when attempting to fetch/i.test(
+          message,
+        );
+      if (!isFetchFail) return event;
+
+      // Condition 1: User-Agent Lighthouse / PageSpeed / HeadlessChrome
+      const headers = event.request?.headers as Record<string, string> | undefined;
+      const ua = headers?.["User-Agent"] ?? headers?.["user-agent"] ?? "";
+      if (
+        /Nexus 5X Build\/MMB29P|HeadlessChrome|Chrome-Lighthouse|Lighthouse/i.test(
+          ua,
+        )
+      ) {
+        return null;
+      }
+
+      // Condition 2: ultimo breadcrumb fetch ha URL con gtm_latency
+      const breadcrumbs = event.breadcrumbs ?? [];
+      for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+        const b = breadcrumbs[i];
+        if (b.category !== "fetch") continue;
+        const url = b.data?.url ? String(b.data.url) : "";
+        if (/gtm_latency/i.test(url)) return null;
+        break; // solo l'ultimo fetch, non scandiamo tutta la timeline
+      }
+
+      return event;
+    },
   });
 }
