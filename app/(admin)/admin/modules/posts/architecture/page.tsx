@@ -789,12 +789,6 @@ export default function PostsArchitecturePage() {
             />
             <ArchFutureCard
               tier={3}
-              title="Edge cache Discover anonimo"
-              description="Discover anonimo è 99% identico tra utenti — può vivere in edge cache 30s. CDN-friendly."
-              trigger="Discover anonymous traffic > 70% del totale"
-            />
-            <ArchFutureCard
-              tier={3}
               title="Comments sort modes configurabili"
               description="Oggi solo `recent` (DESC su created_at). Aggiungere `top` (per repliesCount + reactionsCount denorm), `controversial` (alta variabilità di reaction sentiment). Richiede counter denorm aggiuntivi + index ad-hoc. UI: pill toggle sopra il thread."
               trigger="Post con >50 commenti per cui il chronological perde leggibilità"
