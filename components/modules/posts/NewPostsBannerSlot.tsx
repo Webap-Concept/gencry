@@ -5,10 +5,13 @@
 // niente prepend automatico, user-initiated reload).
 //
 // V2 (Tier 2 chiuso 2026-05-25):
-//   - Subscribe Supabase Realtime postgres_changes INSERT su `posts`.
-//     Filter server-side `visibility=in.(public,members)` per il feed
-//     Discover loggato.
-//   - Counter local-state incrementato per ogni INSERT con
+//   - Subscribe Supabase Realtime BROADCAST sul topic `feed:discover`.
+//     Il trigger DB `posts_feed_broadcast_trg` (M_posts_010) emette
+//     `insert` events SOLO per i post con visibility public/members e
+//     non-deleted — filter server-side, niente leak di private/followers.
+//     Pattern identico ai commenti realtime (M_posts_007) — un solo
+//     paradigma Realtime per tutto il modulo Posts.
+//   - Counter local-state incrementato per ogni `insert` con
 //     `created_at > watermark` e `author_id !== viewerUserId`.
 //   - Click → router.refresh() (re-fetch RSC con cache-aside feed-cache
 //     TTL 60s) + scroll-to-top smooth + reset counter/watermark.
@@ -31,7 +34,6 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowUp } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
-import { generateSupabaseRealtimeToken } from "@/lib/auth/supabase-realtime-token";
 import { Z } from "@/lib/ui/z-index";
 import { type PostListPage } from "@/lib/modules/posts/types";
 
@@ -50,12 +52,13 @@ export type NewPostsBannerSlotProps = {
   viewerUserId: string;
 };
 
-type PostInsertPayload = {
-  id: string;
-  author_id: string;
+// Shape del payload emesso da `posts_feed_broadcast_trg` (M_posts_010).
+// Niente `deleted_at` perché il trigger non emette mai per soft-deleted.
+type FeedBroadcastPayload = {
+  postId: string;
+  authorId: string;
   visibility: string;
-  created_at: string;
-  deleted_at: string | null;
+  createdAt: string;
 };
 
 export function NewPostsBannerSlot({
@@ -82,34 +85,30 @@ export function NewPostsBannerSlot({
     let channelRef: ReturnType<typeof supabase.channel> | null = null;
 
     (async () => {
-      const tokenRes = await generateSupabaseRealtimeToken();
-      if (cancelled) return;
-      if (tokenRes.ok) {
-        await supabase.realtime.setAuth(tokenRes.data.token);
-      }
+      // Channel pubblico — nessun setAuth richiesto. Il filter
+      // visibility è applicato server-side dal trigger DB
+      // posts_feed_broadcast_trg, quindi qui non c'è bisogno di
+      // gating extra.
       const channel = supabase
-        .channel(`posts-feed-banner:${viewerUserId}`)
+        .channel("feed:discover")
         .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "posts",
-            // Filtro server-side: solo public + members. private +
-            // followers non interessano il Discover feed.
-            filter: "visibility=in.(public,members)",
-          },
-          (payload) => {
-            const row = payload.new as PostInsertPayload;
-            if (!row) return;
+          "broadcast",
+          { event: "insert" },
+          (msg) => {
+            const payload = (msg as { payload?: Record<string, unknown> }).payload;
+            if (!payload) return;
+            const row: FeedBroadcastPayload = {
+              postId: typeof payload.postId === "string" ? payload.postId : "",
+              authorId: typeof payload.authorId === "string" ? payload.authorId : "",
+              visibility: typeof payload.visibility === "string" ? payload.visibility : "",
+              createdAt: typeof payload.createdAt === "string" ? payload.createdAt : "",
+            };
+            if (!row.postId || !row.authorId || !row.createdAt) return;
             // Skip post propri (UX: non bannerare il proprio invio).
-            if (row.author_id === viewerUserId) return;
-            // Skip post già soft-deleted (INSERT race con immediate
-            // delete è raro, ma robusto).
-            if (row.deleted_at) return;
+            if (row.authorId === viewerUserId) return;
             // Guard timestamp: il watermark può essere superato da un
-            // INSERT più vecchio (DST/clock skew) — skip.
-            const createdMs = new Date(row.created_at).getTime();
+            // evento "in coda" prima del mount — skip.
+            const createdMs = new Date(row.createdAt).getTime();
             if (Number.isFinite(createdMs) && createdMs < watermarkRef.current) {
               return;
             }
