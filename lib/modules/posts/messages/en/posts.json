@@ -240,5 +240,9 @@
     "subtitle": "Public community posts in chronological order.",
     "discussions_about": "Discussions about: {ticker}",
     "untracked_fallback": "is not tracked in the prices module — see posts mentioning it below."
+  },
+  "new_posts_banner": {
+    "label": "{count, plural, one {# new post} other {# new posts}}",
+    "aria_label": "Show new posts"
   }
 }

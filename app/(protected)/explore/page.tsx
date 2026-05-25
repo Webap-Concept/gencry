@@ -124,6 +124,7 @@ export default async function ExplorePage({
           feedKind={ticker ? "ticker" : "discover"}
           ticker={ticker ?? undefined}
           initialPage={page}
+          viewerUserId={user.id}
         />
         <FeedList
           key={ticker ?? "discover"}
