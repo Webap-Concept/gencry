@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-25 (KV-set blocks + post-cache V2 + rate-limit V2)";
+const REVIEWED_AT = "2026-05-25 (KV-set blocks + post-cache V2 + rate-limit V2 + realtime banner)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -769,12 +769,6 @@ export default function PostsArchitecturePage() {
           icon={Rocket}
           intro="Backlog tier-ato. Tier 1 = pianificato a breve; Tier 2 = quando i numeri lo richiedono; Tier 3 = polish. Chiusi nel 2026-05-25: KV-set block precomputato (Tier 1), post-cache V2 hydration (Tier 2), notifications consumer (Tier 2 via PR-2 notifications), rate-limit Upstash sliding window (Tier 2).">
           <div className="grid sm:grid-cols-2 gap-3">
-            <ArchFutureCard
-              tier={2}
-              title="Realtime feed banner"
-              description="'3 nuovi post' invece di prepend automatico. Pattern GetStream. Niente layout shift."
-              trigger="Following feed con >100 post/giorno per user"
-            />
             <ArchFutureCard
               tier={2}
               title="Single-channel pooling commenti realtime"
