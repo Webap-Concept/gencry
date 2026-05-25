@@ -37,7 +37,10 @@ import {
   type PostVisibility,
 } from "@/lib/db/schema";
 import { getCachedFeedIds } from "./services/feed-cache";
-import { getCachedPosts } from "./services/post-cache";
+import {
+  getCachedPostHydrationBatch,
+  setCachedPostHydrationBatch,
+} from "./services/post-cache";
 import {
   getBlockedIdsForViewer,
   isBlockedBetween,
@@ -500,6 +503,52 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
  * Filtro block (mutual) applicato sempre — se il viewer e l'autore hanno
  * una relazione di block, la row sparisce dall'hydration.
  */
+/**
+ * Variante viewer-agnostic di `selectPostsCore`. Restituisce TUTTI i
+ * post non-deleted in `ids`, senza filtri block / visibility. È la
+ * forma cacheable (post-cache V2): il filtro block + visibility viene
+ * applicato lato JS dal caller (`getPostsByIds`) dopo cache lookup.
+ *
+ * Perché viewer-agnostic: la cache deve essere riutilizzabile cross-
+ * viewer. Se applicassimo block o visibility in SQL durante il
+ * populate, il payload cachato sarebbe specifico per un solo viewer
+ * e l'hit rate crollerebbe.
+ */
+async function selectPostsCoreCacheable(
+  ids: string[],
+): Promise<RawPostRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({
+      id: posts.id,
+      authorId: posts.authorId,
+      body: posts.body,
+      visibility: posts.visibility,
+      repostOfId: posts.repostOfId,
+      editedAt: posts.editedAt,
+      deletedAt: posts.deletedAt,
+      createdAt: posts.createdAt,
+      reactionsLike:      posts.reactionsLike,
+      reactionsBullish:   posts.reactionsBullish,
+      reactionsBearish:   posts.reactionsBearish,
+      reactionsToTheMoon: posts.reactionsToTheMoon,
+      reactionsDump:      posts.reactionsDump,
+      commentsCount: posts.commentsCount,
+      commentsDisabled: posts.commentsDisabled,
+      repostsCount: posts.repostsCount,
+      bookmarksCount: posts.bookmarksCount,
+      authorUsername: userProfiles.username,
+      authorFirstName: userProfiles.firstName,
+      authorLastName: userProfiles.lastName,
+      authorAvatarUrl: userProfiles.avatarUrl,
+      authorHeadline: userProfiles.headline,
+    })
+    .from(posts)
+    .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
+    .where(and(inArray(posts.id, ids), isNull(posts.deletedAt)));
+  return rows;
+}
+
 async function selectPostsCore(
   ids: string[],
   viewerUserId?: string,
@@ -700,6 +749,83 @@ async function selectViewerStateForPosts(
  * B è soft/hard-deleted o block-filtrato, 'not_visible' se B esiste ma
  * il viewer non ha accesso (visibility members/followers/private).
  */
+/**
+ * Forma del payload cachato (post-cache V2): RawPostRow + media + tickers.
+ * Viewer-agnostic. Le Date dopo JSON round-trip sono `string`: il revive
+ * a `Date` è in `revivePostHydration`.
+ */
+type CachedPostHydration = Omit<RawPostRow, "editedAt" | "createdAt" | "deletedAt"> & {
+  editedAt: Date | string | null;
+  createdAt: Date | string;
+  deletedAt: Date | string | null;
+  media: PostMediaPublic[];
+  tickers: string[];
+};
+
+function revivePostHydration(item: CachedPostHydration): {
+  raw: RawPostRow;
+  media: PostMediaPublic[];
+  tickers: string[];
+} {
+  const raw: RawPostRow = {
+    id: item.id,
+    authorId: item.authorId,
+    body: item.body,
+    visibility: item.visibility,
+    repostOfId: item.repostOfId,
+    editedAt: item.editedAt ? new Date(item.editedAt) : null,
+    deletedAt: item.deletedAt ? new Date(item.deletedAt) : null,
+    createdAt: new Date(item.createdAt),
+    reactionsLike: item.reactionsLike,
+    reactionsBullish: item.reactionsBullish,
+    reactionsBearish: item.reactionsBearish,
+    reactionsToTheMoon: item.reactionsToTheMoon,
+    reactionsDump: item.reactionsDump,
+    commentsCount: item.commentsCount,
+    commentsDisabled: item.commentsDisabled,
+    repostsCount: item.repostsCount,
+    bookmarksCount: item.bookmarksCount,
+    authorUsername: item.authorUsername,
+    authorFirstName: item.authorFirstName,
+    authorLastName: item.authorLastName,
+    authorAvatarUrl: item.authorAvatarUrl,
+    authorHeadline: item.authorHeadline,
+  };
+  return { raw, media: item.media, tickers: item.tickers };
+}
+
+/**
+ * Hydrata batch da DB (per i cache miss) + write-through al cache.
+ * Viewer-agnostic — il caller applica block/visibility dopo.
+ */
+async function hydrateMissingFromDb(missingIds: string[]): Promise<{
+  raws: RawPostRow[];
+  mediaMap: Map<string, PostMediaPublic[]>;
+  tickerMap: Map<string, string[]>;
+}> {
+  if (missingIds.length === 0) {
+    return { raws: [], mediaMap: new Map(), tickerMap: new Map() };
+  }
+  const raws = await selectPostsCoreCacheable(missingIds);
+  if (raws.length === 0) {
+    return { raws: [], mediaMap: new Map(), tickerMap: new Map() };
+  }
+  const presentIds = raws.map((r) => r.id);
+  const [mediaMap, tickerMap] = await Promise.all([
+    selectMediaForPosts(presentIds),
+    selectTickersForPosts(presentIds),
+  ]);
+  // Write-through batched. Solo i raw effettivamente non-deleted vengono
+  // cachati: i deleted non escono mai da selectPostsCoreCacheable.
+  const cachePayload: CachedPostHydration[] = raws.map((raw) => ({
+    ...raw,
+    media: mediaMap.get(raw.id) ?? [],
+    tickers: tickerMap.get(raw.id) ?? [],
+  }));
+  await setCachedPostHydrationBatch(cachePayload);
+  return { raws, mediaMap, tickerMap };
+}
+
 export async function getPostsByIds(
   ids: string[],
   opts: { viewerUserId?: string } = {},
@@ -712,130 +838,208 @@ export async function getPostsByIds(
     ? await getBlockedIdsForViewer(opts.viewerUserId)
     : undefined;
 
-  return getCachedPosts(ids, async (missingIds) => {
-    // Step 1: core posts (filtra anche per block tra viewer e autore)
-    const core = await selectPostsCore(missingIds, opts.viewerUserId, {
-      blockedIds,
+  // ── Phase A: main posts ────────────────────────────────────────────────
+  // Cache hit/miss split per gli ids richiesti.
+  const aBatch = await getCachedPostHydrationBatch<CachedPostHydration>(ids);
+
+  // Hydrate i miss dal DB + write-through cache.
+  const aFreshHydration = await hydrateMissingFromDb(aBatch.missing);
+
+  // Indice unico id → { raw, media, tickers } combinando hit (revived) + fresh.
+  const coreById = new Map<
+    string,
+    { raw: RawPostRow; media: PostMediaPublic[]; tickers: string[] }
+  >();
+  for (const [id, cached] of aBatch.hits) {
+    coreById.set(id, revivePostHydration(cached));
+  }
+  for (const raw of aFreshHydration.raws) {
+    coreById.set(raw.id, {
+      raw,
+      media: aFreshHydration.mediaMap.get(raw.id) ?? [],
+      tickers: aFreshHydration.tickerMap.get(raw.id) ?? [],
     });
-    if (core.length === 0) return [];
+  }
 
-    // Step 2: repost targets (depth 1) — anche il target è block-filtrato:
-    // se il viewer ha bloccato l'autore del post originale, il quote
-    // perde l'embed e cade su tombstone (UX corretta, niente leak).
-    const repostTargetIds = Array.from(
-      new Set(core.filter((p) => p.repostOfId).map((p) => p.repostOfId!)),
-    );
-    // enforceVisibility: il target embed deve rispettare la SUA visibility,
-    // non quella del quote-poster. Se il viewer non ha accesso → tombstone
-    // reason 'not_visible' (niente leak del body).
-    const targetCore = repostTargetIds.length
-      ? await selectPostsCore(repostTargetIds, opts.viewerUserId, {
-          enforceVisibility: true,
-          blockedIds,
-        })
-      : [];
-    const targetCoreById = new Map(targetCore.map((p) => [p.id, p]));
-    // Per i target che NON sono in targetCore, query light per distinguere
-    // 'deleted' (hard-deleted o soft-deleted o block) vs 'not_visible'
-    // (esiste ma visibility-gated). Block-filtered cade volutamente su
-    // 'deleted' per non leakare la relazione di block.
-    const missingTargetIds = repostTargetIds.filter(
-      (id) => !targetCoreById.has(id),
-    );
-    const missingTargetMeta = missingTargetIds.length
-      ? await db
-          .select({
-            id: posts.id,
-            visibility: posts.visibility,
-            authorId: posts.authorId,
-            deletedAt: posts.deletedAt,
-          })
-          .from(posts)
-          .where(inArray(posts.id, missingTargetIds))
-      : [];
-    const missingTargetById = new Map(
-      missingTargetMeta.map((r) => [r.id, r]),
-    );
+  // Filtro block: se viewer e autore hanno relazione di block, droppa
+  // il post (UX equivalente a 'deleted', nessun leak della relazione).
+  if (blockedIds && blockedIds.size > 0) {
+    for (const [id, entry] of coreById) {
+      if (blockedIds.has(entry.raw.authorId)) coreById.delete(id);
+    }
+  }
 
-    // Step 3: parallel batch — media, tickers, viewer state
-    const allPostIds = [...core.map((p) => p.id), ...targetCore.map((p) => p.id)];
-    const [mediaMap, tickerMap, viewerMap] = await Promise.all([
-      selectMediaForPosts(allPostIds),
-      selectTickersForPosts(allPostIds),
-      opts.viewerUserId
-        ? selectViewerStateForPosts(allPostIds, opts.viewerUserId)
-        : Promise.resolve(new Map<string, PostViewerState>()),
-    ]);
+  if (coreById.size === 0) return [];
 
-    // Step 4: assemble
-    const assemble = (row: RawPostRow): PostCardData => {
-      const coreCard = rowToCardCore(row);
-      const card: PostCardData = {
-        id: coreCard.id,
-        author: coreCard.author,
-        body: coreCard.body,
-        visibility: coreCard.visibility,
-        editedAt: coreCard.editedAt,
-        createdAt: coreCard.createdAt,
-        counts: coreCard.counts,
-        repostOf: null,
-        repostOfTombstone: null,
-        tickers: tickerMap.get(row.id) ?? [],
-        media: mediaMap.get(row.id) ?? [],
-        viewer: opts.viewerUserId
-          ? viewerMap.get(row.id) ?? { ownReactions: [], bookmarked: false }
-          : null,
-        commentsDisabled: coreCard.commentsDisabled,
-      };
-      if (row.repostOfId) {
-        const target = targetCoreById.get(row.repostOfId);
-        if (target) {
-          const targetCore = rowToCardCore(target);
-          card.repostOf = {
-            id: targetCore.id,
-            author: targetCore.author,
-            body: targetCore.body,
-            visibility: targetCore.visibility,
-            editedAt: targetCore.editedAt,
-            createdAt: targetCore.createdAt,
-            counts: targetCore.counts,
-            repostOf: null, // niente recursion oltre depth 1
-            repostOfTombstone: null,
-            tickers: tickerMap.get(target.id) ?? [],
-            media: mediaMap.get(target.id) ?? [],
-            viewer: opts.viewerUserId
-              ? viewerMap.get(target.id) ?? { ownReactions: [], bookmarked: false }
-              : null,
-            commentsDisabled: targetCore.commentsDisabled,
-          };
-        } else {
-          // Distinguo 'deleted' vs 'not_visible' usando la query light
-          // su missingTargetById. Block-filtered cade su 'deleted'.
-          const meta = missingTargetById.get(row.repostOfId);
-          const reason: "deleted" | "not_visible" =
-            meta &&
-            !meta.deletedAt &&
-            !viewerCanSeeVisibilityJS(
-              meta.visibility,
-              meta.authorId,
-              opts.viewerUserId,
-            )
-              ? "not_visible"
-              : "deleted";
-          card.repostOfTombstone = { id: row.repostOfId, reason };
-        }
+  // ── Phase B: repost targets (depth 1) ──────────────────────────────────
+  // Stesso pattern hit/miss. enforceVisibility per i target è applicato
+  // JS post-cache (vedi viewerCanSeeVisibilityJS).
+  const repostTargetIds = Array.from(
+    new Set(
+      Array.from(coreById.values())
+        .filter((p) => p.raw.repostOfId)
+        .map((p) => p.raw.repostOfId!),
+    ),
+  );
+
+  const targetById = new Map<
+    string,
+    { raw: RawPostRow; media: PostMediaPublic[]; tickers: string[] }
+  >();
+  // missingTargetMeta = id non visibili (visibility-gated o block-filtered)
+  // per la classificazione del tombstone reason.
+  const missingTargetMeta = new Map<
+    string,
+    { visibility: string; authorId: string; deletedAt: Date | null }
+  >();
+
+  if (repostTargetIds.length > 0) {
+    const bBatch = await getCachedPostHydrationBatch<CachedPostHydration>(repostTargetIds);
+    const bFresh = await hydrateMissingFromDb(bBatch.missing);
+
+    const allTargetEntries = new Map<
+      string,
+      { raw: RawPostRow; media: PostMediaPublic[]; tickers: string[] }
+    >();
+    for (const [id, cached] of bBatch.hits) {
+      allTargetEntries.set(id, revivePostHydration(cached));
+    }
+    for (const raw of bFresh.raws) {
+      allTargetEntries.set(raw.id, {
+        raw,
+        media: bFresh.mediaMap.get(raw.id) ?? [],
+        tickers: bFresh.tickerMap.get(raw.id) ?? [],
+      });
+    }
+
+    // Applica block + visibility ai target. Block-filtered cade su
+    // tombstone reason 'deleted' per non leakare la relazione.
+    for (const id of repostTargetIds) {
+      const entry = allTargetEntries.get(id);
+      if (!entry) continue;
+      const blocked = blockedIds?.has(entry.raw.authorId) ?? false;
+      const canSee = viewerCanSeeVisibilityJS(
+        entry.raw.visibility,
+        entry.raw.authorId,
+        opts.viewerUserId,
+      );
+      if (blocked || !canSee) {
+        // Salviamo i meta per classificare il tombstone. Block-filtered
+        // → tombstone 'deleted'. Visibility-gated → 'not_visible'.
+        missingTargetMeta.set(id, {
+          visibility: entry.raw.visibility,
+          authorId: entry.raw.authorId,
+          deletedAt: blocked ? new Date(0) : null, // sentinel: blocked→'deleted'
+        });
+      } else {
+        targetById.set(id, entry);
       }
-      return card;
-    };
+    }
 
-    return core.map(assemble);
-  }).then((hydrated) => {
-    // Preserva ordine ids; filtra missing (deleted/non-existent).
-    const byId = new Map(hydrated.map((c) => [c.id, c]));
-    return ids.flatMap((id) => {
-      const c = byId.get(id);
-      return c ? [c] : [];
-    });
+    // Per i target completamente assenti (hard-deleted o id-mai-esistito),
+    // query light per distinguere 'deleted' vs id-typo (entrambi → 'deleted').
+    const fullyMissing = repostTargetIds.filter(
+      (id) => !targetById.has(id) && !missingTargetMeta.has(id),
+    );
+    if (fullyMissing.length > 0) {
+      const lightRows = await db
+        .select({
+          id: posts.id,
+          visibility: posts.visibility,
+          authorId: posts.authorId,
+          deletedAt: posts.deletedAt,
+        })
+        .from(posts)
+        .where(inArray(posts.id, fullyMissing));
+      for (const r of lightRows) {
+        missingTargetMeta.set(r.id, {
+          visibility: r.visibility,
+          authorId: r.authorId,
+          deletedAt: r.deletedAt,
+        });
+      }
+    }
+  }
+
+  // ── Phase C: viewer state (DB, per-utente) ─────────────────────────────
+  const allPostIds = [
+    ...Array.from(coreById.keys()),
+    ...Array.from(targetById.keys()),
+  ];
+  const viewerMap = opts.viewerUserId
+    ? await selectViewerStateForPosts(allPostIds, opts.viewerUserId)
+    : new Map<string, PostViewerState>();
+
+  // ── Phase D: assemble ──────────────────────────────────────────────────
+  const assemble = (entry: {
+    raw: RawPostRow;
+    media: PostMediaPublic[];
+    tickers: string[];
+  }): PostCardData => {
+    const { raw, media, tickers } = entry;
+    const coreCard = rowToCardCore(raw);
+    const card: PostCardData = {
+      id: coreCard.id,
+      author: coreCard.author,
+      body: coreCard.body,
+      visibility: coreCard.visibility,
+      editedAt: coreCard.editedAt,
+      createdAt: coreCard.createdAt,
+      counts: coreCard.counts,
+      repostOf: null,
+      repostOfTombstone: null,
+      tickers,
+      media,
+      viewer: opts.viewerUserId
+        ? viewerMap.get(raw.id) ?? { ownReactions: [], bookmarked: false }
+        : null,
+      commentsDisabled: coreCard.commentsDisabled,
+    };
+    if (raw.repostOfId) {
+      const target = targetById.get(raw.repostOfId);
+      if (target) {
+        const targetCore = rowToCardCore(target.raw);
+        card.repostOf = {
+          id: targetCore.id,
+          author: targetCore.author,
+          body: targetCore.body,
+          visibility: targetCore.visibility,
+          editedAt: targetCore.editedAt,
+          createdAt: targetCore.createdAt,
+          counts: targetCore.counts,
+          repostOf: null, // niente recursion oltre depth 1
+          repostOfTombstone: null,
+          tickers: target.tickers,
+          media: target.media,
+          viewer: opts.viewerUserId
+            ? viewerMap.get(target.raw.id) ?? { ownReactions: [], bookmarked: false }
+            : null,
+          commentsDisabled: targetCore.commentsDisabled,
+        };
+      } else {
+        // Distinguo 'deleted' vs 'not_visible' via missingTargetMeta.
+        // Block-filtered → 'deleted' (no leak).
+        const meta = missingTargetMeta.get(raw.repostOfId);
+        const reason: "deleted" | "not_visible" =
+          meta &&
+          !meta.deletedAt &&
+          !viewerCanSeeVisibilityJS(
+            meta.visibility,
+            meta.authorId,
+            opts.viewerUserId,
+          )
+            ? "not_visible"
+            : "deleted";
+        card.repostOfTombstone = { id: raw.repostOfId, reason };
+      }
+    }
+    return card;
+  };
+
+  // Preserva ordine ids; filtra missing (deleted/block/non-existent).
+  return ids.flatMap((id) => {
+    const entry = coreById.get(id);
+    return entry ? [assemble(entry)] : [];
   });
 }
 
