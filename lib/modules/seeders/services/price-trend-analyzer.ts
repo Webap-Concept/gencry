@@ -55,59 +55,58 @@ export async function analyzeCoinTrends(): Promise<CoinTrend[]> {
   const symbols = current.map((c) => c.symbol);
   const priceBySymbol = new Map(current.map((c) => [c.symbol, Number(c.price)]));
 
-  // Step 2: prezzi storici 7gg e 30gg fa. Usiamo il punto più vicino
-  // al cutoff (≥ cutoff, ordinato ASC, primo trovato).
+  // Step 2: prezzo storico più vicino al cutoff (>= cutoff, primo
+  // ordinato ASC) per ogni symbol. Uso Postgres `DISTINCT ON (symbol)`:
+  // la query ritorna ESATTAMENTE 1 row per symbol invece di tutta la
+  // storia 7d/30d (pattern wasteful pre-2026-05-25: 174K rows/call al
+  // posto di ~N row pari ai coin attivi). Audit egress confermato dal
+  // pg_stat_statements del 25/05.
+  //
+  // Drizzle: `selectDistinctOn([col])` espone il pattern in modo tipato.
+  // ORDER BY DEVE iniziare con la stessa column usata in DISTINCT ON
+  // (constraint Postgres).
   const now = Date.now();
-  const cutoff7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const cutoff30d = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff7dDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const cutoff30dDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
 
-  // Subquery non triviali con Drizzle; faccio 2 query separate.
-  // inArray + gte tipizzato: Drizzle genera IN clause + cast date.
-  const cutoff7dDate = new Date(cutoff7d);
-  const cutoff30dDate = new Date(cutoff30d);
+  const [history7d, history30d] = await Promise.all([
+    db
+      .selectDistinctOn([pricesHistory.symbol], {
+        symbol: pricesHistory.symbol,
+        price: pricesHistory.price,
+      })
+      .from(pricesHistory)
+      .where(
+        and(
+          inArray(pricesHistory.symbol, symbols),
+          gte(pricesHistory.ts, cutoff7dDate),
+        ),
+      )
+      .orderBy(pricesHistory.symbol, asc(pricesHistory.ts)),
+    db
+      .selectDistinctOn([pricesHistory.symbol], {
+        symbol: pricesHistory.symbol,
+        price: pricesHistory.price,
+      })
+      .from(pricesHistory)
+      .where(
+        and(
+          inArray(pricesHistory.symbol, symbols),
+          gte(pricesHistory.ts, cutoff30dDate),
+        ),
+      )
+      .orderBy(pricesHistory.symbol, asc(pricesHistory.ts)),
+  ]);
 
-  const history7d = await db
-    .select({
-      symbol: pricesHistory.symbol,
-      price: pricesHistory.price,
-      capturedAt: pricesHistory.ts,
-      // alias capturedAt → ts
-    })
-    .from(pricesHistory)
-    .where(
-      and(
-        inArray(pricesHistory.symbol, symbols),
-        gte(pricesHistory.ts, cutoff7dDate),
-      ),
-    )
-    .orderBy(asc(pricesHistory.ts));
-
-  const history30d = await db
-    .select({
-      symbol: pricesHistory.symbol,
-      price: pricesHistory.price,
-      capturedAt: pricesHistory.ts,
-      // alias capturedAt → ts
-    })
-    .from(pricesHistory)
-    .where(
-      and(
-        inArray(pricesHistory.symbol, symbols),
-        gte(pricesHistory.ts, cutoff30dDate),
-      ),
-    )
-    .orderBy(asc(pricesHistory.ts));
-
-  // Map symbol → primo prezzo storico dopo il cutoff.
-  const firstAfter = (rows: typeof history7d): Map<string, number> => {
+  // Adesso ogni array contiene direttamente 1 row per symbol — niente
+  // più necessità del Map post-processing "firstAfter".
+  const toMap = (rows: { symbol: string; price: string }[]): Map<string, number> => {
     const m = new Map<string, number>();
-    for (const r of rows) {
-      if (!m.has(r.symbol)) m.set(r.symbol, Number(r.price));
-    }
+    for (const r of rows) m.set(r.symbol, Number(r.price));
     return m;
   };
-  const price7dAgo = firstAfter(history7d);
-  const price30dAgo = firstAfter(history30d);
+  const price7dAgo = toMap(history7d);
+  const price30dAgo = toMap(history30d);
 
   // Step 3: compute trend per ogni coin attivo.
   return symbols.map((symbol) => {
