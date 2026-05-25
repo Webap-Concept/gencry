@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-18 (mention-index)";
+const REVIEWED_AT = "2026-05-25 (KV-set blocks + post-cache V2)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -346,7 +346,7 @@ export default function PostsArchitecturePage() {
           id="caching"
           title="Strategia di caching"
           icon={Boxes}
-          intro="4 layer di caching/indici coordinati. V1 = solo unstable_cache + revalidateTag. V2 (attivo) = Upstash KV per feed hot e per mention-index autocomplete.">
+          intro="6 layer di caching/indici coordinati. V1 = solo unstable_cache + revalidateTag. V2 (attivo) = Upstash KV per feed-ids, post hydration, mention-index autocomplete, e Set precomputato dei block per il fan-out feed.">
           <ol className="list-decimal pl-5 space-y-2">
             <li>
               <strong>Next unstable_cache</strong>: query DB read-only (coin
@@ -384,6 +384,33 @@ export default function PostsArchitecturePage() {
               con sentinel TTL 7d. Fallback DB ILIKE prefix se Upstash
               non configurato. Admin rebuild via{" "}
               <code>rebuildMentionIndexAction</code>.
+            </li>
+            <li>
+              <strong>blocks Set precomputato (V2 attivo, 2026-05-25)</strong>:
+              {" "}<code>getBlockedIdsForViewer(viewerId)</code> in{" "}
+              <code>blocks.ts</code> carica 1 volta per request il{" "}
+              <code>Set&lt;string&gt;</code> di id mutualmente bloccati.
+              3-layer: React.cache → in-process Map TTL 30s →{" "}
+              <code>posts:blocks:user:{"{id}"}</code> Upstash TTL 5min →
+              DB UNION fallback. I 5 hot path del feed{" "}
+              (<code>getFeedIds/Profile/Ticker/Mentions/PostsByIds</code>)
+              usano <code>notBlockedByIds(set, column)</code> con NOT IN
+              invece del NOT EXISTS subquery → da N subquery DB a 1 GET
+              Redis ammortizzato. Invalidation in <code>toggleUserBlock</code>{" "}
+              su entrambe le chiavi mutual.
+            </li>
+            <li>
+              <strong>post-cache V2 attivo (2026-05-25)</strong>:{" "}
+              <code>posts:post:{"{id}"}</code> TTL 5min, payload viewer-
+              agnostic (RawPostRow + media + tickers). MGET/MSET batched
+              via pipeline Upstash. 3-layer: React.cache → in-process
+              Map TTL 30s cap 1000 → Upstash → DB fallback. Block/
+              visibility applicati JS post-cache così il payload è
+              riusabile cross-viewer. Viewer state (ownReactions/
+              bookmarked) resta query DB per-utente. Invalidation puntuale
+              via <code>invalidatePostCache(postId)</code> già pre-cablato
+              nei 9 call site di mutation (edit, soft-delete, reaction
+              toggle, comment create/delete, restore, ecc.).
             </li>
           </ol>
 
@@ -445,6 +472,18 @@ export default function PostsArchitecturePage() {
               description="getCachedFeedIds + invalidateFeedCache. Upstash KV namespace posts:feed:* TTL 60s. Cache-aside con fallback graceful (KV null/errore → DB diretto). Invalidation per scope strutturato via SCAN+DEL pattern."
               filePath="lib/modules/posts/services/feed-cache.ts"
               contract="getCachedFeedIds(key, fallback) → PostListPage"
+            />
+            <ArchHookBox
+              title="Post cache (V2 attivo, 2026-05-25)"
+              description="getCachedPostHydrationBatch + setCachedPostHydrationBatch + invalidatePostCache. Upstash KV namespace posts:post:* TTL 5min, MGET/MSET batched. Payload viewer-agnostic (RawPostRow + media + tickers); block/visibility applicati JS post-cache, viewer state (ownReactions/bookmarked) query DB per-utente. Pre-cablato nei 9 call site di mutation."
+              filePath="lib/modules/posts/services/post-cache.ts"
+              contract="getCachedPostHydrationBatch<T>(ids) → { hits, missing }"
+            />
+            <ArchHookBox
+              title="Blocks Set precomputato (V2 attivo, 2026-05-25)"
+              description="getBlockedIdsForViewer carica 1 volta per request il Set<string> di id mutualmente bloccati. React.cache + L1 Map TTL 30s + Upstash posts:blocks:user:{id} TTL 5min. notBlockedByIds(set, column) genera `NOT IN (...)` con guard empty-set per i 5 hot path del feed; notBlockedBy classico resta come fallback per caller non-feed."
+              filePath="lib/modules/posts/services/blocks.ts"
+              contract="getBlockedIdsForViewer(viewerId) → ReadonlySet<string>"
             />
             <ArchHookBox
               title="Mention index (V2 attivo)"
@@ -696,8 +735,9 @@ export default function PostsArchitecturePage() {
             </li>
             <li>
               <strong>Feed Following</strong>: JOIN su user_follows. p95 ≈
-              50ms fino a ~500 followingIds; oltre va valutato KV-set
-              (vedi Future § block KV-set).
+              50ms fino a ~500 followingIds. Block filter via Set Upstash
+              (vedi § Caching, blocks Set precomputato) — 1 GET KV
+              ammortizzato vs N NOT EXISTS subquery.
             </li>
             <li>
               <strong>Parser tickers</strong>: tokenization + Set lookup O(1)
@@ -721,31 +761,19 @@ export default function PostsArchitecturePage() {
           id="future"
           title="Future optimizations"
           icon={Rocket}
-          intro="Backlog tier-ato. Tier 1 = pianificato a breve; Tier 2 = quando i numeri lo richiedono; Tier 3 = polish.">
+          intro="Backlog tier-ato. Tier 1 = pianificato a breve; Tier 2 = quando i numeri lo richiedono; Tier 3 = polish. Chiusi nel 2026-05-25: KV-set block precomputato (Tier 1), post-cache V2 hydration (Tier 2), notifications consumer (Tier 2 via PR-2 notifications).">
           <div className="grid sm:grid-cols-2 gap-3">
-            <ArchFutureCard
-              tier={1}
-              title="KV-set block precomputato"
-              description="blocks:user:{id} Set in Upstash KV. Evita la NOT EXISTS in fan-out feed (oggi 5+ subquery per request)."
-              trigger="Quando il Following feed > 500 followingIds o p95 > 100ms"
-            />
-            <ArchFutureCard
-              tier={2}
-              title="Post cache Upstash KV (hydration)"
-              description="post:{id} TTL 5min. Codice strutturato in post-cache.ts (V1 pass-through). Più granulare del feed-cache: ogni post hydrato resta in KV finché non viene modificato."
-              trigger="Hydration p95 > 50ms o frequent re-render del feed con DB pool saturo"
-            />
-            <ArchFutureCard
-              tier={2}
-              title="Notifications consumer"
-              description="Worker che consuma posts_outbox e invia notifiche (in-app + email). Outbox già popolato dai trigger."
-              trigger="Apertura modulo notifications"
-            />
             <ArchFutureCard
               tier={2}
               title="Realtime feed banner"
               description="'3 nuovi post' invece di prepend automatico. Pattern GetStream. Niente layout shift."
               trigger="Following feed con >100 post/giorno per user"
+            />
+            <ArchFutureCard
+              tier={2}
+              title="Rate-limit Upstash sliding window"
+              description="Oggi stub ok=true. Implementare via SDK Upstash @upstash/ratelimit con sliding window per IP+user su create-post, comment, reaction, report."
+              trigger="Apertura registrazione pubblica → rischio spam"
             />
             <ArchFutureCard
               tier={2}
@@ -770,6 +798,12 @@ export default function PostsArchitecturePage() {
               title="Comments sort modes configurabili"
               description="Oggi solo `recent` (DESC su created_at). Aggiungere `top` (per repliesCount + reactionsCount denorm), `controversial` (alta variabilità di reaction sentiment). Richiede counter denorm aggiuntivi + index ad-hoc. UI: pill toggle sopra il thread."
               trigger="Post con >50 commenti per cui il chronological perde leggibilità"
+            />
+            <ArchFutureCard
+              tier={3}
+              title="Post-cache V2.5 (write-through counter + transitive quote invalidation)"
+              description="V2 oggi fa DEL totale ad ogni mutation. V2.5: SET partiale dei contatori per non invalidare l'intero payload + secondary index `posts:quote-of:{id}` per propagare l'invalidation ai quote-reposter quando il target viene editato."
+              trigger="Hit rate < 50% in produzione o utenti segnalano edit-su-target che non si propaga ai quote"
             />
           </div>
         </ArchSection>
