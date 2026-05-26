@@ -32,8 +32,6 @@
       "retention_days_help": "Notifications older than N days will be deleted by the cleanup cron (future).",
       "achievements_section_title": "Achievements (milestones)",
       "achievements_section_help": "Special notifications when a post hits an engagement threshold. DB trigger checks inline (no cron). Defaults are dev/alpha-friendly — raise once real users show up.",
-      "first_like_enabled_label": "Notify first reaction",
-      "first_like_enabled_help": "Emit a notification when the post gets its very first reaction. Motivational for new users.",
       "viral_likes_enabled_label": "Notify viral post",
       "viral_likes_enabled_help": "Emit a notification when the post crosses the reaction threshold within the window. Fires once per post.",
       "viral_likes_threshold_label": "Viral reactions threshold",
@@ -64,17 +62,12 @@
     "architecture": {
       "title": "Notifications — Architecture"
     },
-    "templates": {
+    "email": {
       "intro": "Subject, body and footer of achievement emails. Values saved here override the code-side defaults. Leave a field empty to fall back to the default. Mustache {{token}} placeholders are interpolated at runtime.",
       "subject_label": "Subject",
-      "subject_placeholder": "Leave empty to use the default",
       "body_label": "Body",
-      "body_placeholder": "Leave empty to use the default",
       "footer_label": "Footer",
-      "footer_placeholder": "Leave empty to use the default",
       "placeholders_label": "Available placeholders",
-      "first_like_title": "First reaction",
-      "first_like_help": "Email sent when the post gets its very first reaction. Actor is the real user who reacted.",
       "viral_likes_title": "Viral post (reactions)",
       "viral_likes_help": "Email sent when the post crosses the reactions threshold within the window. Fires once per post.",
       "viral_comments_title": "Viral post (comments)",
@@ -82,7 +75,7 @@
       "viral_reposts_title": "Viral post (reposts)",
       "viral_reposts_help": "Email sent when the post is reposted N times within the window. Counted on the TARGET (quoted post's author).",
       "save": "Save",
-      "saved": "Templates saved."
+      "saved": "Emails saved."
     }
   },
   "types": {
@@ -107,7 +100,6 @@
       "strike_revoked": "One of your strikes has been revoked by a moderator"
     },
     "achievement": {
-      "first_like": "<actor>{name}</actor> gave your post its first reaction 🎉",
       "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours",
       "post_viral_comments": "Your post is starting a conversation: {total_count} comments in just hours",
       "post_viral_reposts": "Your post is being widely shared: {total_count} reposts in just hours"

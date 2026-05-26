@@ -2,7 +2,7 @@
 // app/(admin)/admin/modules/notifications/settings/_components/settings-form.tsx
 //
 // Form delle settings del modulo notifications: legacy (dedup window,
-// page size, retention) + achievement V1 (first_like, viral_likes).
+// page size, retention) + achievement viral_* (likes/comments/reposts).
 // Stile input via `adminFieldStyle` standard (admin-dialog.tsx) →
 // sfondo --admin-page-bg che contrasta con la card --admin-card-bg.
 import { useActionState } from "react";
@@ -20,7 +20,6 @@ export type NotificationsSettingsInitial = {
   dedupWindowMinutes: number;
   listPageSize: number;
   retentionDays: number;
-  firstLikeEnabled: boolean;
   viralLikesEnabled: boolean;
   viralLikesThreshold: number;
   viralLikesWindowHours: number;
@@ -91,13 +90,6 @@ export function NotificationsSettingsForm({
             {t("achievements_section_help")}
           </p>
         </header>
-
-        <CheckboxField
-          name="first_like_enabled"
-          label={t("first_like_enabled_label")}
-          help={t("first_like_enabled_help")}
-          defaultChecked={initial.firstLikeEnabled}
-        />
 
         <CheckboxField
           name="viral_likes_enabled"

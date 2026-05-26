@@ -40,10 +40,6 @@ export default async function NotificationsAdminSettingsPage() {
           7,
           3650,
         ),
-        firstLikeEnabled:
-          settings[
-            "modules.notifications.achievements.first_like_enabled"
-          ] !== "false",
         viralLikesEnabled:
           settings[
             "modules.notifications.achievements.viral_likes_enabled"

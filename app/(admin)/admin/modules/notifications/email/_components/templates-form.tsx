@@ -11,9 +11,6 @@ import { adminFieldStyle } from "@/app/(admin)/admin/_components/admin-dialog";
 import { saveAchievementTemplates, type TemplatesSaveResult } from "../actions";
 
 export type TemplatesInitial = {
-  firstLikeSubject: string;
-  firstLikeBody: string;
-  firstLikeFooter: string;
   viralLikesSubject: string;
   viralLikesBody: string;
   viralLikesFooter: string;
@@ -29,9 +26,6 @@ export type TemplatesInitial = {
  *  input/textarea così l'admin vede esattamente cosa arriva se lascia
  *  vuoto, invece di un generico "lascia vuoto per default". */
 export type TemplatesDefaults = {
-  readonly firstLikeSubject: string;
-  readonly firstLikeBody: string;
-  readonly firstLikeFooter: string;
   readonly viralLikesSubject: string;
   readonly viralLikesBody: string;
   readonly viralLikesFooter: string;
@@ -44,11 +38,10 @@ export type TemplatesDefaults = {
 };
 
 type TemplateSpec = {
-  id: "firstLike" | "viralLikes" | "viralComments" | "viralReposts";
+  id: "viralLikes" | "viralComments" | "viralReposts";
   titleKey: string;
   helpKey: string;
   keyPrefix:
-    | "modules.notifications.email_achievement_first_like"
     | "modules.notifications.email_achievement_viral_likes"
     | "modules.notifications.email_achievement_viral_comments"
     | "modules.notifications.email_achievement_viral_reposts";
@@ -62,19 +55,6 @@ type TemplateSpec = {
 };
 
 const TEMPLATES: TemplateSpec[] = [
-  {
-    id: "firstLike",
-    titleKey: "first_like_title",
-    helpKey: "first_like_help",
-    keyPrefix: "modules.notifications.email_achievement_first_like",
-    placeholders: ["{{appName}}", "{{userName}}", "{{actorName}}", "{{postUrl}}", "{{postPreview}}"],
-    initialSubjectKey: "firstLikeSubject",
-    initialBodyKey: "firstLikeBody",
-    initialFooterKey: "firstLikeFooter",
-    defaultSubjectKey: "firstLikeSubject",
-    defaultBodyKey: "firstLikeBody",
-    defaultFooterKey: "firstLikeFooter",
-  },
   {
     id: "viralLikes",
     titleKey: "viral_likes_title",

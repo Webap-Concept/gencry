@@ -1,20 +1,14 @@
 // lib/modules/notifications/email-channel/defaults.ts
 //
-// Default code-side dei 4 achievement email template. Single source of
-// truth: importati sia dai renderer (per fallback in resolveTemplate)
-// sia dalla page admin /templates (per mostrarli come placeholder degli
-// input).
+// Default code-side dei 3 achievement email template viral_*. Single
+// source of truth: importati sia dai renderer (per fallback in
+// resolveTemplate) sia dalla page admin /email (per mostrarli come
+// placeholder degli input).
 //
 // Mustache placeholder `{{token}}` interpolati a runtime — vedi
 // resolveTemplate in renderers/_shared.ts.
 
 export const ACHIEVEMENT_EMAIL_DEFAULTS = {
-  firstLikeSubject: "🎉 {{actorName}} ha messo la prima reazione al tuo post",
-  firstLikeBody:
-    "Ciao {{userName}},\n\n{{actorName}} ha appena messo la prima reazione al tuo post — complimenti, hai iniziato la conversazione!\n\nContinua a postare: ogni reazione è un segnale che la tua voce conta nella community.",
-  firstLikeFooter:
-    "Ricevi questa email perché sei iscritto a {{appName}}.",
-
   viralLikesSubject: "🚀 Il tuo post sta andando virale — {{totalCount}} reazioni",
   viralLikesBody:
     "Ciao {{userName}},\n\nIl tuo post ha appena raggiunto {{totalCount}} reazioni in poche ore. È la community che ti dice che l'argomento risuona — continua così!\n\nPensa di approfondire con un post di follow-up: il momentum è dalla tua parte.",

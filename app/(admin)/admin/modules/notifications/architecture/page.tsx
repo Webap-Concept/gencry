@@ -166,11 +166,6 @@ export default function NotificationsArchitecturePage() {
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <code>achievement.first_like</code> — emesso quando il post
-              riceve la sua prima reazione in assoluto. Motivazionale.{" "}
-              <em>(M_notifications_002)</em>
-            </li>
-            <li>
               <code>achievement.post_viral_likes</code> — emesso quando il
               post supera la soglia configurabile di reazioni dentro la
               finestra dalla pubblicazione (default 50 in 24h).{" "}
@@ -228,9 +223,9 @@ export default function NotificationsArchitecturePage() {
           <p>
             La colonna <code>posts.achievements_emitted JSONB</code> tiene
             traccia dei kind già emessi per ogni post (es.{" "}
-            <code>{`{"first_like": "2026-05-26T...", "viral_likes": "..."}`}</code>
+            <code>{`{"viral_likes": "2026-05-26T...", "viral_comments": "..."}`}</code>
             ). Il check{" "}
-            <code>NOT (achievements_emitted ? &apos;first_like&apos;)</code>{" "}
+            <code>NOT (achievements_emitted ? &apos;viral_likes&apos;)</code>{" "}
             garantisce 1 sola emissione per kind per post anche se il
             counter oscilla (es. revoca + nuovo like).
           </p>
@@ -239,13 +234,12 @@ export default function NotificationsArchitecturePage() {
             Settings tunabili
           </h3>
           <p className="text-xs text-[var(--admin-text-muted)]">
-            10 keys totali sotto il namespace{" "}
+            9 keys totali sotto il namespace{" "}
             <code>modules.notifications.achievements.*</code> — vedi i 4 preset
             (alpha/beta/growth/scale) nel manifest capacityProfile e nel form
             admin.
           </p>
           <ul className="list-disc pl-5 space-y-1 text-xs font-mono">
-            <li>first_like_enabled (default true)</li>
             <li>viral_likes_enabled / _threshold (50) / _window_hours (24)</li>
             <li>viral_comments_enabled / _threshold (10) / _window_hours (24)</li>
             <li>viral_reposts_enabled / _threshold (5) / _window_hours (24)</li>
@@ -397,9 +391,10 @@ export default function NotificationsArchitecturePage() {
             <ArchFileLink path="lib/db/migrations/M_notifications_001_init.sql" description="Tabella + 3 indici + trigger fanout + RLS + publication + settings + permission" />
             <ArchFileLink path="lib/db/migrations/M_notifications_002_achievements.sql" description="Achievement V1: colonna posts.achievements_emitted + estensione trigger reactions counter + branch achievement.* nel fanout" />
             <ArchFileLink path="lib/db/migrations/M_notifications_003_viral_engagement.sql" description="Achievement V2: estende posts_comments_counter_trg + posts_repost_counter_trg con check viral_comments / viral_reposts. Fanout esteso con i 2 nuovi event types." />
-            <ArchFileLink path="lib/db/migrations/M_notifications_004_first_like_actor.sql" description="first_like ora include actor_id (chi ha messo la prima reazione); fanout legge da payload invece di NULL." />
+            <ArchFileLink path="lib/db/migrations/M_notifications_004_first_like_actor.sql" description="(superseded da M_006) first_like includeva actor_id; fanout leggeva da payload." />
             <ArchFileLink path="lib/db/migrations/M_notifications_005_email_sent_at.sql" description="Colonna notifications.email_sent_at + partial index per il cron scan delle pending achievement emails." />
-            <ArchFileLink path="lib/modules/notifications/email-channel/" description="Dispatcher email del modulo (V3): types, registry, dispatcher, recipient hydration. 4 renderer in renderers/ uno per ogni achievement type." />
+            <ArchFileLink path="lib/db/migrations/M_notifications_006_drop_first_like.sql" description="Rimuove achievement.first_like end-to-end (rumoroso). Resta solo viral_* (likes/comments/reposts). Pulisce notifiche storiche + settings + outbox pending." />
+            <ArchFileLink path="lib/modules/notifications/email-channel/" description="Dispatcher email del modulo (V3): types, registry, dispatcher, recipient hydration. 3 renderer in renderers/ uno per ogni achievement viral_* type." />
             <ArchFileLink path="app/api/cron/modules/notifications/achievement-email/route.ts" description="Cron endpoint invocato ogni 20 min: chiama dispatchAchievementEmails() + ritorna metriche di run." />
             <ArchFileLink path="lib/db/migrations/M_notifications_999_uninstall.sql" description="Rollback completo del modulo" />
             <ArchFileLink path="lib/modules/notifications/notification-targets.ts" description="Mappa (type, payload) → href + summaryKey i18n + templateValues. Source of truth per UI + email digest futuro" />

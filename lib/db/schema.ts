@@ -1822,7 +1822,6 @@ export const NOTIFICATION_TYPES = [
   // Achievement events (M_notifications_002+003, decisione 2026-05-26):
   // emessi dai trigger DB counter inline al counter update quando un
   // post attraversa una soglia. Recipient = autore del post, actor = NULL.
-  "achievement.first_like",
   "achievement.post_viral_likes",
   "achievement.post_viral_comments",
   "achievement.post_viral_reposts",

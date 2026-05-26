@@ -17,8 +17,8 @@ export type RenderInput = {
   notification: Notification;
   /** Recipient hydrato (id, email, firstName, locale). */
   recipient: UserMinimal;
-  /** Actor hydrato se applicabile (es. first_like). null per system
-   *  events (viral_*). */
+  /** Actor hydrato se applicabile. Per gli achievement viral_* è sempre
+   *  null (eventi di sistema, aggregati). */
   actor: UserMinimal | null;
   /** URL canonica del post (es. `${siteUrl}/post/${id}`) — pre-calcolata
    *  dal dispatcher così il renderer non deve ricomporla. */

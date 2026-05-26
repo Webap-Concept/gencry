@@ -238,7 +238,6 @@ export type SettingKey =
   | 'modules.notifications.dedup_window_minutes'   // finestra anti-spam per fanout trigger (default 60)
   | 'modules.notifications.list_page_size'         // pagination /notifiche (default 30)
   | 'modules.notifications.retention_days'         // cron cleanup futuro (default 180)
-  | 'modules.notifications.achievements.first_like_enabled'         // 'true'|'false', emette achievement.first_like (default true)
   | 'modules.notifications.achievements.viral_likes_enabled'        // 'true'|'false', emette achievement.post_viral_likes (default true)
   | 'modules.notifications.achievements.viral_likes_threshold'      // int reactions totali (default 50)
   | 'modules.notifications.achievements.viral_likes_window_hours'   // int ore dalla pubblicazione (default 24)
@@ -250,14 +249,11 @@ export type SettingKey =
   | 'modules.notifications.achievements.viral_reposts_window_hours' // int ore dalla pubblicazione (default 24)
   | 'modules.notifications.email_send_enabled'                     // 'true'|'false', toggle globale dispatcher email (default true)
   | 'modules.notifications.email_grace_seconds'                    // int sec attesa per dedup race (default 30)
-  // Module-owned email templates (4 × subject + body + footer = 12 keys).
+  // Module-owned email templates (3 × subject + body + footer = 9 keys).
   // Pattern: subject + body + footer in italiano nel default; le altre locali
   // arrivano da `translations` (namespace `email`) via getLocalizedEmailSettings.
-  // Placeholder Mustache-like: {{appName}}, {{userName}}, {{actorName}},
-  // {{totalCount}}, {{postUrl}}, {{postPreview}}.
-  | 'modules.notifications.email_achievement_first_like_subject'
-  | 'modules.notifications.email_achievement_first_like_body'
-  | 'modules.notifications.email_achievement_first_like_footer'
+  // Placeholder Mustache-like: {{appName}}, {{userName}}, {{totalCount}},
+  // {{postUrl}}, {{postPreview}}.
   | 'modules.notifications.email_achievement_viral_likes_subject'
   | 'modules.notifications.email_achievement_viral_likes_body'
   | 'modules.notifications.email_achievement_viral_likes_footer'
@@ -537,7 +533,6 @@ export type AppSettings = {
   'modules.notifications.dedup_window_minutes': string
   'modules.notifications.list_page_size': string
   'modules.notifications.retention_days': string
-  'modules.notifications.achievements.first_like_enabled': string
   'modules.notifications.achievements.viral_likes_enabled': string
   'modules.notifications.achievements.viral_likes_threshold': string
   'modules.notifications.achievements.viral_likes_window_hours': string
@@ -549,9 +544,6 @@ export type AppSettings = {
   'modules.notifications.achievements.viral_reposts_window_hours': string
   'modules.notifications.email_send_enabled': string
   'modules.notifications.email_grace_seconds': string
-  'modules.notifications.email_achievement_first_like_subject': string | null
-  'modules.notifications.email_achievement_first_like_body': string | null
-  'modules.notifications.email_achievement_first_like_footer': string | null
   'modules.notifications.email_achievement_viral_likes_subject': string | null
   'modules.notifications.email_achievement_viral_likes_body': string | null
   'modules.notifications.email_achievement_viral_likes_footer': string | null
@@ -798,7 +790,6 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.dedup_window_minutes': '60',
   'modules.notifications.list_page_size': '30',
   'modules.notifications.retention_days': '180',
-  'modules.notifications.achievements.first_like_enabled': 'true',
   'modules.notifications.achievements.viral_likes_enabled': 'true',
   'modules.notifications.achievements.viral_likes_threshold': '50',
   'modules.notifications.achievements.viral_likes_window_hours': '24',
@@ -812,12 +803,6 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.email_grace_seconds': '30',
   // Achievement email templates — defaults in italiano. EN arriva da
   // `translations` (namespace `email`) via getLocalizedEmailSettings.
-  'modules.notifications.email_achievement_first_like_subject':
-    '🎉 {{actorName}} ha messo la prima reazione al tuo post',
-  'modules.notifications.email_achievement_first_like_body':
-    'Ciao {{userName}},\n\n{{actorName}} ha appena messo la prima reazione al tuo post — complimenti, hai iniziato la conversazione!\n\nContinua a postare: ogni reazione è un segnale che la tua voce conta nella community.',
-  'modules.notifications.email_achievement_first_like_footer':
-    'Ricevi questa email perché sei iscritto a {{appName}}.',
   'modules.notifications.email_achievement_viral_likes_subject':
     '🚀 Il tuo post sta andando virale — {{totalCount}} reazioni',
   'modules.notifications.email_achievement_viral_likes_body':

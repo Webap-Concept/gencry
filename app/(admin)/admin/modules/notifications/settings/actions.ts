@@ -40,8 +40,7 @@ export async function saveNotificationsSettings(
   const pageSize = clampInt(formData.get("list_page_size"), 30, 5, 100);
   const retention = clampInt(formData.get("retention_days"), 180, 7, 3650);
 
-  // Achievement settings (V1 + V2 comments/reposts)
-  const firstLikeEnabled = checkboxToBool(formData.get("first_like_enabled"));
+  // Achievement settings (viral_* only — first_like rimossa il 2026-05-26)
   const viralLikesEnabled = checkboxToBool(formData.get("viral_likes_enabled"));
   const viralLikesThreshold = clampInt(
     formData.get("viral_likes_threshold"),
@@ -100,10 +99,6 @@ export async function saveNotificationsSettings(
     updateAppSetting(
       "modules.notifications.retention_days",
       String(retention),
-    ),
-    updateAppSetting(
-      "modules.notifications.achievements.first_like_enabled",
-      firstLikeEnabled ? "true" : "false",
     ),
     updateAppSetting(
       "modules.notifications.achievements.viral_likes_enabled",

@@ -1,10 +1,10 @@
 "use server";
 // app/(admin)/admin/modules/notifications/email/actions.ts
 //
-// Save dei 4 template achievement email. V1 gestisce solo la locale
-// di default (it) salvata in `app_settings`. Multi-locale via tabella
-// `translations` arriverà in V2 (vedi pattern email-templates-tab del
-// core).
+// Save dei 3 template achievement viral_* email. V1 gestisce solo la
+// locale di default (it) salvata in `app_settings`. Multi-locale via
+// tabella `translations` arriverà in V2 (vedi pattern email-templates-tab
+// del core).
 import { updateAppSetting } from "@/lib/db/settings-queries";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
@@ -15,9 +15,6 @@ export type TemplatesSaveResult =
   | { ok: false; error: string };
 
 type FieldKey =
-  | "modules.notifications.email_achievement_first_like_subject"
-  | "modules.notifications.email_achievement_first_like_body"
-  | "modules.notifications.email_achievement_first_like_footer"
   | "modules.notifications.email_achievement_viral_likes_subject"
   | "modules.notifications.email_achievement_viral_likes_body"
   | "modules.notifications.email_achievement_viral_likes_footer"
@@ -29,9 +26,6 @@ type FieldKey =
   | "modules.notifications.email_achievement_viral_reposts_footer";
 
 const FIELD_KEYS: readonly FieldKey[] = [
-  "modules.notifications.email_achievement_first_like_subject",
-  "modules.notifications.email_achievement_first_like_body",
-  "modules.notifications.email_achievement_first_like_footer",
   "modules.notifications.email_achievement_viral_likes_subject",
   "modules.notifications.email_achievement_viral_likes_body",
   "modules.notifications.email_achievement_viral_likes_footer",

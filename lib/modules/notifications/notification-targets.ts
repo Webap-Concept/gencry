@@ -159,19 +159,6 @@ export function resolveNotificationTarget(
         commentPreview: null,
         templateValues: {},
       };
-    case "achievement.first_like": {
-      // Achievement self-targeted: link al proprio post (vedere chi ha
-      // reagito + tutti gli engagement). actor = NULL (sistema).
-      if (!postId) return null;
-      return {
-        href: `/post/${postId}`,
-        summaryKey: "achievement.first_like",
-        reactionKind: null,
-        postPreview,
-        commentPreview: null,
-        templateValues: {},
-      };
-    }
     case "achievement.post_viral_likes":
     case "achievement.post_viral_comments":
     case "achievement.post_viral_reposts": {

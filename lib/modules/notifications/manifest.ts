@@ -33,7 +33,6 @@ const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
     },
   ],
   tunables: [
-    { key: "modules.notifications.achievements.first_like_enabled",            label: "First-like enabled (true/false)" },
     { key: "modules.notifications.achievements.viral_likes_enabled",           label: "Viral-likes enabled (true/false)" },
     { key: "modules.notifications.achievements.viral_likes_threshold",         label: "Viral-likes threshold (reactions)" },
     { key: "modules.notifications.achievements.viral_likes_window_hours",      label: "Viral-likes window (hours)" },
@@ -48,9 +47,8 @@ const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
     {
       id: "alpha",
       label: "Alpha (<100 MAU)",
-      description: "Generous: emit first_like always, very low viral thresholds so we see notifications fire during dev/early users.",
+      description: "Generous: very low viral thresholds so we see notifications fire during dev/early users.",
       values: {
-        "modules.notifications.achievements.first_like_enabled": "true",
         "modules.notifications.achievements.viral_likes_enabled": "true",
         "modules.notifications.achievements.viral_likes_threshold": "10",
         "modules.notifications.achievements.viral_likes_window_hours": "48",
@@ -67,7 +65,6 @@ const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
       label: "Beta (100-1k MAU)",
       description: "Default production: realistic milestones for early-stage community across reactions, comments and reposts.",
       values: {
-        "modules.notifications.achievements.first_like_enabled": "true",
         "modules.notifications.achievements.viral_likes_enabled": "true",
         "modules.notifications.achievements.viral_likes_threshold": "50",
         "modules.notifications.achievements.viral_likes_window_hours": "24",
@@ -84,7 +81,6 @@ const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
       label: "Growth (1k-10k MAU)",
       description: "Higher viral bars — at this scale daily engagement is the norm, save the email for real bursts.",
       values: {
-        "modules.notifications.achievements.first_like_enabled": "true",
         "modules.notifications.achievements.viral_likes_enabled": "true",
         "modules.notifications.achievements.viral_likes_threshold": "150",
         "modules.notifications.achievements.viral_likes_window_hours": "12",
@@ -99,9 +95,8 @@ const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
     {
       id: "scale",
       label: "Scale (10k+ MAU)",
-      description: "Only notify for truly significant bursts; first_like becomes too noisy in mass adoption.",
+      description: "Only notify for truly significant bursts at mass adoption.",
       values: {
-        "modules.notifications.achievements.first_like_enabled": "false",
         "modules.notifications.achievements.viral_likes_enabled": "true",
         "modules.notifications.achievements.viral_likes_threshold": "500",
         "modules.notifications.achievements.viral_likes_window_hours": "6",
@@ -172,7 +167,7 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
       description:
         "Scansiona notifications.email_sent_at IS NULL + type IN (achievement.*) ogni 20 min. Render renderer del modulo + sendEmail via Resend. Skip se modules.notifications.email_send_enabled=false. Grace window modules.notifications.email_grace_seconds (default 30s) per evitare race col fanout trigger.",
       purpose:
-        "Consegna effettiva via email delle notifiche achievement (first_like + viral_*). Default-on V1; opt-out per-user arriverà con PR-4 (notifications_preferences).",
+        "Consegna effettiva via email delle notifiche achievement viral_*. Default-on V1; opt-out per-user arriverà con PR-4 (notifications_preferences).",
     },
   ],
   capacityProfiles: [ACHIEVEMENTS_CAPACITY],

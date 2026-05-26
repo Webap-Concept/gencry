@@ -7,14 +7,12 @@ import "server-only";
 // distinta da `admin_notifications` (sistema).
 
 import type { NotificationType } from "@/lib/db/schema";
-import { achievementFirstLikeRenderer } from "./renderers/achievement-first-like";
 import { achievementViralLikesRenderer } from "./renderers/achievement-viral-likes";
 import { achievementViralCommentsRenderer } from "./renderers/achievement-viral-comments";
 import { achievementViralRepostsRenderer } from "./renderers/achievement-viral-reposts";
 import type { AchievementEmailRenderer } from "./types";
 
 export const ACHIEVEMENT_EMAIL_RENDERERS: readonly AchievementEmailRenderer[] = [
-  achievementFirstLikeRenderer,
   achievementViralLikesRenderer,
   achievementViralCommentsRenderer,
   achievementViralRepostsRenderer,
