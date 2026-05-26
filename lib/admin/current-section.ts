@@ -41,10 +41,11 @@ const SECTION_MAP: Record<string, AdminCurrentSection> = {
   "notifications": { iconName: "Bell",     label: "Notifiche" },
 
   // Modules — label diretto dai loro manifest
-  "modules/posts":      { iconName: "MessageSquare", label: "Posts" },
-  "modules/prices":     { iconName: "LineChart",    label: "Prices Engine" },
-  "modules/seeders":    { iconName: "Sprout",       label: "Seeders" },
-  "modules/onboarding": { iconName: "Sparkles",     label: "Onboarding" },
+  "modules/posts":         { iconName: "MessageSquare", label: "Posts" },
+  "modules/prices":        { iconName: "LineChart",    label: "Prices Engine" },
+  "modules/seeders":       { iconName: "Sprout",       label: "Seeders" },
+  "modules/onboarding":    { iconName: "Sparkles",     label: "Onboarding" },
+  "modules/notifications": { iconName: "Bell",         label: "Notifications" },
 };
 
 /**

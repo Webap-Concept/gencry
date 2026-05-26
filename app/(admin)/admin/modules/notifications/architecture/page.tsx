@@ -31,13 +31,14 @@ import { NOTIFICATIONS_MODULE } from "@/lib/modules/notifications/manifest";
 
 export const metadata: Metadata = { title: "Notifications / Architettura" };
 
-const REVIEWED_AT = "2026-05-18";
+const REVIEWED_AT = "2026-05-26 (achievements V1 + admin UI cleanup)";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "stack", label: "Stack" },
   { id: "schema", label: "Schema DB" },
   { id: "pipeline", label: "Pipeline" },
+  { id: "achievements", label: "Achievements" },
   { id: "realtime", label: "Realtime" },
   { id: "future", label: "Future" },
   { id: "files", label: "Files map" },
@@ -156,6 +157,123 @@ export default function NotificationsArchitecturePage() {
         </ArchSection>
 
         <ArchSection
+          id="achievements"
+          title="Achievement push events (V1)"
+          icon={Bell}
+          intro="Decisione product 2026-05-26: niente email per ogni azione (rumore → utente disabilita), solo email su milestone significativi. Implementazione PUSH (no polling): i trigger DB esistenti rilevano il crossing della soglia inline col counter update.">
+          <p>
+            <strong>Eventi V1</strong> (estendibili via <code>app_settings</code> + nuove regole in plpgsql):
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <code>achievement.first_like</code> — emesso quando il post
+              riceve la sua prima reazione in assoluto. Motivazionale.
+            </li>
+            <li>
+              <code>achievement.post_viral_likes</code> — emesso quando il
+              post supera la soglia configurabile di reazioni dentro la
+              finestra dalla pubblicazione (default 50 in 24h, preset
+              alpha/beta/growth/scale nel manifest capacityProfile).
+            </li>
+          </ul>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Flow zero-polling
+          </h3>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>
+              Utente mette una reaction → INSERT in <code>posts_reactions</code>
+            </li>
+            <li>
+              Trigger esistente <code>posts_reactions_counter_trg</code>{" "}
+              (esteso in <code>M_notifications_002</code>): aggiorna i 5
+              counter denormalizzati su <code>posts</code>
+            </li>
+            <li>
+              <strong>Inline check</strong>: legge stato post +{" "}
+              <code>achievements_emitted JSONB</code> + soglie da{" "}
+              <code>app_settings</code>. Se totale reactions cross la
+              soglia E il kind NON è già in <code>achievements_emitted</code>{" "}
+              E (per viral) il post è entro la finestra → INSERT in{" "}
+              <code>posts_outbox</code> event{" "}
+              <code>achievement.*</code> + segna emitted
+            </li>
+            <li>
+              Trigger <code>posts_outbox_to_notifications_trg</code>{" "}
+              (esteso): branch <code>achievement.*</code> con recipient =
+              autore, actor = NULL (evento di sistema)
+            </li>
+            <li>
+              INSERT in <code>notifications</code> + Supabase Realtime push
+              all'autore del post
+            </li>
+          </ol>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Pattern anti-spam
+          </h3>
+          <p>
+            La colonna <code>posts.achievements_emitted JSONB</code> tiene
+            traccia dei kind già emessi per ogni post (es.{" "}
+            <code>{`{"first_like": "2026-05-26T...", "viral_likes": "..."}`}</code>
+            ). Il check{" "}
+            <code>NOT (achievements_emitted ? &apos;first_like&apos;)</code>{" "}
+            garantisce 1 sola emissione per kind per post anche se il
+            counter oscilla (es. revoca + nuovo like).
+          </p>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Settings tunabili
+          </h3>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <code>modules.notifications.achievements.first_like_enabled</code>{" "}
+              (default <code>true</code>)
+            </li>
+            <li>
+              <code>modules.notifications.achievements.viral_likes_enabled</code>{" "}
+              (default <code>true</code>)
+            </li>
+            <li>
+              <code>modules.notifications.achievements.viral_likes_threshold</code>{" "}
+              (int, default <code>50</code>)
+            </li>
+            <li>
+              <code>modules.notifications.achievements.viral_likes_window_hours</code>{" "}
+              (int, default <code>24</code>)
+            </li>
+          </ul>
+          <p>
+            4 preset alpha/beta/growth/scale dichiarati nel manifest
+            <code>capacityProfile</code> &mdash; admin applica un preset
+            o tweakka le keys da{" "}
+            <code>/admin/modules/notifications/settings</code>.
+          </p>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Cosa NON c'è (intenzionalmente V1)
+          </h3>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Email reale</strong>: il flow oggi crea solo
+              notification in-app + push Realtime. Per spedire email
+              servirà PR-3c &mdash; hook al dispatcher{" "}
+              <code>lib/notifications/email-channel/</code> core +
+              template dedicato.
+            </li>
+            <li>
+              <strong>Achievement su commenti/repost</strong>: solo
+              reactions in V1. Estendibili in stessi pattern sui rispettivi
+              counter trigger.
+            </li>
+            <li>
+              <strong>User opt-in preferences per tipo</strong>: PR-4
+              tabella <code>notifications_preferences</code>.
+            </li>
+          </ul>
+        </ArchSection>
+
+        <ArchSection
           id="realtime"
           title="Realtime push al client"
           icon={Radio}
@@ -191,43 +309,43 @@ export default function NotificationsArchitecturePage() {
           <div className="grid sm:grid-cols-2 gap-3">
             <ArchFutureCard
               tier={1}
-              title="UI utente /notifiche live"
-              description="Lista paginata con avatar attore + summary tipo-specifico + click-to-context. Mark-as-read on view + bulk mark-all. Realtime push del badge sidebar."
-              trigger="Subito dopo lo scaffold (PR-3)"
+              title="PR-3b · Cleanup retention cron"
+              description="DELETE notifications WHERE created_at < NOW() - modules.notifications.retention_days. Cron daily. ~30 min implementation."
+              trigger="Quando la tabella inizia a crescere significativamente"
             />
             <ArchFutureCard
               tier={1}
-              title="Badge unread su sidebar nav"
-              description="Counter dinamico accanto a 'Notifiche' nella sidebar — server-rendered + Realtime increment client-side."
-              trigger="Insieme alla UI /notifiche"
+              title="PR-3c · Email channel per achievement + mention/reply"
+              description="Hook al dispatcher email-channel/ core per spedire effettivamente l'email quando l'achievement notification è creata. Achievement = sempre on (default), mention/reply direct = opt-in. Template Resend dedicati."
+              trigger="Quando apriamo registrazione pubblica"
             />
             <ArchFutureCard
               tier={2}
-              title="Email digest"
-              description="Cron giornaliero/settimanale che aggrega le notifiche unread di un user e invia un'email summary via Resend. Riusare email-channel/dispatcher core."
-              trigger="Quando l'engagement sociale produrrà unread > N/day medi"
+              title="PR-4 · Preferenze granulari per tipo"
+              description="Tabella notifications_preferences (user_id, type, enabled) per opt-out per tipo. Il trigger consulta la prefs e skippa se disabilitata. UI in /settings/notifications."
+              trigger="Richieste utente / feedback spam"
             />
             <ArchFutureCard
               tier={2}
-              title="Cleanup retention cron"
-              description="DELETE notifications WHERE created_at < NOW() - modules.notifications.retention_days. Cron daily."
-              trigger="Tabella > 1M righe"
+              title="Achievement su commenti / repost"
+              description="Estensione del pattern V1 (oggi solo reactions). Trigger posts_comments_counter_trg + posts_repost_counter_trg con check inline analoghi. Es. achievement.post_viral_comments (10 commenti in 1h), achievement.quote_echo (5 repost in 24h)."
+              trigger="Quando V1 viene osservato in prod e calibriamo le soglie"
             />
             <ArchFutureCard
               tier={2}
-              title="Preferenze granulari per tipo"
-              description="Tabella notifications_preferences (user_id, type, enabled) per opt-out per tipo. Trigger consulta la prefs e skippa se disabilitata."
-              trigger="Richieste utente / feedback social spam"
+              title="Weekly digest opt-in"
+              description="Email settimanale di riassunto 'cosa hai perso' (3 mention, 12 reaction, ...). Default OFF, l'utente lo attiva da /settings/notifications. Cron weekly."
+              trigger="Dopo metriche di engagement reale"
             />
             <ArchFutureCard
               tier={3}
-              title="Group/aggregation"
+              title="PR-5 · Group/aggregation UI"
               description="'3 persone hanno reagito al tuo post' invece di 3 righe separate. Schema unchanged: solo aggregation query lato UI."
               trigger="Volume per-post tale che la lista 1:1 diventa rumorosa"
             />
             <ArchFutureCard
               tier={3}
-              title="Push notifications mobile"
+              title="PR-6 · Push notifications mobile"
               description="FCM / web push. Richiede service worker e gestione token per device."
               trigger="App mobile / PWA"
             />
@@ -245,9 +363,11 @@ export default function NotificationsArchitecturePage() {
             <ArchFileLink path="lib/modules/notifications/actions.ts" description="markNotificationAsRead + markAllNotificationsAsRead" />
             <ArchFileLink path="lib/modules/notifications/messages/{it,en}/notifications.json" description="i18n del modulo" />
             <ArchFileLink path="lib/db/migrations/M_notifications_001_init.sql" description="Tabella + 3 indici + trigger fanout + RLS + publication + settings + permission" />
+            <ArchFileLink path="lib/db/migrations/M_notifications_002_achievements.sql" description="Achievement V1: colonna posts.achievements_emitted + estensione trigger reactions counter + branch achievement.* nel fanout" />
             <ArchFileLink path="lib/db/migrations/M_notifications_999_uninstall.sql" description="Rollback completo del modulo" />
-            <ArchFileLink path="app/(admin)/admin/modules/notifications/page.tsx" description="Overview con 3 health cards" />
-            <ArchFileLink path="app/(admin)/admin/modules/notifications/settings/page.tsx" description="Form delle 3 settings (dedup, page size, retention)" />
+            <ArchFileLink path="lib/modules/notifications/notification-targets.ts" description="Mappa (type, payload) → href + summaryKey i18n + templateValues. Source of truth per UI + email digest futuro" />
+            <ArchFileLink path="app/(admin)/admin/modules/notifications/page.tsx" description="Overview: module status + 3 health cards (chrome dal layout)" />
+            <ArchFileLink path="app/(admin)/admin/modules/notifications/settings/page.tsx" description="Form delle 7 settings (3 legacy + 4 achievement)" />
           </div>
         </ArchSection>
 
@@ -265,11 +385,13 @@ export default function NotificationsArchitecturePage() {
               spostare il fanout in un cron async se p99 del trigger &gt; 50ms.
             </li>
             <li>
-              <strong>SQL ↔ TS</strong>: i 5 event_type sono dichiarati in 3
-              posti — trigger plpgsql (M_notifications_001), const{" "}
+              <strong>SQL ↔ TS</strong>: i 10 event_type (5 social + 3
+              moderation + 2 achievement) sono dichiarati in 3+ posti —
+              trigger plpgsql (M_notifications_001/002), const{" "}
               <code>NOTIFICATION_TYPES</code> in schema.ts, i18n{" "}
-              <code>types.*</code> in notifications.json. Aggiungere un tipo
-              richiede sync di tutti e tre.
+              <code>types.*</code> in notifications.json,{" "}
+              <code>notification-targets.ts</code>. Aggiungere un tipo
+              richiede sync di tutti.
             </li>
             <li>
               <strong>RLS sull'INSERT</strong>: il trigger gira come{" "}
@@ -285,6 +407,23 @@ export default function NotificationsArchitecturePage() {
               <code>app_settings</code> per riga. PK lookup = trascurabile in
               pratica, ma se scaliamo a milioni di eventi/h vale la pena
               caching in-memory plpgsql (GUC) o pass via param NEW.payload.
+            </li>
+            <li>
+              <strong>Achievement settings lookup (M_notifications_002)</strong>:
+              il counter trigger fa 4 SELECT su <code>app_settings</code> ad
+              ogni reaction insert per leggere le soglie achievement. Stesso
+              caveat: trascurabile a scala alpha/beta, ma a scaling alto
+              valutare GUC caching o materializzare le keys in un'unica row
+              snapshot.
+            </li>
+            <li>
+              <strong>Achievement self-notify</strong>: gli eventi{" "}
+              <code>achievement.*</code> hanno <code>actor_id = NULL</code>{" "}
+              (è il sistema che notifica l'autore del proprio achievement).
+              Il check <code>v_recipient_id = v_actor_id</code> non scatta
+              perché NULL compara con qualsiasi UUID come "non uguale" via{" "}
+              <code>=</code> in plpgsql (e i due NULL non scattano il check
+              perché v_recipient_id è UUID valid).
             </li>
           </ul>
         </ArchSection>

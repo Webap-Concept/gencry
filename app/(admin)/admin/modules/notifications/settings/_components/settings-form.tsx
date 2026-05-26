@@ -1,10 +1,9 @@
 "use client";
 // app/(admin)/admin/modules/notifications/settings/_components/settings-form.tsx
 //
-// Form delle 3 settings del modulo notifications: dedup window, page
-// size, retention. Pattern minimalista (no AdminButton/AdminInput
-// custom per ora — coerente col scaffold light di altri moduli, da
-// uniformare se il modulo cresce).
+// Form delle settings del modulo notifications: legacy (dedup window,
+// page size, retention) + achievement V1 (first_like, viral_likes).
+// Token CSS allineati allo standard admin (--admin-text, --admin-card-*).
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { saveNotificationsSettings, type SettingsSaveResult } from "../actions";
@@ -31,45 +30,51 @@ export function NotificationsSettingsForm({
   >(saveNotificationsSettings, null);
 
   return (
-    <form action={formAction} className="space-y-5 max-w-xl">
-      <h1 className="text-lg font-semibold text-[var(--admin-fg)]">
-        {t("title")}
-      </h1>
+    <form action={formAction} className="space-y-5 max-w-2xl">
+      <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 space-y-4">
+        <header>
+          <h2 className="text-base font-semibold text-[var(--admin-text)]">
+            {t("title")}
+          </h2>
+        </header>
 
-      <NumberField
-        name="dedup_window_minutes"
-        label={t("dedup_window_minutes_label")}
-        help={t("dedup_window_minutes_help")}
-        defaultValue={initial.dedupWindowMinutes}
-        min={1}
-        max={1440}
-      />
+        <NumberField
+          name="dedup_window_minutes"
+          label={t("dedup_window_minutes_label")}
+          help={t("dedup_window_minutes_help")}
+          defaultValue={initial.dedupWindowMinutes}
+          min={1}
+          max={1440}
+        />
 
-      <NumberField
-        name="list_page_size"
-        label={t("list_page_size_label")}
-        help={t("list_page_size_help")}
-        defaultValue={initial.listPageSize}
-        min={5}
-        max={100}
-      />
+        <NumberField
+          name="list_page_size"
+          label={t("list_page_size_label")}
+          help={t("list_page_size_help")}
+          defaultValue={initial.listPageSize}
+          min={5}
+          max={100}
+        />
 
-      <NumberField
-        name="retention_days"
-        label={t("retention_days_label")}
-        help={t("retention_days_help")}
-        defaultValue={initial.retentionDays}
-        min={7}
-        max={3650}
-      />
+        <NumberField
+          name="retention_days"
+          label={t("retention_days_label")}
+          help={t("retention_days_help")}
+          defaultValue={initial.retentionDays}
+          min={7}
+          max={3650}
+        />
+      </section>
 
-      <fieldset className="border border-[var(--admin-line)] rounded-lg p-4 space-y-4">
-        <legend className="px-2 text-sm font-semibold text-[var(--admin-fg)]">
-          {t("achievements_section_title")}
-        </legend>
-        <p className="text-xs text-[var(--admin-fg-3)] -mt-2">
-          {t("achievements_section_help")}
-        </p>
+      <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 space-y-4">
+        <header>
+          <h2 className="text-base font-semibold text-[var(--admin-text)]">
+            {t("achievements_section_title")}
+          </h2>
+          <p className="text-sm text-[var(--admin-text-muted)] mt-0.5">
+            {t("achievements_section_help")}
+          </p>
+        </header>
 
         <CheckboxField
           name="first_like_enabled"
@@ -102,7 +107,7 @@ export function NotificationsSettingsForm({
           min={1}
           max={720}
         />
-      </fieldset>
+      </section>
 
       <div className="flex items-center gap-3">
         <button
@@ -140,7 +145,7 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-[var(--admin-fg)] mb-1">
+      <span className="block text-sm font-medium text-[var(--admin-text)] mb-1">
         {label}
       </span>
       <input
@@ -149,9 +154,11 @@ function NumberField({
         defaultValue={defaultValue}
         min={min}
         max={max}
-        className="w-full max-w-[200px] rounded-md border border-[var(--admin-line)] bg-[var(--admin-bg)] px-3 py-2 text-sm text-[var(--admin-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]"
+        className="w-full max-w-[220px] rounded-md border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] px-3 py-2 text-sm text-[var(--admin-text)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]"
       />
-      <span className="block text-xs text-[var(--admin-fg-3)] mt-1">{help}</span>
+      <span className="block text-xs text-[var(--admin-text-muted)] mt-1">
+        {help}
+      </span>
     </label>
   );
 }
@@ -173,13 +180,13 @@ function CheckboxField({
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="mt-0.5 h-4 w-4 rounded border-[var(--admin-line)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+        className="mt-0.5 h-4 w-4 rounded border-[var(--admin-card-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
       />
       <span className="block">
-        <span className="block text-sm font-medium text-[var(--admin-fg)]">
+        <span className="block text-sm font-medium text-[var(--admin-text)]">
           {label}
         </span>
-        <span className="block text-xs text-[var(--admin-fg-3)] mt-0.5">
+        <span className="block text-xs text-[var(--admin-text-muted)] mt-0.5">
           {help}
         </span>
       </span>

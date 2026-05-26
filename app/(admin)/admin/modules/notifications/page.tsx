@@ -1,87 +1,139 @@
 // app/(admin)/admin/modules/notifications/page.tsx
 //
-// Overview admin del modulo Notifications. NIENTE metriche product
-// (le notifiche per user vanno nella page utente /notifiche). Qui solo
-// health probes della pipeline outbox→fanout + quick links.
+// Overview admin del modulo Notifications. NIENTE header inline / no
+// quicklink box: il topbar del Pannello Admin gestisce icona + titolo
+// (vedi SECTION_MAP in lib/admin/current-section.ts) e le tab del layout
+// gestiscono la navigation cross-section. Qui solo i health probes
+// della pipeline outbox→fanout + status modulo.
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import {
-  Activity,
-  BookOpen,
-  Bell,
-  CheckCircle2,
-  Clock,
-  Inbox,
-  Settings,
-} from "lucide-react";
+import { Activity, CheckCircle2, Clock, Inbox } from "lucide-react";
 import { NOTIFICATIONS_MODULE } from "@/lib/modules/notifications/manifest";
 import { getNotificationsHealth } from "@/lib/modules/notifications/queries";
-import { getAdminUrlSlug } from "@/lib/admin-paths";
+import { getAppSettings } from "@/lib/db/settings-queries";
+import { resolveCapacityCurrentTier } from "@/lib/capacity/resolve";
 
 export const metadata: Metadata = { title: "Notifications / Overview" };
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsAdminOverviewPage() {
-  const [adminSlug, health, t] = await Promise.all([
-    getAdminUrlSlug(),
+  const [settings, health] = await Promise.all([
+    getAppSettings(),
     getNotificationsHealth(),
-    getTranslations("notifications.admin.overview"),
   ]);
-  const base = `/${adminSlug}/modules/notifications`;
+
+  const profiles = NOTIFICATIONS_MODULE.capacityProfiles ?? [];
+  const tierByScope = profiles.map((p) => ({
+    scope: p.scope,
+    tier: resolveCapacityCurrentTier(p, settings as Record<string, string>),
+  }));
+  const tiers = tierByScope.map((t) => t.tier);
+  const uniqueTiers = Array.from(new Set(tiers));
+  const tierBadge = uniqueTiers.length === 1 ? uniqueTiers[0] : profiles.length === 0 ? "alpha" : "mixed";
+
+  const outboxStale = health.outboxBacklog > 50;
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-accent)]/10 text-[var(--admin-accent)]">
-          <Bell size={20} aria-hidden />
-        </span>
-        <div>
-          <h1 className="text-lg font-semibold text-[var(--admin-fg)]">
-            {t("title")}
-          </h1>
-          <p className="text-[12.5px] text-[var(--admin-fg-3)] mt-0.5 max-w-2xl">
-            {t("description")}
+    <div className="space-y-5">
+      {/* ─── Module status ──────────────────────────────────────────────── */}
+      <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5">
+        <header className="mb-3">
+          <h2 className="text-lg font-semibold text-[var(--admin-text)]">
+            Stato del modulo
+          </h2>
+          <p className="text-sm text-[var(--admin-text-muted)] mt-0.5">
+            Notifiche end-user generate dagli eventi social. Fanout
+            zero-latency via trigger DB su <code>posts_outbox</code>.
           </p>
-          <p className="text-[11px] text-[var(--admin-fg-3)] mt-1">
-            v{NOTIFICATIONS_MODULE.version}
-          </p>
+        </header>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <KV label="Versione manifest" value={`v${NOTIFICATIONS_MODULE.version}`} />
+          <KV
+            label="Tier capacity"
+            value={
+              tierBadge === "mixed" ? (
+                <span title={tierByScope.map((t) => `${t.scope}: ${t.tier}`).join(" · ")}>
+                  mixed ({uniqueTiers.join(" · ")})
+                </span>
+              ) : (
+                tierBadge
+              )
+            }
+            tone={tierBadge === "mixed" ? "warn" : "ok"}
+          />
+          <KV
+            label="Outbox backlog"
+            value={
+              health.outboxBacklog === 0
+                ? "vuoto"
+                : `${health.outboxBacklog}${outboxStale ? " · grande" : ""}`
+            }
+            tone={outboxStale ? "warn" : health.outboxBacklog > 0 ? undefined : "ok"}
+          />
         </div>
-      </header>
-
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <HealthCard
-          icon={Inbox}
-          label={t("health_outbox_backlog")}
-          value={health.outboxBacklog}
-          tone={health.outboxBacklog === 0 ? "ok" : "warn"}
-        />
-        <HealthCard
-          icon={Activity}
-          label={t("health_total_today")}
-          value={health.totalToday}
-          tone="info"
-        />
-        <HealthCard
-          icon={Clock}
-          label={t("health_total_unread")}
-          value={health.totalUnread}
-          tone="info"
-        />
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <QuickLink
-          href={`${base}/settings`}
-          icon={Settings}
-          label={t("shortcuts_settings")}
-        />
-        <QuickLink
-          href={`${base}/architecture`}
-          icon={BookOpen}
-          label={t("shortcuts_architecture")}
-        />
+      {/* ─── Health probes ──────────────────────────────────────────────── */}
+      <section>
+        <header className="mb-2">
+          <h2 className="text-sm font-semibold text-[var(--admin-text)] uppercase tracking-wider">
+            Health
+          </h2>
+        </header>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <HealthCard
+            icon={Inbox}
+            label="Outbox da processare"
+            value={health.outboxBacklog}
+            tone={health.outboxBacklog === 0 ? "ok" : outboxStale ? "warn" : "info"}
+          />
+          <HealthCard
+            icon={Activity}
+            label="Notifiche ultime 24h"
+            value={health.totalToday}
+            tone="info"
+          />
+          <HealthCard
+            icon={Clock}
+            label="Non lette totali"
+            value={health.totalUnread}
+            tone="info"
+          />
+        </div>
       </section>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────
+
+function KV({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: "ok" | "warn";
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-[var(--admin-text-faint)]">
+        {label}
+      </div>
+      <div
+        className={`mt-1 text-base font-semibold ${
+          tone === "warn"
+            ? "text-[var(--admin-destructive)]"
+            : tone === "ok"
+              ? "text-[var(--admin-accent)]"
+              : "text-[var(--admin-text)]"
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -97,51 +149,27 @@ function HealthCard({
   value: number;
   tone: "ok" | "warn" | "info";
 }) {
-  const toneCls =
+  const toneClass =
     tone === "ok"
-      ? "bg-emerald-500/10 text-emerald-600"
+      ? "text-[var(--admin-accent)]"
       : tone === "warn"
-        ? "bg-amber-500/10 text-amber-600"
-        : "bg-slate-500/10 text-slate-600";
+        ? "text-[var(--admin-destructive)]"
+        : "text-[var(--admin-text-muted)]";
   return (
-    <div className="rounded-xl border border-[var(--admin-line)] bg-[var(--admin-bg-2)] p-4">
-      <div className="flex items-center gap-3">
-        <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${toneCls}`}
-        >
-          <Icon size={18} aria-hidden />
-        </span>
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-[var(--admin-fg-3)]">
+    <div className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-4">
+      <div className="flex items-start gap-3">
+        <div className={`mt-0.5 ${toneClass}`}>
+          <Icon size={18} strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] uppercase tracking-wide text-[var(--admin-text-faint)]">
             {label}
           </div>
-          <div className="text-xl font-semibold text-[var(--admin-fg)] tabular-nums">
+          <div className="mt-0.5 text-xl font-semibold text-[var(--admin-text)] tabular-nums">
             {value}
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function QuickLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof Settings;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-xl border border-[var(--admin-line)] bg-[var(--admin-bg-2)] p-4 hover:bg-[var(--admin-bg-3)]/40 transition-colors"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
-        <Icon size={18} aria-hidden />
-      </span>
-      <span className="text-sm font-medium text-[var(--admin-fg)]">{label}</span>
-    </Link>
   );
 }
