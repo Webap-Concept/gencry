@@ -248,6 +248,8 @@ export type SettingKey =
   | 'modules.notifications.achievements.viral_reposts_enabled'      // 'true'|'false', emette achievement.post_viral_reposts (default true)
   | 'modules.notifications.achievements.viral_reposts_threshold'    // int repost totali (default 5)
   | 'modules.notifications.achievements.viral_reposts_window_hours' // int ore dalla pubblicazione (default 24)
+  | 'modules.notifications.email_send_enabled'                     // 'true'|'false', toggle globale dispatcher email (default true)
+  | 'modules.notifications.email_grace_seconds'                    // int sec attesa per dedup race (default 30)
   // Modulo news (curated content pipeline)
   | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
   | 'modules.news.publisher_batch_size'            // cron publisher N items/run
@@ -528,6 +530,8 @@ export type AppSettings = {
   'modules.notifications.achievements.viral_reposts_enabled': string
   'modules.notifications.achievements.viral_reposts_threshold': string
   'modules.notifications.achievements.viral_reposts_window_hours': string
+  'modules.notifications.email_send_enabled': string
+  'modules.notifications.email_grace_seconds': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -775,6 +779,8 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.achievements.viral_reposts_enabled': 'true',
   'modules.notifications.achievements.viral_reposts_threshold': '5',
   'modules.notifications.achievements.viral_reposts_window_hours': '24',
+  'modules.notifications.email_send_enabled': 'true',
+  'modules.notifications.email_grace_seconds': '30',
   // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
   // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
   'modules.news.rewrite_batch_size': '3',

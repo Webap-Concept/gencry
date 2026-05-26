@@ -1798,6 +1798,9 @@ export const notifications = pgTable("notifications", {
   commentId:  uuid("comment_id").references(() => postsComments.id, { onDelete: "cascade" }),
   payload:    jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
   readAt:     timestamp("read_at",    { withTimezone: true }),
+  /** Timestamp di consegna email del dispatcher modulo (M_notifications_005).
+   *  NULL = pending. Solo i type achievement.* sono spediti via email V1. */
+  emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
   createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

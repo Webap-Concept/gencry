@@ -149,10 +149,17 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
       permission: "modules:notifications",
     },
   ],
-  // Niente cron jobs: il fanout è gestito dal trigger DB. Eventuale
-  // cleanup retention (DELETE notifications WHERE created_at <
-  // now()-modules.notifications.retention_days) arriverà come job in PR-3
-  // quando produrremo volume sufficiente da giustificarlo.
-  cronJobs: [],
+  cronJobs: [
+    {
+      jobname: "modules-notifications-achievement-email",
+      path: "/api/cron/modules/notifications/achievement-email",
+      schedule: "*/20 * * * *",
+      label: "Achievement email dispatcher",
+      description:
+        "Scansiona notifications.email_sent_at IS NULL + type IN (achievement.*) ogni 20 min. Render renderer del modulo + sendEmail via Resend. Skip se modules.notifications.email_send_enabled=false. Grace window modules.notifications.email_grace_seconds (default 30s) per evitare race col fanout trigger.",
+      purpose:
+        "Consegna effettiva via email delle notifiche achievement (first_like + viral_*). Default-on V1; opt-out per-user arriverà con PR-4 (notifications_preferences).",
+    },
+  ],
   capacityProfiles: [ACHIEVEMENTS_CAPACITY],
 };

@@ -31,7 +31,7 @@ import { NOTIFICATIONS_MODULE } from "@/lib/modules/notifications/manifest";
 
 export const metadata: Metadata = { title: "Notifications / Architettura" };
 
-const REVIEWED_AT = "2026-05-26 (achievements V2: comments + reposts)";
+const REVIEWED_AT = "2026-05-26 (achievements V2 + email channel dispatcher)";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -258,15 +258,40 @@ export default function NotificationsArchitecturePage() {
           </p>
 
           <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
-            Cosa NON c'è (intenzionalmente V2)
+            Email channel (V3)
+          </h3>
+          <p>
+            Le achievement notifications vengono anche{" "}
+            <strong>spedite via email</strong> dall'autore. Pattern{" "}
+            module-owned: 4 renderer in{" "}
+            <code>lib/modules/notifications/email-channel/renderers/</code>{" "}
+            registrati in <code>registry.ts</code> locale. Il dispatcher{" "}
+            <code>email-channel/dispatcher.ts</code> gira via cron ogni
+            20min (<code>modules-notifications-achievement-email</code>):
+            scan <code>notifications.email_sent_at IS NULL</code> + type
+            achievement, hydrate recipient/actor/post-preview, render →{" "}
+            <code>sendEmail</code> via Resend → mark{" "}
+            <code>email_sent_at = NOW()</code>.
+          </p>
+          <p>
+            Settings: <code>email_send_enabled</code> (toggle globale
+            safety net, default <code>true</code>),{" "}
+            <code>email_grace_seconds</code> (attesa per race col fanout
+            trigger, default 30s). Layout email base riusa il core{" "}
+            <code>lib/email/layout.ts</code> (header + footer brand).
+            User opt-out per-tipo arriverà con PR-4{" "}
+            (<code>notifications_preferences</code>).
+          </p>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Cosa NON c'è (intenzionalmente V3)
           </h3>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Email reale</strong>: il flow oggi crea solo
-              notification in-app + push Realtime. Per spedire email
-              servirà PR-3c &mdash; hook al dispatcher{" "}
-              <code>lib/notifications/email-channel/</code> core +
-              template dedicato.
+              <strong>Plain text alternative</strong>: i renderer
+              producono già <code>text</code>, ma il wrapper{" "}
+              <code>sendEmail</code> di <code>lib/email/resend.ts</code>{" "}
+              non lo trasporta ancora. Da abilitare per accessibility audit.
             </li>
             <li>
               <strong>first_comment / first_repost</strong>: intenzionalmente
@@ -321,10 +346,10 @@ export default function NotificationsArchitecturePage() {
               trigger="Quando la tabella inizia a crescere significativamente"
             />
             <ArchFutureCard
-              tier={1}
-              title="PR-3c · Email channel per achievement + mention/reply"
-              description="Hook al dispatcher email-channel/ core per spedire effettivamente l'email quando l'achievement notification è creata. Achievement = sempre on (default), mention/reply direct = opt-in. Template Resend dedicati."
-              trigger="Quando apriamo registrazione pubblica"
+              tier={2}
+              title="Email channel per mention / reply direct"
+              description="Estensione del dispatcher achievement-email per spedire anche le mention dirette + reply al tuo post (PR-3c.2). Pattern già pronto — basta aggiungere i renderer relativi + estendere ACHIEVEMENT_EMAILABLE_TYPES."
+              trigger="Quando il bisogno emerge da utenti reali (oggi le mention vivono solo in-app)"
             />
             <ArchFutureCard
               tier={2}
@@ -372,6 +397,10 @@ export default function NotificationsArchitecturePage() {
             <ArchFileLink path="lib/db/migrations/M_notifications_001_init.sql" description="Tabella + 3 indici + trigger fanout + RLS + publication + settings + permission" />
             <ArchFileLink path="lib/db/migrations/M_notifications_002_achievements.sql" description="Achievement V1: colonna posts.achievements_emitted + estensione trigger reactions counter + branch achievement.* nel fanout" />
             <ArchFileLink path="lib/db/migrations/M_notifications_003_viral_engagement.sql" description="Achievement V2: estende posts_comments_counter_trg + posts_repost_counter_trg con check viral_comments / viral_reposts. Fanout esteso con i 2 nuovi event types." />
+            <ArchFileLink path="lib/db/migrations/M_notifications_004_first_like_actor.sql" description="first_like ora include actor_id (chi ha messo la prima reazione); fanout legge da payload invece di NULL." />
+            <ArchFileLink path="lib/db/migrations/M_notifications_005_email_sent_at.sql" description="Colonna notifications.email_sent_at + partial index per il cron scan delle pending achievement emails." />
+            <ArchFileLink path="lib/modules/notifications/email-channel/" description="Dispatcher email del modulo (V3): types, registry, dispatcher, recipient hydration. 4 renderer in renderers/ uno per ogni achievement type." />
+            <ArchFileLink path="app/api/cron/modules/notifications/achievement-email/route.ts" description="Cron endpoint invocato ogni 20 min: chiama dispatchAchievementEmails() + ritorna metriche di run." />
             <ArchFileLink path="lib/db/migrations/M_notifications_999_uninstall.sql" description="Rollback completo del modulo" />
             <ArchFileLink path="lib/modules/notifications/notification-targets.ts" description="Mappa (type, payload) → href + summaryKey i18n + templateValues. Source of truth per UI + email digest futuro" />
             <ArchFileLink path="app/(admin)/admin/modules/notifications/page.tsx" description="Overview: module status + 3 health cards (chrome dal layout)" />
