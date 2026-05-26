@@ -63,6 +63,26 @@
     },
     "architecture": {
       "title": "Notifications — Architettura"
+    },
+    "templates": {
+      "intro": "Subject, corpo e footer delle email achievement. I valori salvati qui sostituiscono i default code-side. Lascia un campo vuoto per tornare al default. Placeholder Mustache {{token}} interpolati a runtime dal dispatcher.",
+      "subject_label": "Oggetto",
+      "subject_placeholder": "Lascia vuoto per usare il default",
+      "body_label": "Corpo",
+      "body_placeholder": "Lascia vuoto per usare il default",
+      "footer_label": "Footer",
+      "footer_placeholder": "Lascia vuoto per usare il default",
+      "placeholders_label": "Placeholder disponibili",
+      "first_like_title": "Prima reazione",
+      "first_like_help": "Email mandata quando il post riceve la primissima reazione. L'actor è l'utente reale che ha reagito.",
+      "viral_likes_title": "Post virale (reazioni)",
+      "viral_likes_help": "Email mandata quando il post supera la soglia di reazioni dentro la finestra. Una sola volta per post.",
+      "viral_comments_title": "Post virale (commenti)",
+      "viral_comments_help": "Email mandata quando il post supera la soglia di commenti dentro la finestra.",
+      "viral_reposts_title": "Post virale (repost)",
+      "viral_reposts_help": "Email mandata quando il post viene citato N volte dentro la finestra. Conteggio sul TARGET (chi è stato citato).",
+      "save": "Salva",
+      "saved": "Template salvati."
     }
   },
   "types": {

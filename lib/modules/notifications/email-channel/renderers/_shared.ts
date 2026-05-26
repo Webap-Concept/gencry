@@ -62,3 +62,18 @@ export function postPreviewBox(preview: string): string {
   </tr>
 </table>`;
 }
+
+/**
+ * Interpolazione Mustache-like `{{token}}` allineata al pattern core
+ * (vedi resolveTemplate locale in lib/email/templates/*.ts). Se `stored`
+ * è null/empty stringa usa `fallback`. I token mancanti in `vars`
+ * restano come `{{key}}` (debug-friendly).
+ */
+export function resolveTemplate(
+  stored: string | null | undefined,
+  fallback: string,
+  vars: Record<string, string>,
+): string {
+  const tpl = (stored && stored.trim().length > 0 ? stored : fallback).trim();
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
+}

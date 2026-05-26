@@ -250,6 +250,23 @@ export type SettingKey =
   | 'modules.notifications.achievements.viral_reposts_window_hours' // int ore dalla pubblicazione (default 24)
   | 'modules.notifications.email_send_enabled'                     // 'true'|'false', toggle globale dispatcher email (default true)
   | 'modules.notifications.email_grace_seconds'                    // int sec attesa per dedup race (default 30)
+  // Module-owned email templates (4 × subject + body + footer = 12 keys).
+  // Pattern: subject + body + footer in italiano nel default; le altre locali
+  // arrivano da `translations` (namespace `email`) via getLocalizedEmailSettings.
+  // Placeholder Mustache-like: {{appName}}, {{userName}}, {{actorName}},
+  // {{totalCount}}, {{postUrl}}, {{postPreview}}.
+  | 'modules.notifications.email_achievement_first_like_subject'
+  | 'modules.notifications.email_achievement_first_like_body'
+  | 'modules.notifications.email_achievement_first_like_footer'
+  | 'modules.notifications.email_achievement_viral_likes_subject'
+  | 'modules.notifications.email_achievement_viral_likes_body'
+  | 'modules.notifications.email_achievement_viral_likes_footer'
+  | 'modules.notifications.email_achievement_viral_comments_subject'
+  | 'modules.notifications.email_achievement_viral_comments_body'
+  | 'modules.notifications.email_achievement_viral_comments_footer'
+  | 'modules.notifications.email_achievement_viral_reposts_subject'
+  | 'modules.notifications.email_achievement_viral_reposts_body'
+  | 'modules.notifications.email_achievement_viral_reposts_footer'
   // Modulo news (curated content pipeline)
   | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
   | 'modules.news.publisher_batch_size'            // cron publisher N items/run
@@ -532,6 +549,18 @@ export type AppSettings = {
   'modules.notifications.achievements.viral_reposts_window_hours': string
   'modules.notifications.email_send_enabled': string
   'modules.notifications.email_grace_seconds': string
+  'modules.notifications.email_achievement_first_like_subject': string | null
+  'modules.notifications.email_achievement_first_like_body': string | null
+  'modules.notifications.email_achievement_first_like_footer': string | null
+  'modules.notifications.email_achievement_viral_likes_subject': string | null
+  'modules.notifications.email_achievement_viral_likes_body': string | null
+  'modules.notifications.email_achievement_viral_likes_footer': string | null
+  'modules.notifications.email_achievement_viral_comments_subject': string | null
+  'modules.notifications.email_achievement_viral_comments_body': string | null
+  'modules.notifications.email_achievement_viral_comments_footer': string | null
+  'modules.notifications.email_achievement_viral_reposts_subject': string | null
+  'modules.notifications.email_achievement_viral_reposts_body': string | null
+  'modules.notifications.email_achievement_viral_reposts_footer': string | null
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -781,6 +810,32 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.achievements.viral_reposts_window_hours': '24',
   'modules.notifications.email_send_enabled': 'true',
   'modules.notifications.email_grace_seconds': '30',
+  // Achievement email templates — defaults in italiano. EN arriva da
+  // `translations` (namespace `email`) via getLocalizedEmailSettings.
+  'modules.notifications.email_achievement_first_like_subject':
+    '🎉 {{actorName}} ha messo la prima reazione al tuo post',
+  'modules.notifications.email_achievement_first_like_body':
+    'Ciao {{userName}},\n\n{{actorName}} ha appena messo la prima reazione al tuo post — complimenti, hai iniziato la conversazione!\n\nContinua a postare: ogni reazione è un segnale che la tua voce conta nella community.',
+  'modules.notifications.email_achievement_first_like_footer':
+    'Ricevi questa email perché sei iscritto a {{appName}}.',
+  'modules.notifications.email_achievement_viral_likes_subject':
+    '🚀 Il tuo post sta andando virale — {{totalCount}} reazioni',
+  'modules.notifications.email_achievement_viral_likes_body':
+    'Ciao {{userName}},\n\nIl tuo post ha appena raggiunto {{totalCount}} reazioni in poche ore. È la community che ti dice che l\'argomento risuona — continua così!\n\nPensa di approfondire con un post di follow-up: il momentum è dalla tua parte.',
+  'modules.notifications.email_achievement_viral_likes_footer':
+    'Ricevi questa email perché il tuo post ha superato la soglia virale su {{appName}}.',
+  'modules.notifications.email_achievement_viral_comments_subject':
+    '💬 Il tuo post sta facendo discutere — {{totalCount}} commenti',
+  'modules.notifications.email_achievement_viral_comments_body':
+    'Ciao {{userName}},\n\nIl tuo post ha raccolto {{totalCount}} commenti in poche ore. La community vuole confrontarsi con quello che hai scritto — è il momento giusto per rispondere.\n\nRispondere ai commenti è il modo più semplice per tenere viva la conversazione e trasformare lettori occasionali in follower.',
+  'modules.notifications.email_achievement_viral_comments_footer':
+    'Ricevi questa email perché il tuo post ha superato la soglia virale sui commenti su {{appName}}.',
+  'modules.notifications.email_achievement_viral_reposts_subject':
+    '🔁 Il tuo post viene citato molto — {{totalCount}} repost',
+  'modules.notifications.email_achievement_viral_reposts_body':
+    'Ciao {{userName}},\n\nIl tuo post è stato citato da {{totalCount}} persone in poche ore. Il repost è il segnale più forte che la tua idea si sta diffondendo.\n\nApri i repost per vedere come altre voci stanno rilanciando la tua idea — potrebbero esserci riprese a cui vale la pena rispondere.',
+  'modules.notifications.email_achievement_viral_reposts_footer':
+    'Ricevi questa email perché il tuo post ha superato la soglia virale sui repost su {{appName}}.',
   // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
   // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
   'modules.news.rewrite_batch_size': '3',

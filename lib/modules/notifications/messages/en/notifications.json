@@ -63,6 +63,26 @@
     },
     "architecture": {
       "title": "Notifications — Architecture"
+    },
+    "templates": {
+      "intro": "Subject, body and footer of achievement emails. Values saved here override the code-side defaults. Leave a field empty to fall back to the default. Mustache {{token}} placeholders are interpolated at runtime.",
+      "subject_label": "Subject",
+      "subject_placeholder": "Leave empty to use the default",
+      "body_label": "Body",
+      "body_placeholder": "Leave empty to use the default",
+      "footer_label": "Footer",
+      "footer_placeholder": "Leave empty to use the default",
+      "placeholders_label": "Available placeholders",
+      "first_like_title": "First reaction",
+      "first_like_help": "Email sent when the post gets its very first reaction. Actor is the real user who reacted.",
+      "viral_likes_title": "Viral post (reactions)",
+      "viral_likes_help": "Email sent when the post crosses the reactions threshold within the window. Fires once per post.",
+      "viral_comments_title": "Viral post (comments)",
+      "viral_comments_help": "Email sent when the post crosses the comments threshold within the window.",
+      "viral_reposts_title": "Viral post (reposts)",
+      "viral_reposts_help": "Email sent when the post is reposted N times within the window. Counted on the TARGET (quoted post's author).",
+      "save": "Save",
+      "saved": "Templates saved."
     }
   },
   "types": {

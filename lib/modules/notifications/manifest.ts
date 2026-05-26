@@ -142,6 +142,13 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
       permission: "modules:notifications",
     },
     {
+      key: "notifications-templates",
+      href: "/modules/notifications/templates",
+      label: "Templates",
+      icon: "Mail",
+      permission: "modules:notifications",
+    },
+    {
       key: "notifications-cron",
       href: "/modules/notifications/cron",
       label: "Cron",
