@@ -1,30 +1,25 @@
 // lib/modules/seeders/contributors/posts-contributor.ts
 //
-// Crea post variati per ogni seed user. Layer di realismo:
+// Crea post variati per ogni seed user via Claude LLM batched per giorno.
 //
-//   1. Mood-driven pool: ogni user ha un archetype (bullish_btc,
-//      bearish, hodler, trader, defi, macro, newbie, degen) assegnato
-//      al seed time. I template del post arrivano dal sub-pool del
-//      suo mood + un mix GENERIC (60% mood, 40% generic).
+// Pipeline (refactor 2026-05-26):
+//   1. Pre-pass: per ogni (user, post) decido createdAt + mood + type
+//      + tickerFocus, SENZA generare il body.
+//   2. Raggruppo i pending per giorno (YYYY-MM-DD del createdAt).
+//   3. Per ogni giorno: market snapshot at-time + 1 call Claude batched.
+//   4. Map output LLM al body del pending tramite refId.
+//   5. Bulk INSERT posts + tickers + mentions + media (come V1).
 //
-//   2. Densità + imperfezioni naturali (vedi post-composer.ts):
-//      distribuzione 60% 1-frase / 25% 2-3 frasi / 12% 4-6 / 3%
-//      ultra-short, bias mood. Imperfezioni (emoji/slang/typo) su
-//      degen/newbie/trader con probabilità 5-10%.
+// Type mix (deciso 2026-05-26):
+//   - 10% meta_site (max 1 per user, mai negativo)
+//   - poi degli altri:
+//     - ~65% market    (con ticker focus mood-coerente)
+//     - ~28% personal  (vita/riflessione, niente ticker)
+//     - ~ 7% question  (domanda alla community)
 //
-//   3. Meta-site override: 10% dei post (max 1 per user) usa template
-//      META_SITE_TEMPLATES_IT ("bel sito", "primo post qui", ecc.).
-//      Mai negativi, mix positivi/neutri.
-//
-//   4. Trend-aware ticker pick: per template con {ticker}, il symbol
-//      scelto è coerente col mood:
-//         - bullish_btc / degen → coin in crescita reale (>=+5% in 7d)
-//         - bearish / macro     → coin in calo reale (<=-5% in 7d)
-//         - altri               → qualsiasi
-//      Calcolo basato su prices_history (zero costi esterni).
-//
-// Sync di posts_tickers + posts_mentions tramite extractTickers /
-// extractMentions del modulo posts — coerente con la pipeline normale.
+// Strict mode: se Claude API key manca o la call fallisce, l'intero
+// contributor THROW. Niente fallback templates (decisione utente: i seed
+// devono essere realistici o non essere).
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -42,104 +37,68 @@ import {
   extractTickers,
 } from "@/lib/modules/posts/lib/parsing";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
-import {
-  GENERIC_TEMPLATES_IT,
-  META_SITE_TEMPLATES_IT,
-  POST_URL_POOL,
-  TEMPLATES_BY_MOOD,
-} from "../services/content-templates-it";
-import {
-  MOOD_TREND_PREFERENCE,
-  type UserMood,
-} from "../services/mood-types";
+import { MOOD_TREND_PREFERENCE, type UserMood } from "../services/mood-types";
 import {
   analyzeCoinTrends,
-  trendLabel,
   type CoinTrend,
 } from "../services/price-trend-analyzer";
-import { composeBody } from "../services/post-composer";
+import {
+  generatePostBodiesForDay,
+  type LlmPostRequest,
+  type PostType,
+} from "../services/llm-content-generator";
+import { getMarketSnapshotAtDate } from "../services/market-context";
 import type { SeedUser } from "../services/user-seeder";
 
 const META_POST_PROBABILITY = 0.1;
-const GENERIC_POOL_WEIGHT = 0.4; // 40% generic, 60% mood-specific
 
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 /**
- * Sceglie un template tipico del mood, con 40% di chance di pescare
- * un template GENERIC neutro (per non sembrare "monoclima").
- */
-function pickTemplateForMood(mood: UserMood): string {
-  if (Math.random() < GENERIC_POOL_WEIGHT) {
-    return pick(GENERIC_TEMPLATES_IT);
-  }
-  return pick(TEMPLATES_BY_MOOD[mood]);
-}
-
-/**
  * Symbol pick coerente col mood. Se il mood richiede bullish/bearish
- * e ci sono coin nel bucket richiesto, peschiamo da lì. Altrimenti
+ * e ci sono coin nel bucket richiesto, peschiamo da li'. Altrimenti
  * fallback a qualsiasi coin attivo.
+ *
+ * Il trend e' calcolato sul "now" (non sul timestamp del post): e'
+ * un'euristica per scegliere il symbol piu' "interessante" da
+ * passare al LLM come tickerFocus — il modello poi vedra' il market
+ * snapshot at-time per decidere cosa dire effettivamente.
  */
 function pickTickerForMood(
   mood: UserMood,
   trends: CoinTrend[],
   allSymbols: string[],
-): { symbol: string; trend: CoinTrend | undefined } {
+): string {
   const pref = MOOD_TREND_PREFERENCE[mood];
   if (pref === "bullish") {
     const bullish = trends.filter((t) => t.bucket === "bullish");
-    if (bullish.length > 0) {
-      const t = pick(bullish);
-      return { symbol: t.symbol, trend: t };
-    }
+    if (bullish.length > 0) return pick(bullish).symbol;
   } else if (pref === "bearish") {
     const bearish = trends.filter((t) => t.bucket === "bearish");
-    if (bearish.length > 0) {
-      const t = pick(bearish);
-      return { symbol: t.symbol, trend: t };
-    }
+    if (bearish.length > 0) return pick(bearish).symbol;
   }
-  // Fallback: random tra tutti i coin attivi.
-  const symbol = pick(allSymbols);
-  const trend = trends.find((t) => t.symbol === symbol);
-  return { symbol, trend };
+  return pick(allSymbols);
 }
 
 /**
- * Risolvi i placeholder. Il trend ticker passato (se c'è) viene usato
- * per `{ticker_trend_7d}` / `{ticker_trend_30d}` con label umane IT.
+ * Decide il type del post DOPO che meta_site e' stato eventualmente
+ * pickato. Distribuzione 65/28/7 = market / personal / question.
  */
-function resolveTemplate(
-  template: string,
-  pickedTicker: { symbol: string; trend: CoinTrend | undefined },
-  coinNameMap: Record<string, string>,
-  otherSeedUsernames: string[],
-): string {
-  const symbolToName = new Map<string, string>();
-  for (const [name, sym] of Object.entries(coinNameMap)) {
-    if (!symbolToName.has(sym)) {
-      symbolToName.set(sym, name.charAt(0).toUpperCase() + name.slice(1));
-    }
-  }
-  const tickerName = symbolToName.get(pickedTicker.symbol) ?? pickedTicker.symbol;
+function pickNonMetaType(): "market" | "personal" | "question" {
+  const r = Math.random();
+  if (r < 0.65) return "market";
+  if (r < 0.93) return "personal";
+  return "question";
+}
 
-  return template
-    .replace(/\{ticker\}/g, () => `$${pickedTicker.symbol}`)
-    .replace(/\{ticker_name\}/g, () => tickerName)
-    .replace(/\{ticker_trend_7d\}/g, () =>
-      trendLabel(pickedTicker.trend?.change7d ?? null),
-    )
-    .replace(/\{ticker_trend_30d\}/g, () =>
-      trendLabel(pickedTicker.trend?.change30d ?? null),
-    )
-    .replace(/\{mention\}/g, () => {
-      if (otherSeedUsernames.length === 0) return "@admin";
-      return `@${pick(otherSeedUsernames)}`;
-    })
-    .replace(/\{url\}/g, () => pick(POST_URL_POOL));
+/**
+ * Formatta una Date come "YYYY-MM-DD" UTC. Usata come bucket key per
+ * raggruppare i pending in batch-per-giorno.
+ */
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 export type SeedPostsOptions = {
@@ -163,31 +122,36 @@ export async function seedPostsForUsers(
   }
 
   // Carica una sola volta: coin name map + trend analysis.
+  // Il trend e' usato SOLO per scegliere quale ticker passare a Claude
+  // come "focus", non per scrivere il body — quello arriva dal market
+  // snapshot at-time visto da Claude.
   const [coinNameMap, trends] = await Promise.all([
     getCoinNameMap(),
     analyzeCoinTrends(),
   ]);
   const allSymbols = Array.from(new Set(Object.values(coinNameMap)));
 
-  const usernames = seedUsers.map((u) => u.username);
   const now = Date.now();
   const postWindowMs = 30 * 24 * 60 * 60 * 1000;
 
   type PendingPost = {
     id: string;
     authorId: string;
-    body: string;
+    authorUsername: string;
+    mood: UserMood;
+    type: PostType;
+    tickerFocus: string | null;
     visibility: "public" | "members";
     createdAt: Date;
     withImage: boolean;
+    /** Popolato dopo la batch LLM call. */
+    body: string;
   };
   const pending: PendingPost[] = [];
 
-  // Track: ogni user ha al massimo 1 meta-post per non sembrare auto-promo.
   const metaPostUsed = new Set<string>();
 
   for (const user of seedUsers) {
-    const otherUsernames = usernames.filter((u) => u !== user.username);
     const earliestPostMs = Math.max(
       user.createdAt.getTime(),
       now - postWindowMs,
@@ -195,40 +159,22 @@ export async function seedPostsForUsers(
     const userWindowMs = now - earliestPostMs;
 
     for (let i = 0; i < opts.postsPerUser; i++) {
-      // Decidi se è un meta-post (10% prob, max 1 per user).
       const isMetaPost =
         !metaPostUsed.has(user.id) &&
         Math.random() < META_POST_PROBABILITY;
 
-      let mainTemplate: string;
+      let type: PostType;
+      let tickerFocus: string | null;
+
       if (isMetaPost) {
-        mainTemplate = pick(META_SITE_TEMPLATES_IT);
         metaPostUsed.add(user.id);
+        type = "meta_site";
+        tickerFocus = null;
       } else {
-        mainTemplate = pickTemplateForMood(user.mood);
+        type = pickNonMetaType();
+        tickerFocus =
+          type === "market" ? pickTickerForMood(user.mood, trends, allSymbols) : null;
       }
-
-      // Layer densità + imperfezioni. Il composer concatena 2-6 frasi
-      // su un % dei post, e applica typo/slang/emoji su degen/newbie/
-      // trader con probabilità basse. Per i meta-post forziamo singola
-      // frase: "primo post qui...gm" suonerebbe stonato.
-      const composed = isMetaPost
-        ? mainTemplate
-        : composeBody({
-            mood: user.mood,
-            mainTemplate,
-            fillerPool: GENERIC_TEMPLATES_IT,
-          });
-
-      // Ticker pick mood-aware (anche se il template non lo usa,
-      // resolveTemplate lo skippa gracefully).
-      const pickedTicker = pickTickerForMood(user.mood, trends, allSymbols);
-      const body = resolveTemplate(
-        composed,
-        pickedTicker,
-        coinNameMap,
-        otherUsernames,
-      );
 
       const visibility =
         Math.random() < 0.1 ? ("members" as const) : ("public" as const);
@@ -240,17 +186,74 @@ export async function seedPostsForUsers(
       pending.push({
         id: randomUUID(),
         authorId: user.id,
-        body,
+        authorUsername: user.username,
+        mood: user.mood,
+        type,
+        tickerFocus,
         visibility,
         createdAt,
         withImage,
+        body: "", // popolato dopo Claude batch
       });
     }
   }
 
   if (pending.length === 0) return { created: 0, postIds: [] };
 
+  // ─────────────────────────────────────────────────────────────────────
+  // LLM batch generation per giorno.
+  //
+  // Raggruppo i pending per dayKey (createdAt UTC YYYY-MM-DD). Per ogni
+  // gruppo: 1 market snapshot at-time + 1 call Claude. Strict: se UNA
+  // call fallisce, fail-fast (no parziale insert).
+  // ─────────────────────────────────────────────────────────────────────
+  const byDay = new Map<string, PendingPost[]>();
+  for (const p of pending) {
+    const key = dayKey(p.createdAt);
+    const arr = byDay.get(key) ?? [];
+    arr.push(p);
+    byDay.set(key, arr);
+  }
+
+  for (const [day, group] of byDay) {
+    // Centro temporale del gruppo (per market snapshot piu' coerente
+    // della media): pick il timestamp mediano del gruppo.
+    const sorted = [...group].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const midpoint = sorted[Math.floor(sorted.length / 2)].createdAt;
+    const snapshot = await getMarketSnapshotAtDate(midpoint);
+
+    const requests: LlmPostRequest[] = group.map((p) => ({
+      refId: p.id,
+      mood: p.mood,
+      type: p.type,
+      tickerFocus: p.tickerFocus,
+      authorUsername: p.authorUsername,
+    }));
+
+    const generated = await generatePostBodiesForDay({
+      requests,
+      marketSnapshot: snapshot,
+      dayLabel: day,
+    });
+
+    // Map output → pending body via refId.
+    const byRefId = new Map(generated.map((g) => [g.refId, g.body]));
+    for (const p of group) {
+      const body = byRefId.get(p.id);
+      if (!body) {
+        // generatePostBodiesForDay garantisce coverage, ma defensive:
+        // se per qualche bug arriva qui, fail-fast.
+        throw new Error(
+          `[seeders/posts-contributor] missing body for refId=${p.id} in day=${day}`,
+        );
+      }
+      p.body = body;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
   // Bulk INSERT posts.
+  // ─────────────────────────────────────────────────────────────────────
   await db.insert(posts).values(
     pending.map((p) => ({
       id: p.id,
@@ -261,17 +264,8 @@ export async function seedPostsForUsers(
     })),
   );
 
-  // Sync posts_tickers e posts_mentions.
-  const allTickerRows: Array<{
-    postId: string;
-    ticker: string;
-    createdAt: Date;
-  }> = [];
-  const allMentionRows: Array<{
-    postId: string;
-    mentionedUserId: string;
-    createdAt: Date;
-  }> = [];
+  // Sync posts_tickers e posts_mentions a partire dai body generati.
+  const allTickerRows: Array<{ postId: string; ticker: string; createdAt: Date }> = [];
   const allMentionUsernames = new Set<string>();
   const perPostMentions: Array<{
     postId: string;
@@ -310,6 +304,11 @@ export async function seedPostsForUsers(
         .filter((r): r is { userId: string; username: string } => !!r.username)
         .map((r) => [r.username, r.userId]),
     );
+    const allMentionRows: Array<{
+      postId: string;
+      mentionedUserId: string;
+      createdAt: Date;
+    }> = [];
     for (const pm of perPostMentions) {
       for (const u of pm.usernames) {
         const mentionedUserId = idByUsername.get(u);
@@ -330,7 +329,7 @@ export async function seedPostsForUsers(
     }
   }
 
-  // Media Picsum (deterministic seed).
+  // Media Picsum (deterministic seed) — invariato V1.
   const mediaRows = pending
     .filter((p) => p.withImage)
     .map((p) => {

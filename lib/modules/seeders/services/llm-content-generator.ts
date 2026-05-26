@@ -1,0 +1,277 @@
+// lib/modules/seeders/services/llm-content-generator.ts
+//
+// Genera body dei post via Anthropic Claude. Riusa il pattern del modulo
+// news/rewriter (system prompt cached + JSON output + zod validation),
+// ma adattato a "batch generation" invece di "1 rewrite per call".
+//
+// Strategia di batching (decisione 2026-05-26): 1 call Claude per GIORNO,
+// con tutti i post mood-mix di quel giorno + un singolo market snapshot
+// al timestamp piu' centrale del giorno. Riduce i call ad ~30/run e
+// permette al modello di vedere il contesto "del giorno" una volta sola.
+//
+// API key: riuso `modules.news.anthropic_api_key` (decisione utente).
+// Behavior strict: se chiave assente o call fallisce -> throw. Il caller
+// blocca il seed run (no fallback templates: l'utente vuole qualita').
+import "server-only";
+
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { getAppSettings } from "@/lib/db/settings-queries";
+import type { UserMood } from "./mood-types";
+import {
+  formatSnapshotForPrompt,
+  type MarketSnapshot,
+} from "./market-context";
+
+export type PostType = "market" | "personal" | "meta_site" | "question";
+
+export interface LlmPostRequest {
+  /** ID temporaneo per matchare l'output al post pending (es. UUID
+   *  pre-generato dal posts-contributor). */
+  refId: string;
+  mood: UserMood;
+  type: PostType;
+  /** Symbol del ticker da focalizzare quando type='market'. Null se non
+   *  e' un post mercato — Claude scrivera' generico/personal. */
+  tickerFocus: string | null;
+  /** Username dell'autore del post. Aiuta Claude a personalizzare leggero
+   *  il tono (es. il sufix `_trader` vs `_newbie`). Opzionale. */
+  authorUsername?: string;
+}
+
+export interface LlmGeneratedPost {
+  refId: string;
+  body: string;
+}
+
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const MAX_OUTPUT_TOKENS = 4000;
+
+// ──────────────────────────────────────────────────────────────────────────
+// System prompt — cached (ephemeral 5min) tra batch della stessa run.
+// Definisce gli archetipi mood e le regole tone in italiano. Mantenuto
+// in modo che ogni batch paghi solo il delta del user msg (lista posts +
+// market snapshot del giorno).
+// ──────────────────────────────────────────────────────────────────────────
+
+export const SYSTEM_PROMPT = `Sei uno scrittore di contenuti social per "GenerazioneCrypto", un social network italiano di nicchia sul mondo crypto. Devi generare post brevi, naturali, in italiano colloquiale, come scritti da utenti reali.
+
+REGOLE TONO:
+- Italiano colloquiale, NON editoriale. Niente paroloni, niente discorsi accademici.
+- Lunghezza tipica: 1 frase (60%), 2-3 frasi (25%), 4-6 frasi (12%), ultra-short tipo "gm" o "lfg" (3%).
+- Niente clickbait. Niente "thread🧵". Niente "ecco perche'...". Niente "in 2025...".
+- Niente emoji di default. Eccezione: mood 'degen' e 'newbie' possono usare 1-2 emoji ogni 10 post.
+- Niente hashtag (#crypto, #bitcoin) — non e' Twitter, gli hashtag non sono nella cultura del sito.
+- Riferimenti al sito stesso: SOLO se type='meta_site'.
+
+ARCHETIPI MOOD:
+- bullish_btc: bitcoin maximalist, parla di halving, 21M, hard money, self-custody, cold storage. Tono convinto.
+- bearish: scettico, vede pattern bearish, parla di liquidita' globale, DXY, FOMO bag holders. Tono prudente/critico.
+- hodler: DCA settimanale, time-in-the-market, niente paura della volatilita'. Tono zen.
+- trader: parla di setup tecnici, RSI, fibonacci, resistance, stop loss, R:R. Tono operativo.
+- defi: yield farming, TVL, restaking, liquid staking, MEV, RWA. Tono nerd-tecnico.
+- macro: tassi Fed, M2, CPI, recessione, liquidity, BoJ pivot. Tono analitico.
+- newbie: domande, confusione, chiede consigli, "primo post qui", "esiste un libro?". Tono umile.
+- degen: WAGMI, NGMI, memecoin, YOLO, ape, all-in, slang. Tono caotico/ironico.
+
+TIPI DI POST (rispetta rigorosamente):
+- 'market': commento al mercato. PUOI usare $TICKER, citare il prezzo o il movimento 24h dato nel market snapshot del giorno. Coerente col mood.
+- 'personal': vita/riflessione personale dell'autore, NON parla di prezzi o coin specifici. Es: "settimana intensa", "letto un articolo interessante", "discutendo strategie col team", "spendo la mattina a leggere whitepaper". Niente $TICKER.
+- 'meta_site': commento sul sito stesso (positivi/neutri, MAI negativi). Es: "bella scoperta questo sito", "primo post qui, saluti". MAI parla di prezzi.
+- 'question': domanda alla community. Tono curioso/aperto. Es: "cosa state guardando questa settimana?", "consigli per cold storage?". Coerente col mood (newbie chiede di basi, trader chiede di setup).
+
+VINCOLI ASSOLUTI:
+- 1 post = 1 elemento dell'array output. Mai concatenare 2 idee diverse.
+- MAI inventare nomi propri di influencer / progetti specifici che potrebbero non esistere ("secondo Pippo Crypto..." NO).
+- Se citi $TICKER, usa SOLO i symbols presenti nel market snapshot del giorno (oppure niente ticker per type=personal/meta_site/question).
+- Niente cita-fonti ("come dice CoinDesk..."). Niente URL esterni.
+- Niente "ricorda che...", "non e' consigli finanziari", "DYOR" forzato (a meno che mood='degen' lo richiami ironicamente).
+
+OUTPUT FORMAT (obbligatorio): un solo blocco JSON valido, niente testo prima o dopo, niente markdown fence. Schema:
+{
+  "posts": [
+    { "refId": "<refId ricevuto>", "body": "<testo del post>" },
+    ...
+  ]
+}
+
+L'array DEVE avere ESATTAMENTE lo stesso numero di elementi dell'input, e ogni refId DEVE matchare uno degli input. Stesso ordine non richiesto, conta solo il refId match.`;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Schema di validazione output LLM
+// ──────────────────────────────────────────────────────────────────────────
+
+const OutputSchema = z.object({
+  posts: z
+    .array(
+      z.object({
+        refId: z.string().min(1),
+        body: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .min(1),
+});
+
+export type LlmContentGeneratorError =
+  | "no_api_key"
+  | "api_error"
+  | "invalid_output"
+  | "missing_refs";
+
+export class LlmContentError extends Error {
+  constructor(
+    public readonly code: LlmContentGeneratorError,
+    message: string,
+  ) {
+    super(message);
+    this.name = "LlmContentError";
+  }
+}
+
+/**
+ * Genera body per un batch di post che condividono lo stesso "giorno
+ * di pubblicazione" (e quindi lo stesso market snapshot).
+ *
+ * Throws `LlmContentError` su:
+ *   - no_api_key      : chiave Anthropic mancante in app_settings
+ *   - api_error       : Claude rate-limit / network / 5xx
+ *   - invalid_output  : JSON malformato o non conforme allo schema
+ *   - missing_refs    : Claude ha skippato uno o piu' refId richiesti
+ */
+export async function generatePostBodiesForDay(input: {
+  requests: LlmPostRequest[];
+  marketSnapshot: MarketSnapshot;
+  dayLabel: string; // "2026-05-08" — passato a Claude come context
+}): Promise<LlmGeneratedPost[]> {
+  if (input.requests.length === 0) return [];
+
+  const settings = await getAppSettings();
+  const apiKey = (settings["modules.news.anthropic_api_key"] ?? "").trim();
+  if (!apiKey) {
+    throw new LlmContentError(
+      "no_api_key",
+      "Chiave Anthropic mancante. Configura modules.news.anthropic_api_key in /admin/modules/news/settings.",
+    );
+  }
+
+  const model =
+    (settings["modules.seeders.llm_model"] ?? "").trim() || DEFAULT_MODEL;
+  const tempRaw = settings["modules.seeders.llm_temperature"] ?? "0.9";
+  const temperature = Math.min(
+    Math.max(Number.parseFloat(tempRaw) || 0.9, 0),
+    1,
+  );
+
+  const marketLine = formatSnapshotForPrompt(input.marketSnapshot);
+  const userMessage = buildUserMessage(input.requests, input.dayLabel, marketLine);
+
+  const client = new Anthropic({ apiKey });
+
+  let response;
+  try {
+    response = await client.messages.create({
+      model,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature,
+      // System cached: lo stesso prompt e' riusato in tutti i batch
+      // della run -> Anthropic addebita solo input nuovo (user msg).
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: userMessage }],
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new LlmContentError("api_error", `Claude call failed: ${message}`);
+  }
+
+  // Estraggo il primo blocco text dalla response.
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new LlmContentError("invalid_output", "Claude response: no text block");
+  }
+  const raw = textBlock.text.trim();
+
+  // Parse + validate.
+  let parsed: unknown;
+  try {
+    // Difensivo: alcuni run includono ```json``` fence nonostante l'istruzione.
+    const stripped = raw
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    parsed = JSON.parse(stripped);
+  } catch (err) {
+    throw new LlmContentError(
+      "invalid_output",
+      `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
+    );
+  }
+
+  const result = OutputSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new LlmContentError(
+      "invalid_output",
+      `Schema validation failed: ${result.error.message}`,
+    );
+  }
+
+  // Verifica refId coverage: tutti gli input devono avere un match.
+  const expectedRefIds = new Set(input.requests.map((r) => r.refId));
+  const returnedRefIds = new Set(result.data.posts.map((p) => p.refId));
+  const missing: string[] = [];
+  for (const ref of expectedRefIds) {
+    if (!returnedRefIds.has(ref)) missing.push(ref);
+  }
+  if (missing.length > 0) {
+    throw new LlmContentError(
+      "missing_refs",
+      `Claude has skipped ${missing.length} refId(s) out of ${expectedRefIds.size}`,
+    );
+  }
+
+  // Filter out eventual extra-refId (Claude ne ha tirati fuori in piu'),
+  // mantenendo solo i match agli input.
+  return result.data.posts
+    .filter((p) => expectedRefIds.has(p.refId))
+    .map((p) => ({ refId: p.refId, body: p.body }));
+}
+
+/**
+ * Compone il user message: 1 riga di intestazione (data, market snapshot)
+ * + 1 riga per ogni post da generare con refId/mood/type/tickerFocus.
+ *
+ * Pattern compatto JSON-ish (non strict JSON: piu' leggibile per Claude
+ * di un blob JSON wrapped).
+ */
+function buildUserMessage(
+  requests: LlmPostRequest[],
+  dayLabel: string,
+  marketLine: string,
+): string {
+  const lines: string[] = [];
+  lines.push(`# Data del giorno: ${dayLabel}`);
+  if (marketLine) {
+    lines.push(`# Market snapshot a questo giorno: ${marketLine}`);
+  } else {
+    lines.push(`# Market snapshot non disponibile per questo giorno.`);
+  }
+  lines.push("");
+  lines.push(`# Post da generare (${requests.length}):`);
+  for (const req of requests) {
+    const tickerPart = req.tickerFocus ? ` ticker_focus=$${req.tickerFocus}` : "";
+    const authorPart = req.authorUsername ? ` author=@${req.authorUsername}` : "";
+    lines.push(
+      `- refId=${req.refId} mood=${req.mood} type=${req.type}${tickerPart}${authorPart}`,
+    );
+  }
+  lines.push("");
+  lines.push(
+    `Restituisci JSON { "posts": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi.`,
+  );
+  return lines.join("\n");
+}

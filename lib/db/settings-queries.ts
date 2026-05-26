@@ -356,6 +356,9 @@ export type SettingKey =
   | 'modules.seeders.avatar_mix_dicebear_notionists'
   | 'modules.seeders.avatar_mix_dicebear_lorelei'
   | 'modules.seeders.avatar_mix_dicebear_bottts'
+  // Modulo seeders — LLM content generator (riusa modules.news.anthropic_api_key)
+  | 'modules.seeders.llm_model'
+  | 'modules.seeders.llm_temperature'
 
 export type AppSettings = {
   app_name: string
@@ -621,6 +624,9 @@ export type AppSettings = {
   'modules.seeders.avatar_mix_dicebear_notionists': string
   'modules.seeders.avatar_mix_dicebear_lorelei': string
   'modules.seeders.avatar_mix_dicebear_bottts': string
+  // Modulo seeders — LLM content generator
+  'modules.seeders.llm_model': string
+  'modules.seeders.llm_temperature': string
 }
 
 const DEFAULTS: AppSettings = {
@@ -921,6 +927,11 @@ const DEFAULTS: AppSettings = {
   'modules.seeders.avatar_mix_dicebear_notionists': '15',
   'modules.seeders.avatar_mix_dicebear_lorelei': '10',
   'modules.seeders.avatar_mix_dicebear_bottts': '5',
+  // Modulo seeders — LLM content generator. Haiku per default per
+  // budget-efficiency; alza a sonnet quando vuoi qualita' massima.
+  // Temperature alta (0.9) = creativita' = post variabili (vs robotici).
+  'modules.seeders.llm_model': 'claude-haiku-4-5-20251001',
+  'modules.seeders.llm_temperature': '0.9',
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
