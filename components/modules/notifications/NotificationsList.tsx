@@ -113,6 +113,9 @@ export function NotificationsList({ viewerUserId, initial, systemAvatarUrl = nul
               payload:
                 (row.payload as Record<string, unknown> | null) ?? {},
               readAt: row.read_at ? new Date(String(row.read_at)) : null,
+              emailSentAt: row.email_sent_at
+                ? new Date(String(row.email_sent_at))
+                : null,
               createdAt: new Date(String(row.created_at)),
               actor: null,
             };
