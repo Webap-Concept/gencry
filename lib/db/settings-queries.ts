@@ -359,6 +359,8 @@ export type SettingKey =
   // Modulo seeders — LLM content generator (riusa modules.news.anthropic_api_key)
   | 'modules.seeders.llm_model'
   | 'modules.seeders.llm_temperature'
+  // Modulo seeders — probabilita' che il profilo abbia first/last name (resto null)
+  | 'modules.seeders.profile_fullname_probability'
 
 export type AppSettings = {
   app_name: string
@@ -627,6 +629,8 @@ export type AppSettings = {
   // Modulo seeders — LLM content generator
   'modules.seeders.llm_model': string
   'modules.seeders.llm_temperature': string
+  // Modulo seeders — probabilita' first/last name compilato (0..1)
+  'modules.seeders.profile_fullname_probability': string
 }
 
 const DEFAULTS: AppSettings = {
@@ -932,6 +936,9 @@ const DEFAULTS: AppSettings = {
   // Temperature alta (0.9) = creativita' = post variabili (vs robotici).
   'modules.seeders.llm_model': 'claude-haiku-4-5-20251001',
   'modules.seeders.llm_temperature': '0.9',
+  // 40% degli utenti seed ha first/last_name compilato; 60% lascia null
+  // per simulare gli utenti reali che non completano il profilo.
+  'modules.seeders.profile_fullname_probability': '0.4',
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {

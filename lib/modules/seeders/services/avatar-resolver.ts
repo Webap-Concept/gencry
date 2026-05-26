@@ -20,8 +20,8 @@
 import "server-only";
 
 import { pickAvatarStrategy, type AvatarMixWeights, type AvatarStrategy } from "./avatar-strategy";
-import { fetchExternalAvatar } from "./external-avatar-fetch";
-import { uploadAvatarFromUrl, uploadAvatarSvg } from "./r2-avatar-upload";
+import { fetchUniqueExternalAvatar } from "./external-avatar-fetch";
+import { uploadAvatarBytes, uploadAvatarFromUrl, uploadAvatarSvg } from "./r2-avatar-upload";
 import { generateInitialsSvg, deriveInitials } from "./initials-avatar";
 
 /**
@@ -48,6 +48,10 @@ export interface ResolveAvatarInput {
   firstName: string;
   lastName: string;
   weights: AvatarMixWeights;
+  /** Set condiviso a livello di run: hash sha256 delle foto AI gia'
+   *  assegnate. Mutato in-place quando una foto unica viene allocata.
+   *  Garantisce che 2 user diversi non abbiano la stessa foto TPDNE. */
+  usedAiHashes: Set<string>;
 }
 
 export interface ResolvedAvatar {
@@ -69,12 +73,16 @@ export async function resolveAvatarForSeedUser(
 
   switch (strategy) {
     case "ai_face": {
-      const external = await fetchExternalAvatar();
-      if (external) {
-        const url = await uploadAvatarFromUrl(input.userId, external.sourceUrl);
+      // Dedup-aware fetch: TPDNE rigenera ogni ~1s, quindi fetch concorrenti
+      // possono ritornare gli stessi bytes. fetchUniqueExternalAvatar
+      // garantisce hash unico (max 3 retry + fallback Unsplash).
+      const bytes = await fetchUniqueExternalAvatar(input.usedAiHashes);
+      if (bytes) {
+        const url = await uploadAvatarBytes(input.userId, bytes.buffer, bytes.mime);
         if (url) return { url, strategy, onR2: true };
       }
-      // Fallback: lorelei come "soft AI-ish" alternative
+      // Tutti i tentativi falliti / duplicati → fallback DiceBear lorelei
+      // (sempre univoco per username).
       return resolveDicebearFallback(input, "dicebear_lorelei");
     }
 

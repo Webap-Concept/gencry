@@ -115,6 +115,46 @@ export async function uploadAvatarFromUrl(
 }
 
 /**
+ * Uploada un Buffer (bytes gia' scaricati) sull'R2. Usato dall'AI face
+ * path: il caller scarica TPDNE/Unsplash con dedup hash, poi passa i
+ * bytes qui per upload. Risparmia un round-trip extra rispetto a
+ * uploadAvatarFromUrl (che farebbe di nuovo fetch).
+ */
+export async function uploadAvatarBytes(
+  userId: string,
+  buffer: Buffer,
+  mime: string,
+): Promise<string | null> {
+  const cfg = await loadAvatarR2Config();
+  if (!cfg) return null;
+
+  const ext = extFromMime(mime);
+  if (!ext) {
+    console.warn(`[seeders/r2-upload] unsupported mime '${mime}' for bytes upload`);
+    return null;
+  }
+  if (buffer.byteLength > MAX_BYTES) return null;
+
+  try {
+    const key = `seed-${userId}.${ext}`;
+    const client = createAvatarR2Client(cfg);
+    await client.send(
+      new PutObjectCommand({
+        Bucket: cfg.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: mime,
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
+    );
+    return `${cfg.publicBaseUrl}/${key}?v=${Date.now()}`;
+  } catch (err) {
+    console.warn("[seeders/r2-upload] uploadAvatarBytes failed:", err);
+    return null;
+  }
+}
+
+/**
  * Uploada un SVG generato in-process (initials avatar) sullo stesso
  * bucket. Stesso prefix `seed-<userId>.svg`. Ritorna URL pubblica con
  * cache-bust.

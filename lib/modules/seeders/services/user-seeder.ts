@@ -95,8 +95,13 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
     id: string;
     email: string;
     username: string;
+    /** Pickato dal pool per generare username + iniziali avatar, ma
+     *  salvato in user_profiles SOLO se withFullName=true (default 40%).
+     *  In 60% degli utenti il profilo ha first/last_name=null, come e'
+     *  realistico su utenti reali che non compilano. */
     firstName: string;
     lastName: string;
+    withFullName: boolean;
     /** Risolto dopo l'INSERT users (l'userId serve come key R2). */
     avatarUrl: string;
     bio: string;
@@ -109,6 +114,15 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
   // Pesi del mix avatar — letti una volta sola, riusati in resolve per ogni
   // user nel batch. Vedi avatar-strategy.ts per i default.
   const avatarMixWeights = await loadAvatarMixWeights();
+
+  // Probabilita' che il profilo abbia first_name/last_name compilati.
+  // Realismo: tanti utenti reali non li mettono. Setting tunable in
+  // /admin (modules.seeders.profile_fullname_probability), default 0.4.
+  const fullNameProbRaw = settings["modules.seeders.profile_fullname_probability"] ?? "0.4";
+  const fullNameProb = Math.min(
+    Math.max(Number.parseFloat(fullNameProbRaw) || 0.4, 0),
+    1,
+  );
 
   // bcrypt hash è costoso (~50ms per round). Per 100 users serebbero
   // 5s. Lo facciamo una sola volta con un seed UUID random e lo
@@ -141,12 +155,15 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       createdAt.getTime() + (1 + Math.random() * 30) * 60 * 1000,
     );
 
+    const withFullName = Math.random() < fullNameProb;
+
     seedRows.push({
       id: "", // popolato dopo l'INSERT con il default uuid_generate
       email,
       username,
       firstName,
       lastName,
+      withFullName,
       // Placeholder — risolto via avatar-resolver dopo l'INSERT users
       // (l'userId R2 key non esiste ancora qui).
       avatarUrl: "",
@@ -188,8 +205,14 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
   // (TPDNE, Unsplash, DiceBear) sono I/O — facciamo cap concurrency 5
   // per non rate-limitare i servizi esterni con burst di 100+ richieste
   // parallele. Su 100 utenti, 40 ai_face × ~1s / 5 concurrent ≈ 8s.
+  //
+  // usedAiHashes e' condiviso da tutti i worker: l'avatar-resolver lo
+  // usa per garantire che 2 utenti diversi non finiscano con la stessa
+  // foto AI (TPDNE rigenera ogni ~1s, fetch concorrenti possono
+  // restituire gli stessi bytes).
   const AVATAR_CONCURRENCY = 5;
   const resolvedAvatars = new Map<string, string>();
+  const usedAiHashes = new Set<string>();
   let cursor = 0;
   const workers = Array.from({ length: AVATAR_CONCURRENCY }, async () => {
     while (true) {
@@ -202,9 +225,12 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
         const resolved = await resolveAvatarForSeedUser({
           userId,
           username: r.username,
-          firstName: r.firstName,
-          lastName: r.lastName,
+          // Per l'initials avatar, se withFullName=false passiamo string
+          // vuote → deriveInitials cade sul username (1 lettera).
+          firstName: r.withFullName ? r.firstName : "",
+          lastName: r.withFullName ? r.lastName : "",
           weights: avatarMixWeights,
+          usedAiHashes,
         });
         resolvedAvatars.set(userId, resolved.url);
       } catch (err) {
@@ -224,8 +250,10 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       if (!userId) return null;
       return {
         userId,
-        firstName: r.firstName,
-        lastName: r.lastName,
+        // 60% degli utenti reali NON compila nome/cognome — riflettiamo
+        // questo con `withFullName` deciso al precompute (default 40%).
+        firstName: r.withFullName ? r.firstName : null,
+        lastName: r.withFullName ? r.lastName : null,
         username: r.username,
         avatarUrl: resolvedAvatars.get(userId) ?? null,
         bio: r.bio || null,
