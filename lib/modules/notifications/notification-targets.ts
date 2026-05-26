@@ -159,6 +159,37 @@ export function resolveNotificationTarget(
         commentPreview: null,
         templateValues: {},
       };
+    case "achievement.first_like": {
+      // Achievement self-targeted: link al proprio post (vedere chi ha
+      // reagito + tutti gli engagement). actor = NULL (sistema).
+      if (!postId) return null;
+      return {
+        href: `/post/${postId}`,
+        summaryKey: "achievement.first_like",
+        reactionKind: null,
+        postPreview,
+        commentPreview: null,
+        templateValues: {},
+      };
+    }
+    case "achievement.post_viral_likes": {
+      if (!postId) return null;
+      const totalRaw = payload.total_count;
+      const total =
+        typeof totalRaw === "number"
+          ? totalRaw
+          : typeof totalRaw === "string"
+            ? totalRaw
+            : "";
+      return {
+        href: `/post/${postId}`,
+        summaryKey: "achievement.post_viral_likes",
+        reactionKind: null,
+        postPreview,
+        commentPreview: null,
+        templateValues: { total_count: total },
+      };
+    }
     default:
       return null;
   }

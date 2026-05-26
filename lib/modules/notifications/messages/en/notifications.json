@@ -57,6 +57,10 @@
       "strike_received": "You received a moderation strike (total: {strike_number}/3)",
       "banned": "Your account has been suspended for reaching 3 strikes",
       "strike_revoked": "One of your strikes has been revoked by a moderator"
+    },
+    "achievement": {
+      "first_like": "Your post got its first reaction 🎉",
+      "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours"
     }
   }
 }

@@ -8,7 +8,83 @@
 // `notifications` avviene via trigger plpgsql (M_notifications_001) —
 // niente cron worker, niente consumer applicativo. La UI client
 // sottoscrive Supabase Realtime per push istantaneo del badge unread.
-import type { ModuleManifest } from "@/lib/modules/types";
+import type { CapacityProfile, ModuleManifest } from "@/lib/modules/types";
+
+// Achievement V1 (M_notifications_002, decisione product 2026-05-26):
+// niente email per ogni azione (rumore → utente disabilita), solo email
+// quando il contenuto raggiunge milestone (first like, viral burst).
+// Strings EN-only by convention (admin-facing).
+const ACHIEVEMENTS_CAPACITY: CapacityProfile = {
+  scope: "achievements",
+  label: "Achievements (milestone events)",
+  currentTier: "alpha",
+  resources: [
+    {
+      name: "Trigger DB inline check",
+      plan: "Built-in (no extra infra)",
+      limits: [
+        "1 extra SELECT on posts + 4 SELECTs on app_settings per reaction insert",
+        "PK index lookups, ~0.1ms overhead per insert",
+        "0 polling cron — push pattern via posts_outbox",
+      ],
+      upgradeAt: "When achievement rules grow beyond ~10 — consider caching settings via plpgsql GUC",
+      upgradePath:
+        "Cache settings in plpgsql custom GUC variable refreshed every N minutes; alternatively move achievement detection to Edge Function consumer of posts_outbox.",
+    },
+  ],
+  tunables: [
+    { key: "modules.notifications.achievements.first_like_enabled",        label: "First-like enabled (true/false)" },
+    { key: "modules.notifications.achievements.viral_likes_enabled",       label: "Viral-likes enabled (true/false)" },
+    { key: "modules.notifications.achievements.viral_likes_threshold",     label: "Viral-likes threshold (reactions)" },
+    { key: "modules.notifications.achievements.viral_likes_window_hours",  label: "Viral-likes window (hours)" },
+  ],
+  presets: [
+    {
+      id: "alpha",
+      label: "Alpha (<100 MAU)",
+      description: "Generous: emit first_like always, viral threshold low so we see notifications fire during dev/early users.",
+      values: {
+        "modules.notifications.achievements.first_like_enabled": "true",
+        "modules.notifications.achievements.viral_likes_enabled": "true",
+        "modules.notifications.achievements.viral_likes_threshold": "10",
+        "modules.notifications.achievements.viral_likes_window_hours": "48",
+      },
+    },
+    {
+      id: "beta",
+      label: "Beta (100-1k MAU)",
+      description: "Default production: realistic milestone for early-stage community.",
+      values: {
+        "modules.notifications.achievements.first_like_enabled": "true",
+        "modules.notifications.achievements.viral_likes_enabled": "true",
+        "modules.notifications.achievements.viral_likes_threshold": "50",
+        "modules.notifications.achievements.viral_likes_window_hours": "24",
+      },
+    },
+    {
+      id: "growth",
+      label: "Growth (1k-10k MAU)",
+      description: "Higher viral bar — at this scale 50 likes is daily-bread, save the email for real bursts.",
+      values: {
+        "modules.notifications.achievements.first_like_enabled": "true",
+        "modules.notifications.achievements.viral_likes_enabled": "true",
+        "modules.notifications.achievements.viral_likes_threshold": "150",
+        "modules.notifications.achievements.viral_likes_window_hours": "12",
+      },
+    },
+    {
+      id: "scale",
+      label: "Scale (10k+ MAU)",
+      description: "Only notify for truly significant bursts; first_like becomes too noisy in mass adoption.",
+      values: {
+        "modules.notifications.achievements.first_like_enabled": "false",
+        "modules.notifications.achievements.viral_likes_enabled": "true",
+        "modules.notifications.achievements.viral_likes_threshold": "500",
+        "modules.notifications.achievements.viral_likes_window_hours": "6",
+      },
+    },
+  ],
+};
 
 export const NOTIFICATIONS_MODULE: ModuleManifest = {
   slug: "notifications",
@@ -48,4 +124,5 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
   // now()-modules.notifications.retention_days) arriverà come job in PR-3
   // quando produrremo volume sufficiente da giustificarlo.
   cronJobs: [],
+  capacityProfiles: [ACHIEVEMENTS_CAPACITY],
 };

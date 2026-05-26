@@ -238,6 +238,10 @@ export type SettingKey =
   | 'modules.notifications.dedup_window_minutes'   // finestra anti-spam per fanout trigger (default 60)
   | 'modules.notifications.list_page_size'         // pagination /notifiche (default 30)
   | 'modules.notifications.retention_days'         // cron cleanup futuro (default 180)
+  | 'modules.notifications.achievements.first_like_enabled'         // 'true'|'false', emette achievement.first_like (default true)
+  | 'modules.notifications.achievements.viral_likes_enabled'        // 'true'|'false', emette achievement.post_viral_likes (default true)
+  | 'modules.notifications.achievements.viral_likes_threshold'      // int reactions totali (default 50)
+  | 'modules.notifications.achievements.viral_likes_window_hours'   // int ore dalla pubblicazione (default 24)
   // Modulo news (curated content pipeline)
   | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
   | 'modules.news.publisher_batch_size'            // cron publisher N items/run
@@ -508,6 +512,10 @@ export type AppSettings = {
   'modules.notifications.dedup_window_minutes': string
   'modules.notifications.list_page_size': string
   'modules.notifications.retention_days': string
+  'modules.notifications.achievements.first_like_enabled': string
+  'modules.notifications.achievements.viral_likes_enabled': string
+  'modules.notifications.achievements.viral_likes_threshold': string
+  'modules.notifications.achievements.viral_likes_window_hours': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -745,6 +753,10 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.dedup_window_minutes': '60',
   'modules.notifications.list_page_size': '30',
   'modules.notifications.retention_days': '180',
+  'modules.notifications.achievements.first_like_enabled': 'true',
+  'modules.notifications.achievements.viral_likes_enabled': 'true',
+  'modules.notifications.achievements.viral_likes_threshold': '50',
+  'modules.notifications.achievements.viral_likes_window_hours': '24',
   // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
   // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
   'modules.news.rewrite_batch_size': '3',
