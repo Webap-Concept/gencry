@@ -29,7 +29,9 @@ export function SeedersClient({
   const router = useRouter();
   const [userCount, setUserCount] = useState(20);
   const [postsPerUser, setPostsPerUser] = useState(5);
-  const [withImages, setWithImages] = useState(true);
+  // withImages = false di default: Picsum non sempre risponde affidabilmente
+  // e foto random non sono coerenti col tema crypto. Riattivabile per debug.
+  const [withImages, setWithImages] = useState(false);
   const [withBlocks, setWithBlocks] = useState(true);
   const [withReactions, setWithReactions] = useState(true);
   const [withComments, setWithComments] = useState(true);
@@ -172,8 +174,8 @@ export function SeedersClient({
 
         <div className="space-y-2">
           <CheckboxField
-            label="Includi immagini nei post (Picsum)"
-            description="Circa il 30% dei post avrà un'immagine random."
+            label="Includi immagini nei post (Picsum) — sperimentale"
+            description="Disabilitato: Picsum non sempre risponde e le foto random non sono coerenti col tema. Solo per debug."
             checked={withImages}
             onChange={setWithImages}
           />
