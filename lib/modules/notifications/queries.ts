@@ -139,6 +139,7 @@ async function selectNotificationsHydrated(
       commentId: notifications.commentId,
       payload: notifications.payload,
       readAt: notifications.readAt,
+      emailSentAt: notifications.emailSentAt,
       createdAt: notifications.createdAt,
       actorUsername: userProfiles.username,
       actorFirstName: userProfiles.firstName,
@@ -193,6 +194,7 @@ function rowToHydratedItem(r: HydratedRow): NotificationListItem {
     commentId: r.commentId,
     payload: enrichedPayload,
     readAt: r.readAt,
+    emailSentAt: r.emailSentAt ?? null,
     createdAt: r.createdAt,
     actor: r.actorId
       ? {
