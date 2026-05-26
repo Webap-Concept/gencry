@@ -32,6 +32,8 @@ export function SeedersClient({
   const [withImages, setWithImages] = useState(true);
   const [withBlocks, setWithBlocks] = useState(true);
   const [withReactions, setWithReactions] = useState(true);
+  const [withComments, setWithComments] = useState(true);
+  const [withCommentReactions, setWithCommentReactions] = useState(true);
   const [lastResult, setLastResult] = useState<RunSeederResult | null>(null);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
@@ -47,6 +49,8 @@ export function SeedersClient({
         withImages,
         withBlocks,
         withReactions,
+        withComments,
+        withCommentReactions,
       });
       setLastResult(res);
       if (res.ok) router.refresh();
@@ -178,6 +182,18 @@ export function SeedersClient({
             description="Circa il 40% dei post riceve reazioni (mood-biased: bullish → 🚀, bearish → 🐻)."
             checked={withReactions}
             onChange={setWithReactions}
+          />
+          <CheckboxField
+            label="Crea commenti sui post"
+            description="Circa il 30% dei post riceve 1-6 commenti via LLM (con 20% di reply 2-livelli)."
+            checked={withComments}
+            onChange={setWithComments}
+          />
+          <CheckboxField
+            label="Crea reazioni sui commenti"
+            description="Circa il 15% dei commenti riceve 1-6 reazioni. Richiede commenti abilitati."
+            checked={withCommentReactions}
+            onChange={setWithCommentReactions}
           />
           <CheckboxField
             label="Crea relazioni di block tra utenti"
@@ -387,9 +403,11 @@ function ResultPanel({ result }: { result: RunSeederResult }) {
         Seed completato.
       </p>
       <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-        Utenti creati: <strong>{result.counts.usersCreated}</strong> ·
-        Post creati: <strong>{result.counts.postsCreated}</strong> ·
+        Utenti: <strong>{result.counts.usersCreated}</strong> ·
+        Post: <strong>{result.counts.postsCreated}</strong> ·
         Reazioni: <strong>{result.counts.reactionsCreated}</strong> ·
+        Commenti: <strong>{result.counts.commentsCreated}</strong> ·
+        Reaz. commenti: <strong>{result.counts.commentReactionsCreated}</strong> ·
         Block: <strong>{result.counts.blocksCreated}</strong>
       </p>
     </div>

@@ -25,29 +25,63 @@ import {
   seedReactionsForPosts,
   type SeededReactions,
 } from "./contributors/reactions-contributor";
+import {
+  seedCommentsForPosts,
+  type SeededComments,
+} from "./contributors/comments-contributor";
+import {
+  seedReactionsForComments,
+  type SeededCommentReactions,
+} from "./contributors/comment-reactions-contributor";
+
+/**
+ * Metadati di un post creato dal posts-contributor. Aggiunti rispetto
+ * alla V1 (che esponeva solo `postIds: string[]`) perche':
+ *   - comments-contributor deve evitare self-comments (commenter ≠ author)
+ *     e timing comment.created_at > post.created_at
+ *   - reactions-contributor puo' ora filtrare self-reactions (cosa che
+ *     in V1 accettava per semplicita')
+ */
+export type SeedPostMeta = {
+  id: string;
+  authorId: string;
+  createdAt: Date;
+};
+
+/**
+ * Metadati di un commento creato dal comments-contributor. Consumati dal
+ * comment-reactions-contributor (analogo a SeedPostMeta).
+ */
+export type SeedCommentMeta = {
+  id: string;
+  postId: string;
+  authorId: string;
+  createdAt: Date;
+};
 
 /**
  * Stato accumulato durante un run. I contributor a valle leggono ciò
- * che quelli a monte hanno prodotto (es. reactions ha bisogno dei
- * postIds creati dal posts-contributor).
+ * che quelli a monte hanno prodotto.
  */
 export type SeedRunContext = {
   users: SeedUser[];
-  /** post_id creati dal posts-contributor. Consumati dal reactions-contributor. */
-  postIds: string[];
+  /** Post creati dal posts-contributor. */
+  postsMeta: SeedPostMeta[];
+  /** Commenti creati dal comments-contributor. */
+  commentsMeta: SeedCommentMeta[];
 };
 
 /**
  * Opzioni esposte dall'UI admin. Ogni flag controlla l'attivazione di
- * un singolo contributor. Tipato sul SeederOptions globale così quando
- * arriverà comments basterà aggiungere `withComments` qui sopra senza
- * toccare la firma del runner.
+ * un singolo contributor.
  */
 export type SeederOptions = {
   postsPerUser: number;
   withImages: boolean;
   withBlocks: boolean;
   withReactions: boolean;
+  withComments: boolean;
+  withCommentReactions: boolean;
 };
 
 /**
@@ -59,6 +93,8 @@ export type SeederRunOutput = {
   postsCreated: number;
   blocksCreated: number;
   reactionsCreated: number;
+  commentsCreated: number;
+  commentReactionsCreated: number;
 };
 
 /**
@@ -99,8 +135,7 @@ export const SEEDER_CONTRIBUTORS: SeederContributor[] = [
         withImages: opts.withImages,
       };
       const res = await seedPostsForUsers(ctx.users, seedPostsOpts);
-      // Propaga i postIds a valle nello stesso ctx (mutazione consapevole).
-      ctx.postIds.push(...res.postIds);
+      ctx.postsMeta.push(...res.postsMeta);
       return { postsCreated: res.created };
     },
   },
@@ -108,12 +143,38 @@ export const SEEDER_CONTRIBUTORS: SeederContributor[] = [
     name: "reactions",
     enabled: (opts) => opts.withReactions && opts.postsPerUser > 0,
     run: async (ctx): Promise<Partial<SeederRunOutput>> => {
-      if (ctx.postIds.length === 0) return { reactionsCreated: 0 };
+      if (ctx.postsMeta.length === 0) return { reactionsCreated: 0 };
       const res: SeededReactions = await seedReactionsForPosts(
         ctx.users,
-        ctx.postIds,
+        ctx.postsMeta,
       );
       return { reactionsCreated: res.created };
+    },
+  },
+  {
+    name: "comments",
+    enabled: (opts) => opts.withComments && opts.postsPerUser > 0,
+    run: async (ctx): Promise<Partial<SeederRunOutput>> => {
+      if (ctx.postsMeta.length === 0) return { commentsCreated: 0 };
+      const res: SeededComments = await seedCommentsForPosts(
+        ctx.users,
+        ctx.postsMeta,
+      );
+      ctx.commentsMeta.push(...res.commentsMeta);
+      return { commentsCreated: res.created };
+    },
+  },
+  {
+    name: "comment-reactions",
+    enabled: (opts) =>
+      opts.withCommentReactions && opts.withComments && opts.postsPerUser > 0,
+    run: async (ctx): Promise<Partial<SeederRunOutput>> => {
+      if (ctx.commentsMeta.length === 0) return { commentReactionsCreated: 0 };
+      const res: SeededCommentReactions = await seedReactionsForComments(
+        ctx.users,
+        ctx.commentsMeta,
+      );
+      return { commentReactionsCreated: res.created };
     },
   },
   {

@@ -25,6 +25,22 @@ import {
 
 export type PostType = "market" | "personal" | "meta_site" | "question";
 
+export interface LlmCommentRequest {
+  refId: string;
+  /** Body del post a cui sta commentando (contesto). Troncato se >300char
+   *  nel prompt builder. */
+  postBody: string;
+  /** Body del commento "padre" se questa è una reply. Null = top-level. */
+  parentBody: string | null;
+  mood: UserMood;
+  authorUsername: string;
+}
+
+export interface LlmGeneratedComment {
+  refId: string;
+  body: string;
+}
+
 export interface LlmPostRequest {
   /** ID temporaneo per matchare l'output al post pending (es. UUID
    *  pre-generato dal posts-contributor). */
@@ -239,6 +255,194 @@ export async function generatePostBodiesForDay(input: {
   return result.data.posts
     .filter((p) => expectedRefIds.has(p.refId))
     .map((p) => ({ refId: p.refId, body: p.body }));
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Comments — system prompt + generator
+// ──────────────────────────────────────────────────────────────────────────
+
+export const COMMENT_SYSTEM_PROMPT = `Sei uno scrittore di commenti social per "GenerazioneCrypto", un social network italiano di nicchia sul mondo crypto. Devi generare commenti brevi, naturali, REATTIVI a un post (o a un altro commento), in italiano colloquiale.
+
+REGOLE TONO:
+- Italiano colloquiale, reattivo. Pensa "commento Twitter/IG" non "saggio".
+- Lunghezza tipica: 1 frase (70%), 2 frasi (25%), 3+ frasi rare (5%). Mai piu' di 4 frasi.
+- Niente clickbait, niente "thread🧵", niente hashtag, niente emoji di default (eccezione: degen/newbie 1 ogni 5).
+- MAI ripetere il body del post nel commento. Il lettore lo ha gia' davanti.
+- MAI iniziare con "Ottimo punto!", "Sono d'accordo!", "Interessante!": suona finto. Vai diretto al contenuto.
+
+REAZIONI POSSIBILI A UN POST:
+- agreement: rinforza con un'aggiunta personale, mai eco vuota
+- disagreement educato: contraddice con un argomento, niente flame
+- domanda di approfondimento: chiede chiarimento o dettaglio
+- aneddoto/esperienza: porta il proprio vissuto come contributo
+- ironia/battuta breve: solo per mood degen e con misura
+
+ARCHETIPI MOOD:
+- bullish_btc: bitcoin maximalist, parla di halving/self-custody/hard money
+- bearish: scettico, vede red flag, parla di liquidita'/DXY/FOMO
+- hodler: zen, DCA, time-in-the-market, niente paura della volatilita'
+- trader: setup tecnici, RSI, resistance, stop loss, R:R
+- defi: yield/TVL/restaking/MEV
+- macro: tassi Fed/M2/CPI/recessione
+- newbie: domande, confusione, "scusate l'ignoranza", umile
+- degen: WAGMI/NGMI/memecoin/YOLO/slang
+
+VINCOLI ASSOLUTI:
+- 1 commento = 1 elemento dell'array output. Mai concatenare 2 idee.
+- MAI inventare nomi propri di influencer/progetti.
+- MAI parafrasare il post: aggiungi qualcosa.
+- Se rispondi a un altro commento (reply), prendi posizione rispetto a quel commento, non al post originale.
+
+OUTPUT FORMAT (obbligatorio): un solo blocco JSON valido, niente testo prima o dopo, niente markdown fence. Schema:
+{
+  "comments": [
+    { "refId": "<refId>", "body": "<testo>" },
+    ...
+  ]
+}
+
+L'array DEVE avere ESATTAMENTE lo stesso numero di elementi dell'input.`;
+
+const CommentOutputSchema = z.object({
+  comments: z
+    .array(
+      z.object({
+        refId: z.string().min(1),
+        body: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * Batch comment generation — analogo a `generatePostBodiesForDay` ma
+ * con system prompt orientato a "commento reattivo" invece di "post
+ * autonomo". L'array di input puo' mescolare top-level + reply: ogni
+ * request ha il proprio context (`postBody` + `parentBody`).
+ *
+ * Throws `LlmContentError` con gli stessi codici di generatePostBodies.
+ */
+export async function generateCommentBodiesForDay(input: {
+  requests: LlmCommentRequest[];
+  dayLabel: string;
+}): Promise<LlmGeneratedComment[]> {
+  if (input.requests.length === 0) return [];
+
+  const settings = await getAppSettings();
+  const apiKey = (settings["modules.news.anthropic_api_key"] ?? "").trim();
+  if (!apiKey) {
+    throw new LlmContentError(
+      "no_api_key",
+      "Chiave Anthropic mancante. Configura modules.news.anthropic_api_key in /admin/modules/news/settings.",
+    );
+  }
+
+  const model =
+    (settings["modules.seeders.llm_model"] ?? "").trim() || DEFAULT_MODEL;
+  const tempRaw = settings["modules.seeders.llm_temperature"] ?? "0.9";
+  const temperature = Math.min(
+    Math.max(Number.parseFloat(tempRaw) || 0.9, 0),
+    1,
+  );
+
+  const userMessage = buildCommentUserMessage(input.requests, input.dayLabel);
+
+  const client = new Anthropic({ apiKey });
+
+  let response;
+  try {
+    response = await client.messages.create({
+      model,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature,
+      system: [
+        {
+          type: "text",
+          text: COMMENT_SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: userMessage }],
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new LlmContentError("api_error", `Claude call failed: ${message}`);
+  }
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new LlmContentError("invalid_output", "Claude response: no text block");
+  }
+  const raw = textBlock.text.trim();
+
+  let parsed: unknown;
+  try {
+    const stripped = raw
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    parsed = JSON.parse(stripped);
+  } catch (err) {
+    throw new LlmContentError(
+      "invalid_output",
+      `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
+    );
+  }
+
+  const result = CommentOutputSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new LlmContentError(
+      "invalid_output",
+      `Schema validation failed: ${result.error.message}`,
+    );
+  }
+
+  const expectedRefIds = new Set(input.requests.map((r) => r.refId));
+  const returnedRefIds = new Set(result.data.comments.map((c) => c.refId));
+  const missing: string[] = [];
+  for (const ref of expectedRefIds) {
+    if (!returnedRefIds.has(ref)) missing.push(ref);
+  }
+  if (missing.length > 0) {
+    throw new LlmContentError(
+      "missing_refs",
+      `Claude has skipped ${missing.length} comment refId(s) out of ${expectedRefIds.size}`,
+    );
+  }
+
+  return result.data.comments
+    .filter((c) => expectedRefIds.has(c.refId))
+    .map((c) => ({ refId: c.refId, body: c.body }));
+}
+
+function truncateForContext(text: string, max = 300): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "…";
+}
+
+function buildCommentUserMessage(
+  requests: LlmCommentRequest[],
+  dayLabel: string,
+): string {
+  const lines: string[] = [];
+  lines.push(`# Data del giorno: ${dayLabel}`);
+  lines.push("");
+  lines.push(`# Commenti da generare (${requests.length}):`);
+  for (const req of requests) {
+    const post = truncateForContext(req.postBody.replace(/\s+/g, " "));
+    lines.push(`---`);
+    lines.push(`refId=${req.refId} mood=${req.mood} author=@${req.authorUsername}`);
+    lines.push(`post: """${post}"""`);
+    if (req.parentBody) {
+      const parent = truncateForContext(req.parentBody.replace(/\s+/g, " "));
+      lines.push(`reply_to: """${parent}"""`);
+    }
+  }
+  lines.push("");
+  lines.push(
+    `Restituisci JSON { "comments": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi.`,
+  );
+  return lines.join("\n");
 }
 
 /**

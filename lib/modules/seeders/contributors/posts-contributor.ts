@@ -106,11 +106,17 @@ export type SeedPostsOptions = {
   withImages: boolean;
 };
 
+export type SeededPostMeta = {
+  id: string;
+  authorId: string;
+  createdAt: Date;
+};
+
 export type SeededPosts = {
   created: number;
-  /** ID dei post inseriti — passati al reactions-contributor per
-   *  generare reazioni sui post appena creati. */
-  postIds: string[];
+  /** Metadati dei post inseriti — consumati da reactions + comments
+   *  contributor (filtri self-action e timing). */
+  postsMeta: SeededPostMeta[];
 };
 
 export async function seedPostsForUsers(
@@ -118,7 +124,7 @@ export async function seedPostsForUsers(
   opts: SeedPostsOptions,
 ): Promise<SeededPosts> {
   if (seedUsers.length === 0 || opts.postsPerUser <= 0) {
-    return { created: 0, postIds: [] };
+    return { created: 0, postsMeta: [] };
   }
 
   // Carica una sola volta: coin name map + trend analysis.
@@ -198,7 +204,7 @@ export async function seedPostsForUsers(
     }
   }
 
-  if (pending.length === 0) return { created: 0, postIds: [] };
+  if (pending.length === 0) return { created: 0, postsMeta: [] };
 
   // ─────────────────────────────────────────────────────────────────────
   // LLM batch generation per giorno.
@@ -355,6 +361,10 @@ export async function seedPostsForUsers(
 
   return {
     created: pending.length,
-    postIds: pending.map((p) => p.id),
+    postsMeta: pending.map((p) => ({
+      id: p.id,
+      authorId: p.authorId,
+      createdAt: p.createdAt,
+    })),
   };
 }
