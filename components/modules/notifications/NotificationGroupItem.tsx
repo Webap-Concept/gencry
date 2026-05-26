@@ -55,22 +55,41 @@ function formatRelative(date: Date, locale: string): string {
 
 function AvatarStack({
   actors,
+  systemAvatarUrl,
 }: {
   actors: Array<NotificationActor | null>;
+  systemAvatarUrl?: string | null;
 }) {
   // Mostra max 2 avatars in overlap (-ml-3 per il secondo).
   const visible = actors.slice(0, 2);
   return (
     <div className="flex items-center shrink-0">
-      {visible.map((a, i) => (
-        <div
-          key={a?.id ?? `slot-${i}`}
-          className={i === 0 ? "" : "-ml-3"}
-          style={{ zIndex: visible.length - i }}
-        >
-          <UserAvatar user={a ?? {}} size={40} ring />
-        </div>
-      ))}
+      {visible.map((a, i) => {
+        const isSystem = a === null && systemAvatarUrl;
+        return (
+          <div
+            key={a?.id ?? `slot-${i}`}
+            className={i === 0 ? "" : "-ml-3"}
+            style={{ zIndex: visible.length - i }}
+          >
+            {isSystem ? (
+              <span
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-gc-bg-3 border-2 border-gc-bg-2"
+                aria-hidden
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={systemAvatarUrl ?? ""}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            ) : (
+              <UserAvatar user={a ?? {}} size={40} ring />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -79,10 +98,12 @@ export function NotificationGroupItem({
   items,
   representative,
   onMarkedRead,
+  systemAvatarUrl = null,
 }: {
   items: NotificationListItem[];
   representative: NotificationListItem;
   onMarkedRead?: () => void;
+  systemAvatarUrl?: string | null;
 }) {
   const tTypes = useTranslations("notifications.types");
   const tUi = useTranslations("notifications.ui");
@@ -166,6 +187,7 @@ export function NotificationGroupItem({
     <div className="flex items-start gap-3 px-4 py-3">
       <AvatarStack
         actors={distinctActors.slice(0, 2).map((i) => i.actor)}
+        systemAvatarUrl={systemAvatarUrl}
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gc-fg leading-snug flex items-center gap-1.5 flex-wrap">

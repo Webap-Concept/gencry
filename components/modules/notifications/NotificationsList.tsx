@@ -35,9 +35,13 @@ type Props = {
     items: NotificationListItem[];
     nextCursor: string | null;
   };
+  /** Avatar fallback per le notifiche di sistema (actor === null).
+   *  Tipicamente la favicon del sito, letta da app_settings.app_favicon_url
+   *  dal page handler. Null → vecchio fallback "?" di UserAvatar. */
+  systemAvatarUrl?: string | null;
 };
 
-export function NotificationsList({ viewerUserId, initial }: Props) {
+export function NotificationsList({ viewerUserId, initial, systemAvatarUrl = null }: Props) {
   const tUi = useTranslations("notifications.ui");
   const [items, setItems] = useState<NotificationListItem[]>(initial.items);
   const [nextCursor, setNextCursor] = useState<string | null>(initial.nextCursor);
@@ -205,6 +209,7 @@ export function NotificationsList({ viewerUserId, initial }: Props) {
             key={g.item.id}
             item={g.item}
             onMarkedRead={() => markRead(g.item.id)}
+            systemAvatarUrl={systemAvatarUrl}
           />
         ) : (
           <NotificationGroupItem
@@ -212,6 +217,7 @@ export function NotificationsList({ viewerUserId, initial }: Props) {
             items={g.items}
             representative={g.representative}
             onMarkedRead={() => markRead(g.representative.id)}
+            systemAvatarUrl={systemAvatarUrl}
           />
         ),
       )}

@@ -81,7 +81,7 @@
       "strike_revoked": "Uno dei tuoi strike è stato revocato da un moderatore"
     },
     "achievement": {
-      "first_like": "Il tuo post ha ricevuto la sua prima reazione 🎉",
+      "first_like": "<actor>{name}</actor> ha messo la prima reazione al tuo post 🎉",
       "post_viral_likes": "Il tuo post sta andando virale: {total_count} reazioni in poche ore",
       "post_viral_comments": "Il tuo post sta facendo discutere: {total_count} commenti in poche ore",
       "post_viral_reposts": "Il tuo post sta venendo citato molto: {total_count} repost in poche ore"
