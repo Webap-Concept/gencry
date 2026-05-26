@@ -179,82 +179,115 @@ export async function generatePostBodiesForDay(input: {
   );
 
   const marketLine = formatSnapshotForPrompt(input.marketSnapshot);
-  const userMessage = buildUserMessage(input.requests, input.dayLabel, marketLine);
-
   const client = new Anthropic({ apiKey });
 
-  let response;
-  try {
-    response = await client.messages.create({
-      model,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      temperature,
-      // System cached: lo stesso prompt e' riusato in tutti i batch
-      // della run -> Anthropic addebita solo input nuovo (user msg).
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new LlmContentError("api_error", `Claude call failed: ${message}`);
-  }
-
-  // Estraggo il primo blocco text dalla response.
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new LlmContentError("invalid_output", "Claude response: no text block");
-  }
-  const raw = textBlock.text.trim();
-
-  // Parse + validate.
-  let parsed: unknown;
-  try {
-    // Difensivo: alcuni run includono ```json``` fence nonostante l'istruzione.
-    const stripped = raw
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-    parsed = JSON.parse(stripped);
-  } catch (err) {
-    throw new LlmContentError(
-      "invalid_output",
-      `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
+  // Helper: 1 call → parsed posts (NO missing-refid throw, quello e' fuori).
+  async function callOnce(
+    requests: LlmPostRequest[],
+    isRetry: boolean,
+  ): Promise<LlmGeneratedPost[]> {
+    const userMessage = buildUserMessage(
+      requests,
+      input.dayLabel,
+      marketLine,
+      isRetry,
     );
+
+    let response;
+    try {
+      response = await client.messages.create({
+        model,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        temperature,
+        // System cached: lo stesso prompt e' riusato in tutti i batch
+        // della run -> Anthropic addebita solo input nuovo (user msg).
+        system: [
+          {
+            type: "text",
+            text: SYSTEM_PROMPT,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new LlmContentError("api_error", `Claude call failed: ${message}`);
+    }
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new LlmContentError("invalid_output", "Claude response: no text block");
+    }
+    const raw = textBlock.text.trim();
+
+    let parsed: unknown;
+    try {
+      const stripped = raw
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+      parsed = JSON.parse(stripped);
+    } catch (err) {
+      throw new LlmContentError(
+        "invalid_output",
+        `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
+      );
+    }
+
+    const result = OutputSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new LlmContentError(
+        "invalid_output",
+        `Schema validation failed: ${result.error.message}`,
+      );
+    }
+    return result.data.posts.map((p) => ({ refId: p.refId, body: p.body }));
   }
 
-  const result = OutputSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new LlmContentError(
-      "invalid_output",
-      `Schema validation failed: ${result.error.message}`,
-    );
-  }
+  // Call 1: tutti i requests.
+  const firstPass = await callOnce(input.requests, false);
 
-  // Verifica refId coverage: tutti gli input devono avere un match.
+  // Coverage check + 1 retry per i mancanti. Claude haiku in batch
+  // piccoli capita salti qualche elemento; il retry con prompt piu'
+  // stretto recupera nel 95%+ dei casi.
   const expectedRefIds = new Set(input.requests.map((r) => r.refId));
-  const returnedRefIds = new Set(result.data.posts.map((p) => p.refId));
-  const missing: string[] = [];
-  for (const ref of expectedRefIds) {
-    if (!returnedRefIds.has(ref)) missing.push(ref);
+  const collected = new Map<string, string>();
+  for (const p of firstPass) {
+    if (expectedRefIds.has(p.refId)) collected.set(p.refId, p.body);
   }
-  if (missing.length > 0) {
+
+  const missingAfterFirst = input.requests.filter(
+    (r) => !collected.has(r.refId),
+  );
+  if (missingAfterFirst.length > 0) {
+    console.warn(
+      `[seeders/llm] post retry: ${missingAfterFirst.length}/${input.requests.length} missing after first pass`,
+    );
+    const retryPass = await callOnce(missingAfterFirst, true);
+    for (const p of retryPass) {
+      if (expectedRefIds.has(p.refId) && !collected.has(p.refId)) {
+        collected.set(p.refId, p.body);
+      }
+    }
+  }
+
+  // Final coverage: se anche il retry non basta, throw (strict mode).
+  const stillMissing: string[] = [];
+  for (const ref of expectedRefIds) {
+    if (!collected.has(ref)) stillMissing.push(ref);
+  }
+  if (stillMissing.length > 0) {
     throw new LlmContentError(
       "missing_refs",
-      `Claude has skipped ${missing.length} refId(s) out of ${expectedRefIds.size}`,
+      `Claude has skipped ${stillMissing.length}/${expectedRefIds.size} refId(s) even after 1 retry`,
     );
   }
 
-  // Filter out eventual extra-refId (Claude ne ha tirati fuori in piu'),
-  // mantenendo solo i match agli input.
-  return result.data.posts
-    .filter((p) => expectedRefIds.has(p.refId))
-    .map((p) => ({ refId: p.refId, body: p.body }));
+  return input.requests.map((r) => ({
+    refId: r.refId,
+    body: collected.get(r.refId)!,
+  }));
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -345,74 +378,99 @@ export async function generateCommentBodiesForDay(input: {
     1,
   );
 
-  const userMessage = buildCommentUserMessage(input.requests, input.dayLabel);
-
   const client = new Anthropic({ apiKey });
 
-  let response;
-  try {
-    response = await client.messages.create({
-      model,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      temperature,
-      system: [
-        {
-          type: "text",
-          text: COMMENT_SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [{ role: "user", content: userMessage }],
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new LlmContentError("api_error", `Claude call failed: ${message}`);
+  async function callOnce(
+    requests: LlmCommentRequest[],
+    isRetry: boolean,
+  ): Promise<LlmGeneratedComment[]> {
+    const userMessage = buildCommentUserMessage(requests, input.dayLabel, isRetry);
+
+    let response;
+    try {
+      response = await client.messages.create({
+        model,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        temperature,
+        system: [
+          {
+            type: "text",
+            text: COMMENT_SYSTEM_PROMPT,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [{ role: "user", content: userMessage }],
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new LlmContentError("api_error", `Claude call failed: ${message}`);
+    }
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new LlmContentError("invalid_output", "Claude response: no text block");
+    }
+    const raw = textBlock.text.trim();
+
+    let parsed: unknown;
+    try {
+      const stripped = raw
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+      parsed = JSON.parse(stripped);
+    } catch (err) {
+      throw new LlmContentError(
+        "invalid_output",
+        `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
+      );
+    }
+
+    const result = CommentOutputSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new LlmContentError(
+        "invalid_output",
+        `Schema validation failed: ${result.error.message}`,
+      );
+    }
+    return result.data.comments.map((c) => ({ refId: c.refId, body: c.body }));
   }
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new LlmContentError("invalid_output", "Claude response: no text block");
-  }
-  const raw = textBlock.text.trim();
-
-  let parsed: unknown;
-  try {
-    const stripped = raw
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
-    parsed = JSON.parse(stripped);
-  } catch (err) {
-    throw new LlmContentError(
-      "invalid_output",
-      `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. Raw: ${raw.slice(0, 200)}`,
-    );
-  }
-
-  const result = CommentOutputSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new LlmContentError(
-      "invalid_output",
-      `Schema validation failed: ${result.error.message}`,
-    );
-  }
-
+  // Call 1 + 1 retry singolo per refId mancanti (stesso pattern dei posts).
+  const firstPass = await callOnce(input.requests, false);
   const expectedRefIds = new Set(input.requests.map((r) => r.refId));
-  const returnedRefIds = new Set(result.data.comments.map((c) => c.refId));
-  const missing: string[] = [];
-  for (const ref of expectedRefIds) {
-    if (!returnedRefIds.has(ref)) missing.push(ref);
+  const collected = new Map<string, string>();
+  for (const c of firstPass) {
+    if (expectedRefIds.has(c.refId)) collected.set(c.refId, c.body);
   }
-  if (missing.length > 0) {
+  const missingAfterFirst = input.requests.filter(
+    (r) => !collected.has(r.refId),
+  );
+  if (missingAfterFirst.length > 0) {
+    console.warn(
+      `[seeders/llm] comment retry: ${missingAfterFirst.length}/${input.requests.length} missing after first pass`,
+    );
+    const retryPass = await callOnce(missingAfterFirst, true);
+    for (const c of retryPass) {
+      if (expectedRefIds.has(c.refId) && !collected.has(c.refId)) {
+        collected.set(c.refId, c.body);
+      }
+    }
+  }
+  const stillMissing: string[] = [];
+  for (const ref of expectedRefIds) {
+    if (!collected.has(ref)) stillMissing.push(ref);
+  }
+  if (stillMissing.length > 0) {
     throw new LlmContentError(
       "missing_refs",
-      `Claude has skipped ${missing.length} comment refId(s) out of ${expectedRefIds.size}`,
+      `Claude has skipped ${stillMissing.length}/${expectedRefIds.size} comment refId(s) even after 1 retry`,
     );
   }
-
-  return result.data.comments
-    .filter((c) => expectedRefIds.has(c.refId))
-    .map((c) => ({ refId: c.refId, body: c.body }));
+  return input.requests.map((r) => ({
+    refId: r.refId,
+    body: collected.get(r.refId)!,
+  }));
 }
 
 function truncateForContext(text: string, max = 300): string {
@@ -423,8 +481,15 @@ function truncateForContext(text: string, max = 300): string {
 function buildCommentUserMessage(
   requests: LlmCommentRequest[],
   dayLabel: string,
+  isRetry: boolean,
 ): string {
   const lines: string[] = [];
+  if (isRetry) {
+    lines.push(
+      `# RETRY — nel pass precedente hai SALTATO ${requests.length} elemento/i. Questa volta DEVI restituire ESATTAMENTE ${requests.length} oggetto/i nell'array "comments", uno per ogni refId qui sotto. Niente accorpamenti, niente skip. Niente eccezioni.`,
+    );
+    lines.push("");
+  }
   lines.push(`# Data del giorno: ${dayLabel}`);
   lines.push("");
   lines.push(`# Commenti da generare (${requests.length}):`);
@@ -440,7 +505,7 @@ function buildCommentUserMessage(
   }
   lines.push("");
   lines.push(
-    `Restituisci JSON { "comments": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi.`,
+    `Restituisci JSON { "comments": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi (uno per refId, nessuna eccezione).`,
   );
   return lines.join("\n");
 }
@@ -456,8 +521,15 @@ function buildUserMessage(
   requests: LlmPostRequest[],
   dayLabel: string,
   marketLine: string,
+  isRetry: boolean,
 ): string {
   const lines: string[] = [];
+  if (isRetry) {
+    lines.push(
+      `# RETRY — nel pass precedente hai SALTATO ${requests.length} elemento/i. Questa volta DEVI restituire ESATTAMENTE ${requests.length} oggetto/i nell'array "posts", uno per ogni refId qui sotto. Niente accorpamenti, niente skip. Niente eccezioni.`,
+    );
+    lines.push("");
+  }
   lines.push(`# Data del giorno: ${dayLabel}`);
   if (marketLine) {
     lines.push(`# Market snapshot a questo giorno: ${marketLine}`);
@@ -475,7 +547,7 @@ function buildUserMessage(
   }
   lines.push("");
   lines.push(
-    `Restituisci JSON { "posts": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi.`,
+    `Restituisci JSON { "posts": [{ "refId": "...", "body": "..." }, ...] } con ESATTAMENTE ${requests.length} elementi (uno per refId, nessuna eccezione).`,
   );
   return lines.join("\n");
 }
