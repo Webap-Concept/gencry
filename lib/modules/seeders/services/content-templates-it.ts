@@ -20,9 +20,18 @@ export const LAST_NAMES_IT = [
   "Mariani", "Rinaldi", "Caruso", "Ferrara", "Galli", "Martinelli",
 ];
 
+// Suffix per username. Mix di:
+//   - on-theme crypto (_btc, _eth, _hodl, _defi, _sats, _dao, _lp, ...)
+//   - year-of-birth realistici (_99, _07, _22, ...) — pattern Twitter/IG
+//   - 4 stringhe vuote = ~20% senza suffix
+//
+// Tolti `_42` (Hitchhiker meme) e `_88` (lottery): stonavano in un social
+// crypto e producevano un pattern ricorrente visivamente fastidioso.
 export const USERNAME_SUFFIXES = [
-  "_crypto", "_btc", "_eth", "_hodl", "_42", "_88", "_trader", "_to_the_moon",
-  "_defi", "_nft", "_chain", "_node", "", "", "", "", // alcuni senza suffix
+  "_crypto", "_btc", "_eth", "_hodl", "_sats", "_dao", "_lp",
+  "_trader", "_to_the_moon", "_defi", "_nft", "_chain", "_node",
+  "_07", "_99", "_22",
+  "", "", "", "",
 ];
 
 export const BIO_TEMPLATES_IT = [
