@@ -46,6 +46,7 @@ const SECTION_MAP: Record<string, AdminCurrentSection> = {
   "modules/seeders":       { iconName: "Sprout",       label: "Seeders" },
   "modules/onboarding":    { iconName: "Sparkles",     label: "Onboarding" },
   "modules/notifications": { iconName: "Bell",         label: "Notifications" },
+  "modules/news":          { iconName: "Newspaper",    label: "News" },
 };
 
 /**
