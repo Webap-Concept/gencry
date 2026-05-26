@@ -38,8 +38,20 @@
       "viral_likes_enabled_help": "Emette una notifica quando il post supera la soglia di reazioni dentro la finestra. Una volta sola per post.",
       "viral_likes_threshold_label": "Soglia reazioni post virale",
       "viral_likes_threshold_help": "Numero di reazioni totali necessarie per scatenare la notifica viral. Default 50 (preset beta).",
-      "viral_likes_window_hours_label": "Finestra post virale (ore)",
-      "viral_likes_window_hours_help": "Tempo dalla pubblicazione del post entro cui la soglia deve essere raggiunta. Oltre questa finestra il post non viene più segnato come virale.",
+      "viral_likes_window_hours_label": "Finestra reazioni virali (ore)",
+      "viral_likes_window_hours_help": "Tempo dalla pubblicazione del post entro cui la soglia reazioni deve essere raggiunta. Oltre questa finestra il post non viene più segnato come virale.",
+      "viral_comments_enabled_label": "Notifica post con molti commenti",
+      "viral_comments_enabled_help": "Emette una notifica quando il post supera la soglia di commenti dentro la finestra. Una volta sola per post.",
+      "viral_comments_threshold_label": "Soglia commenti post virale",
+      "viral_comments_threshold_help": "Numero di commenti totali necessari per scatenare la notifica. Default 10 (preset beta) — commenti pesano più di reazioni come segnale.",
+      "viral_comments_window_hours_label": "Finestra commenti virali (ore)",
+      "viral_comments_window_hours_help": "Tempo dalla pubblicazione entro cui la soglia commenti deve essere raggiunta.",
+      "viral_reposts_enabled_label": "Notifica post molto citato",
+      "viral_reposts_enabled_help": "Emette una notifica quando il post supera la soglia di repost dentro la finestra. Una volta sola per post.",
+      "viral_reposts_threshold_label": "Soglia repost post virale",
+      "viral_reposts_threshold_help": "Numero di repost totali necessari per scatenare la notifica. Default 5 (preset beta) — il repost è il segnale più 'forte'.",
+      "viral_reposts_window_hours_label": "Finestra repost virali (ore)",
+      "viral_reposts_window_hours_help": "Tempo dalla pubblicazione entro cui la soglia repost deve essere raggiunta.",
       "save": "Salva",
       "saved": "Impostazioni salvate."
     },
@@ -70,7 +82,9 @@
     },
     "achievement": {
       "first_like": "Il tuo post ha ricevuto la sua prima reazione 🎉",
-      "post_viral_likes": "Il tuo post sta andando virale: {total_count} reazioni in poche ore"
+      "post_viral_likes": "Il tuo post sta andando virale: {total_count} reazioni in poche ore",
+      "post_viral_comments": "Il tuo post sta facendo discutere: {total_count} commenti in poche ore",
+      "post_viral_reposts": "Il tuo post sta venendo citato molto: {total_count} repost in poche ore"
     }
   }
 }

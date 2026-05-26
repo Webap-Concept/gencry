@@ -172,7 +172,9 @@ export function resolveNotificationTarget(
         templateValues: {},
       };
     }
-    case "achievement.post_viral_likes": {
+    case "achievement.post_viral_likes":
+    case "achievement.post_viral_comments":
+    case "achievement.post_viral_reposts": {
       if (!postId) return null;
       const totalRaw = payload.total_count;
       const total =
@@ -183,7 +185,7 @@ export function resolveNotificationTarget(
             : "";
       return {
         href: `/post/${postId}`,
-        summaryKey: "achievement.post_viral_likes",
+        summaryKey: type as NotificationType,
         reactionKind: null,
         postPreview,
         commentPreview: null,

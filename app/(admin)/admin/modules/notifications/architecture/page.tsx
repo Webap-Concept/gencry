@@ -31,7 +31,7 @@ import { NOTIFICATIONS_MODULE } from "@/lib/modules/notifications/manifest";
 
 export const metadata: Metadata = { title: "Notifications / Architettura" };
 
-const REVIEWED_AT = "2026-05-26 (achievements V1 + admin UI cleanup)";
+const REVIEWED_AT = "2026-05-26 (achievements V2: comments + reposts)";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -162,18 +162,31 @@ export default function NotificationsArchitecturePage() {
           icon={Bell}
           intro="Decisione product 2026-05-26: niente email per ogni azione (rumore → utente disabilita), solo email su milestone significativi. Implementazione PUSH (no polling): i trigger DB esistenti rilevano il crossing della soglia inline col counter update.">
           <p>
-            <strong>Eventi V1</strong> (estendibili via <code>app_settings</code> + nuove regole in plpgsql):
+            <strong>Eventi attivi</strong> (estendibili via <code>app_settings</code> + nuove regole in plpgsql):
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
               <code>achievement.first_like</code> — emesso quando il post
-              riceve la sua prima reazione in assoluto. Motivazionale.
+              riceve la sua prima reazione in assoluto. Motivazionale.{" "}
+              <em>(M_notifications_002)</em>
             </li>
             <li>
               <code>achievement.post_viral_likes</code> — emesso quando il
               post supera la soglia configurabile di reazioni dentro la
-              finestra dalla pubblicazione (default 50 in 24h, preset
-              alpha/beta/growth/scale nel manifest capacityProfile).
+              finestra dalla pubblicazione (default 50 in 24h).{" "}
+              <em>(M_notifications_002)</em>
+            </li>
+            <li>
+              <code>achievement.post_viral_comments</code> — emesso quando
+              il post supera la soglia di commenti dentro la finestra
+              (default 10 in 24h). Segnale più "forte" del like.{" "}
+              <em>(M_notifications_003)</em>
+            </li>
+            <li>
+              <code>achievement.post_viral_reposts</code> — emesso quando
+              il post viene citato N volte dentro la finestra (default 5
+              in 24h). Conteggio sul TARGET, non sul quote.{" "}
+              <em>(M_notifications_003)</em>
             </li>
           </ul>
 
@@ -225,23 +238,17 @@ export default function NotificationsArchitecturePage() {
           <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
             Settings tunabili
           </h3>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <code>modules.notifications.achievements.first_like_enabled</code>{" "}
-              (default <code>true</code>)
-            </li>
-            <li>
-              <code>modules.notifications.achievements.viral_likes_enabled</code>{" "}
-              (default <code>true</code>)
-            </li>
-            <li>
-              <code>modules.notifications.achievements.viral_likes_threshold</code>{" "}
-              (int, default <code>50</code>)
-            </li>
-            <li>
-              <code>modules.notifications.achievements.viral_likes_window_hours</code>{" "}
-              (int, default <code>24</code>)
-            </li>
+          <p className="text-xs text-[var(--admin-text-muted)]">
+            10 keys totali sotto il namespace{" "}
+            <code>modules.notifications.achievements.*</code> — vedi i 4 preset
+            (alpha/beta/growth/scale) nel manifest capacityProfile e nel form
+            admin.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-xs font-mono">
+            <li>first_like_enabled (default true)</li>
+            <li>viral_likes_enabled / _threshold (50) / _window_hours (24)</li>
+            <li>viral_comments_enabled / _threshold (10) / _window_hours (24)</li>
+            <li>viral_reposts_enabled / _threshold (5) / _window_hours (24)</li>
           </ul>
           <p>
             4 preset alpha/beta/growth/scale dichiarati nel manifest
@@ -251,7 +258,7 @@ export default function NotificationsArchitecturePage() {
           </p>
 
           <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
-            Cosa NON c'è (intenzionalmente V1)
+            Cosa NON c'è (intenzionalmente V2)
           </h3>
           <ul className="list-disc pl-5 space-y-1">
             <li>
@@ -262,9 +269,9 @@ export default function NotificationsArchitecturePage() {
               template dedicato.
             </li>
             <li>
-              <strong>Achievement su commenti/repost</strong>: solo
-              reactions in V1. Estendibili in stessi pattern sui rispettivi
-              counter trigger.
+              <strong>first_comment / first_repost</strong>: intenzionalmente
+              skippati — il "primo commento" è più rumoroso del primo like
+              (utenti che commentano sempre). Riaprire se diventa necessario.
             </li>
             <li>
               <strong>User opt-in preferences per tipo</strong>: PR-4
@@ -326,10 +333,10 @@ export default function NotificationsArchitecturePage() {
               trigger="Richieste utente / feedback spam"
             />
             <ArchFutureCard
-              tier={2}
-              title="Achievement su commenti / repost"
-              description="Estensione del pattern V1 (oggi solo reactions). Trigger posts_comments_counter_trg + posts_repost_counter_trg con check inline analoghi. Es. achievement.post_viral_comments (10 commenti in 1h), achievement.quote_echo (5 repost in 24h)."
-              trigger="Quando V1 viene osservato in prod e calibriamo le soglie"
+              tier={3}
+              title="first_comment / first_repost"
+              description="V2 ha intenzionalmente skippato i 'first_*' per commenti e repost. Riaprire se in produzione si dimostra utile (oggi: rumore percepito)."
+              trigger="Se dopo l'apertura pubblica utenti chiedono il primo commento"
             />
             <ArchFutureCard
               tier={2}
@@ -364,6 +371,7 @@ export default function NotificationsArchitecturePage() {
             <ArchFileLink path="lib/modules/notifications/messages/{it,en}/notifications.json" description="i18n del modulo" />
             <ArchFileLink path="lib/db/migrations/M_notifications_001_init.sql" description="Tabella + 3 indici + trigger fanout + RLS + publication + settings + permission" />
             <ArchFileLink path="lib/db/migrations/M_notifications_002_achievements.sql" description="Achievement V1: colonna posts.achievements_emitted + estensione trigger reactions counter + branch achievement.* nel fanout" />
+            <ArchFileLink path="lib/db/migrations/M_notifications_003_viral_engagement.sql" description="Achievement V2: estende posts_comments_counter_trg + posts_repost_counter_trg con check viral_comments / viral_reposts. Fanout esteso con i 2 nuovi event types." />
             <ArchFileLink path="lib/db/migrations/M_notifications_999_uninstall.sql" description="Rollback completo del modulo" />
             <ArchFileLink path="lib/modules/notifications/notification-targets.ts" description="Mappa (type, payload) → href + summaryKey i18n + templateValues. Source of truth per UI + email digest futuro" />
             <ArchFileLink path="app/(admin)/admin/modules/notifications/page.tsx" description="Overview: module status + 3 health cards (chrome dal layout)" />
@@ -385,9 +393,9 @@ export default function NotificationsArchitecturePage() {
               spostare il fanout in un cron async se p99 del trigger &gt; 50ms.
             </li>
             <li>
-              <strong>SQL ↔ TS</strong>: i 10 event_type (5 social + 3
-              moderation + 2 achievement) sono dichiarati in 3+ posti —
-              trigger plpgsql (M_notifications_001/002), const{" "}
+              <strong>SQL ↔ TS</strong>: i 12 event_type (5 social + 3
+              moderation + 4 achievement) sono dichiarati in 3+ posti —
+              trigger plpgsql (M_notifications_001/002/003), const{" "}
               <code>NOTIFICATION_TYPES</code> in schema.ts, i18n{" "}
               <code>types.*</code> in notifications.json,{" "}
               <code>notification-targets.ts</code>. Aggiungere un tipo
@@ -409,12 +417,16 @@ export default function NotificationsArchitecturePage() {
               caching in-memory plpgsql (GUC) o pass via param NEW.payload.
             </li>
             <li>
-              <strong>Achievement settings lookup (M_notifications_002)</strong>:
-              il counter trigger fa 4 SELECT su <code>app_settings</code> ad
-              ogni reaction insert per leggere le soglie achievement. Stesso
-              caveat: trascurabile a scala alpha/beta, ma a scaling alto
-              valutare GUC caching o materializzare le keys in un'unica row
-              snapshot.
+              <strong>Achievement settings lookup (M_notifications_002/003)</strong>:
+              ciascun counter trigger fa 3-4 SELECT su <code>app_settings</code>{" "}
+              ad ogni insert per leggere le soglie achievement. Stesso caveat:
+              trascurabile a scala alpha/beta (~10 SELECT/sec totali), ma a
+              scaling alto valutare GUC caching o materializzare le keys in
+              un'unica row snapshot. Considerato che reactions/commenti/repost
+              vengono inseriti dagli stessi utenti in stream, ~10 settings
+              lookup per request ≈ stesso costo dell'ex-query{" "}
+              <code>SELECT * FROM app_settings</code> (audit egress
+              2026-05-25). Re-misurare se p99 degrada.
             </li>
             <li>
               <strong>Achievement self-notify</strong>: gli eventi{" "}

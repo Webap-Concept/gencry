@@ -242,6 +242,12 @@ export type SettingKey =
   | 'modules.notifications.achievements.viral_likes_enabled'        // 'true'|'false', emette achievement.post_viral_likes (default true)
   | 'modules.notifications.achievements.viral_likes_threshold'      // int reactions totali (default 50)
   | 'modules.notifications.achievements.viral_likes_window_hours'   // int ore dalla pubblicazione (default 24)
+  | 'modules.notifications.achievements.viral_comments_enabled'     // 'true'|'false', emette achievement.post_viral_comments (default true)
+  | 'modules.notifications.achievements.viral_comments_threshold'   // int commenti totali (default 10)
+  | 'modules.notifications.achievements.viral_comments_window_hours'// int ore dalla pubblicazione (default 24)
+  | 'modules.notifications.achievements.viral_reposts_enabled'      // 'true'|'false', emette achievement.post_viral_reposts (default true)
+  | 'modules.notifications.achievements.viral_reposts_threshold'    // int repost totali (default 5)
+  | 'modules.notifications.achievements.viral_reposts_window_hours' // int ore dalla pubblicazione (default 24)
   // Modulo news (curated content pipeline)
   | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
   | 'modules.news.publisher_batch_size'            // cron publisher N items/run
@@ -516,6 +522,12 @@ export type AppSettings = {
   'modules.notifications.achievements.viral_likes_enabled': string
   'modules.notifications.achievements.viral_likes_threshold': string
   'modules.notifications.achievements.viral_likes_window_hours': string
+  'modules.notifications.achievements.viral_comments_enabled': string
+  'modules.notifications.achievements.viral_comments_threshold': string
+  'modules.notifications.achievements.viral_comments_window_hours': string
+  'modules.notifications.achievements.viral_reposts_enabled': string
+  'modules.notifications.achievements.viral_reposts_threshold': string
+  'modules.notifications.achievements.viral_reposts_window_hours': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -757,6 +769,12 @@ const DEFAULTS: AppSettings = {
   'modules.notifications.achievements.viral_likes_enabled': 'true',
   'modules.notifications.achievements.viral_likes_threshold': '50',
   'modules.notifications.achievements.viral_likes_window_hours': '24',
+  'modules.notifications.achievements.viral_comments_enabled': 'true',
+  'modules.notifications.achievements.viral_comments_threshold': '10',
+  'modules.notifications.achievements.viral_comments_window_hours': '24',
+  'modules.notifications.achievements.viral_reposts_enabled': 'true',
+  'modules.notifications.achievements.viral_reposts_threshold': '5',
+  'modules.notifications.achievements.viral_reposts_window_hours': '24',
   // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
   // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
   'modules.news.rewrite_batch_size': '3',

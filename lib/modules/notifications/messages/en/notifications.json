@@ -36,10 +36,22 @@
       "first_like_enabled_help": "Emit a notification when the post gets its very first reaction. Motivational for new users.",
       "viral_likes_enabled_label": "Notify viral post",
       "viral_likes_enabled_help": "Emit a notification when the post crosses the reaction threshold within the window. Fires once per post.",
-      "viral_likes_threshold_label": "Viral-post reactions threshold",
+      "viral_likes_threshold_label": "Viral reactions threshold",
       "viral_likes_threshold_help": "Total reactions needed to fire the viral notification. Default 50 (beta preset).",
-      "viral_likes_window_hours_label": "Viral-post window (hours)",
-      "viral_likes_window_hours_help": "Time from post publication within which the threshold must be reached. After this window the post no longer qualifies as viral.",
+      "viral_likes_window_hours_label": "Viral reactions window (hours)",
+      "viral_likes_window_hours_help": "Time from post publication within which the reactions threshold must be reached. After this window the post no longer qualifies as viral.",
+      "viral_comments_enabled_label": "Notify viral comments",
+      "viral_comments_enabled_help": "Emit a notification when the post crosses the comments threshold within the window. Fires once per post.",
+      "viral_comments_threshold_label": "Viral comments threshold",
+      "viral_comments_threshold_help": "Total comments needed to fire the notification. Default 10 (beta preset) — comments are a stronger signal than reactions.",
+      "viral_comments_window_hours_label": "Viral comments window (hours)",
+      "viral_comments_window_hours_help": "Time from post publication within which the comments threshold must be reached.",
+      "viral_reposts_enabled_label": "Notify viral reposts",
+      "viral_reposts_enabled_help": "Emit a notification when the post crosses the reposts threshold within the window. Fires once per post.",
+      "viral_reposts_threshold_label": "Viral reposts threshold",
+      "viral_reposts_threshold_help": "Total reposts needed to fire the notification. Default 5 (beta preset) — repost is the strongest engagement signal.",
+      "viral_reposts_window_hours_label": "Viral reposts window (hours)",
+      "viral_reposts_window_hours_help": "Time from post publication within which the reposts threshold must be reached.",
       "save": "Save",
       "saved": "Settings saved."
     },
@@ -70,7 +82,9 @@
     },
     "achievement": {
       "first_like": "Your post got its first reaction 🎉",
-      "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours"
+      "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours",
+      "post_viral_comments": "Your post is starting a conversation: {total_count} comments in just hours",
+      "post_viral_reposts": "Your post is being widely shared: {total_count} reposts in just hours"
     }
   }
 }

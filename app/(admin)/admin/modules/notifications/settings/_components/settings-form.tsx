@@ -24,6 +24,12 @@ export type NotificationsSettingsInitial = {
   viralLikesEnabled: boolean;
   viralLikesThreshold: number;
   viralLikesWindowHours: number;
+  viralCommentsEnabled: boolean;
+  viralCommentsThreshold: number;
+  viralCommentsWindowHours: number;
+  viralRepostsEnabled: boolean;
+  viralRepostsThreshold: number;
+  viralRepostsWindowHours: number;
 };
 
 export function NotificationsSettingsForm({
@@ -112,6 +118,60 @@ export function NotificationsSettingsForm({
           label={t("viral_likes_window_hours_label")}
           help={t("viral_likes_window_hours_help")}
           defaultValue={initial.viralLikesWindowHours}
+          min={1}
+          max={720}
+        />
+
+        <div className="border-t border-[var(--admin-card-border)] pt-4" />
+
+        <CheckboxField
+          name="viral_comments_enabled"
+          label={t("viral_comments_enabled_label")}
+          help={t("viral_comments_enabled_help")}
+          defaultChecked={initial.viralCommentsEnabled}
+        />
+
+        <NumberField
+          name="viral_comments_threshold"
+          label={t("viral_comments_threshold_label")}
+          help={t("viral_comments_threshold_help")}
+          defaultValue={initial.viralCommentsThreshold}
+          min={1}
+          max={10000}
+        />
+
+        <NumberField
+          name="viral_comments_window_hours"
+          label={t("viral_comments_window_hours_label")}
+          help={t("viral_comments_window_hours_help")}
+          defaultValue={initial.viralCommentsWindowHours}
+          min={1}
+          max={720}
+        />
+
+        <div className="border-t border-[var(--admin-card-border)] pt-4" />
+
+        <CheckboxField
+          name="viral_reposts_enabled"
+          label={t("viral_reposts_enabled_label")}
+          help={t("viral_reposts_enabled_help")}
+          defaultChecked={initial.viralRepostsEnabled}
+        />
+
+        <NumberField
+          name="viral_reposts_threshold"
+          label={t("viral_reposts_threshold_label")}
+          help={t("viral_reposts_threshold_help")}
+          defaultValue={initial.viralRepostsThreshold}
+          min={1}
+          max={10000}
+        />
+
+        <NumberField
+          name="viral_reposts_window_hours"
+          label={t("viral_reposts_window_hours_label")}
+          help={t("viral_reposts_window_hours_help")}
+          defaultValue={initial.viralRepostsWindowHours}
           min={1}
           max={720}
         />

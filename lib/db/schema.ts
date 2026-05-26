@@ -1816,11 +1816,13 @@ export const NOTIFICATION_TYPES = [
   "moderation.strike_received",
   "moderation.banned",
   "moderation.strike_revoked",
-  // Achievement events (M_notifications_002, decisione 2026-05-26):
-  // emessi dal trigger DB inline al counter update quando un post
-  // attraversa una soglia. Recipient = autore del post, actor = NULL.
+  // Achievement events (M_notifications_002+003, decisione 2026-05-26):
+  // emessi dai trigger DB counter inline al counter update quando un
+  // post attraversa una soglia. Recipient = autore del post, actor = NULL.
   "achievement.first_like",
   "achievement.post_viral_likes",
+  "achievement.post_viral_comments",
+  "achievement.post_viral_reposts",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

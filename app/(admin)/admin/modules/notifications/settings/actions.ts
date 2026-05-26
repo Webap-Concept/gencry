@@ -40,7 +40,7 @@ export async function saveNotificationsSettings(
   const pageSize = clampInt(formData.get("list_page_size"), 30, 5, 100);
   const retention = clampInt(formData.get("retention_days"), 180, 7, 3650);
 
-  // Achievement settings (V1)
+  // Achievement settings (V1 + V2 comments/reposts)
   const firstLikeEnabled = checkboxToBool(formData.get("first_like_enabled"));
   const viralLikesEnabled = checkboxToBool(formData.get("viral_likes_enabled"));
   const viralLikesThreshold = clampInt(
@@ -51,6 +51,32 @@ export async function saveNotificationsSettings(
   );
   const viralLikesWindowHours = clampInt(
     formData.get("viral_likes_window_hours"),
+    24,
+    1,
+    720,
+  );
+  const viralCommentsEnabled = checkboxToBool(formData.get("viral_comments_enabled"));
+  const viralCommentsThreshold = clampInt(
+    formData.get("viral_comments_threshold"),
+    10,
+    1,
+    10000,
+  );
+  const viralCommentsWindowHours = clampInt(
+    formData.get("viral_comments_window_hours"),
+    24,
+    1,
+    720,
+  );
+  const viralRepostsEnabled = checkboxToBool(formData.get("viral_reposts_enabled"));
+  const viralRepostsThreshold = clampInt(
+    formData.get("viral_reposts_threshold"),
+    5,
+    1,
+    10000,
+  );
+  const viralRepostsWindowHours = clampInt(
+    formData.get("viral_reposts_window_hours"),
     24,
     1,
     720,
@@ -81,6 +107,30 @@ export async function saveNotificationsSettings(
     updateAppSetting(
       "modules.notifications.achievements.viral_likes_window_hours",
       String(viralLikesWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_enabled",
+      viralCommentsEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_threshold",
+      String(viralCommentsThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_window_hours",
+      String(viralCommentsWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_enabled",
+      viralRepostsEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_threshold",
+      String(viralRepostsThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_window_hours",
+      String(viralRepostsWindowHours),
     ),
   ]);
 
