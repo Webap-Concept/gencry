@@ -1,5 +1,5 @@
 "use server";
-// app/(admin)/admin/modules/notifications/templates/actions.ts
+// app/(admin)/admin/modules/notifications/email/actions.ts
 //
 // Save dei 4 template achievement email. V1 gestisce solo la locale
 // di default (it) salvata in `app_settings`. Multi-locale via tabella
@@ -59,7 +59,7 @@ export async function saveAchievementTemplates(
       }),
     );
     const adminSlug = await getAdminUrlSlug();
-    revalidatePath(`/${adminSlug}/modules/notifications/templates`);
+    revalidatePath(`/${adminSlug}/modules/notifications/email`);
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Save failed";

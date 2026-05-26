@@ -1,4 +1,4 @@
-// app/(admin)/admin/modules/notifications/templates/page.tsx
+// app/(admin)/admin/modules/notifications/email/page.tsx
 //
 // Form admin per editare i 4 template email achievement (subject +
 // body + footer ciascuno). V1 solo locale default (it). Le keys
@@ -11,15 +11,17 @@
 // con feedback_module_isolation.
 import type { Metadata } from "next";
 import { getAppSettings } from "@/lib/db/settings-queries";
+import { ACHIEVEMENT_EMAIL_DEFAULTS } from "@/lib/modules/notifications/email-channel/defaults";
 import { TemplatesForm } from "./_components/templates-form";
 
-export const metadata: Metadata = { title: "Notifications / Templates" };
+export const metadata: Metadata = { title: "Notifications / Email" };
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsTemplatesPage() {
   const settings = await getAppSettings();
   return (
     <TemplatesForm
+      defaults={ACHIEVEMENT_EMAIL_DEFAULTS}
       initial={{
         firstLikeSubject: settings["modules.notifications.email_achievement_first_like_subject"] ?? "",
         firstLikeBody: settings["modules.notifications.email_achievement_first_like_body"] ?? "",

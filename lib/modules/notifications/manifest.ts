@@ -142,9 +142,9 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
       permission: "modules:notifications",
     },
     {
-      key: "notifications-templates",
-      href: "/modules/notifications/templates",
-      label: "Templates",
+      key: "notifications-email",
+      href: "/modules/notifications/email",
+      label: "Email",
       icon: "Mail",
       permission: "modules:notifications",
     },

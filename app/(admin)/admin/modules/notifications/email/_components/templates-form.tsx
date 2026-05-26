@@ -1,5 +1,5 @@
 "use client";
-// app/(admin)/admin/modules/notifications/templates/_components/templates-form.tsx
+// app/(admin)/admin/modules/notifications/email/_components/templates-form.tsx
 //
 // Form per editare i 4 template achievement email. Una sezione per
 // template con subject (input), body (textarea), footer (input).
@@ -25,6 +25,24 @@ export type TemplatesInitial = {
   viralRepostsFooter: string;
 };
 
+/** Defaults code-side per ogni field. Usati come `placeholder` degli
+ *  input/textarea così l'admin vede esattamente cosa arriva se lascia
+ *  vuoto, invece di un generico "lascia vuoto per default". */
+export type TemplatesDefaults = {
+  readonly firstLikeSubject: string;
+  readonly firstLikeBody: string;
+  readonly firstLikeFooter: string;
+  readonly viralLikesSubject: string;
+  readonly viralLikesBody: string;
+  readonly viralLikesFooter: string;
+  readonly viralCommentsSubject: string;
+  readonly viralCommentsBody: string;
+  readonly viralCommentsFooter: string;
+  readonly viralRepostsSubject: string;
+  readonly viralRepostsBody: string;
+  readonly viralRepostsFooter: string;
+};
+
 type TemplateSpec = {
   id: "firstLike" | "viralLikes" | "viralComments" | "viralReposts";
   titleKey: string;
@@ -38,6 +56,9 @@ type TemplateSpec = {
   initialSubjectKey: keyof TemplatesInitial;
   initialBodyKey: keyof TemplatesInitial;
   initialFooterKey: keyof TemplatesInitial;
+  defaultSubjectKey: keyof TemplatesDefaults;
+  defaultBodyKey: keyof TemplatesDefaults;
+  defaultFooterKey: keyof TemplatesDefaults;
 };
 
 const TEMPLATES: TemplateSpec[] = [
@@ -50,6 +71,9 @@ const TEMPLATES: TemplateSpec[] = [
     initialSubjectKey: "firstLikeSubject",
     initialBodyKey: "firstLikeBody",
     initialFooterKey: "firstLikeFooter",
+    defaultSubjectKey: "firstLikeSubject",
+    defaultBodyKey: "firstLikeBody",
+    defaultFooterKey: "firstLikeFooter",
   },
   {
     id: "viralLikes",
@@ -60,6 +84,9 @@ const TEMPLATES: TemplateSpec[] = [
     initialSubjectKey: "viralLikesSubject",
     initialBodyKey: "viralLikesBody",
     initialFooterKey: "viralLikesFooter",
+    defaultSubjectKey: "viralLikesSubject",
+    defaultBodyKey: "viralLikesBody",
+    defaultFooterKey: "viralLikesFooter",
   },
   {
     id: "viralComments",
@@ -70,6 +97,9 @@ const TEMPLATES: TemplateSpec[] = [
     initialSubjectKey: "viralCommentsSubject",
     initialBodyKey: "viralCommentsBody",
     initialFooterKey: "viralCommentsFooter",
+    defaultSubjectKey: "viralCommentsSubject",
+    defaultBodyKey: "viralCommentsBody",
+    defaultFooterKey: "viralCommentsFooter",
   },
   {
     id: "viralReposts",
@@ -80,11 +110,20 @@ const TEMPLATES: TemplateSpec[] = [
     initialSubjectKey: "viralRepostsSubject",
     initialBodyKey: "viralRepostsBody",
     initialFooterKey: "viralRepostsFooter",
+    defaultSubjectKey: "viralRepostsSubject",
+    defaultBodyKey: "viralRepostsBody",
+    defaultFooterKey: "viralRepostsFooter",
   },
 ];
 
-export function TemplatesForm({ initial }: { initial: TemplatesInitial }) {
-  const t = useTranslations("notifications.admin.templates");
+export function TemplatesForm({
+  initial,
+  defaults,
+}: {
+  initial: TemplatesInitial;
+  defaults: TemplatesDefaults;
+}) {
+  const t = useTranslations("notifications.admin.email");
   const [state, formAction, pending] = useActionState<
     TemplatesSaveResult | null,
     FormData
@@ -118,7 +157,7 @@ export function TemplatesForm({ initial }: { initial: TemplatesInitial }) {
               type="text"
               name={`${tpl.keyPrefix}_subject`}
               defaultValue={initial[tpl.initialSubjectKey]}
-              placeholder={t("subject_placeholder")}
+              placeholder={defaults[tpl.defaultSubjectKey]}
               style={adminFieldStyle}
             />
           </label>
@@ -130,7 +169,7 @@ export function TemplatesForm({ initial }: { initial: TemplatesInitial }) {
             <textarea
               name={`${tpl.keyPrefix}_body`}
               defaultValue={initial[tpl.initialBodyKey]}
-              placeholder={t("body_placeholder")}
+              placeholder={defaults[tpl.defaultBodyKey]}
               rows={6}
               style={{ ...adminFieldStyle, fontFamily: "inherit" }}
             />
@@ -144,7 +183,7 @@ export function TemplatesForm({ initial }: { initial: TemplatesInitial }) {
               type="text"
               name={`${tpl.keyPrefix}_footer`}
               defaultValue={initial[tpl.initialFooterKey]}
-              placeholder={t("footer_placeholder")}
+              placeholder={defaults[tpl.defaultFooterKey]}
               style={adminFieldStyle}
             />
           </label>
