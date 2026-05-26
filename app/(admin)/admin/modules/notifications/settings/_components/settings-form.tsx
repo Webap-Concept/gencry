@@ -30,6 +30,8 @@ export type NotificationsSettingsInitial = {
   viralRepostsEnabled: boolean;
   viralRepostsThreshold: number;
   viralRepostsWindowHours: number;
+  emailSendEnabled: boolean;
+  emailGraceSeconds: number;
 };
 
 export function NotificationsSettingsForm({
@@ -174,6 +176,33 @@ export function NotificationsSettingsForm({
           defaultValue={initial.viralRepostsWindowHours}
           min={1}
           max={720}
+        />
+      </section>
+
+      <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 space-y-4">
+        <header>
+          <h2 className="text-base font-semibold text-[var(--admin-text)]">
+            {t("email_section_title")}
+          </h2>
+          <p className="text-sm text-[var(--admin-text-muted)] mt-0.5">
+            {t("email_section_help")}
+          </p>
+        </header>
+
+        <CheckboxField
+          name="email_send_enabled"
+          label={t("email_send_enabled_label")}
+          help={t("email_send_enabled_help")}
+          defaultChecked={initial.emailSendEnabled}
+        />
+
+        <NumberField
+          name="email_grace_seconds"
+          label={t("email_grace_seconds_label")}
+          help={t("email_grace_seconds_help")}
+          defaultValue={initial.emailGraceSeconds}
+          min={0}
+          max={3600}
         />
       </section>
 

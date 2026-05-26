@@ -52,6 +52,12 @@
       "viral_reposts_threshold_help": "Numero di repost totali necessari per scatenare la notifica. Default 5 (preset beta) — il repost è il segnale più 'forte'.",
       "viral_reposts_window_hours_label": "Finestra repost virali (ore)",
       "viral_reposts_window_hours_help": "Tempo dalla pubblicazione entro cui la soglia repost deve essere raggiunta.",
+      "email_section_title": "Email delivery",
+      "email_section_help": "Le notifiche achievement vengono spedite via email all'autore del post. Il cron `modules-notifications-achievement-email` (vedi tab Cron) processa il backlog ogni 20 minuti. L'opt-out per-utente arriverà con PR-4.",
+      "email_send_enabled_label": "Spedisci email achievement",
+      "email_send_enabled_help": "Kill-switch globale: se disattivato, le notifiche restano in-app/realtime ma non vengono spedite via email. Default: attivo.",
+      "email_grace_seconds_label": "Grace window (secondi)",
+      "email_grace_seconds_help": "Quanti secondi attendere dopo la creazione di una notifica prima che il cron la spedisca. Buffer per evitare race con il trigger di fanout. Default 30.",
       "save": "Salva",
       "saved": "Impostazioni salvate."
     },

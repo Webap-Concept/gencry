@@ -82,6 +82,15 @@ export async function saveNotificationsSettings(
     720,
   );
 
+  // Email delivery (V3)
+  const emailSendEnabled = checkboxToBool(formData.get("email_send_enabled"));
+  const emailGraceSeconds = clampInt(
+    formData.get("email_grace_seconds"),
+    30,
+    0,
+    3600,
+  );
+
   await Promise.all([
     updateAppSetting(
       "modules.notifications.dedup_window_minutes",
@@ -131,6 +140,14 @@ export async function saveNotificationsSettings(
     updateAppSetting(
       "modules.notifications.achievements.viral_reposts_window_hours",
       String(viralRepostsWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.email_send_enabled",
+      emailSendEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.email_grace_seconds",
+      String(emailGraceSeconds),
     ),
   ]);
 

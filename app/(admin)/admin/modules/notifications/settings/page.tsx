@@ -104,6 +104,14 @@ export default async function NotificationsAdminSettingsPage() {
           1,
           720,
         ),
+        emailSendEnabled:
+          settings["modules.notifications.email_send_enabled"] !== "false",
+        emailGraceSeconds: clampInt(
+          settings["modules.notifications.email_grace_seconds"],
+          30,
+          0,
+          3600,
+        ),
       }}
     />
   );

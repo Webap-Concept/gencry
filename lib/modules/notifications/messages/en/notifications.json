@@ -52,6 +52,12 @@
       "viral_reposts_threshold_help": "Total reposts needed to fire the notification. Default 5 (beta preset) — repost is the strongest engagement signal.",
       "viral_reposts_window_hours_label": "Viral reposts window (hours)",
       "viral_reposts_window_hours_help": "Time from post publication within which the reposts threshold must be reached.",
+      "email_section_title": "Email delivery",
+      "email_section_help": "Achievement notifications are sent by email to the post author. The cron `modules-notifications-achievement-email` (see Cron tab) processes the backlog every 20 minutes. Per-user opt-out coming with PR-4.",
+      "email_send_enabled_label": "Send achievement emails",
+      "email_send_enabled_help": "Global kill-switch: if disabled, notifications stay in-app/realtime but no email goes out. Default: enabled.",
+      "email_grace_seconds_label": "Grace window (seconds)",
+      "email_grace_seconds_help": "How long to wait after a notification is created before the cron picks it up. Buffer to avoid race conditions with the fanout trigger. Default 30.",
       "save": "Save",
       "saved": "Settings saved."
     },
