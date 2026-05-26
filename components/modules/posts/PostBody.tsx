@@ -22,7 +22,13 @@ import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actio
 import { TickerHoverCard } from "./TickerHoverCard";
 
 const TICKER_REGEX = /\$([A-Za-z][A-Za-z0-9]{1,19})\b/g;
-const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]{2,29})\b/g;
+// Mention regex coerente con lib/modules/posts/lib/parsing.ts: accetta
+// dot-style username (es. `@marco.99`, `@alice.eth`) per allinearsi a
+// USERNAME_REGEX di lib/auth/username-validator. Length cap 3..30
+// applicato post-match (vedi sotto in tokenize()).
+const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*)\b/g;
+const MENTION_MIN_LEN = 3;
+const MENTION_MAX_LEN = 30;
 const WORD_REGEX = /\b[A-Za-z][A-Za-z0-9]{2,}\b/g;
 
 // URL detection — tre formati supportati:
@@ -127,6 +133,7 @@ function collectMatches(
   }
 
   for (const m of body.matchAll(MENTION_REGEX)) {
+    if (m[1].length < MENTION_MIN_LEN || m[1].length > MENTION_MAX_LEN) continue;
     const start = m.index!;
     out.push({
       start,
