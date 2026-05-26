@@ -29,7 +29,7 @@
       "list_page_size_label": "Notifications per page",
       "list_page_size_help": "How many notifications to load per batch in the /notifiche list.",
       "retention_days_label": "Retention (days)",
-      "retention_days_help": "Notifications older than N days will be deleted by the cleanup cron (future).",
+      "retention_days_help": "Notifications older than N days are deleted by the daily cleanup cron. Valid range: 7-3650. Default 180 (6 months).",
       "achievements_section_title": "Achievements (milestones)",
       "achievements_section_help": "Special notifications when a post hits an engagement threshold. DB trigger checks inline (no cron). Defaults are dev/alpha-friendly — raise once real users show up.",
       "viral_likes_enabled_label": "Notify viral post",

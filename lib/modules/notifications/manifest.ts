@@ -169,6 +169,16 @@ export const NOTIFICATIONS_MODULE: ModuleManifest = {
       purpose:
         "Consegna effettiva via email delle notifiche achievement viral_*. Default-on V1; opt-out per-user arriverà con PR-4 (notifications_preferences).",
     },
+    {
+      jobname: "modules-notifications-retention-cleanup",
+      path: "/api/cron/modules/notifications/retention-cleanup",
+      schedule: "30 4 * * *",
+      label: "Notifications retention cleanup",
+      description:
+        "Daily DELETE batched (5k row/batch, max 20 batch = 100k row/run) delle notifications con created_at piu' vecchio di modules.notifications.retention_days (default 180). Range valido [7, 3650]; fuori range = skip senza errore. Backlog drena nei run successivi.",
+      purpose:
+        "Mantiene la tabella notifications bounded. Notifiche sociali lette/vecchie non hanno valore probatorio (non sono audit log); valore default 6 mesi e' coerente con le big social. Per allungare a piu' anni, alzare retention_days in /admin/modules/notifications.",
+    },
   ],
   capacityProfiles: [ACHIEVEMENTS_CAPACITY],
 };
