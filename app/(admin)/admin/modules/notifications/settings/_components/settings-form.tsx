@@ -3,10 +3,18 @@
 //
 // Form delle settings del modulo notifications: legacy (dedup window,
 // page size, retention) + achievement V1 (first_like, viral_likes).
-// Token CSS allineati allo standard admin (--admin-text, --admin-card-*).
+// Stile input via `adminFieldStyle` standard (admin-dialog.tsx) →
+// sfondo --admin-page-bg che contrasta con la card --admin-card-bg.
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
+import { adminFieldStyle } from "@/app/(admin)/admin/_components/admin-dialog";
 import { saveNotificationsSettings, type SettingsSaveResult } from "../actions";
+
+// Variante più stretta per i NumberField (default è width: 100%)
+const numberFieldStyle: React.CSSProperties = {
+  ...adminFieldStyle,
+  maxWidth: 220,
+};
 
 export type NotificationsSettingsInitial = {
   dedupWindowMinutes: number;
@@ -154,7 +162,7 @@ function NumberField({
         defaultValue={defaultValue}
         min={min}
         max={max}
-        className="w-full max-w-[220px] rounded-md border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] px-3 py-2 text-sm text-[var(--admin-text)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]"
+        style={numberFieldStyle}
       />
       <span className="block text-xs text-[var(--admin-text-muted)] mt-1">
         {help}
@@ -180,7 +188,11 @@ function CheckboxField({
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="mt-0.5 h-4 w-4 rounded border-[var(--admin-card-border)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+        className="mt-0.5 h-4 w-4 rounded text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+        style={{
+          background: "var(--admin-page-bg)",
+          borderColor: "var(--admin-input-border)",
+        }}
       />
       <span className="block">
         <span className="block text-sm font-medium text-[var(--admin-text)]">
