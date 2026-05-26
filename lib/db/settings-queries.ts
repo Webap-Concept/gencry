@@ -348,6 +348,14 @@ export type SettingKey =
   | 'storage.assets.r2.secret_access_key'
   | 'storage.assets.r2.bucket'
   | 'storage.assets.r2.public_base_url'
+  // Unsplash API key (fallback for AI face avatars in seeders module)
+  | 'storage.unsplash.access_key'
+  // Modulo seeders — pesi del mix avatar (vedi avatar-strategy.ts)
+  | 'modules.seeders.avatar_mix_ai_face'
+  | 'modules.seeders.avatar_mix_initials'
+  | 'modules.seeders.avatar_mix_dicebear_notionists'
+  | 'modules.seeders.avatar_mix_dicebear_lorelei'
+  | 'modules.seeders.avatar_mix_dicebear_bottts'
 
 export type AppSettings = {
   app_name: string
@@ -605,6 +613,14 @@ export type AppSettings = {
   'storage.assets.r2.secret_access_key': string | null
   'storage.assets.r2.bucket': string | null
   'storage.assets.r2.public_base_url': string | null
+  // Unsplash API (seeders fallback)
+  'storage.unsplash.access_key': string | null
+  // Modulo seeders — avatar mix weights
+  'modules.seeders.avatar_mix_ai_face': string
+  'modules.seeders.avatar_mix_initials': string
+  'modules.seeders.avatar_mix_dicebear_notionists': string
+  'modules.seeders.avatar_mix_dicebear_lorelei': string
+  'modules.seeders.avatar_mix_dicebear_bottts': string
 }
 
 const DEFAULTS: AppSettings = {
@@ -894,6 +910,17 @@ const DEFAULTS: AppSettings = {
   'storage.assets.r2.secret_access_key': null,
   'storage.assets.r2.bucket': null,
   'storage.assets.r2.public_base_url': null,
+  // Unsplash API — fallback per AI face quando TPDNE rate-limita. Null
+  // finché l'admin non incolla la access key da unsplash.com/developers.
+  'storage.unsplash.access_key': null,
+  // Modulo seeders — pesi del mix avatar. Default 40/30/15/10/5
+  // riproduce la distribuzione reale dei social crypto (foto realistica
+  // dominante + 30% "default initials"). Vedi avatar-strategy.ts.
+  'modules.seeders.avatar_mix_ai_face': '40',
+  'modules.seeders.avatar_mix_initials': '30',
+  'modules.seeders.avatar_mix_dicebear_notionists': '15',
+  'modules.seeders.avatar_mix_dicebear_lorelei': '10',
+  'modules.seeders.avatar_mix_dicebear_bottts': '5',
 }
 
 async function fetchAppSettings(): Promise<AppSettings> {
