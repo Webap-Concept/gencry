@@ -25,6 +25,11 @@ function clampInt(
   return Math.min(Math.max(n, min), max);
 }
 
+function checkboxToBool(raw: FormDataEntryValue | null): boolean {
+  // HTML checkbox: presente in FormData se checked, assente se unchecked.
+  return raw != null;
+}
+
 export async function saveNotificationsSettings(
   _prev: unknown,
   formData: FormData,
@@ -35,6 +40,22 @@ export async function saveNotificationsSettings(
   const pageSize = clampInt(formData.get("list_page_size"), 30, 5, 100);
   const retention = clampInt(formData.get("retention_days"), 180, 7, 3650);
 
+  // Achievement settings (V1)
+  const firstLikeEnabled = checkboxToBool(formData.get("first_like_enabled"));
+  const viralLikesEnabled = checkboxToBool(formData.get("viral_likes_enabled"));
+  const viralLikesThreshold = clampInt(
+    formData.get("viral_likes_threshold"),
+    50,
+    1,
+    10000,
+  );
+  const viralLikesWindowHours = clampInt(
+    formData.get("viral_likes_window_hours"),
+    24,
+    1,
+    720,
+  );
+
   await Promise.all([
     updateAppSetting(
       "modules.notifications.dedup_window_minutes",
@@ -44,6 +65,22 @@ export async function saveNotificationsSettings(
     updateAppSetting(
       "modules.notifications.retention_days",
       String(retention),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.first_like_enabled",
+      firstLikeEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_enabled",
+      viralLikesEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_threshold",
+      String(viralLikesThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_window_hours",
+      String(viralLikesWindowHours),
     ),
   ]);
 

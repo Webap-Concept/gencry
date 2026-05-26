@@ -13,6 +13,10 @@ export type NotificationsSettingsInitial = {
   dedupWindowMinutes: number;
   listPageSize: number;
   retentionDays: number;
+  firstLikeEnabled: boolean;
+  viralLikesEnabled: boolean;
+  viralLikesThreshold: number;
+  viralLikesWindowHours: number;
 };
 
 export function NotificationsSettingsForm({
@@ -58,6 +62,47 @@ export function NotificationsSettingsForm({
         min={7}
         max={3650}
       />
+
+      <fieldset className="border border-[var(--admin-line)] rounded-lg p-4 space-y-4">
+        <legend className="px-2 text-sm font-semibold text-[var(--admin-fg)]">
+          {t("achievements_section_title")}
+        </legend>
+        <p className="text-xs text-[var(--admin-fg-3)] -mt-2">
+          {t("achievements_section_help")}
+        </p>
+
+        <CheckboxField
+          name="first_like_enabled"
+          label={t("first_like_enabled_label")}
+          help={t("first_like_enabled_help")}
+          defaultChecked={initial.firstLikeEnabled}
+        />
+
+        <CheckboxField
+          name="viral_likes_enabled"
+          label={t("viral_likes_enabled_label")}
+          help={t("viral_likes_enabled_help")}
+          defaultChecked={initial.viralLikesEnabled}
+        />
+
+        <NumberField
+          name="viral_likes_threshold"
+          label={t("viral_likes_threshold_label")}
+          help={t("viral_likes_threshold_help")}
+          defaultValue={initial.viralLikesThreshold}
+          min={1}
+          max={10000}
+        />
+
+        <NumberField
+          name="viral_likes_window_hours"
+          label={t("viral_likes_window_hours_label")}
+          help={t("viral_likes_window_hours_help")}
+          defaultValue={initial.viralLikesWindowHours}
+          min={1}
+          max={720}
+        />
+      </fieldset>
 
       <div className="flex items-center gap-3">
         <button
@@ -107,6 +152,37 @@ function NumberField({
         className="w-full max-w-[200px] rounded-md border border-[var(--admin-line)] bg-[var(--admin-bg)] px-3 py-2 text-sm text-[var(--admin-fg)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-accent)]"
       />
       <span className="block text-xs text-[var(--admin-fg-3)] mt-1">{help}</span>
+    </label>
+  );
+}
+
+function CheckboxField({
+  name,
+  label,
+  help,
+  defaultChecked,
+}: {
+  name: string;
+  label: string;
+  help: string;
+  defaultChecked: boolean;
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        name={name}
+        defaultChecked={defaultChecked}
+        className="mt-0.5 h-4 w-4 rounded border-[var(--admin-line)] text-[var(--admin-accent)] focus:ring-[var(--admin-accent)]"
+      />
+      <span className="block">
+        <span className="block text-sm font-medium text-[var(--admin-fg)]">
+          {label}
+        </span>
+        <span className="block text-xs text-[var(--admin-fg-3)] mt-0.5">
+          {help}
+        </span>
+      </span>
     </label>
   );
 }

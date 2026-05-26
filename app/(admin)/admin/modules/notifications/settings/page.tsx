@@ -40,6 +40,30 @@ export default async function NotificationsAdminSettingsPage() {
           7,
           3650,
         ),
+        firstLikeEnabled:
+          settings[
+            "modules.notifications.achievements.first_like_enabled"
+          ] !== "false",
+        viralLikesEnabled:
+          settings[
+            "modules.notifications.achievements.viral_likes_enabled"
+          ] !== "false",
+        viralLikesThreshold: clampInt(
+          settings[
+            "modules.notifications.achievements.viral_likes_threshold"
+          ],
+          50,
+          1,
+          10000,
+        ),
+        viralLikesWindowHours: clampInt(
+          settings[
+            "modules.notifications.achievements.viral_likes_window_hours"
+          ],
+          24,
+          1,
+          720,
+        ),
       }}
     />
   );
