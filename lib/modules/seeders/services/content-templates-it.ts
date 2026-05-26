@@ -20,18 +20,43 @@ export const LAST_NAMES_IT = [
   "Mariani", "Rinaldi", "Caruso", "Ferrara", "Galli", "Martinelli",
 ];
 
-// Suffix per username. Mix di:
-//   - on-theme crypto (_btc, _eth, _hodl, _defi, _sats, _dao, _lp, ...)
-//   - year-of-birth realistici (_99, _07, _22, ...) — pattern Twitter/IG
-//   - 4 stringhe vuote = ~20% senza suffix
+// Suffix per username. Mix molto variegato per evitare pattern ricorrenti
+// visivamente fastidiosi. ~55 entries → ogni suffix ha probabilita' <2%,
+// distribuzione percepita come "naturale".
 //
-// Tolti `_42` (Hitchhiker meme) e `_88` (lottery): stonavano in un social
-// crypto e producevano un pattern ricorrente visivamente fastidioso.
+// USERNAME_REGEX = /^[a-zA-Z0-9_.]+$/  (accetta lettere, numeri, `_`, `.`)
+//
+// CAVEAT NOTO: il MENTION_REGEX del modulo posts e'
+//   /@([A-Za-z][A-Za-z0-9_]{2,29})\b/
+// NON accetta `.`, quindi `@marco.99` viene catturato come `marco` e il
+// fanout @mention non trova lo username completo. Da sistemare a livello
+// modulo posts (aggiornare il regex per accettare `.`), fuori scope qui.
+//
+// Pattern usati:
+//   - on-theme crypto: termini del settore
+//   - trader/quant: ruolo operativo
+//   - year early adopter: _2017, _2018, _2021 (chi e' "nella crypto da")
+//   - numeri 2-cifre underscore: `_99` realistici "anno di nascita"
+//   - numeri diretti: `marco88` stile Twitter
+//   - dot-style: `marco.99`, `marco.crypto`, `marco.eth` stile ENS / handle
+//   - 5 stringhe vuote → ~9% di username senza suffix
 export const USERNAME_SUFFIXES = [
-  "_crypto", "_btc", "_eth", "_hodl", "_sats", "_dao", "_lp",
-  "_trader", "_to_the_moon", "_defi", "_nft", "_chain", "_node",
-  "_07", "_99", "_22",
-  "", "", "", "",
+  // Crypto on-theme (16)
+  "_crypto", "_btc", "_eth", "_hodl", "_sats", "_dao", "_lp", "_defi",
+  "_nft", "_staking", "_yield", "_whale", "_maxi", "_alpha", "_wagmi", "_onchain",
+  // Operativo / trader (5)
+  "_trader", "_trades", "_signals", "_quant", "_to_the_moon",
+  // Year early adopter (4)
+  "_2017", "_2018", "_2019", "_2021",
+  // Numeri underscore-style (5)
+  "_07", "_22", "_69", "_77", "_99",
+  // Numeri diretti (Twitter-style) — niente underscore (5)
+  "88", "91", "99", "07", "22",
+  // Dot-style (ENS / handle) (10)
+  ".eth", ".btc", ".crypto", ".dao", ".lp",
+  ".99", ".07", ".22", ".77", ".2017",
+  // Senza suffix (5)
+  "", "", "", "", "",
 ];
 
 export const BIO_TEMPLATES_IT = [
