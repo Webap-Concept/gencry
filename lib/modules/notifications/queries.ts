@@ -116,6 +116,7 @@ type HydratedRow = {
   commentId: string | null;
   payload: Record<string, unknown>;
   readAt: Date | null;
+  emailSentAt: Date | null;
   createdAt: Date;
   actorUsername: string | null;
   actorFirstName: string | null;
