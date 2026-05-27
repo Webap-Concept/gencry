@@ -92,8 +92,13 @@ export function CoinChart({
     (next: HistoryRange) => {
       if (next === series.range) return;
       startTransition(async () => {
+        // PR3 refactor Redis-first: nuova endpoint exchange-aware
+        // /api/coins/<symbol>/chart con edge cache 1-60min e fetch
+        // direct da Binance per i coin mappati. Vecchia
+        // /api/modules/prices/<symbol>/history resta funzionante come
+        // backward-compat ma sara' deprecata in PR4.
         const res = await fetch(
-          `/api/modules/prices/${symbol.toLowerCase()}/history?range=${next}`,
+          `/api/coins/${symbol.toLowerCase()}/chart?range=${next}`,
           { cache: "default" },
         );
         if (!res.ok) return;

@@ -38,6 +38,13 @@ export const PRICES_MODULE: ModuleManifest = {
       permission: "modules:prices",
     },
     {
+      key: "prices-exchanges",
+      href: "/modules/prices/exchanges",
+      label: "Exchanges",
+      icon: "Building2",
+      permission: "modules:prices",
+    },
+    {
       key: "prices-cron",
       href: "/modules/prices/cron",
       label: "Cron Jobs",

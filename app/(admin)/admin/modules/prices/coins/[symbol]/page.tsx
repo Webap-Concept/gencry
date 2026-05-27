@@ -4,6 +4,9 @@
 // paginata. Linkata dalla riga del registry (cliccando il simbolo).
 
 import { getAdminPath } from "@/lib/admin-paths";
+import { db } from "@/lib/db/drizzle";
+import { priceExchanges, pricesCoins } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import {
   getCoinForCard,
   getCoinHistoryPage,
@@ -15,6 +18,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CoinDetailHeader } from "./_components/coin-detail-header";
 import { CoinHistoryPanel } from "./_components/coin-history-panel";
+import { CoinRoutingForm } from "./_components/coin-routing-form";
 import { CoinStatsCards } from "./_components/coin-stats-cards";
 
 export const dynamic = "force-dynamic";
@@ -43,12 +47,32 @@ export default async function CoinDrilldownPage({
 
   const page = Math.max(1, Number(pageRaw) || 1);
 
-  const [coin, stats, historyPage, coinsBack] = await Promise.all([
-    getCoinForCard(upper),
-    getCoinHistoryStats(upper),
-    getCoinHistoryPage(upper, page, PAGE_SIZE),
-    getAdminPath("prices-coins"),
-  ]);
+  const [coin, stats, historyPage, coinsBack, routingRow, exchangesList] =
+    await Promise.all([
+      getCoinForCard(upper),
+      getCoinHistoryStats(upper),
+      getCoinHistoryPage(upper, page, PAGE_SIZE),
+      getAdminPath("prices-coins"),
+      // Routing corrente del coin
+      db
+        .select({
+          preferredExchange: pricesCoins.preferredExchange,
+          exchangeSymbol: pricesCoins.exchangeSymbol,
+        })
+        .from(pricesCoins)
+        .where(eq(pricesCoins.symbol, upper))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      // Tutti gli exchange registrati: dropdown nel form
+      db
+        .select({
+          id: priceExchanges.id,
+          label: priceExchanges.label,
+          enabled: priceExchanges.enabled,
+        })
+        .from(priceExchanges)
+        .orderBy(priceExchanges.id),
+    ]);
 
   if (!coin) notFound();
 
@@ -65,6 +89,13 @@ export default async function CoinDrilldownPage({
       <CoinDetailHeader coin={coin} />
 
       <CoinStatsCards coin={coin} stats={stats} />
+
+      <CoinRoutingForm
+        symbol={upper}
+        initialPreferredExchange={routingRow?.preferredExchange ?? null}
+        initialExchangeSymbol={routingRow?.exchangeSymbol ?? null}
+        exchanges={exchangesList}
+      />
 
       <CoinHistoryPanel
         symbol={upper}

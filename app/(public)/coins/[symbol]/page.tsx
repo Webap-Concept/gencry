@@ -4,6 +4,16 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// ISR (PR3 refactor Redis-first): la coin page e' pubblica e martellata da
+// bot/anon. Vercel edge CDN serve la stessa risposta cached per 60s; al
+// cache miss 1 sola request raggiunge il backend. Risultato: 10k visit/min
+// su /coins/btc → 1 req/min al backend invece di 10k.
+//
+// Staleness max: 60s (ISR) + ~120s (Upstash TTL legato a cron 1-min) =
+// ~3 min nel peggior caso. Per un crypto-social acceptable; per HFT
+// servirebbe WebSocket layer, V2.
+export const revalidate = 60;
 import {
   CoinChartLazy,
   CoinIcon,
