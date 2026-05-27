@@ -311,6 +311,40 @@ export async function importExchangeCoinsAction(
   };
 }
 
+export type EnrichMetadataResult =
+  | {
+      ok: true;
+      candidatesLoaded: number;
+      matched: number;
+      enriched: number;
+      noMatch: number;
+      errors: number;
+      imageMirrorFailed: number;
+      enrichedSamples: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Enrichment metadata dei coin senza coingecko_id (tipicamente quelli
+ * appena importati wholesale da exchange). Match symbol → CoinGecko id,
+ * recupera name/image/marketCap/sparkline e fa mirror dell'immagine su
+ * R2. Idempotente: re-run salta i coin gia' arricchiti.
+ */
+export async function enrichCoinsMetadataAction(
+  maxCount: number,
+): Promise<EnrichMetadataResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+  const { runMetadataEnrichment } = await import(
+    "@/lib/modules/prices/enrichment"
+  );
+  const result = await runMetadataEnrichment(maxCount);
+  if (result.ok) {
+    revalidatePath("/admin/modules/prices/exchanges");
+    revalidatePath("/admin/modules/prices/coins");
+  }
+  return result;
+}
+
 /**
  * Esegue health check live + persiste il risultato in
  * price_exchanges.last_health_*. Cosi' la lista mostra sempre lo
