@@ -1885,6 +1885,11 @@ export enum ActivityType {
   MFA_RECOVERY_CODES_REGENERATED = "MFA_RECOVERY_CODES_REGENERATED",
   ADMIN_RESET_MFA = "ADMIN_RESET_MFA",
   AVATAR_UPDATED = "AVATAR_UPDATED",
+  // L'avatar e' stato modificato da un admin via /admin/access/users/[id]
+  // (audit interno, l'utente non vede questa entry in UI: niente flusso
+  // /settings/activity lato user). Usato per tracciare azioni admin
+  // sul profilo, separato da AVATAR_UPDATED che e' l'azione self-served.
+  AVATAR_UPDATED_BY_ADMIN = "AVATAR_UPDATED_BY_ADMIN",
   BIO_UPDATED = "BIO_UPDATED",
   PROFILE_VIEWED = "PROFILE_VIEWED",
   POST_CREATED = "POST_CREATED",

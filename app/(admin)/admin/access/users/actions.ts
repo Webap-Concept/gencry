@@ -17,9 +17,15 @@ import { can } from "@/lib/rbac/can";
 import { requireAdmin, requireAdminSectionPage } from "@/lib/rbac/guards";
 import { revokeStrike } from "@/lib/auth/strikes";
 import { getUser } from "@/lib/db/queries";
+import {
+  deleteAvatarFromR2,
+  uploadAvatarToR2,
+} from "@/lib/storage/r2-avatars";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
+
+const MAX_ADMIN_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB — stessa soglia user
 
 /**
  * Sync l'indice mention Upstash dopo un cambio di stato users
@@ -300,4 +306,109 @@ export async function revokeUserStrikeAction(
     activeCount: result.activeStrikesCount,
     unbannedNow: result.unbannedNow,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Admin avatar management — modifica avatar di un utente qualsiasi
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Pattern: stesso `uploadAvatarToR2` usato dal flow user-self, ma con
+// target_user_id = utente nella detail page (non chi e' loggato).
+// Decisione product 2026-05-27: niente notifica in-app, solo activity
+// log interno tag `AVATAR_UPDATED_BY_ADMIN` — l'utente non vede log di
+// activity in UI quindi audit resta admin-only.
+
+export type AdminUpdateAvatarResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+export async function adminUpdateUserAvatar(
+  targetUserId: string,
+  formData: FormData,
+): Promise<AdminUpdateAvatarResult> {
+  const adminUser = await requireAdminSectionPage("admin:users");
+  const allowed =
+    adminUser.isAdmin || (await can(adminUser, "users:edit"));
+  if (!allowed) {
+    return { ok: false, error: "Permesso `users:edit` mancante." };
+  }
+
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Seleziona un'immagine valida." };
+  }
+  if (file.size > MAX_ADMIN_AVATAR_BYTES) {
+    return { ok: false, error: "Immagine troppo grande (max 2 MB)." };
+  }
+
+  // Verifica esistenza target (no admin-on-deleted user, evita orphan R2).
+  const [target] = await db
+    .select({ id: users.id, deletedAt: users.deletedAt })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) return { ok: false, error: "Utente non trovato." };
+  if (target.deletedAt) {
+    return { ok: false, error: "Impossibile modificare avatar di un utente cancellato." };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const result = await uploadAvatarToR2(targetUserId, buffer, file.type);
+  if ("error" in result) return { ok: false, error: result.error };
+
+  await db
+    .update(userProfiles)
+    .set({ avatarUrl: result.url, updatedAt: new Date() })
+    .where(eq(userProfiles.userId, targetUserId));
+
+  // Audit log sull'utente target — admin che visita la detail page lo vede
+  // nella tab Activity. L'utente NON ha UI di propri activity log lato
+  // frontend (decisione product 2026-05-27).
+  await db.insert(activityLogs).values({
+    userId: targetUserId,
+    action: ActivityType.AVATAR_UPDATED_BY_ADMIN,
+    ipAddress: "",
+  });
+
+  revalidatePath(await getAdminPath("users-list"));
+  return { ok: true, url: result.url };
+}
+
+export async function adminRemoveUserAvatar(
+  targetUserId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const adminUser = await requireAdminSectionPage("admin:users");
+  const allowed =
+    adminUser.isAdmin || (await can(adminUser, "users:edit"));
+  if (!allowed) {
+    return { ok: false, error: "Permesso `users:edit` mancante." };
+  }
+
+  const [target] = await db
+    .select({ id: users.id, deletedAt: users.deletedAt })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) return { ok: false, error: "Utente non trovato." };
+  if (target.deletedAt) {
+    return { ok: false, error: "Impossibile modificare avatar di un utente cancellato." };
+  }
+
+  await db
+    .update(userProfiles)
+    .set({ avatarUrl: null, updatedAt: new Date() })
+    .where(eq(userProfiles.userId, targetUserId));
+
+  // Best-effort R2 delete: errore loggato ma non blocca la action
+  // (orphan e' recuperabile manualmente o via cleanup futuro).
+  await deleteAvatarFromR2(targetUserId);
+
+  await db.insert(activityLogs).values({
+    userId: targetUserId,
+    action: ActivityType.AVATAR_UPDATED_BY_ADMIN,
+    ipAddress: "",
+  });
+
+  revalidatePath(await getAdminPath("users-list"));
+  return { ok: true };
 }

@@ -30,6 +30,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityList } from "./_components/activity-list";
+import { AdminAvatarEditor } from "./_components/admin-avatar-editor";
 import { AdminMfaCard } from "./_components/admin-mfa-card";
 import { UserAccessTab } from "./_components/user-access-tab";
 import { UserConsentsTab } from "./_components/user-consents-tab";
@@ -84,10 +85,12 @@ async function UserContent({
   id,
   canDelete,
   canRevokeStrikes,
+  canEditProfile,
 }: {
   id: string;
   canDelete: boolean;
   canRevokeStrikes: boolean;
+  canEditProfile: boolean;
 }) {
   const t = await getTranslations("admin.access.users.detail");
   const locale = await getLocale();
@@ -301,7 +304,13 @@ async function UserContent({
     <div className="space-y-6">
       {/* User Header */}
       <div className="flex items-start gap-4">
-        {user.avatarUrl ? (
+        {canEditProfile && !isDeleted ? (
+          <AdminAvatarEditor
+            userId={user.id}
+            avatarUrl={user.avatarUrl ?? null}
+            initials={initials}
+          />
+        ) : user.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={`${user.firstName} ${user.lastName}`}
@@ -411,6 +420,12 @@ export default async function AdminUserPage({
   const canRevokeStrikes = currentUser
     ? currentUser.isAdmin || (await can(currentUser, "modules:posts.moderate"))
     : false;
+  // Modificare avatar/profilo altrui = `users:edit`. Server action ricontrolla
+  // (mai fidarsi del solo gate UI): qui serve solo a nascondere l'editor a
+  // chi non ha il permesso.
+  const canEditProfile = currentUser
+    ? currentUser.isAdmin || (await can(currentUser, "users:edit"))
+    : false;
 
   const t = await getTranslations("admin.access.users.detail");
 
@@ -440,6 +455,7 @@ export default async function AdminUserPage({
           id={id}
           canDelete={canDelete}
           canRevokeStrikes={canRevokeStrikes}
+          canEditProfile={canEditProfile}
         />
       </Suspense>
     </div>
