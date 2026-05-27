@@ -35,6 +35,10 @@ type CachedSession = {
   lastSeenAt: string; // ISO
   /** Quando inseriamo in cache, settiamo questo per il throttle locale. */
   cachedAt: number;
+  /** Pointer alla session admin originale se questa e' una sessione
+   *  impersonation. Null per le sessioni normali. Banner + stop button
+   *  letti da `getSession()` consumano questo campo. */
+  impersonatorSessionId: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -47,15 +51,21 @@ export type CreateSessionInput = {
   deviceToken: string | null;
   userAgent: string | null;
   ip: string | null;
+  /** Pointer alla session admin che ha avviato un'impersonation. Null
+   *  per le sessioni normali. Vedi adminStartImpersonation. */
+  impersonatorSessionId?: string | null;
+  /** Override della durata (default SESSION_DURATION_DAYS = 15 giorni).
+   *  Usato dall'impersonation per forzare expiry 30 min. */
+  durationMs?: number;
 };
 
 /** Crea una nuova sessione attiva e ritorna l'id da imbustare nel cookie. */
 export async function createSession(
   input: CreateSessionInput,
 ): Promise<{ id: string; expiresAt: Date }> {
-  const expiresAt = new Date(
-    Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000,
-  );
+  const durationMs =
+    input.durationMs ?? SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + durationMs);
 
   const [row] = await db
     .insert(sessions)
@@ -65,6 +75,7 @@ export async function createSession(
       userAgent: input.userAgent,
       ip: input.ip,
       expiresAt,
+      impersonatorSessionId: input.impersonatorSessionId ?? null,
     })
     .returning({ id: sessions.id });
 
@@ -75,6 +86,7 @@ export async function createSession(
     expiresAt: expiresAt.toISOString(),
     lastSeenAt: new Date().toISOString(),
     cachedAt: Date.now(),
+    impersonatorSessionId: input.impersonatorSessionId ?? null,
   });
 
   return { id: row.id, expiresAt };
@@ -148,6 +160,10 @@ export type ValidatedSession = {
   userId: string;
   role: string;
   expiresAt: Date;
+  /** Set se la sessione corrente e' una impersonation aperta da un admin.
+   *  Il banner top dell'app legge questo per mostrare "Stai impersonando..."
+   *  + bottone Termina. */
+  impersonatorSessionId: string | null;
 };
 
 /**
@@ -180,6 +196,7 @@ async function _getValidSession(
       userId: cached.userId,
       role: cached.role,
       expiresAt: new Date(cached.expiresAt),
+      impersonatorSessionId: cached.impersonatorSessionId,
     };
   }
 
@@ -196,8 +213,10 @@ async function _getValidSession(
     expires_at: string;
     last_seen_at: string;
     revoked_at: string | null;
+    impersonator_session_id: string | null;
   }>(sql`
-    SELECT s.id, s.user_id, s.expires_at, s.last_seen_at, s.revoked_at, u.role
+    SELECT s.id, s.user_id, s.expires_at, s.last_seen_at, s.revoked_at,
+           s.impersonator_session_id, u.role
     FROM sessions s
     INNER JOIN users u ON u.id = s.user_id
     WHERE s.id = ${sessionId}
@@ -213,6 +232,7 @@ async function _getValidSession(
     expires_at: string;
     last_seen_at: string;
     revoked_at: string | null;
+    impersonator_session_id: string | null;
   }>)[0];
 
   if (!row) return null;
@@ -236,6 +256,7 @@ async function _getValidSession(
     expiresAt: row.expires_at,
     lastSeenAt: row.last_seen_at,
     cachedAt: Date.now(),
+    impersonatorSessionId: row.impersonator_session_id,
   };
   await writeCache(sessionId, next);
   maybeTouchLastSeen(sessionId, next);
@@ -245,6 +266,7 @@ async function _getValidSession(
     userId: row.user_id,
     role: row.role,
     expiresAt,
+    impersonatorSessionId: row.impersonator_session_id,
   };
 }
 

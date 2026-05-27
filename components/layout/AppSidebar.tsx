@@ -32,10 +32,15 @@ type NavItem = {
   hasNotifications?: boolean;
 };
 
-const NAV: NavItem[] = [
+// Voci statiche (no dipendenza da username). La voce "Profilo" viene
+// aggiunta dinamicamente nel componente perche' l'href dipende dallo
+// username dell'utente loggato (/u/<username>). Vecchio /profile era
+// un redirect-only page.tsx che ha causato InvariantError Next 16
+// (manifest mancante) — ora sostituito da route handler ma evitiamo
+// comunque l'hop per cleaner UX + niente client-nav cross-route.
+const NAV_STATIC: NavItem[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
-  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -57,6 +62,17 @@ export function AppSidebar({
     shouldRetryOnError: false,
     keepPreviousData: true,
   });
+
+  // Profilo: href dinamico → /u/<username>. Fallback a /settings/profile
+  // se l'utente non ha username (raro: pre-onboarding) o SWR non ha
+  // ancora risposto.
+  const profileHref = user?.username
+    ? `/u/${user.username}`
+    : "/settings/profile";
+  const NAV: NavItem[] = [
+    ...NAV_STATIC,
+    { href: profileHref, labelKey: "profile", icon: UserIcon },
+  ];
 
   return (
     <aside className="hidden md:flex flex-col w-60 lg:w-64 shrink-0 h-full px-4 py-6 border-r border-gc-line">

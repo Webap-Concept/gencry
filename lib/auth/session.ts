@@ -72,6 +72,10 @@ export type SessionData = {
   user: { id: string; role: string };
   expires: string;
   sessionId: string;
+  /** Set quando la sessione corrente e' una impersonation aperta da un
+   *  admin (back-pointer al `sessions.id` della session admin originale).
+   *  Il banner top-level e la action di stop leggono questo campo. */
+  impersonatorSessionId: string | null;
 };
 
 export async function signToken(payload: SessionTokenPayload) {
@@ -121,6 +125,7 @@ export async function getSession(): Promise<SessionData | null> {
     user: { id: session.userId, role: session.role },
     expires: session.expiresAt.toISOString(),
     sessionId: session.sessionId,
+    impersonatorSessionId: session.impersonatorSessionId,
   };
 }
 

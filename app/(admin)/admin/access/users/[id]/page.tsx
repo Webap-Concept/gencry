@@ -30,6 +30,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityList } from "./_components/activity-list";
+import { AdminAvatarEditor } from "./_components/admin-avatar-editor";
 import { AdminMfaCard } from "./_components/admin-mfa-card";
 import { UserAccessTab } from "./_components/user-access-tab";
 import { UserConsentsTab } from "./_components/user-consents-tab";
@@ -39,6 +40,7 @@ import { getActiveReportReasons } from "@/lib/modules/posts/services/report-reas
 import {
   BanButton,
   DeleteButton,
+  ImpersonateButton,
   RoleSelector,
 } from "./_components/user-detail-client";
 import { UserDetailTabs } from "./_components/user-detail-tabs";
@@ -84,10 +86,14 @@ async function UserContent({
   id,
   canDelete,
   canRevokeStrikes,
+  canEditProfile,
+  canImpersonate,
 }: {
   id: string;
   canDelete: boolean;
   canRevokeStrikes: boolean;
+  canEditProfile: boolean;
+  canImpersonate: boolean;
 }) {
   const t = await getTranslations("admin.access.users.detail");
   const locale = await getLocale();
@@ -301,7 +307,13 @@ async function UserContent({
     <div className="space-y-6">
       {/* User Header */}
       <div className="flex items-start gap-4">
-        {user.avatarUrl ? (
+        {canEditProfile && !isDeleted ? (
+          <AdminAvatarEditor
+            userId={user.id}
+            avatarUrl={user.avatarUrl ?? null}
+            initials={initials}
+          />
+        ) : user.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={`${user.firstName} ${user.lastName}`}
@@ -347,6 +359,7 @@ async function UserContent({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <ImpersonateButton user={user} canImpersonate={canImpersonate} />
           <BanButton user={user} />
           <DeleteButton user={user} canDelete={canDelete} />
         </div>
@@ -411,6 +424,17 @@ export default async function AdminUserPage({
   const canRevokeStrikes = currentUser
     ? currentUser.isAdmin || (await can(currentUser, "modules:posts.moderate"))
     : false;
+  // Modificare avatar/profilo altrui = `users:edit`. Server action ricontrolla
+  // (mai fidarsi del solo gate UI): qui serve solo a nascondere l'editor a
+  // chi non ha il permesso.
+  const canEditProfile = currentUser
+    ? currentUser.isAdmin || (await can(currentUser, "users:edit"))
+    : false;
+  // Impersonation: permission a parte (`users:impersonate`), molto piu'
+  // potente di `users:edit`. Gate UI; server action ri-controlla.
+  const canImpersonate = currentUser
+    ? currentUser.isAdmin || (await can(currentUser, "users:impersonate"))
+    : false;
 
   const t = await getTranslations("admin.access.users.detail");
 
@@ -440,6 +464,8 @@ export default async function AdminUserPage({
           id={id}
           canDelete={canDelete}
           canRevokeStrikes={canRevokeStrikes}
+          canEditProfile={canEditProfile}
+          canImpersonate={canImpersonate}
         />
       </Suspense>
     </div>

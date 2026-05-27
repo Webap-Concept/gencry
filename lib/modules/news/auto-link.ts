@@ -17,8 +17,11 @@
 //     articolo merita il link via checkbox.
 //   - Skip dentro markdown link esistenti `[text](url)` e dentro heading
 //     che iniziano con `#`.
-//   - Marker `title="auto-linked"` sul link generato per identificarli
-//     in caso di re-process / analytics future.
+//   - Il `title="<nome canonico>"` aiuta l'accessibilita' (tooltip on
+//     hover) e contiene il nome ufficiale del coin anche quando il match
+//     nel testo era lowercase o variante (es. "bitcoin" matchato → title
+//     "Bitcoin"). Niente marker "auto-linked": il commento storico
+//     "useful per analytics future" era ipotetico, mai consumato.
 
 import "server-only";
 
@@ -87,7 +90,10 @@ export function autoLinkCoinsInMarkdown(
 
     const start = match.index;
     const end = start + matched.length;
-    const replacement = `[${matched}](/coins/${coin.symbol} "auto-linked")`;
+    // Title = nome canonico del coin (es. "Bitcoin", "Solana"). Escape
+    // delle " interne nel caso patologico di nomi con doppi apici.
+    const titleSafe = coin.name.replace(/"/g, "\\\"");
+    const replacement = `[${matched}](/coins/${coin.symbol} "${titleSafe}")`;
     lines[i] = line.slice(0, start) + replacement + line.slice(end);
 
     return { md: lines.join("\n"), linked: coin };

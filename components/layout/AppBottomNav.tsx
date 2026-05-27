@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { Bell, Radar, User as UserIcon, Zap } from "lucide-react";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
+import type { UserWithProfile } from "@/lib/db/schema";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
 // 5 slot con il "+" centrale enfatizzato (CTA Nuovo post).
@@ -16,18 +18,35 @@ type LinkSlot = {
   icon: typeof Zap;
 };
 
-// `null` = slot del bottone +Nuovo post (centrale, non navigabile)
-const SLOTS: (LinkSlot | null)[] = [
+// La voce "Profilo" e' dinamica (href dipende dallo username dell'utente
+// loggato). `null` = slot del bottone +Nuovo post (centrale, non navigabile).
+const STATIC_SLOTS: (LinkSlot | null)[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
   null,
   { href: "/notifiche", labelKey: "notifications", icon: Bell },
-  { href: "/profile", labelKey: "profile", icon: UserIcon },
 ];
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function AppBottomNav() {
   const pathname = usePathname();
   const t = useTranslations("core.bottomNav");
+  const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnMount: true,
+    shouldRetryOnError: false,
+    keepPreviousData: true,
+  });
+
+  // Profilo: /u/<username> dinamico. Fallback a /settings/profile.
+  const profileHref = user?.username
+    ? `/u/${user.username}`
+    : "/settings/profile";
+  const SLOTS: (LinkSlot | null)[] = [
+    ...STATIC_SLOTS,
+    { href: profileHref, labelKey: "profile", icon: UserIcon },
+  ];
   return (
     <nav
       aria-label={t("ariaLabel")}

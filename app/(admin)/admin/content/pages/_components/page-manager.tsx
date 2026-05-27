@@ -1094,11 +1094,21 @@ export default function PageManager({
     setPages(initialPages);
   }, [initialPages]);
 
-  // Split pages into the two groups (ordinate per sortOrder, poi slug)
+  // Sort di default: published_at DESC (NULLS LAST), tie-break per slug ASC.
+  // Allineato al sort SQL di getAllPages/getPagesTree. Il `sortOrder` salvato
+  // dal drag & drop e' diventato un legacy field — il drag e' ancora
+  // attivo e salva sortOrder, ma il sort visualizzato e' per data.
   function sortPages(arr: Page[]): Page[] {
-    return [...arr].sort(
-      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.slug.localeCompare(b.slug),
-    );
+    return [...arr].sort((a, b) => {
+      const aMs = a.publishedAt
+        ? new Date(a.publishedAt).getTime()
+        : Number.NEGATIVE_INFINITY;
+      const bMs = b.publishedAt
+        ? new Date(b.publishedAt).getTime()
+        : Number.NEGATIVE_INFINITY;
+      if (aMs !== bMs) return bMs - aMs; // DESC, NULL in fondo
+      return a.slug.localeCompare(b.slug);
+    });
   }
   const userPages = sortPages(pages.filter((p) => !p.isSystem));
   const systemPages = sortPages(pages.filter((p) => p.isSystem));
