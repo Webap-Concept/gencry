@@ -8,7 +8,7 @@ import "server-only";
 
 import { db } from "@/lib/db/drizzle";
 import { priceExchanges, pricesCoins } from "@/lib/db/schema";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { EXCHANGE_REGISTRY, getExchangeAdapter } from "./registry";
 import type { ExchangeId } from "./types";
 
@@ -78,4 +78,20 @@ export async function listAdminExchanges(): Promise<AdminExchangeRow[]> {
       routedCoinCount: countMap.get(row.id) ?? 0,
     };
   });
+}
+
+/** Numero di coin attivi senza coingecko_id: candidati per
+ *  l'enrichment metadata. Usato dalla card admin per mostrare quanti
+ *  coin sono in attesa. */
+export async function countCoinsAwaitingEnrichment(): Promise<number> {
+  const [row] = await db
+    .select({ n: count(pricesCoins.symbol) })
+    .from(pricesCoins)
+    .where(
+      and(
+        eq(pricesCoins.isActive, true),
+        isNull(pricesCoins.coingeckoId),
+      ),
+    );
+  return row?.n ?? 0;
 }

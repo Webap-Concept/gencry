@@ -184,6 +184,167 @@ export async function bulkAutoMapAction(
   };
 }
 
+export type ImportExchangeCoinsResult =
+  | {
+      ok: true;
+      marketsFromExchange: number;
+      skippedLowVolume: number;
+      skippedExisting: number;
+      inserted: number;
+      insertedSamples: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Import "wholesale" dei coin da un exchange. A differenza del bulk
+ * auto-map (che parte dal nostro registry e routa), questo parte dal
+ * catalogo dell'exchange e POPOLA il registry. Pensato per partire
+ * con un universo coin grande senza dipendere da CoinGecko.
+ *
+ *   1. adapter.listSupportedUsdMarkets() → tutti i pair USDT attivi
+ *      con volume24h (in USDT ≈ USD).
+ *   2. Filter `volume24h >= minVolume24h` per scartare scam/dust.
+ *   3. Per ogni market sopravvissuto: INSERT in `prices_coins` con
+ *      name=symbol, image_url=null, is_active=true,
+ *      preferred_exchange=<id>, exchange_symbol=<exchangeSymbol>.
+ *      ON CONFLICT (symbol) DO NOTHING → skip esistenti.
+ *
+ * I metadata "estetici" (name leggibile, image, market_cap_rank,
+ * sparkline7d, coingecko_id) sono lasciati al successivo enrichment
+ * via CoinGecko (action separata).
+ */
+export async function importExchangeCoinsAction(
+  exchangeId: string,
+  minVolume24h: number,
+): Promise<ImportExchangeCoinsResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+
+  const adapter = getExchangeAdapter(exchangeId);
+  if (!adapter) {
+    return { ok: false, error: `Adapter '${exchangeId}' non implementato.` };
+  }
+  if (!adapter.listSupportedUsdMarkets) {
+    return {
+      ok: false,
+      error: `Adapter '${exchangeId}' non supporta l'import wholesale.`,
+    };
+  }
+  const minVol = Math.max(0, Math.trunc(minVolume24h || 0));
+
+  let markets: Array<{
+    exchangeSymbol: string;
+    canonicalSymbol: string;
+    volume24h: number;
+  }>;
+  try {
+    markets = await adapter.listSupportedUsdMarkets();
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Lista markets exchange fallita: ${
+        err instanceof Error ? err.message : "unknown"
+      }`,
+    };
+  }
+
+  let skippedLowVolume = 0;
+  const candidates: typeof markets = [];
+  for (const m of markets) {
+    if (m.volume24h < minVol) {
+      skippedLowVolume++;
+    } else {
+      candidates.push(m);
+    }
+  }
+
+  // De-dup per canonicalSymbol: se sullo stesso exchange ci sono piu'
+  // pair che mappano allo stesso base (es. token wrapped), tieni
+  // quello con volume piu' alto.
+  const byCanonical = new Map<
+    string,
+    { exchangeSymbol: string; canonicalSymbol: string; volume24h: number }
+  >();
+  for (const m of candidates) {
+    const cur = byCanonical.get(m.canonicalSymbol);
+    if (!cur || m.volume24h > cur.volume24h) byCanonical.set(m.canonicalSymbol, m);
+  }
+
+  const { pricesCoins } = await import("@/lib/db/schema");
+  const now = new Date();
+  let inserted = 0;
+  const insertedSymbols: string[] = [];
+
+  for (const m of byCanonical.values()) {
+    const sym = m.canonicalSymbol.toUpperCase();
+    // INSERT ... ON CONFLICT DO NOTHING. Drizzle non ritorna `affected`
+    // di default; usiamo `returning` per contare le righe insertate.
+    const ins = await db
+      .insert(pricesCoins)
+      .values({
+        symbol: sym,
+        name: sym, // placeholder: enrichment lo sostituisce con il nome leggibile
+        isActive: true,
+        preferredExchange: exchangeId,
+        exchangeSymbol: m.exchangeSymbol,
+        lastSeenAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: pricesCoins.symbol })
+      .returning({ symbol: pricesCoins.symbol });
+    if (ins.length > 0) {
+      inserted++;
+      if (insertedSymbols.length < 10) insertedSymbols.push(sym);
+    }
+  }
+
+  revalidatePath("/admin/modules/prices/exchanges");
+  revalidatePath("/admin/modules/prices/coins");
+
+  return {
+    ok: true,
+    marketsFromExchange: markets.length,
+    skippedLowVolume,
+    skippedExisting: byCanonical.size - inserted,
+    inserted,
+    insertedSamples: insertedSymbols,
+  };
+}
+
+export type EnrichMetadataResult =
+  | {
+      ok: true;
+      candidatesLoaded: number;
+      matched: number;
+      enriched: number;
+      noMatch: number;
+      errors: number;
+      imageMirrorFailed: number;
+      enrichedSamples: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Enrichment metadata dei coin senza coingecko_id (tipicamente quelli
+ * appena importati wholesale da exchange). Match symbol → CoinGecko id,
+ * recupera name/image/marketCap/sparkline e fa mirror dell'immagine su
+ * R2. Idempotente: re-run salta i coin gia' arricchiti.
+ */
+export async function enrichCoinsMetadataAction(
+  maxCount: number,
+): Promise<EnrichMetadataResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+  const { runMetadataEnrichment } = await import(
+    "@/lib/modules/prices/enrichment"
+  );
+  const result = await runMetadataEnrichment(maxCount);
+  if (result.ok) {
+    revalidatePath("/admin/modules/prices/exchanges");
+    revalidatePath("/admin/modules/prices/coins");
+  }
+  return result;
+}
+
 /**
  * Esegue health check live + persiste il risultato in
  * price_exchanges.last_health_*. Cosi' la lista mostra sempre lo

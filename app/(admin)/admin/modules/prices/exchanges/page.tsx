@@ -12,10 +12,14 @@
 // Sostituisce le pagine temporanee /diagnostics-binance e
 // /diagnostics-hot-prices (verranno rimosse in PR4b).
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
-import { listAdminExchanges } from "@/lib/modules/prices/exchanges/queries";
+import {
+  countCoinsAwaitingEnrichment,
+  listAdminExchanges,
+} from "@/lib/modules/prices/exchanges/queries";
 import { EXCHANGE_REGISTRY } from "@/lib/modules/prices/exchanges/registry";
 import type { Metadata } from "next";
 import { BulkAutoMapCard } from "./_components/bulk-auto-map-card";
+import { EnrichMetadataCard } from "./_components/enrich-metadata-card";
 import { ExchangesClient } from "./_components/exchanges-client";
 
 export const metadata: Metadata = { title: "Prices / Exchanges" };
@@ -23,7 +27,10 @@ export const dynamic = "force-dynamic";
 
 export default async function PricesExchangesPage() {
   await requireAdminSectionPage("admin:users");
-  const rows = await listAdminExchanges();
+  const [rows, awaitingEnrichment] = await Promise.all([
+    listAdminExchanges(),
+    countCoinsAwaitingEnrichment(),
+  ]);
 
   // Solo exchange enabled + implementato in codice + che supportano
   // listSupportedUsdSymbols possono essere target del bulk auto-map.
@@ -52,6 +59,7 @@ export default async function PricesExchangesPage() {
       {bulkTargets.length > 0 && (
         <BulkAutoMapCard availableExchanges={bulkTargets} />
       )}
+      <EnrichMetadataCard awaitingCount={awaitingEnrichment} />
       <ExchangesClient initialRows={rows} />
     </div>
   );

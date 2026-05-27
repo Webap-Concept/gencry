@@ -26,6 +26,7 @@ import {
   type HealthCheckActionResult,
 } from "../actions";
 import type { AdminExchangeRow } from "@/lib/modules/prices/exchanges/queries";
+import { ImportExchangeCoinsButton } from "./import-exchange-coins-button";
 
 export function ExchangesClient({ initialRows }: { initialRows: AdminExchangeRow[] }) {
   const router = useRouter();
@@ -256,6 +257,12 @@ function ExchangeCard({
           disabled={pending}>
           {row.hasApiKey ? "Modifica API key" : "Imposta API key"}
         </AdminButton>
+        {row.implemented && row.enabled && (
+          <ImportExchangeCoinsButton
+            exchangeId={row.id}
+            exchangeLabel={row.label}
+          />
+        )}
       </div>
 
       {/* Health history (snapshot DB + ultimo test del session) */}
