@@ -7,6 +7,7 @@ import {
   ActivityType,
   notifications,
   roles,
+  sessions as sessionsTable,
   userProfiles,
   users,
 } from "@/lib/db/schema";
@@ -17,15 +18,27 @@ import { can } from "@/lib/rbac/can";
 import { requireAdmin, requireAdminSectionPage } from "@/lib/rbac/guards";
 import { revokeStrike } from "@/lib/auth/strikes";
 import { getUser } from "@/lib/db/queries";
+import { getSession, signToken } from "@/lib/auth/session";
+import {
+  createSession as createSessionRow,
+  revokeSession,
+} from "@/lib/auth/sessions";
 import {
   deleteAvatarFromR2,
   uploadAvatarToR2,
 } from "@/lib/storage/r2-avatars";
 import { eq } from "drizzle-orm";
+import { cookies, headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 const MAX_ADMIN_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB — stessa soglia user
+
+// Durata massima di una sessione impersonata. Volutamente corta per
+// ridurre la finestra di abuso se l'admin lascia il laptop incustodito.
+// Decisione 2026-05-27.
+const IMPERSONATION_DURATION_MS = 30 * 60 * 1000; // 30 min
 
 /**
  * Sync l'indice mention Upstash dopo un cambio di stato users
@@ -411,4 +424,163 @@ export async function adminRemoveUserAvatar(
 
   revalidatePath(await getAdminPath("users-list"));
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Impersonation — admin "diventa" un altro utente per debug/support
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Pattern (cookie singolo, swap atomico):
+//   - start:
+//       1. permission `users:impersonate` (o isAdmin)
+//       2. target esistente, non-deletato, non-admin (anti-escalation)
+//       3. crea NEW session per target con impersonator_session_id =
+//          currentAdmin.sessionId, durationMs = 30min
+//       4. ri-firma JWT con il nuovo sid + set cookie (sostituisce admin)
+//       5. audit log su admin user (ADMIN_IMPERSONATE_START)
+//       6. redirect a /  (front utente — l'admin "entra" come quell'utente)
+//
+//   - stop:
+//       1. session corrente DEVE avere impersonatorSessionId != null
+//       2. revoca current
+//       3. ri-firma JWT col sid admin originale + set cookie
+//       4. audit log (ADMIN_IMPERSONATE_STOP) sull'admin user
+//       5. redirect a /admin/access/users (l'admin torna nel pannello)
+//
+// La admin session originale resta nel DB con revokedAt=NULL (sospesa
+// logicamente, viva). Se l'admin perde il cookie durante l'impersonation
+// → diventa logged-out al stop, deve ri-loggarsi: caveat accettato.
+
+export type ImpersonateResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function adminStartImpersonation(
+  targetUserId: string,
+): Promise<ImpersonateResult> {
+  const adminUser = await requireAdminSectionPage("admin:users");
+  const allowed =
+    adminUser.isAdmin || (await can(adminUser, "users:impersonate"));
+  if (!allowed) {
+    return {
+      ok: false,
+      error: "Permesso `users:impersonate` mancante.",
+    };
+  }
+
+  // Carico la session corrente DAL COOKIE — mi serve l'id per il
+  // back-pointer della session impersonation.
+  const current = await getSession();
+  if (!current) {
+    return { ok: false, error: "Sessione admin non valida." };
+  }
+
+  // Anti-escalation: target non puo' essere un admin globale, ne'
+  // soft-deleted. Bannato e' OK (caso d'uso debug).
+  const [target] = await db
+    .select({
+      id: users.id,
+      isAdmin: users.isAdmin,
+      deletedAt: users.deletedAt,
+    })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) return { ok: false, error: "Utente target non trovato." };
+  if (target.deletedAt) {
+    return { ok: false, error: "Impossibile impersonare un utente cancellato." };
+  }
+  if (target.isAdmin) {
+    return {
+      ok: false,
+      error: "Impossibile impersonare un altro amministratore.",
+    };
+  }
+
+  // Crea la session impersonata con back-pointer + expiry 30min.
+  const h = await headers();
+  const userAgent = h.get("user-agent") ?? null;
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    h.get("x-real-ip") ??
+    null;
+
+  const newSession = await createSessionRow({
+    userId: targetUserId,
+    role: "member", // role base; la cache miss leggera' il vero da users
+    deviceToken: null,
+    userAgent,
+    ip,
+    impersonatorSessionId: current.sessionId,
+    durationMs: IMPERSONATION_DURATION_MS,
+  });
+
+  // Sostituisco il cookie con la new session. La admin session originale
+  // resta in DB con revokedAt=NULL (viva, sospesa logicamente).
+  const token = await signToken({ sid: newSession.id });
+  (await cookies()).set("session", token, {
+    expires: newSession.expiresAt,
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+  });
+
+  // Audit log sull'admin user (chi ha eseguito l'azione).
+  await db.insert(activityLogs).values({
+    userId: adminUser.id,
+    action: ActivityType.ADMIN_IMPERSONATE_START,
+    ipAddress: ip ?? "",
+  });
+
+  // L'admin entra nel front utente.
+  redirect("/");
+}
+
+export async function adminStopImpersonation(): Promise<ImpersonateResult> {
+  const current = await getSession();
+  if (!current) {
+    return { ok: false, error: "Nessuna sessione attiva." };
+  }
+  if (!current.impersonatorSessionId) {
+    return { ok: false, error: "La sessione corrente non e' un'impersonation." };
+  }
+
+  // Revoca la session impersonata (current). Ripristino il cookie col
+  // sid admin originale.
+  await revokeSession(current.sessionId);
+  const adminToken = await signToken({ sid: current.impersonatorSessionId });
+
+  // Recupero l'expiresAt admin per riallineare il cookie. Se la session
+  // admin non e' piu' valida (rara: scaduta nel frattempo), il prossimo
+  // getSession ritornera' null e l'utente sara' logged-out naturalmente.
+  const [adminSession] = await db
+    .select({
+      expiresAt: sessionsTable.expiresAt,
+      userId: sessionsTable.userId,
+    })
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, current.impersonatorSessionId))
+    .limit(1);
+
+  if (adminSession) {
+    (await cookies()).set("session", adminToken, {
+      expires: adminSession.expiresAt,
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+    });
+
+    // Audit log: ADMIN_IMPERSONATE_STOP sull'admin user originale.
+    await db.insert(activityLogs).values({
+      userId: adminSession.userId,
+      action: ActivityType.ADMIN_IMPERSONATE_STOP,
+      ipAddress: "",
+    });
+  } else {
+    // Admin session sparita nel frattempo (revocata da altra tab, ecc.):
+    // cancello il cookie, l'utente dovra' ri-loggarsi.
+    (await cookies()).delete("session");
+  }
+
+  redirect(await getAdminPath("users-list"));
 }

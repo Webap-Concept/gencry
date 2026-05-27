@@ -49,6 +49,7 @@ export const CORE_PERMISSIONS: SeedPermission[] = [
   { key: "users:ban",               label: "Suspend users",                   group: "Users", isSystem: true },
   { key: "users:role_assign",       label: "Assign roles",                    group: "Users", isSystem: true },
   { key: "users:permission_assign", label: "Assign individual permissions",   group: "Users", isSystem: true },
+  { key: "users:impersonate",       label: "Impersonate other users (admin tool)", group: "Users", isSystem: true },
 
   // ── Content ──────────────────────────────────────────────────────────
   { key: "content:read",       label: "Read content",             group: "Content", isSystem: false },
@@ -101,7 +102,7 @@ export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "admin:sentry",
     // users
     "users:read", "users:edit", "users:delete", "users:ban",
-    "users:role_assign", "users:permission_assign",
+    "users:role_assign", "users:permission_assign", "users:impersonate",
     // content
     "content:read", "content:create", "content:edit_own", "content:edit_any",
     "content:delete_own", "content:delete_any", "content:publish",

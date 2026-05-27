@@ -2,6 +2,7 @@ import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
+import { ImpersonationBanner } from "./_components/impersonation-banner";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getMfaPolicy, mfaEnforcement } from "@/lib/auth/mfa/policy";
 import { getMfaState } from "@/lib/auth/mfa/queries";
@@ -90,6 +91,9 @@ export default async function Layout({
   const banner = (
     <>
       <PageShowRevalidator />
+      <Suspense fallback={null}>
+        <ImpersonationBanner />
+      </Suspense>
       <Suspense fallback={null}>
         <PolicyReconsentSlot userId={session.user.id} />
       </Suspense>

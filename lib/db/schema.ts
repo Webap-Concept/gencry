@@ -901,6 +901,12 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at").notNull(),
     /** Set a now() su signOut/revoke; null = sessione attiva. */
     revokedAt: timestamp("revoked_at"),
+    /** Back-pointer alla session admin che ha avviato un'impersonation.
+     *  - null               → sessione normale
+     *  - <session admin id> → sessione impersonata, banner top + tools
+     *                          per fare stop. Vedi /admin/access/users
+     *                          adminStartImpersonation. */
+    impersonatorSessionId: uuid("impersonator_session_id"),
   },
   (table) => [
     index("idx_sessions_user_active").on(table.userId),
@@ -1890,6 +1896,11 @@ export enum ActivityType {
   // /settings/activity lato user). Usato per tracciare azioni admin
   // sul profilo, separato da AVATAR_UPDATED che e' l'azione self-served.
   AVATAR_UPDATED_BY_ADMIN = "AVATAR_UPDATED_BY_ADMIN",
+  // Impersonation lifecycle. Loggati sull'admin originale (chi ha cliccato
+  // il bottone), non sull'utente target. payload->'target_user_id' poi
+  // potra' essere aggiunto se activity_logs guadagnera' una colonna jsonb.
+  ADMIN_IMPERSONATE_START = "ADMIN_IMPERSONATE_START",
+  ADMIN_IMPERSONATE_STOP = "ADMIN_IMPERSONATE_STOP",
   BIO_UPDATED = "BIO_UPDATED",
   PROFILE_VIEWED = "PROFILE_VIEWED",
   POST_CREATED = "POST_CREATED",

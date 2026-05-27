@@ -40,6 +40,7 @@ import { getActiveReportReasons } from "@/lib/modules/posts/services/report-reas
 import {
   BanButton,
   DeleteButton,
+  ImpersonateButton,
   RoleSelector,
 } from "./_components/user-detail-client";
 import { UserDetailTabs } from "./_components/user-detail-tabs";
@@ -86,11 +87,13 @@ async function UserContent({
   canDelete,
   canRevokeStrikes,
   canEditProfile,
+  canImpersonate,
 }: {
   id: string;
   canDelete: boolean;
   canRevokeStrikes: boolean;
   canEditProfile: boolean;
+  canImpersonate: boolean;
 }) {
   const t = await getTranslations("admin.access.users.detail");
   const locale = await getLocale();
@@ -356,6 +359,7 @@ async function UserContent({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <ImpersonateButton user={user} canImpersonate={canImpersonate} />
           <BanButton user={user} />
           <DeleteButton user={user} canDelete={canDelete} />
         </div>
@@ -426,6 +430,11 @@ export default async function AdminUserPage({
   const canEditProfile = currentUser
     ? currentUser.isAdmin || (await can(currentUser, "users:edit"))
     : false;
+  // Impersonation: permission a parte (`users:impersonate`), molto piu'
+  // potente di `users:edit`. Gate UI; server action ri-controlla.
+  const canImpersonate = currentUser
+    ? currentUser.isAdmin || (await can(currentUser, "users:impersonate"))
+    : false;
 
   const t = await getTranslations("admin.access.users.detail");
 
@@ -456,6 +465,7 @@ export default async function AdminUserPage({
           canDelete={canDelete}
           canRevokeStrikes={canRevokeStrikes}
           canEditProfile={canEditProfile}
+          canImpersonate={canImpersonate}
         />
       </Suspense>
     </div>

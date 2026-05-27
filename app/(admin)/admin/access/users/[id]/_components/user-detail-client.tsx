@@ -1,14 +1,27 @@
 "use client";
 
+import {
+  AdminDialog,
+  AdminDialogCancelButton,
+  AdminDialogConfirmButton,
+  AdminDialogContent,
+} from "@/app/(admin)/admin/_components/admin-dialog";
 import type { AdminUserDetail } from "@/lib/db/admin-queries";
 import type { RoleRow } from "@/lib/db/roles-queries";
-import { Check, Shield, ShieldBan, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  Check,
+  Eye,
+  Shield,
+  ShieldBan,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { setUserRole } from "../../../roles/actions";
 import BanModal from "../../_components/ban-modal";
 import DeleteModal from "../../_components/delete-modal";
-import { unbanUser } from "../../actions";
+import { adminStartImpersonation, unbanUser } from "../../actions";
 
 // ─── BanButton ────────────────────────────────────────────────────────
 export function BanButton({ user }: { user: AdminUserDetail }) {
@@ -53,6 +66,102 @@ export function BanButton({ user }: { user: AdminUserDetail }) {
           onClose={() => setShowModal(false)}
         />
       )}
+    </>
+  );
+}
+
+// ─── ImpersonateButton ─────────────────────────────────────────────────
+// Permette a un admin con `users:impersonate` di "entrare" come l'utente
+// target. Apre conferma esplicita (AdminDialog) prima dello swap.
+// L'azione e' destructive sulla session admin (cookie swap), quindi
+// modale obbligatoria. La server action ridireziona a `/` (front).
+export function ImpersonateButton({
+  user,
+  canImpersonate,
+}: {
+  user: AdminUserDetail;
+  canImpersonate: boolean;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  // Anti-escalation: non si impersona un admin / utente cancellato.
+  if (!canImpersonate || user.isAdmin || !!user.deletedAt) return null;
+
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.username ||
+    user.email;
+
+  function handleConfirm() {
+    setError(null);
+    startTransition(async () => {
+      // Server action fa redirect("/") in caso di successo: questo
+      // catch entra solo se ok=false (target non valido, permission).
+      const res = await adminStartImpersonation(user.id);
+      if (!res.ok) {
+        setError(res.error);
+      }
+    });
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setShowModal(true)}
+        title="Entra nel front come questo utente (audit log)"
+        className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+        style={{
+          background: "var(--admin-hover-bg)",
+          color: "var(--admin-text)",
+        }}>
+        <Eye size={15} />
+        Impersona
+      </button>
+      <AdminDialog
+        open={showModal}
+        onOpenChange={(o) => {
+          if (!o && !pending) {
+            setShowModal(false);
+            setError(null);
+          }
+        }}>
+        <AdminDialogContent
+          icon={Eye}
+          size="md"
+          title={`Impersonare ${displayName}?`}
+          description="Entrerai nel front utente come questa persona. La tua sessione admin resta sospesa (puoi tornare con il banner top). Durata massima: 30 minuti."
+          footer={
+            <>
+              <AdminDialogCancelButton
+                onClick={() => {
+                  setShowModal(false);
+                  setError(null);
+                }}
+                disabled={pending}>
+                Annulla
+              </AdminDialogCancelButton>
+              <AdminDialogConfirmButton
+                onClick={handleConfirm}
+                loading={pending}>
+                {pending ? "Avvio…" : "Impersona"}
+              </AdminDialogConfirmButton>
+            </>
+          }>
+          <div
+            className="space-y-2 text-sm"
+            style={{ color: "var(--admin-text-muted)" }}>
+            <p>L&apos;azione viene loggata in audit (admin che ha avviato + timestamp). L&apos;utente target <strong>non</strong> riceve notifica.</p>
+            {error ? (
+              <p style={{ color: "var(--gc-neg, #dc2626)" }}>
+                Errore: {error}
+              </p>
+            ) : null}
+          </div>
+        </AdminDialogContent>
+      </AdminDialog>
     </>
   );
 }
