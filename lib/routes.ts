@@ -67,8 +67,16 @@ export const NAV_ITEMS = [
   { href: "/libreria", label: "Libreria", icon: "BookOpen" },
 ] as const;
 
+/**
+ * @deprecated DEAD CODE — non consumato da nessun file. La voce "Profilo"
+ * qui sotto e' obsoleta: il profilo vive a /u/<username> e i menu UI
+ * costruiscono l'href dinamico dallo username corrente (vedi AppSidebar /
+ * AppBottomNav). Conservato per riferimento storico finche' non si decide
+ * un menu utente "tutto-da-DB". Da rimuovere o ripopolare quando arriverà
+ * la feature.
+ */
 export const USER_MENU_ITEMS = [
-  { href: "/profile", label: "Profilo", icon: "User" },
+  { href: "/settings/profile", label: "Profilo", icon: "User" },
   { href: "/account", label: "Impostazioni e privacy", icon: "Settings" },
   { href: "/assistenza", label: "Assistenza", icon: "HelpCircle" },
   { href: "/segnala", label: "Segnala un problema", icon: "AlertTriangle" },
