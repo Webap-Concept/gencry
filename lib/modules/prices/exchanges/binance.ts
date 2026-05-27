@@ -77,6 +77,10 @@ export const binanceAdapter: PriceExchangeAdapter = {
   label: "Binance",
   needsApiKey: "no",
 
+  buildUsdSymbol(canonical) {
+    return `${canonical.toUpperCase()}USDT`;
+  },
+
   async fetchCurrentPrices(inputs: ExchangeFetchInput[]) {
     const result = new Map<string, PriceQuote>();
     if (inputs.length === 0) return result;

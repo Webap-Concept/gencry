@@ -140,9 +140,14 @@ export async function bulkAutoMapAction(
 
   const toUpdate: { symbol: string; exchangeSymbol: string }[] = [];
   let notListed = 0;
+  // Symbol per-exchange: Binance "BTCUSDT", KuCoin "BTC-USDT", Gate
+  // "BTC_USDT". Fallback Binance-style se l'adapter non override.
+  const buildSym = adapter.buildUsdSymbol
+    ? adapter.buildUsdSymbol.bind(adapter)
+    : (s: string) => `${s.toUpperCase()}USDT`;
   for (const c of candidates) {
-    const exchSym = `${c.symbol.toUpperCase()}USDT`;
-    if (supported.has(exchSym)) {
+    const exchSym = buildSym(c.symbol);
+    if (supported.has(exchSym.toUpperCase())) {
       toUpdate.push({ symbol: c.symbol, exchangeSymbol: exchSym });
     } else {
       notListed++;

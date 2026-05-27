@@ -8,12 +8,12 @@
 
 import { AdminButton } from "@/app/(admin)/admin/_components/admin-button";
 import { adminFieldStyle } from "@/app/(admin)/admin/_components/admin-dialog";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { bulkAutoMapAction, type BulkAutoMapResult } from "../actions";
 
-const BULK_DEFAULT_N = 1000;
+const BULK_DEFAULT_N = 600;
 
 type Props = {
   /** Lista degli exchange disponibili nel dropdown. Solo gli enabled
@@ -67,10 +67,10 @@ export function BulkAutoMapCard({ availableExchanges }: Props) {
           <p
             className="text-[12px] mt-0.5"
             style={{ color: "var(--admin-text-faint)" }}>
-            Mappa automaticamente i top N coin (per market cap) su un
-            exchange. Per ogni coin verifica via <code>exchangeInfo</code>{" "}
-            che il pair <code>&lt;SYM&gt;USDT</code> sia listato; skip
-            quelli gia' mappati e quelli non listati. Idempotente.
+            Mappa automaticamente i top N coin (per market cap) su un exchange.
+            Per ogni coin verifica via <code>exchangeInfo</code> che il pair{" "}
+            <code>&lt;SYM&gt;USDT</code> sia listato; skip quelli gia' mappati e
+            quelli non listati. Idempotente.
           </p>
         </div>
       </header>
@@ -162,8 +162,7 @@ function ResultPanel({ result }: { result: BulkAutoMapResult }) {
       }}>
       <p>
         Top richiesti: <strong>{result.requestedTop}</strong> · Candidati
-        valutati (non gia' mappati):{" "}
-        <strong>{result.coinsEvaluated}</strong>
+        valutati (non gia' mappati): <strong>{result.coinsEvaluated}</strong>
       </p>
       <p>
         Mappati ora:{" "}

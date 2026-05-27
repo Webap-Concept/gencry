@@ -90,6 +90,13 @@ export interface PriceExchangeAdapter {
    *  effettivamente listati prima dell'UPDATE. Adapter che non
    *  espongono un equivalente di /exchangeInfo lo omettono. */
   listSupportedUsdSymbols?(): Promise<Set<string>>;
+
+  /** Opzionale: dato il symbol canonico (es. "BTC"), costruisce il
+   *  formato exchange-specific (es. Binance "BTCUSDT", KuCoin "BTC-USDT",
+   *  Gate "BTC_USDT"). Usato dal bulk auto-map per generare la chiave
+   *  da matchare contro `listSupportedUsdSymbols`. Default sicuro:
+   *  `${symbol}USDT` (Binance-style) se non override-ato. */
+  buildUsdSymbol?(canonicalSymbol: string): string;
 }
 
 /**
