@@ -4,14 +4,11 @@
 // Editor avatar admin-side: permette agli admin con `users:edit` di
 // modificare o rimuovere l'avatar di un utente qualsiasi.
 //
-// Riusa la stessa AvatarCropDialog del flow self-served utente (vedi
-// app/(protected)/settings/profile/_components/avatar-crop-dialog.tsx)
-// per evitare duplicazioni: crop 1:1 → JPEG 512×512 → upload R2.
-//
 // UX: avatar grande nell'header detail page con overlay hover "Modifica".
-// Click apre file picker → preview crop dialog → onConfirm chiama
-// `adminUpdateUserAvatar(targetUserId, formData)`. Sotto, bottone
-// "Rimuovi" se l'utente ha gia' un avatar.
+// Click apre file picker → preview crop dialog (versione admin con
+// AdminDialog + AdminButton, regola feedback_admin_no_frontend_css) →
+// onConfirm chiama `adminUpdateUserAvatar(targetUserId, formData)`.
+// Sotto, trash button se l'utente ha gia' un avatar.
 //
 // Audit: server action logga `AVATAR_UPDATED_BY_ADMIN` sull'activity
 // dell'utente target. L'utente non vede questo log (no UI client-side
@@ -19,7 +16,7 @@
 
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { AvatarCropDialog } from "@/app/(protected)/settings/profile/_components/avatar-crop-dialog";
+import { AdminAvatarCropDialog } from "@/app/(admin)/admin/_components/admin-avatar-crop-dialog";
 import {
   adminRemoveUserAvatar,
   adminUpdateUserAvatar,
@@ -174,7 +171,7 @@ export function AdminAvatarEditor({
         </p>
       )}
 
-      <AvatarCropDialog
+      <AdminAvatarCropDialog
         open={cropSrc !== null}
         imageSrc={cropSrc}
         saving={pending}
