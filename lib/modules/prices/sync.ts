@@ -5,11 +5,17 @@
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
-import { getActiveUniverse } from "./active-universe";
+import { getActiveUniverse, type ActiveCoin } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
 import { getPricesConfig } from "./config";
 import { CoinGeckoError, fetchCoinGeckoPrices } from "./sources/coingecko";
 import { DexScreenerError, fetchDexScreenerPrices } from "./sources/dexscreener";
+import { getExchangeAdapter } from "./exchanges/registry";
+import {
+  ExchangeAdapterError,
+  type ExchangeFetchInput,
+} from "./exchanges/types";
+import { setHotPrices } from "./services/hot-prices";
 import type { PriceQuote } from "./types";
 
 export interface SyncResult {
@@ -77,10 +83,42 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   let sourceUsed: SyncResult["sourceUsed"] = null;
   let lastError: string | undefined;
 
-  // ── 1) Primary: CoinGecko ────────────────────────────────────────────
+  // ── 1) Group-by-exchange routing (PR2 refactor Redis-first) ──────────
+  // Ogni coin con `preferred_exchange + exchange_symbol` viene routato al
+  // suo adapter. I coin senza mapping ricadono sul vecchio path CoinGecko.
+  // Failure isolation per-exchange: se Binance e' down, gli altri (e
+  // CoinGecko per i tail) continuano.
+  const exchangeGroups = groupByExchange(universe);
+  let exchangePathUsed = false;
+  for (const [exchangeId, inputs] of exchangeGroups) {
+    const adapter = getExchangeAdapter(exchangeId);
+    if (!adapter || inputs.length === 0) continue;
+    try {
+      const map = await adapter.fetchCurrentPrices(inputs);
+      for (const [sym, q] of map) collected.set(sym, q);
+      exchangePathUsed = true;
+    } catch (err) {
+      const msg =
+        err instanceof ExchangeAdapterError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : `${exchangeId} fetch failed`;
+      console.error(`[runPricesSync] exchange ${exchangeId} failed:`, err);
+      lastError = msg;
+      // Niente fallback automatico ad altro exchange per gli inputs di
+      // questo gruppo: i coin restano "missing" e li tenta CoinGecko.
+    }
+  }
+
+  // ── 2) CoinGecko per i coin SENZA exchange routing o ancora mancanti ─
+  // Backward compatibility: tutti i coin con coingeckoId che non sono stati
+  // gia' raccolti dagli exchanges → CoinGecko come oggi.
   const cgIdToSymbol = new Map<string, string>();
   for (const c of universe) {
-    if (c.coingeckoId) cgIdToSymbol.set(c.coingeckoId, c.symbol);
+    if (c.coingeckoId && !collected.has(c.symbol)) {
+      cgIdToSymbol.set(c.coingeckoId, c.symbol);
+    }
   }
 
   if (cgIdToSymbol.size > 0) {
@@ -90,7 +128,7 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
         const result = await fetchCoinGeckoPrices(cgIdToSymbol);
         for (const [sym, q] of result.quotes) collected.set(sym, q);
         await recordSuccess("coingecko", result.latencyMs);
-        sourceUsed = "coingecko";
+        sourceUsed = exchangePathUsed ? "mixed" : "coingecko";
       } catch (err) {
         const msg =
           err instanceof CoinGeckoError ? err.message : err instanceof Error ? err.message : "unknown";
@@ -98,9 +136,12 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
         lastError = msg;
       }
     }
+  } else if (exchangePathUsed) {
+    // Tutto coperto dagli exchange, niente CoinGecko richiesto.
+    sourceUsed = "mixed";
   }
 
-  // ── 2) Fallback: DexScreener (per coin mancanti dopo CoinGecko) ──────
+  // ── 3) Fallback: DexScreener (per coin mancanti dopo entrambi) ───────
   const missing = universe.filter((c) => !collected.has(c.symbol));
   if (missing.length > 0) {
     const allowed = await canCall("dexscreener");
@@ -109,7 +150,10 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
         const result = await fetchDexScreenerPrices(missing.map((c) => c.symbol));
         for (const [sym, q] of result.quotes) collected.set(sym, q);
         await recordSuccess("dexscreener", result.latencyMs);
-        sourceUsed = sourceUsed === "coingecko" ? "mixed" : "dexscreener";
+        sourceUsed =
+          sourceUsed === "coingecko" || sourceUsed === "mixed"
+            ? "mixed"
+            : "dexscreener";
       } catch (err) {
         const msg =
           err instanceof DexScreenerError ? err.message : err instanceof Error ? err.message : "unknown";
@@ -136,6 +180,29 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   } catch (err) {
     upsertError = err instanceof Error ? err.message : "upsert failed";
     console.error("[runPricesSync] upsertPrices failed:", err);
+  }
+
+  // ── 3.5) Dual-write Redis hot layer (PR2 refactor) ──────────────────
+  // Scriviamo SEMPRE su Redis l'intero snapshot collected (TTL 90s). I
+  // consumer in PR2c leggeranno preferibilmente da qui; durante la
+  // transition `prices_data` resta il cold fallback DB. Best-effort:
+  // errori loggati ma non interrompono il run (Redis down → l'app cade
+  // automaticamente su prices_data).
+  if (collected.size > 0) {
+    try {
+      // TTL legato alla cadence del cron: minuti * 60 + 60s grace. Cosi'
+      // se l'admin cambia cron_minutes da 5 → 1 in /admin/modules/prices,
+      // il TTL si adatta automaticamente al prossimo run senza richiedere
+      // deploy. Senza questo, un cron 5-min con TTL 90s lascia la chiave
+      // evaporata per 3.5 minuti su 5.
+      const ttlSeconds = cfg.cronMinutes * 60 + 60;
+      const res = await setHotPrices(collected, { ttlSeconds });
+      if (!res.ok) {
+        console.warn("[runPricesSync] hot-prices write skipped (Redis not configured or down)");
+      }
+    } catch (err) {
+      console.error("[runPricesSync] setHotPrices failed:", err);
+    }
   }
 
   // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
@@ -477,6 +544,31 @@ export async function runPricesCleanup(): Promise<SyncResult> {
     sourceUsed: null,
     durationMs,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Exchange routing helper (PR2 refactor)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Raggruppa i coin attivi per `preferred_exchange`. I coin senza
+ * mapping exchange (preferred_exchange = null) NON entrano nella mappa
+ * — verranno fetchati da CoinGecko nel branch successivo del cron.
+ *
+ * Output: Map<exchangeId, ExchangeFetchInput[]> con symbol canonico
+ * + exchange_symbol pronto da passare ad adapter.fetchCurrentPrices.
+ */
+function groupByExchange(
+  universe: ActiveCoin[],
+): Map<string, ExchangeFetchInput[]> {
+  const groups = new Map<string, ExchangeFetchInput[]>();
+  for (const c of universe) {
+    if (!c.preferredExchange || !c.exchangeSymbol) continue;
+    const arr = groups.get(c.preferredExchange) ?? [];
+    arr.push({ symbol: c.symbol, exchangeSymbol: c.exchangeSymbol });
+    groups.set(c.preferredExchange, arr);
+  }
+  return groups;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

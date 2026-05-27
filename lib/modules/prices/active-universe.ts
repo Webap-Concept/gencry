@@ -11,38 +11,59 @@
 // includerà JOIN con watchlist_coins e con i post recenti che referenziano coin.
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
-import { and, eq, gte, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, or } from "drizzle-orm";
 import { getPricesConfig } from "./config";
 
 export interface ActiveCoin {
   symbol: string;
   coingeckoId: string | null;
+  /** Routing per il cron group-by-exchange (PR2 refactor Redis-first).
+   *  Null = fallback CoinGecko per i coin senza mapping exchange. */
+  preferredExchange: string | null;
+  exchangeSymbol: string | null;
 }
+
+const COMMON_SELECT = {
+  symbol: pricesCoins.symbol,
+  coingeckoId: pricesCoins.coingeckoId,
+  preferredExchange: pricesCoins.preferredExchange,
+  exchangeSymbol: pricesCoins.exchangeSymbol,
+};
 
 export async function getActiveUniverse(): Promise<ActiveCoin[]> {
   const cfg = await getPricesConfig();
   const cutoff = new Date(Date.now() - cfg.universeHours * 3600 * 1000);
 
+  // Un coin e' fetchabile se ha ALMENO uno tra coingeckoId e mapping
+  // exchange (con preferred_exchange + exchange_symbol valorizzati).
+  // PR2: ampliato il filtro per non escludere i coin "exchange-only"
+  // che potrebbero non avere coingeckoId (es. small cap su KuCoin/Gate).
+  const hasFetchablePath = or(
+    isNotNull(pricesCoins.coingeckoId),
+    and(
+      isNotNull(pricesCoins.preferredExchange),
+      isNotNull(pricesCoins.exchangeSymbol),
+    ),
+  );
+
   const fresh = await db
-    .select({ symbol: pricesCoins.symbol, coingeckoId: pricesCoins.coingeckoId })
+    .select(COMMON_SELECT)
     .from(pricesCoins)
     .where(
       and(
         eq(pricesCoins.isActive, true),
         gte(pricesCoins.lastSeenAt, cutoff),
-        isNotNull(pricesCoins.coingeckoId),
+        hasFetchablePath,
       ),
     );
 
   if (fresh.length > 0) return fresh;
 
-  // Fallback: appena seedato, last_seen_at potrebbe essere lo stesso created_at
-  // ma la query sopra dovrebbe già includerli. Questo branch copre il caso in
-  // cui la finestra sia stata ridotta sotto pochi minuti.
+  // Fallback: stessa query senza filtro last_seen_at (caso bootstrap).
   return await db
-    .select({ symbol: pricesCoins.symbol, coingeckoId: pricesCoins.coingeckoId })
+    .select(COMMON_SELECT)
     .from(pricesCoins)
-    .where(and(eq(pricesCoins.isActive, true), isNotNull(pricesCoins.coingeckoId)));
+    .where(and(eq(pricesCoins.isActive, true), hasFetchablePath));
 }
 
 /**

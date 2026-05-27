@@ -7,6 +7,11 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getRedisClient } from "@/lib/kv/sdk";
+import {
+  getHotPrices,
+  getHotPricesForSymbols,
+} from "./services/hot-prices";
+import type { PriceQuote } from "./types";
 
 /** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
  * fresche (es. al termine di un cron run). Senza revalidate la cache scade
@@ -114,17 +119,43 @@ export async function invalidatePricesCache(): Promise<void> {
 
 export async function getCurrentPrices(symbols: string[]): Promise<Map<string, PriceRow>> {
   if (symbols.length === 0) return new Map();
-  // Cache-aside: 1 GET KV (o 1 fetch DB) per TUTTI i prezzi, poi
-  // filter client. A 30s TTL il cron sync scrive la tabella e la
-  // cache si riallinea naturalmente; con `invalidatePricesCache()`
-  // a fine sync l'allineamento è immediato.
+
+  // PR2c refactor "Redis-first": prima il nuovo hot layer (Upstash
+  // prices:hot:v1, TTL legato a cron_minutes). Se la chiave esiste e
+  // copre tutti i symbol richiesti → done. Altrimenti fallback al
+  // vecchio cache-aside (DB + prices:current:all legacy) per i mancanti.
+  const hot = await getHotPricesForSymbols(symbols);
+  const map = new Map<string, PriceRow>();
+  for (const [sym, q] of hot) {
+    map.set(sym, hotQuoteToPriceRow(sym, q));
+  }
+  if (map.size === symbols.length) return map;
+
+  // Hot incompleto (cron non ancora girato, chiave scaduta, Redis down).
+  // Fallback DB con cache legacy per coverage massima.
   const all = await getAllPricesCached();
   const wanted = new Set(symbols);
-  const map = new Map<string, PriceRow>();
   for (const r of all) {
-    if (wanted.has(r.symbol)) map.set(r.symbol, r);
+    if (wanted.has(r.symbol) && !map.has(r.symbol)) map.set(r.symbol, r);
   }
   return map;
+}
+
+/** Converte una `PriceQuote` (shape exchange-agnostic del modulo) in
+ *  `PriceRow` (shape attesa dai consumer del DB-path). Il `source` per
+ *  i quote da Redis hot e' marcato "hot" per debug; lastUpdated qui e'
+ *  approssimativo (now): il caller che vuole il timestamp esatto deve
+ *  chiamare getHotPrices() direttamente e leggere `updatedAt`. */
+function hotQuoteToPriceRow(symbol: string, q: PriceQuote): PriceRow {
+  return {
+    symbol,
+    price: q.price,
+    change24h: q.change24h,
+    volume24h: q.volume24h,
+    source: "hot",
+    lastUpdated: new Date(), // valore non strettamente accurato; il caller
+    // che vuole il timestamp esatto deve chiamare getHotPrices() e leggere updatedAt
+  };
 }
 
 export async function getCurrentPrice(symbol: string): Promise<PriceRow | null> {
