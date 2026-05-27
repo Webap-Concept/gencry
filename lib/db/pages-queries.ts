@@ -10,8 +10,19 @@ export type { PageTranslation, AppLocale };
 // Pages
 // ---------------------------------------------------------------------------
 
+/**
+ * Sort di default per il tree view admin: `published_at DESC NULLS LAST`
+ * (le pubblicate piu' recenti in alto, draft/system senza data in fondo),
+ * tie-break per `slug ASC` per stabilita'. Il vecchio sort `sortOrder ASC`
+ * dal drag & drop manuale e' rimasto in DB ma e' deprecato:
+ * cronologicamente la data di pubblicazione e' quasi sempre quello che
+ * l'editor vuole vedere prima.
+ */
 export async function getAllPages(): Promise<Page[]> {
-  return db.select().from(pages).orderBy(asc(pages.sortOrder), asc(pages.slug));
+  return db
+    .select()
+    .from(pages)
+    .orderBy(sql`${pages.publishedAt} DESC NULLS LAST`, asc(pages.slug));
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +129,13 @@ export async function getNavigablePages(): Promise<NavigablePage[]> {
   return list;
 }
 
-/** Restituisce le pagine root (senza parent) con le loro figlie dirette */
+/** Restituisce le pagine root (senza parent) con le loro figlie dirette.
+ *  Stesso sort di getAllPages: published_at DESC NULLS LAST, slug ASC. */
 export async function getPagesTree(): Promise<(Page & { children: Page[] })[]> {
-  const all = await db.select().from(pages).orderBy(asc(pages.sortOrder), asc(pages.slug));
+  const all = await db
+    .select()
+    .from(pages)
+    .orderBy(sql`${pages.publishedAt} DESC NULLS LAST`, asc(pages.slug));
   const roots = all.filter((p) => !p.parentId);
   return roots.map((root) => ({
     ...root,
