@@ -616,21 +616,68 @@ async function hasSufficientHistory(
 /**
  * Carica la serie storica per il chart interattivo.
  *
- *   1. Prova nostra DB (downsampling SQL per bucket).
- *   2. Se la finestra non è coperta (history troppo recente) → fallback
- *      CoinGecko `/coins/{id}/market_chart`.
- *   3. Se anche CoinGecko fallisce → ritorna comunque quello che c'è in DB.
+ * PR3 refactor (Redis-first): exchange-aware. Stessa logica della
+ * route `/api/coins/[symbol]/chart` cosi' SSR + refetch client
+ * mostrano gli stessi dati. Senza questa coerenza si vede un grafico
+ * "vecchio" al first paint (da `prices_history` legacy) che cambia
+ * al primo click utente — UX confusionaria.
  *
- * Cache stratificata per (symbol, range): TTL diverso per finestra
- * (1d=60s vicino al cron, 1y=1h dati storici stabili).
+ *   1. Lookup `prices_coins.preferred_exchange + exchange_symbol`.
+ *      Se presenti → fetch direct via adapter.fetchHistorical(). Stesso
+ *      JSON shape, source marcato "coingecko" (legacy enum compat).
+ *   2. Fallback DB: prova `prices_history` con downsampling SQL.
+ *   3. Fallback CoinGecko `/coins/{id}/market_chart`.
+ *   4. Ultimo fallback: torna quello che c'e' in DB (anche < 2 punti).
  */
 const fetchHistorySeries = async (
   symbol: string,
   range: HistoryRange,
 ): Promise<HistorySeries> => {
   const upper = symbol.toUpperCase();
-  const sufficient = await hasSufficientHistory(upper, range);
 
+  // Step 1: exchange-aware (PR3) — stessa logica della route API.
+  const [routingRow] = await db
+    .select({
+      preferredExchange: pricesCoins.preferredExchange,
+      exchangeSymbol: pricesCoins.exchangeSymbol,
+      coingeckoId: pricesCoins.coingeckoId,
+    })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  if (routingRow?.preferredExchange && routingRow?.exchangeSymbol) {
+    try {
+      const { getExchangeAdapter } = await import("./exchanges/registry");
+      const adapter = getExchangeAdapter(routingRow.preferredExchange);
+      if (adapter) {
+        // HistoryRange ha 1d|1w|1m|1y; l'adapter usa ChartRange (incluso
+        // 3m/6m). Mappiamo 1-to-1 i 4 range comuni.
+        const points = await adapter.fetchHistorical(
+          routingRow.exchangeSymbol,
+          range,
+        );
+        if (points.length >= 2) {
+          return {
+            range,
+            // Source marcato "coingecko" perche' l'enum HistorySeries.source
+            // non ha "exchange:<id>" yet. PR successivo estendera' l'enum.
+            source: "coingecko",
+            points: points.map((p) => ({ ts: p.ts, price: p.price })),
+          };
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[getHistorySeries] exchange ${routingRow.preferredExchange} failed for ${upper} ${range}`,
+        err,
+      );
+      // Cade sui fallback sottostanti
+    }
+  }
+
+  // Step 2: DB legacy (per coin senza routing oppure exchange down).
+  const sufficient = await hasSufficientHistory(upper, range);
   if (sufficient) {
     const points = await fetchHistoryFromDb(upper, range);
     if (points.length >= 2) {
@@ -638,19 +685,13 @@ const fetchHistorySeries = async (
     }
   }
 
-  // Fallback CoinGecko: serve il coingeckoId del coin.
-  const [coinRow] = await db
-    .select({ coingeckoId: pricesCoins.coingeckoId })
-    .from(pricesCoins)
-    .where(eq(pricesCoins.symbol, upper))
-    .limit(1);
-
-  if (coinRow?.coingeckoId) {
+  // Step 3: CoinGecko market_chart fallback.
+  if (routingRow?.coingeckoId) {
     const { fetchCoinGeckoMarketChart } = await import(
       "./sources/coingecko"
     );
     const cgPoints = await fetchCoinGeckoMarketChart(
-      coinRow.coingeckoId,
+      routingRow.coingeckoId,
       RANGE_CONFIG[range].days,
     );
     if (cgPoints && cgPoints.length >= 2) {
@@ -662,7 +703,7 @@ const fetchHistorySeries = async (
     }
   }
 
-  // Ultimo fallback: torna quel poco che c'è in DB (anche < 2 punti).
+  // Step 4: ultimo resort = qualsiasi cosa ci sia in DB.
   const dbFallback = await fetchHistoryFromDb(upper, range);
   return { range, source: "db", points: dbFallback };
 };
