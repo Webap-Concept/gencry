@@ -257,6 +257,7 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
                   <th className="text-right font-medium py-2 px-2">Market cap</th>
                   <th className="text-right font-medium py-2 px-2">Price</th>
                   <th className="text-right font-medium py-2 px-2">24h</th>
+                  <th className="text-left font-medium py-2 px-2">Exchange</th>
                   <th className="text-left font-medium py-2 px-2">Last seen</th>
                   <th className="text-center font-medium py-2 px-2">Active</th>
                   <th className="text-right font-medium py-2 px-2">Actions</th>
@@ -265,13 +266,13 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
               <tbody>
                 {coins.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
+                    <td colSpan={9} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
                       No coins yet. Add one above.
                     </td>
                   </tr>
                 ) : pageCoins.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
+                    <td colSpan={9} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
                       No coins match "{query}".
                     </td>
                   </tr>
@@ -413,6 +414,36 @@ function CoinRow({
       </td>
       <td className="py-2 px-2 text-right font-mono" style={{ color: changeColor }}>
         {change !== null ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}%` : "—"}
+      </td>
+      <td className="py-2 px-2">
+        {coin.preferredExchange ? (
+          <span
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium"
+            style={{ color: "var(--admin-text)" }}>
+            <span
+              className="px-1.5 py-0.5 rounded"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--admin-accent) 12%, transparent)",
+                color: "var(--admin-accent)",
+              }}>
+              {coin.preferredExchange}
+            </span>
+            {coin.exchangeSymbol ? (
+              <code
+                className="text-[10.5px]"
+                style={{ color: "var(--admin-text-faint)" }}>
+                {coin.exchangeSymbol}
+              </code>
+            ) : null}
+          </span>
+        ) : (
+          <span
+            className="text-[11px] italic"
+            style={{ color: "var(--admin-text-faint)" }}>
+            CoinGecko (fallback)
+          </span>
+        )}
       </td>
       <td className="py-2 px-2 font-mono" style={{ color: "var(--admin-text-faint)" }}>
         {coin.lastSeenAt.toLocaleString()}
