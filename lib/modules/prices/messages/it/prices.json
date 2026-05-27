@@ -41,10 +41,6 @@
     "cta_follow_title": "Segui {name} sulla community",
     "cta_follow_description": "Iscriviti per aggiungere {name} alla tua watchlist, ricevere alert e leggere cosa pensa la community."
   },
-  "source": {
-    "label": "Fonte:",
-    "name": "CoinGecko"
-  },
   "opengraph": {
     "claim": "La community italiana delle crypto.",
     "change_24h_suffix": "(24h)"
