@@ -1366,6 +1366,26 @@ export type NewSiteSnippet  = typeof siteSnippets.$inferInsert;
 // (vedi migration 0026_prices_engine.sql per il commento architetturale)
 // ---------------------------------------------------------------------------
 
+export const priceExchanges = pgTable("price_exchanges", {
+  /** Id stabile (lowercase): "binance", "kucoin", "gate", "kraken", "coinbase".
+   *  Usato come FK da `prices_coins.preferred_exchange` e come key del
+   *  registry adapter in `lib/modules/prices/exchanges/registry.ts`. */
+  id:               varchar("id", { length: 20 }).primaryKey(),
+  label:            varchar("label", { length: 64 }).notNull(),
+  enabled:          boolean("enabled").notNull().default(true),
+  /** Nullable — alcuni exchange free non richiedono auth. */
+  apiKey:           text("api_key"),
+  apiSecret:        text("api_secret"),
+  /** Bag opaco per settings extra per-exchange (es. quote currency
+   *  preferito, region, ecc.). Validato dall'adapter. */
+  config:           jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+  lastHealthCheck:  timestamp("last_health_check", { withTimezone: true }),
+  lastHealthOk:     boolean("last_health_ok"),
+  lastHealthError:  text("last_health_error"),
+  createdAt:        timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:        timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const pricesCoins = pgTable(
   "prices_coins",
   {
@@ -1377,12 +1397,20 @@ export const pricesCoins = pgTable(
     marketCapRank:  integer("market_cap_rank"),
     category:       varchar("category", { length: 50 }),
     isActive:       boolean("is_active").notNull().default(true),
+    /** Routing per-coin: quale exchange usare per current price + chart.
+     *  Null = fallback CoinGecko (compat). FK debole (SET NULL on delete). */
+    preferredExchange: varchar("preferred_exchange", { length: 20 })
+                         .references(() => priceExchanges.id, { onDelete: "set null" }),
+    /** Symbol nel formato dell'exchange scelto. Es: Binance "BTCUSDT",
+     *  KuCoin "BTC-USDT", Gate "BTC_USDT". L'adapter sa come parsarlo. */
+    exchangeSymbol:    varchar("exchange_symbol", { length: 50 }),
     lastSeenAt:   timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
     updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("idx_prices_coins_active_mcap").on(t.isActive, t.marketCap),
+    index("idx_prices_coins_exchange_routing").on(t.preferredExchange, t.isActive),
   ],
 );
 
