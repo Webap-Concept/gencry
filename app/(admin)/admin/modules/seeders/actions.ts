@@ -35,6 +35,8 @@ const RunSchema = z.object({
   withImages: z.boolean(),
   withBlocks: z.boolean(),
   withReactions: z.boolean(),
+  withComments: z.boolean(),
+  withCommentReactions: z.boolean(),
 });
 
 export type RunSeederResult =
@@ -56,7 +58,7 @@ export async function runSeederAction(
   try {
     const users = await seedUsers(userCount);
 
-    const ctx: SeedRunContext = { users, postIds: [] };
+    const ctx: SeedRunContext = { users, postsMeta: [], commentsMeta: [] };
 
     // Accumulatore tipizzato. I contributor ritornano Partial<>; noi
     // li sommiamo nei field che ci interessano.
@@ -65,14 +67,18 @@ export async function runSeederAction(
       postsCreated: 0,
       blocksCreated: 0,
       reactionsCreated: 0,
+      commentsCreated: 0,
+      commentReactionsCreated: 0,
     };
 
     for (const contributor of SEEDER_CONTRIBUTORS) {
       if (!contributor.enabled(opts)) continue;
       const delta = await contributor.run(ctx, opts);
-      if (delta.postsCreated)     output.postsCreated     += delta.postsCreated;
-      if (delta.blocksCreated)    output.blocksCreated    += delta.blocksCreated;
-      if (delta.reactionsCreated) output.reactionsCreated += delta.reactionsCreated;
+      if (delta.postsCreated)            output.postsCreated            += delta.postsCreated;
+      if (delta.blocksCreated)           output.blocksCreated           += delta.blocksCreated;
+      if (delta.reactionsCreated)        output.reactionsCreated        += delta.reactionsCreated;
+      if (delta.commentsCreated)         output.commentsCreated         += delta.commentsCreated;
+      if (delta.commentReactionsCreated) output.commentReactionsCreated += delta.commentReactionsCreated;
     }
 
     revalidatePath("/admin/modules/seeders");

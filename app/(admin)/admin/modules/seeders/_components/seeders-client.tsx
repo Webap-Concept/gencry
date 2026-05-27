@@ -29,9 +29,13 @@ export function SeedersClient({
   const router = useRouter();
   const [userCount, setUserCount] = useState(20);
   const [postsPerUser, setPostsPerUser] = useState(5);
-  const [withImages, setWithImages] = useState(true);
+  // withImages = false di default: Picsum non sempre risponde affidabilmente
+  // e foto random non sono coerenti col tema crypto. Riattivabile per debug.
+  const [withImages, setWithImages] = useState(false);
   const [withBlocks, setWithBlocks] = useState(true);
   const [withReactions, setWithReactions] = useState(true);
+  const [withComments, setWithComments] = useState(true);
+  const [withCommentReactions, setWithCommentReactions] = useState(true);
   const [lastResult, setLastResult] = useState<RunSeederResult | null>(null);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
@@ -47,6 +51,8 @@ export function SeedersClient({
         withImages,
         withBlocks,
         withReactions,
+        withComments,
+        withCommentReactions,
       });
       setLastResult(res);
       if (res.ok) router.refresh();
@@ -168,8 +174,8 @@ export function SeedersClient({
 
         <div className="space-y-2">
           <CheckboxField
-            label="Includi immagini nei post (Picsum)"
-            description="Circa il 30% dei post avrà un'immagine random."
+            label="Includi immagini nei post (Picsum) — sperimentale"
+            description="Disabilitato: Picsum non sempre risponde e le foto random non sono coerenti col tema. Solo per debug."
             checked={withImages}
             onChange={setWithImages}
           />
@@ -178,6 +184,18 @@ export function SeedersClient({
             description="Circa il 40% dei post riceve reazioni (mood-biased: bullish → 🚀, bearish → 🐻)."
             checked={withReactions}
             onChange={setWithReactions}
+          />
+          <CheckboxField
+            label="Crea commenti sui post"
+            description="Circa il 30% dei post riceve 1-6 commenti via LLM (con 20% di reply 2-livelli)."
+            checked={withComments}
+            onChange={setWithComments}
+          />
+          <CheckboxField
+            label="Crea reazioni sui commenti"
+            description="Circa il 15% dei commenti riceve 1-6 reazioni. Richiede commenti abilitati."
+            checked={withCommentReactions}
+            onChange={setWithCommentReactions}
           />
           <CheckboxField
             label="Crea relazioni di block tra utenti"
@@ -387,9 +405,11 @@ function ResultPanel({ result }: { result: RunSeederResult }) {
         Seed completato.
       </p>
       <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-        Utenti creati: <strong>{result.counts.usersCreated}</strong> ·
-        Post creati: <strong>{result.counts.postsCreated}</strong> ·
+        Utenti: <strong>{result.counts.usersCreated}</strong> ·
+        Post: <strong>{result.counts.postsCreated}</strong> ·
         Reazioni: <strong>{result.counts.reactionsCreated}</strong> ·
+        Commenti: <strong>{result.counts.commentsCreated}</strong> ·
+        Reaz. commenti: <strong>{result.counts.commentReactionsCreated}</strong> ·
         Block: <strong>{result.counts.blocksCreated}</strong>
       </p>
     </div>

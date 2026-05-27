@@ -23,6 +23,8 @@ import {
   INTERESTS_POOL,
 } from "./content-templates-it";
 import { pickRandomMood, type UserMood } from "./mood-types";
+import { loadAvatarMixWeights } from "./avatar-strategy";
+import { resolveAvatarForSeedUser } from "./avatar-resolver";
 
 export type SeedUser = {
   id: string;
@@ -93,8 +95,14 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
     id: string;
     email: string;
     username: string;
+    /** Pickato dal pool per generare username + iniziali avatar, ma
+     *  salvato in user_profiles SOLO se withFullName=true (default 40%).
+     *  In 60% degli utenti il profilo ha first/last_name=null, come e'
+     *  realistico su utenti reali che non compilano. */
     firstName: string;
     lastName: string;
+    withFullName: boolean;
+    /** Risolto dopo l'INSERT users (l'userId serve come key R2). */
     avatarUrl: string;
     bio: string;
     interests: string[];
@@ -102,6 +110,19 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
     onboardingAt: Date;
     mood: UserMood;
   }> = [];
+
+  // Pesi del mix avatar — letti una volta sola, riusati in resolve per ogni
+  // user nel batch. Vedi avatar-strategy.ts per i default.
+  const avatarMixWeights = await loadAvatarMixWeights();
+
+  // Probabilita' che il profilo abbia first_name/last_name compilati.
+  // Realismo: tanti utenti reali non li mettono. Setting tunable in
+  // /admin (modules.seeders.profile_fullname_probability), default 0.4.
+  const fullNameProbRaw = settings["modules.seeders.profile_fullname_probability"] ?? "0.4";
+  const fullNameProb = Math.min(
+    Math.max(Number.parseFloat(fullNameProbRaw) || 0.4, 0),
+    1,
+  );
 
   // bcrypt hash è costoso (~50ms per round). Per 100 users serebbero
   // 5s. Lo facciamo una sola volta con un seed UUID random e lo
@@ -126,10 +147,6 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
 
     const ulid = randomUUID().replace(/-/g, "").slice(0, 16);
     const email = `seed-${ulid}@${seedDomain}`;
-    // DiceBear deterministico per username — stesso avatar a ogni run.
-    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-      username,
-    )}`;
 
     // Distribuzione iscrizione: uniforme negli ultimi 90 giorni.
     // L'onboarding completion arriva ~1-30 min dopo per realismo.
@@ -138,13 +155,18 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
       createdAt.getTime() + (1 + Math.random() * 30) * 60 * 1000,
     );
 
+    const withFullName = Math.random() < fullNameProb;
+
     seedRows.push({
       id: "", // popolato dopo l'INSERT con il default uuid_generate
       email,
       username,
       firstName,
       lastName,
-      avatarUrl,
+      withFullName,
+      // Placeholder — risolto via avatar-resolver dopo l'INSERT users
+      // (l'userId R2 key non esiste ancora qui).
+      avatarUrl: "",
       bio: pick(BIO_TEMPLATES_IT),
       interests: pickN(INTERESTS_POOL, Math.floor(Math.random() * 4)),
       createdAt,
@@ -178,21 +200,71 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
   // unique come join key, sicuro.
   const idByEmail = new Map(insertedUsers.map((u) => [u.email, u.id]));
 
+  // Avatar resolution: per ogni user pickka una strategy dal mix e
+  // produce una URL (R2 upload + fallback chain). I fetch esterni
+  // (TPDNE, Unsplash, DiceBear) sono I/O — facciamo cap concurrency 5
+  // per non rate-limitare i servizi esterni con burst di 100+ richieste
+  // parallele. Su 100 utenti, 40 ai_face × ~1s / 5 concurrent ≈ 8s.
+  //
+  // usedAiHashes e' condiviso da tutti i worker: l'avatar-resolver lo
+  // usa per garantire che 2 utenti diversi non finiscano con la stessa
+  // foto AI (TPDNE rigenera ogni ~1s, fetch concorrenti possono
+  // restituire gli stessi bytes).
+  const AVATAR_CONCURRENCY = 5;
+  const resolvedAvatars = new Map<string, string>();
+  const usedAiHashes = new Set<string>();
+  let cursor = 0;
+  const workers = Array.from({ length: AVATAR_CONCURRENCY }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= seedRows.length) break;
+      const r = seedRows[idx];
+      const userId = idByEmail.get(r.email);
+      if (!userId) continue;
+      try {
+        const resolved = await resolveAvatarForSeedUser({
+          userId,
+          username: r.username,
+          // Per l'initials avatar, se withFullName=false passiamo string
+          // vuote → deriveInitials cade sul username (1 lettera).
+          firstName: r.withFullName ? r.firstName : "",
+          lastName: r.withFullName ? r.lastName : "",
+          weights: avatarMixWeights,
+          usedAiHashes,
+        });
+        resolvedAvatars.set(userId, resolved.url);
+      } catch (err) {
+        console.warn("[seeders/user-seeder] avatar resolve failed:", err);
+        // Niente entry in resolvedAvatars → l'INSERT profilo metterà
+        // avatarUrl=null (la UI fa fallback ad iniziali).
+      }
+    }
+  });
+  await Promise.all(workers);
+
   // INSERT profiles bulk. createdAt/updatedAt allineati a quello user
   // → la "Data di iscrizione" mostrata sul profilo è coerente.
   const profileRows = seedRows
-    .map((r) => ({
-      userId: idByEmail.get(r.email)!,
-      firstName: r.firstName,
-      lastName: r.lastName,
-      username: r.username,
-      avatarUrl: r.avatarUrl,
-      bio: r.bio || null,
-      interests: r.interests,
-      createdAt: r.createdAt,
-      updatedAt: r.onboardingAt,
-    }))
-    .filter((p) => p.userId);
+    .map((r) => {
+      const userId = idByEmail.get(r.email);
+      if (!userId) return null;
+      return {
+        userId,
+        // 60% degli utenti reali NON compila nome/cognome — riflettiamo
+        // questo con `withFullName` deciso al precompute (default 40%).
+        firstName: r.withFullName ? r.firstName : null,
+        lastName: r.withFullName ? r.lastName : null,
+        username: r.username,
+        avatarUrl: resolvedAvatars.get(userId) ?? null,
+        bio: r.bio || null,
+        interests: r.interests,
+        createdAt: r.createdAt,
+        updatedAt: r.onboardingAt,
+      };
+    })
+    .filter(
+      (p): p is NonNullable<typeof p> => p !== null,
+    );
 
   if (profileRows.length > 0) {
     // onConflict su username unique → skippa silenziosamente eventuali
@@ -226,6 +298,11 @@ export async function seedUsers(count: number): Promise<SeedUser[]> {
  *
  * Lockdown: WHERE email LIKE 'seed-%@seed.<APP_DOMAIN>'. Impossibile
  * cancellare real users con questo filtro.
+ *
+ * R2 cleanup: prima di eliminare le righe utente cancelliamo gli avatar
+ * dal bucket (key pattern `seed-<userId>.{png,jpg,webp,svg}`). Best-
+ * effort: se R2 e' giu' o credenziali assenti, il DELETE DB procede
+ * comunque (gli avatar orfani sono ricuperabili manualmente).
  */
 export async function cleanupSeedUsers(): Promise<{ deleted: number }> {
   const settings = await getAppSettings();
@@ -233,8 +310,54 @@ export async function cleanupSeedUsers(): Promise<{ deleted: number }> {
   const seedDomain = `seed.${appDomain.replace(/^https?:\/\//, "")}`;
   const pattern = `seed-%@${seedDomain}`;
 
-  // LIKE pattern via sql tagged template — postgres-js esegue il
-  // DELETE con CASCADE su FK (profiles, posts, media, reactions, ecc.)
+  // Step 1: raccogli gli userId per la pulizia R2 PRIMA del DELETE
+  // (altrimenti li perdiamo).
+  const targetUsers = await db.execute(sql`
+    SELECT id FROM users WHERE email LIKE ${pattern}
+  `);
+  const targetUsersUnknown = targetUsers as unknown;
+  const userIds: string[] = Array.isArray(targetUsersUnknown)
+    ? (targetUsersUnknown as Array<{ id: string }>).map((r) => r.id)
+    : ((targetUsersUnknown as { rows?: Array<{ id: string }> }).rows ?? []).map((r) => r.id);
+
+  // Step 2: best-effort R2 cleanup parallelo (cap concurrency 10).
+  // Ogni user puo' avere 1 file con una delle 4 estensioni; cancelliamo
+  // tutte e 4 → 404 sull'estensione non presente e' atteso e ignorato.
+  if (userIds.length > 0) {
+    const { loadAvatarR2Config, createAvatarR2Client } = await import("@/lib/storage/r2-avatars");
+    const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+    const cfg = await loadAvatarR2Config();
+    if (cfg) {
+      const client = createAvatarR2Client(cfg);
+      const exts = ["png", "jpg", "webp", "svg"] as const;
+      let i = 0;
+      const concurrency = 10;
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (true) {
+          const idx = i++;
+          if (idx >= userIds.length) break;
+          const userId = userIds[idx];
+          await Promise.all(
+            exts.map((ext) =>
+              client
+                .send(
+                  new DeleteObjectCommand({
+                    Bucket: cfg.bucket,
+                    Key: `seed-${userId}.${ext}`,
+                  }),
+                )
+                .catch(() => {
+                  /* 404 atteso sulle estensioni non presenti */
+                }),
+            ),
+          );
+        }
+      });
+      await Promise.all(workers);
+    }
+  }
+
+  // Step 3: DELETE DB con CASCADE.
   const deleted = await db.execute(sql`
     DELETE FROM users WHERE email LIKE ${pattern} RETURNING id
   `);

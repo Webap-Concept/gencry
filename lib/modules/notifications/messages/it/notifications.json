@@ -29,12 +29,53 @@
       "list_page_size_label": "Notifiche per pagina",
       "list_page_size_help": "Quante notifiche caricare in 1 batch nella lista /notifiche.",
       "retention_days_label": "Retention (giorni)",
-      "retention_days_help": "Le notifiche più vecchie di N giorni verranno cancellate dal cron di cleanup (futuro).",
+      "retention_days_help": "Le notifiche più vecchie di N giorni vengono cancellate dal cron giornaliero di cleanup. Range valido: 7-3650. Default 180 (6 mesi).",
+      "achievements_section_title": "Achievement (milestone)",
+      "achievements_section_help": "Notifiche speciali quando un post raggiunge una soglia di engagement. Il trigger DB controlla in tempo reale (no cron). Default ragionevoli per dev/alpha — alzare quando avremo utenti veri.",
+      "viral_likes_enabled_label": "Notifica post virale",
+      "viral_likes_enabled_help": "Emette una notifica quando il post supera la soglia di reazioni dentro la finestra. Una volta sola per post.",
+      "viral_likes_threshold_label": "Soglia reazioni post virale",
+      "viral_likes_threshold_help": "Numero di reazioni totali necessarie per scatenare la notifica viral. Default 50 (preset beta).",
+      "viral_likes_window_hours_label": "Finestra reazioni virali (ore)",
+      "viral_likes_window_hours_help": "Tempo dalla pubblicazione del post entro cui la soglia reazioni deve essere raggiunta. Oltre questa finestra il post non viene più segnato come virale.",
+      "viral_comments_enabled_label": "Notifica post con molti commenti",
+      "viral_comments_enabled_help": "Emette una notifica quando il post supera la soglia di commenti dentro la finestra. Una volta sola per post.",
+      "viral_comments_threshold_label": "Soglia commenti post virale",
+      "viral_comments_threshold_help": "Numero di commenti totali necessari per scatenare la notifica. Default 10 (preset beta) — commenti pesano più di reazioni come segnale.",
+      "viral_comments_window_hours_label": "Finestra commenti virali (ore)",
+      "viral_comments_window_hours_help": "Tempo dalla pubblicazione entro cui la soglia commenti deve essere raggiunta.",
+      "viral_reposts_enabled_label": "Notifica post molto citato",
+      "viral_reposts_enabled_help": "Emette una notifica quando il post supera la soglia di repost dentro la finestra. Una volta sola per post.",
+      "viral_reposts_threshold_label": "Soglia repost post virale",
+      "viral_reposts_threshold_help": "Numero di repost totali necessari per scatenare la notifica. Default 5 (preset beta) — il repost è il segnale più 'forte'.",
+      "viral_reposts_window_hours_label": "Finestra repost virali (ore)",
+      "viral_reposts_window_hours_help": "Tempo dalla pubblicazione entro cui la soglia repost deve essere raggiunta.",
+      "email_section_title": "Email delivery",
+      "email_section_help": "Le notifiche achievement vengono spedite via email all'autore del post. Il cron `modules-notifications-achievement-email` (vedi tab Cron) processa il backlog ogni 20 minuti. L'opt-out per-utente arriverà con PR-4.",
+      "email_send_enabled_label": "Spedisci email achievement",
+      "email_send_enabled_help": "Kill-switch globale: se disattivato, le notifiche restano in-app/realtime ma non vengono spedite via email. Default: attivo.",
+      "email_grace_seconds_label": "Grace window (secondi)",
+      "email_grace_seconds_help": "Quanti secondi attendere dopo la creazione di una notifica prima che il cron la spedisca. Buffer per evitare race con il trigger di fanout. Default 30.",
       "save": "Salva",
       "saved": "Impostazioni salvate."
     },
     "architecture": {
       "title": "Notifications — Architettura"
+    },
+    "email": {
+      "intro": "Subject, corpo e footer delle email achievement. I valori salvati qui sostituiscono i default code-side. Lascia un campo vuoto per tornare al default. Placeholder Mustache {{token}} interpolati a runtime dal dispatcher.",
+      "subject_label": "Oggetto",
+      "body_label": "Corpo",
+      "footer_label": "Footer",
+      "placeholders_label": "Placeholder disponibili",
+      "viral_likes_title": "Post virale (reazioni)",
+      "viral_likes_help": "Email mandata quando il post supera la soglia di reazioni dentro la finestra. Una sola volta per post.",
+      "viral_comments_title": "Post virale (commenti)",
+      "viral_comments_help": "Email mandata quando il post supera la soglia di commenti dentro la finestra.",
+      "viral_reposts_title": "Post virale (repost)",
+      "viral_reposts_help": "Email mandata quando il post viene citato N volte dentro la finestra. Conteggio sul TARGET (chi è stato citato).",
+      "save": "Salva",
+      "saved": "Email salvate."
     }
   },
   "types": {
@@ -57,6 +98,11 @@
       "strike_received": "Hai ricevuto uno strike di moderazione (totale: {strike_number}/3)",
       "banned": "Il tuo account è stato bloccato per aver raggiunto 3 strike",
       "strike_revoked": "Uno dei tuoi strike è stato revocato da un moderatore"
+    },
+    "achievement": {
+      "post_viral_likes": "Il tuo post sta andando virale: {total_count} reazioni in poche ore",
+      "post_viral_comments": "Il tuo post sta facendo discutere: {total_count} commenti in poche ore",
+      "post_viral_reposts": "Il tuo post sta venendo citato molto: {total_count} repost in poche ore"
     }
   }
 }

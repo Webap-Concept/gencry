@@ -45,13 +45,22 @@ export default async function NotifichePage() {
     pageSize,
   });
 
+  // Favicon usato come avatar fallback per le notifiche "di sistema"
+  // (actor IS NULL — es. achievement.post_viral_*). Null fa cadere il
+  // render sul vecchio comportamento "?" di UserAvatar.
+  const systemAvatarUrl = settings.app_favicon_url?.trim() || null;
+
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">
       <header>
         <h1 className="text-lg font-semibold text-gc-fg">{t("title")}</h1>
         <p className="text-sm text-gc-fg-muted mt-1">{t("description")}</p>
       </header>
-      <NotificationsList viewerUserId={user.id} initial={initial} />
+      <NotificationsList
+        viewerUserId={user.id}
+        initial={initial}
+        systemAvatarUrl={systemAvatarUrl}
+      />
     </div>
   );
 }

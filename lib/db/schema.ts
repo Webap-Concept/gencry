@@ -1798,6 +1798,9 @@ export const notifications = pgTable("notifications", {
   commentId:  uuid("comment_id").references(() => postsComments.id, { onDelete: "cascade" }),
   payload:    jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
   readAt:     timestamp("read_at",    { withTimezone: true }),
+  /** Timestamp di consegna email del dispatcher modulo (M_notifications_005).
+   *  NULL = pending. Solo i type achievement.* sono spediti via email V1. */
+  emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
   createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1816,6 +1819,12 @@ export const NOTIFICATION_TYPES = [
   "moderation.strike_received",
   "moderation.banned",
   "moderation.strike_revoked",
+  // Achievement events (M_notifications_002+003, decisione 2026-05-26):
+  // emessi dai trigger DB counter inline al counter update quando un
+  // post attraversa una soglia. Recipient = autore del post, actor = NULL.
+  "achievement.post_viral_likes",
+  "achievement.post_viral_comments",
+  "achievement.post_viral_reposts",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

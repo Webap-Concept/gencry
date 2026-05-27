@@ -13,8 +13,12 @@
 //     matcha (case-insensitive) un coin name attivo nel modulo prices,
 //     il symbol corrispondente viene aggiunto al set. Whitelist-only
 //     (vedi getCoinNameMap) — zero false positive su parole comuni.
-//   - Username: 3..30 char alfanumerico + underscore, primo char è
-//     lettera. Normalizzato a lowercase per il lookup.
+//   - Username: alfanumerico + `_` + `.` (in mezzo). Primo char lettera,
+//     lunghezza 3..30. Allineato a USERNAME_REGEX di lib/auth/username-validator
+//     (`/^[a-zA-Z0-9_.]+$/`) — gli username come `marco.99` o `alice.eth`
+//     vengono catturati correttamente. Il punto NON e' ammesso come
+//     ultimo char (es. `@marco.` a fine frase → cattura `marco`):
+//     ogni sotto-parte dopo `.` deve avere almeno 1 alfanumerico.
 //
 // Performance: tokenization + O(1) Set/Map lookup. Indipendente dal
 // numero di coin (testato: 200 vs 100k coin → stessa latenza ~50µs su
@@ -23,7 +27,12 @@
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 
 const TICKER_REGEX = /\$([A-Za-z][A-Za-z0-9]{1,19})\b/g;
-const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]{2,29})\b/g;
+// Mention: parte alfanumerica iniziale + 0..N sotto-parti dopo `.`.
+// Length cap (3..30) applicato post-match (regex puro sarebbe troppo
+// complesso con lookaheads).
+const MENTION_REGEX = /@([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*)\b/g;
+const MENTION_MIN_LEN = 3;
+const MENTION_MAX_LEN = 30;
 const WORD_REGEX = /\b[A-Za-z][A-Za-z0-9]{2,}\b/g;
 
 // CHECK constraint di posts_tickers.ticker (vedi M_posts_001_init.sql).
@@ -73,7 +82,9 @@ export async function extractTickers(
 export function extractMentions(body: string): Set<string> {
   const out = new Set<string>();
   for (const match of body.matchAll(MENTION_REGEX)) {
-    out.add(match[1].toLowerCase());
+    const username = match[1];
+    if (username.length < MENTION_MIN_LEN || username.length > MENTION_MAX_LEN) continue;
+    out.add(username.toLowerCase());
   }
   return out;
 }

@@ -62,10 +62,14 @@ function formatRelative(date: Date, locale: string): string {
 export function NotificationItem({
   item,
   onMarkedRead,
+  systemAvatarUrl = null,
 }: {
   item: NotificationListItem;
   /** Callback opzionale: la lista parent decrementa lo unread count optimistic. */
   onMarkedRead?: () => void;
+  /** Avatar fallback per notifiche "di sistema" (actor === null) — tipicamente
+   *  la favicon del sito. Null → fallback "?" di UserAvatar (V1). */
+  systemAvatarUrl?: string | null;
 }) {
   const tTypes = useTranslations("notifications.types");
   const tUi = useTranslations("notifications.ui");
@@ -133,9 +137,30 @@ export function NotificationItem({
     });
   };
 
+  // Avatar: per le notifiche di sistema (actor === null) usa la favicon
+  // del sito invece dell'avatar "?" fallback di UserAvatar. Pattern usato
+  // per gli achievement aggregati (viral_*) e altri eventi non attribuiti
+  // a un singolo utente.
+  const isSystemNotification = item.actor === null && !item.actorId;
+  const showSystemAvatar = isSystemNotification && systemAvatarUrl !== null;
+
   const Body = (
     <div className="flex items-start gap-3 px-4 py-3">
-      <UserAvatar user={item.actor ?? { id: item.actorId ?? null }} size={40} />
+      {showSystemAvatar ? (
+        <span
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gc-bg-3 border border-gc-line"
+          aria-hidden
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={systemAvatarUrl ?? ""}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </span>
+      ) : (
+        <UserAvatar user={item.actor ?? { id: item.actorId ?? null }} size={40} />
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gc-fg leading-snug flex items-center gap-1.5 flex-wrap">
           {ReactionIcon ? (

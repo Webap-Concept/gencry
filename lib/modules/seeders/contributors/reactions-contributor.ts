@@ -92,25 +92,15 @@ export type SeededReactions = {
 
 /**
  * Itera i post, per ognuno decide se riceve reactions (40%), poi pesca
- * N reactor distinti tra i seed users. Bulk INSERT alla fine.
+ * N reactor distinti tra i seed users (escluso l'author). Bulk INSERT.
  *
- * Edge case: se seedUsers.length < 2 saltiamo tutto (PK violation: un
- * user non può reagire a un proprio post? Tecnicamente sì lo permette
- * lo schema, ma per realismo evitiamo self-reactions).
- *
- * NB: NON conosciamo l'authorId dei post qui dentro (il contributor
- * registry passa solo postIds). Filtriamo le self-reactions
- * applicativamente solo se possibile, altrimenti accettiamo la
- * possibilità: gli authorId dei seed users sono tutti misti nel pool,
- * quindi su ~40% dei post * 1-10 reactor casuali, la probabilità che
- * un user reagisca al proprio post è ~1/N_users → trascurabile a
- * volumi normali.
+ * Edge case: se seedUsers.length < 2 saltiamo tutto.
  */
 export async function seedReactionsForPosts(
   seedUsers: SeedUser[],
-  postIds: string[],
+  postsMeta: Array<{ id: string; authorId: string }>,
 ): Promise<SeededReactions> {
-  if (seedUsers.length < 2 || postIds.length === 0) {
+  if (seedUsers.length < 2 || postsMeta.length === 0) {
     return { created: 0 };
   }
 
@@ -120,25 +110,30 @@ export async function seedReactionsForPosts(
     reaction: PostReactionKind;
   };
   const rows: Row[] = [];
-  const maxReactorsPerPost = Math.min(10, seedUsers.length - 1);
 
-  for (const postId of postIds) {
+  for (const meta of postsMeta) {
     if (Math.random() >= POST_RECEIVES_ANY_PROBABILITY) continue;
 
+    // Pool reactor = tutti i seedUsers tranne l'author del post (no
+    // self-reactions, ora possibile col post.authorId in input).
+    const reactorPool = seedUsers.filter((u) => u.id !== meta.authorId);
+    if (reactorPool.length === 0) continue;
+
+    const maxReactorsPerPost = Math.min(10, reactorPool.length);
     const count = pickReactorCount(maxReactorsPerPost);
     if (count === 0) continue;
 
     // Pesca `count` reactor distinti senza replacement (Fisher-Yates
-    // partial). Per N piccolo è più veloce di un Set + retry.
-    const indices = Array.from({ length: seedUsers.length }, (_, i) => i);
+    // partial).
+    const indices = Array.from({ length: reactorPool.length }, (_, i) => i);
     for (let i = 0; i < count; i++) {
       const j = i + Math.floor(Math.random() * (indices.length - i));
       [indices[i], indices[j]] = [indices[j], indices[i]];
     }
     for (let i = 0; i < count; i++) {
-      const reactor = seedUsers[indices[i]];
+      const reactor = reactorPool[indices[i]];
       rows.push({
-        postId,
+        postId: meta.id,
         userId: reactor.id,
         reaction: pickReactionForMood(reactor.mood),
       });

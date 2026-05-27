@@ -159,6 +159,26 @@ export function resolveNotificationTarget(
         commentPreview: null,
         templateValues: {},
       };
+    case "achievement.post_viral_likes":
+    case "achievement.post_viral_comments":
+    case "achievement.post_viral_reposts": {
+      if (!postId) return null;
+      const totalRaw = payload.total_count;
+      const total =
+        typeof totalRaw === "number"
+          ? totalRaw
+          : typeof totalRaw === "string"
+            ? totalRaw
+            : "";
+      return {
+        href: `/post/${postId}`,
+        summaryKey: type as NotificationType,
+        reactionKind: null,
+        postPreview,
+        commentPreview: null,
+        templateValues: { total_count: total },
+      };
+    }
     default:
       return null;
   }

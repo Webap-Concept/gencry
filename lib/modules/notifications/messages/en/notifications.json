@@ -29,12 +29,53 @@
       "list_page_size_label": "Notifications per page",
       "list_page_size_help": "How many notifications to load per batch in the /notifiche list.",
       "retention_days_label": "Retention (days)",
-      "retention_days_help": "Notifications older than N days will be deleted by the cleanup cron (future).",
+      "retention_days_help": "Notifications older than N days are deleted by the daily cleanup cron. Valid range: 7-3650. Default 180 (6 months).",
+      "achievements_section_title": "Achievements (milestones)",
+      "achievements_section_help": "Special notifications when a post hits an engagement threshold. DB trigger checks inline (no cron). Defaults are dev/alpha-friendly — raise once real users show up.",
+      "viral_likes_enabled_label": "Notify viral post",
+      "viral_likes_enabled_help": "Emit a notification when the post crosses the reaction threshold within the window. Fires once per post.",
+      "viral_likes_threshold_label": "Viral reactions threshold",
+      "viral_likes_threshold_help": "Total reactions needed to fire the viral notification. Default 50 (beta preset).",
+      "viral_likes_window_hours_label": "Viral reactions window (hours)",
+      "viral_likes_window_hours_help": "Time from post publication within which the reactions threshold must be reached. After this window the post no longer qualifies as viral.",
+      "viral_comments_enabled_label": "Notify viral comments",
+      "viral_comments_enabled_help": "Emit a notification when the post crosses the comments threshold within the window. Fires once per post.",
+      "viral_comments_threshold_label": "Viral comments threshold",
+      "viral_comments_threshold_help": "Total comments needed to fire the notification. Default 10 (beta preset) — comments are a stronger signal than reactions.",
+      "viral_comments_window_hours_label": "Viral comments window (hours)",
+      "viral_comments_window_hours_help": "Time from post publication within which the comments threshold must be reached.",
+      "viral_reposts_enabled_label": "Notify viral reposts",
+      "viral_reposts_enabled_help": "Emit a notification when the post crosses the reposts threshold within the window. Fires once per post.",
+      "viral_reposts_threshold_label": "Viral reposts threshold",
+      "viral_reposts_threshold_help": "Total reposts needed to fire the notification. Default 5 (beta preset) — repost is the strongest engagement signal.",
+      "viral_reposts_window_hours_label": "Viral reposts window (hours)",
+      "viral_reposts_window_hours_help": "Time from post publication within which the reposts threshold must be reached.",
+      "email_section_title": "Email delivery",
+      "email_section_help": "Achievement notifications are sent by email to the post author. The cron `modules-notifications-achievement-email` (see Cron tab) processes the backlog every 20 minutes. Per-user opt-out coming with PR-4.",
+      "email_send_enabled_label": "Send achievement emails",
+      "email_send_enabled_help": "Global kill-switch: if disabled, notifications stay in-app/realtime but no email goes out. Default: enabled.",
+      "email_grace_seconds_label": "Grace window (seconds)",
+      "email_grace_seconds_help": "How long to wait after a notification is created before the cron picks it up. Buffer to avoid race conditions with the fanout trigger. Default 30.",
       "save": "Save",
       "saved": "Settings saved."
     },
     "architecture": {
       "title": "Notifications — Architecture"
+    },
+    "email": {
+      "intro": "Subject, body and footer of achievement emails. Values saved here override the code-side defaults. Leave a field empty to fall back to the default. Mustache {{token}} placeholders are interpolated at runtime.",
+      "subject_label": "Subject",
+      "body_label": "Body",
+      "footer_label": "Footer",
+      "placeholders_label": "Available placeholders",
+      "viral_likes_title": "Viral post (reactions)",
+      "viral_likes_help": "Email sent when the post crosses the reactions threshold within the window. Fires once per post.",
+      "viral_comments_title": "Viral post (comments)",
+      "viral_comments_help": "Email sent when the post crosses the comments threshold within the window.",
+      "viral_reposts_title": "Viral post (reposts)",
+      "viral_reposts_help": "Email sent when the post is reposted N times within the window. Counted on the TARGET (quoted post's author).",
+      "save": "Save",
+      "saved": "Emails saved."
     }
   },
   "types": {
@@ -57,6 +98,11 @@
       "strike_received": "You received a moderation strike (total: {strike_number}/3)",
       "banned": "Your account has been suspended for reaching 3 strikes",
       "strike_revoked": "One of your strikes has been revoked by a moderator"
+    },
+    "achievement": {
+      "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours",
+      "post_viral_comments": "Your post is starting a conversation: {total_count} comments in just hours",
+      "post_viral_reposts": "Your post is being widely shared: {total_count} reposts in just hours"
     }
   }
 }

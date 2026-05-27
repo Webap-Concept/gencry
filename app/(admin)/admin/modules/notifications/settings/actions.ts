@@ -25,6 +25,11 @@ function clampInt(
   return Math.min(Math.max(n, min), max);
 }
 
+function checkboxToBool(raw: FormDataEntryValue | null): boolean {
+  // HTML checkbox: presente in FormData se checked, assente se unchecked.
+  return raw != null;
+}
+
 export async function saveNotificationsSettings(
   _prev: unknown,
   formData: FormData,
@@ -35,6 +40,56 @@ export async function saveNotificationsSettings(
   const pageSize = clampInt(formData.get("list_page_size"), 30, 5, 100);
   const retention = clampInt(formData.get("retention_days"), 180, 7, 3650);
 
+  // Achievement settings (viral_* only — first_like rimossa il 2026-05-26)
+  const viralLikesEnabled = checkboxToBool(formData.get("viral_likes_enabled"));
+  const viralLikesThreshold = clampInt(
+    formData.get("viral_likes_threshold"),
+    50,
+    1,
+    10000,
+  );
+  const viralLikesWindowHours = clampInt(
+    formData.get("viral_likes_window_hours"),
+    24,
+    1,
+    720,
+  );
+  const viralCommentsEnabled = checkboxToBool(formData.get("viral_comments_enabled"));
+  const viralCommentsThreshold = clampInt(
+    formData.get("viral_comments_threshold"),
+    10,
+    1,
+    10000,
+  );
+  const viralCommentsWindowHours = clampInt(
+    formData.get("viral_comments_window_hours"),
+    24,
+    1,
+    720,
+  );
+  const viralRepostsEnabled = checkboxToBool(formData.get("viral_reposts_enabled"));
+  const viralRepostsThreshold = clampInt(
+    formData.get("viral_reposts_threshold"),
+    5,
+    1,
+    10000,
+  );
+  const viralRepostsWindowHours = clampInt(
+    formData.get("viral_reposts_window_hours"),
+    24,
+    1,
+    720,
+  );
+
+  // Email delivery (V3)
+  const emailSendEnabled = checkboxToBool(formData.get("email_send_enabled"));
+  const emailGraceSeconds = clampInt(
+    formData.get("email_grace_seconds"),
+    30,
+    0,
+    3600,
+  );
+
   await Promise.all([
     updateAppSetting(
       "modules.notifications.dedup_window_minutes",
@@ -44,6 +99,50 @@ export async function saveNotificationsSettings(
     updateAppSetting(
       "modules.notifications.retention_days",
       String(retention),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_enabled",
+      viralLikesEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_threshold",
+      String(viralLikesThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_likes_window_hours",
+      String(viralLikesWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_enabled",
+      viralCommentsEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_threshold",
+      String(viralCommentsThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_comments_window_hours",
+      String(viralCommentsWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_enabled",
+      viralRepostsEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_threshold",
+      String(viralRepostsThreshold),
+    ),
+    updateAppSetting(
+      "modules.notifications.achievements.viral_reposts_window_hours",
+      String(viralRepostsWindowHours),
+    ),
+    updateAppSetting(
+      "modules.notifications.email_send_enabled",
+      emailSendEnabled ? "true" : "false",
+    ),
+    updateAppSetting(
+      "modules.notifications.email_grace_seconds",
+      String(emailGraceSeconds),
     ),
   ]);
 
