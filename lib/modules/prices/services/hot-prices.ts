@@ -24,8 +24,14 @@ import "server-only";
 import { getRedisClient } from "@/lib/kv/sdk";
 import type { PriceQuote } from "../types";
 
-/** Chiave singola con snapshot completo. */
-const HOT_PRICES_KEY = "prices:current:all";
+/** Chiave singola con snapshot completo.
+ *  CAVEAT: NON usare `prices:current:all` — quella e' la chiave del
+ *  vecchio cache-aside in lib/modules/prices/queries.ts che salva un
+ *  ARRAY `CachedPriceRow[]`, non l'oggetto `HotPricesPayload`. Collisione
+ *  di shape: il vecchio reader sovrascrive il payload nuovo al primo
+ *  cache miss. Risolto rinominando a `prices:hot:v1` finche' il vecchio
+ *  path non viene deprecato in PR4. */
+const HOT_PRICES_KEY = "prices:hot:v1";
 /** TTL default ipotizzando cron a 1 min (90s = 1.5x). Il cron schedulato
  *  passa SEMPRE un TTL esplicito basato su `cron_minutes * 60 + 60s grace`
  *  cosi' il valore si adatta in automatico ai cambi di cadence senza
