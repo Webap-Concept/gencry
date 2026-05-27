@@ -76,6 +76,15 @@ export async function PublicFooter() {
         <nav
           className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]"
           aria-label={t("ariaLabel")}>
+          {/* News: link statico al CMS news hub. Slug hardcoded perche'
+              `/news` e' una system page del modulo news, non un legale
+              risolto da getSystemPageSlugs. */}
+          <Link
+            href="/news"
+            className="hover:underline"
+            style={{ color: "#4b5563" }}>
+            {t("news")}
+          </Link>
           {termsSlug && (
             <Link
               href={`/${termsSlug}`}
