@@ -80,7 +80,9 @@ export function CoinChart({
   const tLabels = useTranslations("prices.labels");
   const tRanges = useTranslations("prices.ranges");
   const tEmpty = useTranslations("prices.empty_states");
-  const tSource = useTranslations("prices.source");
+  // Niente label "Fonte:" sul chart (decisione product 2026-05-27): la
+  // fonte cambia a runtime per coin (Binance / CoinGecko / DB legacy) e
+  // mostrare un solo brand fisso era fuorviante.
   // Recharts + SSR (Next 16/Turbopack): ResponsiveContainer misura -1
   // sul primo render server. Niente errore funzionale ma logga warning
   // costanti. Gate del rendering al post-mount client → SSR mostra lo
@@ -157,17 +159,6 @@ export function CoinChart({
             );
           })}
         </div>
-        <span className="text-[10px] uppercase tracking-wide text-gc-fg-3">
-          {tSource("label")}{" "}
-          <a
-            href="https://www.coingecko.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-gc-fg-2 transition-colors"
-          >
-            {tSource("name")}
-          </a>
-        </span>
       </div>
 
       {/* Chart — height fissa: aspect-ratio a volte risolve a 0 al primo
