@@ -13,7 +13,9 @@
 // /diagnostics-hot-prices (verranno rimosse in PR4b).
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { listAdminExchanges } from "@/lib/modules/prices/exchanges/queries";
+import { EXCHANGE_REGISTRY } from "@/lib/modules/prices/exchanges/registry";
 import type { Metadata } from "next";
+import { BulkAutoMapCard } from "./_components/bulk-auto-map-card";
 import { ExchangesClient } from "./_components/exchanges-client";
 
 export const metadata: Metadata = { title: "Prices / Exchanges" };
@@ -22,6 +24,17 @@ export const dynamic = "force-dynamic";
 export default async function PricesExchangesPage() {
   await requireAdminSectionPage("admin:users");
   const rows = await listAdminExchanges();
+
+  // Solo exchange enabled + implementato in codice + che supportano
+  // listSupportedUsdSymbols possono essere target del bulk auto-map.
+  const bulkTargets = rows
+    .filter((r) => r.enabled && r.implemented)
+    .filter((r) => {
+      const adapter = EXCHANGE_REGISTRY[r.id as keyof typeof EXCHANGE_REGISTRY];
+      return adapter?.listSupportedUsdSymbols !== undefined;
+    })
+    .map((r) => ({ id: r.id, label: r.label }));
+
   return (
     <div className="space-y-4">
       <header>
@@ -36,6 +49,9 @@ export default async function PricesExchangesPage() {
           mapping ricadono sul fallback CoinGecko.
         </p>
       </header>
+      {bulkTargets.length > 0 && (
+        <BulkAutoMapCard availableExchanges={bulkTargets} />
+      )}
       <ExchangesClient initialRows={rows} />
     </div>
   );

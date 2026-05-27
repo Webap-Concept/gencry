@@ -83,6 +83,20 @@ export interface PriceExchangeAdapter {
   ): Promise<HistoricalPoint[]>;
 
   healthCheck(): Promise<HealthCheckResult>;
+
+  /** Opzionale: lista TUTTI gli exchange symbol USD-quoted attivi su
+   *  questo exchange (es. "BTCUSDT", "ETHUSDT"...). Usato dall'admin
+   *  bulk auto-map per validare quali coin del registry sono
+   *  effettivamente listati prima dell'UPDATE. Adapter che non
+   *  espongono un equivalente di /exchangeInfo lo omettono. */
+  listSupportedUsdSymbols?(): Promise<Set<string>>;
+
+  /** Opzionale: dato il symbol canonico (es. "BTC"), costruisce il
+   *  formato exchange-specific (es. Binance "BTCUSDT", KuCoin "BTC-USDT",
+   *  Gate "BTC_USDT"). Usato dal bulk auto-map per generare la chiave
+   *  da matchare contro `listSupportedUsdSymbols`. Default sicuro:
+   *  `${symbol}USDT` (Binance-style) se non override-ato. */
+  buildUsdSymbol?(canonicalSymbol: string): string;
 }
 
 /**

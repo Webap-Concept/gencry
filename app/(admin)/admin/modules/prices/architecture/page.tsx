@@ -118,9 +118,9 @@ export default function PricesArchitecturePage() {
             <li>
               <strong>Multi-exchange routing</strong>: ogni coin ha
               opzionalmente <code>preferred_exchange + exchange_symbol</code>.
-              Binance e' il primo adapter; futuri (KuCoin, Gate, Kraken,
-              Coinbase) si aggiungono via registry pattern. Coin senza
-              routing → fallback CoinGecko.
+              Binance + KuCoin sono i primi due adapter; futuri (Gate,
+              Kraken, Coinbase) si aggiungono via registry pattern. Coin
+              senza routing → fallback CoinGecko.
             </li>
             <li>
               <strong>Hot layer Upstash</strong>: chiave singola{" "}
@@ -172,6 +172,7 @@ export default function PricesArchitecturePage() {
             <ArchTechBadge label="Postgres (Supabase)" />
             <ArchTechBadge label="pg_cron Supabase (1-min schedule)" variant="accent" />
             <ArchTechBadge label="Binance Spot API (primary)" variant="accent" />
+            <ArchTechBadge label="KuCoin Spot API (secondary)" variant="accent" />
             <ArchTechBadge label="CoinGecko Free (fallback)" />
             <ArchTechBadge label="CryptoCompare API (historical fallback)" />
             <ArchTechBadge label="DexScreener API (long-tail fallback)" />

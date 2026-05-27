@@ -119,7 +119,7 @@ export default async function ExplorePage({
 
       {/* Block 2 + 3 — Realtime banner slot e feed: max-w-2xl per
           readability del testo nei post. */}
-      <div className="max-w-2xl mx-auto px-4 space-y-4">
+      <div className="max-w-2xl mx-auto space-y-4">
         <NewPostsBannerSlot
           feedKind={ticker ? "ticker" : "discover"}
           ticker={ticker ?? undefined}

@@ -68,6 +68,122 @@ export type HealthCheckActionResult =
   | { ok: true; latencyMs: number; status: "ok" | "fail"; error?: string }
   | { ok: false; error: string };
 
+export type BulkAutoMapResult =
+  | {
+      ok: true;
+      requestedTop: number;
+      coinsEvaluated: number;
+      notListedOnExchange: number;
+      mapped: number;
+      mappedSamples: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Auto-map dei top N coin (per market_cap_rank) sull'exchange dato.
+ *
+ *   1. Carica top N coin attivi del registry ordinati per
+ *      market_cap_rank ASC NULLS LAST, escludendo i gia' mappati.
+ *   2. 1 sola chiamata a `adapter.listSupportedUsdSymbols()` per il
+ *      set di pair USDT effettivi sull'exchange.
+ *   3. Per ogni candidato, costruisce `<SYM>USDT` e fa match. Coin
+ *      matched → UPDATE; not listed → skip.
+ *
+ * Idempotente. Sicuro re-eseguire (i mappati sono filtrati out).
+ */
+export async function bulkAutoMapAction(
+  exchangeId: string,
+  topN: number,
+): Promise<BulkAutoMapResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+
+  const n = Math.min(Math.max(Math.trunc(topN || 0), 1), 5000);
+  const adapter = getExchangeAdapter(exchangeId);
+  if (!adapter) {
+    return { ok: false, error: `Adapter '${exchangeId}' non implementato.` };
+  }
+  if (!adapter.listSupportedUsdSymbols) {
+    return {
+      ok: false,
+      error: `Adapter '${exchangeId}' non supporta il bulk auto-map.`,
+    };
+  }
+
+  const { pricesCoins } = await import("@/lib/db/schema");
+  const { asc, and, isNull, sql } = await import("drizzle-orm");
+  const candidates = await db
+    .select({ symbol: pricesCoins.symbol })
+    .from(pricesCoins)
+    .where(
+      and(
+        eq(pricesCoins.isActive, true),
+        isNull(pricesCoins.preferredExchange),
+      ),
+    )
+    .orderBy(
+      sql`${pricesCoins.marketCapRank} ASC NULLS LAST`,
+      asc(pricesCoins.symbol),
+    )
+    .limit(n);
+
+  let supported: Set<string>;
+  try {
+    supported = await adapter.listSupportedUsdSymbols();
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Lista symbol exchange fallita: ${
+        err instanceof Error ? err.message : "unknown"
+      }`,
+    };
+  }
+
+  const toUpdate: { symbol: string; exchangeSymbol: string }[] = [];
+  let notListed = 0;
+  // Symbol per-exchange: Binance "BTCUSDT", KuCoin "BTC-USDT", Gate
+  // "BTC_USDT". Fallback Binance-style se l'adapter non override.
+  const buildSym = adapter.buildUsdSymbol
+    ? adapter.buildUsdSymbol.bind(adapter)
+    : (s: string) => `${s.toUpperCase()}USDT`;
+  for (const c of candidates) {
+    const exchSym = buildSym(c.symbol);
+    if (supported.has(exchSym.toUpperCase())) {
+      toUpdate.push({ symbol: c.symbol, exchangeSymbol: exchSym });
+    } else {
+      notListed++;
+    }
+  }
+
+  if (toUpdate.length > 0) {
+    const now = new Date();
+    // Loop UPDATE: N <= 1000 → ~5-15s totale serializzato (Drizzle non
+    // ha bulk UPDATE FROM VALUES fluent senza raw SQL). Trascurabile per
+    // un'operazione admin one-shot.
+    for (const u of toUpdate) {
+      await db
+        .update(pricesCoins)
+        .set({
+          preferredExchange: exchangeId,
+          exchangeSymbol: u.exchangeSymbol,
+          updatedAt: now,
+        })
+        .where(eq(pricesCoins.symbol, u.symbol));
+    }
+  }
+
+  revalidatePath("/admin/modules/prices/exchanges");
+  revalidatePath("/admin/modules/prices/coins");
+
+  return {
+    ok: true,
+    requestedTop: n,
+    coinsEvaluated: candidates.length,
+    notListedOnExchange: notListed,
+    mapped: toUpdate.length,
+    mappedSamples: toUpdate.slice(0, 10).map((u) => u.symbol),
+  };
+}
+
 /**
  * Esegue health check live + persiste il risultato in
  * price_exchanges.last_health_*. Cosi' la lista mostra sempre lo
