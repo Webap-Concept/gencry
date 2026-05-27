@@ -34,7 +34,10 @@ export interface PricesConfig {
 }
 
 const DEFAULTS: PricesConfig = {
-  cronMinutes: 5,
+  // Refactor 2026-05-27 (Redis-first): cron a 1 min, prezzi super-freschi.
+  // Il TTL della chiave hot Redis e' legato a questo valore (vedi sync.ts
+  // dopo setHotPrices). Cambiarlo qui aggiorna anche il TTL.
+  cronMinutes: 1,
   universeHours: 24,
   deltaThreshold: 0.0005,
   breakerMaxErr: 3,

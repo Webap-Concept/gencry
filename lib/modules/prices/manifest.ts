@@ -63,10 +63,10 @@ export const PRICES_MODULE: ModuleManifest = {
     {
       jobname: "modules-prices-sync",
       path: "/api/cron/modules/prices/sync",
-      schedule: "*/5 * * * *",
+      schedule: "*/1 * * * *",
       label: "Prices Sync",
-      description: "Fetches the latest prices for the active coin universe from CoinGecko / fallback sources and updates the live KV cache.",
-      purpose: "Keeps live prices fresh on the frontend (markets table, watchlists, charts).",
+      description: "Fetches the latest prices for the active coin universe (Binance per coin con preferred_exchange, CoinGecko/DexScreener fallback per i restanti) e scrive lo snapshot su Upstash (prices:hot:v1) + DB cold. Cadence 1 min dal refactor Redis-first del 2026-05-27.",
+      purpose: "Keeps live prices fresh on the frontend (markets table, watchlists, charts). Il TTL della chiave Redis e' legato a modules.prices.cron_minutes (default 1 ora → TTL 2 min) per evitare gap tra un tick e l'altro.",
     },
     {
       jobname: "modules-prices-snapshot",
