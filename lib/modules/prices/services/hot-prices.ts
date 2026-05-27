@@ -24,11 +24,13 @@ import "server-only";
 import { getRedisClient } from "@/lib/kv/sdk";
 import type { PriceQuote } from "../types";
 
-/** Chiave singola con snapshot completo. TTL 90s — 1 cron tick e mezzo
- *  di grace cosi' se il cron salta un ciclo i prezzi non spariscono
- *  bruscamente dalla UI. */
+/** Chiave singola con snapshot completo. */
 const HOT_PRICES_KEY = "prices:current:all";
-const HOT_PRICES_TTL_SECONDS = 90;
+/** TTL default ipotizzando cron a 1 min (90s = 1.5x). Il cron schedulato
+ *  passa SEMPRE un TTL esplicito basato su `cron_minutes * 60 + 60s grace`
+ *  cosi' il valore si adatta in automatico ai cambi di cadence senza
+ *  rischiare gap (TTL troppo corto = chiave evapora tra un tick e l'altro). */
+const DEFAULT_HOT_PRICES_TTL_SECONDS = 90;
 
 /** Shape persistita su Redis. `updatedAt` permette al lettore di
  *  decidere se il payload e' troppo vecchio per essere mostrato senza
@@ -48,6 +50,7 @@ export interface HotPricesPayload {
  */
 export async function setHotPrices(
   quotes: Map<string, PriceQuote>,
+  opts: { ttlSeconds?: number } = {},
 ): Promise<{ ok: boolean; commandCount: number }> {
   const client = await getRedisClient();
   if (!client) return { ok: false, commandCount: 0 };
@@ -56,9 +59,16 @@ export async function setHotPrices(
     updatedAt: Date.now(),
     quotes: Object.fromEntries(quotes),
   };
+  // Clamp difensivo: niente sotto 30s (cron piu' fitto del previsto =
+  // ok ma TTL minimo) e niente sopra 1h (sopra non ha senso, vorrebbe
+  // dire cron non gira affatto).
+  const ttl = Math.min(
+    Math.max(opts.ttlSeconds ?? DEFAULT_HOT_PRICES_TTL_SECONDS, 30),
+    3600,
+  );
 
   try {
-    await client.set(HOT_PRICES_KEY, payload, { ex: HOT_PRICES_TTL_SECONDS });
+    await client.set(HOT_PRICES_KEY, payload, { ex: ttl });
     return { ok: true, commandCount: 1 };
   } catch (err) {
     console.warn("[prices/hot] setHotPrices failed:", err);

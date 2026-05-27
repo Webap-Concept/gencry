@@ -190,7 +190,13 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   // automaticamente su prices_data).
   if (collected.size > 0) {
     try {
-      const res = await setHotPrices(collected);
+      // TTL legato alla cadence del cron: minuti * 60 + 60s grace. Cosi'
+      // se l'admin cambia cron_minutes da 5 → 1 in /admin/modules/prices,
+      // il TTL si adatta automaticamente al prossimo run senza richiedere
+      // deploy. Senza questo, un cron 5-min con TTL 90s lascia la chiave
+      // evaporata per 3.5 minuti su 5.
+      const ttlSeconds = cfg.cronMinutes * 60 + 60;
+      const res = await setHotPrices(collected, { ttlSeconds });
       if (!res.ok) {
         console.warn("[runPricesSync] hot-prices write skipped (Redis not configured or down)");
       }
