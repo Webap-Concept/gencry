@@ -31,7 +31,7 @@ import { NOTIFICATIONS_MODULE } from "@/lib/modules/notifications/manifest";
 
 export const metadata: Metadata = { title: "Notifications / Architettura" };
 
-const REVIEWED_AT = "2026-05-26 (achievements V2 + email channel dispatcher)";
+const REVIEWED_AT = "2026-05-27 (PR-3.5 retention cleanup cron — M_notifications_007)";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -278,6 +278,21 @@ export default function NotificationsArchitecturePage() {
           </p>
 
           <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
+            Retention cleanup (PR-3.5, 2026-05-27)
+          </h3>
+          <p>
+            Cron giornaliero <code>modules-notifications-retention-cleanup</code>{" "}
+            (schedule <code>30 4 * * *</code>) cancella le notifications
+            con <code>created_at</code> piu' vecchio di{" "}
+            <code>modules.notifications.retention_days</code> (default 180gg).
+            DELETE batched 5k row/batch, max 20 batch = 100k row/run; il
+            backlog drena nei run successivi. Range valido[7, 3650]; fuori
+            range = skip senza errore. Indice di supporto{" "}
+            <code>idx_notifications_created_at_asc</code> (M_007) accelera
+            la subquery ORDER BY/LIMIT.
+          </p>
+
+          <h3 className="text-sm font-semibold text-[var(--admin-text)] mt-4">
             Cosa NON c'è (intenzionalmente V3)
           </h3>
           <ul className="list-disc pl-5 space-y-1">
@@ -334,12 +349,6 @@ export default function NotificationsArchitecturePage() {
           intro="Backlog tier-ato. Tier 1 = pianificato a breve; Tier 2 = quando i numeri lo richiedono; Tier 3 = polish.">
           <div className="grid sm:grid-cols-2 gap-3">
             <ArchFutureCard
-              tier={1}
-              title="PR-3b · Cleanup retention cron"
-              description="DELETE notifications WHERE created_at < NOW() - modules.notifications.retention_days. Cron daily. ~30 min implementation."
-              trigger="Quando la tabella inizia a crescere significativamente"
-            />
-            <ArchFutureCard
               tier={2}
               title="Email channel per mention / reply direct"
               description="Estensione del dispatcher achievement-email per spedire anche le mention dirette + reply al tuo post (PR-3c.2). Pattern già pronto — basta aggiungere i renderer relativi + estendere ACHIEVEMENT_EMAILABLE_TYPES."
@@ -394,8 +403,11 @@ export default function NotificationsArchitecturePage() {
             <ArchFileLink path="lib/db/migrations/M_notifications_004_first_like_actor.sql" description="(superseded da M_006) first_like includeva actor_id; fanout leggeva da payload." />
             <ArchFileLink path="lib/db/migrations/M_notifications_005_email_sent_at.sql" description="Colonna notifications.email_sent_at + partial index per il cron scan delle pending achievement emails." />
             <ArchFileLink path="lib/db/migrations/M_notifications_006_drop_first_like.sql" description="Rimuove achievement.first_like end-to-end (rumoroso). Resta solo viral_* (likes/comments/reposts). Pulisce notifiche storiche + settings + outbox pending." />
+            <ArchFileLink path="lib/db/migrations/M_notifications_007_retention_cleanup.sql" description="PR-3.5: indice idx_notifications_created_at_asc per il cron DELETE batched. Schedule pg_cron suggerito in commento (30 4 * * *)." />
             <ArchFileLink path="lib/modules/notifications/email-channel/" description="Dispatcher email del modulo (V3): types, registry, dispatcher, recipient hydration. 3 renderer in renderers/ uno per ogni achievement viral_* type." />
             <ArchFileLink path="app/api/cron/modules/notifications/achievement-email/route.ts" description="Cron endpoint invocato ogni 20 min: chiama dispatchAchievementEmails() + ritorna metriche di run." />
+            <ArchFileLink path="lib/modules/notifications/cron/retention-cleanup.ts" description="Service runNotificationsRetentionCleanup(): DELETE batched 5k×20 = max 100k row/run. Settings tunable, range valido [7, 3650]gg." />
+            <ArchFileLink path="app/api/cron/modules/notifications/retention-cleanup/route.ts" description="Cron endpoint invocato 1 volta/giorno (schedule 30 4 * * *): chiama runNotificationsRetentionCleanup()." />
             <ArchFileLink path="lib/db/migrations/M_notifications_999_uninstall.sql" description="Rollback completo del modulo" />
             <ArchFileLink path="lib/modules/notifications/notification-targets.ts" description="Mappa (type, payload) → href + summaryKey i18n + templateValues. Source of truth per UI + email digest futuro" />
             <ArchFileLink path="app/(admin)/admin/modules/notifications/page.tsx" description="Overview: module status + 3 health cards (chrome dal layout)" />
