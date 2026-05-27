@@ -182,6 +182,45 @@ export const binanceAdapter: PriceExchangeAdapter = {
     return points;
   },
 
+  async listSupportedUsdSymbols(): Promise<Set<string>> {
+    // /api/v3/exchangeInfo ritorna TUTTI i pair attivi (~5MB JSON).
+    // Filtriamo per quoteAsset='USDT' + status='TRADING' → set di ~400+
+    // exchange symbol (es. "BTCUSDT", "ETHUSDT", ...) usabili per il
+    // bulk auto-map. 1 sola call, in-memory match O(1) per N coin.
+    try {
+      const res = await fetchWithTimeout(`${BASE}/api/v3/exchangeInfo`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        throw new ExchangeAdapterError(
+          "binance",
+          `exchangeInfo HTTP ${res.status}`,
+          res.status,
+          true,
+        );
+      }
+      const data = (await res.json()) as {
+        symbols?: Array<{
+          symbol: string;
+          status: string;
+          quoteAsset: string;
+        }>;
+      };
+      const out = new Set<string>();
+      for (const s of data.symbols ?? []) {
+        if (s.status === "TRADING" && s.quoteAsset === "USDT") {
+          out.add(s.symbol.toUpperCase());
+        }
+      }
+      return out;
+    } catch (err) {
+      if (err instanceof ExchangeAdapterError) throw err;
+      const message = err instanceof Error ? err.message : "unknown";
+      throw new ExchangeAdapterError("binance", `exchangeInfo ${message}`);
+    }
+  },
+
   async healthCheck(): Promise<HealthCheckResult> {
     const started = Date.now();
     try {
