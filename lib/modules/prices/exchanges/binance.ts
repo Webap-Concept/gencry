@@ -225,6 +225,48 @@ export const binanceAdapter: PriceExchangeAdapter = {
     }
   },
 
+  async listSupportedUsdMarkets() {
+    // 1 sola call a /ticker/24hr (no params) ritorna l'array di TUTTI
+    // i ticker spot (~1500). Costo: 80 weight (vs cap 1200/min) → ok.
+    // Per filtrare i pair USDT validi serve combinare con exchangeInfo
+    // (status=TRADING, quoteAsset=USDT). Lo facciamo in parallelo.
+    const [tickerRes, validSet] = await Promise.all([
+      fetchWithTimeout(`${BASE}/api/v3/ticker/24hr`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+      this.listSupportedUsdSymbols!(),
+    ]);
+    if (!tickerRes.ok) {
+      throw new ExchangeAdapterError(
+        "binance",
+        `allTickers HTTP ${tickerRes.status}`,
+        tickerRes.status,
+        true,
+      );
+    }
+    const tickers = (await tickerRes.json()) as Binance24hrTicker[];
+    const out: Array<{
+      exchangeSymbol: string;
+      canonicalSymbol: string;
+      volume24h: number;
+    }> = [];
+    for (const t of tickers) {
+      const sym = t.symbol?.toUpperCase();
+      if (!sym || !validSet.has(sym)) continue;
+      // Strip "USDT" suffix → canonical base symbol
+      const base = sym.endsWith("USDT") ? sym.slice(0, -4) : sym;
+      if (!base) continue;
+      const volume = Number.parseFloat(t.quoteVolume);
+      out.push({
+        exchangeSymbol: sym,
+        canonicalSymbol: base,
+        volume24h: Number.isFinite(volume) ? volume : 0,
+      });
+    }
+    return out;
+  },
+
   async healthCheck(): Promise<HealthCheckResult> {
     const started = Date.now();
     try {

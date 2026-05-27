@@ -91,6 +91,26 @@ export interface PriceExchangeAdapter {
    *  espongono un equivalente di /exchangeInfo lo omettono. */
   listSupportedUsdSymbols?(): Promise<Set<string>>;
 
+  /** Opzionale: lista TUTTI gli USDT market attivi con il loro volume
+   *  24h (in USDT ≈ USD). Usato dall'import "wholesale" del registry:
+   *  invece di partire dai coin CoinGecko, ci portiamo dietro l'intero
+   *  catalogo dell'exchange + filter per volume per scartare scam/dust.
+   *  Adapter che non possono fornire il volume omettono.
+   *
+   *  Canonical symbol = la parte BASE del pair (es. "BTC" per "BTCUSDT").
+   *  L'adapter lo deriva dal proprio formato.
+   */
+  listSupportedUsdMarkets?(): Promise<
+    Array<{
+      /** Symbol exchange (es. "BTCUSDT", "BTC-USDT"). */
+      exchangeSymbol: string;
+      /** Symbol canonico base (es. "BTC"). */
+      canonicalSymbol: string;
+      /** Volume 24h in USDT ≈ USD. 0 se non disponibile. */
+      volume24h: number;
+    }>
+  >;
+
   /** Opzionale: dato il symbol canonico (es. "BTC"), costruisce il
    *  formato exchange-specific (es. Binance "BTCUSDT", KuCoin "BTC-USDT",
    *  Gate "BTC_USDT"). Usato dal bulk auto-map per generare la chiave

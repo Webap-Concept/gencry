@@ -303,6 +303,55 @@ export const kucoinAdapter: PriceExchangeAdapter = {
     }
   },
 
+  async listSupportedUsdMarkets() {
+    // 1 sola call a /allTickers + 1 a /symbols per validare. /allTickers
+    // gia' include volValue, ma non distingue stato; /symbols filtra per
+    // enableTrading=true + quoteCurrency=USDT.
+    const [tickerRes, validSet] = await Promise.all([
+      fetchWithTimeout(`${BASE}/api/v1/market/allTickers`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+      this.listSupportedUsdSymbols!(),
+    ]);
+    if (!tickerRes.ok) {
+      throw new ExchangeAdapterError(
+        "kucoin",
+        `allTickers HTTP ${tickerRes.status}`,
+        tickerRes.status,
+        true,
+      );
+    }
+    const payload = (await tickerRes.json()) as KucoinAllTickersResponse;
+    if (payload.code !== "200000" || !payload.data?.ticker) {
+      throw new ExchangeAdapterError(
+        "kucoin",
+        `allTickers code=${payload.code}`,
+        tickerRes.status,
+        true,
+      );
+    }
+    const out: Array<{
+      exchangeSymbol: string;
+      canonicalSymbol: string;
+      volume24h: number;
+    }> = [];
+    for (const t of payload.data.ticker) {
+      const sym = t.symbol?.toUpperCase();
+      if (!sym || !validSet.has(sym)) continue;
+      // KuCoin format "BTC-USDT" → strip "-USDT" suffix.
+      const base = sym.endsWith("-USDT") ? sym.slice(0, -5) : sym;
+      if (!base) continue;
+      const volume = Number.parseFloat(t.volValue);
+      out.push({
+        exchangeSymbol: sym,
+        canonicalSymbol: base,
+        volume24h: Number.isFinite(volume) ? volume : 0,
+      });
+    }
+    return out;
+  },
+
   async healthCheck(): Promise<HealthCheckResult> {
     const started = Date.now();
     try {
