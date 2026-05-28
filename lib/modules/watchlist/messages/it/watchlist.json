@@ -72,6 +72,17 @@
     "add_button": "Aggiungi",
     "close": "Chiudi"
   },
+  "public_page": {
+    "title_format": "Watchlist \"{name}\" di @{username}",
+    "description_format": "Watchlist di crypto creata da @{username}. {count, plural, one {# coin} other {# coin}} tracciate.",
+    "owned_by": "di @{username}",
+    "owned_by_you": "di te",
+    "edit_button": "Modifica",
+    "private_notice": "Questa watchlist è privata.",
+    "perf_30d_label": "Perf media 30g",
+    "coins_count_label": "Coin tracciate",
+    "back_to_profile": "Vai al profilo"
+  },
   "errors": {
     "watchlist_cap_reached": "Hai raggiunto il massimo di watchlist ({cap}). Archivia o elimina una watchlist prima di crearne un'altra.",
     "watchlist_coins_cap_reached": "Questa watchlist è piena ({cap} coin). Rimuovine una prima di aggiungerne un'altra.",

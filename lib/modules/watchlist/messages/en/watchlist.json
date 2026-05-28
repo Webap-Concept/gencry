@@ -72,6 +72,17 @@
     "add_button": "Add",
     "close": "Close"
   },
+  "public_page": {
+    "title_format": "\"{name}\" watchlist by @{username}",
+    "description_format": "Crypto watchlist by @{username}. {count, plural, one {# coin} other {# coins}} tracked.",
+    "owned_by": "by @{username}",
+    "owned_by_you": "by you",
+    "edit_button": "Edit",
+    "private_notice": "This watchlist is private.",
+    "perf_30d_label": "Average 30d performance",
+    "coins_count_label": "Tracked coins",
+    "back_to_profile": "Go to profile"
+  },
   "errors": {
     "watchlist_cap_reached": "You have reached the maximum number of watchlists ({cap}). Archive or delete one before creating a new one.",
     "watchlist_coins_cap_reached": "This watchlist is full ({cap} coins). Remove one before adding another.",
