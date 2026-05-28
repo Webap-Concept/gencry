@@ -1790,6 +1790,74 @@ export const userSocialCounters = pgTable("user_social_counters", {
   updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Modulo watchlist ──────────────────────────────────────────────────
+// Watchlist proprietarie dell'utente. Cap per-user via function
+// `get_user_watchlist_cap(uid)` + trigger BEFORE INSERT. Visibility
+// 'private' | 'public'; le public esposte su /w/<username>/<slug>.
+// Vedi M_watchlist_001_init.sql.
+export const watchlists = pgTable(
+  "watchlists",
+  {
+    id:             uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    userId:         uuid("user_id").notNull()
+                      .references(() => users.id, { onDelete: "cascade" }),
+    name:           varchar("name", { length: 64 }).notNull(),
+    slug:           varchar("slug", { length: 64 }).notNull(),
+    description:    text("description"),
+    visibility:     varchar("visibility", { length: 16 }).notNull().default("private"),
+    position:       integer("position").notNull().default(0),
+    coinsCount:     integer("coins_count").notNull().default(0),
+    followersCount: integer("followers_count").notNull().default(0),
+    archivedAt:     timestamp("archived_at", { withTimezone: true }),
+    createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_watchlists_user_slug")
+      .on(t.userId, t.slug)
+      .where(sql`archived_at IS NULL`),
+    index("idx_watchlists_user_active")
+      .on(t.userId, t.position, t.createdAt)
+      .where(sql`archived_at IS NULL`),
+    index("idx_watchlists_public_slug")
+      .on(t.userId, t.slug)
+      .where(sql`visibility = 'public' AND archived_at IS NULL`),
+  ],
+);
+
+export const watchlistCoins = pgTable(
+  "watchlist_coins",
+  {
+    watchlistId: uuid("watchlist_id").notNull()
+                   .references(() => watchlists.id, { onDelete: "cascade" }),
+    symbol:      varchar("symbol", { length: 20 }).notNull(),
+    position:    integer("position").notNull().default(0),
+    addedAt:     timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.watchlistId, t.symbol] }),
+    index("idx_watchlist_coins_wl_position").on(t.watchlistId, t.position, t.addedAt),
+    index("idx_watchlist_coins_symbol").on(t.symbol),
+  ],
+);
+
+// V2 placeholder: schema gia' pronto per quando aggiungeremo
+// segui-watchlist. V1 e' sempre vuota.
+export const watchlistFollowers = pgTable(
+  "watchlist_followers",
+  {
+    watcherUserId: uuid("watcher_user_id").notNull()
+                     .references(() => users.id, { onDelete: "cascade" }),
+    watchlistId:   uuid("watchlist_id").notNull()
+                     .references(() => watchlists.id, { onDelete: "cascade" }),
+    createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.watcherUserId, t.watchlistId] }),
+    index("idx_watchlist_followers_wl").on(t.watchlistId, t.createdAt),
+  ],
+);
+
 export const postsOutbox = pgTable(
   "posts_outbox",
   {
@@ -1821,6 +1889,12 @@ export type PostLinkPreview       = typeof postsLinkPreviews.$inferSelect;
 export type NewPostLinkPreview    = typeof postsLinkPreviews.$inferInsert;
 export type PostOutboxEvent       = typeof postsOutbox.$inferSelect;
 export type NewPostOutboxEvent    = typeof postsOutbox.$inferInsert;
+export type Watchlist             = typeof watchlists.$inferSelect;
+export type NewWatchlist          = typeof watchlists.$inferInsert;
+export type WatchlistCoin         = typeof watchlistCoins.$inferSelect;
+export type NewWatchlistCoin      = typeof watchlistCoins.$inferInsert;
+export type WatchlistFollower     = typeof watchlistFollowers.$inferSelect;
+export type NewWatchlistFollower  = typeof watchlistFollowers.$inferInsert;
 
 export const postsCronRuns = pgTable(
   "posts_cron_runs",

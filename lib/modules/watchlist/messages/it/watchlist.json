@@ -1,0 +1,17 @@
+{
+  "module_label": "Watchlist",
+  "module_description": "Watchlist di crypto create dall'utente, con perf 30g e condivisione pubblica.",
+  "errors": {
+    "watchlist_cap_reached": "Hai raggiunto il massimo di watchlist ({cap}). Archivia o elimina una watchlist prima di crearne un'altra.",
+    "watchlist_coins_cap_reached": "Questa watchlist è piena ({cap} coin). Rimuovine una prima di aggiungerne un'altra.",
+    "slug_taken": "Hai già una watchlist con questo URL.",
+    "name_required": "Scegli un nome per la tua watchlist.",
+    "name_too_long": "Il nome è troppo lungo (max 64 caratteri).",
+    "not_found": "Watchlist non trovata.",
+    "forbidden": "Non puoi modificare questa watchlist.",
+    "coin_not_supported": "La coin {symbol} non è al momento tracciata.",
+    "coin_already_added": "{symbol} è già in questa watchlist.",
+    "rate_limited": "Troppe richieste. Riprova fra {seconds}s.",
+    "generic": "Qualcosa è andato storto. Riprova."
+  }
+}
