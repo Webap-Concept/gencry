@@ -102,7 +102,7 @@ export type ToggleVisibilityResult =
   | { ok: true; visibility: WatchlistVisibility }
   | ActionFail;
 
-export type ArchiveWatchlistResult = { ok: true } | ActionFail;
+export type DeleteWatchlistResult = { ok: true } | ActionFail;
 
 export type AddCoinResult =
   | { ok: true; symbol: string; coinsCount: number }

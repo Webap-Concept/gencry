@@ -24,8 +24,8 @@ import { getCoinForCard } from "@/lib/modules/prices/queries";
 import { generateUniqueSlug } from "./slug";
 import {
   type AddCoinResult,
-  type ArchiveWatchlistResult,
   type CreateWatchlistResult,
+  type DeleteWatchlistResult,
   type RemoveCoinResult,
   type ToggleVisibilityResult,
   type UpdateWatchlistResult,
@@ -216,11 +216,16 @@ export async function toggleWatchlistVisibilityAction(
   }
 }
 
-// ─── archiveWatchlist (soft-delete) ────────────────────────────────────
+// ─── deleteWatchlist (hard-delete) ─────────────────────────────────────
+//
+// Hard DELETE: niente recovery lato utente. Le coin in watchlist_coins
+// vengono pulite dalla FK CASCADE. La colonna archived_at resta nello
+// schema ma in V1 non e' wirata — disponibile se in futuro vorremo un
+// "archivio personale utente" come feature distinta dal delete.
 
-export async function archiveWatchlistAction(
+export async function deleteWatchlistAction(
   watchlistId: string,
-): Promise<ArchiveWatchlistResult> {
+): Promise<DeleteWatchlistResult> {
   const viewer = await getUser();
   if (!viewer) return { ok: false, error: "unauthenticated" };
 
@@ -229,13 +234,14 @@ export async function archiveWatchlistAction(
 
   try {
     await db
-      .update(watchlists)
-      .set({ archivedAt: new Date(), updatedAt: new Date() })
-      .where(eq(watchlists.id, watchlistId));
+      .delete(watchlists)
+      .where(
+        and(eq(watchlists.id, watchlistId), eq(watchlists.userId, viewer.id)),
+      );
     revalidatePath("/watchlist");
     return { ok: true };
   } catch (err) {
-    console.warn("[watchlist:archive] failed", {
+    console.warn("[watchlist:delete] failed", {
       viewerId: viewer.id,
       watchlistId,
       err: String(err),

@@ -1,10 +1,10 @@
 "use client";
 // Dropdown menu della WatchlistCard: edit / toggle visibility / copy
-// public link / archive. Tutto wirato alle server actions; al success
-// Next revalida la pagina via revalidatePath nelle actions.
+// public link / elimina. Tutto wirato alle server actions; al success
+// router.refresh() forza il re-fetch del payload RSC.
 //
-// Copy link: usa navigator.clipboard se disponibile, fallback no-op
-// (con piccola label di stato "Copiato" via toast inline).
+// Sulla detail page, dopo delete navighiamo a /watchlist (la wl non
+// esiste piu' → 404). Dalla lista, il push e' equivalente a refresh.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/gc-modal";
 import { Button } from "@/components/ui/button";
 import {
-  archiveWatchlistAction,
+  deleteWatchlistAction,
   toggleWatchlistVisibilityAction,
 } from "@/lib/modules/watchlist/actions";
 import type { WatchlistVisibility } from "@/lib/modules/watchlist/types";
@@ -42,6 +42,9 @@ type Props = {
   name: string;
   description: string | null;
   visibility: WatchlistVisibility;
+  /** Count corrente di coin nella wl — mostrato nel dialog di delete
+   *  per dare contesto ("verranno rimosse anche N coin"). */
+  coinsCount: number;
   /** Username dell'owner — per costruire l'URL pubblico. Null = la card
    *  non e' sotto un nome utente conosciuto (caso V1 dalla lista
    *  /watchlist: lo prendiamo dal session loggato lato client). */
@@ -54,12 +57,13 @@ export function WatchlistCardActions({
   name,
   description,
   visibility,
+  coinsCount,
   ownerUsername,
 }: Props) {
   const t = useTranslations("watchlist.card");
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [_, startTransition] = useTransition();
 
@@ -70,11 +74,14 @@ export function WatchlistCardActions({
     });
   };
 
-  const onArchive = () => {
+  const onDelete = () => {
     startTransition(async () => {
-      const res = await archiveWatchlistAction(id);
+      const res = await deleteWatchlistAction(id);
       if (res.ok) {
-        setArchiveOpen(false);
+        setDeleteOpen(false);
+        // Sulla detail page la wl appena eliminata 404erebbe → push
+        // alla lista. Dalla lista, push su stessa rotta + refresh OK.
+        router.push("/watchlist");
         router.refresh();
       }
     });
@@ -129,11 +136,11 @@ export function WatchlistCardActions({
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem
-            onSelect={() => setArchiveOpen(true)}
+            onSelect={() => setDeleteOpen(true)}
             className="text-gc-danger focus:text-gc-danger"
           >
             <Trash2 size={14} aria-hidden />
-            {t("menu_archive")}
+            {t("menu_delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -145,23 +152,29 @@ export function WatchlistCardActions({
         initialValues={{ id, name, description, visibility }}
       />
 
-      <ArchiveConfirmDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        onConfirm={onArchive}
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={onDelete}
+        watchlistName={name}
+        coinsCount={coinsCount}
       />
     </>
   );
 }
 
-function ArchiveConfirmDialog({
+function DeleteConfirmDialog({
   open,
   onOpenChange,
   onConfirm,
+  watchlistName,
+  coinsCount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  watchlistName: string;
+  coinsCount: number;
 }) {
   const t = useTranslations("watchlist.form");
   return (
@@ -169,8 +182,12 @@ function ArchiveConfirmDialog({
       <GcModalContent
         icon={Trash2}
         iconTone="danger"
-        title={t("delete_title")}
-        description={t("delete_description")}
+        title={t("delete_title", { name: watchlistName })}
+        description={
+          coinsCount > 0
+            ? t("delete_description_with_coins", { count: coinsCount })
+            : t("delete_description_empty")
+        }
         size="sm"
         footer={
           <>

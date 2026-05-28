@@ -27,7 +27,7 @@
     "menu_visibility_make_private": "Rendi privata",
     "menu_copy_link": "Copia link pubblico",
     "menu_link_copied": "Link pubblico copiato",
-    "menu_archive": "Archivia",
+    "menu_delete": "Elimina",
     "follow_count": "{count, plural, =0 {nessun follower} one {# follower} other {# follower}}"
   },
   "detail": {
@@ -57,10 +57,11 @@
     "submit_create": "Crea watchlist",
     "submit_save": "Salva modifiche",
     "cancel": "Annulla",
-    "delete_title": "Archiviare questa watchlist?",
-    "delete_description": "La watchlist verrà nascosta dal tuo elenco e non conterà più verso il limite. In V1 il ripristino è solo lato admin.",
-    "delete_confirm": "Archivia",
-    "delete_cancel": "Mantieni"
+    "delete_title": "Eliminare \"{name}\"?",
+    "delete_description_empty": "Questa azione è definitiva.",
+    "delete_description_with_coins": "Verranno rimosse anche {count, plural, one {# coin} other {# coin}} che hai aggiunto. Questa azione è definitiva.",
+    "delete_confirm": "Elimina",
+    "delete_cancel": "Annulla"
   },
   "add_coin": {
     "title": "Aggiungi una coin",

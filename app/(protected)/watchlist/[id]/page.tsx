@@ -110,6 +110,7 @@ async function DetailBody({
               name={wl.name}
               description={wl.description}
               visibility={wl.visibility}
+              coinsCount={wl.coinsCount}
               ownerUsername={ownerUsername}
             />
           </div>

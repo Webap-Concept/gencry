@@ -27,7 +27,7 @@
     "menu_visibility_make_private": "Make private",
     "menu_copy_link": "Copy public link",
     "menu_link_copied": "Public link copied",
-    "menu_archive": "Archive",
+    "menu_delete": "Delete",
     "follow_count": "{count, plural, =0 {no follower} one {# follower} other {# followers}}"
   },
   "detail": {
@@ -57,10 +57,11 @@
     "submit_create": "Create watchlist",
     "submit_save": "Save changes",
     "cancel": "Cancel",
-    "delete_title": "Archive this watchlist?",
-    "delete_description": "The watchlist will be hidden from your list. It won't count toward your cap anymore. This action can be undone from admin only in V1.",
-    "delete_confirm": "Archive",
-    "delete_cancel": "Keep it"
+    "delete_title": "Delete \"{name}\"?",
+    "delete_description_empty": "This action is permanent.",
+    "delete_description_with_coins": "{count, plural, one {# coin} other {# coins}} you added will also be removed. This action is permanent.",
+    "delete_confirm": "Delete",
+    "delete_cancel": "Cancel"
   },
   "add_coin": {
     "title": "Add a coin",

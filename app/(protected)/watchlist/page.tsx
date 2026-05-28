@@ -75,6 +75,7 @@ async function WatchlistListBody({
                     name={w.name}
                     description={w.description}
                     visibility={w.visibility}
+                    coinsCount={w.coinsCount}
                     ownerUsername={ownerUsername}
                   />
                 }
