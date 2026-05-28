@@ -23,8 +23,15 @@ export async function AppRightRail({
    *  PublicFooter sotto (ProtectedShell è full-height). Default false
    *  così i layout pubblici anonimi non duplicano il footer. */
   showLegalFooter = false,
+  /** Contenuto specifico-della-pagina iniettato dalla page corrente in
+   *  cima al rail, sopra le slot home.rail.*. Usato dalle pagine che
+   *  hanno dati per-route (es. profile page con "Coin più citate" +
+   *  "Follower" dell'utente visualizzato). Le slot home.rail.* restano
+   *  invariate sotto, così l'utente non perde il rail "default". */
+  extra,
 }: {
   showLegalFooter?: boolean;
+  extra?: React.ReactNode;
 } = {}) {
   const [top, middle, bottom] = await Promise.all([
     resolveSlot("home.rail.top"),
@@ -39,6 +46,7 @@ export async function AppRightRail({
   // occupando solo lo spazio.
   return (
     <aside className="hidden lg:flex flex-col shrink-0 w-72 h-full overflow-y-auto py-6 pl-6 pr-4 gap-4">
+      {extra}
       {top.map((s) => (
         <SlotBoundary key={s.key} sectionKey={s.key}>
           <Suspense fallback={<s.Skeleton />}>

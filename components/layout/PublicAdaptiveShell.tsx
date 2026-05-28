@@ -28,8 +28,13 @@ import { getAppSettingsSafe } from "@/lib/db/settings-queries";
  */
 export async function PublicAdaptiveShell({
   children,
+  rightRailExtra,
 }: {
   children: React.ReactNode;
+  /** Contenuto iniettato in cima alla right rail dello shell (sopra le
+   *  slot home.rail.*). Propagato sia al ramo loggato (ProtectedShell)
+   *  sia al ramo anonimo (AppRightRail diretto). */
+  rightRailExtra?: React.ReactNode;
 }) {
   // 1 read parallela: session + app settings. Niente getUser pesante:
   // ci basta sapere se siamo loggati o no per scegliere la shell.
@@ -48,7 +53,11 @@ export async function PublicAdaptiveShell({
       </Suspense>
     );
     return (
-      <ProtectedShell appLogoUrl={appSettings.app_logo_url} banner={banner}>
+      <ProtectedShell
+        appLogoUrl={appSettings.app_logo_url}
+        banner={banner}
+        rightRailExtra={rightRailExtra}
+      >
         <Suspense fallback={null}>{children}</Suspense>
       </ProtectedShell>
     );
@@ -65,7 +74,7 @@ export async function PublicAdaptiveShell({
             <Suspense fallback={null}>{children}</Suspense>
           </main>
           <Suspense fallback={null}>
-            <AppRightRail />
+            <AppRightRail extra={rightRailExtra} />
           </Suspense>
         </div>
       </div>

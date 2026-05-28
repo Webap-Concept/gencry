@@ -18,6 +18,7 @@ export function ProtectedShell({
   appLogoUrl,
   banner,
   notificationsBadge,
+  rightRailExtra,
   children,
 }: {
   appLogoUrl: string | null;
@@ -27,6 +28,10 @@ export function ProtectedShell({
    *  notifications). Passato come ReactNode così rimane server-only
    *  pur essendo nested in un client component. */
   notificationsBadge?: React.ReactNode;
+  /** Contenuto specifico-della-pagina iniettato in cima alla right rail
+   *  (sopra le slot home.rail.*). Es.: profile page → coin più citate +
+   *  follower preview dell'utente visualizzato. */
+  rightRailExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -40,7 +45,7 @@ export function ProtectedShell({
             {children}
           </div>
         </main>
-        <AppRightRail showLegalFooter />
+        <AppRightRail showLegalFooter extra={rightRailExtra} />
       </div>
       <AppBottomNav />
     </div>

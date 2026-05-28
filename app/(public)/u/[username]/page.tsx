@@ -81,22 +81,6 @@ export default async function ProfilePage({
   // wrappare con la sidebar/right rail. Stesso pattern di /coins/[symbol].
   if (!profile) notFound();
 
-  return (
-    <PublicAdaptiveShell>
-      <ProfilePageBody profile={profile} />
-    </PublicAdaptiveShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Body
-// ---------------------------------------------------------------------------
-
-async function ProfilePageBody({
-  profile,
-}: {
-  profile: Awaited<ReturnType<typeof getProfileByUsername>> & {};
-}) {
   const [session, stats, topCoins, t, tComp, counters] = await Promise.all([
     getSession(),
     getProfileStats(profile.userId),
@@ -107,9 +91,6 @@ async function ProfilePageBody({
   ]);
   const viewerUserId = session?.user.id;
 
-  // Feed posts dell'utente: prime PROFILE_FEED_PAGE_SIZE. Niente
-  // load-more in v1 (parcheggiato fino a quando aggiungiamo paginazione
-  // dedicata al profilo). Riusa la query esistente con cache 60s.
   const feedPage = await getProfileFeedIds({
     authorId: profile.userId,
     viewerUserId,
@@ -124,51 +105,53 @@ async function ProfilePageBody({
   ]);
   const isOwnProfile = viewerUserId === profile.userId;
 
-  // Layout 2026-05-28: header full-width (le info anagrafiche sono già lì,
-  // niente InfoCard ridondante a destra), aside con "Coin più citate" e
-  // "Follower" preview (link "Vedi tutti" → /u/[u]/followers).
-  return (
-    <div className="space-y-6 max-w-5xl">
-      <ProfileHeader
-        profile={profile}
-        stats={stats}
-        counters={counters}
-        viewerUserId={viewerUserId ?? null}
-        isOwnProfile={isOwnProfile}
-        viewerIsFollowing={viewerFollowing}
+  // Layout 2026-05-28b: la profile page e' single-column nel main; le
+  // card per-profilo ("Coin piu' citate" + preview Follower) vivono
+  // nella VERA right rail dello shell via prop rightRailExtra. Niente
+  // grid 2-col interno: il main si riduce a header full-width + feed.
+  const rightRailExtra = (
+    <>
+      {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
+      <ProfileFollowersCard
+        userId={profile.userId}
+        username={profile.username}
+        totalCount={counters.followersCount}
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <div className="space-y-3">
-          {posts.length === 0 ? (
-            <EmptyState message={tComp("empty_state")} />
-          ) : (
-            <ul className="space-y-3" aria-label={tComp("posts_aria")}>
-              {posts.map((post) => (
-                <li key={post.id}>
-                  <PostCard
-                    post={post}
-                    isAuthor={viewerUserId === post.author.id}
-                    variant="feed"
-                    coinNameMap={coinNameMap}
-                    viewerIsFollowingAuthor={
-                      !viewerUserId || isOwnProfile ? undefined : viewerFollowing
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <aside className="hidden lg:block space-y-4">
-          {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
-          <ProfileFollowersCard
-            userId={profile.userId}
-            username={profile.username}
-            totalCount={counters.followersCount}
-          />
-        </aside>
+    </>
+  );
+
+  return (
+    <PublicAdaptiveShell rightRailExtra={rightRailExtra}>
+      <div className="space-y-6 max-w-3xl">
+        <ProfileHeader
+          profile={profile}
+          stats={stats}
+          counters={counters}
+          viewerUserId={viewerUserId ?? null}
+          isOwnProfile={isOwnProfile}
+          viewerIsFollowing={viewerFollowing}
+        />
+        {posts.length === 0 ? (
+          <EmptyState message={tComp("empty_state")} />
+        ) : (
+          <ul className="space-y-3" aria-label={tComp("posts_aria")}>
+            {posts.map((post) => (
+              <li key={post.id}>
+                <PostCard
+                  post={post}
+                  isAuthor={viewerUserId === post.author.id}
+                  variant="feed"
+                  coinNameMap={coinNameMap}
+                  viewerIsFollowingAuthor={
+                    !viewerUserId || isOwnProfile ? undefined : viewerFollowing
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </div>
+    </PublicAdaptiveShell>
   );
 }
 
