@@ -228,6 +228,119 @@ export async function getPublicWatchlistByUserSlug(
   return assembleDetail(row.w, row.ownerUsername ?? username);
 }
 
+// ─── Overview stats (card riepilogativa /watchlist) ───────────────────
+
+export interface WatchlistOverviewStats {
+  watchlistsCount: number;
+  uniqueCoinsCount: number;
+  /** Coin aggiunte negli ultimi 30 giorni (sommatoria su tutte le wl). */
+  addedLast30dCount: number;
+  /** Perf 30g media pesata per coinsCount. Null se nessuna perf
+   *  disponibile o nessuna coin tracked. */
+  weightedPerf30dPct: number | null;
+  /** Coin con il |change24h| massimo tra tutte quelle nelle wl. */
+  topMover24h: {
+    symbol: string;
+    name: string;
+    imageUrl: string | null;
+    change24hPct: number;
+  } | null;
+  /** Max `lastUpdated` delle coin nella lista (proxy "ultima sincro"). */
+  lastSyncAt: Date | null;
+}
+
+/**
+ * Stats riepilogo per la card overview sopra il grid /watchlist.
+ * Riceve la lista gia' caricata da `getMyWatchlists` per evitare un
+ * fan-out duplicato sui prezzi/perf. Solo 1 query SQL extra: count
+ * coin aggiunte negli ultimi 30 gg (per il "+N questo mese").
+ */
+export async function getWatchlistOverviewStats(
+  userId: string,
+  watchlists: WatchlistSummary[],
+): Promise<WatchlistOverviewStats> {
+  if (watchlists.length === 0) {
+    return {
+      watchlistsCount: 0,
+      uniqueCoinsCount: 0,
+      addedLast30dCount: 0,
+      weightedPerf30dPct: null,
+      topMover24h: null,
+      lastSyncAt: null,
+    };
+  }
+
+  // Coin uniche: estraiamo dai topCoins di ogni wl. Per la card V1 i
+  // topCoins coprono SOLO il preview (3 per wl), quindi caricheremmo
+  // sotto-stima. Carichiamo invece i symbol completi via watchlist_coins
+  // batch — 1 query, gia' indicizzata.
+  const wlIds = watchlists.map((w) => w.id);
+  const allCoinRows = await db
+    .select({
+      watchlistId: watchlistCoins.watchlistId,
+      symbol: watchlistCoins.symbol,
+      addedAt: watchlistCoins.addedAt,
+    })
+    .from(watchlistCoins)
+    .where(inArray(watchlistCoins.watchlistId, wlIds));
+
+  const allSymbols = new Set<string>();
+  let addedLast30d = 0;
+  const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+  for (const row of allCoinRows) {
+    allSymbols.add(row.symbol);
+    if (row.addedAt && new Date(row.addedAt).getTime() >= cutoff) {
+      addedLast30d++;
+    }
+  }
+
+  // Perf 30g media pesata per coinsCount. Esclude le wl senza perf.
+  let totalWeight = 0;
+  let weightedSum = 0;
+  for (const w of watchlists) {
+    if (w.perf30dPct === null || !Number.isFinite(w.perf30dPct)) continue;
+    if (w.coinsCount <= 0) continue;
+    totalWeight += w.coinsCount;
+    weightedSum += w.perf30dPct * w.coinsCount;
+  }
+  const weightedPerf30dPct =
+    totalWeight > 0 ? weightedSum / totalWeight : null;
+
+  // Top mover 24h: risolvo le coin uniche e prendo il max |change24h|.
+  // Riusa il pool top200 + per-symbol fallback (cache shared).
+  const coinViews = await resolveCoinViews(Array.from(allSymbols));
+  let topMover: WatchlistOverviewStats["topMover24h"] = null;
+  let bestAbs = -Infinity;
+  let lastSync: Date | null = null;
+  for (const v of coinViews.values()) {
+    if (!v) continue;
+    if (v.lastUpdated) {
+      const tNow = new Date(v.lastUpdated).getTime();
+      if (!lastSync || tNow > lastSync.getTime()) lastSync = new Date(tNow);
+    }
+    if (v.change24h === null || !Number.isFinite(v.change24h)) continue;
+    const a = Math.abs(v.change24h);
+    if (a > bestAbs) {
+      bestAbs = a;
+      topMover = {
+        symbol: v.symbol,
+        name: v.name,
+        imageUrl: v.imageUrl,
+        change24hPct: v.change24h,
+      };
+    }
+  }
+
+  return {
+    watchlistsCount: watchlists.length,
+    uniqueCoinsCount: allSymbols.size,
+    addedLast30dCount: addedLast30d,
+    weightedPerf30dPct,
+    topMover24h: topMover,
+    lastSyncAt: lastSync,
+  };
+}
+
 // ─── Detail assembler ──────────────────────────────────────────────────
 
 async function assembleDetail(

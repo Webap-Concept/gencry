@@ -11,6 +11,21 @@
     "new_button": "New watchlist",
     "cap_reached_hint": "You've reached the {cap} watchlist cap. Archive one to free up a slot."
   },
+  "overview": {
+    "perf_label": "Overall performance · 30 days",
+    "perf_subtitle": "Weighted average across {watchlists, plural, one {# watchlist} other {# watchlists}} · {coins, plural, one {# coin total} other {# coins total}} · last sync {sync}",
+    "perf_subtitle_fallback": "Add your first coins to see the performance",
+    "watchlists_count_label": "Active watchlists",
+    "watchlists_count_hint": "",
+    "unique_coins_label": "Unique coins",
+    "unique_coins_added_30d": "+{count} last 30d",
+    "unique_coins_hint_none": "",
+    "top_mover_label": "Top mover · 24h",
+    "top_mover_empty": "—",
+    "last_sync_label": "Last sync",
+    "last_sync_hint": "prices",
+    "sync_now": "now"
+  },
   "card": {
     "perf_30d_label": "30D",
     "perf_unavailable": "—",

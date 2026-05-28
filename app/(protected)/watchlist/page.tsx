@@ -12,8 +12,12 @@ import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { getUser } from "@/lib/db/queries";
-import { getMyWatchlists } from "@/lib/modules/watchlist/queries";
+import {
+  getMyWatchlists,
+  getWatchlistOverviewStats,
+} from "@/lib/modules/watchlist/queries";
 import { WatchlistCard } from "@/components/modules/watchlist/watchlist-card";
+import { WatchlistOverviewCard } from "@/components/modules/watchlist/watchlist-overview-card";
 import { NewWatchlistButton } from "./_components/new-watchlist-button";
 import { WatchlistCardActions } from "./_components/watchlist-card-actions";
 import { WatchlistListSkeleton } from "./_components/watchlist-list-skeleton";
@@ -56,9 +60,17 @@ async function WatchlistListBody({
   // qui re-fetcha solo per leggere l'username (React.cache: zero extra DB).
   const ownerUsername = viewer?.username ?? null;
 
+  // Stats overview: solo se c'e' qualcosa da riepilogare. Riusa la
+  // lista watchlist gia' caricata + 1 query extra (count addedAt 30d).
+  const stats =
+    watchlists.length > 0
+      ? await getWatchlistOverviewStats(userId, watchlists)
+      : null;
+
   return (
     <>
       <PageHeader t={t} count={watchlists.length} />
+      {stats ? <WatchlistOverviewCard stats={stats} /> : null}
       {watchlists.length === 0 ? (
         <EmptyState t={t} />
       ) : (
