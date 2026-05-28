@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-28 (social-graph PR2: Home feed unico following-first + discovery fill, visibility 'followers' attivata)";
+const REVIEWED_AT = "2026-05-28 (social-graph PR3: trigger broadcast esteso a 'followers' + Home realtime banner via filtro followingSet)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },

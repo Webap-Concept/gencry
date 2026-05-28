@@ -1898,6 +1898,10 @@ export const NOTIFICATION_TYPES = [
   "achievement.post_viral_likes",
   "achievement.post_viral_comments",
   "achievement.post_viral_reposts",
+  // Social graph events (modulo social-graph PR3). Emessi dal trigger
+  // `user_follows_notify_trg` su INSERT user_follows. recipient =
+  // followed_id, actor = follower_id, post_id/comment_id = NULL.
+  "social.follow",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

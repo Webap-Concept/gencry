@@ -20,6 +20,7 @@ import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-t
 import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { FeedList } from "./FeedList";
 import { HomeEmptyBanner } from "@/components/social-graph/HomeEmptyBanner";
+import { HomeNewPostsBanner } from "@/components/social-graph/HomeNewPostsBanner";
 import { SuggestedFollowsRow } from "@/components/social-graph/SuggestedFollowsRow";
 
 export async function PostsFeedSection() {
@@ -46,6 +47,7 @@ export async function PostsFeedSection() {
   }
 
   const showEmptyState = followingSet.size === 0;
+  const followingIds = Array.from(followingSet);
 
   return (
     <div className="space-y-4">
@@ -54,7 +56,12 @@ export async function PostsFeedSection() {
           <HomeEmptyBanner />
           <SuggestedFollowsRow viewerUserId={user.id} />
         </>
-      ) : null}
+      ) : (
+        <HomeNewPostsBanner
+          viewerUserId={user.id}
+          followingIds={followingIds}
+        />
+      )}
       <FeedList
         initialPosts={initialPosts}
         initialNextCursor={page.nextCursor}

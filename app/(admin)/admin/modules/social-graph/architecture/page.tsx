@@ -14,7 +14,7 @@ import { SOCIAL_GRAPH_MODULE } from "@/lib/modules/social-graph/manifest";
 
 export const metadata: Metadata = { title: "Social Graph / Architettura" };
 
-const REVIEWED_AT = "2026-05-28 (PR2: feed Home rewire + FollowButton + profile pages live)";
+const REVIEWED_AT = "2026-05-28 (PR3: realtime banner Home + notifica social.follow)";
 
 export default function SocialGraphArchitecturePage() {
   return (
@@ -161,9 +161,12 @@ export default function SocialGraphArchitecturePage() {
             feed query e nel selectPostsCore embed.
           </li>
           <li>
-            <strong>PR3</strong> — Realtime banner &quot;X nuovi post&quot;
-            sul feed Home, notifications su nuovo follower (modulo
-            notifications).
+            <strong>PR3</strong> ✅ Realtime banner &quot;X nuovi post&quot;
+            sul feed Home via filtro client su <code>feed:discover</code>{" "}
+            (trigger broadcast esteso a visibility{" "}
+            <code>&apos;followers&apos;</code> in M_posts_011) + notifica{" "}
+            <code>social.follow</code> via trigger DB
+            <code>user_follows_notify_trg</code>.
           </li>
         </ul>
       </Section>
