@@ -4,11 +4,19 @@
 // /watchlist, future slot home, eventuali widget. Server Component:
 // nessun stato locale, riceve `WatchlistSummary` server-side.
 //
-// Slot `actions` opzionale per il dropdown menu (client). Lo passiamo
-// dal parent client invece di importarlo qui per tenere il card
-// rendering server-side (zero JS shipped per la card statica).
+// Pattern "stretched link":
+//   - 1 solo <Link> assoluto invisibile che copre tutta la card.
+//   - I figli decorativi hanno `pointer-events-none` → il click trapassa.
+//   - Solo il dropdown actions ha `pointer-events-auto`.
+//   In questo modo non ci sono <a> annidati anche se mostriamo CTA
+//   visivi (es. "Aggiungi la prima coin").
+//
+// Card vuota (coinsCount === 0): il link punta a /watchlist/<id>?add=1
+// che fa auto-aprire la modale "Aggiungi coin" sul detail. Niente
+// blocco perf vuoto: lo sostituisco con un CTA visivo per dare un
+// gesto chiaro ("cosa devo fare?").
 import Link from "next/link";
-import { Globe, Lock } from "lucide-react";
+import { Globe, Lock, Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type { WatchlistSummary } from "@/lib/modules/watchlist/types";
 import { CoinIcon } from "@/components/modules/coins/coin-icon";
@@ -26,22 +34,27 @@ type Props = {
 
 export async function WatchlistCard({ watchlist, actions, updatedAtLabel }: Props) {
   const t = await getTranslations("watchlist.card");
-  const href = `/watchlist/${watchlist.id}`;
+  const isEmpty = watchlist.coinsCount === 0;
+  const detailHref = `/watchlist/${watchlist.id}`;
+  const linkHref = isEmpty ? `${detailHref}?add=1` : detailHref;
 
   return (
-    <article className="bg-gc-bg-2 border border-gc-line rounded-2xl p-4 flex flex-col gap-4">
+    <article className="relative bg-gc-bg-2 border border-gc-line rounded-2xl p-4 flex flex-col gap-4 hover:bg-gc-bg-3 transition-colors">
+      {/* Stretched link — copre tutta la card. Children pointer-events-none
+          per lasciar trapassare il click; eccezioni hanno pointer-events-auto. */}
+      <Link
+        href={linkHref}
+        prefetch={false}
+        aria-label={watchlist.name}
+        className="absolute inset-0 rounded-2xl z-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent"
+      />
+
       {/* Header: title + visibility badge + actions slot */}
-      <header className="flex items-start gap-3">
+      <header className="relative z-10 pointer-events-none flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <Link
-            href={href}
-            prefetch={false}
-            className="block group/title"
-          >
-            <h3 className="text-base font-semibold text-gc-fg truncate leading-tight group-hover/title:underline decoration-gc-line underline-offset-4">
-              {watchlist.name}
-            </h3>
-          </Link>
+          <h3 className="text-base font-semibold text-gc-fg truncate leading-tight">
+            {watchlist.name}
+          </h3>
           <div className="flex items-center gap-1.5 mt-1">
             <VisibilityBadge visibility={watchlist.visibility} t={t} />
             {watchlist.description ? (
@@ -51,20 +64,33 @@ export async function WatchlistCard({ watchlist, actions, updatedAtLabel }: Prop
             ) : null}
           </div>
         </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
+        {actions ? (
+          <div className="shrink-0 pointer-events-auto">{actions}</div>
+        ) : null}
       </header>
 
-      {/* Perf 30g + coins preview */}
-      <div className="flex items-end justify-between gap-3">
-        <Perf30dLabel value={watchlist.perf30dPct} label={t("perf_30d_label")} fallback={t("perf_unavailable")} />
-        <CoinsPreview coins={watchlist.topCoins} emptyLabel={t("no_coins")} />
-      </div>
+      {/* Body: empty CTA oppure perf + preview */}
+      {isEmpty ? (
+        <EmptyCta label={t("empty_card_cta")} />
+      ) : (
+        <div className="relative z-10 pointer-events-none flex items-end justify-between gap-3">
+          <Perf30dLabel
+            value={watchlist.perf30dPct}
+            label={t("perf_30d_label")}
+            fallback={t("perf_unavailable")}
+          />
+          <CoinsPreview coins={watchlist.topCoins} emptyLabel={t("no_coins")} />
+        </div>
+      )}
 
-      {/* Footer compatto: N coin · aggiornata X */}
-      <footer className="flex items-center justify-between text-[11px] text-gc-fg-3 border-t border-gc-line pt-3">
-        <span>{t("coins_count", { count: watchlist.coinsCount })}</span>
-        {updatedAtLabel ? <span>{updatedAtLabel}</span> : null}
-      </footer>
+      {/* Footer compatto: N coin · aggiornata X. Nascosto su empty (la
+          riga sotto e' ridondante col CTA). */}
+      {!isEmpty ? (
+        <footer className="relative z-10 pointer-events-none flex items-center justify-between text-[11px] text-gc-fg-3 border-t border-gc-line pt-3">
+          <span>{t("coins_count", { count: watchlist.coinsCount })}</span>
+          {updatedAtLabel ? <span>{updatedAtLabel}</span> : null}
+        </footer>
+      ) : null}
     </article>
   );
 }
@@ -85,6 +111,19 @@ function VisibilityBadge({
       <Icon size={11} strokeWidth={2} aria-hidden />
       {label}
     </span>
+  );
+}
+
+function EmptyCta({ label }: { label: string }) {
+  // Decorativo: lo stretched-link parent intercetta il click sull'intera
+  // card e naviga a /watchlist/<id>?add=1 che apre auto la modale add.
+  return (
+    <div className="relative z-10 pointer-events-none flex flex-col items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-gc-line bg-gc-bg/40">
+      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gc-accent/15 text-gc-accent">
+        <Plus size={16} strokeWidth={2.5} aria-hidden />
+      </span>
+      <span className="text-sm font-medium text-gc-fg">{label}</span>
+    </div>
   );
 }
 

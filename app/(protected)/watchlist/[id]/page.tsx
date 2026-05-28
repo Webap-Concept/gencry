@@ -34,17 +34,24 @@ export async function generateMetadata({
 
 export default async function WatchlistDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ add?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const user = await getUser();
   if (!user) redirect("/sign-in");
+  const autoOpenAddCoin = sp.add === "1";
 
   return (
     <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
       <Suspense fallback={<WatchlistDetailSkeleton />}>
-        <DetailBody watchlistId={id} userId={user.id} />
+        <DetailBody
+          watchlistId={id}
+          userId={user.id}
+          autoOpenAddCoin={autoOpenAddCoin}
+        />
       </Suspense>
     </div>
   );
@@ -53,9 +60,11 @@ export default async function WatchlistDetailPage({
 async function DetailBody({
   watchlistId,
   userId,
+  autoOpenAddCoin,
 }: {
   watchlistId: string;
   userId: string;
+  autoOpenAddCoin: boolean;
 }) {
   const [wl, t, tForm, locale, viewer] = await Promise.all([
     getMyWatchlistById(userId, watchlistId),
@@ -122,7 +131,11 @@ async function DetailBody({
           <h2 className="text-sm font-semibold text-gc-fg">
             {t("coins_table_header_coin")}
           </h2>
-          <AddCoinButton watchlistId={wl.id} label={t("add_coin_button")} />
+          <AddCoinButton
+            watchlistId={wl.id}
+            label={t("add_coin_button")}
+            autoOpen={autoOpenAddCoin}
+          />
         </header>
         {wl.coins.length === 0 ? (
           <CoinsEmpty t={t} />
