@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { FollowListPage } from "@/components/social-graph/FollowListPage";
+import { getSession } from "@/lib/auth/session";
 import { listFollowing } from "@/lib/modules/social-graph/queries";
 import { getProfileByUsername } from "@/lib/profile/queries";
 import { generatePageMetadata } from "@/lib/seo";
@@ -34,7 +35,9 @@ export default async function FollowingListPage({
   const profile = await getProfileByUsername(username);
   if (!profile) notFound();
 
-  const firstPage = await listFollowing(profile.userId, null);
+  const session = await getSession();
+  const viewerUserId = session?.user.id ?? null;
+  const firstPage = await listFollowing(profile.userId, null, undefined, viewerUserId);
 
   return (
     <PublicAdaptiveShell>

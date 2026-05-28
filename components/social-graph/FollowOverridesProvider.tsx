@@ -106,3 +106,14 @@ export function useSetFollowOverride(): (
 ) => void {
   return useContext(FollowOverridesContext).setFollow;
 }
+
+/**
+ * Esposizione della Map intera (read-only). Consumer (es.
+ * HomeNewPostsBanner) la usano per ricomputare un Set live combinando
+ * stato SSR + override di sessione. Re-renders quando il setter
+ * triggera un cambio (referential equality nuova Map → useMemo
+ * invalida nei consumer).
+ */
+export function useFollowOverridesMap(): ReadonlyMap<string, boolean> {
+  return useContext(FollowOverridesContext).overrides;
+}

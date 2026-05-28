@@ -40,7 +40,7 @@ import { SOCIAL_GRAPH_MODULE } from "@/lib/modules/social-graph/manifest";
 
 export const metadata: Metadata = { title: "Social Graph / Architettura" };
 
-const REVIEWED_AT = "2026-05-28";
+const REVIEWED_AT = "2026-05-28 (4 caveat fixati: banner Set live, broadcast filter, list block-aware, notify dedup)";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -53,6 +53,7 @@ const SECTIONS = [
   { id: "performance", label: "Performance" },
   { id: "future",      label: "Future" },
   { id: "files",       label: "Files map" },
+  { id: "decisions",   label: "Decisioni" },
   { id: "caveats",     label: "Caveats" },
 ];
 
@@ -567,6 +568,10 @@ export default function SocialGraphArchitecturePage() {
               description="Index posts.author_id composite + user_social_counters.followers_count partial"
             />
             <ArchFileLink
+              path="lib/db/migrations/M_social_graph_005_notify_dedup.sql"
+              description="Dedup window 60min sulle notifiche social.follow (reuse setting modules.notifications)"
+            />
+            <ArchFileLink
               path="lib/db/migrations/M_posts_011_broadcast_followers.sql"
               description="Estende posts_feed_broadcast_trg per emettere anche post 'followers'"
             />
@@ -601,46 +606,84 @@ export default function SocialGraphArchitecturePage() {
           </div>
         </ArchSection>
 
+        {/* ─────────────────────────── Decisioni ──────────────────── */}
+        <ArchSection
+          id="decisions"
+          title="Decisioni di prodotto"
+          icon={Sparkles}
+          intro="Scelte di design fissate. Non sono bug né caveat — sono trade-off consapevoli pattern-driven."
+        >
+          <ul className="list-disc pl-5 space-y-2">
+            <li>
+              <strong>Follow directed, non simmetrico</strong>: A segue B non
+              implica B segua A. Pattern X/Threads. Mantenibile, niente
+              ambiguità &quot;amicizia&quot; bidirezionale.
+            </li>
+            <li>
+              <strong>Account sempre pubblici in V1</strong>: nessun stato{" "}
+              <code>pending/accepted/rejected</code>, follow istantaneo. La
+              moderazione del proprio profilo passa per il block (V2 valuteremo
+              i privati).
+            </li>
+            <li>
+              <strong>Unblock NON ripristina il follow</strong>: dopo che A
+              blocca B, le righe <code>user_follows</code> sono cancellate. Lo
+              unblock NON le ricrea — A deve cliccare di nuovo Follow per
+              tornare a seguire B. Coerente con X/IG/Threads: niente memoria
+              nascosta del rapporto pre-block.
+            </li>
+            <li>
+              <strong>Dedup notifiche follow: 60 minuti</strong>: riusa la
+              setting <code>modules.notifications.dedup_window_minutes</code>.
+              A → unfollow → refollow B dentro la finestra non genera una
+              seconda notifica per B.
+            </li>
+            <li>
+              <strong>Realtime banner Home filtra client-side</strong>: invece
+              di aprire un canale per ogni followee (n+1) o splittare il topic
+              in <code>feed:followers</code>, il banner subscriba al singolo{" "}
+              <code>feed:discover</code> e filtra per{" "}
+              <code>authorId ∈ followingSet</code>. /explore skippa eventi{" "}
+              <code>visibility=&apos;followers&apos;</code>.
+            </li>
+            <li>
+              <strong>Counter denormalizzati in tabella separata</strong>:{" "}
+              <code>user_social_counters</code> e non colonne su{" "}
+              <code>user_profiles</code>. Isola il write contention dal hot
+              path read del profilo (1000+ widget leggono user_profiles).
+            </li>
+          </ul>
+        </ArchSection>
+
         {/* ─────────────────────────── Caveats ──────────────────────── */}
         <ArchSection
           id="caveats"
           title="Caveats"
           icon={AlertTriangle}
-          intro="Spigoli noti documentati per non perderci tempo in review futuri."
+          intro="Spigoli noti residui dopo i fix della tornata 2026-05-28. Tutti minori."
         >
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>followingSet snapshot per banner</strong>: il{" "}
-              <code>HomeNewPostsBanner</code> congela il Set al mount via{" "}
-              <code>useRef</code>. Un follow/unfollow in sessione NON altera il
-              banner finché refresh. Acceptable V1 — alternative complicate
-              (re-subscribe su ogni cambio Context) costose.
+              <strong>Discovery fill order chrono-mixed</strong>: quando il
+              feed Home esaurisce il following slice e fa il fill con
+              discovery, i post discovery appaiono dopo quelli following anche
+              se più recenti. Acceptable: il banner &quot;X nuovi post&quot;
+              riporta in cima i contenuti following nuovi, l&apos;ordine
+              relativo dentro lo slice è quello atteso.
             </li>
             <li>
-              <strong>Broadcast 'followers' a /explore</strong>:{" "}
-              <code>NewPostsBannerSlot</code> dell&apos;explore riceve anche
-              eventi <code>followers</code> ma il discover feed non li mostra.
-              Counter leggermente inflato per utenti che seguono autori che
-              postano <code>followers</code>. Acceptable V1.
+              <strong>Suggested follows: ranking pure popularity</strong>:{" "}
+              <code>SuggestedFollowsRow</code> ordina per{" "}
+              <code>followers_count DESC</code>. A scale di migliaia di utenti
+              i top diventano sempre gli stessi. Tier 2 future: ranking basato
+              su signal (interessi, second-degree network).
             </li>
             <li>
-              <strong>Listfollowers/following NON block-aware</strong>: le
-              pagine <code>/u/[u]/followers</code> e <code>/following</code>{" "}
-              non filtrano per block del viewer (la lista include
-              potenzialmente utenti che il viewer ha bloccato/è stato bloccato
-              da). Defense in depth da aggiungere se diventa fastidioso.
-            </li>
-            <li>
-              <strong>Dedup notifiche social.follow</strong>: nessuna finestra
-              di dedup. Se A → unfollow → refollow B nello stesso giorno, B
-              riceve 2 notifiche. Acceptable V1 — aggiungere{" "}
-              <code>idx_notifications_dedup</code> + check trigger se diventa
-              rumoroso.
-            </li>
-            <li>
-              <strong>Unblock NON ripristina follow</strong>: scelta di design,
-              non bug. Richiede click esplicito per tornare a seguire. Pattern
-              X/IG.
+              <strong>Following set TTL 5min L2 Upstash</strong>: un follow
+              fatto da un altro device/tab dello stesso utente non si vede sul
+              tab corrente fino a 5min (o refresh). React.cache + L1 fanno
+              hit, L2 server-side è stale finché TTL scade. Soluzione V2: pub/
+              sub realtime sull&apos;invalidation cross-tab.
             </li>
           </ul>
         </ArchSection>

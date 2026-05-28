@@ -106,6 +106,12 @@ export function NewPostsBannerSlot({
             if (!row.postId || !row.authorId || !row.createdAt) return;
             // Skip post propri (UX: non bannerare il proprio invio).
             if (row.authorId === viewerUserId) return;
+            // Skip post 'followers': il trigger DB li broadcasta dal
+            // M_posts_011 per nutrire l'Home banner, ma /explore mostra
+            // solo discover (public/members). Senza questo skip il
+            // counter del banner Discover sarebbe inflato per utenti che
+            // seguono autori che postano 'followers'.
+            if (row.visibility === "followers") return;
             // Guard timestamp: il watermark può essere superato da un
             // evento "in coda" prima del mount — skip.
             const createdMs = new Date(row.createdAt).getTime();

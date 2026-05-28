@@ -3,7 +3,10 @@
 //
 // Server Action wrapper di `listFollowers` / `listFollowing` per il
 // "Load more" client-side. Keyset paginated cursor = ISO createdAt.
+// Le query sono block-aware: leggiamo il viewer dalla session e
+// passiamo il suo id alle queries.ts come 4° parametro.
 
+import { getUser } from "@/lib/db/queries";
 import { listFollowers, listFollowing, type FollowListItem } from "./queries";
 
 export type LoadMoreFollowListInput = {
@@ -23,10 +26,12 @@ export async function loadMoreFollowList(
   input: LoadMoreFollowListInput,
 ): Promise<LoadMoreFollowListResult> {
   try {
+    const viewer = await getUser();
+    const viewerId = viewer?.id ?? null;
     const page =
       input.direction === "followers"
-        ? await listFollowers(input.userId, input.cursor)
-        : await listFollowing(input.userId, input.cursor);
+        ? await listFollowers(input.userId, input.cursor, undefined, viewerId)
+        : await listFollowing(input.userId, input.cursor, undefined, viewerId);
     return { ok: true, data: page };
   } catch (err) {
     console.warn("[social-graph:list-actions] failed", {

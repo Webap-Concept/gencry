@@ -12,19 +12,20 @@
 //
 // Resilienza: Supabase non configurato / token fetch fallisce → return
 // null silenzioso. Il banner e' nice-to-have, non deve mai rompere /.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowUp } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 import { Z } from "@/lib/ui/z-index";
+import { useFollowOverridesMap } from "./FollowOverridesProvider";
 
 export type HomeNewPostsBannerProps = {
   viewerUserId: string;
-  /** Set serializzato degli userId che il viewer segue. Il banner conta
-   *  SOLO eventi con authorId in questo set. Snapshot al mount; un
-   *  follow/unfollow in sessione non altera il banner finche' la pagina
-   *  non viene refresh (acceptable per V1). */
+  /** Set iniziale (SSR) degli userId che il viewer segue. Il banner
+   *  costruisce il Set live combinando questi id con gli override del
+   *  Context (chi e' stato seguito/unfollowato in sessione). Nessun
+   *  refresh richiesto. */
   followingIds: string[];
 };
 
@@ -43,8 +44,25 @@ export function HomeNewPostsBanner({
   const t = useTranslations("posts.new_posts_banner");
   const [count, setCount] = useState(0);
   const watermarkRef = useRef<number>(Date.now());
-  // Snapshot Set: stable per la lifetime del componente. Lookup O(1).
-  const followingSetRef = useRef<Set<string>>(new Set(followingIds));
+  // Set live: combina i followingIds SSR con gli override del Context
+  // (chi e' stato seguito/unfollowato in questa sessione). Recomputed
+  // automaticamente quando l'utente clicca Follow su qualche profile —
+  // l'evento Realtime del nuovo autore inizia a contare senza refresh.
+  const overrides = useFollowOverridesMap();
+  const followingSet = useMemo(() => {
+    const set = new Set(followingIds);
+    for (const [authorId, following] of overrides) {
+      if (following) set.add(authorId);
+      else set.delete(authorId);
+    }
+    return set;
+  }, [followingIds, overrides]);
+  // Ref tracking dell'ultimo Set: il listener Realtime e' montato 1 volta
+  // sola, ma il filter usa sempre l'ultimo Set via lookup attraverso il ref.
+  const followingSetRef = useRef<ReadonlySet<string>>(followingSet);
+  useEffect(() => {
+    followingSetRef.current = followingSet;
+  }, [followingSet]);
 
   useEffect(() => {
     const supabase = getBrowserSupabase();

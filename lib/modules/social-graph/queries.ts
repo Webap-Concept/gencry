@@ -84,14 +84,36 @@ export type FollowListPage = {
 const DEFAULT_PAGE_SIZE = 20;
 
 /**
+ * SQL fragment per il filtro block-aware delle list pages. Esclude le
+ * righe in cui il listed user e' bloccato dal viewer o ha bloccato il
+ * viewer (mutual). Quando `viewerUserId` e' null/undefined → no filtro.
+ *
+ * `userIdColumn` e' il riferimento Drizzle alla colonna che identifica
+ * il "listed user" della riga (es. user_follows.followerId per la
+ * lista follower, user_follows.followedId per la lista following).
+ */
+function viewerBlockFilter(
+  viewerUserId: string | null | undefined,
+  userIdColumn: import("drizzle-orm").Column,
+) {
+  if (!viewerUserId) return undefined;
+  return sql`NOT EXISTS (
+    SELECT 1 FROM posts_user_blocks pb
+    WHERE (pb.blocker_id = ${viewerUserId} AND pb.blocked_id = ${userIdColumn})
+       OR (pb.blocked_id = ${viewerUserId} AND pb.blocker_id = ${userIdColumn})
+  )`;
+}
+
+/**
  * Lista paginata dei follower di `userId` (ordine: piu' recenti prima).
- * Keyset paginato su `created_at` — cursor = ISO string del createdAt
- * dell'ultimo item della pagina precedente.
+ * Keyset paginato su `created_at`. Quando `viewerUserId` e' passato,
+ * filtra le righe che il viewer non puo' vedere per block mutual.
  */
 export async function listFollowers(
   userId: string,
   cursor: string | null,
   limit: number = DEFAULT_PAGE_SIZE,
+  viewerUserId?: string | null,
 ): Promise<FollowListPage> {
   const cap = Math.min(Math.max(limit, 1), 50);
   const cursorDate = cursor ? new Date(cursor) : null;
@@ -113,6 +135,7 @@ export async function listFollowers(
       and(
         eq(userFollows.followedId, userId),
         cursorDate ? lt(userFollows.createdAt, cursorDate) : undefined,
+        viewerBlockFilter(viewerUserId, userFollows.followerId),
       ),
     )
     .orderBy(desc(userFollows.createdAt))
@@ -130,12 +153,14 @@ export async function listFollowers(
 
 /**
  * Lista paginata di chi `userId` segue (ordine: piu' recenti prima).
- * Stessa semantica di listFollowers ma rovesciata.
+ * Stessa semantica di listFollowers ma rovesciata. Anche qui block-aware
+ * via viewerUserId opzionale.
  */
 export async function listFollowing(
   userId: string,
   cursor: string | null,
   limit: number = DEFAULT_PAGE_SIZE,
+  viewerUserId?: string | null,
 ): Promise<FollowListPage> {
   const cap = Math.min(Math.max(limit, 1), 50);
   const cursorDate = cursor ? new Date(cursor) : null;
@@ -157,6 +182,7 @@ export async function listFollowing(
       and(
         eq(userFollows.followerId, userId),
         cursorDate ? lt(userFollows.createdAt, cursorDate) : undefined,
+        viewerBlockFilter(viewerUserId, userFollows.followedId),
       ),
     )
     .orderBy(desc(userFollows.createdAt))
