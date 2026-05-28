@@ -24,6 +24,7 @@ import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
 import { FollowButton } from "@/components/social-graph/FollowButton";
 import { ProfileFollowersCard } from "@/components/social-graph/ProfileFollowersCard";
+import { ProfileStickyHeader } from "@/components/social-graph/ProfileStickyHeader";
 import { getSession } from "@/lib/auth/session";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getProfileFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
@@ -120,6 +121,11 @@ export default async function ProfilePage({
     </>
   );
 
+  const display = displayName(profile);
+  const initial = (profile.firstName ?? profile.username)
+    .charAt(0)
+    .toUpperCase();
+
   return (
     <PublicAdaptiveShell rightRailExtra={rightRailExtra}>
       <div className="space-y-6 max-w-3xl">
@@ -130,6 +136,17 @@ export default async function ProfilePage({
           viewerUserId={viewerUserId ?? null}
           isOwnProfile={isOwnProfile}
           viewerIsFollowing={viewerFollowing}
+        />
+        <ProfileStickyHeader
+          targetUserId={profile.userId}
+          avatarUrl={profile.avatarUrl}
+          displayName={display}
+          username={profile.username}
+          initial={initial}
+          initialFollowersCount={counters.followersCount}
+          viewerUserId={viewerUserId ?? null}
+          isOwnProfile={isOwnProfile}
+          initialFollowing={viewerFollowing}
         />
         {posts.length === 0 ? (
           <EmptyState message={tComp("empty_state")} />
