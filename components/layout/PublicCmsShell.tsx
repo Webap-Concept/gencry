@@ -86,6 +86,7 @@ export async function PublicCmsShell({
       <ResetScrollOnPath />
       <PublicHeader
         appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
         logoHref={isNews ? "/news" : "/"}
         newsMenu={newsMenu}
       />

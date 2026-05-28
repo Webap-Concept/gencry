@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import useSWR from "swr";
+import { AppLogo } from "@/components/layout/AppLogo";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 import type { UserWithProfile } from "@/lib/db/schema";
@@ -49,9 +50,13 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function AppSidebar({
   appLogoUrl,
+  appLogoVariantUrl,
   notificationsBadge,
 }: {
   appLogoUrl?: string | null;
+  /** Logo per modalità dark — caricato in admin come `app_logo_variant_url`.
+   *  Null → fallback al logo principale anche in dark. */
+  appLogoVariantUrl?: string | null;
   /** Badge unread server-rendered dal modulo notifications. Se null
    *  (modulo non installato o nessun unread) la bell appare senza pill. */
   notificationsBadge?: React.ReactNode;
@@ -82,9 +87,9 @@ export function AppSidebar({
       <div className="shrink-0 mb-6 flex items-center justify-between gap-2">
         <Link href="/" prefetch={false} className="inline-flex items-center min-w-0">
           {appLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={appLogoUrl}
+            <AppLogo
+              url={appLogoUrl}
+              variantUrl={appLogoVariantUrl ?? null}
               alt="Home"
               className="h-16 w-auto object-contain"
             />

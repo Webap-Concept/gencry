@@ -7,17 +7,17 @@
 // Layout: header (title + new-button + caption "N di M"), poi grid
 // responsive 1col mobile / 2col desktop di WatchlistCard. Empty
 // state quando 0 watchlist.
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
-import type { Metadata } from "next";
+import { WatchlistCard } from "@/components/modules/watchlist/watchlist-card";
+import { WatchlistOverviewCard } from "@/components/modules/watchlist/watchlist-overview-card";
 import { getUser } from "@/lib/db/queries";
 import {
   getMyWatchlists,
   getWatchlistOverviewStats,
 } from "@/lib/modules/watchlist/queries";
-import { WatchlistCard } from "@/components/modules/watchlist/watchlist-card";
-import { WatchlistOverviewCard } from "@/components/modules/watchlist/watchlist-overview-card";
+import type { Metadata } from "next";
+import { getLocale, getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { NewWatchlistButton } from "./_components/new-watchlist-button";
 import { WatchlistCardActions } from "./_components/watchlist-card-actions";
 import { WatchlistListSkeleton } from "./_components/watchlist-list-skeleton";
@@ -36,7 +36,7 @@ export default async function WatchlistPage() {
   const t = await getTranslations("watchlist.page");
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
+    <div className="max-w-5xl mx-auto py-6 space-y-6">
       <Suspense fallback={<WatchlistListSkeleton />}>
         <WatchlistListBody userId={user.id} t={t} />
       </Suspense>
@@ -113,9 +113,7 @@ function PageHeader({
         <h1 className="text-2xl font-serif text-gc-fg leading-tight">
           {t("title")}
         </h1>
-        <p className="text-sm text-gc-fg-3 mt-1 max-w-2xl">
-          {t("subtitle")}
-        </p>
+        <p className="text-sm text-gc-fg-3 mt-1 max-w-2xl">{t("subtitle")}</p>
       </div>
       {count > 0 ? <NewWatchlistButton label={t("new_button")} /> : null}
     </header>
@@ -130,9 +128,7 @@ function EmptyState({
   return (
     <div className="bg-gc-bg-2 border border-dashed border-gc-line rounded-2xl p-8 text-center flex flex-col items-center gap-3">
       <h2 className="text-lg font-serif text-gc-fg">{t("empty_title")}</h2>
-      <p className="text-sm text-gc-fg-3 max-w-md">
-        {t("empty_description")}
-      </p>
+      <p className="text-sm text-gc-fg-3 max-w-md">{t("empty_description")}</p>
       <div className="pt-2">
         <NewWatchlistButton label={t("empty_cta")} />
       </div>

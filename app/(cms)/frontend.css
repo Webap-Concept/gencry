@@ -216,6 +216,8 @@
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
 
+  /* Logo swap dark/light — vedi sezione `.logo-light` / `.logo-dark` sotto. */
+
   /* Brand tokens — stessa logica: solo background/text si invertono */
   --brand-bg: #0e1a14;
   --brand-surface: #14241c;
@@ -229,6 +231,18 @@
   /* --brand-primary, --brand-accent, --brand-destructive,
      --brand-error-border, --brand-border-focus: invariati (brand colors) */
 }
+
+/* ---------------------------------------------------------------------------
+   Logo swap light/dark — il setting `app_logo_variant_url` viene caricato
+   nell'admin per la modalità dark. I shell che mostrano il logo
+   renderizzano DUE `<img>` (uno per tema) con queste classi: solo uno e'
+   visibile via display:none scoped su `.gc-dark` sul `<html>`. Zero JS,
+   zero flicker all'idratazione. Se la variant manca, il caller renderizza
+   solo `app_logo_url` con classe `.logo-default` (sempre visibile).
+   --------------------------------------------------------------------------- */
+.logo-dark { display: none; }
+.gc-dark .logo-light { display: none; }
+.gc-dark .logo-dark { display: inline-block; }
 
 /* ---------------------------------------------------------------------------
    Scrollbar — colorate sui token gc-*, theme-aware automaticamente.

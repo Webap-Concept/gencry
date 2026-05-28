@@ -103,6 +103,7 @@ export default async function Layout({
   return (
     <ProtectedShell
       appLogoUrl={appSettings.app_logo_url}
+      appLogoVariantUrl={appSettings.app_logo_variant_url}
       banner={banner}
       notificationsBadge={
         <Suspense fallback={null}>

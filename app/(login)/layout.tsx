@@ -19,7 +19,10 @@ export default async function LoginLayout({
   const appSettings = await getAppSettingsSafe();
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
-      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
+      <PublicHeader
+        appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
+      />
       <div className="flex-1">{children}</div>
       <Suspense fallback={null}>
         <PublicFooter />

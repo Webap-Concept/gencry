@@ -55,6 +55,7 @@ export async function PublicAdaptiveShell({
     return (
       <ProtectedShell
         appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
         banner={banner}
         rightRailExtra={rightRailExtra}
       >
@@ -67,7 +68,10 @@ export async function PublicAdaptiveShell({
   // Il rail flue con la pagina come nello shell loggato (una sola scrollbar).
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gc-bg">
-      <PublicHeader appLogoUrl={appSettings.app_logo_url} />
+      <PublicHeader
+        appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
+      />
       <div className="flex-1">
         <div className="mx-auto w-full max-w-7xl flex">
           <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6">
