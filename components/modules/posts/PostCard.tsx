@@ -535,7 +535,10 @@ export function PostCard({
         }`}
       >
 
-        {/* Header: autore + time + visibility */}
+        {/* Header autore — layout 3 righe:
+              Riga 1: nome + slot follow (button compact / "segui già" / niente)
+              Riga 2: headline (se presente)
+              Riga 3: tempo + edited + visibility */}
         <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
           <Link
             href={`/u/${post.author.username ?? post.author.id}`}
@@ -553,52 +556,51 @@ export function PostCard({
             />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
+            {/* Riga 1: nome + slot follow */}
+            <div className="flex items-center gap-2 min-w-0">
               <Link
                 href={`/u/${post.author.username ?? post.author.id}`}
-                className="font-medium text-gc-fg hover:underline"
+                className="font-medium text-gc-fg hover:underline truncate"
               >
                 {authorDisplayName(post.author, userFallback)}
               </Link>
-              <span className="text-xs text-gc-fg-muted">·</span>
-              <time
-                dateTime={String(post.createdAt)}
-                className="text-xs text-gc-fg-muted"
-              >
-                {formatRelativeTime(post.createdAt, tTime, locale)}
-              </time>
-              {displayedEditedAt ? (
-                <span
-                  className="text-xs text-gc-fg-muted"
-                  title={String(displayedEditedAt)}
-                >
-                  · {tCard("edited")}
-                </span>
-              ) : null}
-              {displayedVisibility !== "public" ? (
-                <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
-                  {tVis(displayedVisibility)}
-                </span>
+              {viewer.isLoggedIn && !isAuthor ? (
+                viewerIsFollowingAuthor === false ? (
+                  <FollowButton
+                    targetUserId={post.author.id}
+                    initialFollowing={false}
+                    variant="compact"
+                  />
+                ) : viewerIsFollowingAuthor === true ? (
+                  <span className="text-[11px] text-gc-fg-3 shrink-0">
+                    {tCard("following_inline")}
+                  </span>
+                ) : null
               ) : null}
             </div>
+            {/* Riga 2: headline */}
             {post.author.headline ? (
               <p className="text-xs text-gc-fg-muted truncate leading-tight mt-0.5">
                 {post.author.headline}
               </p>
             ) : null}
-          </div>
-          {/* Follow button compact mostrato solo quando viewer != author
-              e viewer NON segue ancora l'autore. Pattern X/Threads: niente
-              badge "Following" su ogni card, solo CTA quando manca. */}
-          {viewer.isLoggedIn && !isAuthor && viewerIsFollowingAuthor === false ? (
-            <div className="shrink-0 -mt-0.5">
-              <FollowButton
-                targetUserId={post.author.id}
-                initialFollowing={false}
-                variant="compact"
-              />
+            {/* Riga 3: tempo + edited + visibility */}
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-gc-fg-muted">
+              <time dateTime={String(post.createdAt)}>
+                {formatRelativeTime(post.createdAt, tTime, locale)}
+              </time>
+              {displayedEditedAt ? (
+                <span title={String(displayedEditedAt)}>
+                  · {tCard("edited")}
+                </span>
+              ) : null}
+              {displayedVisibility !== "public" ? (
+                <span className="px-1.5 py-0.5 rounded bg-gc-line/40">
+                  {tVis(displayedVisibility)}
+                </span>
+              ) : null}
             </div>
-          ) : null}
+          </div>
           {/* Top-right toolbar. Nascosto per anon: tutte le voci
               (Salva/Blocca/Segnala) rimandano comunque a /sign-up via
               requireAuth, e "Apri post" è ridondante col click sulla

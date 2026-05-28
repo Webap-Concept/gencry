@@ -76,28 +76,38 @@ export function FollowButton({
   const ariaLabel = following ? t("unfollow") : t("follow");
 
   if (variant === "compact") {
+    // Pallino 24px che al hover si espande a pillola mostrando il
+    // label. Icona + ruota di 90° per dare feeling di apertura. Tutto
+    // gestito via group-hover Tailwind (zero JS).
     return (
-      <div className="inline-flex flex-col items-end">
+      <span className="inline-flex flex-col items-end">
         <button
           type="button"
           onClick={onClick}
           aria-label={ariaLabel}
           aria-pressed={following}
           disabled={isPending}
-          className={
-            following
-              ? "inline-flex items-center justify-center w-8 h-8 rounded-full border border-gc-line text-gc-fg-2 hover:bg-gc-bg-3 disabled:opacity-50 transition"
-              : "inline-flex items-center justify-center w-8 h-8 rounded-full bg-gc-accent text-white hover:brightness-95 disabled:opacity-50 transition"
-          }
+          className="group/follow inline-flex items-center justify-center h-6 px-1 rounded-full bg-gc-accent text-white overflow-hidden disabled:opacity-50 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent transition-all duration-200 ease-out"
+          style={{ minWidth: "1.5rem" }}
         >
-          {following ? <Check size={14} aria-hidden /> : <Plus size={14} aria-hidden />}
+          <Plus
+            size={12}
+            strokeWidth={2.75}
+            aria-hidden
+            className="shrink-0 transition-transform duration-200 ease-out group-hover/follow:rotate-90"
+          />
+          {/* Label che si espande al hover. max-w-0 + opacity-0 →
+              max-w-[60px] + opacity-100 con transition smooth. */}
+          <span className="overflow-hidden whitespace-nowrap text-[11px] font-medium leading-none max-w-0 opacity-0 ml-0 group-hover/follow:max-w-[60px] group-hover/follow:opacity-100 group-hover/follow:ml-1 transition-all duration-200 ease-out">
+            {t("follow")}
+          </span>
         </button>
         {error ? (
           <span className="text-[10px] text-gc-danger mt-1" role="alert">
             {error}
           </span>
         ) : null}
-      </div>
+      </span>
     );
   }
 
