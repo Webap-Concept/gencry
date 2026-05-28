@@ -7,6 +7,7 @@
 // (con piccola label di stato "Copiato" via toast inline).
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Globe,
@@ -56,6 +57,7 @@ export function WatchlistCardActions({
   ownerUsername,
 }: Props) {
   const t = useTranslations("watchlist.card");
+  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -63,14 +65,18 @@ export function WatchlistCardActions({
 
   const onToggleVisibility = () => {
     startTransition(async () => {
-      await toggleWatchlistVisibilityAction(id);
+      const res = await toggleWatchlistVisibilityAction(id);
+      if (res.ok) router.refresh();
     });
   };
 
   const onArchive = () => {
     startTransition(async () => {
       const res = await archiveWatchlistAction(id);
-      if (res.ok) setArchiveOpen(false);
+      if (res.ok) {
+        setArchiveOpen(false);
+        router.refresh();
+      }
     });
   };
 

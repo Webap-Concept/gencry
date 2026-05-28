@@ -4,6 +4,7 @@
 // appesantire — la riga sparisce subito grazie a revalidatePath.
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { removeCoinAction } from "@/lib/modules/watchlist/actions";
 
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function CoinRowRemove({ watchlistId, symbol, ariaLabel }: Props) {
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [_, startTransition] = useTransition();
 
@@ -23,8 +25,9 @@ export function CoinRowRemove({ watchlistId, symbol, ariaLabel }: Props) {
       return;
     }
     startTransition(async () => {
-      await removeCoinAction(watchlistId, symbol);
+      const res = await removeCoinAction(watchlistId, symbol);
       setConfirming(false);
+      if (res.ok) router.refresh();
     });
   };
 

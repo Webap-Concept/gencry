@@ -5,6 +5,7 @@
 // l'utente puo' aggiungere piu' coin in sequenza).
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bookmark, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ type Props = {
 export function AddCoinDialog({ watchlistId, open, onOpenChange }: Props) {
   const t = useTranslations("watchlist.add_coin");
   const tErr = useTranslations("watchlist.errors");
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CoinSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -83,6 +85,7 @@ export function AddCoinDialog({ watchlistId, open, onOpenChange }: Props) {
         next.add(symbol);
         return next;
       });
+      router.refresh();
     });
   };
 

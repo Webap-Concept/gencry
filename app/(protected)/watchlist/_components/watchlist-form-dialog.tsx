@@ -8,6 +8,7 @@
 // suggested name in futuro).
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export function WatchlistFormDialog({
 }: Props) {
   const t = useTranslations("watchlist.form");
   const tErr = useTranslations("watchlist.errors");
+  const router = useRouter();
   const [name, setName] = useState(initialValues?.name ?? "");
   const [description, setDescription] = useState(
     initialValues?.description ?? "",
@@ -72,6 +74,7 @@ export function WatchlistFormDialog({
           return;
         }
         onOpenChange(false);
+        router.refresh();
         return;
       }
       // edit
@@ -86,6 +89,7 @@ export function WatchlistFormDialog({
         return;
       }
       onOpenChange(false);
+      router.refresh();
     });
   };
 
