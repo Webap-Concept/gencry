@@ -195,19 +195,19 @@ function ProfileHeader({
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
   const usernameLower = profile.username.toLowerCase();
   return (
-    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-6 sm:p-8">
-      <div className="flex items-start gap-5 flex-wrap">
+    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-4">
+      <div className="flex items-start gap-3 flex-wrap">
         <Avatar avatarUrl={profile.avatarUrl} initial={initial} display={display} />
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-serif text-gc-fg leading-tight">
+          <h1 className="text-xl font-serif text-gc-fg leading-tight">
             {display}
           </h1>
-          <p className="text-sm text-gc-fg-3 mt-1">@{profile.username}</p>
+          <p className="text-sm text-gc-fg-3 mt-0.5">@{profile.username}</p>
           {profile.headline && (
-            <p className="text-sm text-gc-fg-2 mt-2">{profile.headline}</p>
+            <p className="text-sm text-gc-fg-2 mt-1.5">{profile.headline}</p>
           )}
           {profile.bio && (
-            <p className="text-sm text-gc-fg-2 mt-3 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-gc-fg-2 mt-2 whitespace-pre-wrap leading-relaxed">
               {profile.bio}
             </p>
           )}
@@ -222,7 +222,7 @@ function ProfileHeader({
           </div>
         ) : null}
       </div>
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gc-line pt-5">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gc-line pt-3">
         <CounterStatLink
           href={`/u/${usernameLower}/followers`}
           value={counters.followersCount}
@@ -255,10 +255,10 @@ function CounterStatLink({
       prefetch={false}
       className="group block rounded-lg hover:bg-gc-bg-3 -mx-2 px-2 py-1 transition"
     >
-      <p className="text-2xl font-serif text-gc-fg tabular-nums">
+      <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5 group-hover:text-gc-fg-2">
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
         <StatLabel labelKey={labelKey} />
       </p>
     </Link>
@@ -280,13 +280,13 @@ function Avatar({
       <img
         src={avatarUrl}
         alt={display}
-        className="w-24 h-24 rounded-full object-cover border border-gc-line"
+        className="w-16 h-16 rounded-full object-cover border border-gc-line"
       />
     );
   }
   return (
     <div
-      className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif text-white bg-gc-accent"
+      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-serif text-white bg-gc-accent"
       aria-label={display}
     >
       {initial}
@@ -297,10 +297,10 @@ function Avatar({
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
     <div>
-      <p className="text-2xl font-serif text-gc-fg tabular-nums">
+      <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey={labelKey} />
       </p>
     </div>
@@ -310,8 +310,8 @@ function Stat({ value, labelKey }: { value: number; labelKey: string }) {
 function StatPlaceholder({ labelKey }: { labelKey: string }) {
   return (
     <div>
-      <p className="text-2xl font-serif text-gc-fg-3 tabular-nums">—</p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+      <p className="text-xl font-serif text-gc-fg-3 tabular-nums leading-tight">—</p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey={labelKey} />
       </p>
     </div>
@@ -330,8 +330,10 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
   });
   return (
     <div>
-      <p className="text-lg font-serif text-gc-fg tabular-nums">{formatted}</p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+      <p className="text-base font-serif text-gc-fg tabular-nums leading-tight">
+        {formatted}
+      </p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey="joined" />
       </p>
     </div>
