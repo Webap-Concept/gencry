@@ -244,6 +244,18 @@ export function PostCard({
     post.editedAt,
   );
 
+  // Stato locale del follow verso l'autore: deve rispecchiare l'azione
+  // del bottone compact senza richiedere un refresh. Initial = prop dal
+  // server (undefined per anon/self/non-hydrato). Quando il FollowButton
+  // triggera onChange, switchiamo a true/false e il render condiziona
+  // su questo, non più sul prop.
+  const [followingAuthor, setFollowingAuthor] = useState<boolean | undefined>(
+    viewerIsFollowingAuthor,
+  );
+  useEffect(() => {
+    setFollowingAuthor(viewerIsFollowingAuthor);
+  }, [viewerIsFollowingAuthor]);
+
   // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
   // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
   //   il "valore vero" lato client. Viene aggiornato manualmente DOPO che
@@ -565,13 +577,14 @@ export function PostCard({
                 {authorDisplayName(post.author, userFallback)}
               </Link>
               {viewer.isLoggedIn && !isAuthor ? (
-                viewerIsFollowingAuthor === false ? (
+                followingAuthor === false ? (
                   <FollowButton
                     targetUserId={post.author.id}
                     initialFollowing={false}
                     variant="compact"
+                    onChange={(s) => setFollowingAuthor(s.following)}
                   />
-                ) : viewerIsFollowingAuthor === true ? (
+                ) : followingAuthor === true ? (
                   <span className="text-[11px] text-gc-fg-3 shrink-0">
                     {tCard("following_inline")}
                   </span>
