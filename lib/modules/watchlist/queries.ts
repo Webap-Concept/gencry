@@ -1,0 +1,272 @@
+import "server-only";
+// lib/modules/watchlist/queries.ts
+//
+// Server reads del modulo watchlist. 3 entry-point:
+//
+//   - getMyWatchlists(userId)        → lista per /watchlist
+//   - getMyWatchlistById(uid, id)    → detail mia /watchlist/[id]
+//   - getPublicWatchlistByUserSlug() → detail pubblica /w/<u>/<slug>
+//
+// Pattern fan-out controllato (memoria feedback_db_pool_caution):
+//   1. SELECT watchlists (filtrato)
+//   2. SELECT watchlist_coins WHERE wl_id IN (...)
+//   3. resolve coin view: prima dal top-pool (1 cache hit shareable),
+//      poi `getCoinForCard` per quelle non-pool (parallel + per-call cache)
+//   4. MGET Redis perf 30g — `getCoinsPerf30d`
+//   5. assembla summary/detail
+//
+// Niente fan-out N+1 nel render: i widget UI ricevono dati gia' pronti.
+
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { db } from "@/lib/db/drizzle";
+import {
+  userProfiles,
+  watchlistCoins,
+  watchlists,
+} from "@/lib/db/schema";
+import {
+  getCoinForCard,
+  getTopCoinsForCards,
+} from "@/lib/modules/prices/queries";
+import type { CoinView } from "@/lib/modules/prices/queries";
+import { averagePerf, getCoinsPerf30d } from "./perf-cache";
+import type {
+  WatchlistCoinSummary,
+  WatchlistDetail,
+  WatchlistSummary,
+  WatchlistVisibility,
+} from "./types";
+
+// Cap render-side dei top coin per card della lista (preview).
+const TOP_COINS_PREVIEW = 3;
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Resolve N symbols → CoinView map. Symbol presenti nel pool top-200
+ * vengono serviti da li' (1 cache shared per tutti); i restanti vanno
+ * a `getCoinForCard` (parallel, per-symbol cache 60s).
+ *
+ * Symbol non risolti (coin disattivata o mai sync'd) finiscono come
+ * stub minimale per non rompere il render — la UI mostra "—" sui campi
+ * mancanti.
+ */
+async function resolveCoinViews(
+  symbols: string[],
+): Promise<Map<string, CoinView | null>> {
+  if (symbols.length === 0) return new Map();
+  const unique = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
+  const pool = await getTopCoinsForCards(200);
+  const poolMap = new Map<string, CoinView>();
+  for (const c of pool) poolMap.set(c.symbol, c);
+
+  const result = new Map<string, CoinView | null>();
+  const missing: string[] = [];
+  for (const s of unique) {
+    const fromPool = poolMap.get(s);
+    if (fromPool) {
+      result.set(s, fromPool);
+    } else {
+      missing.push(s);
+    }
+  }
+  if (missing.length > 0) {
+    const fetched = await Promise.all(missing.map((s) => getCoinForCard(s)));
+    for (let i = 0; i < missing.length; i++) {
+      result.set(missing[i], fetched[i]);
+    }
+  }
+  return result;
+}
+
+function toCoinSummary(
+  symbol: string,
+  position: number,
+  view: CoinView | null,
+): WatchlistCoinSummary {
+  return {
+    symbol,
+    name: view?.name ?? symbol,
+    imageUrl: view?.imageUrl ?? null,
+    price: view?.price ?? 0,
+    change24h: view?.change24h ?? null,
+    position,
+  };
+}
+
+function assertVisibility(v: string): WatchlistVisibility {
+  return v === "public" ? "public" : "private";
+}
+
+// ─── Public API ────────────────────────────────────────────────────────
+
+/**
+ * Lista delle watchlist proprie. Ordinate per (position, created_at).
+ * Solo ATTIVE (archived_at IS NULL). Cap a `max_per_user_*` ma noi
+ * ritorniamo TUTTE — la UI si occupa di mostrarle.
+ *
+ * Render-target: pagina /watchlist (loggato).
+ */
+export async function getMyWatchlists(
+  userId: string,
+): Promise<WatchlistSummary[]> {
+  // 1. Lista watchlist proprie active.
+  const rows = await db
+    .select()
+    .from(watchlists)
+    .where(
+      and(eq(watchlists.userId, userId), isNull(watchlists.archivedAt)),
+    )
+    .orderBy(asc(watchlists.position), asc(watchlists.createdAt));
+  if (rows.length === 0) return [];
+
+  // 2. Coins batch per tutte le wl.
+  const wlIds = rows.map((r) => r.id);
+  const coinRows = await db
+    .select()
+    .from(watchlistCoins)
+    .where(inArray(watchlistCoins.watchlistId, wlIds))
+    .orderBy(asc(watchlistCoins.position), asc(watchlistCoins.addedAt));
+
+  // 3. Resolve coin views + perf 30g batch (sui symbol unici totali).
+  const allSymbols = coinRows.map((c) => c.symbol);
+  const [coinViews, perfMap] = await Promise.all([
+    resolveCoinViews(allSymbols),
+    getCoinsPerf30d(allSymbols),
+  ]);
+
+  // 4. Group coins per watchlist + assembla summary.
+  const coinsByWl = new Map<string, typeof coinRows>();
+  for (const c of coinRows) {
+    const arr = coinsByWl.get(c.watchlistId);
+    if (arr) arr.push(c);
+    else coinsByWl.set(c.watchlistId, [c]);
+  }
+
+  return rows.map((w) => {
+    const wlCoins = coinsByWl.get(w.id) ?? [];
+    const wlSymbols = wlCoins.map((c) => c.symbol);
+    const topCoins = wlCoins
+      .slice(0, TOP_COINS_PREVIEW)
+      .map((c) => toCoinSummary(c.symbol, c.position, coinViews.get(c.symbol) ?? null));
+    const perf30dPct = averagePerf(wlSymbols, perfMap);
+    return {
+      id: w.id,
+      userId: w.userId,
+      name: w.name,
+      slug: w.slug,
+      description: w.description,
+      visibility: assertVisibility(w.visibility),
+      position: w.position,
+      coinsCount: w.coinsCount,
+      followersCount: w.followersCount,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+      topCoins,
+      perf30dPct,
+    };
+  });
+}
+
+/**
+ * Detail della watchlist propria. Ownership check inline: ritorna null
+ * se non esiste o non appartiene al viewer. La pagina chiama notFound()
+ * sul null (404 indistinguibile da "non e' tua" per non leakare info).
+ */
+export async function getMyWatchlistById(
+  userId: string,
+  watchlistId: string,
+): Promise<WatchlistDetail | null> {
+  const rows = await db
+    .select({
+      w: watchlists,
+      ownerUsername: userProfiles.username,
+    })
+    .from(watchlists)
+    .leftJoin(userProfiles, eq(userProfiles.userId, watchlists.userId))
+    .where(
+      and(
+        eq(watchlists.id, watchlistId),
+        eq(watchlists.userId, userId),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+
+  return assembleDetail(row.w, row.ownerUsername ?? "");
+}
+
+/**
+ * Detail pubblica via (username, slug). Anche per anon — la rotta
+ * /w/<username>/<slug> e' SEO-public. Ritorna null se la watchlist non
+ * esiste, e' private o owner senza profilo (caso edge).
+ */
+export async function getPublicWatchlistByUserSlug(
+  username: string,
+  slug: string,
+): Promise<WatchlistDetail | null> {
+  const rows = await db
+    .select({
+      w: watchlists,
+      ownerUsername: userProfiles.username,
+    })
+    .from(watchlists)
+    .innerJoin(userProfiles, eq(userProfiles.userId, watchlists.userId))
+    .where(
+      and(
+        eq(userProfiles.username, username),
+        eq(watchlists.slug, slug),
+        eq(watchlists.visibility, "public"),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return assembleDetail(row.w, row.ownerUsername ?? username);
+}
+
+// ─── Detail assembler ──────────────────────────────────────────────────
+
+async function assembleDetail(
+  w: typeof watchlists.$inferSelect,
+  ownerUsername: string,
+): Promise<WatchlistDetail> {
+  const wlCoins = await db
+    .select()
+    .from(watchlistCoins)
+    .where(eq(watchlistCoins.watchlistId, w.id))
+    .orderBy(asc(watchlistCoins.position), asc(watchlistCoins.addedAt));
+
+  const symbols = wlCoins.map((c) => c.symbol);
+  const [coinViews, perfMap] = await Promise.all([
+    resolveCoinViews(symbols),
+    getCoinsPerf30d(symbols),
+  ]);
+
+  const coins = wlCoins.map((c) =>
+    toCoinSummary(c.symbol, c.position, coinViews.get(c.symbol) ?? null),
+  );
+  const topCoins = coins.slice(0, TOP_COINS_PREVIEW);
+  const perf30dPct = averagePerf(symbols, perfMap);
+
+  return {
+    id: w.id,
+    userId: w.userId,
+    name: w.name,
+    slug: w.slug,
+    description: w.description,
+    visibility: assertVisibility(w.visibility),
+    position: w.position,
+    coinsCount: w.coinsCount,
+    followersCount: w.followersCount,
+    createdAt: w.createdAt,
+    updatedAt: w.updatedAt,
+    topCoins,
+    coins,
+    perf30dPct,
+    ownerUsername,
+  };
+}

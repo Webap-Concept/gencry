@@ -1,0 +1,347 @@
+"use server";
+// lib/modules/watchlist/actions.ts
+//
+// Server Actions del modulo watchlist. Tutte le mutation richiedono
+// AUTH e fanno ownership check applicativo PRIMA della mutation.
+//
+// Pattern:
+//   - getUser() → null = `unauthenticated`.
+//   - ownership: SELECT WHERE id=X AND user_id=session.user.id → null = forbidden/not_found.
+//   - mutation con try/catch su mapDbErrorToCode (trigger DB e' backstop
+//     definitivo per cap_reached / coins_cap_reached / slug_taken /
+//     coin_already_added).
+//   - revalidatePath('/watchlist') sulle write per refresh server side.
+//
+// Niente rate-limit V1 (le mutation watchlist sono low-frequency: max 5
+// watchlist, max 50 coin). Lo wireremo se vedremo abuse pattern reali.
+
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db/drizzle";
+import { getUser } from "@/lib/db/queries";
+import { watchlistCoins, watchlists } from "@/lib/db/schema";
+import { getCoinForCard } from "@/lib/modules/prices/queries";
+import { generateUniqueSlug } from "./slug";
+import {
+  type AddCoinResult,
+  type ArchiveWatchlistResult,
+  type CreateWatchlistResult,
+  type RemoveCoinResult,
+  type ToggleVisibilityResult,
+  type UpdateWatchlistResult,
+  coinSymbolSchema,
+  createWatchlistInputSchema,
+  mapDbErrorToCode,
+  updateWatchlistInputSchema,
+  watchlistSlugSchema,
+  type WatchlistVisibility,
+} from "./types";
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Carica una watchlist e verifica ownership. Ritorna null se non esiste
+ * o non appartiene al viewer (404 indistinguibile da forbidden — niente
+ * info leak).
+ */
+async function loadOwnWatchlist(viewerId: string, watchlistId: string) {
+  const rows = await db
+    .select({
+      id: watchlists.id,
+      userId: watchlists.userId,
+      visibility: watchlists.visibility,
+      coinsCount: watchlists.coinsCount,
+      archivedAt: watchlists.archivedAt,
+    })
+    .from(watchlists)
+    .where(
+      and(
+        eq(watchlists.id, watchlistId),
+        eq(watchlists.userId, viewerId),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+async function readCurrentCap(): Promise<number> {
+  // Single source of truth: function PL/pgSQL get_user_watchlist_cap.
+  // L'utente puo' essere su tier diverso quando avremo subscriptions;
+  // la function lo astrae per noi. Qui basta il viewer corrente.
+  // Per messaggio errore "hai raggiunto N watchlist" leggiamo il cap
+  // effettivo dell'utente.
+  // Fallback 5 se la function non esiste (test/local senza migration).
+  try {
+    const viewer = await getUser();
+    if (!viewer) return 5;
+    const res = await db.execute(
+      sql`SELECT get_user_watchlist_cap(${viewer.id}::uuid) AS cap`,
+    );
+    // postgres-js: il result e' direttamente array-like delle righe.
+    const rows = res as unknown as Array<{ cap: number | string }>;
+    const raw = rows?.[0]?.cap;
+    const cap = typeof raw === "string" ? parseInt(raw, 10) : raw;
+    return typeof cap === "number" && Number.isFinite(cap) && cap > 0 ? cap : 5;
+  } catch {
+    return 5;
+  }
+}
+
+// ─── createWatchlist ───────────────────────────────────────────────────
+
+export async function createWatchlistAction(
+  input: unknown,
+): Promise<CreateWatchlistResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const parsed = createWatchlistInputSchema.safeParse(input);
+  if (!parsed.success) {
+    // Distingue name vuoto/troppo lungo per UX migliore.
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === "name") {
+      if (issue.code === "too_small") return { ok: false, error: "name_required" };
+      if (issue.code === "too_big") return { ok: false, error: "name_too_long" };
+    }
+    return { ok: false, error: "validation" };
+  }
+  const { name, description, visibility } = parsed.data;
+
+  // Slug unique app-side (path felice); il vincolo SQL e' backstop.
+  const slug = await generateUniqueSlug(viewer.id, name);
+
+  try {
+    const inserted = await db
+      .insert(watchlists)
+      .values({
+        userId: viewer.id,
+        name,
+        slug,
+        description: description ?? null,
+        visibility: visibility ?? "private",
+      })
+      .returning({ id: watchlists.id, slug: watchlists.slug });
+    revalidatePath("/watchlist");
+    return { ok: true, id: inserted[0].id, slug: inserted[0].slug };
+  } catch (err) {
+    const code = mapDbErrorToCode(err);
+    if (code === "cap_reached") {
+      const cap = await readCurrentCap();
+      return { ok: false, error: "cap_reached", cap };
+    }
+    if (code) return { ok: false, error: code };
+    console.warn("[watchlist:create] insert failed", {
+      viewerId: viewer.id,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── updateWatchlist ──────────────────────────────────────────────────
+
+export async function updateWatchlistAction(
+  input: unknown,
+): Promise<UpdateWatchlistResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const parsed = updateWatchlistInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === "name") {
+      if (issue.code === "too_small") return { ok: false, error: "name_required" };
+      if (issue.code === "too_big") return { ok: false, error: "name_too_long" };
+    }
+    return { ok: false, error: "validation" };
+  }
+  const { id, name, description, slug } = parsed.data;
+
+  const existing = await loadOwnWatchlist(viewer.id, id);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  // Patch oggetto solo coi field presenti — evita di azzerare description
+  // se il caller passa solo `name`.
+  const patch: Partial<typeof watchlists.$inferInsert> = { updatedAt: new Date() };
+  if (typeof name === "string") patch.name = name;
+  if (typeof description === "string") patch.description = description;
+  if (typeof slug === "string") patch.slug = slug;
+
+  try {
+    await db.update(watchlists).set(patch).where(eq(watchlists.id, id));
+    revalidatePath("/watchlist");
+    revalidatePath(`/watchlist/${id}`);
+    return { ok: true };
+  } catch (err) {
+    const code = mapDbErrorToCode(err);
+    if (code) return { ok: false, error: code };
+    console.warn("[watchlist:update] failed", {
+      viewerId: viewer.id,
+      id,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── toggleWatchlistVisibility ─────────────────────────────────────────
+
+export async function toggleWatchlistVisibilityAction(
+  watchlistId: string,
+): Promise<ToggleVisibilityResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const existing = await loadOwnWatchlist(viewer.id, watchlistId);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  const next: WatchlistVisibility =
+    existing.visibility === "public" ? "private" : "public";
+  try {
+    await db
+      .update(watchlists)
+      .set({ visibility: next, updatedAt: new Date() })
+      .where(eq(watchlists.id, watchlistId));
+    revalidatePath("/watchlist");
+    revalidatePath(`/watchlist/${watchlistId}`);
+    return { ok: true, visibility: next };
+  } catch (err) {
+    console.warn("[watchlist:visibility] failed", {
+      viewerId: viewer.id,
+      watchlistId,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── archiveWatchlist (soft-delete) ────────────────────────────────────
+
+export async function archiveWatchlistAction(
+  watchlistId: string,
+): Promise<ArchiveWatchlistResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const existing = await loadOwnWatchlist(viewer.id, watchlistId);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  try {
+    await db
+      .update(watchlists)
+      .set({ archivedAt: new Date(), updatedAt: new Date() })
+      .where(eq(watchlists.id, watchlistId));
+    revalidatePath("/watchlist");
+    return { ok: true };
+  } catch (err) {
+    console.warn("[watchlist:archive] failed", {
+      viewerId: viewer.id,
+      watchlistId,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── addCoinToWatchlist ───────────────────────────────────────────────
+
+export async function addCoinAction(
+  watchlistId: string,
+  symbolInput: string,
+): Promise<AddCoinResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const parsed = coinSymbolSchema.safeParse(symbolInput);
+  if (!parsed.success) return { ok: false, error: "coin_not_supported" };
+  const symbol = parsed.data;
+
+  const existing = await loadOwnWatchlist(viewer.id, watchlistId);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  // App-side coin validation: la coin deve essere tracciata in prices_coins.
+  // Niente FK al modulo prices per loose coupling (la riga in
+  // watchlist_coins resta anche se la coin viene disattivata domani —
+  // semantica "ho aggiunto X, fammi sapere se cambia stato").
+  const coin = await getCoinForCard(symbol);
+  if (!coin) return { ok: false, error: "coin_not_supported" };
+
+  // Position: append-end. Letto count corrente (best-effort: race con
+  // un'altra add concorrente sullo stesso wl produce position duplicata
+  // ma UI ordina anche per added_at fallback).
+  const position = existing.coinsCount;
+
+  try {
+    await db
+      .insert(watchlistCoins)
+      .values({
+        watchlistId,
+        symbol,
+        position,
+      });
+    revalidatePath("/watchlist");
+    revalidatePath(`/watchlist/${watchlistId}`);
+    // coinsCount denormalizzato gia' aggiornato dal trigger DB.
+    return { ok: true, symbol, coinsCount: existing.coinsCount + 1 };
+  } catch (err) {
+    const code = mapDbErrorToCode(err);
+    if (code === "coins_cap_reached") {
+      // Leggiamo il cap effettivo per mostrare "max N coin" in UI.
+      // Single read DB (low cost) — solo sul path errore.
+      return { ok: false, error: "coins_cap_reached" };
+    }
+    if (code) return { ok: false, error: code };
+    console.warn("[watchlist:add-coin] failed", {
+      viewerId: viewer.id,
+      watchlistId,
+      symbol,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── removeCoinFromWatchlist ──────────────────────────────────────────
+
+export async function removeCoinAction(
+  watchlistId: string,
+  symbolInput: string,
+): Promise<RemoveCoinResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const parsed = coinSymbolSchema.safeParse(symbolInput);
+  if (!parsed.success) return { ok: false, error: "validation" };
+  const symbol = parsed.data;
+
+  const existing = await loadOwnWatchlist(viewer.id, watchlistId);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  try {
+    const res = await db
+      .delete(watchlistCoins)
+      .where(
+        and(
+          eq(watchlistCoins.watchlistId, watchlistId),
+          eq(watchlistCoins.symbol, symbol),
+        ),
+      );
+    // Drizzle delete non torna rowsAffected uniforme su tutti i driver:
+    // calcoliamo il nuovo count via subtract dal denorm (gia' applicato
+    // dal trigger). Best-effort.
+    const newCount = Math.max(0, existing.coinsCount - 1);
+    revalidatePath("/watchlist");
+    revalidatePath(`/watchlist/${watchlistId}`);
+    void res;
+    return { ok: true, coinsCount: newCount };
+  } catch (err) {
+    console.warn("[watchlist:remove-coin] failed", {
+      viewerId: viewer.id,
+      watchlistId,
+      symbol,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
