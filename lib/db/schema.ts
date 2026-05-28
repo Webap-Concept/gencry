@@ -1751,6 +1751,45 @@ export const postsUserBlocks = pgTable(
   ],
 );
 
+// User-to-user follow (directed). Se A segue B, A vede i post di B nel
+// proprio feed Home (following-first); nessun obbligo di reciprocità
+// (X-style, niente "amicizia" simmetrica). Block è gestito dal modulo
+// posts (`posts_user_blocks`): un trigger BEFORE INSERT su user_follows
+// rifiuta la riga se esiste un blocco mutuale.
+// Vedi M_social_graph_001_init.sql.
+export const userFollows = pgTable(
+  "user_follows",
+  {
+    followerId: uuid("follower_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    followedId: uuid("followed_id").notNull()
+                 .references(() => users.id, { onDelete: "cascade" }),
+    createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.followerId, t.followedId] }),
+    // Index inverso per query "chi segue X, ordinato per data" (pagina
+    // /u/[username]/followers). Il PK già copre (followerId, followedId)
+    // per la query "chi seguo io".
+    index("idx_user_follows_followed").on(t.followedId, t.createdAt),
+    index("idx_user_follows_follower_created").on(t.followerId, t.createdAt),
+  ],
+);
+
+// Counter denormalizzati per il modulo social-graph. Mantenuti via trigger
+// AFTER INSERT/DELETE su user_follows (vedi M_social_graph_001_init.sql).
+// Tabella separata da user_profiles per evitare write contention sul
+// profile, che è hot-path read in mille widget.
+//
+// Row creata lazily al primo follow: LEFT JOIN su read con COALESCE(...,0).
+export const userSocialCounters = pgTable("user_social_counters", {
+  userId: uuid("user_id").primaryKey()
+            .references(() => users.id, { onDelete: "cascade" }),
+  followersCount: integer("followers_count").notNull().default(0),
+  followingCount: integer("following_count").notNull().default(0),
+  updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const postsOutbox = pgTable(
   "posts_outbox",
   {
