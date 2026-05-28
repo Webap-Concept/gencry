@@ -61,6 +61,7 @@ import {
 import { PostBody } from "./PostBody";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { FollowButton } from "@/components/social-graph/FollowButton";
+import { useFollowOverride } from "@/components/social-graph/FollowOverridesProvider";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
@@ -244,17 +245,16 @@ export function PostCard({
     post.editedAt,
   );
 
-  // Stato locale del follow verso l'autore: deve rispecchiare l'azione
-  // del bottone compact senza richiedere un refresh. Initial = prop dal
-  // server (undefined per anon/self/non-hydrato). Quando il FollowButton
-  // triggera onChange, switchiamo a true/false e il render condiziona
-  // su questo, non più sul prop.
-  const [followingAuthor, setFollowingAuthor] = useState<boolean | undefined>(
+  // Stato follow risolto via Context (FollowOverridesProvider):
+  //   - se il viewer ha appena cliccato Segui/Smetti su un'altra card
+  //     dello stesso autore, il Context tiene l'override → tutti i
+  //     PostCard di quell'autore si re-renderizzano coerenti.
+  //   - altrimenti fallback al prop SSR `viewerIsFollowingAuthor`.
+  // Fuori dal Provider, useFollowOverride ritorna sempre il fallback.
+  const followingAuthor = useFollowOverride(
+    post.author.id,
     viewerIsFollowingAuthor,
   );
-  useEffect(() => {
-    setFollowingAuthor(viewerIsFollowingAuthor);
-  }, [viewerIsFollowingAuthor]);
 
   // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
   // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
@@ -582,7 +582,6 @@ export function PostCard({
                     targetUserId={post.author.id}
                     initialFollowing={false}
                     variant="compact"
-                    onChange={(s) => setFollowingAuthor(s.following)}
                   />
                 ) : followingAuthor === true ? (
                   <span className="text-[11px] text-gc-fg-3 shrink-0">

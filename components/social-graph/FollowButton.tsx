@@ -16,6 +16,7 @@ import {
   unfollowUserAction,
 } from "@/lib/modules/social-graph/actions";
 import type { FollowErrorCode } from "@/lib/modules/social-graph/types";
+import { useSetFollowOverride } from "./FollowOverridesProvider";
 
 export type FollowButtonProps = {
   targetUserId: string;
@@ -40,6 +41,7 @@ export function FollowButton({
 }: FollowButtonProps) {
   const t = useTranslations("socialGraph.button");
   const tErr = useTranslations("socialGraph.errors");
+  const setOverride = useSetFollowOverride();
   const [following, setFollowing] = useState(initialFollowing);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -64,6 +66,10 @@ export function FollowButton({
         setError(message);
         return;
       }
+      // Pubblica l'override nel Context globale → tutti i PostCard
+      // (e altri consumer) dello stesso authorId si re-renderizzano
+      // coerenti senza prop drilling. No-op fuori dal Provider.
+      setOverride(targetUserId, res.following);
       onChange?.({
         following: res.following,
         followersCount: res.followersCount,
