@@ -32,6 +32,7 @@
     "nav": {
       "feed": "Feed",
       "explore": "Explore",
+      "watchlist": "Watchlist",
       "profile": "Profile"
     },
     "notifications": "Notifications",

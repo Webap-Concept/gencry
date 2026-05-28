@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Bell,
+  Bookmark,
   Radar,
   User as UserIcon,
   Zap,
@@ -26,7 +27,7 @@ import type { UserWithProfile } from "@/lib/db/schema";
 type NavItem = {
   href: string;
   /** Chiave i18n nel namespace `core.sidebar.nav.<labelKey>`. */
-  labelKey: "feed" | "explore" | "profile";
+  labelKey: "feed" | "explore" | "watchlist" | "profile";
   icon: typeof Zap;
   /** Indicatore di novità (dot arancione). Per ora hardcoded sul mock. */
   hasNotifications?: boolean;
@@ -41,6 +42,7 @@ type NavItem = {
 const NAV_STATIC: NavItem[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
+  { href: "/watchlist", labelKey: "watchlist", icon: Bookmark },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());

@@ -1,6 +1,75 @@
 {
   "module_label": "Watchlist",
   "module_description": "Watchlist di crypto create dall'utente, con perf 30g e condivisione pubblica.",
+  "page": {
+    "title": "Le mie watchlist",
+    "subtitle": "Liste attive, gestite solo da te. Monitora la perf 30g e condividile pubblicamente quando vuoi.",
+    "subtitle_with_cap": "{count} di {cap} liste attive. Monitora la perf 30g e condividile pubblicamente quando vuoi.",
+    "empty_title": "Nessuna watchlist ancora",
+    "empty_description": "Crea la tua prima watchlist per seguire le crypto che ti interessano e vedere come si muove il paniere.",
+    "empty_cta": "Crea la tua prima watchlist",
+    "new_button": "Nuova watchlist",
+    "cap_reached_hint": "Hai raggiunto il limite di {cap} watchlist. Archiviane una per liberare uno slot."
+  },
+  "card": {
+    "perf_30d_label": "30G",
+    "perf_unavailable": "—",
+    "no_coins": "Nessuna coin",
+    "coins_count": "{count, plural, =0 {nessuna coin} one {# coin} other {# coin}}",
+    "updated_at": "Aggiornata {when}",
+    "visibility_public": "Pubblica",
+    "visibility_private": "Privata",
+    "menu_aria": "Apri menu",
+    "menu_open": "Apri",
+    "menu_edit": "Modifica dettagli",
+    "menu_visibility_make_public": "Rendi pubblica",
+    "menu_visibility_make_private": "Rendi privata",
+    "menu_copy_link": "Copia link pubblico",
+    "menu_link_copied": "Link pubblico copiato",
+    "menu_archive": "Archivia",
+    "follow_count": "{count, plural, =0 {nessun follower} one {# follower} other {# follower}}"
+  },
+  "detail": {
+    "back_to_list": "Torna alle watchlist",
+    "owned_by": "Di @{username}",
+    "perf_30d_label": "Perf media 30g",
+    "coins_table_header_coin": "Coin",
+    "coins_table_header_price": "Prezzo",
+    "coins_table_header_change_24h": "24h",
+    "coins_table_header_actions": "Azioni",
+    "coin_remove_aria": "Rimuovi {symbol}",
+    "coin_empty_title": "Questa watchlist è vuota",
+    "coin_empty_description": "Aggiungi delle coin per iniziare a monitorare la perf del paniere.",
+    "add_coin_button": "Aggiungi coin",
+    "share_button": "Copia link",
+    "share_copied": "Link copiato",
+    "share_unavailable_private": "Rendi la watchlist pubblica per condividere il link"
+  },
+  "form": {
+    "name_label": "Nome",
+    "name_placeholder": "Es. Core L1, AI bets 2026",
+    "description_label": "Descrizione (opzionale)",
+    "description_placeholder": "Perché esiste questa lista",
+    "visibility_label": "Visibilità",
+    "visibility_private_label": "Privata — solo tu",
+    "visibility_public_label": "Pubblica — URL condivisibile",
+    "submit_create": "Crea watchlist",
+    "submit_save": "Salva modifiche",
+    "cancel": "Annulla",
+    "delete_title": "Archiviare questa watchlist?",
+    "delete_description": "La watchlist verrà nascosta dal tuo elenco e non conterà più verso il limite. In V1 il ripristino è solo lato admin.",
+    "delete_confirm": "Archivia",
+    "delete_cancel": "Mantieni"
+  },
+  "add_coin": {
+    "title": "Aggiungi una coin",
+    "description": "Cerca per simbolo o nome. Si possono aggiungere solo le coin tracciate.",
+    "search_label": "Cerca",
+    "search_placeholder": "BTC, Bitcoin…",
+    "no_results": "Nessuna coin tracciata corrisponde",
+    "add_button": "Aggiungi",
+    "close": "Chiudi"
+  },
   "errors": {
     "watchlist_cap_reached": "Hai raggiunto il massimo di watchlist ({cap}). Archivia o elimina una watchlist prima di crearne un'altra.",
     "watchlist_coins_cap_reached": "Questa watchlist è piena ({cap} coin). Rimuovine una prima di aggiungerne un'altra.",
@@ -12,6 +81,7 @@
     "coin_not_supported": "La coin {symbol} non è al momento tracciata.",
     "coin_already_added": "{symbol} è già in questa watchlist.",
     "rate_limited": "Troppe richieste. Riprova fra {seconds}s.",
+    "validation": "Alcuni campi non sono validi.",
     "generic": "Qualcosa è andato storto. Riprova."
   }
 }
