@@ -76,9 +76,17 @@ export function FollowButton({
   const ariaLabel = following ? t("unfollow") : t("follow");
 
   if (variant === "compact") {
-    // Pallino 24px che al hover si espande a pillola mostrando il
-    // label. Icona + ruota di 90° per dare feeling di apertura. Tutto
-    // gestito via group-hover Tailwind (zero JS).
+    // Compact CTA visibile in ogni PostCard. Design:
+    //   - stato base: pallino 24px, bordo gc-line, niente background
+    //     (non distrae nel feed); icona + neutra.
+    //   - hover: la pillola si estende a DESTRA (l'icona resta ancorata
+    //     alla sua posizione X: padding-left fisso + justify-start →
+    //     nessuno shift orizzontale del `+` durante l'animazione, solo
+    //     rotazione di 90° in place). Si colora con bg-gc-accent + testo
+    //     bianco. Compare il label "Segui".
+    //   - padding `px-1.5` simmetrico: 6px sx (centra il + nel pallino
+    //     base con icon 12px → 6+12+6=24) e 6px dx (gap visivo dopo il
+    //     label in stato espanso).
     return (
       <span className="inline-flex flex-col items-end">
         <button
@@ -87,8 +95,7 @@ export function FollowButton({
           aria-label={ariaLabel}
           aria-pressed={following}
           disabled={isPending}
-          className="group/follow inline-flex items-center justify-center h-6 px-1 rounded-full bg-gc-accent text-white overflow-hidden disabled:opacity-50 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent transition-all duration-200 ease-out"
-          style={{ minWidth: "1.5rem" }}
+          className="group/follow inline-flex items-center justify-start h-6 px-1.5 rounded-full border border-gc-line bg-transparent text-gc-fg-2 overflow-hidden hover:bg-gc-accent hover:text-white hover:border-transparent disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent transition-[background-color,color,border-color] duration-200 ease-out"
         >
           <Plus
             size={12}
@@ -96,9 +103,11 @@ export function FollowButton({
             aria-hidden
             className="shrink-0 transition-transform duration-200 ease-out group-hover/follow:rotate-90"
           />
-          {/* Label che si espande al hover. max-w-0 + opacity-0 →
-              max-w-[60px] + opacity-100 con transition smooth. */}
-          <span className="overflow-hidden whitespace-nowrap text-[11px] font-medium leading-none max-w-0 opacity-0 ml-0 group-hover/follow:max-w-[60px] group-hover/follow:opacity-100 group-hover/follow:ml-1 transition-all duration-200 ease-out">
+          {/* Label nascosto in stato base (max-w-0 + opacity-0 + ml-0):
+              non occupa spazio orizzontale, quindi il `+` resta centrato
+              nel pallino 24px. In hover si espande con ml-1.5 (gap) +
+              opacity 1 + width libera fino a 80px. */}
+          <span className="overflow-hidden whitespace-nowrap text-[11px] font-medium leading-none max-w-0 opacity-0 ml-0 group-hover/follow:max-w-[80px] group-hover/follow:opacity-100 group-hover/follow:ml-1.5 transition-[max-width,opacity,margin-left] duration-200 ease-out">
             {t("follow")}
           </span>
         </button>
