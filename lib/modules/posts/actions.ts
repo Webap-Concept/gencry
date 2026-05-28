@@ -68,6 +68,10 @@ import {
   invalidateBlockedIdsForViewer,
   toggleUserBlock as blocksToggleService,
 } from "./services/blocks";
+// Cross-module: il block invalida anche il following-set di entrambi
+// gli utenti (trigger DB cancella le righe user_follows in cascade, vedi
+// M_social_graph_003_block_cascade.sql).
+import { invalidateFollowingSet } from "@/lib/modules/social-graph/services/follows-cache";
 import {
   ensureMentionIndexBootstrapped,
   rebuildMentionIndex,
@@ -1115,6 +1119,16 @@ export async function toggleUserBlock(
   // (uno acquisisce l'altro nella propria block list).
   await invalidateBlockedIdsForViewer(user.id);
   await invalidateBlockedIdsForViewer(parsed.data.blockedUserId);
+
+  // KV-set follows: il trigger DB posts_user_blocks_cascade_unfollow ha
+  // cancellato le righe user_follows in entrambe le direzioni; la cache
+  // following-set deve riflettere lo stato nuovo subito, senza aspettare
+  // il TTL. Solo sul *block*, non sull'unblock (l'unblock non ricrea il
+  // follow: la cache è già allineata = false in entrambi i versi).
+  if (result.blocked) {
+    await invalidateFollowingSet(user.id);
+    await invalidateFollowingSet(parsed.data.blockedUserId);
+  }
 
   // Invalida la Next.js Router Cache (client-side RSC payload) di
   // tutto il route group (protected). Necessario perché il viewer,

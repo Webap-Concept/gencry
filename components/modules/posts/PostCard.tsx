@@ -61,7 +61,10 @@ import {
 import { PostBody } from "./PostBody";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { FollowButton } from "@/components/social-graph/FollowButton";
-import { useFollowOverride } from "@/components/social-graph/FollowOverridesProvider";
+import {
+  useFollowOverride,
+  useSetFollowOverride,
+} from "@/components/social-graph/FollowOverridesProvider";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
@@ -255,6 +258,7 @@ export function PostCard({
     post.author.id,
     viewerIsFollowingAuthor,
   );
+  const setFollowOverride = useSetFollowOverride();
 
   // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
   // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
@@ -453,6 +457,13 @@ export function PostCard({
       if (!res.ok) {
         setBlocked(false);
         return;
+      }
+      // Block cascade-unfollows entrambi i versi (trigger DB
+      // posts_user_blocks_cascade_unfollow_trg). Sincronizziamo il
+      // Context client → tutte le altre card dello stesso autore
+      // ancora montate switchano a "Follow" senza aspettare il refresh.
+      if (res.data?.blocked) {
+        setFollowOverride(post.author.id, false);
       }
       // Sulla single-post page (variant="single") il caller passa
       // redirectAfterBlock="/" e usiamo router.replace() così la post

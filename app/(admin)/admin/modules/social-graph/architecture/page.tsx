@@ -14,7 +14,7 @@ import { SOCIAL_GRAPH_MODULE } from "@/lib/modules/social-graph/manifest";
 
 export const metadata: Metadata = { title: "Social Graph / Architettura" };
 
-const REVIEWED_AT = "2026-05-28 (PR3: realtime banner Home + notifica social.follow)";
+const REVIEWED_AT = "2026-05-28 (block cascade-unfollow + cross-card sync Context)";
 
 export default function SocialGraphArchitecturePage() {
   return (
@@ -68,14 +68,25 @@ export default function SocialGraphArchitecturePage() {
       <Section title="Triggers">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <code>user_follows_block_guard_trg</code> (BEFORE INSERT): rifiuta
-            il follow se esiste blocco mutuale in <code>posts_user_blocks</code>{" "}
-            (cintura+bretelle col check JS-side).
+            <code>user_follows_block_guard_trg</code> (BEFORE INSERT su{" "}
+            <code>user_follows</code>): rifiuta il follow se esiste blocco
+            mutuale in <code>posts_user_blocks</code> (cintura+bretelle col
+            check JS-side).
           </li>
           <li>
-            <code>user_follows_sync_counters_trg</code> (AFTER INSERT/DELETE):
-            UPSERT atomico sui counter, +/-1. <code>GREATEST(...,0)</code>{" "}
-            defensive clamp.
+            <code>user_follows_sync_counters_trg</code> (AFTER INSERT/DELETE su{" "}
+            <code>user_follows</code>): UPSERT atomico sui counter, +/-1.{" "}
+            <code>GREATEST(...,0)</code> defensive clamp.
+          </li>
+          <li>
+            <code>posts_user_blocks_cascade_unfollow_trg</code> (AFTER INSERT
+            su <code>posts_user_blocks</code>, M_social_graph_003): quando A
+            blocca B, cancella entrambe le righe <code>user_follows</code>{" "}
+            (A→B e B→A). Le DELETE attivano{" "}
+            <code>user_follows_sync_counters_trg</code> che aggiusta i
+            counter. Pattern X/IG/Threads: il block azzera il rapporto.
+            <strong> Unblock NON ripristina il follow precedente</strong> —
+            click esplicito richiesto per tornare a seguire.
           </li>
         </ul>
       </Section>
@@ -167,6 +178,13 @@ export default function SocialGraphArchitecturePage() {
             <code>&apos;followers&apos;</code> in M_posts_011) + notifica{" "}
             <code>social.follow</code> via trigger DB
             <code>user_follows_notify_trg</code>.
+          </li>
+          <li>
+            <strong>Polish 2026-05-28</strong> ✅ <code>FollowOverridesProvider</code>{" "}
+            (React Context) per sync cross-card senza prop drilling; block→
+            unfollow cascade via trigger DB (M_social_graph_003) +{" "}
+            <code>invalidateFollowingSet</code> di blocker e blocked in{" "}
+            <code>toggleUserBlock</code>.
           </li>
         </ul>
       </Section>
