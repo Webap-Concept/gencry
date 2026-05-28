@@ -16,6 +16,42 @@
     "yes": "Sì",
     "no": "No"
   },
+  "socialGraph": {
+    "button": {
+      "follow": "Segui",
+      "following": "Seguito",
+      "unfollow": "Smetti di seguire",
+      "follow_back": "Segui anche tu"
+    },
+    "errors": {
+      "unauthenticated": "Accedi per seguire",
+      "self_follow": "Non puoi seguire te stesso",
+      "target_not_found": "Questo account non esiste",
+      "blocked": "Non puoi seguire questo account",
+      "rate_limited": "Troppi follow di fila. Riprova tra {seconds}s.",
+      "internal": "Qualcosa è andato storto. Riprova."
+    },
+    "stats": {
+      "followers": "{count, plural, =0 {Nessun follower} one {# follower} other {# follower}}",
+      "following": "{count, plural, =0 {Non segue nessuno} one {# seguito} other {# seguiti}}",
+      "followers_label": "Follower",
+      "following_label": "Seguiti"
+    },
+    "empty": {
+      "followers_title": "Ancora nessun follower",
+      "followers_description": "Quando qualcuno seguirà {name}, lo vedrai qui.",
+      "following_title": "Non segue ancora nessuno",
+      "following_description": "{name} non ha ancora iniziato a seguire qualcuno."
+    },
+    "home_empty_banner": {
+      "title": "Costruisci il tuo feed",
+      "description": "Segui qualcuno per vedere i suoi post qui. Intanto, ecco cosa sta accadendo."
+    },
+    "suggested": {
+      "title": "Suggeriti per te",
+      "subtitle": "Persone che la community sta seguendo adesso"
+    }
+  },
   "comingSoon": {
     "badge": "In costruzione"
   },

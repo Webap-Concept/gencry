@@ -47,6 +47,7 @@ import {
   notBlockedBy,
   notBlockedByIds,
 } from "./services/blocks";
+import { getFollowingSet } from "@/lib/modules/social-graph/queries";
 import { cursorFromRow, decodeCursor, encodeCursor } from "./lib/cursor";
 import type {
   CommentCardData,
@@ -68,36 +69,60 @@ const DEFAULT_PAGE_SIZE = 20;
 // Helpers — visibility predicates and cursor keyset clause
 // ─────────────────────────────────────────────────────────────────────────
 
+/** SQL fragment riusabile: `author_id IN (followingSet)`. Empty / undefined
+ *  → undefined (Drizzle skip-a nel where). Estratto come helper locale
+ *  per non importare dal modulo social-graph dentro un clause builder
+ *  hot path (evita catene di re-export). */
+function authorInFollowingSetFragment(
+  followingSet: ReadonlySet<string> | undefined,
+) {
+  if (!followingSet || followingSet.size === 0) return undefined;
+  const ids = Array.from(followingSet);
+  return sql`${posts.authorId} IN (${sql.join(
+    ids.map((id) => sql`${id}`),
+    sql`, `,
+  )})`;
+}
+
 /**
  * Predicato visibility per il feed "Discover" (e per Ticker/Mentions):
  *   - viewer anonimo → solo `public`
- *   - viewer loggato → `public` + `members` + tutti i PROPRI post
- *     (qualunque visibility), così l'autore non "perde" i suoi
- *     `followers`/`private` quando guarda il feed home — coerente con
- *     come `getProfileFeedIds` già si comporta sul proprio profilo.
+ *   - viewer loggato → `public` + `members` + tutti i PROPRI post +
+ *     `followers` di autori che il viewer segue (richiede followingSet).
+ *
+ * `followingSet`: passato dai caller hot-path che lo pre-caricano via
+ * `getFollowingSet` (1 chiamata KV cached). Se omesso, il ramo `followers`
+ * viene saltato (post `followers` di altri non visibili — fail-safe).
  */
-function discoverVisibilityClause(viewerUserId: string | undefined) {
+function discoverVisibilityClause(
+  viewerUserId: string | undefined,
+  followingSet?: ReadonlySet<string>,
+) {
   const allowed: PostVisibility[] = viewerUserId
     ? ["public", "members"]
     : ["public"];
   if (!viewerUserId) return inArray(posts.visibility, allowed);
+  const followersBranch = authorInFollowingSetFragment(followingSet);
   return or(
     inArray(posts.visibility, allowed),
     eq(posts.authorId, viewerUserId),
+    followersBranch
+      ? and(eq(posts.visibility, "followers"), followersBranch)
+      : undefined,
   );
 }
 
 /**
  * Predicato visibility per profilo utente:
  *   - viewer è l'autore → tutto incluso `private`
- *   - viewer loggato non-autore → `public` + `members` (+ `followers`
- *     quando arriverà il modulo follows; per ora chi non è autore non
- *     vede `followers` perché manca il graph per certificarlo)
+ *   - viewer loggato non-autore → `public` + `members` + (`followers`
+ *     se viewer segue l'autore — verifica via followingSet)
  *   - viewer anonimo → solo `public`
  */
 function profileVisibilityClause(
   authorId: string,
   viewerUserId: string | undefined,
+  followingSet?: ReadonlySet<string>,
 ) {
   if (viewerUserId && viewerUserId === authorId) {
     return undefined; // tutto
@@ -105,6 +130,10 @@ function profileVisibilityClause(
   const allowed: PostVisibility[] = viewerUserId
     ? ["public", "members"]
     : ["public"];
+  // Se il viewer segue l'autore → ammetti anche 'followers'.
+  if (viewerUserId && followingSet?.has(authorId)) {
+    allowed.push("followers");
+  }
   return inArray(posts.visibility, allowed);
 }
 
@@ -194,16 +223,14 @@ function toListPage(
 // Feed-IDs queries (listing-only, no hydration)
 // ─────────────────────────────────────────────────────────────────────────
 
-export type FeedTab = "discover" | "following";
-
 /**
- * Dispatcher per il feed home. Per `following`: stub deterministico che
- * ritorna empty page finché non arriva il modulo `follows` (non ancora
- * installato — vedi project_module_posts_architecture §1). Quando
- * arriverà, sostituire il body con il JOIN posts × follows.
+ * Pagina del feed Discover (/explore, ticker filter). Cronologico globale,
+ * niente filtraggio per following. Visibility include `followers` solo se
+ * il viewer segue l'autore (gate via followingSet pre-caricato).
+ *
+ * Per il feed Home (following-first + discovery fill) vedi `getHomeFeedIds`.
  */
-export async function getFeedIds(opts: {
-  tab: FeedTab;
+export async function getDiscoverFeedIds(opts: {
   viewerUserId?: string;
   cursor?: string;
   pageSize?: number;
@@ -211,16 +238,10 @@ export async function getFeedIds(opts: {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
 
-  if (opts.tab === "following") {
-    // TODO(follows-module): replace with JOIN posts × follows when
-    // the follows module ships. Until then Following is empty so the
-    // UI can show the "start following" empty state CTA.
-    return { ids: [], nextCursor: null };
-  }
-
-  const blockedIds = opts.viewerUserId
-    ? await getBlockedIdsForViewer(opts.viewerUserId)
-    : undefined;
+  const [blockedIds, followingSet] = await Promise.all([
+    opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
+    opts.viewerUserId ? getFollowingSet(opts.viewerUserId) : Promise.resolve(undefined),
+  ]);
 
   return getCachedFeedIds(
     `discover:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
@@ -231,7 +252,7 @@ export async function getFeedIds(opts: {
         .where(
           and(
             isNull(posts.deletedAt),
-            discoverVisibilityClause(opts.viewerUserId),
+            discoverVisibilityClause(opts.viewerUserId, followingSet),
             viewerNotBlockedByIdsOnPosts(blockedIds),
             cursorClause(cursor),
           ),
@@ -239,6 +260,213 @@ export async function getFeedIds(opts: {
         .orderBy(desc(posts.createdAt), desc(posts.id))
         .limit(pageSize + 1);
       return toListPage(rows, pageSize);
+    },
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Home feed — following-first + discovery fill
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cursor composito del Home feed.
+ * - mode `following`: stiamo ancora paginando i post di chi il viewer segue.
+ *   Il cursor `cur` e' della query following.
+ * - mode `discovery`: il following e' esaurito; si pagina solo discovery
+ *   (escludendo gli autori gia' inclusi via following).
+ *
+ * Una volta passati a `discovery` non si torna indietro a `following`:
+ * evita riordini/duplicati durante lo scroll.
+ */
+type HomeCursor =
+  | { mode: "following"; cur: string }
+  | { mode: "discovery"; cur: string };
+
+function decodeHomeCursor(raw: string | undefined): HomeCursor | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(raw, "base64").toString("utf8"),
+    ) as HomeCursor;
+    if (parsed.mode !== "following" && parsed.mode !== "discovery") return null;
+    if (typeof parsed.cur !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function encodeHomeCursor(c: HomeCursor): string {
+  return Buffer.from(JSON.stringify(c), "utf8").toString("base64");
+}
+
+/**
+ * Pagina del feed Home. Strategia:
+ *
+ *   1. viewer anonimo → cade su Discover (non dovrebbe accadere, ma
+ *      difesa in profondità).
+ *   2. followingSet vuoto → fallback Discover (UI mostrera' anche un
+ *      banner "build your feed" sopra). Il feed NON e' mai vuoto.
+ *   3. mode === "discovery" → continua solo discovery, escludendo
+ *      gli autori gia' inclusi via following.
+ *   4. default ("following" o null) → query following keyset; se la
+ *      pagina non si riempie, fill con discovery dall'alto.
+ */
+export async function getHomeFeedIds(opts: {
+  viewerUserId?: string;
+  cursor?: string;
+  pageSize?: number;
+}): Promise<PostListPage> {
+  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const parsed = decodeHomeCursor(opts.cursor);
+
+  if (!opts.viewerUserId) {
+    return getDiscoverFeedIds({ cursor: parsed?.cur, pageSize });
+  }
+  const viewerUserId = opts.viewerUserId;
+
+  const [blockedIds, followingSet] = await Promise.all([
+    getBlockedIdsForViewer(viewerUserId),
+    getFollowingSet(viewerUserId),
+  ]);
+
+  if (followingSet.size === 0) {
+    return getDiscoverFeedIds({
+      viewerUserId,
+      cursor: parsed?.cur,
+      pageSize,
+    });
+  }
+
+  if (parsed?.mode === "discovery") {
+    return discoveryFillPage({
+      viewerUserId,
+      excludeAuthorIds: followingSet,
+      blockedIds,
+      followingSet,
+      cursor: parsed.cur,
+      pageSize,
+    });
+  }
+
+  // Following-first
+  const followingCur = parsed?.mode === "following" ? parsed.cur : undefined;
+  const followingPage = await followingFeedPage({
+    viewerUserId,
+    followingSet,
+    blockedIds,
+    cursor: followingCur,
+    pageSize,
+  });
+
+  if (followingPage.ids.length >= pageSize || followingPage.nextCursor) {
+    return {
+      ids: followingPage.ids,
+      nextCursor: followingPage.nextCursor
+        ? encodeHomeCursor({ mode: "following", cur: followingPage.nextCursor })
+        : null,
+    };
+  }
+
+  // Following esaurito nella prima pagina → fill con discovery dall'alto.
+  const fillNeeded = pageSize - followingPage.ids.length;
+  if (fillNeeded <= 0) {
+    return { ids: followingPage.ids, nextCursor: null };
+  }
+  const discoveryFill = await discoveryFillPage({
+    viewerUserId,
+    excludeAuthorIds: followingSet,
+    blockedIds,
+    followingSet,
+    cursor: undefined,
+    pageSize: fillNeeded,
+  });
+
+  const combinedIds = [...followingPage.ids, ...discoveryFill.ids];
+  return {
+    ids: combinedIds,
+    nextCursor: discoveryFill.nextCursor
+      ? encodeHomeCursor({ mode: "discovery", cur: discoveryFill.nextCursor })
+      : null,
+  };
+}
+
+async function followingFeedPage(opts: {
+  viewerUserId: string;
+  followingSet: ReadonlySet<string>;
+  blockedIds: ReadonlySet<string> | undefined;
+  cursor: string | undefined;
+  pageSize: number;
+}): Promise<PostListPage> {
+  const cursor = decodeCursor(opts.cursor);
+  const followingClause = authorInFollowingSetFragment(opts.followingSet);
+  // followingSet has size > 0 per garanzia del caller — followingClause
+  // non sara' undefined.
+  return getCachedFeedIds(
+    `home-following:${opts.viewerUserId}:${opts.cursor ?? "0"}:${opts.pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(posts)
+        .where(
+          and(
+            isNull(posts.deletedAt),
+            followingClause,
+            // Visibility: autori sono tutti seguiti → ammettiamo public,
+            // members, followers. Niente private (l'autore vede i propri
+            // private in Discover/profile, non li mostriamo agli altri).
+            inArray(posts.visibility, [
+              "public",
+              "members",
+              "followers",
+            ] as PostVisibility[]),
+            viewerNotBlockedByIdsOnPosts(opts.blockedIds),
+            cursorClause(cursor),
+          ),
+        )
+        .orderBy(desc(posts.createdAt), desc(posts.id))
+        .limit(opts.pageSize + 1);
+      return toListPage(rows, opts.pageSize);
+    },
+  );
+}
+
+async function discoveryFillPage(opts: {
+  viewerUserId: string;
+  excludeAuthorIds: ReadonlySet<string>;
+  blockedIds: ReadonlySet<string> | undefined;
+  followingSet: ReadonlySet<string>;
+  cursor: string | undefined;
+  pageSize: number;
+}): Promise<PostListPage> {
+  const cursor = decodeCursor(opts.cursor);
+  const excludeIds = Array.from(opts.excludeAuthorIds);
+  const excludeClause =
+    excludeIds.length === 0
+      ? undefined
+      : sql`${posts.authorId} NOT IN (${sql.join(
+          excludeIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`;
+
+  return getCachedFeedIds(
+    `home-discovery:${opts.viewerUserId}:${opts.cursor ?? "0"}:${opts.pageSize}`,
+    async () => {
+      const rows = await db
+        .select({ id: posts.id, createdAt: posts.createdAt })
+        .from(posts)
+        .where(
+          and(
+            isNull(posts.deletedAt),
+            discoverVisibilityClause(opts.viewerUserId, opts.followingSet),
+            excludeClause,
+            viewerNotBlockedByIdsOnPosts(opts.blockedIds),
+            cursorClause(cursor),
+          ),
+        )
+        .orderBy(desc(posts.createdAt), desc(posts.id))
+        .limit(opts.pageSize + 1);
+      return toListPage(rows, opts.pageSize);
     },
   );
 }
@@ -251,9 +479,10 @@ export async function getProfileFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const blockedIds = opts.viewerUserId
-    ? await getBlockedIdsForViewer(opts.viewerUserId)
-    : undefined;
+  const [blockedIds, followingSet] = await Promise.all([
+    opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
+    opts.viewerUserId ? getFollowingSet(opts.viewerUserId) : Promise.resolve(undefined),
+  ]);
   return getCachedFeedIds(
     `profile:${opts.authorId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -264,7 +493,7 @@ export async function getProfileFeedIds(opts: {
           and(
             eq(posts.authorId, opts.authorId),
             isNull(posts.deletedAt),
-            profileVisibilityClause(opts.authorId, opts.viewerUserId),
+            profileVisibilityClause(opts.authorId, opts.viewerUserId, followingSet),
             viewerNotBlockedByIdsOnPosts(blockedIds),
             cursorClause(cursor),
           ),
@@ -286,9 +515,10 @@ export async function getTickerFeedIds(opts: {
   const cursor = decodeCursor(opts.cursor);
   // Ticker normalizzato uppercase (CHECK SQL li impone così).
   const tickerNorm = opts.ticker.toUpperCase();
-  const blockedIds = opts.viewerUserId
-    ? await getBlockedIdsForViewer(opts.viewerUserId)
-    : undefined;
+  const [blockedIds, followingSet] = await Promise.all([
+    opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
+    opts.viewerUserId ? getFollowingSet(opts.viewerUserId) : Promise.resolve(undefined),
+  ]);
   return getCachedFeedIds(
     `ticker:${tickerNorm}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -300,7 +530,7 @@ export async function getTickerFeedIds(opts: {
           and(
             eq(postsTickers.ticker, tickerNorm),
             isNull(posts.deletedAt),
-            discoverVisibilityClause(opts.viewerUserId),
+            discoverVisibilityClause(opts.viewerUserId, followingSet),
             viewerNotBlockedByIdsOnPosts(blockedIds),
             cursor
               ? or(
@@ -373,9 +603,10 @@ export async function getMentionsFeedIds(opts: {
 }): Promise<PostListPage> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
-  const blockedIds = opts.viewerUserId
-    ? await getBlockedIdsForViewer(opts.viewerUserId)
-    : undefined;
+  const [blockedIds, followingSet] = await Promise.all([
+    opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
+    opts.viewerUserId ? getFollowingSet(opts.viewerUserId) : Promise.resolve(undefined),
+  ]);
   return getCachedFeedIds(
     `mentions:${opts.targetUserId}:${opts.viewerUserId ?? "anon"}:${opts.cursor ?? "0"}:${pageSize}`,
     async () => {
@@ -387,7 +618,7 @@ export async function getMentionsFeedIds(opts: {
           and(
             eq(postsMentions.mentionedUserId, opts.targetUserId),
             isNull(posts.deletedAt),
-            discoverVisibilityClause(opts.viewerUserId),
+            discoverVisibilityClause(opts.viewerUserId, followingSet),
             viewerNotBlockedByIdsOnPosts(blockedIds),
             cursor
               ? or(
@@ -558,6 +789,9 @@ async function selectPostsCore(
      *  evita la sub-query NOT EXISTS e usa NOT IN sul Set. Opzionale —
      *  i caller non-feed (single post by slug) possono ometterlo. */
     blockedIds?: ReadonlySet<string>;
+    /** Set precomputato dei seguiti del viewer. Quando presente, abilita
+     *  la visibility `followers` per autori in questo set. */
+    followingSet?: ReadonlySet<string>;
   } = {},
 ): Promise<RawPostRow[]> {
   if (ids.length === 0) return [];
@@ -599,7 +833,7 @@ async function selectPostsCore(
         isNull(posts.deletedAt),
         blockClause,
         opts.enforceVisibility
-          ? viewerCanSeeVisibility(viewerUserId)
+          ? viewerCanSeeVisibility(viewerUserId, opts.followingSet)
           : undefined,
       ),
     );
@@ -608,18 +842,29 @@ async function selectPostsCore(
 
 // Filtro visibility per un viewer. Restituisce condizione SQL che
 // passa solo per le righe che il viewer può vedere. Usato per embed
-// target del quote repost (NON per i feed: lì gestisce getFeedIds).
-function viewerCanSeeVisibility(viewerUserId: string | undefined) {
+// target del quote repost (NON per i feed: lì gestisce getHomeFeedIds /
+// getDiscoverFeedIds).
+//
+// `followingSet`: opzionale, set degli autori seguiti dal viewer. Quando
+// presente, ammette anche post `followers` di autori in followingSet.
+// Quando assente, `followers` cade su gate viewer==author.
+function viewerCanSeeVisibility(
+  viewerUserId: string | undefined,
+  followingSet?: ReadonlySet<string>,
+) {
   if (!viewerUserId) {
     // Viewer anonimo: solo public.
     return eq(posts.visibility, "public");
   }
-  // Viewer loggato: public + members sempre; followers/private solo se
-  // viewer == author (finché il modulo follow non sarà disponibile,
-  // 'followers' è di fatto trattato come 'private').
+  const followersBranch = authorInFollowingSetFragment(followingSet);
+  // Viewer loggato: public + members sempre; followers se viewer segue
+  // l'autore (o se autore == viewer); private solo se viewer == author.
   return or(
     inArray(posts.visibility, ["public", "members"]),
     eq(posts.authorId, viewerUserId),
+    followersBranch
+      ? and(eq(posts.visibility, "followers"), followersBranch)
+      : undefined,
   );
 }
 
@@ -630,11 +875,15 @@ function viewerCanSeeVisibilityJS(
   visibility: string,
   authorId: string,
   viewerUserId: string | undefined,
+  followingSet?: ReadonlySet<string>,
 ): boolean {
   if (visibility === "public") return true;
   if (!viewerUserId) return false;
   if (visibility === "members") return true;
-  // followers + private: solo se viewer == author
+  if (visibility === "followers") {
+    return authorId === viewerUserId || (followingSet?.has(authorId) ?? false);
+  }
+  // private: solo se viewer == author
   return authorId === viewerUserId;
 }
 
@@ -832,11 +1081,13 @@ export async function getPostsByIds(
 ): Promise<PostCardData[]> {
   if (ids.length === 0) return [];
 
-  // Pre-carica il Set dei block 1 volta per request (React.cache dedupa
-  // se anche altri caller del request lo invocano: getFeedIds + hydration).
-  const blockedIds = opts.viewerUserId
-    ? await getBlockedIdsForViewer(opts.viewerUserId)
-    : undefined;
+  // Pre-carica il Set dei block e dei following 1 volta per request
+  // (React.cache dedupa se altri caller del request li invocano:
+  //  getHomeFeedIds, getDiscoverFeedIds, getProfileFeedIds + hydration).
+  const [blockedIds, followingSet] = await Promise.all([
+    opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
+    opts.viewerUserId ? getFollowingSet(opts.viewerUserId) : Promise.resolve(undefined),
+  ]);
 
   // ── Phase A: main posts ────────────────────────────────────────────────
   // Cache hit/miss split per gli ids richiesti.
@@ -922,6 +1173,7 @@ export async function getPostsByIds(
         entry.raw.visibility,
         entry.raw.authorId,
         opts.viewerUserId,
+        followingSet,
       );
       if (blocked || !canSee) {
         // Salviamo i meta per classificare il tombstone. Block-filtered
@@ -1027,6 +1279,7 @@ export async function getPostsByIds(
             meta.visibility,
             meta.authorId,
             opts.viewerUserId,
+            followingSet,
           )
             ? "not_visible"
             : "deleted";

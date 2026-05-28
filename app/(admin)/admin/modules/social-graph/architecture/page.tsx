@@ -14,7 +14,7 @@ import { SOCIAL_GRAPH_MODULE } from "@/lib/modules/social-graph/manifest";
 
 export const metadata: Metadata = { title: "Social Graph / Architettura" };
 
-const REVIEWED_AT = "2026-05-28";
+const REVIEWED_AT = "2026-05-28 (PR2: feed Home rewire + FollowButton + profile pages live)";
 
 export default function SocialGraphArchitecturePage() {
   return (
@@ -140,18 +140,22 @@ export default function SocialGraphArchitecturePage() {
       <Section title="Roadmap PR">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>PR1 (questa)</strong> — Schema + cache + actions + tests.
-            Zero impatto utente.
+            <strong>PR1</strong> ✅ Schema + cache + actions + tests
+            (commit <code>06a1d929</code>).
           </li>
           <li>
-            <strong>PR2</strong> — UI: bottone Follow su PostCard / profilo,
-            counter clickabili, pagine /u/[u]/followers e /following, feed Home
-            following-first + discovery fill, visibility{" "}
-            <code>&apos;followers&apos;</code> attivata.
+            <strong>PR2</strong> ✅ Feed Home unico following-first +
+            discovery fill, <code>FollowButton</code> compact su PostCard +
+            full su profilo, counter clickabili, pagine{" "}
+            <code>/u/[u]/followers</code> e <code>/following</code>,
+            <code>HomeEmptyBanner</code> + <code>SuggestedFollowsRow</code>,
+            visibility <code>&apos;followers&apos;</code> attivata in tutte
+            le feed query e nel selectPostsCore embed.
           </li>
           <li>
-            <strong>PR3</strong> — Realtime banner &quot;X nuovi post&quot;,
-            notifications su nuovo follower (modulo notifications).
+            <strong>PR3</strong> — Realtime banner &quot;X nuovi post&quot;
+            sul feed Home, notifications su nuovo follower (modulo
+            notifications).
           </li>
         </ul>
       </Section>

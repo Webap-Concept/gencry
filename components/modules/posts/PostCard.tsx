@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { FollowButton } from "@/components/social-graph/FollowButton";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
@@ -175,6 +176,17 @@ type Props = {
    */
   tickerPreviewMap?: Record<string, TickerPreviewData>;
   /**
+   * Stato follow del viewer verso l'autore di questo post.
+   *   - `true`  → viewer segue già l'autore. Bottone NON mostrato (ridondante).
+   *   - `false` → viewer NON segue. Bottone "+ Follow" compact visibile.
+   *   - `undefined` → viewer anonimo, autore == viewer, o caller non hydrato.
+   *      Bottone NON mostrato.
+   * Hydration via `getFollowingSet(viewerUserId)` lato RSC, passata via
+   * FeedList → PostCard. Pattern X/Threads: niente badge "Following"
+   * sulle card; il follow CTA appare solo quando manca.
+   */
+  viewerIsFollowingAuthor?: boolean;
+  /**
    * Se settato (variant "feed"), il bottone "Commenta" diventa un
    * toggle che espande inline il thread sotto la card invece di
    * navigare a /post/{id}. Mounta `<CommentsThread>` lazily (dynamic
@@ -210,6 +222,7 @@ export function PostCard({
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
+  viewerIsFollowingAuthor,
 }: Props) {
   const router = useRouter();
   const viewer = useViewer();
@@ -574,6 +587,18 @@ export function PostCard({
               </p>
             ) : null}
           </div>
+          {/* Follow button compact mostrato solo quando viewer != author
+              e viewer NON segue ancora l'autore. Pattern X/Threads: niente
+              badge "Following" su ogni card, solo CTA quando manca. */}
+          {viewer.isLoggedIn && !isAuthor && viewerIsFollowingAuthor === false ? (
+            <div className="shrink-0 -mt-0.5">
+              <FollowButton
+                targetUserId={post.author.id}
+                initialFollowing={false}
+                variant="compact"
+              />
+            </div>
+          ) : null}
           {/* Top-right toolbar. Nascosto per anon: tutte le voci
               (Salva/Blocca/Segnala) rimandano comunque a /sign-up via
               requireAuth, e "Apri post" è ridondante col click sulla

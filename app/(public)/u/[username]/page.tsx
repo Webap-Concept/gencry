@@ -22,9 +22,14 @@ import type { Metadata } from "next";
 
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
+import { FollowButton } from "@/components/social-graph/FollowButton";
 import { getSession } from "@/lib/auth/session";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getProfileFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
+import {
+  getFollowingSet,
+  getSocialCounters,
+} from "@/lib/modules/social-graph/queries";
 import {
   getProfileByUsername,
   getProfileStats,
@@ -91,12 +96,13 @@ async function ProfilePageBody({
 }: {
   profile: Awaited<ReturnType<typeof getProfileByUsername>> & {};
 }) {
-  const [session, stats, topCoins, t, tComp] = await Promise.all([
+  const [session, stats, topCoins, t, tComp, counters] = await Promise.all([
     getSession(),
     getProfileStats(profile.userId),
     getTopCitedCoins(profile.userId, 5),
     getTranslations("core.pages.profile"),
     getTranslations("posts.profile"),
+    getSocialCounters(profile.userId),
   ]);
   const viewerUserId = session?.user.id;
 
@@ -108,10 +114,14 @@ async function ProfilePageBody({
     viewerUserId,
     pageSize: PROFILE_FEED_PAGE_SIZE,
   });
-  const [posts, coinNameMap] = await Promise.all([
+  const [posts, coinNameMap, viewerFollowing] = await Promise.all([
     getPostsByIds(feedPage.ids, { viewerUserId }),
     getCoinNameMap(),
+    viewerUserId && viewerUserId !== profile.userId
+      ? (async () => (await getFollowingSet(viewerUserId)).has(profile.userId))()
+      : Promise.resolve(false),
   ]);
+  const isOwnProfile = viewerUserId === profile.userId;
 
   // Layout: top section in grid 2-col (header sx + sidebar dx con Info /
   // Most cited coins). I post stanno SOTTO la grid e occupano tutta la
@@ -121,7 +131,14 @@ async function ProfilePageBody({
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <ProfileHeader profile={profile} stats={stats} />
+        <ProfileHeader
+          profile={profile}
+          stats={stats}
+          counters={counters}
+          viewerUserId={viewerUserId ?? null}
+          isOwnProfile={isOwnProfile}
+          viewerIsFollowing={viewerFollowing}
+        />
         <aside className="hidden lg:block space-y-4">
           <InfoCard profile={profile} t={t} />
           {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
@@ -138,6 +155,9 @@ async function ProfilePageBody({
                 isAuthor={viewerUserId === post.author.id}
                 variant="feed"
                 coinNameMap={coinNameMap}
+                viewerIsFollowingAuthor={
+                  !viewerUserId || isOwnProfile ? undefined : viewerFollowing
+                }
               />
             </li>
           ))}
@@ -154,12 +174,21 @@ async function ProfilePageBody({
 function ProfileHeader({
   profile,
   stats,
+  counters,
+  viewerUserId,
+  isOwnProfile,
+  viewerIsFollowing,
 }: {
   profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
   stats: Awaited<ReturnType<typeof getProfileStats>>;
+  counters: { followersCount: number; followingCount: number };
+  viewerUserId: string | null;
+  isOwnProfile: boolean;
+  viewerIsFollowing: boolean;
 }) {
   const display = displayName(profile);
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
+  const usernameLower = profile.username.toLowerCase();
   return (
     <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-6 sm:p-8">
       <div className="flex items-start gap-5 flex-wrap">
@@ -178,14 +207,56 @@ function ProfileHeader({
             </p>
           )}
         </div>
+        {viewerUserId && !isOwnProfile ? (
+          <div className="shrink-0">
+            <FollowButton
+              targetUserId={profile.userId}
+              initialFollowing={viewerIsFollowing}
+              variant="default"
+            />
+          </div>
+        ) : null}
       </div>
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gc-line pt-5">
-        <StatPlaceholder labelKey="follower" />
-        <StatPlaceholder labelKey="following" />
+        <CounterStatLink
+          href={`/u/${usernameLower}/followers`}
+          value={counters.followersCount}
+          labelKey="follower"
+        />
+        <CounterStatLink
+          href={`/u/${usernameLower}/following`}
+          value={counters.followingCount}
+          labelKey="following"
+        />
         <Stat value={stats.postsTotal} labelKey="posts" />
         <JoinedStat createdAt={profile.createdAt} />
       </div>
     </header>
+  );
+}
+
+function CounterStatLink({
+  href,
+  value,
+  labelKey,
+}: {
+  href: string;
+  value: number;
+  labelKey: string;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="group block rounded-lg hover:bg-gc-bg-3 -mx-2 px-2 py-1 transition"
+    >
+      <p className="text-2xl font-serif text-gc-fg tabular-nums">
+        {value.toLocaleString()}
+      </p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5 group-hover:text-gc-fg-2">
+        <StatLabel labelKey={labelKey} />
+      </p>
+    </Link>
   );
 }
 

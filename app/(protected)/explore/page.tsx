@@ -21,12 +21,13 @@ import { getUser } from "@/lib/db/queries";
 import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import {
-  getFeedIds,
+  getDiscoverFeedIds,
   getPostsByIds,
   getTickerFeedIds,
 } from "@/lib/modules/posts/queries";
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
 import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
+import { getFollowingSet } from "@/lib/modules/social-graph/queries";
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -69,7 +70,7 @@ export default async function ExplorePage({
   const [page, coin, coinNameMap, commentsConfig] = await Promise.all([
     ticker
       ? getTickerFeedIds({ ticker, viewerUserId: user.id })
-      : getFeedIds({ tab: "discover", viewerUserId: user.id }),
+      : getDiscoverFeedIds({ viewerUserId: user.id }),
     ticker ? getCoinForCard(ticker) : Promise.resolve(null),
     getCoinNameMap(),
     loadCommentsConfig(),
@@ -79,11 +80,18 @@ export default async function ExplorePage({
   // attivo, così l'hover su CoinSummaryCard è già hot).
   const visibleSymbols = collectVisibleTickers(initialPosts);
   if (ticker) visibleSymbols.push(ticker);
-  const tickerPreviewMap = await getTickerPreviewBatch(visibleSymbols);
+  const [tickerPreviewMap, followingSet] = await Promise.all([
+    getTickerPreviewBatch(visibleSymbols),
+    getFollowingSet(user.id),
+  ]);
+  const viewerFollowingMap: Record<string, boolean> = {};
+  for (const p of initialPosts) {
+    viewerFollowingMap[p.author.id] = followingSet.has(p.author.id);
+  }
 
   const source = ticker
     ? ({ kind: "ticker", ticker } as const)
-    : ({ kind: "tab", tab: "discover" } as const);
+    : ({ kind: "discover" } as const);
 
   const tExp = await getTranslations("posts.explore");
 
@@ -134,6 +142,7 @@ export default async function ExplorePage({
           source={source}
           coinNameMap={coinNameMap}
           tickerPreviewMap={tickerPreviewMap}
+          viewerFollowingMap={viewerFollowingMap}
           emptyState={<ExploreEmptyState ticker={ticker} />}
           commentsThreadProps={{
             viewerUserId: user.id,
