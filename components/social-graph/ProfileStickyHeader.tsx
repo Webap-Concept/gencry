@@ -21,6 +21,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useIsStuck } from "@/lib/hooks/use-is-stuck";
 import { FollowButton } from "./FollowButton";
+import { useFollowOverride } from "./FollowOverridesProvider";
 
 export type ProfileStickyHeaderProps = {
   targetUserId: string;
@@ -48,6 +49,13 @@ export function ProfileStickyHeader({
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
   const t = useTranslations("core.pages.profile.stats");
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
+  // Sorgente di verita' del follow state: il Provider globale, NON la
+  // prop SSR. Cosi' se l'utente ha cliccato segui altrove (card grande
+  // del profilo, PostCard del feed) e poi scrolla → lo sticky mostra
+  // gia' lo stato corretto al mount. La `key` dinamica sotto forza il
+  // remount del FollowButton ogni volta che l'override cambia, cosi' il
+  // suo `useState(initialFollowing)` interno riparte dal valore latest.
+  const effectiveFollowing = useFollowOverride(targetUserId, initialFollowing);
 
   const showFollow = !!viewerUserId && !isOwnProfile;
 
@@ -98,8 +106,9 @@ export function ProfileStickyHeader({
             {showFollow && (
               <div className="shrink-0">
                 <FollowButton
+                  key={String(effectiveFollowing)}
                   targetUserId={targetUserId}
-                  initialFollowing={initialFollowing}
+                  initialFollowing={effectiveFollowing}
                   variant="default"
                   onChange={(state) =>
                     setFollowersCount(state.followersCount)
