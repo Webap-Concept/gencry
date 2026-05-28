@@ -345,6 +345,36 @@ export async function enrichCoinsMetadataAction(
   return result;
 }
 
+export type MetadataRefreshActionResult =
+  | {
+      ok: true;
+      coinsLoaded: number;
+      batchesFetched: number;
+      updatedMarketCap: number;
+      updatedSparkline: number;
+      errors: number;
+      durationMs: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Trigger manuale del cron metadata-refresh (market_cap + rank +
+ * sparkline 7d). A regime gira ogni 4h via pg_cron; questo bottone serve
+ * per "non aspettare" dopo un import wholesale + enrichment.
+ */
+export async function refreshMetadataNowAction(): Promise<MetadataRefreshActionResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+  const { runMetadataRefresh } = await import(
+    "@/lib/modules/prices/services/metadata-refresh"
+  );
+  const result = await runMetadataRefresh();
+  if (result.ok) {
+    revalidatePath("/admin/modules/prices/exchanges");
+    revalidatePath("/admin/modules/prices/coins");
+  }
+  return result;
+}
+
 /**
  * Esegue health check live + persiste il risultato in
  * price_exchanges.last_health_*. Cosi' la lista mostra sempre lo
