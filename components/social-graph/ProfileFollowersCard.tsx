@@ -3,12 +3,35 @@
 // Card "Follower" mostrata nella sidebar destra della profile page.
 // Mostra fino a 8 follower con avatar + nome, link "Vedi tutti" → pagina
 // /u/[username]/followers paginata. Server component RSC.
+//
+// Caching: la preview list e' wrappata in `unstable_cache` TTL 60s. Per
+// profili virali la stessa card e' renderizzata N volte/minuto su
+// richieste indipendenti — la query SQL diventa 1/min per userId invece
+// di 1/render. Tag `profile-followers:<userId>` esposto per future
+// `revalidateTag` (oggi non chiamato: il TTL e' sufficiente perche' la
+// preview e' UX-tolerante a 60s di stale).
 import "server-only";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { listFollowers, type FollowListItem } from "@/lib/modules/social-graph/queries";
 
 const PREVIEW_LIMIT = 8;
+const CACHE_TTL_SECONDS = 60;
+
+function getCachedPreview(userId: string): Promise<FollowListItem[]> {
+  return unstable_cache(
+    async () => {
+      const page = await listFollowers(userId, null, PREVIEW_LIMIT);
+      return page.items;
+    },
+    ["social-graph", "profile-followers-preview", userId],
+    {
+      revalidate: CACHE_TTL_SECONDS,
+      tags: [`profile-followers:${userId}`],
+    },
+  )();
+}
 
 function displayName(u: FollowListItem): string {
   const fn = u.firstName?.trim();
@@ -52,12 +75,12 @@ export async function ProfileFollowersCard({
   username: string;
   totalCount: number;
 }) {
-  const [page, t] = await Promise.all([
-    listFollowers(userId, null, PREVIEW_LIMIT),
+  const [items, t] = await Promise.all([
+    getCachedPreview(userId),
     getTranslations("socialGraph.profile_followers_card"),
   ]);
 
-  if (page.items.length === 0) {
+  if (items.length === 0) {
     return (
       <section className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5">
         <h2 className="text-base font-serif italic text-gc-fg mb-2">
@@ -69,7 +92,7 @@ export async function ProfileFollowersCard({
   }
 
   const usernameLower = username.toLowerCase();
-  const hasMore = totalCount > page.items.length;
+  const hasMore = totalCount > items.length;
 
   return (
     <section className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5">
@@ -78,7 +101,7 @@ export async function ProfileFollowersCard({
         <span className="text-xs text-gc-fg-3 tabular-nums">{totalCount}</span>
       </header>
       <ul className="space-y-2">
-        {page.items.map((u) => (
+        {items.map((u) => (
           <li key={u.userId}>
             <Link
               href={u.username ? `/u/${u.username.toLowerCase()}` : "#"}

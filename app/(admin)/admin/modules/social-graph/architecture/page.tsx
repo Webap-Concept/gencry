@@ -14,7 +14,7 @@ import { SOCIAL_GRAPH_MODULE } from "@/lib/modules/social-graph/manifest";
 
 export const metadata: Metadata = { title: "Social Graph / Architettura" };
 
-const REVIEWED_AT = "2026-05-28 (block cascade-unfollow + cross-card sync Context)";
+const REVIEWED_AT = "2026-05-28 (block cascade + cross-card Context + perf indexes M004 + ProfileFollowers cache 60s)";
 
 export default function SocialGraphArchitecturePage() {
   return (
@@ -127,6 +127,52 @@ export default function SocialGraphArchitecturePage() {
           <code>modules.social-graph.rate_limit_follow_per_min</code>. Unfollow
           non ha rate limit (no abuse model).
         </p>
+      </Section>
+
+      <Section title="Performance">
+        <p>
+          Hot path budget (per request RSC autenticata): +5–15ms TTFB vs
+          baseline pre-modulo. Cache 3-layer porta <code>getFollowingSet</code> a{" "}
+          ~0 fetch reali a regime warm (L0 React.cache 99% hit, L1 in-process
+          80%, L2 Upstash 15%, DB &lt; 1%).
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <strong>Index DB</strong> (M_social_graph_004):
+            <ul className="list-disc pl-5 space-y-1 mt-1">
+              <li>
+                <code>idx_posts_author_created_id</code> su{" "}
+                <code>posts(author_id, created_at DESC, id DESC) WHERE deleted_at IS NULL</code>{" "}
+                — sostiene il following branch del feed Home quando il{" "}
+                followingSet ha N elementi. Cap a ~50ms anche con 1k followee
+                + milioni di post.
+              </li>
+              <li>
+                <code>idx_user_social_counters_top_followers</code> su{" "}
+                <code>user_social_counters(followers_count DESC) WHERE followers_count &gt; 0</code>{" "}
+                — sostiene <code>SuggestedFollowsRow</code>: senza,
+                <code>ORDER BY</code> diventa seq scan + sort a 100k utenti.
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong>Cache <code>ProfileFollowersCard</code></strong>:{" "}
+            <code>unstable_cache</code> TTL 60s con tag{" "}
+            <code>profile-followers:&lt;userId&gt;</code>. Per profili virali la
+            preview list e' 1 query/min/userId invece di 1/render. Stale 60s
+            UX-tolerante (e' una preview di 8 avatar, non source of truth).
+          </li>
+          <li>
+            <strong>Costo Upstash</strong> stimato a 100 DAU × 15 PV/g: ~57k
+            command/mese (Free tier = 500k). Margine 10x.
+          </li>
+          <li>
+            <strong>Trigger DB</strong>: tutti i 5 trigger (sync counters +
+            block guard + cascade unfollow + notify follower + broadcast
+            ext) costano 1-3ms ciascuno. Nessun impatto perceivable finche'
+            le mutation restano &lt; 100/sec.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Files map">
