@@ -23,6 +23,7 @@ import type { Metadata } from "next";
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
 import { FollowButton } from "@/components/social-graph/FollowButton";
+import { ProfileFollowersCard } from "@/components/social-graph/ProfileFollowersCard";
 import { getSession } from "@/lib/auth/session";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getProfileFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
@@ -123,46 +124,50 @@ async function ProfilePageBody({
   ]);
   const isOwnProfile = viewerUserId === profile.userId;
 
-  // Layout: top section in grid 2-col (header sx + sidebar dx con Info /
-  // Most cited coins). I post stanno SOTTO la grid e occupano tutta la
-  // larghezza disponibile dello shell. Le sezioni (Watchlist / Activity /
-  // Discussioni / Voti / Media) torneranno come pulsante nell'header
-  // quando ci saranno i moduli — niente tabs in v1.
+  // Layout 2026-05-28: header full-width (le info anagrafiche sono già lì,
+  // niente InfoCard ridondante a destra), aside con "Coin più citate" e
+  // "Follower" preview (link "Vedi tutti" → /u/[u]/followers).
   return (
     <div className="space-y-6 max-w-5xl">
+      <ProfileHeader
+        profile={profile}
+        stats={stats}
+        counters={counters}
+        viewerUserId={viewerUserId ?? null}
+        isOwnProfile={isOwnProfile}
+        viewerIsFollowing={viewerFollowing}
+      />
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <ProfileHeader
-          profile={profile}
-          stats={stats}
-          counters={counters}
-          viewerUserId={viewerUserId ?? null}
-          isOwnProfile={isOwnProfile}
-          viewerIsFollowing={viewerFollowing}
-        />
+        <div className="space-y-3">
+          {posts.length === 0 ? (
+            <EmptyState message={tComp("empty_state")} />
+          ) : (
+            <ul className="space-y-3" aria-label={tComp("posts_aria")}>
+              {posts.map((post) => (
+                <li key={post.id}>
+                  <PostCard
+                    post={post}
+                    isAuthor={viewerUserId === post.author.id}
+                    variant="feed"
+                    coinNameMap={coinNameMap}
+                    viewerIsFollowingAuthor={
+                      !viewerUserId || isOwnProfile ? undefined : viewerFollowing
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <aside className="hidden lg:block space-y-4">
-          <InfoCard profile={profile} t={t} />
           {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
+          <ProfileFollowersCard
+            userId={profile.userId}
+            username={profile.username}
+            totalCount={counters.followersCount}
+          />
         </aside>
       </div>
-      {posts.length === 0 ? (
-        <EmptyState message={tComp("empty_state")} />
-      ) : (
-        <ul className="space-y-3" aria-label={tComp("posts_aria")}>
-          {posts.map((post) => (
-            <li key={post.id}>
-              <PostCard
-                post={post}
-                isAuthor={viewerUserId === post.author.id}
-                variant="feed"
-                coinNameMap={coinNameMap}
-                viewerIsFollowingAuthor={
-                  !viewerUserId || isOwnProfile ? undefined : viewerFollowing
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -337,31 +342,6 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
 // Sidebar dx
 // ---------------------------------------------------------------------------
 
-function InfoCard({
-  profile,
-  t,
-}: {
-  profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
-  t: Awaited<ReturnType<typeof getTranslations<"core.pages.profile">>>;
-}) {
-  const joined = profile.createdAt.toLocaleDateString("it-IT", {
-    month: "long",
-    year: "numeric",
-  });
-  return (
-    <section className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5">
-      <h2 className="text-base font-serif italic text-gc-fg mb-3">
-        {t("info_title")}
-      </h2>
-      <dl className="space-y-2 text-xs text-gc-fg-2">
-        <div className="flex items-center gap-2">
-          <dt className="text-gc-fg-3">{t("info_joined")}</dt>
-          <dd className="ml-auto">{joined}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
 
 function TopCoinsCard({
   coins,
