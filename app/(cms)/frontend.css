@@ -177,12 +177,10 @@
 .gc-dark {
   /* Background levels — bilanciati per contrasto chiaro tra page / card / item.
      Pre-13/05/26: bg-2 e bg-3 erano troppo simili a bg → card invisibili.
-     Rebalance: bg resta scuro identitario, bg-2 e bg-3 saltano +5-8% lightness.
-     29/05/26: schiariti di ~10% lightness HSL (H/S invariati) per ridurre la
-     cupezza percepita delle card dark — feedback su WatchlistOverviewCard. */
-  --gc-bg: #21462d;
-  --gc-bg-2: #305340;
-  --gc-bg-3: #375d49;
+     Rebalance: bg resta scuro identitario, bg-2 e bg-3 saltano +5-8% lightness. */
+  --gc-bg: #0e1a14;
+  --gc-bg-2: #1d3327;
+  --gc-bg-3: #243d30;
 
   /* Foreground levels — cream chiaro per testo principale, scendendo verso i toni metadata.
      fg-3 schiarito 13/05/26 da #7a7468 → #928c80 per migliore leggibilità dei metadata
@@ -198,20 +196,20 @@
 
   /* Semantic tokens — override per dark (vedi versione light in :root sopra
      per il commento di scopo). Mantengono lo stesso ruolo, solo valori adattati. */
-  --gc-input-bg: #305340;        /* match bg-2: input visibili su card */
+  --gc-input-bg: #1d3327;        /* match bg-2: input visibili su card */
   --gc-input-border: #455b50;    /* alias line-2 dark */
   --gc-input-focus: #fa8b1e;     /* accent invariato */
   --gc-input-placeholder: #7a7468; /* alias fg-3 dark */
-  --gc-modal-bg: #305340;        /* match bg-2 dark */
+  --gc-modal-bg: #1d3327;        /* match bg-2 dark */
   --gc-modal-border: #38503e;    /* alias line dark */
   --gc-overlay: rgba(0, 0, 0, 0.65); /* più scuro in dark */
-  --gc-card-bg: #305340;         /* alias bg-2 dark */
+  --gc-card-bg: #1d3327;         /* alias bg-2 dark */
   --gc-card-border: #38503e;     /* alias line dark */
   --gc-warning-bg: rgba(250, 139, 30, 0.15); /* warning più sobrio in dark */
   --gc-warning-fg: #fa8b1e;       /* accent come testo warning */
   --gc-success-bg: rgba(125, 190, 158, 0.18); /* success soft, alias visual gc-green */
   --gc-success-fg: #7dbe9e;       /* gc-green per testo success in dark */
-  --gc-button-secondary-bg: #375d49; /* alias bg-3 dark */
+  --gc-button-secondary-bg: #243d30; /* alias bg-3 dark */
   --gc-button-secondary-fg: #e6e1d2; /* alias fg dark */
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
