@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: "Social Graph / Overview" };
 export const dynamic = "force-dynamic";
 
 async function getOverviewStats() {
-  // Build-time short-circuit: salta DB durante next build (pattern
-  // condiviso con admin layouts — vedi memory project_nextbuild_admin_layout).
+  // Build-time short-circuit: salta DB durante next build (vedi memory
+  // project_nextbuild_admin_layout).
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return { totalFollows: 0, usersWithFollows: 0, usersWithFollowers: 0 };
   }
@@ -38,10 +38,13 @@ export default async function SocialGraphOverviewPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-[var(--admin-fg)]">
+        <h1
+          className="text-xl font-semibold"
+          style={{ color: "var(--admin-text)" }}
+        >
           Social Graph
         </h1>
-        <p className="text-sm text-[var(--admin-fg-muted)]">
+        <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>
           Following relationships between users. Powers the Home feed
           (following-first + discovery fill).
         </p>
@@ -59,18 +62,31 @@ export default async function SocialGraphOverviewPage() {
         />
       </section>
 
-      <section className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
-        <h2 className="text-sm font-semibold text-[var(--admin-fg)]">
-          PR1 — Foundation
+      <section
+        className="rounded-lg p-4"
+        style={{
+          background: "var(--admin-card-bg)",
+          border: "1px solid var(--admin-card-border)",
+        }}
+      >
+        <h2
+          className="text-sm font-semibold"
+          style={{ color: "var(--admin-text)" }}
+        >
+          PR1 + PR2 — Foundation + Home feed rewire
         </h2>
-        <p className="mt-1 text-xs text-[var(--admin-fg-muted)]">
-          Schema + cache layer + server actions installati. UI lato utente
-          (bottoni Follow, pagine /u/[username]/followers, feed Home
-          following-first) arriva in PR2.
+        <p
+          className="mt-1 text-xs"
+          style={{ color: "var(--admin-text-muted)" }}
+        >
+          Schema, cache layer, server actions, FollowButton UI e feed Home
+          unico (following-first + discovery fill) gia&apos; live. PR3
+          (realtime banner + notifications nuovo follower) in arrivo.
         </p>
         <Link
           href="/admin/modules/social-graph/architecture"
-          className="mt-3 inline-block text-xs font-medium text-[var(--admin-accent)] hover:underline"
+          className="mt-3 inline-block text-xs font-medium hover:underline"
+          style={{ color: "var(--admin-accent)" }}
         >
           Vai all&apos;architettura del modulo →
         </Link>
@@ -81,9 +97,20 @@ export default async function SocialGraphOverviewPage() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
-      <div className="text-xs text-[var(--admin-fg-muted)]">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-[var(--admin-fg)]">
+    <div
+      className="rounded-lg p-4"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}
+    >
+      <div className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+        {label}
+      </div>
+      <div
+        className="mt-1 text-2xl font-semibold tabular-nums"
+        style={{ color: "var(--admin-text)" }}
+      >
         {value.toLocaleString("en-US")}
       </div>
     </div>

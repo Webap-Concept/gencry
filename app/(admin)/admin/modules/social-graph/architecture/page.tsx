@@ -18,12 +18,15 @@ const REVIEWED_AT = "2026-05-28 (PR2: feed Home rewire + FollowButton + profile 
 
 export default function SocialGraphArchitecturePage() {
   return (
-    <div className="space-y-6 text-sm text-[var(--admin-fg)]">
+    <div className="space-y-6 text-sm" style={{ color: "var(--admin-text)" }}>
       <header>
-        <h1 className="text-xl font-semibold">
+        <h1
+          className="text-xl font-semibold"
+          style={{ color: "var(--admin-text)" }}
+        >
           {SOCIAL_GRAPH_MODULE.label} — Architettura
         </h1>
-        <p className="text-xs text-[var(--admin-fg-muted)]">
+        <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
           Versione manifest: {SOCIAL_GRAPH_MODULE.version} · Revisione doc:{" "}
           {REVIEWED_AT}
         </p>
@@ -38,8 +41,9 @@ export default function SocialGraphArchitecturePage() {
         </p>
         <p>
           Il consumer principale e&apos; il modulo <code>posts</code>: il feed
-          Home applica strategia <strong>following-first + discovery fill</strong>{" "}
-          via <code>getFollowingSet(viewerId)</code> con cache 3-layer.
+          Home applica strategia{" "}
+          <strong>following-first + discovery fill</strong> via{" "}
+          <code>getFollowingSet(viewerId)</code> con cache 3-layer.
         </p>
       </Section>
 
@@ -52,7 +56,10 @@ export default function SocialGraphArchitecturePage() {
             <code>(followed_id, created_at)</code>.
           </li>
           <li>
-            <code>user_social_counters(user_id PK, followers_count, following_count, updated_at)</code>{" "}
+            <code>
+              user_social_counters(user_id PK, followers_count,
+              following_count, updated_at)
+            </code>{" "}
             — counter denormalizzati, row creata lazy al primo follow.
           </li>
         </ul>
@@ -117,12 +124,13 @@ export default function SocialGraphArchitecturePage() {
             <code>lib/modules/social-graph/manifest.ts</code>
           </li>
           <li>
-            <code>lib/modules/social-graph/queries.ts</code> — getFollowingSet,
-            isFollowing, getSocialCounters, listFollowers, listFollowing
+            <code>lib/modules/social-graph/queries.ts</code> —
+            getFollowingSet, isFollowing, getSocialCounters, listFollowers,
+            listFollowing
           </li>
           <li>
-            <code>lib/modules/social-graph/actions.ts</code> — followUserAction,
-            unfollowUserAction
+            <code>lib/modules/social-graph/actions.ts</code> —
+            followUserAction, unfollowUserAction
           </li>
           <li>
             <code>lib/modules/social-graph/services/follows-cache.ts</code> —
@@ -140,17 +148,17 @@ export default function SocialGraphArchitecturePage() {
       <Section title="Roadmap PR">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>PR1</strong> ✅ Schema + cache + actions + tests
-            (commit <code>06a1d929</code>).
+            <strong>PR1</strong> ✅ Schema + cache + actions + tests (commit{" "}
+            <code>06a1d929</code>).
           </li>
           <li>
             <strong>PR2</strong> ✅ Feed Home unico following-first +
             discovery fill, <code>FollowButton</code> compact su PostCard +
             full su profilo, counter clickabili, pagine{" "}
-            <code>/u/[u]/followers</code> e <code>/following</code>,
+            <code>/u/[u]/followers</code> e <code>/following</code>,{" "}
             <code>HomeEmptyBanner</code> + <code>SuggestedFollowsRow</code>,
-            visibility <code>&apos;followers&apos;</code> attivata in tutte
-            le feed query e nel selectPostsCore embed.
+            visibility <code>&apos;followers&apos;</code> attivata in tutte le
+            feed query e nel selectPostsCore embed.
           </li>
           <li>
             <strong>PR3</strong> — Realtime banner &quot;X nuovi post&quot;
@@ -171,9 +179,20 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="space-y-2 text-xs leading-relaxed text-[var(--admin-fg-muted)]">
+    <section
+      className="space-y-2 rounded-lg p-4"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}
+    >
+      <h2 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
+        {title}
+      </h2>
+      <div
+        className="space-y-2 text-xs leading-relaxed"
+        style={{ color: "var(--admin-text-muted)" }}
+      >
         {children}
       </div>
     </section>
