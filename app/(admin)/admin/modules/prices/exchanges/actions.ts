@@ -13,9 +13,7 @@ import { revalidatePath } from "next/cache";
 import { getExchangeAdapter } from "@/lib/modules/prices/exchanges/registry";
 import type { HealthCheckResult } from "@/lib/modules/prices/exchanges/types";
 
-const SECTION_PERM = "admin:users"; // PR4 placeholder; modulo prices
-// non ha ancora una permission dedicata, usiamo admin:users come gate
-// generico admin. Da spostare a `modules:prices` quando arrivera'.
+const SECTION_PERM = "modules:prices";
 
 export type ToggleResult =
   | { ok: true }

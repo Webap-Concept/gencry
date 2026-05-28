@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: "Prices / Exchanges" };
 export const dynamic = "force-dynamic";
 
 export default async function PricesExchangesPage() {
-  await requireAdminSectionPage("admin:users");
+  await requireAdminSectionPage("modules:prices");
   const [rows, awaitingEnrichment, refreshableCount] = await Promise.all([
     listAdminExchanges(),
     countCoinsAwaitingEnrichment(),
