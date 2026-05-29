@@ -108,8 +108,11 @@ async function upsertSchedule(
   cfg: { qstashUrl: string; qstashToken: string; cronSecret: string; targetBase: string },
 ): Promise<{ ok: boolean; status: number; body: string }> {
   const target = `${cfg.targetBase}${job.path}`;
+  // QStash vuole l'URL di destinazione RAW nel path (tutto ciò che segue
+  // /v2/schedules/ è il destination) — NON url-encoded, altrimenti
+  // "invalid scheme". I nostri target sono URL puliti senza query string.
   const res = await fetch(
-    `${cfg.qstashUrl}/v2/schedules/${encodeURIComponent(target)}`,
+    `${cfg.qstashUrl}/v2/schedules/${target}`,
     {
       method: "POST",
       headers: {
