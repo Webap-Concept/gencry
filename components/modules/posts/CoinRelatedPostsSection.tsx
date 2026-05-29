@@ -46,9 +46,7 @@ export async function CoinRelatedPostsSection({
   const tCoin = await getTranslations("posts.coin_related");
 
   return (
-    <section
-      aria-labelledby="coin-posts-heading"
-      className="rounded-2xl p-5 bg-gc-bg-2 border border-gc-line space-y-4">
+    <section aria-labelledby="coin-posts-heading" className="space-y-3">
       <header className="flex items-center justify-between gap-3">
         <h2
           id="coin-posts-heading"
@@ -96,7 +94,7 @@ async function EmptyState({
   const t = await getTranslations("posts");
   const tEmpty = await getTranslations("posts.empty_states");
   return (
-    <div className="text-center py-6 space-y-2">
+    <div className="text-center py-8 space-y-2 rounded-2xl border border-dashed border-gc-line bg-gc-bg-2">
       <p className="text-sm text-gc-fg-2">
         {tEmpty("ticker_no_posts_prefix")}
         <strong>${symbol}</strong>
