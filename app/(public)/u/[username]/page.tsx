@@ -194,12 +194,17 @@ function ProfileHeader({
   const display = displayName(profile);
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
   const usernameLower = profile.username.toLowerCase();
+  const showFollow = !!viewerUserId && !isOwnProfile;
   return (
-    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-4">
-      <div className="flex items-start gap-3 flex-wrap">
+    // Mobile: card centrata (avatar grande, nome/headline/stat centrati,
+    // Follow full-width sotto). Desktop (sm+): layout orizzontale classico
+    // (avatar a sx, info al centro, Follow a dx). Stesso markup, classi
+    // responsive — vedi project_responsive_strategy.
+    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5 sm:p-4">
+      <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
         <Avatar avatarUrl={profile.avatarUrl} initial={initial} display={display} />
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-serif text-gc-fg leading-tight">
+          <h1 className="text-2xl sm:text-xl font-serif text-gc-fg leading-tight">
             {display}
           </h1>
           <p className="text-sm text-gc-fg-3 mt-0.5">@{profile.username}</p>
@@ -212,8 +217,11 @@ function ProfileHeader({
             </p>
           )}
         </div>
-        {viewerUserId && !isOwnProfile ? (
-          <div className="shrink-0">
+        {/* Follow desktop: inline a destra. Su mobile è nascosto e
+            sostituito dalla versione full-width sotto le stat (i due
+            FollowButton sono sincronizzati dal FollowOverridesProvider). */}
+        {showFollow ? (
+          <div className="hidden sm:block shrink-0">
             <FollowButton
               targetUserId={profile.userId}
               initialFollowing={viewerIsFollowing}
@@ -222,7 +230,10 @@ function ProfileHeader({
           </div>
         ) : null}
       </div>
-      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gc-line pt-3">
+
+      {/* Stat: mobile 3 voci centrate con divisori verticali; desktop
+          griglia 4-col (con "Iscritto a"). Joined nascosto su mobile. */}
+      <div className="mt-4 sm:mt-3 flex justify-center divide-x divide-gc-line border-t border-gc-line pt-4 sm:pt-3 sm:grid sm:grid-cols-4 sm:gap-3 sm:divide-x-0">
         <CounterStatLink
           href={`/u/${usernameLower}/followers`}
           value={counters.followersCount}
@@ -236,6 +247,17 @@ function ProfileHeader({
         <Stat value={stats.postsTotal} labelKey="posts" />
         <JoinedStat createdAt={profile.createdAt} />
       </div>
+
+      {/* Follow mobile: full-width sotto le stat. Hidden su sm+. */}
+      {showFollow ? (
+        <div className="sm:hidden mt-4 w-full [&>div]:w-full [&_button]:w-full [&_button]:justify-center">
+          <FollowButton
+            targetUserId={profile.userId}
+            initialFollowing={viewerIsFollowing}
+            variant="default"
+          />
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -253,7 +275,7 @@ function CounterStatLink({
     <Link
       href={href}
       prefetch={false}
-      className="group block rounded-lg hover:bg-gc-bg-3 -mx-2 px-2 py-1 transition"
+      className="group block text-center rounded-lg hover:bg-gc-bg-3 px-5 py-1 sm:-mx-2 sm:px-2 transition"
     >
       <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
@@ -280,13 +302,13 @@ function Avatar({
       <img
         src={avatarUrl}
         alt={display}
-        className="w-16 h-16 rounded-full object-cover border border-gc-line"
+        className="w-24 h-24 sm:w-16 sm:h-16 rounded-full object-cover border border-gc-line shrink-0"
       />
     );
   }
   return (
     <div
-      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-serif text-white bg-gc-accent"
+      className="w-24 h-24 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent shrink-0"
       aria-label={display}
     >
       {initial}
@@ -296,7 +318,7 @@ function Avatar({
 
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
-    <div>
+    <div className="text-center px-5 py-1 sm:px-0 sm:py-0">
       <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
@@ -329,7 +351,9 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
     year: "numeric",
   });
   return (
-    <div>
+    // Nascosto su mobile: la card centrata mostra solo 3 stat (follower /
+    // segue / post) come da schema. "Iscritto a" resta solo su desktop.
+    <div className="hidden sm:block text-center">
       <p className="text-base font-serif text-gc-fg tabular-nums leading-tight">
         {formatted}
       </p>
