@@ -27,12 +27,9 @@ type Props = {
   /** Slot client per dropdown menu actions. Quando absent, la card
    *  e' read-only (vista pubblica /w/<u>/<slug>). */
   actions?: React.ReactNode;
-  /** Locale-aware "aggiornata X" — calcolato dal parent server per
-   *  evitare di passare Date al client. */
-  updatedAtLabel?: string;
 };
 
-export async function WatchlistCard({ watchlist, actions, updatedAtLabel }: Props) {
+export async function WatchlistCard({ watchlist, actions }: Props) {
   const t = await getTranslations("watchlist.card");
   const isEmpty = watchlist.coinsCount === 0;
   const detailHref = `/watchlist/${watchlist.id}`;
@@ -86,9 +83,8 @@ export async function WatchlistCard({ watchlist, actions, updatedAtLabel }: Prop
       {/* Footer compatto: N coin · aggiornata X. Nascosto su empty (la
           riga sotto e' ridondante col CTA). */}
       {!isEmpty ? (
-        <footer className="relative z-10 pointer-events-none flex items-center justify-between text-[11px] text-gc-fg-3 border-t border-gc-line pt-3">
+        <footer className="relative z-10 pointer-events-none flex items-center text-[11px] text-gc-fg-3 border-t border-gc-line pt-3">
           <span>{t("coins_count", { count: watchlist.coinsCount })}</span>
-          {updatedAtLabel ? <span>{updatedAtLabel}</span> : null}
         </footer>
       ) : null}
     </article>
