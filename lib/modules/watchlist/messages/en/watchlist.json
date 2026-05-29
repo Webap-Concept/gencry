@@ -43,7 +43,16 @@
     "menu_copy_link": "Copy public link",
     "menu_link_copied": "Public link copied",
     "menu_delete": "Delete",
+    "menu_feature": "Show in feed",
+    "menu_unfeature": "Remove from feed",
     "follow_count": "{count, plural, =0 {no follower} one {# follower} other {# followers}}"
+  },
+  "feed": {
+    "title_fallback": "Watchlist",
+    "show_more": "+{count} more",
+    "show_less": "Collapse",
+    "open_aria": "Open the {name} watchlist",
+    "coin_aria": "Open {symbol}"
   },
   "detail": {
     "back_to_list": "Back to watchlists",
@@ -69,6 +78,8 @@
     "visibility_label": "Visibility",
     "visibility_private_label": "Private — only you",
     "visibility_public_label": "Public — shareable URL",
+    "featured_label": "Show in my feed",
+    "featured_hint": "Pinned at the top of your home feed. Only one watchlist at a time.",
     "submit_create": "Create watchlist",
     "submit_save": "Save changes",
     "cancel": "Cancel",

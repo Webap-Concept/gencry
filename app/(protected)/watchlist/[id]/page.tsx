@@ -112,6 +112,7 @@ async function DetailBody({
               visibility={wl.visibility}
               coinsCount={wl.coinsCount}
               ownerUsername={ownerUsername}
+              featuredInFeed={wl.featuredInFeed}
             />
           </div>
         </div>

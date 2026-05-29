@@ -43,7 +43,16 @@
     "menu_copy_link": "Copia link pubblico",
     "menu_link_copied": "Link pubblico copiato",
     "menu_delete": "Elimina",
+    "menu_feature": "Mostra nel feed",
+    "menu_unfeature": "Togli dal feed",
     "follow_count": "{count, plural, =0 {nessun follower} one {# follower} other {# follower}}"
+  },
+  "feed": {
+    "title_fallback": "Watchlist",
+    "show_more": "+{count} altre",
+    "show_less": "Comprimi",
+    "open_aria": "Apri la watchlist {name}",
+    "coin_aria": "Apri {symbol}"
   },
   "detail": {
     "back_to_list": "Torna alle watchlist",
@@ -69,6 +78,8 @@
     "visibility_label": "Visibilità",
     "visibility_private_label": "Privata — solo tu",
     "visibility_public_label": "Pubblica — URL condivisibile",
+    "featured_label": "Mostra nel mio feed",
+    "featured_hint": "Fissata in cima al tuo feed. Una sola watchlist alla volta.",
     "submit_create": "Crea watchlist",
     "submit_save": "Salva modifiche",
     "cancel": "Annulla",

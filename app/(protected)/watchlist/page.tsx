@@ -89,6 +89,7 @@ async function WatchlistListBody({
                     visibility={w.visibility}
                     coinsCount={w.coinsCount}
                     ownerUsername={ownerUsername}
+                    featuredInFeed={w.featuredInFeed}
                   />
                 }
               />

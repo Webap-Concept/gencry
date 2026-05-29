@@ -15,6 +15,8 @@ import {
   Lock,
   MoreVertical,
   Pencil,
+  Pin,
+  PinOff,
   Trash2,
 } from "lucide-react";
 import {
@@ -31,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   deleteWatchlistAction,
+  setFeaturedWatchlistAction,
   toggleWatchlistVisibilityAction,
 } from "@/lib/modules/watchlist/actions";
 import type { WatchlistVisibility } from "@/lib/modules/watchlist/types";
@@ -49,6 +52,8 @@ type Props = {
    *  non e' sotto un nome utente conosciuto (caso V1 dalla lista
    *  /watchlist: lo prendiamo dal session loggato lato client). */
   ownerUsername: string | null;
+  /** Flag "appare nel mio feed" corrente. */
+  featuredInFeed: boolean;
 };
 
 export function WatchlistCardActions({
@@ -59,6 +64,7 @@ export function WatchlistCardActions({
   visibility,
   coinsCount,
   ownerUsername,
+  featuredInFeed,
 }: Props) {
   const t = useTranslations("watchlist.card");
   const router = useRouter();
@@ -70,6 +76,16 @@ export function WatchlistCardActions({
   const onToggleVisibility = () => {
     startTransition(async () => {
       const res = await toggleWatchlistVisibilityAction(id);
+      if (res.ok) router.refresh();
+    });
+  };
+
+  const onToggleFeatured = () => {
+    startTransition(async () => {
+      const res = await setFeaturedWatchlistAction({
+        id,
+        featured: !featuredInFeed,
+      });
       if (res.ok) router.refresh();
     });
   };
@@ -129,6 +145,19 @@ export function WatchlistCardActions({
               </>
             )}
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggleFeatured}>
+            {featuredInFeed ? (
+              <>
+                <PinOff size={14} aria-hidden />
+                {t("menu_unfeature")}
+              </>
+            ) : (
+              <>
+                <Pin size={14} aria-hidden />
+                {t("menu_feature")}
+              </>
+            )}
+          </DropdownMenuItem>
           {visibility === "public" && ownerUsername ? (
             <DropdownMenuItem onSelect={onCopyLink}>
               <Link2 size={14} aria-hidden />
@@ -149,7 +178,7 @@ export function WatchlistCardActions({
         open={editOpen}
         onOpenChange={setEditOpen}
         mode="edit"
-        initialValues={{ id, name, description, visibility }}
+        initialValues={{ id, name, description, visibility, featuredInFeed }}
       />
 
       <DeleteConfirmDialog

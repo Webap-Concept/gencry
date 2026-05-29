@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/gc-modal";
 import {
   createWatchlistAction,
+  setFeaturedWatchlistAction,
   updateWatchlistAction,
 } from "@/lib/modules/watchlist/actions";
 import {
@@ -38,6 +39,7 @@ type Props = {
     name?: string;
     description?: string | null;
     visibility?: WatchlistVisibility;
+    featuredInFeed?: boolean;
   };
 };
 
@@ -56,6 +58,9 @@ export function WatchlistFormDialog({
   );
   const [visibility, setVisibility] = useState<WatchlistVisibility>(
     initialValues?.visibility ?? "private",
+  );
+  const [featured, setFeatured] = useState(
+    initialValues?.featuredInFeed ?? false,
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -87,6 +92,17 @@ export function WatchlistFormDialog({
       if (!res.ok) {
         setError(formatError(res, tErr));
         return;
+      }
+      // Flag "appare nel feed": action separata, chiamata solo se cambiato.
+      if (featured !== (initialValues.featuredInFeed ?? false)) {
+        const fres = await setFeaturedWatchlistAction({
+          id: initialValues.id,
+          featured,
+        });
+        if (!fres.ok) {
+          setError(formatError(fres, tErr));
+          return;
+        }
       }
       onOpenChange(false);
       router.refresh();
@@ -171,6 +187,25 @@ export function WatchlistFormDialog({
                 />
               </div>
             </fieldset>
+          ) : null}
+          {mode === "edit" ? (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+                disabled={isPending}
+                className="mt-0.5 accent-gc-accent"
+              />
+              <span>
+                <span className="block text-sm text-gc-fg-2">
+                  {t("featured_label")}
+                </span>
+                <span className="block text-xs text-gc-fg-3 mt-0.5">
+                  {t("featured_hint")}
+                </span>
+              </span>
+            </label>
           ) : null}
           {error ? (
             <p className="text-xs text-gc-danger" role="alert">

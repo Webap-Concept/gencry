@@ -40,7 +40,7 @@ import { WATCHLIST_MODULE } from "@/lib/modules/watchlist/manifest";
 
 export const metadata: Metadata = { title: "Watchlist / Architettura" };
 
-const REVIEWED_AT = "2026-05-29 (PR1–PR5: schema, data layer, UI utente, pagina pubblica, copy, coin-page, admin; counter batch reale su griglie home/explore)";
+const REVIEWED_AT = "2026-05-29 (PR1–PR5: schema, data layer, UI utente, pagina pubblica, copy, coin-page, admin; counter batch reale su griglie home/explore; watchlist featured nel feed home)";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -284,6 +284,12 @@ export default function WatchlistArchitecturePage() {
               contract="async (symbols: string[]) => Map<string, number>"
             />
             <ArchHookBox
+              title="getFeaturedWatchlistForFeed(userId)"
+              description="La watchlist marcata featured_in_feed (max una per utente, partial unique index) + coin risolte con sparkline, per la barra espandibile in cima alla home loggata (slot home.hero). Null se nessuna featured o se vuota. React.cache."
+              filePath="lib/modules/watchlist/queries.ts"
+              contract="async (userId) => FeaturedWatchlistFeed | null"
+            />
+            <ArchHookBox
               title="getMyWatchlistsForSymbol(userId, symbol)"
               description="Membership delle mie watchlist rispetto a una coin (flag hasCoin). Per il popover 'Aggiungi a watchlist'. Non cached (per-user, fresh)."
               filePath="lib/modules/watchlist/queries.ts"
@@ -373,7 +379,7 @@ export default function WatchlistArchitecturePage() {
           <div className="space-y-2">
             <ArchFileLink path="lib/modules/watchlist/manifest.ts" description="Registry, nav admin, RBAC permission" />
             <ArchFileLink path="lib/modules/watchlist/types.ts" description="Zod schemas, result types, mapDbErrorToCode, read shapes" />
-            <ArchFileLink path="lib/modules/watchlist/queries.ts" description="getMyWatchlists, getMyWatchlistById, getPublicWatchlistByUserSlug, getWatchlistCountForSymbol, getWatchlistCountsForSymbols, getMyWatchlistsForSymbol, overview stats" />
+            <ArchFileLink path="lib/modules/watchlist/queries.ts" description="getMyWatchlists, getMyWatchlistById, getPublicWatchlistByUserSlug, getWatchlistCountForSymbol, getWatchlistCountsForSymbols, getFeaturedWatchlistForFeed, getMyWatchlistsForSymbol, overview stats" />
             <ArchFileLink path="lib/modules/watchlist/actions.ts" description="CRUD + addCoin/removeCoin/toggleVisibility/copy + loadMyWatchlistsForSymbolAction" />
             <ArchFileLink path="lib/modules/watchlist/perf-cache.ts" description="Cache Redis per-coin perf 30g + averagePerf" />
             <ArchFileLink path="lib/modules/watchlist/slug.ts" description="slugify + generazione slug unico per-utente" />
