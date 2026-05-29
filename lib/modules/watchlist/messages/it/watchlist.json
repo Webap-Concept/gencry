@@ -100,6 +100,7 @@
   },
   "coin_button": {
     "add": "Aggiungi a watchlist",
+    "add_short": "Watchlist",
     "saved": "Salvata",
     "menu_label": "Aggiungi a…",
     "signin_to_save": "Accedi per salvare",

@@ -41,6 +41,9 @@ type Props = {
    *  pre-impostare lo stato "salvata". Default false. */
   initialSaved?: boolean;
   size?: "sm" | "default";
+  /** Label corta: "Watchlist" invece di "Aggiungi a watchlist". Per
+   *  header compatti (coin page). */
+  compact?: boolean;
 };
 
 export function AddToWatchlistButton({
@@ -48,8 +51,10 @@ export function AddToWatchlistButton({
   isLoggedIn,
   initialSaved = false,
   size = "sm",
+  compact = false,
 }: Props) {
   const t = useTranslations("watchlist.coin_button");
+  const addLabel = compact ? t("add_short") : t("add");
   const [rows, setRows] = useState<WatchlistMembershipRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -66,7 +71,7 @@ export function AddToWatchlistButton({
       <Button asChild size={size} variant="outline">
         <Link href="/sign-in" prefetch={false}>
           <BookmarkPlus size={14} aria-hidden />
-          {t("signin_to_save")}
+          {compact ? t("add_short") : t("signin_to_save")}
         </Link>
       </Button>
     );
@@ -120,7 +125,7 @@ export function AddToWatchlistButton({
           ) : (
             <BookmarkPlus size={14} aria-hidden />
           )}
-          {anySaved ? t("saved") : t("add")}
+          {anySaved ? t("saved") : addLabel}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">

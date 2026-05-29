@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { ArrowLeft, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ISR (PR3 refactor Redis-first): la coin page e' pubblica e martellata da
@@ -181,7 +181,7 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
 // Sections
 // ---------------------------------------------------------------------------
 
-function CoinHeader({
+async function CoinHeader({
   coin,
   actions,
   sparklineAriaLabel,
@@ -190,46 +190,56 @@ function CoinHeader({
   actions?: React.ReactNode;
   sparklineAriaLabel: string;
 }) {
+  const tLabels = await getTranslations("prices.labels");
+  const hasRank =
+    typeof coin.marketCapRank === "number" && coin.marketCapRank > 0;
+  // Mobile (centrato, alla profilo): icona grande, nome, ticker·category
+  // menta-in-dark, riga prezzo|24h|rank con divisori. Desktop (sm+):
+  // layout orizzontale classico (prezzo grande + sparkline a dx).
   return (
-    <header className="flex items-start gap-4 flex-wrap">
-      <CoinIcon
-        symbol={coin.symbol}
-        name={coin.name}
-        imageUrl={coin.imageUrl}
-        size="xl"
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl font-semibold text-gc-fg">{coin.name}</h1>
-          {typeof coin.marketCapRank === "number" && coin.marketCapRank > 0 && (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gc-bg-3 border border-gc-line text-gc-fg-2 tabular-nums">
-              #{coin.marketCapRank}
-            </span>
-          )}
+    <header>
+      {/* Mobile: actions (bottone watchlist compatto) in alto a destra. */}
+      {actions ? (
+        <div className="flex justify-end sm:hidden mb-1">{actions}</div>
+      ) : null}
+
+      <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3 sm:gap-4">
+        <CoinIcon
+          symbol={coin.symbol}
+          name={coin.name}
+          imageUrl={coin.imageUrl}
+          size="xl"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+            <h1 className="text-2xl font-semibold text-gc-fg">{coin.name}</h1>
+            {hasRank && (
+              <span className="hidden sm:inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gc-bg-3 border border-gc-line text-gc-fg-2 tabular-nums">
+                #{coin.marketCapRank}
+              </span>
+            )}
+          </div>
+          {/* ticker · category — verde menta in dark (classe coin-meta) */}
+          <div className="coin-meta flex items-center justify-center sm:justify-start gap-1.5 text-xs text-gc-fg-3 mt-1">
+            <span className="uppercase tracking-wide">{coin.symbol}</span>
+            {coin.category && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{coin.category}</span>
+              </>
+            )}
+          </div>
+          {/* Prezzo grande: solo desktop. Su mobile vive nella riga valori. */}
+          <div className="hidden sm:block mt-4">
+            <CoinPriceLabel
+              price={coin.price}
+              change24h={coin.change24h}
+              size="lg"
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-gc-fg-3 mt-1">
-          <span className="uppercase tracking-wide">{coin.symbol}</span>
-          {coin.category && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{coin.category}</span>
-            </>
-          )}
-        </div>
-        <div className="mt-4">
-          <CoinPriceLabel
-            price={coin.price}
-            change24h={coin.change24h}
-            size="lg"
-          />
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-3">
-        {/* Su mobile la sparkline mini comprimerebbe il blocco prezzo
-            (lo troncava a "$77,3..."); la nascondiamo perché il chart
-            grande sotto la copre comunque. Da sm in su torna utile come
-            "preview" del trend settimanale accanto al titolo. */}
-        <div className="hidden sm:block">
+        {/* Desktop: sparkline + actions a destra. */}
+        <div className="hidden sm:flex flex-col items-end gap-3">
           <MiniSparkline
             id={coin.symbol}
             points={coin.weeklySparkline}
@@ -237,33 +247,83 @@ function CoinHeader({
             height={60}
             ariaLabel={sparklineAriaLabel}
           />
+          {actions}
         </div>
-        {actions}
+      </div>
+
+      {/* Mobile: riga valori distribuiti con divisori — prezzo | 24h | rank. */}
+      <div className="sm:hidden mt-4 flex justify-center divide-x divide-gc-line border-t border-gc-line pt-4">
+        <ValueCell label={tLabels("price")} value={fmtCoinPrice(coin.price)} />
+        <ValueCell
+          label="24h"
+          value={fmtCoinChange(coin.change24h)}
+          tone={changeTone(coin.change24h)}
+        />
+        {hasRank ? (
+          <ValueCell label={tLabels("rank")} value={`#${coin.marketCapRank}`} />
+        ) : null}
       </div>
     </header>
   );
 }
 
-async function HeaderActions({
+function HeaderActions({
   isLoggedIn,
   symbol,
 }: {
   isLoggedIn: boolean;
   symbol: string;
 }) {
-  // Mostrato anche agli anon: il bottone watchlist degrada a "Accedi per
-  // salvare" (link sign-in). Share resta placeholder disabled finché non
-  // c'è la feature reale.
+  // Solo bottone watchlist compatto (icona + "Watchlist"). Lo Share e'
+  // stato rimosso (feature non prevista). Anon → "Watchlist" link sign-in.
   return (
-    <div className="flex items-center gap-2">
-      <AddToWatchlistButton symbol={symbol} isLoggedIn={isLoggedIn} />
-      {isLoggedIn ? (
-        <Button type="button" size="sm" variant="ghost" disabled aria-label="Share">
-          <Share2 size={14} />
-        </Button>
-      ) : null}
+    <AddToWatchlistButton symbol={symbol} isLoggedIn={isLoggedIn} compact />
+  );
+}
+
+// Cella della riga valori mobile (prezzo | 24h | rank).
+function ValueCell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className="text-center px-5">
+      <p className={`text-lg font-semibold tabular-nums leading-tight ${tone ?? "text-gc-fg"}`}>
+        {value}
+      </p>
+      <p className="text-[10px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+        {label}
+      </p>
     </div>
   );
+}
+
+function changeTone(change: number | null): string {
+  if (change === null || !Number.isFinite(change)) return "text-gc-fg-3";
+  if (change > 0) return "text-gc-pos";
+  if (change < 0) return "text-gc-neg";
+  return "text-gc-fg-3";
+}
+
+function fmtCoinPrice(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "$0.00";
+  const abs = Math.abs(value);
+  if (abs < 0.01) return `$${value.toPrecision(4)}`;
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function fmtCoinChange(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 async function AnonymousCta({ coinName }: { coinName: string }) {

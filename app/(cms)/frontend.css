@@ -253,6 +253,9 @@
 .gc-dark .profile-stat-num { color: var(--gc-accent); }
 .gc-dark .profile-username { color: var(--gc-green); }
 
+/* Coin page (header) — ticker · category in verde menta solo in dark. */
+.gc-dark .coin-meta { color: var(--gc-green); }
+
 /* ---------------------------------------------------------------------------
    Scrollbar — colorate sui token gc-*, theme-aware automaticamente.
    Light: scrollbar cream con thumb sabbia scura. Dark: scrollbar verde scuro
