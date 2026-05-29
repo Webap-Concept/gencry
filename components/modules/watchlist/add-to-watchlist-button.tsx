@@ -13,7 +13,7 @@
 // Stato visivo del trigger: se la coin e' in >=1 mia watchlist → variant
 // "secondary" (verde, salvata); altrimenti "outline" (neutro, da salvare).
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { BookmarkPlus, BookmarkCheck, Plus } from "lucide-react";
@@ -60,15 +60,32 @@ export function AddToWatchlistButton({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  // Fetch della membership AL MOUNT (non solo all'apertura del dropdown):
+  // la coin page e' ISR-cached, quindi lo stato salvato/non-salvato non
+  // puo' essere server-rendered. Senza questo, il trigger mostrava sempre
+  // "+ Watchlist" dopo un refresh anche se la coin era gia' salvata.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const res = await loadMyWatchlistsForSymbolAction(symbol);
+      if (cancelled) return;
+      setRows(res.ok ? res.watchlists : []);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, symbol]);
+
   // "salvata" = almeno una mia watchlist contiene la coin. Prima del
   // fetch usa initialSaved; dopo, deriva da rows.
-  const anySaved = rows
-    ? rows.some((r) => r.hasCoin)
-    : initialSaved;
+  const anySaved = rows ? rows.some((r) => r.hasCoin) : initialSaved;
 
   if (!isLoggedIn) {
     return (
-      <Button asChild size={size} variant="outline">
+      <Button asChild size={size} variant="secondary">
         <Link href="/sign-in" prefetch={false}>
           <BookmarkPlus size={14} aria-hidden />
           {compact ? t("add_short") : t("signin_to_save")}
@@ -76,17 +93,6 @@ export function AddToWatchlistButton({
       </Button>
     );
   }
-
-  const onOpenChange = (open: boolean) => {
-    if (open && rows === null && !loading) {
-      setLoading(true);
-      startTransition(async () => {
-        const res = await loadMyWatchlistsForSymbolAction(symbol);
-        setRows(res.ok ? res.watchlists : []);
-        setLoading(false);
-      });
-    }
-  };
 
   const toggle = (row: WatchlistMembershipRow) => {
     setPendingId(row.id);
@@ -117,9 +123,11 @@ export function AddToWatchlistButton({
   };
 
   return (
-    <DropdownMenu onOpenChange={onOpenChange}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" size={size} variant={anySaved ? "secondary" : "outline"}>
+        {/* Sempre verde menta (secondary), sia "+ Watchlist" sia "Salvata":
+            lo stato lo comunica l'icona (Plus → Check) + il testo. */}
+        <Button type="button" size={size} variant="secondary">
           {anySaved ? (
             <BookmarkCheck size={14} aria-hidden />
           ) : (
