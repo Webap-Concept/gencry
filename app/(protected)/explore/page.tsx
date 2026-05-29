@@ -28,6 +28,7 @@ import {
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
 import { getCoinForCard, getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getFollowingSet } from "@/lib/modules/social-graph/queries";
+import { getWatchlistCountForSymbol } from "@/lib/modules/watchlist/queries";
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -67,14 +68,16 @@ export default async function ExplorePage({
   // Carica la prima pagina del feed scelto + (se ticker) lo snapshot
   // del coin per il CoinSummaryCard sticky + la coinNameMap per il
   // match nomi estesi nel PostBody di ogni card.
-  const [page, coin, coinNameMap, commentsConfig] = await Promise.all([
-    ticker
-      ? getTickerFeedIds({ ticker, viewerUserId: user.id })
-      : getDiscoverFeedIds({ viewerUserId: user.id }),
-    ticker ? getCoinForCard(ticker) : Promise.resolve(null),
-    getCoinNameMap(),
-    loadCommentsConfig(),
-  ]);
+  const [page, coin, coinNameMap, commentsConfig, tickerWatchlistCount] =
+    await Promise.all([
+      ticker
+        ? getTickerFeedIds({ ticker, viewerUserId: user.id })
+        : getDiscoverFeedIds({ viewerUserId: user.id }),
+      ticker ? getCoinForCard(ticker) : Promise.resolve(null),
+      getCoinNameMap(),
+      loadCommentsConfig(),
+      ticker ? getWatchlistCountForSymbol(ticker) : Promise.resolve(0),
+    ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
   // Prefetch batch dei preview ticker visibili (incluso il filter ticker
   // attivo, così l'hover su CoinSummaryCard è già hot).
@@ -109,7 +112,7 @@ export default async function ExplorePage({
           - Con ticker non tracciato → fallback testuale */}
       {ticker ? (
         coin ? (
-          <CoinSummaryCard coin={coin} />
+          <CoinSummaryCard coin={coin} watchlistCount={tickerWatchlistCount} />
         ) : (
           <div className="max-w-2xl mx-auto pt-6">
             <div className="rounded-2xl border border-dashed border-gc-line bg-gc-bg-2 p-4 text-sm text-gc-fg-2">

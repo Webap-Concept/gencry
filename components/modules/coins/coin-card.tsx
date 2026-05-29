@@ -1,7 +1,7 @@
 "use client";
 // components/modules/coins/coin-card.tsx
 // Card coin: icona + nome + simbolo + categoria + chip rank + prezzo +
-// variazione 24h + sparkline 21pt + footer "In Nk watchlist" (mockup).
+// variazione 24h + sparkline 21pt + footer "In Nk watchlist" (reale).
 // Pure presentational. Reso "use client" perché è importato anche da
 // CoinSummaryCard (client component sticky-aware) — un Server Component
 // non può essere importato come JSX da un Client Component in Next.js
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { CoinIcon } from "./coin-icon";
 import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
-import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
+import { formatCompactCount } from "./format-count";
 
 export function CoinCard({
   coin,
@@ -25,16 +25,15 @@ export function CoinCard({
   coin: CoinView;
   /** Posizione per market cap. Se null/undefined la chip non si mostra. */
   rank?: number | null;
-  /** Numero di watchlist in cui appare il coin. Se omesso, viene
-   *  generato un mockup deterministico (la feature reale non esiste
-   *  ancora). Quando la query reale arriverà, basterà passarla qui. */
+  /** Numero reale di watchlist in cui appare il coin
+   *  (`getWatchlistCountsForSymbols`). Se omesso/null si assume 0. */
   watchlistCount?: number | null;
   /** Destinazione del click sulla card. Default `/coins/<symbol>`. Passa
    *  `null` per renderla non-cliccabile (es. preview admin). */
   href?: string | null;
   className?: string;
 }) {
-  const wlCount = watchlistCount ?? mockWatchlistCount(coin.symbol);
+  const wlCount = watchlistCount ?? 0;
   const resolvedHref =
     href === null ? null : (href ?? `/coins/${coin.symbol.toLowerCase()}`);
   const tLabels = useTranslations("prices.labels");
@@ -107,7 +106,7 @@ export function CoinCard({
         />
       </div>
 
-      {/* Footer — watchlist count (mockup finché la feature reale non esiste).
+      {/* Footer — watchlist count reale (batch getWatchlistCountsForSymbols).
           ICU rich text non disponibile in next-intl server: usiamo split
           "In {count} watchlist" → {prefix}<strong>{count}</strong>{suffix}
           se servisse styling separato. Qui basta il template piatto. */}

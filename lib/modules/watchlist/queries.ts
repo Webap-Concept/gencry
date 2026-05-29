@@ -372,6 +372,39 @@ export const getWatchlistCountForSymbol = cache(
 );
 
 /**
+ * Versione batch di `getWatchlistCountForSymbol` per le griglie coin
+ * (home/explore): conta in quante watchlist attive appare CIASCUN symbol
+ * con UNA sola query (GROUP BY) invece di N. Stessa semantica aggregata e
+ * anonima della versione singola — public + private, mai chi.
+ *
+ * Ritorna una Map seedata con 0 per ogni symbol richiesto, così il render
+ * non deve gestire `undefined`. Indicizzata da idx_watchlist_coins_symbol.
+ * Staleness coperta dall'ISR/cache della pagina chiamante.
+ */
+export async function getWatchlistCountsForSymbols(
+  symbols: string[],
+): Promise<Map<string, number>> {
+  const upper = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
+  const result = new Map<string, number>(upper.map((s) => [s, 0]));
+  if (upper.length === 0) return result;
+
+  const rows = await db
+    .select({ symbol: watchlistCoins.symbol, n: count() })
+    .from(watchlistCoins)
+    .innerJoin(watchlists, eq(watchlists.id, watchlistCoins.watchlistId))
+    .where(
+      and(
+        inArray(watchlistCoins.symbol, upper),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .groupBy(watchlistCoins.symbol);
+
+  for (const r of rows) result.set(r.symbol, r.n);
+  return result;
+}
+
+/**
  * Membership delle MIE watchlist rispetto a un symbol: lista delle mie
  * watchlist attive + flag `hasCoin`. Per il popover "Aggiungi a
  * watchlist" della coin page. Non cached (per-user, dev'essere fresh

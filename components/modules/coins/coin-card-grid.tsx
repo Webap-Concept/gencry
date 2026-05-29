@@ -4,6 +4,7 @@
 // per beneficiare dello streaming RSC.
 import { getTranslations } from "next-intl/server";
 import { getTopCoinsForCards } from "@/lib/modules/prices/queries";
+import { getWatchlistCountsForSymbols } from "@/lib/modules/watchlist/queries";
 import { cn } from "@/lib/utils";
 import { CoinCard } from "./coin-card";
 import { CoinCardSkeleton } from "./coin-card-skeleton";
@@ -26,6 +27,11 @@ export async function CoinCardGrid({
     );
   }
 
+  // Counter watchlist reali in UNA query (no N+1 sulla griglia).
+  const wlCounts = await getWatchlistCountsForSymbols(
+    coins.map((c) => c.symbol),
+  );
+
   return (
     <div
       className={cn(
@@ -34,7 +40,12 @@ export async function CoinCardGrid({
       )}
     >
       {coins.map((coin) => (
-        <CoinCard key={coin.symbol} coin={coin} rank={coin.marketCapRank} />
+        <CoinCard
+          key={coin.symbol}
+          coin={coin}
+          rank={coin.marketCapRank}
+          watchlistCount={wlCounts.get(coin.symbol.toUpperCase()) ?? 0}
+        />
       ))}
     </div>
   );

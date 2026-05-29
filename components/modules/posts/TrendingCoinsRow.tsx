@@ -17,6 +17,7 @@ import { TrendingUp } from "lucide-react";
 import { unstable_cache } from "next/cache";
 import { getTrendingTickers } from "@/lib/modules/posts/queries";
 import { getCoinForCard, type CoinView } from "@/lib/modules/prices/queries";
+import { getWatchlistCountsForSymbols } from "@/lib/modules/watchlist/queries";
 import { CoinCard } from "@/components/modules/coins/coin-card";
 
 const TRENDING_TAG = "posts:trending-tickers";
@@ -50,6 +51,11 @@ export async function TrendingCoinsRow() {
 
   if (coins.length === 0) return null;
 
+  // Counter watchlist reali in UNA query per tutte le card della row.
+  const wlCounts = await getWatchlistCountsForSymbols(
+    coins.map(({ coin }) => coin.symbol),
+  );
+
   const t = await getTranslations("posts.trending");
 
   return (
@@ -64,7 +70,11 @@ export async function TrendingCoinsRow() {
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {coins.map(({ coin }) => (
-          <CoinCard key={coin.symbol} coin={coin} />
+          <CoinCard
+            key={coin.symbol}
+            coin={coin}
+            watchlistCount={wlCounts.get(coin.symbol.toUpperCase()) ?? 0}
+          />
         ))}
       </div>
     </section>
