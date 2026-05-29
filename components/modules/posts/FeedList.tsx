@@ -25,7 +25,8 @@ import { PostCard } from "./PostCard";
 
 /**
  * Page size dinamico (#7 dal feed optimization backlog):
- *   - First page (SSR) = 20 (already shipped come prop).
+ *   - First page (SSR) = 12 (FEED_FIRST_PAGE_SIZE in queries.ts): payload
+ *     RSC iniziale più leggero (banda + parsing client + query DB).
  *   - Pages successive = 30 (utente engaged → vale la pena fetcheare più
  *     contenuto per ridurre round-trip + percepire scroll più liscio).
  * Server-side `clampPageSize` in feed-actions.ts cappa difensivamente a 50.

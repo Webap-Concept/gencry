@@ -65,6 +65,14 @@ import type {
 
 const DEFAULT_PAGE_SIZE = 20;
 
+// Primo paint dei feed (SSR): più piccolo di DEFAULT_PAGE_SIZE per
+// alleggerire il payload RSC iniziale (banda + parsing client + query DB).
+// Lo scroll successivo usa LOAD_MORE_PAGE_SIZE=30 (client FeedList), quindi
+// 12 post coprono già 2-3 schermate prima che parta l'infinite scroll.
+// NB: le code di moderazione admin restano su DEFAULT_PAGE_SIZE (semantica
+// diversa: quante segnalazioni per pagina, non payload feed).
+const FEED_FIRST_PAGE_SIZE = 12;
+
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers — visibility predicates and cursor keyset clause
 // ─────────────────────────────────────────────────────────────────────────
@@ -235,7 +243,7 @@ export async function getDiscoverFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
 
   const [blockedIds, followingSet] = await Promise.all([
@@ -317,7 +325,7 @@ export async function getHomeFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const parsed = decodeHomeCursor(opts.cursor);
 
   if (!opts.viewerUserId) {
@@ -477,7 +485,7 @@ export async function getProfileFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
   const [blockedIds, followingSet] = await Promise.all([
     opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
@@ -511,7 +519,7 @@ export async function getTickerFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
   // Ticker normalizzato uppercase (CHECK SQL li impone così).
   const tickerNorm = opts.ticker.toUpperCase();
@@ -555,7 +563,7 @@ export async function getBookmarkFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
   return getCachedFeedIds(
     `bookmarks:${opts.viewerUserId}:${opts.cursor ?? "0"}:${pageSize}`,
@@ -601,7 +609,7 @@ export async function getMentionsFeedIds(opts: {
   cursor?: string;
   pageSize?: number;
 }): Promise<PostListPage> {
-  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = opts.pageSize ?? FEED_FIRST_PAGE_SIZE;
   const cursor = decodeCursor(opts.cursor);
   const [blockedIds, followingSet] = await Promise.all([
     opts.viewerUserId ? getBlockedIdsForViewer(opts.viewerUserId) : Promise.resolve(undefined),
