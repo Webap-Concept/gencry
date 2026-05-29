@@ -7,12 +7,14 @@
 -- attivarne una) in transazione; l'index è il backstop a livello DB che
 -- impedisce stati inconsistenti anche da accessi concorrenti.
 --
--- CREATE INDEX CONCURRENTLY non può girare in transazione → niente
--- BEGIN/COMMIT. Da incollare nel Supabase SQL Editor.
+-- NB: indice NON CONCURRENTLY. Il SQL Editor di Supabase esegue lo script
+-- in una transazione, e CREATE INDEX CONCURRENTLY non è ammesso lì. Su
+-- `watchlists` (poche righe per utente) il lock dell'indice è istantaneo,
+-- quindi CONCURRENTLY non serve. Da incollare nel Supabase SQL Editor.
 
 ALTER TABLE "watchlists"
   ADD COLUMN IF NOT EXISTS "featured_in_feed" boolean NOT NULL DEFAULT false;
 
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "uq_watchlists_user_featured"
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_watchlists_user_featured"
   ON "watchlists" ("user_id")
   WHERE "featured_in_feed" AND "archived_at" IS NULL;
