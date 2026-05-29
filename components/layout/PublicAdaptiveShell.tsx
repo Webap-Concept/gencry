@@ -4,8 +4,10 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
-import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
+import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
+import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getSession } from "@/lib/auth/session";
+import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 
 /**
@@ -53,25 +55,23 @@ export async function PublicAdaptiveShell({
         <PolicyReconsentSlot userId={session.user.id} />
       </Suspense>
     );
+    const unreadCount = await getUnreadNotificationsCount(session.user.id);
     return (
-      <ProtectedShell
-        appLogoUrl={appSettings.app_logo_url}
-        appLogoVariantUrl={appSettings.app_logo_variant_url}
-        banner={banner}
-        notificationsBadge={
-          <Suspense fallback={null}>
-            <NotificationsBadge />
-          </Suspense>
-        }
-        notificationsBadgeMobile={
-          <Suspense fallback={null}>
-            <NotificationsBadge />
-          </Suspense>
-        }
-        rightRailExtra={rightRailExtra}
+      <NotificationsUnreadProvider
+        viewerUserId={session.user.id}
+        initialCount={unreadCount}
       >
-        <Suspense fallback={null}>{children}</Suspense>
-      </ProtectedShell>
+        <ProtectedShell
+          appLogoUrl={appSettings.app_logo_url}
+          appLogoVariantUrl={appSettings.app_logo_variant_url}
+          banner={banner}
+          notificationsBadge={<NotificationsBadgePill />}
+          notificationsBadgeMobile={<NotificationsBadgePill />}
+          rightRailExtra={rightRailExtra}
+        >
+          <Suspense fallback={null}>{children}</Suspense>
+        </ProtectedShell>
+      </NotificationsUnreadProvider>
     );
   }
 

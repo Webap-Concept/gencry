@@ -1,6 +1,8 @@
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
-import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
+import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
+import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
+import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
@@ -100,24 +102,25 @@ export default async function Layout({
     </>
   );
 
+  // Count unread server-fetched: alimenta il provider unico (1 sola
+  // subscription realtime condivisa da tutti i badge).
+  const unreadCount = await getUnreadNotificationsCount(session.user.id);
+
   return (
-    <ProtectedShell
-      appLogoUrl={appSettings.app_logo_url}
-      appLogoVariantUrl={appSettings.app_logo_variant_url}
-      banner={banner}
-      notificationsBadge={
-        <Suspense fallback={null}>
-          <NotificationsBadge />
-        </Suspense>
-      }
-      notificationsBadgeMobile={
-        <Suspense fallback={null}>
-          <NotificationsBadge />
-        </Suspense>
-      }
+    <NotificationsUnreadProvider
+      viewerUserId={session.user.id}
+      initialCount={unreadCount}
     >
-      <Suspense fallback={null}>{children}</Suspense>
-      {modal}
-    </ProtectedShell>
+      <ProtectedShell
+        appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
+        banner={banner}
+        notificationsBadge={<NotificationsBadgePill />}
+        notificationsBadgeMobile={<NotificationsBadgePill />}
+      >
+        <Suspense fallback={null}>{children}</Suspense>
+        {modal}
+      </ProtectedShell>
+    </NotificationsUnreadProvider>
   );
 }

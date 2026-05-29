@@ -25,7 +25,7 @@ import type { NotificationListItem } from "@/lib/modules/notifications/queries";
 import { NotificationItem } from "./NotificationItem";
 import { NotificationGroupItem } from "./NotificationGroupItem";
 import { aggregateNotifications } from "./aggregate";
-import { dispatchAllRead } from "./NotificationsBadgeClient";
+import { dispatchAllRead } from "./NotificationsUnreadProvider";
 
 const MARK_ALL_DELAY_MS = 1500;
 
