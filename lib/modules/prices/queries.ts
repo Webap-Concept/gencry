@@ -364,7 +364,11 @@ const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]>
     .from(pricesCoins)
     .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
     .where(eq(pricesCoins.isActive, true))
-    .orderBy(desc(pricesCoins.marketCap))
+    // NULLS LAST: senza, Postgres mette i market_cap NULL in TESTA su
+    // DESC → coin senza market cap (import wholesale/manuali) finivano
+    // in cima al ticker/griglie invece dei big (BTC/ETH). Vogliamo i
+    // maggiori market cap per primi, i non-rankati in fondo.
+    .orderBy(sql`${pricesCoins.marketCap} DESC NULLS LAST`)
     .limit(limit);
 
   return rows.map((r) => ({
