@@ -146,19 +146,33 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
   const tCommon = await getTranslations("prices.common");
   const tLabels = await getTranslations("prices.labels");
 
+  const backLink = (
+    <Link
+      href="/explore"
+      prefetch={false}
+      className="inline-flex items-center gap-1.5 text-xs text-gc-fg-3 hover:text-gc-fg-2 transition-colors"
+    >
+      <ArrowLeft size={14} />
+      {tCommon("explore")}
+    </Link>
+  );
+
   return (
     <>
       <CoinJsonLd coin={coin} siteUrl={siteUrl} />
-      {isLoggedIn && (
-        <Link
-          href="/explore"
-          prefetch={false}
-          className="inline-flex items-center gap-1.5 text-xs text-gc-fg-3 hover:text-gc-fg-2 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          {tCommon("explore")}
-        </Link>
-      )}
+
+      {/* Mobile: back + watchlist sulla STESSA riga (compatto, niente
+          due righe impilate). Se anon, il back manca → lo span vuoto
+          tiene il watchlist a destra. */}
+      <div className="flex items-center justify-between gap-2 sm:hidden">
+        {isLoggedIn ? backLink : <span aria-hidden />}
+        <AddToWatchlistButton symbol={coin.symbol} isLoggedIn={isLoggedIn} compact />
+      </div>
+
+      {/* Desktop: back come riga sopra l'header (il watchlist sta nel
+          blocco header a destra). */}
+      {isLoggedIn ? <div className="hidden sm:block">{backLink}</div> : null}
+
       <CoinHeader
         coin={coin}
         actions={
@@ -198,11 +212,9 @@ async function CoinHeader({
   // layout orizzontale classico (prezzo grande + sparkline a dx).
   return (
     <header>
-      {/* Mobile: actions (bottone watchlist compatto) in alto a destra. */}
-      {actions ? (
-        <div className="flex justify-end sm:hidden mb-1">{actions}</div>
-      ) : null}
-
+      {/* Le actions mobile (bottone watchlist) vivono nella riga
+          back+watchlist del CoinDetailBody. Qui `actions` e' montato solo
+          nel blocco desktop a destra. */}
       <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3 sm:gap-4">
         <CoinIcon
           symbol={coin.symbol}
