@@ -15,13 +15,20 @@
 // Credenziali:
 //   - qstash_url, qstash_token  → letti da app_settings (impostati in
 //     /admin/services/qstash). QStash è regionale: l'URL è quello salvato.
-//   - CRON_SECRET               → env (lo stesso che gli endpoint validano
-//     via isAuthorizedCron). Inoltrato al target come Authorization Bearer.
-//   - CRON_TARGET_BASE_URL      → env, origin pubblico dell'app di
-//     produzione (es. https://app.example.com). QStash chiama
-//     `${CRON_TARGET_BASE_URL}${path}`.
+//   - CRON_SECRET               → env (.env.local), lo stesso che gli
+//     endpoint validano via isAuthorizedCron. Inoltrato al target come
+//     Authorization Bearer.
+//   - base URL target          → CRON_TARGET_BASE_URL, oppure fallback a
+//     NEXT_PUBLIC_APP_URL / BASE_URL già in env. DEVE essere l'origin di
+//     PRODUZIONE (QStash non raggiunge localhost). QStash chiama
+//     `${base}${path}`.
 
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+// Lo script gira fuori da Next: carichiamo noi .env.local (override) + .env,
+// come fa Next. CRON_SECRET sta in .env.local, le altre possono stare in .env.
+loadEnv({ path: ".env.local" });
+loadEnv({ path: ".env" });
+
 import { inArray } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import { appSettings } from "@/lib/db/schema";
@@ -70,11 +77,27 @@ async function readQstashCreds(): Promise<{ url: string; token: string }> {
 
 function readEnv(): { cronSecret: string; targetBase: string } {
   const cronSecret = (process.env.CRON_SECRET ?? "").trim();
-  const targetBase = (process.env.CRON_TARGET_BASE_URL ?? "").trim();
-  if (!cronSecret) throw new Error("CRON_SECRET non impostato in env.");
+  // Base URL: preferisci CRON_TARGET_BASE_URL esplicito, altrimenti riusa
+  // l'URL del sito già configurato. DEVE essere l'origin di PRODUZIONE —
+  // QStash chiama da fuori e non raggiunge localhost.
+  const targetBase = (
+    process.env.CRON_TARGET_BASE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.BASE_URL ??
+    ""
+  ).trim();
+  if (!cronSecret) {
+    throw new Error("CRON_SECRET non trovato (cercato in .env.local / .env).");
+  }
   if (!targetBase) {
     throw new Error(
-      "CRON_TARGET_BASE_URL non impostato (origin pubblico dell'app, es. https://app.example.com).",
+      "Nessun base URL: imposta CRON_TARGET_BASE_URL (o NEXT_PUBLIC_APP_URL / BASE_URL).",
+    );
+  }
+  if (/localhost|127\.0\.0\.1/.test(targetBase)) {
+    console.warn(
+      `⚠️  Base URL = ${targetBase} — QStash NON può raggiungere localhost. ` +
+        "Imposta CRON_TARGET_BASE_URL al dominio di PRODUZIONE prima del sync reale.",
     );
   }
   return { cronSecret, targetBase: stripSlash(targetBase) };
