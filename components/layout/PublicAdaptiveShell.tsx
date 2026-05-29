@@ -4,6 +4,7 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import { NotificationsBadge } from "@/components/modules/notifications/NotificationsBadge";
 import { getSession } from "@/lib/auth/session";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
 
@@ -57,6 +58,16 @@ export async function PublicAdaptiveShell({
         appLogoUrl={appSettings.app_logo_url}
         appLogoVariantUrl={appSettings.app_logo_variant_url}
         banner={banner}
+        notificationsBadge={
+          <Suspense fallback={null}>
+            <NotificationsBadge />
+          </Suspense>
+        }
+        notificationsBadgeMobile={
+          <Suspense fallback={null}>
+            <NotificationsBadge />
+          </Suspense>
+        }
         rightRailExtra={rightRailExtra}
       >
         <Suspense fallback={null}>{children}</Suspense>
