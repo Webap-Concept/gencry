@@ -98,6 +98,16 @@
     "coins_count_label": "Coin tracciate",
     "back_to_profile": "Vai al profilo"
   },
+  "copy": {
+    "button": "Copia",
+    "button_aria": "Copia questa watchlist nelle tue",
+    "signin_to_copy": "Accedi per copiare",
+    "modal_title": "Copiare \"{name}\"?",
+    "modal_description": "Verrà aggiunta alle tue watchlist come privata, con {count, plural, =0 {nessuna coin} one {# coin} other {# coin}}. Potrai modificarla liberamente.",
+    "confirm": "Copia nelle mie watchlist",
+    "cancel": "Annulla",
+    "success": "Watchlist copiata"
+  },
   "errors": {
     "watchlist_cap_reached": "Hai raggiunto il massimo di watchlist ({cap}). Archivia o elimina una watchlist prima di crearne un'altra.",
     "watchlist_coins_cap_reached": "Questa watchlist è piena ({cap} coin). Rimuovine una prima di aggiungerne un'altra.",

@@ -104,6 +104,10 @@ export type ToggleVisibilityResult =
 
 export type DeleteWatchlistResult = { ok: true } | ActionFail;
 
+export type CopyWatchlistResult =
+  | { ok: true; id: string; slug: string; coinsCopied: number }
+  | ActionFail;
+
 export type AddCoinResult =
   | { ok: true; symbol: string; coinsCount: number }
   | ActionFail;

@@ -21,6 +21,7 @@ import type { Metadata } from "next";
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { CoinIcon } from "@/components/modules/coins/coin-icon";
 import { CoinPriceLabel } from "@/components/modules/coins/coin-price-label";
+import { CopyWatchlistButton } from "@/components/modules/watchlist/copy-watchlist-button";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { getPublicWatchlistByUserSlug } from "@/lib/modules/watchlist/queries";
@@ -143,16 +144,23 @@ async function PublicWatchlistBody({
               </p>
             ) : null}
           </div>
-          {isOwner ? (
-            <div className="shrink-0">
+          <div className="shrink-0">
+            {isOwner ? (
               <Button asChild size="sm" variant="outline">
                 <Link href={`/watchlist/${wl.id}`} prefetch={false}>
                   <Pencil size={14} aria-hidden />
                   {t("edit_button")}
                 </Link>
               </Button>
-            </div>
-          ) : null}
+            ) : (
+              <CopyWatchlistButton
+                sourceId={wl.id}
+                sourceName={wl.name}
+                sourceCoinsCount={wl.coinsCount}
+                isLoggedIn={isLoggedIn}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gc-line pt-4">

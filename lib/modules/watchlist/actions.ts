@@ -15,15 +15,17 @@
 // Niente rate-limit V1 (le mutation watchlist sono low-frequency: max 5
 // watchlist, max 50 coin). Lo wireremo se vedremo abuse pattern reali.
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/drizzle";
 import { getUser } from "@/lib/db/queries";
 import { watchlistCoins, watchlists } from "@/lib/db/schema";
+import { getAppSettings } from "@/lib/db/settings-queries";
 import { getCoinForCard } from "@/lib/modules/prices/queries";
 import { generateUniqueSlug } from "./slug";
 import {
   type AddCoinResult,
+  type CopyWatchlistResult,
   type CreateWatchlistResult,
   type DeleteWatchlistResult,
   type RemoveCoinResult,
@@ -346,6 +348,115 @@ export async function removeCoinAction(
       viewerId: viewer.id,
       watchlistId,
       symbol,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── copyWatchlist (duplica una watchlist pubblica nelle proprie) ──────
+//
+// Use case: l'utente trova una watchlist pubblica su /w/<u>/<slug> e la
+// vuole nelle sue per editarla. La copia e' uno SNAPSHOT: name + coin
+// al momento del copy, niente link alla source (no sync futura).
+//
+// Regole:
+//   - source deve essere visibility='public' AND non-archived. Niente
+//     copia di private altrui (info leak). Copiare la PROPRIA wl pubblica
+//     e' permesso (funge da "duplica").
+//   - la copia nasce PRIVATE: non ri-pubblichiamo automaticamente
+//     contenuti basati su quelli di un altro utente.
+//   - name = source.name invariato (l'utente rinomina dopo se vuole),
+//     slug nuovo unico per l'owner.
+//   - coin troncate a max_coins_per_watchlist (di norma la source ne ha
+//     gia' meno, ma e' un guard se il cap fosse stato abbassato).
+//   - cap watchlist: il trigger DB e' backstop → cap_reached gestito.
+//   - Transazione: watchlist + coin insieme. Se il cap watchlist scatta,
+//     rollback totale (niente coin orfane).
+export async function copyWatchlistAction(
+  sourceId: string,
+): Promise<CopyWatchlistResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  // 1. Carica la source: deve essere pubblica e attiva.
+  const [source] = await db
+    .select({
+      id: watchlists.id,
+      name: watchlists.name,
+      description: watchlists.description,
+      visibility: watchlists.visibility,
+    })
+    .from(watchlists)
+    .where(
+      and(
+        eq(watchlists.id, sourceId),
+        eq(watchlists.visibility, "public"),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .limit(1);
+  if (!source) return { ok: false, error: "not_found" };
+
+  // 2. Coin della source, ordinate per position. Cap-truncate.
+  const settings = await getAppSettings();
+  const rawCap = settings["modules.watchlist.max_coins_per_watchlist"];
+  const maxCoins = rawCap ? parseInt(rawCap, 10) : 50;
+  const cap = Number.isFinite(maxCoins) && maxCoins > 0 ? maxCoins : 50;
+
+  const sourceCoins = await db
+    .select({ symbol: watchlistCoins.symbol, position: watchlistCoins.position })
+    .from(watchlistCoins)
+    .where(eq(watchlistCoins.watchlistId, sourceId))
+    .orderBy(asc(watchlistCoins.position), asc(watchlistCoins.addedAt));
+  const coinsToCopy = sourceCoins.slice(0, cap);
+
+  // 3. Slug unico per il nuovo owner.
+  const slug = await generateUniqueSlug(viewer.id, source.name);
+
+  // 4. Transazione: crea wl + coin. Rollback totale su cap_reached.
+  try {
+    const newId = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(watchlists)
+        .values({
+          userId: viewer.id,
+          name: source.name,
+          slug,
+          description: source.description,
+          visibility: "private",
+        })
+        .returning({ id: watchlists.id });
+
+      if (coinsToCopy.length > 0) {
+        await tx.insert(watchlistCoins).values(
+          coinsToCopy.map((c, i) => ({
+            watchlistId: created.id,
+            symbol: c.symbol,
+            position: i,
+          })),
+        );
+      }
+      return created.id;
+    });
+
+    revalidatePath("/watchlist");
+    return {
+      ok: true,
+      id: newId,
+      slug,
+      coinsCopied: coinsToCopy.length,
+    };
+  } catch (err) {
+    const code = mapDbErrorToCode(err);
+    if (code === "cap_reached") {
+      const capVal = await readCurrentCap();
+      return { ok: false, error: "cap_reached", cap: capVal };
+    }
+    if (code) return { ok: false, error: code };
+    console.warn("[watchlist:copy] failed", {
+      viewerId: viewer.id,
+      sourceId,
       err: String(err),
     });
     return { ok: false, error: "internal" };
