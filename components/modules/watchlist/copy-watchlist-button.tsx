@@ -50,7 +50,7 @@ export function CopyWatchlistButton({
   // Anon: link diretto a sign-in. Il `next` riporta qui dopo login.
   if (!isLoggedIn) {
     return (
-      <Button asChild size="sm" variant="outline">
+      <Button asChild size="sm" variant="secondary">
         <Link href="/sign-in" prefetch={false}>
           <Copy size={14} aria-hidden />
           {t("signin_to_copy")}
@@ -78,7 +78,7 @@ export function CopyWatchlistButton({
       <Button
         type="button"
         size="sm"
-        variant="outline"
+        variant="secondary"
         onClick={() => setOpen(true)}
         aria-label={t("button_aria")}
       >
