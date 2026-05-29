@@ -4,12 +4,12 @@
 // realtime client-side (vedi NotificationsList). La bulk mark-all-read
 // è gestita dal client component al mount (debounced 1.5s) per
 // azzerare il badge sidebar in 1 UPDATE invece di N.
-import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { NotificationsList } from "@/components/modules/notifications/NotificationsList";
 import { getUser } from "@/lib/db/queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { getMyNotifications } from "@/lib/modules/notifications/queries";
-import { NotificationsList } from "@/components/modules/notifications/NotificationsList";
+import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,9 @@ export default async function NotifichePage() {
     getAppSettings(),
   ]);
   const pageSize = clampInt(
-    (settings as Record<string, string>)["modules.notifications.list_page_size"],
+    (settings as Record<string, string>)[
+      "modules.notifications.list_page_size"
+    ],
     30,
     5,
     100,
@@ -51,7 +53,7 @@ export default async function NotifichePage() {
   const systemAvatarUrl = settings.app_favicon_url?.trim() || null;
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-4 space-y-4">
+    <div className="max-w-2xl mx-auto py-6 space-y-4">
       <header>
         <h1 className="text-lg font-semibold text-gc-fg">{t("title")}</h1>
         <p className="text-sm text-gc-fg-muted mt-1">{t("description")}</p>
