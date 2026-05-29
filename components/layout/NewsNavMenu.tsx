@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, User } from "lucide-react";
 import { useViewer } from "@/components/auth/ViewerProvider";
+import { AppLogo } from "@/components/layout/AppLogo";
 import {
   Sheet,
   SheetClose,
@@ -69,11 +70,15 @@ export function NewsNavDesktop({ items }: { items: NewsMenuItem[] }) {
 export function NewsNavMobileDrawer({
   items,
   appLogoUrl,
+  appLogoVariantUrl,
 }: {
   items: NewsMenuItem[];
   /** Logo dell'app mostrato come header del drawer (stesso che la top-bar
    *  centra in modalità mobile). Fallback testuale se null. */
   appLogoUrl: string | null;
+  /** Logo per modalità dark — caricato in admin come
+   *  `app_logo_variant_url`. Null → fallback al logo principale. */
+  appLogoVariantUrl?: string | null;
 }) {
   const { isLoggedIn } = useViewer();
   const [open, setOpen] = useState(false);
@@ -96,9 +101,9 @@ export function NewsNavMobileDrawer({
         <SheetTitle className="sr-only">Menu news</SheetTitle>
         <div className="flex items-center px-5 py-4 border-b border-gc-line h-20">
           {appLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={appLogoUrl}
+            <AppLogo
+              url={appLogoUrl}
+              variantUrl={appLogoVariantUrl ?? null}
               alt="Generazione Crypto"
               className="h-12 w-auto"
             />

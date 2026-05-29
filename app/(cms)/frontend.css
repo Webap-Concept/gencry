@@ -214,6 +214,8 @@
 
   /* Accent / pos / neg / green / accent-soft → invariati: identitari */
 
+  /* Logo swap dark/light — vedi sezione `.logo-light` / `.logo-dark` sotto. */
+
   /* Brand tokens — stessa logica: solo background/text si invertono */
   --brand-bg: #0e1a14;
   --brand-surface: #14241c;
@@ -227,6 +229,32 @@
   /* --brand-primary, --brand-accent, --brand-destructive,
      --brand-error-border, --brand-border-focus: invariati (brand colors) */
 }
+
+/* ---------------------------------------------------------------------------
+   Theme image swap light/dark — utility generica per mostrare un asset
+   diverso a seconda del tema (`.gc-dark` sul `<html>`). Usata da:
+     - AppLogo (logo principale vs variant dark caricata in admin)
+     - AppBottomNav FAB (icona "nuovo post" light/dark)
+   Pattern: il caller renderizza DUE elementi (es. <img>), uno con
+   `.theme-light-only` e uno con `.theme-dark-only`; solo uno e' visibile
+   via display:none scoped su `.gc-dark`. Zero JS, zero flicker.
+   --------------------------------------------------------------------------- */
+.theme-dark-only { display: none; }
+.gc-dark .theme-light-only { display: none; }
+.gc-dark .theme-dark-only { display: inline-block; }
+
+/* ---------------------------------------------------------------------------
+   Profilo /u/<username> — accenti cromatici SOLO in dark (bosco). Il
+   toggle usa `.gc-dark` (non `.dark`), quindi le varianti `dark:` di
+   Tailwind non si attivano: regole scoped esplicite.
+     - numeri delle stat (follower/segue/post) → arancio brand
+     - @username → verde menta
+   --------------------------------------------------------------------------- */
+.gc-dark .profile-stat-num { color: var(--gc-accent); }
+.gc-dark .profile-username { color: var(--gc-green); }
+
+/* Coin page (header) — ticker · category in verde menta solo in dark. */
+.gc-dark .coin-meta { color: var(--gc-green); }
 
 /* ---------------------------------------------------------------------------
    Scrollbar — colorate sui token gc-*, theme-aware automaticamente.

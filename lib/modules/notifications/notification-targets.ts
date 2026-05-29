@@ -179,6 +179,20 @@ export function resolveNotificationTarget(
         templateValues: { total_count: total },
       };
     }
+    case "social.follow": {
+      // payload.actor_username e' arricchito dal trigger DB per evitare
+      // un JOIN extra lato hydration. Click → profilo del nuovo follower.
+      const actorUsername = str(payload, "actor_username");
+      const href = actorUsername ? `/u/${actorUsername.toLowerCase()}` : "#";
+      return {
+        href,
+        summaryKey: "social.follow",
+        reactionKind: null,
+        postPreview: null,
+        commentPreview: null,
+        templateValues: {},
+      };
+    }
     default:
       return null;
   }

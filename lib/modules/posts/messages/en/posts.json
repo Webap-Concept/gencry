@@ -105,6 +105,7 @@
   },
   "card": {
     "edited": "edited",
+    "following_inline": "Following",
     "open_post": "Open post",
     "options_menu": "Post options",
     "bookmark_save": "Save post",

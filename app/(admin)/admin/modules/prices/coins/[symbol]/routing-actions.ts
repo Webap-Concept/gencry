@@ -11,8 +11,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import { revalidatePath } from "next/cache";
 
-const SECTION_PERM = "admin:users"; // come per exchanges/actions.ts;
-// quando arrivera' la permission `modules:prices` dedicata, sostituire.
+const SECTION_PERM = "modules:prices";
 
 export type UpdateCoinRoutingResult =
   | { ok: true }

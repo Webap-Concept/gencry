@@ -1,21 +1,27 @@
 // components/modules/posts/PostsFeedSection.tsx
 //
-// RSC della Home loggata. Decisione UX 2026-05-14: la Home mostra
-// SOLO il feed personalizzato (chi seguo). Discoverability di
-// contenuti pubblici si fa in /explore (pagina separata, futuro).
-// Niente più "Discover/Following" tabs nella home.
+// RSC della Home loggata. Feed UNICO (no tab) following-first + discovery
+// fill. Decisione UX 2026-05-28: una sola lista, niente "Per te / Seguiti".
 //
-// Fino al modulo `follows` l'array seguiti è vuoto → la home mostra
-// un empty-state con CTA verso /explore. Comportamento standard di
-// tutti i social per nuovi utenti (Twitter, IG, Bluesky).
+// Strategia:
+//   - Se l'utente segue qualcuno → mostra prima i loro post, poi quando
+//     finiti riempie con discovery per evitare buchi.
+//   - Se non segue ancora nessuno → mostra un banner "build your feed"
+//     sopra + carousel "Suggested to follow" + feed discovery sotto.
+//   - In tutti i casi il feed NON e' mai vuoto: getHomeFeedIds cade su
+//     getDiscoverFeedIds quando followingSet e' vuoto.
 import "server-only";
 import { getUser } from "@/lib/db/queries";
-import { getFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
+import { getHomeFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
+import { getFollowingSet } from "@/lib/modules/social-graph/queries";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getTickerPreviewBatch } from "@/lib/modules/posts/ticker-preview-actions";
 import { collectVisibleTickers } from "@/lib/modules/posts/lib/collect-visible-tickers";
 import { loadCommentsConfig } from "@/lib/modules/posts/comments-config";
 import { FeedList } from "./FeedList";
+import { HomeEmptyBanner } from "@/components/social-graph/HomeEmptyBanner";
+import { HomeNewPostsBanner } from "@/components/social-graph/HomeNewPostsBanner";
+import { SuggestedFollowsRow } from "@/components/social-graph/SuggestedFollowsRow";
 
 export async function PostsFeedSection() {
   const user = await getUser();
@@ -23,45 +29,63 @@ export async function PostsFeedSection() {
     throw new Error("PostsFeedSection rendered without authenticated user");
   }
 
-  // Home = Following only. `getFeedIds({ tab: 'following' })` oggi
-  // ritorna sempre [] (stub fino al modulo follows). Il backend Discover
-  // resta vivo e sarà usato da /explore.
-  const [page, coinNameMap, commentsConfig] = await Promise.all([
-    getFeedIds({ tab: "following", viewerUserId: user.id }),
+  const [page, coinNameMap, commentsConfig, followingSet] = await Promise.all([
+    getHomeFeedIds({ viewerUserId: user.id }),
     getCoinNameMap(),
     loadCommentsConfig(),
+    getFollowingSet(user.id),
   ]);
   const initialPosts = await getPostsByIds(page.ids, { viewerUserId: user.id });
-  // Prefetch batch dei preview ticker visibili — zero round-trip al
-  // primo hover. Cache server unstable_cache 60s su getCoinForCard
-  // condivide il fetch tra utenti.
   const tickerPreviewMap = await getTickerPreviewBatch(
     collectVisibleTickers(initialPosts),
   );
 
+  // Map authorId -> isFollowing per il bottone Follow compact su ogni PostCard.
+  const viewerFollowingMap: Record<string, boolean> = {};
+  for (const p of initialPosts) {
+    viewerFollowingMap[p.author.id] = followingSet.has(p.author.id);
+  }
+
+  const showEmptyState = followingSet.size === 0;
+  const followingIds = Array.from(followingSet);
+
   return (
-    <FeedList
-      initialPosts={initialPosts}
-      initialNextCursor={page.nextCursor}
-      viewerUserId={user.id}
-      source={{ kind: "tab", tab: "following" }}
-      coinNameMap={coinNameMap}
-      tickerPreviewMap={tickerPreviewMap}
-      commentsThreadProps={{
-        viewerUserId: user.id,
-        viewerProfile: {
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          avatarUrl: user.avatarUrl,
-          headline: user.headline,
-        },
-        liveMode: commentsConfig.liveModeFeed,
-        pollIntervalSeconds: commentsConfig.pollIntervalSeconds,
-        repliesInitialCount: commentsConfig.repliesInitialCount,
-        maxBodyLength: commentsConfig.maxBodyLength,
-      }}
-    />
+    <div className="space-y-4">
+      {showEmptyState ? (
+        <>
+          <HomeEmptyBanner />
+          <SuggestedFollowsRow viewerUserId={user.id} />
+        </>
+      ) : (
+        <HomeNewPostsBanner
+          viewerUserId={user.id}
+          followingIds={followingIds}
+        />
+      )}
+      <FeedList
+        initialPosts={initialPosts}
+        initialNextCursor={page.nextCursor}
+        viewerUserId={user.id}
+        source={{ kind: "home" }}
+        coinNameMap={coinNameMap}
+        tickerPreviewMap={tickerPreviewMap}
+        viewerFollowingMap={viewerFollowingMap}
+        commentsThreadProps={{
+          viewerUserId: user.id,
+          viewerProfile: {
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatarUrl: user.avatarUrl,
+            headline: user.headline,
+          },
+          liveMode: commentsConfig.liveModeFeed,
+          pollIntervalSeconds: commentsConfig.pollIntervalSeconds,
+          repliesInitialCount: commentsConfig.repliesInitialCount,
+          maxBodyLength: commentsConfig.maxBodyLength,
+        }}
+      />
+    </div>
   );
 }
 

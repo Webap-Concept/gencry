@@ -263,6 +263,11 @@ export type SettingKey =
   | 'modules.notifications.email_achievement_viral_reposts_subject'
   | 'modules.notifications.email_achievement_viral_reposts_body'
   | 'modules.notifications.email_achievement_viral_reposts_footer'
+  // Modulo watchlist (user-owned crypto lists)
+  | 'modules.watchlist.max_per_user_free'        // cap watchlist active per user free tier (default 5)
+  | 'modules.watchlist.max_per_user_premium'     // cap quando avremo subscriptions premium reale (default 20)
+  | 'modules.watchlist.max_coins_per_watchlist'  // cap coin per singola watchlist (default 50)
+  | 'modules.watchlist.perf_cache_ttl_seconds'   // TTL Redis cache perf 30g per-coin (default 300)
   // Modulo news (curated content pipeline)
   | 'modules.news.rewrite_batch_size'              // cron rewrite N items/run
   | 'modules.news.publisher_batch_size'            // cron publisher N items/run
@@ -566,6 +571,10 @@ export type AppSettings = {
   'modules.notifications.email_achievement_viral_reposts_subject': string | null
   'modules.notifications.email_achievement_viral_reposts_body': string | null
   'modules.notifications.email_achievement_viral_reposts_footer': string | null
+  'modules.watchlist.max_per_user_free': string
+  'modules.watchlist.max_per_user_premium': string
+  'modules.watchlist.max_coins_per_watchlist': string
+  'modules.watchlist.perf_cache_ttl_seconds': string
   'modules.posts.r2.access_key_id': string | null
   'modules.posts.r2.secret_access_key': string | null
   'modules.posts.r2.bucket': string | null
@@ -847,6 +856,11 @@ const DEFAULTS: AppSettings = {
     'Ciao {{userName}},\n\nIl tuo post è stato citato da {{totalCount}} persone in poche ore. Il repost è il segnale più forte che la tua idea si sta diffondendo.\n\nApri i repost per vedere come altre voci stanno rilanciando la tua idea — potrebbero esserci riprese a cui vale la pena rispondere.',
   'modules.notifications.email_achievement_viral_reposts_footer':
     'Ricevi questa email perché il tuo post ha superato la soglia virale sui repost su {{appName}}.',
+  // Modulo watchlist — defaults allineati alla migration M_watchlist_001_init.sql.
+  'modules.watchlist.max_per_user_free': '5',
+  'modules.watchlist.max_per_user_premium': '20',
+  'modules.watchlist.max_coins_per_watchlist': '50',
+  'modules.watchlist.perf_cache_ttl_seconds': '300',
   // Modulo news — defaults preset "alpha" del CapacityProfile (vedi
   // lib/modules/news/manifest.ts). L'admin può sovrascrivere via UI.
   'modules.news.rewrite_batch_size': '3',

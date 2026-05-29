@@ -32,6 +32,7 @@
     "nav": {
       "feed": "Feed",
       "explore": "Explore",
+      "watchlist": "Watchlist",
       "profile": "Profilo"
     },
     "notifications": "Notifiche",
@@ -40,6 +41,7 @@
   "bottomNav": {
     "feed": "Feed",
     "explore": "Explore",
+    "watchlist": "Watchlist",
     "notifications": "Notifiche",
     "profile": "Profilo",
     "ariaLabel": "Navigazione principale"

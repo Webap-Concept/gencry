@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db/drizzle";
 import { userProfiles } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
+import { AppLogo } from "@/components/layout/AppLogo";
 import {
   NewsNavDesktop,
   NewsNavMobileAvatar,
@@ -34,10 +35,14 @@ import {
  */
 export async function PublicHeader({
   appLogoUrl,
+  appLogoVariantUrl,
   logoHref = "/",
   newsMenu,
 }: {
   appLogoUrl: string | null;
+  /** Logo per modalità dark — caricato in admin come `app_logo_variant_url`.
+   *  Null → fallback al logo principale anche in dark. */
+  appLogoVariantUrl?: string | null;
   /** Destinazione del logo. Default "/" (homepage). Il layout (cms)
    *  passa "/news" quando siamo dentro la sezione blog (listing,
    *  articoli, landing categoria) così il logo riporta al feed
@@ -64,8 +69,12 @@ export async function PublicHeader({
   const isLoggedIn = !!session;
 
   const logo = appLogoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={appLogoUrl} alt="Generazione Crypto" className="h-16 w-auto" />
+    <AppLogo
+      url={appLogoUrl}
+      variantUrl={appLogoVariantUrl ?? null}
+      alt="Generazione Crypto"
+      className="h-16 w-auto"
+    />
   ) : (
     <span className="font-medium text-lg leading-none tracking-[-0.01em] text-gc-fg">
       generazione<span className="text-gc-accent">crypto</span>
@@ -78,7 +87,11 @@ export async function PublicHeader({
         {/* Mobile: hamburger a sinistra SOLO quando c'è il menu news.
             Senza menu il layout mobile resta come prima (logo a sinistra). */}
         {hasMenu && (
-          <NewsNavMobileDrawer items={newsMenu!} appLogoUrl={appLogoUrl} />
+          <NewsNavMobileDrawer
+            items={newsMenu!}
+            appLogoUrl={appLogoUrl}
+            appLogoVariantUrl={appLogoVariantUrl}
+          />
         )}
 
         {/* Logo. In modalità news+mobile il logo si centra perché flex-1

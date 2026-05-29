@@ -14,6 +14,7 @@
 import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import {
   countCoinsAwaitingEnrichment,
+  countCoinsWithCoingeckoId,
   listAdminExchanges,
 } from "@/lib/modules/prices/exchanges/queries";
 import { EXCHANGE_REGISTRY } from "@/lib/modules/prices/exchanges/registry";
@@ -21,15 +22,17 @@ import type { Metadata } from "next";
 import { BulkAutoMapCard } from "./_components/bulk-auto-map-card";
 import { EnrichMetadataCard } from "./_components/enrich-metadata-card";
 import { ExchangesClient } from "./_components/exchanges-client";
+import { MetadataRefreshCard } from "./_components/metadata-refresh-card";
 
 export const metadata: Metadata = { title: "Prices / Exchanges" };
 export const dynamic = "force-dynamic";
 
 export default async function PricesExchangesPage() {
-  await requireAdminSectionPage("admin:users");
-  const [rows, awaitingEnrichment] = await Promise.all([
+  await requireAdminSectionPage("modules:prices");
+  const [rows, awaitingEnrichment, refreshableCount] = await Promise.all([
     listAdminExchanges(),
     countCoinsAwaitingEnrichment(),
+    countCoinsWithCoingeckoId(),
   ]);
 
   // Solo exchange enabled + implementato in codice + che supportano
@@ -60,6 +63,7 @@ export default async function PricesExchangesPage() {
         <BulkAutoMapCard availableExchanges={bulkTargets} />
       )}
       <EnrichMetadataCard awaitingCount={awaitingEnrichment} />
+      <MetadataRefreshCard refreshableCount={refreshableCount} />
       <ExchangesClient initialRows={rows} />
     </div>
   );

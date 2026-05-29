@@ -91,5 +91,13 @@ export const PRICES_MODULE: ModuleManifest = {
       description: "Deletes price snapshots older than the configured retention window from the time-series table.",
       purpose: "Keeps DB size bounded and respects the retention policy in module settings.",
     },
+    {
+      jobname: "modules-prices-metadata-refresh",
+      path: "/api/cron/modules/prices/metadata-refresh",
+      schedule: "0 */4 * * *",
+      label: "Prices Metadata Refresh",
+      description: "Refreshes market_cap, market_cap_rank and weekly_sparkline from CoinGecko for all coins with a coingecko_id, regardless of which exchange feeds their live price.",
+      purpose: "Bridges the metadata gap of exchange-routed coins: Binance/KuCoin don't expose market cap, so without this slow refresh those fields would stay frozen at the last manual enrichment.",
+    },
   ],
 };

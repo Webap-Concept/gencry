@@ -60,6 +60,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { FollowButton } from "@/components/social-graph/FollowButton";
+import {
+  useFollowOverride,
+  useSetFollowOverride,
+} from "@/components/social-graph/FollowOverridesProvider";
 import { PostMediaGallery } from "./PostMediaGallery";
 import { PostComposerModal } from "./PostComposerModal";
 import { PublishedPostToast } from "./PublishedPostToast";
@@ -175,6 +180,17 @@ type Props = {
    */
   tickerPreviewMap?: Record<string, TickerPreviewData>;
   /**
+   * Stato follow del viewer verso l'autore di questo post.
+   *   - `true`  → viewer segue già l'autore. Bottone NON mostrato (ridondante).
+   *   - `false` → viewer NON segue. Bottone "+ Follow" compact visibile.
+   *   - `undefined` → viewer anonimo, autore == viewer, o caller non hydrato.
+   *      Bottone NON mostrato.
+   * Hydration via `getFollowingSet(viewerUserId)` lato RSC, passata via
+   * FeedList → PostCard. Pattern X/Threads: niente badge "Following"
+   * sulle card; il follow CTA appare solo quando manca.
+   */
+  viewerIsFollowingAuthor?: boolean;
+  /**
    * Se settato (variant "feed"), il bottone "Commenta" diventa un
    * toggle che espande inline il thread sotto la card invece di
    * navigare a /post/{id}. Mounta `<CommentsThread>` lazily (dynamic
@@ -210,6 +226,7 @@ export function PostCard({
   coinNameMap,
   tickerPreviewMap,
   commentsThreadProps,
+  viewerIsFollowingAuthor,
 }: Props) {
   const router = useRouter();
   const viewer = useViewer();
@@ -230,6 +247,18 @@ export function PostCard({
   const [displayedEditedAt, setDisplayedEditedAt] = useState<Date | null>(
     post.editedAt,
   );
+
+  // Stato follow risolto via Context (FollowOverridesProvider):
+  //   - se il viewer ha appena cliccato Segui/Smetti su un'altra card
+  //     dello stesso autore, il Context tiene l'override → tutti i
+  //     PostCard di quell'autore si re-renderizzano coerenti.
+  //   - altrimenti fallback al prop SSR `viewerIsFollowingAuthor`.
+  // Fuori dal Provider, useFollowOverride ritorna sempre il fallback.
+  const followingAuthor = useFollowOverride(
+    post.author.id,
+    viewerIsFollowingAuthor,
+  );
+  const setFollowOverride = useSetFollowOverride();
 
   // Pattern "confirmed + optimistic" (React 19) per reaction/counts/bookmark:
   // - `confirmedX` (useState) sopravvive alla fine della transition e tiene
@@ -429,6 +458,13 @@ export function PostCard({
         setBlocked(false);
         return;
       }
+      // Block cascade-unfollows entrambi i versi (trigger DB
+      // posts_user_blocks_cascade_unfollow_trg). Sincronizziamo il
+      // Context client → tutte le altre card dello stesso autore
+      // ancora montate switchano a "Follow" senza aspettare il refresh.
+      if (res.data?.blocked) {
+        setFollowOverride(post.author.id, false);
+      }
       // Sulla single-post page (variant="single") il caller passa
       // redirectAfterBlock="/" e usiamo router.replace() così la post
       // page bloccata NON resta nella history (back → non torna su
@@ -522,7 +558,10 @@ export function PostCard({
         }`}
       >
 
-        {/* Header: autore + time + visibility */}
+        {/* Header autore — layout 3 righe:
+              Riga 1: nome + slot follow (button compact / "segui già" / niente)
+              Riga 2: headline (se presente)
+              Riga 3: tempo + edited + visibility */}
         <header className={`${interactiveClass} flex items-start gap-3 mb-3`}>
           <Link
             href={`/u/${post.author.username ?? post.author.id}`}
@@ -540,39 +579,50 @@ export function PostCard({
             />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
+            {/* Riga 1: nome + slot follow */}
+            <div className="flex items-center gap-2 min-w-0">
               <Link
                 href={`/u/${post.author.username ?? post.author.id}`}
-                className="font-medium text-gc-fg hover:underline"
+                className="font-medium text-gc-fg hover:underline truncate"
               >
                 {authorDisplayName(post.author, userFallback)}
               </Link>
-              <span className="text-xs text-gc-fg-muted">·</span>
-              <time
-                dateTime={String(post.createdAt)}
-                className="text-xs text-gc-fg-muted"
-              >
-                {formatRelativeTime(post.createdAt, tTime, locale)}
-              </time>
-              {displayedEditedAt ? (
-                <span
-                  className="text-xs text-gc-fg-muted"
-                  title={String(displayedEditedAt)}
-                >
-                  · {tCard("edited")}
-                </span>
-              ) : null}
-              {displayedVisibility !== "public" ? (
-                <span className="text-xs text-gc-fg-muted px-1.5 py-0.5 rounded bg-gc-line/40">
-                  {tVis(displayedVisibility)}
-                </span>
+              {viewer.isLoggedIn && !isAuthor ? (
+                followingAuthor === false ? (
+                  <FollowButton
+                    targetUserId={post.author.id}
+                    initialFollowing={false}
+                    variant="compact"
+                  />
+                ) : followingAuthor === true ? (
+                  <span className="text-[11px] text-gc-fg-3 shrink-0">
+                    {tCard("following_inline")}
+                  </span>
+                ) : null
               ) : null}
             </div>
+            {/* Riga 2: headline */}
             {post.author.headline ? (
               <p className="text-xs text-gc-fg-muted truncate leading-tight mt-0.5">
                 {post.author.headline}
               </p>
             ) : null}
+            {/* Riga 3: tempo + edited + visibility */}
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-gc-fg-muted">
+              <time dateTime={String(post.createdAt)}>
+                {formatRelativeTime(post.createdAt, tTime, locale)}
+              </time>
+              {displayedEditedAt ? (
+                <span title={String(displayedEditedAt)}>
+                  · {tCard("edited")}
+                </span>
+              ) : null}
+              {displayedVisibility !== "public" ? (
+                <span className="px-1.5 py-0.5 rounded bg-gc-line/40">
+                  {tVis(displayedVisibility)}
+                </span>
+              ) : null}
+            </div>
           </div>
           {/* Top-right toolbar. Nascosto per anon: tutte le voci
               (Salva/Blocca/Segnala) rimandano comunque a /sign-up via

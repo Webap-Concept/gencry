@@ -1,26 +1,30 @@
 "use server";
 // lib/modules/posts/feed-actions.ts
 //
-// Server Action wrapper sopra `getFeedIds` + `getPostsByIds` per la
-// pagination client-side ("Load more"). Tenuto in un file separato da
-// actions.ts perché:
+// Server Action wrapper sopra `getHomeFeedIds` / `getDiscoverFeedIds` /
+// `getTickerFeedIds` + `getPostsByIds` per la pagination client-side
+// ("Load more"). Tenuto in un file separato da actions.ts perché:
 //   - quel file espone mutation che il client invoca via startTransition;
 //     questo invece è "fetch via Server Action" — concettualmente diverso
 //     anche se condivide la pragma "use server".
 //   - più snello da auditare per cosa è chiamabile dal client.
+//
+// Discriminator `kind`:
+//   - "home"      → getHomeFeedIds (following-first + discovery fill)
+//   - "discover"  → getDiscoverFeedIds (cronologico, no following filter)
+//   - "ticker"    → getTickerFeedIds (filtro per $TICKER)
 
 import { getUser } from "@/lib/db/queries";
 import {
-  getFeedIds,
+  getDiscoverFeedIds,
+  getHomeFeedIds,
   getPostsByIds,
   getTickerFeedIds,
 } from "./queries";
-import type { FeedTab } from "./queries";
 import type { PostCardData } from "./types";
 
 /**
- * Tipo discriminato per i diversi feed paginabili da Explore/Home.
- * "discover"/"following" → getFeedIds. "ticker" → getTickerFeedIds.
+ * Tipo discriminato per i diversi feed paginabili da Home/Explore.
  *
  * `pageSize` opzionale: il client invia 30 dalle pagine 2+ (utente
  * engaged → meno round-trip), la first page resta 20 (SSR, time-to-first
@@ -29,8 +33,12 @@ import type { PostCardData } from "./types";
  */
 export type LoadMoreFeedInput =
   | {
-      kind: "tab";
-      tab: FeedTab;
+      kind: "home";
+      cursor: string | null;
+      pageSize?: number;
+    }
+  | {
+      kind: "discover";
       cursor: string | null;
       pageSize?: number;
     }
@@ -63,24 +71,26 @@ export async function loadMoreFeed(
   input: LoadMoreFeedInput,
 ): Promise<LoadMoreFeedResult> {
   const user = await getUser();
-
   const pageSize = clampPageSize(input.pageSize);
 
-  if (input.kind === "tab") {
-    if (input.tab !== "discover" && input.tab !== "following") {
-      return { ok: false, error: "posts.feed.invalid_tab" };
-    }
-    const page = await getFeedIds({
-      tab: input.tab,
+  if (input.kind === "home") {
+    const page = await getHomeFeedIds({
       viewerUserId: user?.id,
       cursor: input.cursor ?? undefined,
       pageSize,
     });
     const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
-    return {
-      ok: true,
-      data: { posts, nextCursor: page.nextCursor },
-    };
+    return { ok: true, data: { posts, nextCursor: page.nextCursor } };
+  }
+
+  if (input.kind === "discover") {
+    const page = await getDiscoverFeedIds({
+      viewerUserId: user?.id,
+      cursor: input.cursor ?? undefined,
+      pageSize,
+    });
+    const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
+    return { ok: true, data: { posts, nextCursor: page.nextCursor } };
   }
 
   // kind === "ticker"
@@ -95,8 +105,5 @@ export async function loadMoreFeed(
     pageSize,
   });
   const posts = await getPostsByIds(page.ids, { viewerUserId: user?.id });
-  return {
-    ok: true,
-    data: { posts, nextCursor: page.nextCursor },
-  };
+  return { ok: true, data: { posts, nextCursor: page.nextCursor } };
 }

@@ -150,6 +150,28 @@ export async function uploadAvatarToR2(
  * sull'URL originale OAuth se R2 non disponibile (l'OAuth flow non deve
  * fallire per un avatar).
  */
+/**
+ * Normalizza la risoluzione di un avatar OAuth verso 512px, così l'avatar
+ * importato e' nitido su display retina (i nostri avatar arrivano a 96px
+ * CSS → 288px @3x, ben sotto i 512). No-op per URL non riconosciuti.
+ *
+ * Google (`*.googleusercontent.com`): il suffisso `=sNN-c` controlla la
+ * dimensione e di default OAuth restituisce `=s96-c` (sgranato). Lo
+ * forziamo a `=s512`, stessa risoluzione del crop dialog manuale.
+ */
+function maxResAvatarUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname.endsWith("googleusercontent.com")) {
+      // "=s96-c" | "=s96" → "=s512-c" | "=s512" (preserva il -c se c'e').
+      return url.replace(/=s\d+(-c)?(?=$|&)/, "=s512$1");
+    }
+  } catch {
+    // URL malformato → lo passiamo invariato al fetch (fallira' lui).
+  }
+  return url;
+}
+
 export async function uploadAvatarFromUrlToR2(
   userId: string,
   sourceUrl: string,
@@ -158,7 +180,7 @@ export async function uploadAvatarFromUrlToR2(
   if (!cfg) return null;
 
   try {
-    const res = await fetch(sourceUrl);
+    const res = await fetch(maxResAvatarUrl(sourceUrl));
     if (!res.ok) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
     const rawMime = res.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/jpeg";

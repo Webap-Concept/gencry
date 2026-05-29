@@ -16,7 +16,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Zap } from "lucide-react";
 import { loadMoreFeed, type LoadMoreFeedResult } from "@/lib/modules/posts/feed-actions";
-import type { FeedTab } from "@/lib/modules/posts/queries";
 import type { PostCardData } from "@/lib/modules/posts/types";
 import type { TickerPreviewData } from "@/lib/modules/posts/ticker-preview-actions";
 import { findScrollParent } from "@/lib/hooks/use-is-stuck";
@@ -79,7 +78,8 @@ async function loadMoreWithRetry(
 }
 
 export type FeedListSource =
-  | { kind: "tab"; tab: FeedTab }
+  | { kind: "home" }
+  | { kind: "discover" }
   | { kind: "ticker"; ticker: string };
 
 type Props = {
@@ -97,6 +97,11 @@ type Props = {
   /** Preview ticker pre-fetched server-side. Propagata al TickerHoverCard
    *  per zero round-trip al primo hover. */
   tickerPreviewMap?: Record<string, TickerPreviewData>;
+  /** Mappa authorId → isFollowing (true se viewer segue l'autore).
+   *  Hydration via getFollowingSet, passata dal Server Component padre.
+   *  Quando undefined → tutti i PostCard ricevono `viewerIsFollowingAuthor =
+   *  undefined` e nascondono il bottone Follow. */
+  viewerFollowingMap?: Record<string, boolean>;
   /** Quando passato, abilita l'inline expand dei commenti sotto ogni
    *  PostCard del feed. Caricato dal Server Component padre via
    *  loadCommentsConfig(). */
@@ -138,19 +143,24 @@ export function FeedList(props: Props) {
     setError(null);
     startTransition(async () => {
       const input =
-        props.source.kind === "tab"
+        props.source.kind === "ticker"
           ? {
-              kind: "tab" as const,
-              tab: props.source.tab,
-              cursor: nextCursor,
-              pageSize: LOAD_MORE_PAGE_SIZE,
-            }
-          : {
               kind: "ticker" as const,
               ticker: props.source.ticker,
               cursor: nextCursor,
               pageSize: LOAD_MORE_PAGE_SIZE,
-            };
+            }
+          : props.source.kind === "discover"
+            ? {
+                kind: "discover" as const,
+                cursor: nextCursor,
+                pageSize: LOAD_MORE_PAGE_SIZE,
+              }
+            : {
+                kind: "home" as const,
+                cursor: nextCursor,
+                pageSize: LOAD_MORE_PAGE_SIZE,
+              };
       const res = await loadMoreWithRetry(() => loadMoreFeed(input));
       if (res.ok) {
         appendRows(res.data.posts, res.data.nextCursor);
@@ -202,6 +212,9 @@ export function FeedList(props: Props) {
               coinNameMap={props.coinNameMap}
               tickerPreviewMap={props.tickerPreviewMap}
               commentsThreadProps={props.commentsThreadProps}
+              viewerIsFollowingAuthor={
+                props.viewerFollowingMap?.[p.author.id]
+              }
             />
           ))
         )}

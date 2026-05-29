@@ -8,8 +8,11 @@ import { UserMenu } from "@/components/layout/UserMenu";
 import type { UserWithProfile } from "@/lib/db/schema";
 
 // Topbar visibile <md (mobile/tablet stretto). Stile alla Twitter:
-// logo a sinistra, avatar a destra che apre un bottom-sheet con il menu utente.
-// La AppSidebar resta autoritativa su md+.
+// logo a sinistra, avatar a destra che apre un bottom-sheet col menu
+// utente (da cui si raggiunge il profilo). La AppSidebar resta
+// autoritativa su md+.
+//
+// Le notifiche NON stanno qui: vivono come slot bell nel bottom nav.
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 

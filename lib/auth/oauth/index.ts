@@ -27,7 +27,7 @@ import {
   type NewActivityLog,
 } from "@/lib/db/schema";
 import { uploadAvatarFromUrlToR2 } from "@/lib/storage/r2-avatars";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { GoogleTokens } from "./google";
 
 export interface OAuthProfile {
@@ -95,19 +95,25 @@ export async function findOrCreateOAuthUser(
         ),
       );
 
+    // Avatar = snapshot al PRIMO login (fix A): importiamo da OAuth solo
+    // se l'utente non ne ha ancora uno. Re-login successivi NON ri-scaricano
+    // ne' sovrascrivono — l'utente cambia avatar a mano in /settings/profile.
+    // Cosi' evitiamo il fetch+PUT R2 inutile a ogni login + comportamento
+    // prevedibile (niente re-sync impredicibile col cache-bust).
     if (picture) {
-      const avatarUrl =
-        (await uploadAvatarFromUrlToR2(existingOAuth.userId, picture)) ?? picture;
-      // Aggiorna avatar_url solo se l'utente non ne ha già caricato uno suo
-      await db
-        .update(userProfiles)
-        .set({ avatarUrl, updatedAt: new Date() })
-        .where(
-          and(
-            eq(userProfiles.userId, existingOAuth.userId),
-            isNull(userProfiles.avatarUrl),
-          ),
-        );
+      const [prof] = await db
+        .select({ avatarUrl: userProfiles.avatarUrl })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, existingOAuth.userId))
+        .limit(1);
+      if (prof && prof.avatarUrl == null) {
+        const avatarUrl =
+          (await uploadAvatarFromUrlToR2(existingOAuth.userId, picture)) ?? picture;
+        await db
+          .update(userProfiles)
+          .set({ avatarUrl, updatedAt: new Date() })
+          .where(eq(userProfiles.userId, existingOAuth.userId));
+      }
     }
 
     const [user] = await db
@@ -139,18 +145,22 @@ export async function findOrCreateOAuthUser(
       scope:             tokens.scope,
     });
 
+    // Snapshot al primo collegamento (fix A): importa solo se l'utente
+    // (esistente, registrato via email) non ha gia' un avatar suo.
     if (picture) {
-      const avatarUrl =
-        (await uploadAvatarFromUrlToR2(existingUser.id, picture)) ?? picture;
-      await db
-        .update(userProfiles)
-        .set({ avatarUrl, updatedAt: new Date() })
-        .where(
-          and(
-            eq(userProfiles.userId, existingUser.id),
-            isNull(userProfiles.avatarUrl),
-          ),
-        );
+      const [prof] = await db
+        .select({ avatarUrl: userProfiles.avatarUrl })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, existingUser.id))
+        .limit(1);
+      if (prof && prof.avatarUrl == null) {
+        const avatarUrl =
+          (await uploadAvatarFromUrlToR2(existingUser.id, picture)) ?? picture;
+        await db
+          .update(userProfiles)
+          .set({ avatarUrl, updatedAt: new Date() })
+          .where(eq(userProfiles.userId, existingUser.id));
+      }
     }
 
     const [user] = await db

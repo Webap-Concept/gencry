@@ -1,5 +1,6 @@
 import { ViewerProvider, type Viewer } from "@/components/auth/ViewerProvider";
 import { CookieBanner } from "@/components/cookie-banner/cookie-banner";
+import { FollowOverridesProvider } from "@/components/social-graph/FollowOverridesProvider";
 import { DynamicWrapper } from "@/components/dynamic-wrapper";
 import { JsonLdScript } from "@/components/json-ld-script";
 import MaintenancePage from "@/components/maintenance-page";
@@ -320,20 +321,22 @@ export default async function RootLayout({
       <body className="min-h-[100dvh] bg-gc-bg text-gc-fg">
         <NextIntlClientProvider locale={lang} messages={messages}>
           <ViewerProvider viewer={viewer}>
-            {isMaintenance ? (
-              <MaintenancePage />
-            ) : (
-              <Suspense fallback={null}>
-                <DynamicWrapper>{children}</DynamicWrapper>
-              </Suspense>
-            )}
-            {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
-            {showCookieBanner && (
-              <CookieBanner
-                policyUrl={cookiePolicyUrl}
-                services={cookieServices}
-              />
-            )}
+            <FollowOverridesProvider>
+              {isMaintenance ? (
+                <MaintenancePage />
+              ) : (
+                <Suspense fallback={null}>
+                  <DynamicWrapper>{children}</DynamicWrapper>
+                </Suspense>
+              )}
+              {/* Cookie banner usa useTranslations → deve stare dentro il provider */}
+              {showCookieBanner && (
+                <CookieBanner
+                  policyUrl={cookiePolicyUrl}
+                  services={cookieServices}
+                />
+              )}
+            </FollowOverridesProvider>
           </ViewerProvider>
         </NextIntlClientProvider>
         {/* Snippet position="body_end" — afterInteractive, va bene nel body */}

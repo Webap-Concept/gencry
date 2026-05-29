@@ -12,9 +12,12 @@ const buttonVariants = cva(
         // Arancio — CTA principale
         default:
           "bg-brand-primary text-white hover:bg-brand-primary-hover focus-visible:ring-primary/40",
-        // Verde menta — azioni secondarie positive
-        accent:
-          "bg-accent text-white hover:bg-accent-hover focus-visible:ring-accent/40",
+        // Secondary — CTA secondaria del tema: verde brand chiaro al posto
+        // dell'arancio. `bg-brand-accent` (#7dbe9e) e' un brand color FISSO
+        // in entrambi i temi → testo/icone bianchi fissi (come la default
+        // arancio), NON un token theme-aware.
+        secondary:
+          "bg-brand-accent text-white hover:bg-brand-accent-hover focus-visible:ring-brand-accent/40",
         // Outline — azioni secondarie neutre. Token-based per theme-awareness.
         outline:
           "border border-gc-line bg-gc-bg-2 text-gc-fg hover:bg-gc-bg-3 focus-visible:ring-gc-line",

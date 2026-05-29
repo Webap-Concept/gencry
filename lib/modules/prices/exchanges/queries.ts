@@ -8,7 +8,7 @@ import "server-only";
 
 import { db } from "@/lib/db/drizzle";
 import { priceExchanges, pricesCoins } from "@/lib/db/schema";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull } from "drizzle-orm";
 import { EXCHANGE_REGISTRY, getExchangeAdapter } from "./registry";
 import type { ExchangeId } from "./types";
 
@@ -91,6 +91,21 @@ export async function countCoinsAwaitingEnrichment(): Promise<number> {
       and(
         eq(pricesCoins.isActive, true),
         isNull(pricesCoins.coingeckoId),
+      ),
+    );
+  return row?.n ?? 0;
+}
+
+/** Numero di coin attivi con coingecko_id: target del cron
+ *  metadata-refresh (market_cap + rank + sparkline). */
+export async function countCoinsWithCoingeckoId(): Promise<number> {
+  const [row] = await db
+    .select({ n: count(pricesCoins.symbol) })
+    .from(pricesCoins)
+    .where(
+      and(
+        eq(pricesCoins.isActive, true),
+        isNotNull(pricesCoins.coingeckoId),
       ),
     );
   return row?.n ?? 0;

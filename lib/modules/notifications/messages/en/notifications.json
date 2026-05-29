@@ -103,6 +103,9 @@
       "post_viral_likes": "Your post is going viral: {total_count} reactions in just hours",
       "post_viral_comments": "Your post is starting a conversation: {total_count} comments in just hours",
       "post_viral_reposts": "Your post is being widely shared: {total_count} reposts in just hours"
+    },
+    "social": {
+      "follow": "<actor>{name}</actor> started following you"
     }
   }
 }

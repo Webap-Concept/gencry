@@ -22,9 +22,16 @@ import type { Metadata } from "next";
 
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
+import { FollowButton } from "@/components/social-graph/FollowButton";
+import { ProfileFollowersCard } from "@/components/social-graph/ProfileFollowersCard";
+import { ProfileStickyHeader } from "@/components/social-graph/ProfileStickyHeader";
 import { getSession } from "@/lib/auth/session";
 import { getCoinNameMap } from "@/lib/modules/prices/queries";
 import { getProfileFeedIds, getPostsByIds } from "@/lib/modules/posts/queries";
+import {
+  getFollowingSet,
+  getSocialCounters,
+} from "@/lib/modules/social-graph/queries";
 import {
   getProfileByUsername,
   getProfileStats,
@@ -75,75 +82,93 @@ export default async function ProfilePage({
   // wrappare con la sidebar/right rail. Stesso pattern di /coins/[symbol].
   if (!profile) notFound();
 
-  return (
-    <PublicAdaptiveShell>
-      <ProfilePageBody profile={profile} />
-    </PublicAdaptiveShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Body
-// ---------------------------------------------------------------------------
-
-async function ProfilePageBody({
-  profile,
-}: {
-  profile: Awaited<ReturnType<typeof getProfileByUsername>> & {};
-}) {
-  const [session, stats, topCoins, t, tComp] = await Promise.all([
+  const [session, stats, topCoins, t, tComp, counters] = await Promise.all([
     getSession(),
     getProfileStats(profile.userId),
     getTopCitedCoins(profile.userId, 5),
     getTranslations("core.pages.profile"),
     getTranslations("posts.profile"),
+    getSocialCounters(profile.userId),
   ]);
   const viewerUserId = session?.user.id;
 
-  // Feed posts dell'utente: prime PROFILE_FEED_PAGE_SIZE. Niente
-  // load-more in v1 (parcheggiato fino a quando aggiungiamo paginazione
-  // dedicata al profilo). Riusa la query esistente con cache 60s.
   const feedPage = await getProfileFeedIds({
     authorId: profile.userId,
     viewerUserId,
     pageSize: PROFILE_FEED_PAGE_SIZE,
   });
-  const [posts, coinNameMap] = await Promise.all([
+  const [posts, coinNameMap, viewerFollowing] = await Promise.all([
     getPostsByIds(feedPage.ids, { viewerUserId }),
     getCoinNameMap(),
+    viewerUserId && viewerUserId !== profile.userId
+      ? (async () => (await getFollowingSet(viewerUserId)).has(profile.userId))()
+      : Promise.resolve(false),
   ]);
+  const isOwnProfile = viewerUserId === profile.userId;
 
-  // Layout: top section in grid 2-col (header sx + sidebar dx con Info /
-  // Most cited coins). I post stanno SOTTO la grid e occupano tutta la
-  // larghezza disponibile dello shell. Le sezioni (Watchlist / Activity /
-  // Discussioni / Voti / Media) torneranno come pulsante nell'header
-  // quando ci saranno i moduli — niente tabs in v1.
+  // Layout 2026-05-28b: la profile page e' single-column nel main; le
+  // card per-profilo ("Coin piu' citate" + preview Follower) vivono
+  // nella VERA right rail dello shell via prop rightRailExtra. Niente
+  // grid 2-col interno: il main si riduce a header full-width + feed.
+  const rightRailExtra = (
+    <>
+      {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
+      <ProfileFollowersCard
+        userId={profile.userId}
+        username={profile.username}
+        totalCount={counters.followersCount}
+      />
+    </>
+  );
+
+  const display = displayName(profile);
+  const initial = (profile.firstName ?? profile.username)
+    .charAt(0)
+    .toUpperCase();
+
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <ProfileHeader profile={profile} stats={stats} />
-        <aside className="hidden lg:block space-y-4">
-          <InfoCard profile={profile} t={t} />
-          {topCoins.length > 0 && <TopCoinsCard coins={topCoins} t={t} />}
-        </aside>
+    <PublicAdaptiveShell rightRailExtra={rightRailExtra}>
+      <div className="space-y-6 max-w-3xl">
+        <ProfileHeader
+          profile={profile}
+          stats={stats}
+          counters={counters}
+          viewerUserId={viewerUserId ?? null}
+          isOwnProfile={isOwnProfile}
+          viewerIsFollowing={viewerFollowing}
+        />
+        <ProfileStickyHeader
+          targetUserId={profile.userId}
+          avatarUrl={profile.avatarUrl}
+          displayName={display}
+          username={profile.username}
+          initial={initial}
+          initialFollowersCount={counters.followersCount}
+          viewerUserId={viewerUserId ?? null}
+          isOwnProfile={isOwnProfile}
+          initialFollowing={viewerFollowing}
+        />
+        {posts.length === 0 ? (
+          <EmptyState message={tComp("empty_state")} />
+        ) : (
+          <ul className="space-y-3" aria-label={tComp("posts_aria")}>
+            {posts.map((post) => (
+              <li key={post.id}>
+                <PostCard
+                  post={post}
+                  isAuthor={viewerUserId === post.author.id}
+                  variant="feed"
+                  coinNameMap={coinNameMap}
+                  viewerIsFollowingAuthor={
+                    !viewerUserId || isOwnProfile ? undefined : viewerFollowing
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {posts.length === 0 ? (
-        <EmptyState message={tComp("empty_state")} />
-      ) : (
-        <ul className="space-y-3" aria-label={tComp("posts_aria")}>
-          {posts.map((post) => (
-            <li key={post.id}>
-              <PostCard
-                post={post}
-                isAuthor={viewerUserId === post.author.id}
-                variant="feed"
-                coinNameMap={coinNameMap}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    </PublicAdaptiveShell>
   );
 }
 
@@ -154,38 +179,113 @@ async function ProfilePageBody({
 function ProfileHeader({
   profile,
   stats,
+  counters,
+  viewerUserId,
+  isOwnProfile,
+  viewerIsFollowing,
 }: {
   profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
   stats: Awaited<ReturnType<typeof getProfileStats>>;
+  counters: { followersCount: number; followingCount: number };
+  viewerUserId: string | null;
+  isOwnProfile: boolean;
+  viewerIsFollowing: boolean;
 }) {
   const display = displayName(profile);
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
+  const usernameLower = profile.username.toLowerCase();
+  const showFollow = !!viewerUserId && !isOwnProfile;
   return (
-    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-6 sm:p-8">
-      <div className="flex items-start gap-5 flex-wrap">
+    // Mobile: card centrata (avatar grande, nome/headline/stat centrati,
+    // Follow full-width sotto). Desktop (sm+): layout orizzontale classico
+    // (avatar a sx, info al centro, Follow a dx). Stesso markup, classi
+    // responsive — vedi project_responsive_strategy.
+    <header className="p-5 sm:p-4">
+      <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
         <Avatar avatarUrl={profile.avatarUrl} initial={initial} display={display} />
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-serif text-gc-fg leading-tight">
+          <h1 className="text-2xl sm:text-xl font-serif text-gc-fg leading-tight">
             {display}
           </h1>
-          <p className="text-sm text-gc-fg-3 mt-1">@{profile.username}</p>
+          <p className="profile-username text-sm text-gc-fg-3 mt-0.5">
+            @{profile.username}
+          </p>
           {profile.headline && (
-            <p className="text-sm text-gc-fg-2 mt-2">{profile.headline}</p>
+            <p className="text-sm text-gc-fg-2 mt-1.5">{profile.headline}</p>
           )}
           {profile.bio && (
-            <p className="text-sm text-gc-fg-2 mt-3 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-gc-fg-2 mt-2 whitespace-pre-wrap leading-relaxed">
               {profile.bio}
             </p>
           )}
         </div>
+        {/* Follow desktop: inline a destra. Su mobile è nascosto e
+            sostituito dalla versione full-width sotto le stat (i due
+            FollowButton sono sincronizzati dal FollowOverridesProvider). */}
+        {showFollow ? (
+          <div className="hidden sm:block shrink-0">
+            <FollowButton
+              targetUserId={profile.userId}
+              initialFollowing={viewerIsFollowing}
+              variant="default"
+            />
+          </div>
+        ) : null}
       </div>
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gc-line pt-5">
-        <StatPlaceholder labelKey="follower" />
-        <StatPlaceholder labelKey="following" />
+
+      {/* Stat: mobile 3 voci centrate con divisori verticali; desktop
+          griglia 4-col (con "Iscritto a"). Joined nascosto su mobile. */}
+      <div className="mt-4 sm:mt-3 flex justify-center divide-x divide-gc-line border-t border-gc-line pt-4 sm:pt-3 sm:grid sm:grid-cols-4 sm:gap-3 sm:divide-x-0">
+        <CounterStatLink
+          href={`/u/${usernameLower}/followers`}
+          value={counters.followersCount}
+          labelKey="follower"
+        />
+        <CounterStatLink
+          href={`/u/${usernameLower}/following`}
+          value={counters.followingCount}
+          labelKey="following"
+        />
         <Stat value={stats.postsTotal} labelKey="posts" />
         <JoinedStat createdAt={profile.createdAt} />
       </div>
+
+      {/* Follow mobile: full-width sotto le stat. Hidden su sm+. */}
+      {showFollow ? (
+        <div className="sm:hidden mt-4 w-full [&>div]:w-full [&_button]:w-full [&_button]:justify-center">
+          <FollowButton
+            targetUserId={profile.userId}
+            initialFollowing={viewerIsFollowing}
+            variant="default"
+          />
+        </div>
+      ) : null}
     </header>
+  );
+}
+
+function CounterStatLink({
+  href,
+  value,
+  labelKey,
+}: {
+  href: string;
+  value: number;
+  labelKey: string;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="group block text-center rounded-lg hover:bg-gc-bg-3 px-5 py-1 sm:-mx-2 sm:px-2 transition"
+    >
+      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
+        {value.toLocaleString()}
+      </p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
+        <StatLabel labelKey={labelKey} />
+      </p>
+    </Link>
   );
 }
 
@@ -204,13 +304,13 @@ function Avatar({
       <img
         src={avatarUrl}
         alt={display}
-        className="w-24 h-24 rounded-full object-cover border border-gc-line"
+        className="w-24 h-24 sm:w-16 sm:h-16 rounded-full object-cover border border-gc-line shrink-0"
       />
     );
   }
   return (
     <div
-      className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif text-white bg-gc-accent"
+      className="w-24 h-24 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent shrink-0"
       aria-label={display}
     >
       {initial}
@@ -220,11 +320,11 @@ function Avatar({
 
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
-    <div>
-      <p className="text-2xl font-serif text-gc-fg tabular-nums">
+    <div className="text-center px-5 py-1 sm:px-0 sm:py-0">
+      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey={labelKey} />
       </p>
     </div>
@@ -234,8 +334,8 @@ function Stat({ value, labelKey }: { value: number; labelKey: string }) {
 function StatPlaceholder({ labelKey }: { labelKey: string }) {
   return (
     <div>
-      <p className="text-2xl font-serif text-gc-fg-3 tabular-nums">—</p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+      <p className="text-xl font-serif text-gc-fg-3 tabular-nums leading-tight">—</p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey={labelKey} />
       </p>
     </div>
@@ -253,9 +353,13 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
     year: "numeric",
   });
   return (
-    <div>
-      <p className="text-lg font-serif text-gc-fg tabular-nums">{formatted}</p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 mt-0.5">
+    // Nascosto su mobile: la card centrata mostra solo 3 stat (follower /
+    // segue / post) come da schema. "Iscritto a" resta solo su desktop.
+    <div className="hidden sm:block text-center">
+      <p className="text-base font-serif text-gc-fg tabular-nums leading-tight">
+        {formatted}
+      </p>
+      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
         <StatLabel labelKey="joined" />
       </p>
     </div>
@@ -266,31 +370,6 @@ function JoinedStat({ createdAt }: { createdAt: Date }) {
 // Sidebar dx
 // ---------------------------------------------------------------------------
 
-function InfoCard({
-  profile,
-  t,
-}: {
-  profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
-  t: Awaited<ReturnType<typeof getTranslations<"core.pages.profile">>>;
-}) {
-  const joined = profile.createdAt.toLocaleDateString("it-IT", {
-    month: "long",
-    year: "numeric",
-  });
-  return (
-    <section className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5">
-      <h2 className="text-base font-serif italic text-gc-fg mb-3">
-        {t("info_title")}
-      </h2>
-      <dl className="space-y-2 text-xs text-gc-fg-2">
-        <div className="flex items-center gap-2">
-          <dt className="text-gc-fg-3">{t("info_joined")}</dt>
-          <dd className="ml-auto">{joined}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
 
 function TopCoinsCard({
   coins,

@@ -60,7 +60,7 @@ export const metadata: Metadata = { title: "Posts / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-25 (KV-set blocks + post-cache V2 + rate-limit V2 + realtime banner)";
+const REVIEWED_AT = "2026-05-28 (social-graph PR3: trigger broadcast esteso a 'followers' + Home realtime banner via filtro followingSet)";
 
 const SECTIONS = [
   { id: "overview",       label: "Overview" },
@@ -135,8 +135,9 @@ export default function PostsArchitecturePage() {
             <li>
               <strong>Visibility</strong>: 4 valori — <code>public</code>{" "}
               (anche anon), <code>members</code> (authenticated),{" "}
-              <code>followers</code> (richiede modulo follows futuro;
-              oggi gate effettivo = autore), <code>private</code>{" "}
+              <code>followers</code> (gate: viewer segue l&apos;autore, via
+              <code>getFollowingSet</code> del modulo{" "}
+              <code>social-graph</code>), <code>private</code>{" "}
               (solo autore).
             </li>
             <li>
@@ -210,7 +211,7 @@ export default function PostsArchitecturePage() {
                 { name: "id",               type: "uuid v7",     note: "PK, ordinabile per tempo" },
                 { name: "author_id",        type: "uuid",        note: "FK users(id), ON DELETE CASCADE" },
                 { name: "body",             type: "text",        note: "max 1000 char (CHECK)" },
-                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Enforce viewer-side in getFeedIds (feed) e selectPostsCore(enforceVisibility:true) (embed target del repost — vedi Caveats §visibility leak fix). 'followers' richiede modulo follows: oggi temp. trattato come 'private' (viewer == author)" },
+                { name: "visibility",       type: "varchar(16)", note: "'public' | 'members' | 'followers' | 'private' — CHECK constraint. Enforce viewer-side in getHomeFeedIds/getDiscoverFeedIds (feed) e selectPostsCore(enforceVisibility:true) (embed target del repost — vedi Caveats §visibility leak fix). Da 2026-05-28: 'followers' funzionale via getFollowingSet del modulo social-graph (viewer ∈ followers(author) ⇔ author ∈ followingSet(viewer))" },
                 { name: "repost_of_id",     type: "uuid?",       note: "self-FK per quote repost (self-repost ammesso dal 2026-05-18)" },
                 { name: "deleted_at",       type: "timestamptz?", note: "soft delete (autore o admin)" },
                 { name: "deleted_by",       type: "varchar(40)?", note: "'author' | 'moderator', M_posts_006" },
@@ -571,8 +572,11 @@ export default function PostsArchitecturePage() {
                 <code>followers</code> → broadcast channel <strong>private</strong>{" "}
                 +{" "}
                 <strong>RLS gate: viewer è follower dell'autore</strong>
-                . Implementazione completa quando arriva il modulo follows;
-                fino ad allora, solo l'autore stesso passa il gate.
+                . Gate JS-side via{" "}
+                <code>viewerCanSeeVisibility(viewerId, followingSet)</code>{" "}
+                (autori in followingSet → ammessi). Modulo realtime broadcast
+                cross-followers e&apos; pianificato per PR3 del modulo
+                social-graph.
               </li>
               <li>
                 <code>private</code> → broadcast channel <strong>private</strong>{" "}

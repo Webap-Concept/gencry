@@ -13,9 +13,7 @@ import { revalidatePath } from "next/cache";
 import { getExchangeAdapter } from "@/lib/modules/prices/exchanges/registry";
 import type { HealthCheckResult } from "@/lib/modules/prices/exchanges/types";
 
-const SECTION_PERM = "admin:users"; // PR4 placeholder; modulo prices
-// non ha ancora una permission dedicata, usiamo admin:users come gate
-// generico admin. Da spostare a `modules:prices` quando arrivera'.
+const SECTION_PERM = "modules:prices";
 
 export type ToggleResult =
   | { ok: true }
@@ -338,6 +336,36 @@ export async function enrichCoinsMetadataAction(
     "@/lib/modules/prices/enrichment"
   );
   const result = await runMetadataEnrichment(maxCount);
+  if (result.ok) {
+    revalidatePath("/admin/modules/prices/exchanges");
+    revalidatePath("/admin/modules/prices/coins");
+  }
+  return result;
+}
+
+export type MetadataRefreshActionResult =
+  | {
+      ok: true;
+      coinsLoaded: number;
+      batchesFetched: number;
+      updatedMarketCap: number;
+      updatedSparkline: number;
+      errors: number;
+      durationMs: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Trigger manuale del cron metadata-refresh (market_cap + rank +
+ * sparkline 7d). A regime gira ogni 4h via pg_cron; questo bottone serve
+ * per "non aspettare" dopo un import wholesale + enrichment.
+ */
+export async function refreshMetadataNowAction(): Promise<MetadataRefreshActionResult> {
+  await requireAdminSectionPage(SECTION_PERM);
+  const { runMetadataRefresh } = await import(
+    "@/lib/modules/prices/services/metadata-refresh"
+  );
+  const result = await runMetadataRefresh();
   if (result.ok) {
     revalidatePath("/admin/modules/prices/exchanges");
     revalidatePath("/admin/modules/prices/coins");
