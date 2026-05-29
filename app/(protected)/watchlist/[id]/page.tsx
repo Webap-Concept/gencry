@@ -45,7 +45,7 @@ export default async function WatchlistDetailPage({
   const autoOpenAddCoin = sp.add === "1";
 
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
+    <div className="max-w-3xl mx-auto py-6 space-y-6">
       <Suspense fallback={<WatchlistDetailSkeleton />}>
         <DetailBody
           watchlistId={id}

@@ -18,7 +18,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4">
+    <div className="max-w-5xl mx-auto py-6">
       <div className="bg-gc-bg-2 border border-gc-line rounded-2xl p-8 text-center flex flex-col items-center gap-3">
         <h2 className="text-lg font-serif text-gc-fg">
           Qualcosa è andato storto
