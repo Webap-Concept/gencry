@@ -177,7 +177,7 @@ export function CoinChart({
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart
               data={series.points}
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -204,8 +204,14 @@ export function CoinChart({
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
-                width={64}
                 orientation="right"
+                // `mirror`: disegna le label prezzo DENTRO l'area del
+                // grafico (ancorate al bordo destro) invece che in una
+                // colonna dedicata a destra. Cosi' la linea si estende
+                // edge-to-edge e non resta lo spazio vuoto ~25% a destra.
+                mirror
+                width={28}
+                tickMargin={2}
               />
               <Tooltip
                 cursor={{ stroke: "var(--gc-line-2)", strokeWidth: 1 }}
