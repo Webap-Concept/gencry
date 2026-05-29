@@ -421,6 +421,8 @@ export interface FeaturedWatchlistFeed {
   slug: string;
   /** CoinView complete (con weeklySparkline) nell'ordine della watchlist. */
   coins: CoinView[];
+  /** Perf 30g media delle coin (come la card lista). Null se non calcolabile. */
+  perf30dPct: number | null;
 }
 
 export const getFeaturedWatchlistForFeed = cache(
@@ -449,14 +451,19 @@ export const getFeaturedWatchlistForFeed = cache(
       .orderBy(asc(watchlistCoins.position), asc(watchlistCoins.addedAt));
     if (coinRows.length === 0) return null; // vuota → non mostrare la barra
 
-    const viewsMap = await resolveCoinViews(coinRows.map((c) => c.symbol));
+    const symbols = coinRows.map((c) => c.symbol);
+    const [viewsMap, perfMap] = await Promise.all([
+      resolveCoinViews(symbols),
+      getCoinsPerf30d(symbols),
+    ]);
     const coins: CoinView[] = [];
     for (const c of coinRows) {
       const v = viewsMap.get(c.symbol.toUpperCase());
       if (v) coins.push(v); // scarta i symbol non risolti (coin disattivata)
     }
     if (coins.length === 0) return null;
-    return { id: wl.id, name: wl.name, slug: wl.slug, coins };
+    const perf30dPct = averagePerf(symbols, perfMap);
+    return { id: wl.id, name: wl.name, slug: wl.slug, coins, perf30dPct };
   },
 );
 

@@ -6,12 +6,14 @@
 // (bosco) via scope `.gc-dark` come CoinSummaryCard — sempre verde scuro
 // anche se l'utente è in sabbia.
 //
-// Stato compresso: mostra le prime COLLAPSED_COUNT coin + pill "+N altre".
-// Espanso: tutte + "Comprimi". Il toggle appare solo se ci sono più coin
-// di COLLAPSED_COUNT. Ogni chip linka a /coins/<symbol>.
+// Stato compresso: UNA sola riga di coin (clip CSS `max-h`), con pill
+// "+N altre" dove N è misurato runtime (quante chip finiscono oltre la
+// prima riga — dipende dalla larghezza del viewport, non da un count
+// fisso). Espanso: tutte le coin in wrap + "Comprimi". Accanto al nome
+// il rendimento 30g della watchlist.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { MiniSparkline } from "@/components/modules/coins/mini-sparkline";
@@ -24,38 +26,82 @@ export interface FeaturedChip {
   sparkline: number[];
 }
 
-// Numero di coin visibili in stato compresso (matcha il mock: 1 riga su
-// desktop). Oltre questo soglia compare il toggle "+N altre".
-const COLLAPSED_COUNT = 4;
-
 export function FeaturedWatchlistBarClient({
   watchlistId,
   name,
+  perf30dPct,
   coins,
 }: {
   watchlistId: string;
   name: string;
+  perf30dPct: number | null;
   coins: FeaturedChip[];
 }) {
   const t = useTranslations("watchlist.feed");
   const [expanded, setExpanded] = useState(false);
+  // Quante chip finiscono oltre la prima riga (misurato dal layout reale,
+  // responsive). 0 finché non misurato → niente toggle al primo paint.
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const listRef = useRef<HTMLUListElement>(null);
 
-  const hasMore = coins.length > COLLAPSED_COUNT;
-  const visible = expanded || !hasMore ? coins : coins.slice(0, COLLAPSED_COUNT);
-  const hiddenCount = coins.length - COLLAPSED_COUNT;
+  // Misura post-mount + a ogni resize: conta le chip con offsetTop oltre
+  // quello della prima (= righe successive). overflow-hidden non altera
+  // offsetTop, quindi la misura è corretta anche in stato compresso.
+  useEffect(() => {
+    const measure = () => {
+      const ul = listRef.current;
+      if (!ul) return;
+      const items = Array.from(ul.children) as HTMLElement[];
+      if (items.length === 0) {
+        setHiddenCount(0);
+        return;
+      }
+      const firstTop = items[0].offsetTop;
+      let visible = 0;
+      for (const it of items) {
+        if (it.offsetTop > firstTop) break;
+        visible++;
+      }
+      setHiddenCount(Math.max(0, items.length - visible));
+    };
+    measure();
+    const ul = listRef.current;
+    if (!ul || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(ul);
+    return () => ro.disconnect();
+  }, [coins.length]);
+
+  const hasMore = hiddenCount > 0;
+  const perfTone =
+    perf30dPct === null || !Number.isFinite(perf30dPct)
+      ? "text-gc-fg-3"
+      : perf30dPct > 0
+        ? "text-gc-pos"
+        : perf30dPct < 0
+          ? "text-gc-neg"
+          : "text-gc-fg-3";
 
   return (
     <section className="gc-dark rounded-2xl bg-gc-bg-2 border border-gc-line p-4">
       <header className="flex items-center justify-between gap-3 mb-3">
-        <Link
-          href={`/watchlist/${watchlistId}`}
-          prefetch={false}
-          aria-label={t("open_aria", { name })}
-          className="font-display text-lg leading-snug text-gc-fg hover:text-gc-fg-2 transition-colors truncate"
-        >
-          {name}
-        </Link>
-        {hasMore ? (
+        <div className="flex items-baseline gap-2 min-w-0">
+          <Link
+            href={`/watchlist/${watchlistId}`}
+            prefetch={false}
+            aria-label={t("open_aria", { name })}
+            className="font-display text-lg leading-snug text-gc-fg hover:text-gc-fg-2 transition-colors truncate"
+          >
+            {name}
+          </Link>
+          {perf30dPct !== null && Number.isFinite(perf30dPct) ? (
+            <span className={cn("shrink-0 text-sm font-semibold tabular-nums", perfTone)}>
+              {perf30dPct > 0 ? "+" : ""}
+              {perf30dPct.toFixed(1)}%
+            </span>
+          ) : null}
+        </div>
+        {hasMore || expanded ? (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -77,8 +123,17 @@ export function FeaturedWatchlistBarClient({
         ) : null}
       </header>
 
-      <ul className="flex flex-wrap gap-2">
-        {visible.map((c) => (
+      {/* Compresso: max-h di una riga (h-8 chip + clip). overflow-hidden
+          taglia visivamente le righe successive ma le chip restano nel DOM
+          (misurabili). Espanso: nessun cap → wrap su più righe. */}
+      <ul
+        ref={listRef}
+        className={cn(
+          "flex flex-wrap gap-2 overflow-hidden transition-[max-height] duration-200",
+          !expanded && "max-h-9",
+        )}
+      >
+        {coins.map((c) => (
           <li key={c.symbol}>
             <CoinChip coin={c} ariaLabel={t("coin_aria", { symbol: c.symbol })} />
           </li>

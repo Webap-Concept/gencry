@@ -35,6 +35,7 @@ export async function FeaturedWatchlistBar() {
     <FeaturedWatchlistBarClient
       watchlistId={data.id}
       name={data.name}
+      perf30dPct={data.perf30dPct}
       coins={coins}
     />
   );
