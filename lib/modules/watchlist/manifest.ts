@@ -30,6 +30,13 @@ export const WATCHLIST_MODULE: ModuleManifest = {
       exact: true,
     },
     {
+      key: "watchlist-settings",
+      href: "/modules/watchlist/settings",
+      label: "Impostazioni",
+      icon: "Settings",
+      permission: WATCHLIST_PERMISSION,
+    },
+    {
       key: "watchlist-architecture",
       href: "/modules/watchlist/architecture",
       label: "Architettura",
