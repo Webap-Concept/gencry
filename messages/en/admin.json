@@ -824,6 +824,11 @@
         "description": "Configure Redis cache connection and options.",
         "guideTitle": "Redis — operator's guide"
       },
+      "qstash": {
+        "label": "QStash",
+        "description": "HTTP scheduler for cron jobs (replaces pg_cron + pg_net).",
+        "guideTitle": "QStash — operator's guide"
+      },
       "resend": {
         "label": "Resend",
         "description": "Configure credentials and sender for outgoing emails."
@@ -862,6 +867,12 @@
       "redisTestFailedStatus": "Redis connection failed ({status}).",
       "redisTestOk": "Redis connection successful.",
       "redisTestFailed": "Unable to contact Redis / Upstash.",
+      "qstashSaved": "QStash credentials saved.",
+      "qstashSaveFailed": "Save failed.",
+      "qstashTestCredentialsRequired": "Enter the QStash token before testing.",
+      "qstashTestFailedStatus": "QStash connection failed ({status}).",
+      "qstashTestOk": "QStash connection successful.",
+      "qstashTestFailed": "Unable to contact QStash.",
       "googleOAuthSaved": "Google OAuth credentials saved.",
       "googleOAuthSaveFailed": "Save failed.",
       "googleOAuthTestFieldsRequired": "Fill in all three fields before testing.",
@@ -1069,6 +1080,19 @@
       "tokenHint": "Find it in Upstash Console → Database → REST API → Read/Write Token",
       "showTokenAria": "Show token",
       "hideTokenAria": "Hide token",
+      "saveButton": "Save credentials",
+      "savingButton": "Saving…",
+      "testButton": "Test connection",
+      "testingButton": "Testing..."
+    },
+    "qstash": {
+      "tokenLabel": "QStash token",
+      "tokenHint": "Find it in Upstash Console → QStash → Details → QSTASH_TOKEN. Used to create and manage schedules.",
+      "currentKeyLabel": "Current signing key",
+      "nextKeyLabel": "Next signing key",
+      "signingKeysHint": "Optional. Used to verify the Upstash-Signature header on incoming requests (defense-in-depth on top of CRON_SECRET). Safe to leave empty.",
+      "showTokenAria": "Show secrets",
+      "hideTokenAria": "Hide secrets",
       "saveButton": "Save credentials",
       "savingButton": "Saving…",
       "testButton": "Test connection",
@@ -3367,6 +3391,7 @@
     "services-group": "Services",
     "services-resend": "Resend",
     "services-redis": "Redis",
+    "services-qstash": "QStash",
     "services-google": "Google OAuth",
     "services-github": "GitHub CI",
     "services-cloudflare": "Cloudflare",
