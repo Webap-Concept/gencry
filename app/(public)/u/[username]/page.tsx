@@ -200,14 +200,16 @@ function ProfileHeader({
     // Follow full-width sotto). Desktop (sm+): layout orizzontale classico
     // (avatar a sx, info al centro, Follow a dx). Stesso markup, classi
     // responsive — vedi project_responsive_strategy.
-    <header className="bg-gc-bg-2 border border-gc-line rounded-2xl p-5 sm:p-4">
+    <header className="p-5 sm:p-4">
       <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
         <Avatar avatarUrl={profile.avatarUrl} initial={initial} display={display} />
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl sm:text-xl font-serif text-gc-fg leading-tight">
             {display}
           </h1>
-          <p className="text-sm text-gc-fg-3 mt-0.5">@{profile.username}</p>
+          <p className="profile-username text-sm text-gc-fg-3 mt-0.5">
+            @{profile.username}
+          </p>
           {profile.headline && (
             <p className="text-sm text-gc-fg-2 mt-1.5">{profile.headline}</p>
           )}
@@ -277,7 +279,7 @@ function CounterStatLink({
       prefetch={false}
       className="group block text-center rounded-lg hover:bg-gc-bg-3 px-5 py-1 sm:-mx-2 sm:px-2 transition"
     >
-      <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
+      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
       <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
@@ -319,7 +321,7 @@ function Avatar({
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
     <div className="text-center px-5 py-1 sm:px-0 sm:py-0">
-      <p className="text-xl font-serif text-gc-fg tabular-nums leading-tight">
+      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
         {value.toLocaleString()}
       </p>
       <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">

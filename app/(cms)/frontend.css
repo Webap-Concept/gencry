@@ -244,6 +244,16 @@
 .gc-dark .theme-dark-only { display: inline-block; }
 
 /* ---------------------------------------------------------------------------
+   Profilo /u/<username> — accenti cromatici SOLO in dark (bosco). Il
+   toggle usa `.gc-dark` (non `.dark`), quindi le varianti `dark:` di
+   Tailwind non si attivano: regole scoped esplicite.
+     - numeri delle stat (follower/segue/post) → arancio brand
+     - @username → verde menta
+   --------------------------------------------------------------------------- */
+.gc-dark .profile-stat-num { color: var(--gc-accent); }
+.gc-dark .profile-username { color: var(--gc-green); }
+
+/* ---------------------------------------------------------------------------
    Scrollbar — colorate sui token gc-*, theme-aware automaticamente.
    Light: scrollbar cream con thumb sabbia scura. Dark: scrollbar verde scuro
    con thumb più chiaro. Stile thin per non rubare spazio al contenuto.
