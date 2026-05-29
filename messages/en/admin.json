@@ -1086,6 +1086,8 @@
       "testingButton": "Testing..."
     },
     "qstash": {
+      "urlLabel": "REST URL",
+      "urlHint": "Region-specific QStash endpoint, e.g. https://qstash-eu-central-1.upstash.io (Upstash Console → QStash → Details).",
       "tokenLabel": "QStash token",
       "tokenHint": "Find it in Upstash Console → QStash → Details → QSTASH_TOKEN. Used to create and manage schedules.",
       "currentKeyLabel": "Current signing key",

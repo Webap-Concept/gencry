@@ -131,8 +131,11 @@ export type SettingKey =
   | 'upstash_management_api_key'
   | 'upstash_management_database_id'
   // Upstash QStash — scheduler HTTP per i cron (sostituisce pg_cron+pg_net).
-  // `qstash_token`: REST token per creare/gestire gli Schedules.
-  // signing keys: verifica firma delle richieste in arrivo (hardening, opt).
+  // `qstash_url`: endpoint REST region-specific (es.
+  // https://qstash-eu-central-1.upstash.io). `qstash_token`: REST token
+  // per creare/gestire gli Schedules. signing keys: verifica firma delle
+  // richieste in arrivo (hardening, opt).
+  | 'qstash_url'
   | 'qstash_token'
   | 'qstash_current_signing_key'
   | 'qstash_next_signing_key'
@@ -477,6 +480,7 @@ export type AppSettings = {
   upstash_management_api_key: string | null
   upstash_management_database_id: string | null
   // Upstash QStash
+  qstash_url: string | null
   qstash_token: string | null
   qstash_current_signing_key: string | null
   qstash_next_signing_key: string | null
@@ -753,6 +757,7 @@ const DEFAULTS: AppSettings = {
   upstash_management_email: null,
   upstash_management_api_key: null,
   upstash_management_database_id: null,
+  qstash_url: null,
   qstash_token: null,
   qstash_current_signing_key: null,
   qstash_next_signing_key: null,

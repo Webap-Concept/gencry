@@ -26,6 +26,7 @@ export function QstashForm({ settings }: { settings: AppSettings }) {
     type: "success" | "error";
   } | null>(null);
 
+  const urlRef = useRef<HTMLInputElement>(null);
   const tokenRef = useRef<HTMLInputElement>(null);
 
   const [saveState, saveAction, isSaving] = useActionState<ActionState, FormData>(
@@ -62,6 +63,7 @@ export function QstashForm({ settings }: { settings: AppSettings }) {
 
   function handleTest() {
     const fd = new FormData();
+    fd.append("qstash_url", urlRef.current?.value ?? "");
     fd.append("qstash_token", tokenRef.current?.value ?? "");
     testAction(fd);
   }
@@ -78,6 +80,34 @@ export function QstashForm({ settings }: { settings: AppSettings }) {
             border: "1px solid var(--admin-card-border)",
           }}
         >
+          {/* QStash REST URL (region-specific) */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="qstash_url"
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--admin-text-muted)" }}
+            >
+              {t("urlLabel")}
+            </label>
+            <input
+              ref={urlRef}
+              id="qstash_url"
+              name="qstash_url"
+              type="url"
+              defaultValue={settings.qstash_url ?? ""}
+              placeholder="https://qstash-eu-central-1.upstash.io"
+              autoComplete="off"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              spellCheck={false}
+              className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
+              style={INPUT_STYLE}
+            />
+            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
+              {t("urlHint")}
+            </p>
+          </div>
+
           {/* QStash token (principale) */}
           <div className="space-y-1.5">
             <label

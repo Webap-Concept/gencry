@@ -16,6 +16,7 @@ export async function saveQstashSettings(
 ): Promise<ActionState> {
   const t = await getTranslations("admin.services.actionMessages");
   try {
+    const url = ((formData.get("qstash_url") as string) ?? "").trim();
     const token = ((formData.get("qstash_token") as string) ?? "").trim();
     const current = (
       (formData.get("qstash_current_signing_key") as string) ?? ""
@@ -23,6 +24,7 @@ export async function saveQstashSettings(
     const next = (
       (formData.get("qstash_next_signing_key") as string) ?? ""
     ).trim();
+    await updateAppSetting("qstash_url", url || null);
     await updateAppSetting("qstash_token", token || null);
     await updateAppSetting("qstash_current_signing_key", current || null);
     await updateAppSetting("qstash_next_signing_key", next || null);
@@ -44,10 +46,14 @@ export async function testQstashConnection(
     if (!token) {
       return { error: t("qstashTestCredentialsRequired"), timestamp: Date.now() };
     }
+    // URL region-specific dal form; fallback all'endpoint globale. QStash è
+    // regionale (es. qstash-eu-central-1.upstash.io) — niente hardcode.
+    const rawUrl = ((formData.get("qstash_url") as string | null) ?? "").trim();
+    const base = (rawUrl || "https://qstash.upstash.io").replace(/\/+$/, "");
     // GET /v2/schedules è la chiamata più innocua autenticata: 200 = token
     // valido, niente side-effect. Conferma che potremo creare/leggere
     // schedule con queste credenziali.
-    const response = await fetch("https://qstash.upstash.io/v2/schedules", {
+    const response = await fetch(`${base}/v2/schedules`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
