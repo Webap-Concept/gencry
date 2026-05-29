@@ -231,16 +231,17 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Logo swap light/dark — il setting `app_logo_variant_url` viene caricato
-   nell'admin per la modalità dark. I shell che mostrano il logo
-   renderizzano DUE `<img>` (uno per tema) con queste classi: solo uno e'
-   visibile via display:none scoped su `.gc-dark` sul `<html>`. Zero JS,
-   zero flicker all'idratazione. Se la variant manca, il caller renderizza
-   solo `app_logo_url` con classe `.logo-default` (sempre visibile).
+   Theme image swap light/dark — utility generica per mostrare un asset
+   diverso a seconda del tema (`.gc-dark` sul `<html>`). Usata da:
+     - AppLogo (logo principale vs variant dark caricata in admin)
+     - AppBottomNav FAB (icona "nuovo post" light/dark)
+   Pattern: il caller renderizza DUE elementi (es. <img>), uno con
+   `.theme-light-only` e uno con `.theme-dark-only`; solo uno e' visibile
+   via display:none scoped su `.gc-dark`. Zero JS, zero flicker.
    --------------------------------------------------------------------------- */
-.logo-dark { display: none; }
-.gc-dark .logo-light { display: none; }
-.gc-dark .logo-dark { display: inline-block; }
+.theme-dark-only { display: none; }
+.gc-dark .theme-light-only { display: none; }
+.gc-dark .theme-dark-only { display: inline-block; }
 
 /* ---------------------------------------------------------------------------
    Scrollbar — colorate sui token gc-*, theme-aware automaticamente.

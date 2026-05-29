@@ -61,13 +61,30 @@ export function NewPostButton({ variant }: { variant: Variant }) {
       <span>{tNp("button_aria")}</span>
     </button>
   ) : (
+    // FAB centrale del bottom nav mobile: icona "impronta + plus" col
+    // plus arancione integrato. Sfondo trasparente (l'icona e' gia'
+    // l'elemento visivo completo), swap light/dark via theme-*-only.
+    // -mt-3 per "sporgere" sopra la barra, come il vecchio cerchio.
     <button
       type="button"
       onClick={() => setOpen(true)}
       aria-label={tNp("button_aria")}
-      className="w-12 h-12 rounded-full bg-gc-accent text-white flex items-center justify-center -mt-3 shadow-md hover:brightness-95 transition"
+      className="flex items-center justify-center -mt-3 active:scale-95 transition-transform"
     >
-      <Plus size={22} strokeWidth={2.5} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/icons/new-post-light.svg"
+        alt=""
+        aria-hidden
+        className="theme-light-only h-11 w-auto"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/icons/new-post-dark.svg"
+        alt=""
+        aria-hidden
+        className="theme-dark-only h-11 w-auto"
+      />
     </button>
   );
 

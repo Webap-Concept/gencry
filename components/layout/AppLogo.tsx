@@ -29,13 +29,17 @@ export function AppLogo({ url, variantUrl, alt, className }: Props) {
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt={alt} className={`logo-light ${className ?? ""}`} />
+      <img
+        src={url}
+        alt={alt}
+        className={`theme-light-only ${className ?? ""}`}
+      />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={variantUrl}
         alt=""
         aria-hidden
-        className={`logo-dark ${className ?? ""}`}
+        className={`theme-dark-only ${className ?? ""}`}
       />
     </>
   );
