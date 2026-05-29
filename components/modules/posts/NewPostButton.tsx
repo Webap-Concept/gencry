@@ -69,21 +69,21 @@ export function NewPostButton({ variant }: { variant: Variant }) {
       type="button"
       onClick={() => setOpen(true)}
       aria-label={tNp("button_aria")}
-      className="flex items-center justify-center -mt-3 active:scale-95 transition-transform"
+      className="flex items-center justify-center -mt-8 active:scale-95 transition-transform drop-shadow-md"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/icons/new-post-light.svg"
         alt=""
         aria-hidden
-        className="theme-light-only h-11 w-auto"
+        className="theme-light-only h-16 w-auto"
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/icons/new-post-dark.svg"
         alt=""
         aria-hidden
-        className="theme-dark-only h-11 w-auto"
+        className="theme-dark-only h-16 w-auto"
       />
     </button>
   );
