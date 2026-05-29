@@ -33,7 +33,7 @@ export function ProtectedShell({
    *  notifications). Passato come ReactNode così rimane server-only
    *  pur essendo nested in un client component. */
   notificationsBadge?: React.ReactNode;
-  /** Seconda istanza del badge per la bell della topbar mobile. Istanza
+  /** Seconda istanza del badge per la bell del bottom nav mobile. Istanza
    *  separata (non lo stesso element di `notificationsBadge`) per evitare
    *  il re-uso dello stesso nodo React in due posizioni del DOM. */
   notificationsBadgeMobile?: React.ReactNode;
@@ -46,7 +46,7 @@ export function ProtectedShell({
   return (
     <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
       {banner}
-      <AppTopBar notificationsBadge={notificationsBadgeMobile} />
+      <AppTopBar />
       <div className="flex-1 min-h-0 mx-auto w-full max-w-[1280px] flex">
         <AppSidebar
           appLogoUrl={appLogoUrl}
@@ -58,7 +58,7 @@ export function ProtectedShell({
         </main>
         <AppRightRail showLegalFooter extra={rightRailExtra} />
       </div>
-      <AppBottomNav />
+      <AppBottomNav notificationsBadge={notificationsBadgeMobile} />
     </div>
   );
 }
