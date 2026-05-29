@@ -110,6 +110,11 @@ export default async function Layout({
           <NotificationsBadge />
         </Suspense>
       }
+      notificationsBadgeMobile={
+        <Suspense fallback={null}>
+          <NotificationsBadge />
+        </Suspense>
+      }
     >
       <Suspense fallback={null}>{children}</Suspense>
       {modal}

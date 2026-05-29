@@ -19,6 +19,7 @@ export function ProtectedShell({
   appLogoVariantUrl,
   banner,
   notificationsBadge,
+  notificationsBadgeMobile,
   rightRailExtra,
   children,
 }: {
@@ -32,6 +33,10 @@ export function ProtectedShell({
    *  notifications). Passato come ReactNode così rimane server-only
    *  pur essendo nested in un client component. */
   notificationsBadge?: React.ReactNode;
+  /** Seconda istanza del badge per la bell della topbar mobile. Istanza
+   *  separata (non lo stesso element di `notificationsBadge`) per evitare
+   *  il re-uso dello stesso nodo React in due posizioni del DOM. */
+  notificationsBadgeMobile?: React.ReactNode;
   /** Contenuto specifico-della-pagina iniettato in cima alla right rail
    *  (sopra le slot home.rail.*). Es.: profile page → coin più citate +
    *  follower preview dell'utente visualizzato. */
@@ -41,7 +46,7 @@ export function ProtectedShell({
   return (
     <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
       {banner}
-      <AppTopBar />
+      <AppTopBar notificationsBadge={notificationsBadgeMobile} />
       <div className="flex-1 min-h-0 mx-auto w-full max-w-[1280px] flex">
         <AppSidebar
           appLogoUrl={appLogoUrl}

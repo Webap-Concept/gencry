@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Bell, Radar, User as UserIcon, Zap } from "lucide-react";
+import { Bookmark, Radar, User as UserIcon, Zap } from "lucide-react";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 import type { UserWithProfile } from "@/lib/db/schema";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
 // 5 slot con il "+" centrale enfatizzato (CTA Nuovo post).
+// Le notifiche NON stanno qui: vivono nella topbar mobile (bell accanto
+// all'avatar). Lo slot e' occupato dalla watchlist.
 
 type LinkSlot = {
   href: string;
   /** Chiave i18n nel namespace `core.bottomNav.<labelKey>`. */
-  labelKey: "feed" | "explore" | "notifications" | "profile";
+  labelKey: "feed" | "explore" | "watchlist" | "profile";
   icon: typeof Zap;
 };
 
@@ -24,7 +26,7 @@ const STATIC_SLOTS: (LinkSlot | null)[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
   null,
-  { href: "/notifiche", labelKey: "notifications", icon: Bell },
+  { href: "/watchlist", labelKey: "watchlist", icon: Bookmark },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
