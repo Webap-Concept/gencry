@@ -98,6 +98,15 @@
     "coins_count_label": "Tracked coins",
     "back_to_profile": "Go to profile"
   },
+  "coin_button": {
+    "add": "Add to watchlist",
+    "saved": "Saved",
+    "menu_label": "Add to…",
+    "signin_to_save": "Sign in to save",
+    "empty": "You have no watchlists yet",
+    "create_new": "Create a watchlist",
+    "in_count": "In {count, plural, =0 {no watchlists} one {# watchlist} other {# watchlists}}"
+  },
   "copy": {
     "button": "Copy",
     "button_aria": "Copy this watchlist to yours",

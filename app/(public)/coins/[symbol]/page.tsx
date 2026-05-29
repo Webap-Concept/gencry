@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { ArrowLeft, BookmarkPlus, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ISR (PR3 refactor Redis-first): la coin page e' pubblica e martellata da
@@ -20,11 +20,12 @@ import {
   CoinPriceLabel,
   MiniSparkline,
   formatCompactCount,
-  mockWatchlistCount,
 } from "@/components/modules/coins";
+import { AddToWatchlistButton } from "@/components/modules/watchlist/add-to-watchlist-button";
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { getSession } from "@/lib/auth/session";
 import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
+import { getWatchlistCountForSymbol } from "@/lib/modules/watchlist/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { generatePageMetadata, getSiteUrl } from "@/lib/seo";
 import { CoinRelatedPostsSection } from "@/components/modules/posts/CoinRelatedPostsSection";
@@ -160,7 +161,9 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
       )}
       <CoinHeader
         coin={coin}
-        actions={<HeaderActions isLoggedIn={isLoggedIn} />}
+        actions={
+          <HeaderActions isLoggedIn={isLoggedIn} symbol={coin.symbol} />
+        }
         sparklineAriaLabel={tLabels("weekly_chart_aria")}
       />
       <CoinChartLazy symbol={coin.symbol} initialSeries={initialSeries} />
@@ -241,20 +244,24 @@ function CoinHeader({
   );
 }
 
-async function HeaderActions({ isLoggedIn }: { isLoggedIn: boolean }) {
-  if (!isLoggedIn) return null;
-  const tCommon = await getTranslations("prices.common");
-  // Placeholder finché le feature reali non esistono. Disabled per non
-  // fingere interattività; reso visibile per dare anteprima visiva.
+async function HeaderActions({
+  isLoggedIn,
+  symbol,
+}: {
+  isLoggedIn: boolean;
+  symbol: string;
+}) {
+  // Mostrato anche agli anon: il bottone watchlist degrada a "Accedi per
+  // salvare" (link sign-in). Share resta placeholder disabled finché non
+  // c'è la feature reale.
   return (
     <div className="flex items-center gap-2">
-      <Button type="button" size="sm" variant="outline" disabled>
-        <BookmarkPlus size={14} />
-        {tCommon("watchlist")}
-      </Button>
-      <Button type="button" size="sm" variant="ghost" disabled aria-label="Share">
-        <Share2 size={14} />
-      </Button>
+      <AddToWatchlistButton symbol={symbol} isLoggedIn={isLoggedIn} />
+      {isLoggedIn ? (
+        <Button type="button" size="sm" variant="ghost" disabled aria-label="Share">
+          <Share2 size={14} />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -290,8 +297,10 @@ async function AnonymousCta({ coinName }: { coinName: string }) {
 }
 
 async function StatsGrid({ coin }: { coin: CoinView }) {
-  const watchlistCount = mockWatchlistCount(coin.symbol);
-  const tLabels = await getTranslations("prices.labels");
+  const [watchlistCount, tLabels] = await Promise.all([
+    getWatchlistCountForSymbol(coin.symbol),
+    getTranslations("prices.labels"),
+  ]);
   return (
     <section className="grid gap-3 grid-cols-2 sm:grid-cols-4">
       <Stat
@@ -313,7 +322,6 @@ async function StatsGrid({ coin }: { coin: CoinView }) {
       <Stat
         label={tLabels("in_watchlist")}
         value={formatCompactCount(watchlistCount)}
-        hint={tLabels("mockup_hint")}
       />
     </section>
   );

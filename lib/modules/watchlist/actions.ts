@@ -24,6 +24,10 @@ import { getAppSettings } from "@/lib/db/settings-queries";
 import { getCoinForCard } from "@/lib/modules/prices/queries";
 import { generateUniqueSlug } from "./slug";
 import {
+  getMyWatchlistsForSymbol,
+  type WatchlistMembershipRow,
+} from "./queries";
+import {
   type AddCoinResult,
   type CopyWatchlistResult,
   type CreateWatchlistResult,
@@ -352,6 +356,26 @@ export async function removeCoinAction(
     });
     return { ok: false, error: "internal" };
   }
+}
+
+// ─── loadMyWatchlistsForSymbol (popover "Aggiungi a watchlist") ────────
+//
+// Read esposta come action perche' la coin page e' ISR-cached: la
+// membership per-utente NON puo' essere server-rendered nella pagina
+// (leakerebbe tra utenti). Il popover client la fetcha all'apertura.
+
+export async function loadMyWatchlistsForSymbolAction(
+  symbol: string,
+): Promise<
+  | { ok: true; watchlists: WatchlistMembershipRow[] }
+  | { ok: false; error: "unauthenticated" | "validation" }
+> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+  const parsed = coinSymbolSchema.safeParse(symbol);
+  if (!parsed.success) return { ok: false, error: "validation" };
+  const rows = await getMyWatchlistsForSymbol(viewer.id, parsed.data);
+  return { ok: true, watchlists: rows };
 }
 
 // ─── copyWatchlist (duplica una watchlist pubblica nelle proprie) ──────

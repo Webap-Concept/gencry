@@ -17,7 +17,8 @@ import "server-only";
 //
 // Niente fan-out N+1 nel render: i widget UI ricevono dati gia' pronti.
 
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
+import { cache } from "react";
 import { db } from "@/lib/db/drizzle";
 import {
   userProfiles,
@@ -339,6 +340,82 @@ export async function getWatchlistOverviewStats(
     topMover24h: topMover,
     lastSyncAt: lastSync,
   };
+}
+
+// ─── Reverse lookup: in quante watchlist e' una coin ──────────────────
+//
+// Conta TUTTE le watchlist attive (public + private) che contengono il
+// symbol — segnale di popolarita' aggregato e anonimo (non si rivela
+// MAI chi). La PK (watchlist_id, symbol) garantisce 1 riga per watchlist,
+// quindi count(righe) = count(watchlist distinte). Indicizzata da
+// idx_watchlist_coins_symbol.
+//
+// React.cache: dedup per-request (la coin page la usa una volta, ma il
+// wrapper protegge da fan-out futuri). La staleness e' coperta dall'ISR
+// 60s della coin page.
+
+export const getWatchlistCountForSymbol = cache(
+  async (symbol: string): Promise<number> => {
+    const upper = symbol.toUpperCase();
+    const rows = await db
+      .select({ n: count() })
+      .from(watchlistCoins)
+      .innerJoin(watchlists, eq(watchlists.id, watchlistCoins.watchlistId))
+      .where(
+        and(
+          eq(watchlistCoins.symbol, upper),
+          isNull(watchlists.archivedAt),
+        ),
+      );
+    return rows[0]?.n ?? 0;
+  },
+);
+
+/**
+ * Membership delle MIE watchlist rispetto a un symbol: lista delle mie
+ * watchlist attive + flag `hasCoin`. Per il popover "Aggiungi a
+ * watchlist" della coin page. Non cached (per-user, dev'essere fresh
+ * dopo un toggle).
+ */
+export interface WatchlistMembershipRow {
+  id: string;
+  name: string;
+  visibility: WatchlistVisibility;
+  coinsCount: number;
+  hasCoin: boolean;
+}
+
+export async function getMyWatchlistsForSymbol(
+  userId: string,
+  symbol: string,
+): Promise<WatchlistMembershipRow[]> {
+  const upper = symbol.toUpperCase();
+  const rows = await db
+    .select({
+      id: watchlists.id,
+      name: watchlists.name,
+      visibility: watchlists.visibility,
+      coinsCount: watchlists.coinsCount,
+      hasCoin: watchlistCoins.watchlistId,
+    })
+    .from(watchlists)
+    .leftJoin(
+      watchlistCoins,
+      and(
+        eq(watchlistCoins.watchlistId, watchlists.id),
+        eq(watchlistCoins.symbol, upper),
+      ),
+    )
+    .where(and(eq(watchlists.userId, userId), isNull(watchlists.archivedAt)))
+    .orderBy(asc(watchlists.position), asc(watchlists.createdAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    visibility: assertVisibility(r.visibility),
+    coinsCount: r.coinsCount,
+    hasCoin: r.hasCoin !== null,
+  }));
 }
 
 // ─── Detail assembler ──────────────────────────────────────────────────
