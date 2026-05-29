@@ -29,21 +29,40 @@ const R2_CONFIG_KEYS = [
 ] as const;
 
 /**
- * Legge la config R2 dedicata snapshot direttamente dal DB.
- * Ritorna null se anche solo una delle 4 chiavi è vuota — il caller decide
- * il fallback (di solito: lettura diretta DB, comportamento legacy).
+ * Legge la config R2 dedicata snapshot. Ritorna null se incompleta — il
+ * caller decide il fallback (lettura diretta DB, comportamento legacy).
  *
- * `accountId` viene dalla chiave GLOBAL `storage.r2.account_id` (account
- * Cloudflare unico). `access_key_id` / `secret_access_key` / `bucket` sono
- * specifici di QUESTO bucket per isolamento di security.
+ * PRIORITÀ ENV (no-DB bootstrap): se le 4 env var `SNAPSHOT_R2_*` sono
+ * presenti, le usiamo SENZA toccare il DB. È il path robusto: il bootstrap
+ * dello snapshot (che serve TUTTI i settings da R2) non deve dipendere dal
+ * pooler Postgres. Al cold-start lambda, se il pooler ha un hiccup
+ * (CONNECT_TIMEOUT), leggere le credenziali dal DB faceva fallire lo
+ * snapshot → fallback DB → fallimento a cascata (egress + log). Con le env
+ * il bootstrap è 100% indipendente dal DB.
  *
- * Performance: usa `fetchAppSettingsKeysRaw` (query WHERE key IN ...) per
- * leggere SOLO le 4 keys necessarie invece di tutta la tabella app_settings
- * (~103 rows). Importante perché questa funzione viene chiamata 1 volta
- * per cold start lambda — col SELECT * stavamo bruciando ~2.5 GB/mese di
- * egress Supabase solo qui (audit del 2026-05-25).
+ * FALLBACK DB: se anche una env manca, leggiamo da app_settings via
+ * `fetchAppSettingsKeysRaw` (WHERE key IN, solo 4 keys — non SELECT *).
+ * Backward-compatible per chi non ha ancora settato le env.
+ *
+ * `accountId` = chiave GLOBAL `storage.r2.account_id` (account Cloudflare
+ * unico). Le altre 3 sono specifiche di QUESTO bucket (isolamento security).
  */
 export async function loadSnapshotR2Config(): Promise<ConfigR2Config | null> {
+  // 1) ENV first — zero DB.
+  const envAccountId       = process.env.SNAPSHOT_R2_ACCOUNT_ID?.trim();
+  const envAccessKeyId     = process.env.SNAPSHOT_R2_ACCESS_KEY_ID?.trim();
+  const envSecretAccessKey = process.env.SNAPSHOT_R2_SECRET_ACCESS_KEY?.trim();
+  const envBucket          = process.env.SNAPSHOT_R2_BUCKET?.trim();
+  if (envAccountId && envAccessKeyId && envSecretAccessKey && envBucket) {
+    return {
+      accountId: envAccountId,
+      accessKeyId: envAccessKeyId,
+      secretAccessKey: envSecretAccessKey,
+      bucket: envBucket,
+    };
+  }
+
+  // 2) Fallback DB (legacy). Egress-light: WHERE key IN, non SELECT *.
   const s = await fetchAppSettingsKeysRaw(R2_CONFIG_KEYS);
   const accountId       = (s["storage.r2.account_id"]               ?? "").trim();
   const accessKeyId     = (s["storage.config.r2.access_key_id"]     ?? "").trim();
