@@ -24,6 +24,15 @@ export async function saveQstashSettings(
     const next = (
       (formData.get("qstash_next_signing_key") as string) ?? ""
     ).trim();
+    // updateAppSetting fa no-op se il valore è identico a quello in DB (non
+    // bumiamo updated_at inutilmente). Per le chiavi qstash (aggiunte dopo il
+    // primo snapshot R2) questo no-op impediva la sync dello snapshot quando il
+    // token era già salvato. Forziamo la sync dell'intero snapshot PRIMA di
+    // salvare, così anche un re-save identico aggiorna lo snapshot stale.
+    const { forceSyncAppSettingsSnapshot } = await import(
+      "@/lib/db/settings-queries"
+    );
+    await forceSyncAppSettingsSnapshot();
     await updateAppSetting("qstash_url", url || null);
     await updateAppSetting("qstash_token", token || null);
     await updateAppSetting("qstash_current_signing_key", current || null);

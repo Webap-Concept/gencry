@@ -1208,6 +1208,24 @@ export async function batchUpdateAppSettings(
   });
 }
 
+/**
+ * Forza la sincronizzazione dello snapshot R2 con lo stato attuale del DB.
+ * Usato quando lo snapshot è stale (es. chiavi aggiunte ai DEFAULTS dopo
+ * l'ultimo snapshot) e un re-save identico causerebbe no-op senza sync.
+ * Best-effort: nessun throw se R2 non è configurato o down.
+ */
+export async function forceSyncAppSettingsSnapshot(): Promise<void> {
+  try {
+    const data = await fetchAppSettings();
+    const { syncAppSettingsSnapshotWithData } = await import(
+      "@/lib/config/snapshots"
+    );
+    await syncAppSettingsSnapshotWithData(data, null);
+  } catch {
+    // R2 non configurato o down — niente da fare, il DB resta sorgente di verità.
+  }
+}
+
 export async function updateAppSetting(key: SettingKey, value: string | null) {
   await withSettingsLock(async (tx) => {
     // Bumpa updated_at SOLO se il valore cambia davvero. Senza questo check,
