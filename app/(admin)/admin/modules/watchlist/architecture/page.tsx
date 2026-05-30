@@ -40,7 +40,7 @@ import { WATCHLIST_MODULE } from "@/lib/modules/watchlist/manifest";
 
 export const metadata: Metadata = { title: "Watchlist / Architettura" };
 
-const REVIEWED_AT = "2026-05-29 (PR1–PR5: schema, data layer, UI utente, pagina pubblica, copy, coin-page, admin)";
+const REVIEWED_AT = "2026-05-29 (PR1–PR5: schema, data layer, UI utente, pagina pubblica, copy, coin-page, admin; counter batch reale su griglie home/explore; watchlist featured nel feed home)";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -278,6 +278,18 @@ export default function WatchlistArchitecturePage() {
               contract="async (symbol: string) => number"
             />
             <ArchHookBox
+              title="getWatchlistCountsForSymbols(symbols[])"
+              description="Versione batch per le griglie coin (home/explore): conta ogni symbol con UNA query (GROUP BY) invece di N. Ritorna Map seedata a 0. Stessa semantica aggregata/anonima della singola."
+              filePath="lib/modules/watchlist/queries.ts"
+              contract="async (symbols: string[]) => Map<string, number>"
+            />
+            <ArchHookBox
+              title="getFeaturedWatchlistForFeed(userId)"
+              description="La watchlist marcata featured_in_feed (max una per utente, partial unique index) + coin risolte con sparkline, per la barra espandibile in cima alla home loggata (slot home.hero). Null se nessuna featured o se vuota. React.cache."
+              filePath="lib/modules/watchlist/queries.ts"
+              contract="async (userId) => FeaturedWatchlistFeed | null"
+            />
+            <ArchHookBox
               title="getMyWatchlistsForSymbol(userId, symbol)"
               description="Membership delle mie watchlist rispetto a una coin (flag hasCoin). Per il popover 'Aggiungi a watchlist'. Non cached (per-user, fresh)."
               filePath="lib/modules/watchlist/queries.ts"
@@ -367,7 +379,7 @@ export default function WatchlistArchitecturePage() {
           <div className="space-y-2">
             <ArchFileLink path="lib/modules/watchlist/manifest.ts" description="Registry, nav admin, RBAC permission" />
             <ArchFileLink path="lib/modules/watchlist/types.ts" description="Zod schemas, result types, mapDbErrorToCode, read shapes" />
-            <ArchFileLink path="lib/modules/watchlist/queries.ts" description="getMyWatchlists, getMyWatchlistById, getPublicWatchlistByUserSlug, getWatchlistCountForSymbol, getMyWatchlistsForSymbol, overview stats" />
+            <ArchFileLink path="lib/modules/watchlist/queries.ts" description="getMyWatchlists, getMyWatchlistById, getPublicWatchlistByUserSlug, getWatchlistCountForSymbol, getWatchlistCountsForSymbols, getFeaturedWatchlistForFeed, getMyWatchlistsForSymbol, overview stats" />
             <ArchFileLink path="lib/modules/watchlist/actions.ts" description="CRUD + addCoin/removeCoin/toggleVisibility/copy + loadMyWatchlistsForSymbolAction" />
             <ArchFileLink path="lib/modules/watchlist/perf-cache.ts" description="Cache Redis per-coin perf 30g + averagePerf" />
             <ArchFileLink path="lib/modules/watchlist/slug.ts" description="slugify + generazione slug unico per-utente" />
@@ -392,12 +404,6 @@ export default function WatchlistArchitecturePage() {
               title="Segui-watchlist (watchlist_followers)"
               description="Tabella + trigger gia' pronti (vuoti in V1). Aggiungere UI segui/non-segui + feed delle watchlist seguite + counter followers."
               trigger="Domanda utenti di seguire le liste altrui senza copiarle"
-            />
-            <ArchFutureCard
-              tier={2}
-              title="Counter batch sulle griglie coin"
-              description="getWatchlistCountsForSymbols(symbols[]) per le card di home/explore, oggi ancora su mockWatchlistCount. Evita N query nella griglia."
-              trigger="Conversione mock→reale delle coin card grid"
             />
             <ArchFutureCard
               tier={3}
@@ -427,9 +433,11 @@ export default function WatchlistArchitecturePage() {
               un rendimento di portafoglio reale.
             </li>
             <li>
-              <strong>Coin grid / explore ticker ancora mock</strong>: il
-              counter reale è solo sulla coin page; le card delle griglie usano
-              ancora <code>mockWatchlistCount</code> (vedi Future).
+              <strong>Counter griglie = reale, possibili 0</strong>: le card di
+              home/explore usano <code>getWatchlistCountsForSymbols</code> (1
+              query batch, GROUP BY su <code>idx_watchlist_coins_symbol</code>);
+              le coin che nessuno ha ancora salvato mostrano onestamente
+              &quot;In 0 watchlist&quot; (niente più mockup).
             </li>
           </ul>
         </ArchSection>

@@ -31,6 +31,10 @@ export interface PricesConfig {
   // R2 storage per coin images. `null` se anche solo una delle 5 chiavi è vuota:
   // il modulo degrada gracefully (URL CoinGecko salvati come fallback).
   r2: PricesR2Config | null;
+  /** Se true il cron emette prezzi via SSE (Upstash Realtime) dopo ogni
+   *  sync. Richiede Vercel Pro (Fluid Compute) per connessioni > 10s.
+   *  Default false: la feature è scaffoldata ma spenta. */
+  livePricesEnabled: boolean;
 }
 
 const DEFAULTS: PricesConfig = {
@@ -49,6 +53,7 @@ const DEFAULTS: PricesConfig = {
   coingeckoProApiKey: null,
   cryptocompareApiKey: null,
   r2: null,
+  livePricesEnabled: false,
 };
 
 function parseInt(raw: string | null | undefined, fallback: number, min = 1, max = 100000): number {
@@ -83,6 +88,7 @@ export async function getPricesConfig(): Promise<PricesConfig> {
     coingeckoProApiKey:  s["modules.prices.coingecko_pro_api_key"] ?? null,
     cryptocompareApiKey: s["modules.prices.cryptocompare_api_key"] ?? null,
     r2: parseR2Config(s),
+    livePricesEnabled: (s["modules.prices.live_prices_enabled"] ?? "false") === "true",
   };
 }
 

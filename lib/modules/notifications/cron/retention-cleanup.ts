@@ -80,14 +80,15 @@ export async function runNotificationsRetentionCleanup(): Promise<RetentionClean
 
   try {
     do {
-      // DELETE batched via ctid (puntatore fisico Postgres) — unica via per
-      // limitare un DELETE senza chiave composita. Stesso pattern di
-      // purgeStaleConsentRecords. L'indice idx_notifications_created_at_asc
-      // (M_007) accelera la subquery ORDER BY created_at LIMIT.
+      // DELETE batched via PK uuid. ctid (puntatore fisico) è incompatibile
+      // con il pooler Supabase in transaction mode: la subquery SELECT e il
+      // DELETE possono finire su connessioni diverse → ctid non più valido →
+      // query fallisce. La PK `id` è stabile tra connessioni.
+      // L'indice idx_notifications_created_at_asc (M_007) copre la subquery.
       const result = await db.execute(sql`
         DELETE FROM notifications
-        WHERE ctid IN (
-          SELECT ctid FROM notifications
+        WHERE id IN (
+          SELECT id FROM notifications
           WHERE created_at < ${cutoff}
           ORDER BY created_at
           LIMIT ${BATCH_SIZE}

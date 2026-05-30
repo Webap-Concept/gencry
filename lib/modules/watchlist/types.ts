@@ -63,6 +63,12 @@ export const updateWatchlistInputSchema = z.object({
 });
 export type UpdateWatchlistInput = z.infer<typeof updateWatchlistInputSchema>;
 
+export const setFeaturedInputSchema = z.object({
+  id: z.string().uuid(),
+  featured: z.boolean(),
+});
+export type SetFeaturedInput = z.infer<typeof setFeaturedInputSchema>;
+
 // ─── Result types (action returns) ─────────────────────────────────────
 //
 // Tutte le action ritornano ok-tagged union. La UI fa narrow su `ok` e
@@ -100,6 +106,10 @@ export type UpdateWatchlistResult = { ok: true } | ActionFail;
 
 export type ToggleVisibilityResult =
   | { ok: true; visibility: WatchlistVisibility }
+  | ActionFail;
+
+export type SetFeaturedResult =
+  | { ok: true; featured: boolean }
   | ActionFail;
 
 export type DeleteWatchlistResult = { ok: true } | ActionFail;
@@ -154,6 +164,8 @@ export interface WatchlistSummary {
   position: number;
   coinsCount: number;
   followersCount: number;
+  /** Flag "appare nel mio feed" (max una per utente). */
+  featuredInFeed: boolean;
   createdAt: Date;
   updatedAt: Date;
   /** Top N coin della watchlist (per render preview-card nella lista). */

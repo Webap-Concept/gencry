@@ -12,4 +12,4 @@ export { CoinCardGrid, CoinCardGridSkeleton } from "./coin-card-grid";
 // invece `CoinChartLazy` (dynamic ssr:false wrapper).
 export { CoinChart } from "./coin-chart";
 export { CoinChartLazy } from "./coin-chart-lazy";
-export { mockWatchlistCount, formatCompactCount } from "./mock-watchlist";
+export { formatCompactCount } from "./format-count";

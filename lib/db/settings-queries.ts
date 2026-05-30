@@ -130,6 +130,15 @@ export type SettingKey =
   | 'upstash_management_email'
   | 'upstash_management_api_key'
   | 'upstash_management_database_id'
+  // Upstash QStash — scheduler HTTP per i cron (sostituisce pg_cron+pg_net).
+  // `qstash_url`: endpoint REST region-specific (es.
+  // https://qstash-eu-central-1.upstash.io). `qstash_token`: REST token
+  // per creare/gestire gli Schedules. signing keys: verifica firma delle
+  // richieste in arrivo (hardening, opt).
+  | 'qstash_url'
+  | 'qstash_token'
+  | 'qstash_current_signing_key'
+  | 'qstash_next_signing_key'
   // Google OAuth
   | 'google_client_id'
   | 'google_client_secret'
@@ -206,6 +215,7 @@ export type SettingKey =
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
   | 'modules.prices.cryptocompare_api_key' // API key CryptoCompare (free, opzionale)
+  | 'modules.prices.live_prices_enabled'   // 'true'|'false' — SSE broadcast (Vercel Pro required)
   // R2 storage per coin images. NB: account_id NON è qui — è tenant-global
   // in `storage.r2.account_id` (vedi project_modular_architecture
   // §"Per-modulo vs globale"). Token + bucket + URL restano per-modulo.
@@ -470,6 +480,11 @@ export type AppSettings = {
   upstash_management_email: string | null
   upstash_management_api_key: string | null
   upstash_management_database_id: string | null
+  // Upstash QStash
+  qstash_url: string | null
+  qstash_token: string | null
+  qstash_current_signing_key: string | null
+  qstash_next_signing_key: string | null
   // Google OAuth
   google_client_id: string | null
   google_client_secret: string | null
@@ -524,6 +539,7 @@ export type AppSettings = {
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
   'modules.prices.cryptocompare_api_key': string | null
+  'modules.prices.live_prices_enabled': string
   'modules.prices.r2.access_key_id': string | null
   'modules.prices.r2.secret_access_key': string | null
   'modules.prices.r2.bucket': string | null
@@ -743,6 +759,10 @@ const DEFAULTS: AppSettings = {
   upstash_management_email: null,
   upstash_management_api_key: null,
   upstash_management_database_id: null,
+  qstash_url: null,
+  qstash_token: null,
+  qstash_current_signing_key: null,
+  qstash_next_signing_key: null,
   google_client_id: null,
   google_client_secret: null,
   google_redirect_uri: null,
@@ -797,6 +817,7 @@ const DEFAULTS: AppSettings = {
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
   'modules.prices.cryptocompare_api_key': null,
+  'modules.prices.live_prices_enabled': 'false',
   'modules.prices.r2.access_key_id': null,
   'modules.prices.r2.secret_access_key': null,
   'modules.prices.r2.bucket': null,
@@ -1188,6 +1209,24 @@ export async function batchUpdateAppSettings(
 
     await syncSnapshotAfterMutationInTx(tx, changed.map(([k]) => k));
   });
+}
+
+/**
+ * Forza la sincronizzazione dello snapshot R2 con lo stato attuale del DB.
+ * Usato quando lo snapshot è stale (es. chiavi aggiunte ai DEFAULTS dopo
+ * l'ultimo snapshot) e un re-save identico causerebbe no-op senza sync.
+ * Best-effort: nessun throw se R2 non è configurato o down.
+ */
+export async function forceSyncAppSettingsSnapshot(): Promise<void> {
+  try {
+    const data = await fetchAppSettings();
+    const { syncAppSettingsSnapshotWithData } = await import(
+      "@/lib/config/snapshots"
+    );
+    await syncAppSettingsSnapshotWithData(data, null);
+  } catch {
+    // R2 non configurato o down — niente da fare, il DB resta sorgente di verità.
+  }
 }
 
 export async function updateAppSetting(key: SettingKey, value: string | null) {

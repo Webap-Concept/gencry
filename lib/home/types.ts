@@ -50,8 +50,10 @@ export interface HomeSection {
   slot: HomeSlot;
   /** Ordine in-slot (numeri "10/20/30…" lasciano spazio per inserzioni future). */
   order: number;
-  /** RSC che renderizza la sezione (incluso il fetch dati). */
-  Component: () => Promise<JSX.Element> | JSX.Element;
+  /** RSC che renderizza la sezione (incluso il fetch dati). Può ritornare
+   *  `null` per non renderizzare nulla (es. dati assenti per il viewer —
+   *  la barra watchlist featured quando non c'è una featured). */
+  Component: () => Promise<JSX.Element | null> | JSX.Element | null;
   /** Skeleton client-friendly per il fallback di <Suspense>. Obbligatorio. */
   Skeleton: () => JSX.Element;
   /**

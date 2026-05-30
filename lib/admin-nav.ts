@@ -394,6 +394,13 @@ export const ADMIN_NAV: NavItem[] = [
         permission: "admin:services",
       },
       {
+        key: "services-qstash",
+        href: "/services/qstash",
+        label: "QStash",
+        icon: "Clock",
+        permission: "admin:services",
+      },
+      {
         key: "services-google",
         href: "/services/google-oauth",
         label: "Google OAuth",

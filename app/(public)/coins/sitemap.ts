@@ -15,30 +15,23 @@
 // sitemap index futuro.
 
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins, pricesData } from "@/lib/db/schema";
+import { pricesCoins } from "@/lib/db/schema";
 import { getSiteUrl } from "@/lib/seo";
+import { getHotPrices } from "@/lib/modules/prices/services/hot-prices";
 import { desc, eq } from "drizzle-orm";
 import type { MetadataRoute } from "next";
 import { unstable_cache } from "next/cache";
 
 const PRICES_DATA_TAG = "prices-data";
 
-/**
- * Recupera tutti i coin attivi con il loro `lastUpdated` da prices_data
- * (più rappresentativo della freschezza percepita rispetto a
- * prices_coins.updated_at, che cambia solo quando l'admin tocca il
- * registry). Cache 5 min: la sitemap non deve essere fresca a 60s.
- */
 const fetchActiveCoinsForSitemap = unstable_cache(
   async () => {
     const rows = await db
       .select({
-        symbol: pricesCoins.symbol,
+        symbol:        pricesCoins.symbol,
         marketCapRank: pricesCoins.marketCapRank,
-        lastUpdated: pricesData.lastUpdated,
       })
       .from(pricesCoins)
-      .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
       .where(eq(pricesCoins.isActive, true))
       .orderBy(desc(pricesCoins.marketCap));
     return rows;
@@ -72,21 +65,19 @@ function rankToChangeFreq(rank: number | null): MetadataRoute.Sitemap[number]["c
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [coins, siteUrl] = await Promise.all([
+  const [coins, hot, siteUrl] = await Promise.all([
     fetchActiveCoinsForSitemap(),
+    getHotPrices(),
     getSiteUrl(),
   ]);
 
   if (!siteUrl) return [];
 
+  const lastModified = hot ? new Date(hot.updatedAt) : new Date();
+
   return coins.map((c) => ({
     url: `${siteUrl}/coins/${c.symbol.toLowerCase()}`,
-    // unstable_cache JSON-serializza i Date a string sui cache hit. Next.js
-    // poi chiama internamente `.toISOString()` su `lastModified` durante la
-    // serializzazione della sitemap.xml → senza il `new Date()` wrap il
-    // cache hit produrrebbe TypeError. Stesso pattern già fixato in
-    // app/sitemap.ts e app/(public)/post/sitemap.ts.
-    lastModified: new Date(c.lastUpdated),
+    lastModified,
     changeFrequency: rankToChangeFreq(c.marketCapRank),
     priority: rankToPriority(c.marketCapRank),
   }));

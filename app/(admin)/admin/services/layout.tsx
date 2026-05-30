@@ -7,6 +7,7 @@ import { requireAdminSectionPage } from "@/lib/rbac/guards";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { DependenciesGuide } from "./dependencies/_components/dependencies-guide";
+import { QstashAdminGuide } from "./qstash/_components/qstash-guide";
 import { RedisAdminGuide } from "./redis/_components/redis-guide";
 
 export const metadata: Metadata = { title: "Services" };
@@ -30,6 +31,11 @@ export default async function ServicesLayout({
       title: tServices("sections.redis.guideTitle"),
       ariaLabel: `${tServices("guideAriaPrefix")} ${tServices("sections.redis.label")}`,
       content: <RedisAdminGuide />,
+    },
+    qstash: {
+      title: tServices("sections.qstash.guideTitle"),
+      ariaLabel: `${tServices("guideAriaPrefix")} ${tServices("sections.qstash.label")}`,
+      content: <QstashAdminGuide />,
     },
     dependencies: {
       title: tServices("sections.dependencies.guideTitle"),

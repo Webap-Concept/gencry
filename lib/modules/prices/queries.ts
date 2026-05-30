@@ -2,16 +2,13 @@
 // Query lato app per leggere prezzi e sparkline. Usate dai server components
 // (Spark, CoinBadge, ticker) e dall'admin dashboard.
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
+import { pricesCoins, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
-import { getAppSettings } from "@/lib/db/settings-queries";
-import { getRedisClient } from "@/lib/kv/sdk";
 import {
   getHotPrices,
   getHotPricesForSymbols,
 } from "./services/hot-prices";
-import type { PriceQuote } from "./types";
 
 /** Tag per `revalidateTag()` quando si vogliono forzare le stats di health
  * fresche (es. al termine di un cron run). Senza revalidate la cache scade
@@ -28,134 +25,23 @@ export interface PriceRow {
   price: number;
   change24h: number | null;
   volume24h: number | null;
-  source: string;
   lastUpdated: Date;
-}
-
-// Upstash KV key per il bundle "all prices". Strategia all-in-one
-// (non per-symbol MGET): la tabella pricesData ha <500 row sempre,
-// ~50KB JSON serializzato, una GET KV è più rapida di N parse client.
-// TTL = modules.prices.kv_ttl_seconds (default 30s, vedi roadmap KV).
-const KV_PRICES_ALL = "prices:current:all";
-
-type CachedPriceRow = {
-  symbol: string;
-  price: number;
-  change24h: number | null;
-  volume24h: number | null;
-  source: string;
-  lastUpdated: string; // ISO 8601 (JSON-safe)
-};
-
-async function fetchAllPricesFromDB(): Promise<PriceRow[]> {
-  const rows = await db.select().from(pricesData);
-  return rows.map((r) => ({
-    symbol: r.symbol,
-    price: Number(r.price),
-    change24h: r.change24h !== null ? Number(r.change24h) : null,
-    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
-    source: r.source,
-    lastUpdated: r.lastUpdated,
-  }));
-}
-
-/**
- * Cache-aside attorno alla tabella prices_data. Se Upstash non è
- * configurato → fallback DB diretto, NESSUN errore. Qualsiasi errore
- * KV durante GET/SET è loggato e trattato come miss/no-op — la query
- * non deve mai fallire perché il KV è giù.
- *
- * SDK `@upstash/redis`: auto-JSON encode/decode (niente
- * JSON.stringify/parse manuale), type-safe con il generic `<T>` su
- * client.get().
- */
-async function getAllPricesCached(): Promise<PriceRow[]> {
-  const redis = await getRedisClient();
-  if (!redis) return fetchAllPricesFromDB();
-
-  // Cache HIT?
-  try {
-    const cached = await redis.get<CachedPriceRow[]>(KV_PRICES_ALL);
-    if (cached && Array.isArray(cached)) {
-      return cached.map((r) => ({ ...r, lastUpdated: new Date(r.lastUpdated) }));
-    }
-  } catch (err) {
-    console.warn("[prices/cache] KV GET failed, fallback DB:", err);
-  }
-
-  // Miss → fetch DB + write-through
-  const fresh = await fetchAllPricesFromDB();
-
-  try {
-    const settings = await getAppSettings();
-    const ttl = parseInt(settings["modules.prices.kv_ttl_seconds"], 10) || 30;
-    const serialized: CachedPriceRow[] = fresh.map((r) => ({
-      ...r,
-      lastUpdated: r.lastUpdated.toISOString(),
-    }));
-    // SDK auto-stringifies l'array → JSON in Redis.
-    await redis.set(KV_PRICES_ALL, serialized, { ex: ttl });
-  } catch (err) {
-    console.warn("[prices/cache] KV SET failed (best-effort, ignored):", err);
-  }
-
-  return fresh;
-}
-
-/**
- * Invalidazione esplicita della cache. Chiamare a fine sync così i
- * prezzi appena scritti sono visibili immediatamente invece di
- * aspettare il TTL (~30s). No-op se Upstash non configurato.
- */
-export async function invalidatePricesCache(): Promise<void> {
-  const redis = await getRedisClient();
-  if (!redis) return;
-  try {
-    await redis.del(KV_PRICES_ALL);
-  } catch (err) {
-    console.warn("[prices/cache] KV DEL failed (ignored):", err);
-  }
 }
 
 export async function getCurrentPrices(symbols: string[]): Promise<Map<string, PriceRow>> {
   if (symbols.length === 0) return new Map();
-
-  // PR2c refactor "Redis-first": prima il nuovo hot layer (Upstash
-  // prices:hot:v1, TTL legato a cron_minutes). Se la chiave esiste e
-  // copre tutti i symbol richiesti → done. Altrimenti fallback al
-  // vecchio cache-aside (DB + prices:current:all legacy) per i mancanti.
   const hot = await getHotPricesForSymbols(symbols);
   const map = new Map<string, PriceRow>();
   for (const [sym, q] of hot) {
-    map.set(sym, hotQuoteToPriceRow(sym, q));
-  }
-  if (map.size === symbols.length) return map;
-
-  // Hot incompleto (cron non ancora girato, chiave scaduta, Redis down).
-  // Fallback DB con cache legacy per coverage massima.
-  const all = await getAllPricesCached();
-  const wanted = new Set(symbols);
-  for (const r of all) {
-    if (wanted.has(r.symbol) && !map.has(r.symbol)) map.set(r.symbol, r);
+    map.set(sym, {
+      symbol:    sym,
+      price:     q.price,
+      change24h: q.change24h,
+      volume24h: q.volume24h,
+      lastUpdated: new Date(),
+    });
   }
   return map;
-}
-
-/** Converte una `PriceQuote` (shape exchange-agnostic del modulo) in
- *  `PriceRow` (shape attesa dai consumer del DB-path). Il `source` per
- *  i quote da Redis hot e' marcato "hot" per debug; lastUpdated qui e'
- *  approssimativo (now): il caller che vuole il timestamp esatto deve
- *  chiamare getHotPrices() direttamente e leggere `updatedAt`. */
-function hotQuoteToPriceRow(symbol: string, q: PriceQuote): PriceRow {
-  return {
-    symbol,
-    price: q.price,
-    change24h: q.change24h,
-    volume24h: q.volume24h,
-    source: "hot",
-    lastUpdated: new Date(), // valore non strettamente accurato; il caller
-    // che vuole il timestamp esatto deve chiamare getHotPrices() e leggere updatedAt
-  };
 }
 
 export async function getCurrentPrice(symbol: string): Promise<PriceRow | null> {
@@ -347,43 +233,45 @@ export interface CoinView {
 const TOP_POOL_SIZE = 200;
 
 const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]> => {
-  const rows = await db
+  // Metadata da DB (nome, immagine, rank, categoria) — raramente cambia.
+  const coins = await db
     .select({
-      symbol: pricesCoins.symbol,
-      name: pricesCoins.name,
-      imageUrl: pricesCoins.imageUrl,
-      marketCap: pricesCoins.marketCap,
+      symbol:       pricesCoins.symbol,
+      name:         pricesCoins.name,
+      imageUrl:     pricesCoins.imageUrl,
+      marketCap:    pricesCoins.marketCap,
       marketCapRank: pricesCoins.marketCapRank,
-      category: pricesCoins.category,
-      price: pricesData.price,
-      change24h: pricesData.change24h,
-      volume24h: pricesData.volume24h,
-      weeklySparkline: pricesData.weeklySparkline,
-      lastUpdated: pricesData.lastUpdated,
+      category:     pricesCoins.category,
     })
     .from(pricesCoins)
-    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
     .where(eq(pricesCoins.isActive, true))
-    // NULLS LAST: senza, Postgres mette i market_cap NULL in TESTA su
-    // DESC → coin senza market cap (import wholesale/manuali) finivano
-    // in cima al ticker/griglie invece dei big (BTC/ETH). Vogliamo i
-    // maggiori market cap per primi, i non-rankati in fondo.
+    // NULLS LAST: coin senza market cap in fondo, i big (BTC/ETH) in cima.
     .orderBy(sql`${pricesCoins.marketCap} DESC NULLS LAST`)
     .limit(limit);
 
-  return rows.map((r) => ({
-    symbol: r.symbol,
-    name: r.name,
-    imageUrl: r.imageUrl,
-    marketCap: r.marketCap,
-    marketCapRank: r.marketCapRank,
-    category: r.category,
-    price: Number(r.price),
-    change24h: r.change24h !== null ? Number(r.change24h) : null,
-    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
-    weeklySparkline: r.weeklySparkline,
-    lastUpdated: r.lastUpdated,
-  }));
+  // Prezzi da Redis hot cache (1 GET, tutti i coin).
+  const hot = await getHotPrices();
+  const updatedAt = hot ? new Date(hot.updatedAt) : new Date();
+
+  return coins
+    .map((c) => {
+      const q = hot?.quotes[c.symbol];
+      if (!q) return null; // coin non ancora in Redis (cron non girato)
+      return {
+        symbol:        c.symbol,
+        name:          c.name,
+        imageUrl:      c.imageUrl,
+        marketCap:     c.marketCap,
+        marketCapRank: c.marketCapRank,
+        category:      c.category,
+        price:         q.price,
+        change24h:     q.change24h,
+        volume24h:     q.volume24h,
+        weeklySparkline: q.sparkline7d,
+        lastUpdated:   updatedAt,
+      };
+    })
+    .filter((c): c is CoinView => c !== null);
 };
 
 const fetchTopPoolCached = unstable_cache(
@@ -400,44 +288,43 @@ export async function getTopCoinsForCards(limit = 50): Promise<CoinView[]> {
 
 /**
  * Singolo coin per la card (preview / hero / inline). Case-insensitive sul
- * simbolo. Restituisce null se il coin non esiste o non ha ancora un
- * prezzo registrato in `prices_data`. Cache 60s con tag PRICES_DATA_TAG.
+ * simbolo. Restituisce null se il coin non esiste o non è ancora in Redis.
+ * Cache 60s con tag PRICES_DATA_TAG.
  */
 const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
   const upper = symbol.toUpperCase();
   const rows = await db
     .select({
-      symbol: pricesCoins.symbol,
-      name: pricesCoins.name,
-      imageUrl: pricesCoins.imageUrl,
-      marketCap: pricesCoins.marketCap,
+      symbol:        pricesCoins.symbol,
+      name:          pricesCoins.name,
+      imageUrl:      pricesCoins.imageUrl,
+      marketCap:     pricesCoins.marketCap,
       marketCapRank: pricesCoins.marketCapRank,
-      category: pricesCoins.category,
-      price: pricesData.price,
-      change24h: pricesData.change24h,
-      volume24h: pricesData.volume24h,
-      weeklySparkline: pricesData.weeklySparkline,
-      lastUpdated: pricesData.lastUpdated,
+      category:      pricesCoins.category,
     })
     .from(pricesCoins)
-    .innerJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
     .where(eq(pricesCoins.symbol, upper))
     .limit(1);
 
-  const r = rows[0];
-  if (!r) return null;
+  const c = rows[0];
+  if (!c) return null;
+
+  const hot = await getHotPrices();
+  const q = hot?.quotes[upper];
+  if (!q) return null;
+
   return {
-    symbol: r.symbol,
-    name: r.name,
-    imageUrl: r.imageUrl,
-    marketCap: r.marketCap,
-    marketCapRank: r.marketCapRank,
-    category: r.category,
-    price: Number(r.price),
-    change24h: r.change24h !== null ? Number(r.change24h) : null,
-    volume24h: r.volume24h !== null ? Number(r.volume24h) : null,
-    weeklySparkline: r.weeklySparkline,
-    lastUpdated: r.lastUpdated,
+    symbol:        c.symbol,
+    name:          c.name,
+    imageUrl:      c.imageUrl,
+    marketCap:     c.marketCap,
+    marketCapRank: c.marketCapRank,
+    category:      c.category,
+    price:         q.price,
+    change24h:     q.change24h,
+    volume24h:     q.volume24h,
+    weeklySparkline: q.sparkline7d,
+    lastUpdated:   hot ? new Date(hot.updatedAt) : new Date(),
   };
 };
 

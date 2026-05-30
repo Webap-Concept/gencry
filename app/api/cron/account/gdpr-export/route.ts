@@ -6,10 +6,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Cron worker per gli export GDPR. Triggered da Supabase pg_cron via HTTP
- * GET con header `Authorization: Bearer ${CRON_SECRET}`. Una singola
+ * Cron worker per gli export GDPR. Triggered da QStash (ex pg_cron) via
+ * HTTP GET con header `Authorization: Bearer ${CRON_SECRET}`. Una singola
  * chiamata processa fino a 5 job pending e fa il cleanup dei file
- * scaduti (expires_at < now()). Frequenza consigliata: 1-5 minuti.
+ * scaduti (expires_at < now()). Frequenza: 1×/giorno (0 3 * * *).
+ * La legge impone la consegna entro 30 giorni dalla richiesta — 1×/giorno
+ * è ampiamente sufficiente.
  *
  * pg_cron schedule example:
  *   SELECT cron.schedule(

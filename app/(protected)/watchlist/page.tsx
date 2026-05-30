@@ -15,7 +15,7 @@ import {
   getWatchlistOverviewStats,
 } from "@/lib/modules/watchlist/queries";
 import type { Metadata } from "next";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { NewWatchlistButton } from "./_components/new-watchlist-button";
@@ -51,9 +51,8 @@ async function WatchlistListBody({
   userId: string;
   t: Awaited<ReturnType<typeof getTranslations<"watchlist.page">>>;
 }) {
-  const [watchlists, locale, viewer] = await Promise.all([
+  const [watchlists, viewer] = await Promise.all([
     getMyWatchlists(userId),
-    getLocale(),
     getUser(),
   ]);
   // viewer non-null garantito dal redirect del parent — il Promise.all
@@ -79,7 +78,6 @@ async function WatchlistListBody({
             <li key={w.id}>
               <WatchlistCard
                 watchlist={w}
-                updatedAtLabel={formatUpdatedAt(w.updatedAt, locale)}
                 actions={
                   <WatchlistCardActions
                     id={w.id}
@@ -89,6 +87,7 @@ async function WatchlistListBody({
                     visibility={w.visibility}
                     coinsCount={w.coinsCount}
                     ownerUsername={ownerUsername}
+                    featuredInFeed={w.featuredInFeed}
                   />
                 }
               />
@@ -134,26 +133,4 @@ function EmptyState({
       </div>
     </div>
   );
-}
-
-function formatUpdatedAt(date: Date, locale: string): string {
-  const diffMs = Date.now() - new Date(date).getTime();
-  const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return locale.startsWith("it") ? "adesso" : "now";
-  if (sec < 3600) {
-    const n = Math.floor(sec / 60);
-    return locale.startsWith("it") ? `${n}m fa` : `${n}m ago`;
-  }
-  if (sec < 86_400) {
-    const n = Math.floor(sec / 3600);
-    return locale.startsWith("it") ? `${n}h fa` : `${n}h ago`;
-  }
-  if (sec < 604_800) {
-    const n = Math.floor(sec / 86_400);
-    return locale.startsWith("it") ? `${n}g fa` : `${n}d ago`;
-  }
-  return new Date(date).toLocaleDateString(locale, {
-    day: "numeric",
-    month: "short",
-  });
 }

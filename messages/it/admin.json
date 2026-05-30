@@ -824,6 +824,11 @@
         "description": "Configura connessione e opzioni della cache Redis.",
         "guideTitle": "Redis — guida per l'operatore"
       },
+      "qstash": {
+        "label": "QStash",
+        "description": "Scheduler HTTP per i cron job (sostituisce pg_cron + pg_net).",
+        "guideTitle": "QStash — guida per l'operatore"
+      },
       "resend": {
         "label": "Resend",
         "description": "Configura credenziali e mittente per le email in uscita."
@@ -862,6 +867,12 @@
       "redisTestFailedStatus": "Connessione Redis fallita ({status}).",
       "redisTestOk": "Connessione Redis riuscita.",
       "redisTestFailed": "Impossibile contattare Redis / Upstash.",
+      "qstashSaved": "Credenziali QStash salvate.",
+      "qstashSaveFailed": "Salvataggio fallito.",
+      "qstashTestCredentialsRequired": "Inserisci il token QStash prima di testare.",
+      "qstashTestFailedStatus": "Connessione QStash fallita ({status}).",
+      "qstashTestOk": "Connessione QStash riuscita.",
+      "qstashTestFailed": "Impossibile contattare QStash.",
       "googleOAuthSaved": "Credenziali Google OAuth salvate.",
       "googleOAuthSaveFailed": "Errore durante il salvataggio.",
       "googleOAuthTestFieldsRequired": "Compila tutti e tre i campi prima di testare.",
@@ -1069,6 +1080,21 @@
       "tokenHint": "Lo trovi in Upstash Console → Database → REST API → Read/Write Token",
       "showTokenAria": "Mostra token",
       "hideTokenAria": "Nascondi token",
+      "saveButton": "Salva credenziali",
+      "savingButton": "Salvataggio…",
+      "testButton": "Testa connessione",
+      "testingButton": "Test in corso..."
+    },
+    "qstash": {
+      "urlLabel": "REST URL",
+      "urlHint": "Endpoint QStash region-specific, es. https://qstash-eu-central-1.upstash.io (Upstash Console → QStash → Details).",
+      "tokenLabel": "Token QStash",
+      "tokenHint": "Lo trovi in Upstash Console → QStash → Details → QSTASH_TOKEN. Serve a creare e gestire gli schedule.",
+      "currentKeyLabel": "Current signing key",
+      "nextKeyLabel": "Next signing key",
+      "signingKeysHint": "Opzionale. Verifica l'header Upstash-Signature sulle richieste in arrivo (difesa extra oltre a CRON_SECRET). Si può lasciare vuoto.",
+      "showTokenAria": "Mostra segreti",
+      "hideTokenAria": "Nascondi segreti",
       "saveButton": "Salva credenziali",
       "savingButton": "Salvataggio…",
       "testButton": "Testa connessione",
@@ -3367,6 +3393,7 @@
     "services-group": "Servizi",
     "services-resend": "Resend",
     "services-redis": "Redis",
+    "services-qstash": "QStash",
     "services-google": "Google OAuth",
     "services-github": "GitHub CI",
     "services-cloudflare": "Cloudflare",

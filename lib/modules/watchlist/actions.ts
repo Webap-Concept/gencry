@@ -33,11 +33,13 @@ import {
   type CreateWatchlistResult,
   type DeleteWatchlistResult,
   type RemoveCoinResult,
+  type SetFeaturedResult,
   type ToggleVisibilityResult,
   type UpdateWatchlistResult,
   coinSymbolSchema,
   createWatchlistInputSchema,
   mapDbErrorToCode,
+  setFeaturedInputSchema,
   updateWatchlistInputSchema,
   watchlistSlugSchema,
   type WatchlistVisibility,
@@ -216,6 +218,63 @@ export async function toggleWatchlistVisibilityAction(
     console.warn("[watchlist:visibility] failed", {
       viewerId: viewer.id,
       watchlistId,
+      err: String(err),
+    });
+    return { ok: false, error: "internal" };
+  }
+}
+
+// ─── setFeaturedWatchlist (appare nel mio feed) ────────────────────────
+//
+// Toggle "appare nel mio feed". Esclusivo: max UNA watchlist featured per
+// utente (vincolato anche dal partial unique index uq_watchlists_user_featured).
+// Quando featured=true azzeriamo l'eventuale featured precedente nella
+// STESSA transazione → niente finestra con due righe featured che
+// violerebbe l'index. featured=false è un semplice clear.
+
+export async function setFeaturedWatchlistAction(
+  input: unknown,
+): Promise<SetFeaturedResult> {
+  const viewer = await getUser();
+  if (!viewer) return { ok: false, error: "unauthenticated" };
+
+  const parsed = setFeaturedInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "validation" };
+  const { id, featured } = parsed.data;
+
+  const existing = await loadOwnWatchlist(viewer.id, id);
+  if (!existing) return { ok: false, error: "not_found" };
+
+  try {
+    if (featured) {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(watchlists)
+          .set({ featuredInFeed: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(watchlists.userId, viewer.id),
+              eq(watchlists.featuredInFeed, true),
+            ),
+          );
+        await tx
+          .update(watchlists)
+          .set({ featuredInFeed: true, updatedAt: new Date() })
+          .where(eq(watchlists.id, id));
+      });
+    } else {
+      await db
+        .update(watchlists)
+        .set({ featuredInFeed: false, updatedAt: new Date() })
+        .where(eq(watchlists.id, id));
+    }
+    revalidatePath("/watchlist");
+    revalidatePath("/"); // home feed: la barra featured cambia
+    return { ok: true, featured };
+  } catch (err) {
+    console.warn("[watchlist:set-featured] failed", {
+      viewerId: viewer.id,
+      id,
       err: String(err),
     });
     return { ok: false, error: "internal" };

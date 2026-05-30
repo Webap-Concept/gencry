@@ -380,11 +380,16 @@ export async function createPost(
     return { postId: inserted.id, ...synced };
   });
 
-  await feedInvalidate("discover");
-  await feedInvalidate({ followersOf: user.id });
-  await feedInvalidate({ profile: user.id });
-  for (const t of created.tickers) await feedInvalidate({ ticker: t });
-  for (const m of created.mentionUserIds) await feedInvalidate({ mentionsOf: m });
+  // Invalidazioni cache in parallelo: feedInvalidate è no-throw (gestisce
+  // gli errori internamente), quindi Promise.all è safe e evita N round-trip
+  // Redis serializzati su post con molti ticker/mentions.
+  await Promise.all([
+    feedInvalidate("discover"),
+    feedInvalidate({ followersOf: user.id }),
+    feedInvalidate({ profile: user.id }),
+    ...created.tickers.map((t) => feedInvalidate({ ticker: t })),
+    ...created.mentionUserIds.map((m) => feedInvalidate({ mentionsOf: m })),
+  ]);
 
   // Sticky visibility: l'ultima visibility scelta diventa il default per i
   // post successivi (sticky cross-device, vedi posts_user_preferences).
@@ -487,9 +492,6 @@ export async function editPost(
   });
 
   await postInvalidate(parsed.data.postId);
-  // Visibility cambiata = il post può uscire da Discover o profilo pubblico
-  await feedInvalidate("discover");
-  await feedInvalidate({ profile: user.id });
   // Invalidate ticker/mentions sia per quelli vecchi (potrebbero essere
   // stati rimossi dall'edit) sia per quelli nuovi.
   const tickerSet = new Set<string>([
@@ -500,8 +502,14 @@ export async function editPost(
     ...previousMentions.map((m) => m.uid),
     ...synced.mentionUserIds,
   ]);
-  for (const t of tickerSet) await feedInvalidate({ ticker: t });
-  for (const m of mentionSet) await feedInvalidate({ mentionsOf: m });
+  // Visibility cambiata = il post può uscire da Discover o profilo pubblico.
+  // Parallelo: feedInvalidate è no-throw.
+  await Promise.all([
+    feedInvalidate("discover"),
+    feedInvalidate({ profile: user.id }),
+    ...Array.from(tickerSet, (t) => feedInvalidate({ ticker: t })),
+    ...Array.from(mentionSet, (m) => feedInvalidate({ mentionsOf: m })),
+  ]);
 
   // Invalidate Next cache tag della post page metadata (5min TTL).
   // updateTag (Next 16 single-arg variant) perché siamo in Server Action.
@@ -552,11 +560,14 @@ export async function softDeletePost(
   if (result.length === 0) return fail(I18N.notFound);
 
   await postInvalidate(parsed.data);
-  await feedInvalidate("discover");
-  await feedInvalidate({ profile: user.id });
-  await feedInvalidate({ followersOf: user.id });
-  for (const t of tickersBefore) await feedInvalidate({ ticker: t.ticker });
-  for (const m of mentionsBefore) await feedInvalidate({ mentionsOf: m.uid });
+  // Parallelo: feedInvalidate è no-throw.
+  await Promise.all([
+    feedInvalidate("discover"),
+    feedInvalidate({ profile: user.id }),
+    feedInvalidate({ followersOf: user.id }),
+    ...tickersBefore.map((t) => feedInvalidate({ ticker: t.ticker })),
+    ...mentionsBefore.map((m) => feedInvalidate({ mentionsOf: m.uid })),
+  ]);
 
   // Invalida Next cache tag della post page metadata (5min TTL).
   // updateTag (Next 16 single-arg variant) perché siamo in Server Action.

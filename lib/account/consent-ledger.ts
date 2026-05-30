@@ -371,10 +371,10 @@ export type ConsentRetentionResult = {
  * Strategia:
  * - Settings.gdpr.consent_log.retention_after_deletion_days definisce N.
  * - Cutoff = now() - N giorni. N=0 disabilita il purge.
- * - DELETE in batch da PURGE_BATCH_SIZE righe usando una subquery con
- *   `ctid IN (SELECT ctid FROM consent_records WHERE created_at < $cutoff
- *   LIMIT N)` — pattern Postgres-friendly per non scansionare la tabella
- *   intera in una singola transazione e non promuovere a lock pesante.
+ * - DELETE in batch da PURGE_BATCH_SIZE righe usando una subquery su `id`
+ *   (PK stabile): `DELETE WHERE id IN (SELECT id ... LIMIT N)`. ctid era
+ *   usato in precedenza ma è incompatibile con il pooler Supabase in
+ *   transaction mode (puntatore fisico non valido cross-connection).
  * - Si ferma a PURGE_MAX_BATCHES per non bloccare il cron oltre il
  *   ragionevole; il prossimo run riparte.
  *
@@ -413,15 +413,14 @@ export async function purgeStaleConsentRecords(): Promise<ConsentRetentionResult
   let lastBatchSize = 0;
 
   do {
-    // DELETE FROM consent_records WHERE ctid IN
-    //   (SELECT ctid FROM consent_records WHERE created_at < $cutoff
-    //    ORDER BY created_at LIMIT $batchSize)
-    // ctid è il puntatore fisico Postgres, l'unica via per limitare
-    // un DELETE in modo efficiente senza chiavi composite.
+    // DELETE batched via PK. ctid (puntatore fisico) fallisce con il pooler
+    // Supabase in transaction mode: SELECT ctid e DELETE WHERE ctid possono
+    // andare su connessioni diverse → ctid stale → query error. La PK `id`
+    // è stabile tra connessioni e l'indice su created_at copre la subquery.
     const result = await db.execute(sql`
       DELETE FROM consent_records
-      WHERE ctid IN (
-        SELECT ctid FROM consent_records
+      WHERE id IN (
+        SELECT id FROM consent_records
         WHERE created_at < ${cutoff}
         ORDER BY created_at
         LIMIT ${PURGE_BATCH_SIZE}

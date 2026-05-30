@@ -31,7 +31,7 @@ import { useIsStuck } from "@/lib/hooks/use-is-stuck";
 import { CoinIcon } from "./coin-icon";
 import { CoinPriceLabel } from "./coin-price-label";
 import { MiniSparkline } from "./mini-sparkline";
-import { formatCompactCount, mockWatchlistCount } from "./mock-watchlist";
+import { formatCompactCount } from "./format-count";
 
 // Colori "sabbia" hardcoded usati dalle isole light dentro lo scope
 // `.gc-dark` (pill prezzo/change nella sticky bar). Sono gli stessi
@@ -60,12 +60,19 @@ function formatChange(value: number | null): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-export function CoinSummaryCard({ coin }: { coin: CoinView }) {
+export function CoinSummaryCard({
+  coin,
+  watchlistCount,
+}: {
+  coin: CoinView;
+  /** Counter reale (`getWatchlistCountsForSymbols`). Null/omesso → 0. */
+  watchlistCount?: number | null;
+}) {
   const { sentinelRef, isStuck } = useIsStuck<HTMLDivElement>();
   const tExplore = useTranslations("posts.explore");
   const tLabels = useTranslations("prices.labels");
   const href = `/coins/${coin.symbol.toLowerCase()}`;
-  const wlCount = mockWatchlistCount(coin.symbol);
+  const wlCount = watchlistCount ?? 0;
 
   const pillChangeColor =
     coin.change24h === null

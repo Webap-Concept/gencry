@@ -1414,21 +1414,6 @@ export const pricesCoins = pgTable(
   ],
 );
 
-export const pricesData = pgTable("prices_data", {
-  symbol:       varchar("symbol", { length: 20 }).primaryKey()
-                  .references(() => pricesCoins.symbol, { onDelete: "cascade" }),
-  price:        numeric("price",      { precision: 24, scale: 8 }).notNull(),
-  change24h:    numeric("change_24h", { precision: 10, scale: 4 }),
-  volume24h:    numeric("volume_24h", { precision: 24, scale: 2 }),
-  source:       varchar("source", { length: 20 }).notNull().default("coingecko"),
-  lastUpdated:  timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
-  // Sparkline settimanale pre-aggregata: 7 prezzi giornalieri dal più vecchio
-  // al più recente (oggi). Aggiornata dentro runPricesSync se l'ultima
-  // computazione è > 24h fa. Decorativa, non trading-grade.
-  weeklySparkline:   jsonb("weekly_sparkline").$type<number[] | null>(),
-  weeklySparklineAt: timestamp("weekly_sparkline_at", { withTimezone: true }),
-});
-
 export const pricesHistory = pgTable(
   "prices_history",
   {
@@ -1477,8 +1462,6 @@ export const pricesSyncRuns = pgTable(
 
 export type PricesCoin         = typeof pricesCoins.$inferSelect;
 export type NewPricesCoin      = typeof pricesCoins.$inferInsert;
-export type PricesDataRow      = typeof pricesData.$inferSelect;
-export type NewPricesDataRow   = typeof pricesData.$inferInsert;
 export type PricesHistoryRow   = typeof pricesHistory.$inferSelect;
 export type NewPricesHistoryRow = typeof pricesHistory.$inferInsert;
 export type PricesSourceHealth = typeof pricesSourceHealth.$inferSelect;
@@ -1808,6 +1791,10 @@ export const watchlists = pgTable(
     position:       integer("position").notNull().default(0),
     coinsCount:     integer("coins_count").notNull().default(0),
     followersCount: integer("followers_count").notNull().default(0),
+    // Flag "appare nel mio feed": max UNA per utente (partial unique index
+    // sotto). Se attiva, la watchlist è renderizzata in cima alla home
+    // loggata come barra espandibile. Vedi M_watchlist_002_featured.sql.
+    featuredInFeed: boolean("featured_in_feed").notNull().default(false),
     archivedAt:     timestamp("archived_at", { withTimezone: true }),
     createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1822,6 +1809,11 @@ export const watchlists = pgTable(
     index("idx_watchlists_public_slug")
       .on(t.userId, t.slug)
       .where(sql`visibility = 'public' AND archived_at IS NULL`),
+    // Max una watchlist featured per utente (toggle esclusivo). Partial:
+    // indicizza solo le righe featured attive → minuscolo.
+    uniqueIndex("uq_watchlists_user_featured")
+      .on(t.userId)
+      .where(sql`featured_in_feed AND archived_at IS NULL`),
   ],
 );
 

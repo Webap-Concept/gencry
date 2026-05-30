@@ -12,7 +12,8 @@ import "server-only";
 
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins, pricesData, pricesHistory } from "@/lib/db/schema";
+import { pricesCoins, pricesHistory } from "@/lib/db/schema";
+import { getHotPrices } from "@/lib/modules/prices/services/hot-prices";
 
 export type CoinTrendBucket = "bullish" | "bearish" | "neutral";
 
@@ -40,20 +41,23 @@ const BEARISH_THRESHOLD = -5;
  * bucket (bullish / bearish).
  */
 export async function analyzeCoinTrends(): Promise<CoinTrend[]> {
-  // Step 1: tutti i coin attivi con prezzo corrente.
-  const current = await db
-    .select({
-      symbol: pricesData.symbol,
-      price: pricesData.price,
-    })
-    .from(pricesData)
-    .innerJoin(pricesCoins, eq(pricesCoins.symbol, pricesData.symbol))
+  // Step 1: tutti i coin attivi con prezzo corrente da Redis.
+  const hot = await getHotPrices();
+  if (!hot || Object.keys(hot.quotes).length === 0) return [];
+
+  const activeCoins = await db
+    .select({ symbol: pricesCoins.symbol })
+    .from(pricesCoins)
     .where(eq(pricesCoins.isActive, true));
+
+  const current = activeCoins
+    .map((c) => ({ symbol: c.symbol, price: hot.quotes[c.symbol]?.price }))
+    .filter((c): c is { symbol: string; price: number } => typeof c.price === "number");
 
   if (current.length === 0) return [];
 
   const symbols = current.map((c) => c.symbol);
-  const priceBySymbol = new Map(current.map((c) => [c.symbol, Number(c.price)]));
+  const priceBySymbol = new Map(current.map((c) => [c.symbol, c.price]));
 
   // Step 2: prezzo storico più vicino al cutoff (>= cutoff, primo
   // ordinato ASC) per ogni symbol. Uso Postgres `DISTINCT ON (symbol)`:

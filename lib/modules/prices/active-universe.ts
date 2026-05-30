@@ -21,6 +21,9 @@ export interface ActiveCoin {
    *  Null = fallback CoinGecko per i coin senza mapping exchange. */
   preferredExchange: string | null;
   exchangeSymbol: string | null;
+  /** Rank globale per market cap. Usato dal tiering fetch (Tier1 ≤100,
+   *  Tier2 101-400, Tier3 >400). Null = coin non ancora enrichita → Tier3. */
+  marketCapRank: number | null;
 }
 
 const COMMON_SELECT = {
@@ -28,6 +31,7 @@ const COMMON_SELECT = {
   coingeckoId: pricesCoins.coingeckoId,
   preferredExchange: pricesCoins.preferredExchange,
   exchangeSymbol: pricesCoins.exchangeSymbol,
+  marketCapRank: pricesCoins.marketCapRank,
 };
 
 export async function getActiveUniverse(): Promise<ActiveCoin[]> {

@@ -63,6 +63,7 @@ export default async function PricesSettingsPage() {
           "modules.prices.r2.bucket":              settings["modules.prices.r2.bucket"],
           "modules.prices.r2.public_base_url":     settings["modules.prices.r2.public_base_url"],
           r2SecretIsSet,
+          "modules.prices.live_prices_enabled":    settings["modules.prices.live_prices_enabled"],
         }}
         globalAccountId={globalAccountId}
         cloudflareSettingsHref={`/${adminSlug}${R2_ACCOUNT_ADMIN_PATH}`}

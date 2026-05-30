@@ -161,6 +161,7 @@ export async function getMyWatchlists(
       position: w.position,
       coinsCount: w.coinsCount,
       followersCount: w.followersCount,
+      featuredInFeed: w.featuredInFeed,
       createdAt: w.createdAt,
       updatedAt: w.updatedAt,
       topCoins,
@@ -372,6 +373,101 @@ export const getWatchlistCountForSymbol = cache(
 );
 
 /**
+ * Versione batch di `getWatchlistCountForSymbol` per le griglie coin
+ * (home/explore): conta in quante watchlist attive appare CIASCUN symbol
+ * con UNA sola query (GROUP BY) invece di N. Stessa semantica aggregata e
+ * anonima della versione singola — public + private, mai chi.
+ *
+ * Ritorna una Map seedata con 0 per ogni symbol richiesto, così il render
+ * non deve gestire `undefined`. Indicizzata da idx_watchlist_coins_symbol.
+ * Staleness coperta dall'ISR/cache della pagina chiamante.
+ */
+export async function getWatchlistCountsForSymbols(
+  symbols: string[],
+): Promise<Map<string, number>> {
+  const upper = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
+  const result = new Map<string, number>(upper.map((s) => [s, 0]));
+  if (upper.length === 0) return result;
+
+  const rows = await db
+    .select({ symbol: watchlistCoins.symbol, n: count() })
+    .from(watchlistCoins)
+    .innerJoin(watchlists, eq(watchlists.id, watchlistCoins.watchlistId))
+    .where(
+      and(
+        inArray(watchlistCoins.symbol, upper),
+        isNull(watchlists.archivedAt),
+      ),
+    )
+    .groupBy(watchlistCoins.symbol);
+
+  for (const r of rows) result.set(r.symbol, r.n);
+  return result;
+}
+
+// ─── Featured watchlist (barra in cima al feed home) ──────────────────
+//
+// La watchlist che l'utente ha marcato `featured_in_feed` (max una, vedi
+// uq_watchlists_user_featured) renderizzata come barra espandibile in
+// home.hero. Ritorna null se nessuna featured o se è vuota (la UI non
+// mostra la barra in quel caso — decisione product).
+//
+// React.cache: la home section la chiama 1 volta; il wrapper protegge da
+// fan-out futuri. Coin risolte via resolveCoinViews (pool top-200 shared).
+
+export interface FeaturedWatchlistFeed {
+  id: string;
+  name: string;
+  slug: string;
+  /** CoinView complete (con weeklySparkline) nell'ordine della watchlist. */
+  coins: CoinView[];
+  /** Perf 30g media delle coin (come la card lista). Null se non calcolabile. */
+  perf30dPct: number | null;
+}
+
+export const getFeaturedWatchlistForFeed = cache(
+  async (userId: string): Promise<FeaturedWatchlistFeed | null> => {
+    const [wl] = await db
+      .select({
+        id: watchlists.id,
+        name: watchlists.name,
+        slug: watchlists.slug,
+      })
+      .from(watchlists)
+      .where(
+        and(
+          eq(watchlists.userId, userId),
+          eq(watchlists.featuredInFeed, true),
+          isNull(watchlists.archivedAt),
+        ),
+      )
+      .limit(1);
+    if (!wl) return null;
+
+    const coinRows = await db
+      .select({ symbol: watchlistCoins.symbol })
+      .from(watchlistCoins)
+      .where(eq(watchlistCoins.watchlistId, wl.id))
+      .orderBy(asc(watchlistCoins.position), asc(watchlistCoins.addedAt));
+    if (coinRows.length === 0) return null; // vuota → non mostrare la barra
+
+    const symbols = coinRows.map((c) => c.symbol);
+    const [viewsMap, perfMap] = await Promise.all([
+      resolveCoinViews(symbols),
+      getCoinsPerf30d(symbols),
+    ]);
+    const coins: CoinView[] = [];
+    for (const c of coinRows) {
+      const v = viewsMap.get(c.symbol.toUpperCase());
+      if (v) coins.push(v); // scarta i symbol non risolti (coin disattivata)
+    }
+    if (coins.length === 0) return null;
+    const perf30dPct = averagePerf(symbols, perfMap);
+    return { id: wl.id, name: wl.name, slug: wl.slug, coins, perf30dPct };
+  },
+);
+
+/**
  * Membership delle MIE watchlist rispetto a un symbol: lista delle mie
  * watchlist attive + flag `hasCoin`. Per il popover "Aggiungi a
  * watchlist" della coin page. Non cached (per-user, dev'essere fresh
@@ -452,6 +548,7 @@ async function assembleDetail(
     position: w.position,
     coinsCount: w.coinsCount,
     followersCount: w.followersCount,
+    featuredInFeed: w.featuredInFeed,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
     topCoins,
