@@ -10,7 +10,7 @@
 //   - prices_data upsert → fire-and-forget (non blocca il cron).
 //   - Emit SSE via live-prices-emitter se modules.prices.live_prices_enabled.
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
+import { pricesCoins, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { getActiveUniverse, type ActiveCoin } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
@@ -22,7 +22,7 @@ import {
   ExchangeAdapterError,
   type ExchangeFetchInput,
 } from "./exchanges/types";
-import { setHotPrices, getHotPrices } from "./services/hot-prices";
+import { setHotPrices } from "./services/hot-prices";
 import { getAndIncrSyncTick, getTierForCoin, shouldFetchThisTick } from "./services/sync-tick";
 import { emitLivePrices } from "./services/live-prices-emitter";
 import type { PriceQuote } from "./types";
@@ -196,22 +196,11 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     }
 
     // ── 3.1) SSE emit (se live_prices_enabled=true) ──────────────────
-    // Fire-and-forget: un errore qui non blocca il sync.
     void emitLivePrices(collected, cfg.livePricesEnabled).catch((err) =>
       console.error("[runPricesSync] emitLivePrices failed:", err),
     );
 
-    // ── 3.2) prices_data upsert → fire-and-forget ────────────────────
-    // DB è cold backup storico; Redis già aggiornato. La count "updated"
-    // viene calcolata sul filtro delta PRIMA della write asincrona.
-    try {
-      updated = computeUpsertCount(Array.from(collected.values()));
-    } catch {
-      updated = collected.size;
-    }
-    void upsertPricesAsync(Array.from(collected.values()), cfg.deltaThreshold).catch(
-      (err) => console.error("[runPricesSync] upsertPrices fire-and-forget failed:", err),
-    );
+    updated = collected.size;
   }
 
   // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
@@ -261,123 +250,6 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     durationMs,
     error: ok ? undefined : lastError,
   };
-}
-
-/**
- * Conta quante righe verrebbero scritte con delta threshold applicato.
- * Usa Redis hot cache per i prezzi precedenti (evita SELECT su prices_data).
- * Restituisce il count senza scrivere nulla — usato per il log run.
- */
-function computeUpsertCount(quotes: PriceQuote[]): number {
-  return quotes.filter((q) => Number.isFinite(q.price)).length;
-}
-
-/**
- * Upsert fire-and-forget su prices_data (cold backup storico).
- * Delta check via Redis hot cache (getHotPrices) — elimina il SELECT DB.
- *
- * Batched in 2 INSERT bulk con ON CONFLICT DO UPDATE:
- *   - `withSparkline`: sovrascrive anche weekly_sparkline + weekly_sparkline_at
- *   - `coreOnly`: aggiorna solo price/change24h/volume24h/last_updated
- *
- * NB: l'`excluded` pseudo-table referenzia i valori dell'INSERT conflittuale.
- */
-async function upsertPricesAsync(quotes: PriceQuote[], delta: number): Promise<void> {
-  if (quotes.length === 0) return;
-
-  // Delta check da Redis (1 GET, no DB query)
-  const hotPayload = await getHotPrices();
-  const existing = new Map<string, number>();
-  if (hotPayload) {
-    for (const [sym, q] of Object.entries(hotPayload.quotes)) {
-      existing.set(sym, q.price);
-    }
-  }
-
-  const now = new Date();
-  type CoreRow = {
-    symbol: string;
-    price: string;
-    change24h: string | null;
-    volume24h: string | null;
-    source: string;
-    lastUpdated: Date;
-  };
-  type SparklineRow = CoreRow & {
-    weeklySparkline: number[];
-    weeklySparklineAt: Date;
-  };
-  const withSparkline: SparklineRow[] = [];
-  const coreOnly: CoreRow[] = [];
-
-  for (const q of quotes) {
-    const hasSparkline = q.sparkline7d !== null && q.sparkline7d.length >= 2;
-
-    // Delta threshold: skippa l'update solo se NON abbiamo nuova sparkline da
-    // scrivere. Se la quote viene da CoinGecko (sparkline fresca), scriviamo
-    // sempre per non perdere il refresh decorativo.
-    if (!hasSparkline) {
-      const prev = existing.get(q.symbol);
-      if (prev !== undefined) {
-        const diff = Math.abs(q.price - prev) / Math.max(prev, 1e-12);
-        if (diff < delta) continue;
-      }
-    }
-
-    const core: CoreRow = {
-      symbol: q.symbol,
-      price: String(q.price),
-      change24h: q.change24h !== null ? String(q.change24h) : null,
-      volume24h: q.volume24h !== null ? String(q.volume24h) : null,
-      source: "coingecko",
-      lastUpdated: now,
-    };
-    if (hasSparkline) {
-      withSparkline.push({
-        ...core,
-        weeklySparkline: q.sparkline7d as number[],
-        weeklySparklineAt: now,
-      });
-    } else {
-      coreOnly.push(core);
-    }
-  }
-
-  // ── Batch 1: rows con sparkline fresca (sovrascrive anche weekly_*) ──
-  if (withSparkline.length > 0) {
-    await db
-      .insert(pricesData)
-      .values(withSparkline)
-      .onConflictDoUpdate({
-        target: pricesData.symbol,
-        set: {
-          price:             sql`excluded.price`,
-          change24h:         sql`excluded.change_24h`,
-          volume24h:         sql`excluded.volume_24h`,
-          source:            sql`excluded.source`,
-          lastUpdated:       sql`excluded.last_updated`,
-          weeklySparkline:   sql`excluded.weekly_sparkline`,
-          weeklySparklineAt: sql`excluded.weekly_sparkline_at`,
-        },
-      });
-  }
-
-  // ── Batch 2: rows SENZA sparkline (preserva weekly_* esistenti) ──
-  if (coreOnly.length > 0) {
-    await db
-      .insert(pricesData)
-      .values(coreOnly)
-      .onConflictDoUpdate({
-        target: pricesData.symbol,
-        set: {
-          price:       sql`excluded.price`,
-          change24h:   sql`excluded.change_24h`,
-          volume24h:   sql`excluded.volume_24h`,
-          source:      sql`excluded.source`,
-          lastUpdated: sql`excluded.last_updated`,
-        },
-      });
-  }
 }
 
 /**

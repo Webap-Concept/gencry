@@ -12,8 +12,9 @@
 
 import { and, asc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins, pricesData } from "@/lib/db/schema";
+import { pricesCoins } from "@/lib/db/schema";
 import { getUser } from "@/lib/db/queries";
+import { getHotPrices } from "@/lib/modules/prices/services/hot-prices";
 
 export type CoinSearchResult = {
   symbol: string;
@@ -43,34 +44,37 @@ export async function searchTrackedCoinsAction(
 
   const pattern = `%${safe}%`;
 
-  const rows = await db
-    .select({
-      symbol: pricesCoins.symbol,
-      name: pricesCoins.name,
-      imageUrl: pricesCoins.imageUrl,
-      marketCapRank: pricesCoins.marketCapRank,
-      price: pricesData.price,
-      change24h: pricesData.change24h,
-    })
-    .from(pricesCoins)
-    .leftJoin(pricesData, eq(pricesCoins.symbol, pricesData.symbol))
-    .where(
-      and(
-        eq(pricesCoins.isActive, true),
-        or(
-          ilike(pricesCoins.symbol, pattern),
-          ilike(pricesCoins.name, pattern),
+  const [rows, hot] = await Promise.all([
+    db
+      .select({
+        symbol:        pricesCoins.symbol,
+        name:          pricesCoins.name,
+        imageUrl:      pricesCoins.imageUrl,
+        marketCapRank: pricesCoins.marketCapRank,
+      })
+      .from(pricesCoins)
+      .where(
+        and(
+          eq(pricesCoins.isActive, true),
+          or(
+            ilike(pricesCoins.symbol, pattern),
+            ilike(pricesCoins.name, pattern),
+          ),
         ),
-      ),
-    )
-    .orderBy(asc(pricesCoins.marketCapRank))
-    .limit(MAX_RESULTS);
+      )
+      .orderBy(asc(pricesCoins.marketCapRank))
+      .limit(MAX_RESULTS),
+    getHotPrices(),
+  ]);
 
-  return rows.map((r) => ({
-    symbol: r.symbol,
-    name: r.name,
-    imageUrl: r.imageUrl,
-    price: r.price !== null ? Number(r.price) : null,
-    change24h: r.change24h !== null ? Number(r.change24h) : null,
-  }));
+  return rows.map((r) => {
+    const q = hot?.quotes[r.symbol];
+    return {
+      symbol:    r.symbol,
+      name:      r.name,
+      imageUrl:  r.imageUrl,
+      price:     q?.price ?? null,
+      change24h: q?.change24h ?? null,
+    };
+  });
 }
