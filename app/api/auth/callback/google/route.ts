@@ -90,6 +90,9 @@ export async function GET(req: NextRequest) {
     );
 
     if (result.status === "blocked") {
+      if (result.reason === "email_unverified") {
+        return redirect("/sign-in?error=oauth_email_unverified");
+      }
       return redirect("/sign-in?error=registrations_disabled");
     }
     if (result.status === "error") {

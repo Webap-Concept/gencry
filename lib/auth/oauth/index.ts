@@ -45,7 +45,7 @@ export interface OAuthProfile {
 
 export type FindOrCreateResult =
   | { status: "ok"; user: typeof users.$inferSelect; created: boolean }
-  | { status: "blocked"; reason: "registrations_disabled" }
+  | { status: "blocked"; reason: "registrations_disabled" | "email_unverified" }
   | { status: "error" };
 
 export async function findOrCreateOAuthUser(
@@ -135,6 +135,18 @@ export async function findOrCreateOAuthUser(
     .limit(1);
 
   if (existingUser) {
+    // Hardening account-takeover: collega il provider a un account
+    // pre-esistente SOLO se il provider garantisce l'email come verificata.
+    // Senza questo gate, chi controllasse un account provider con un'email
+    // (non verificata) uguale a quella di un nostro utente registrato via
+    // password potrebbe loggarsi come lui. L'utente legittimo deve invece
+    // accedere col metodo originale e collegare il provider dalle impostazioni.
+    // (Con Google `email_verified` è di fatto sempre true; il gate conta il
+    // giorno che si aggiunge un secondo provider — Apple, Facebook, ecc.)
+    if (!emailVerified) {
+      return { status: "blocked", reason: "email_unverified" };
+    }
+
     await db.insert(oauthAccounts).values({
       userId:            existingUser.id,
       provider,
