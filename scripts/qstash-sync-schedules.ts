@@ -30,7 +30,7 @@ loadEnv({ path: ".env.local" });
 loadEnv({ path: ".env" });
 
 import { inArray } from "drizzle-orm";
-import { db } from "@/lib/db/drizzle";
+import { client, db } from "@/lib/db/drizzle";
 import { appSettings } from "@/lib/db/schema";
 import { CRON_SCHEDULES, type CronScheduleDef } from "@/lib/cron/cron-schedules";
 

@@ -1,155 +1,84 @@
 /**
- * /admin/modules/prices/cron — vista MODULO dei cron job pg_cron
- * appartenenti al modulo Prices Engine.
- *
- * I metadati (label, descrizione, purpose) provengono dal manifest
- * del modulo (lib/modules/prices/manifest.ts). Se un jobname del
- * manifest non è presente in pg_cron, viene mostrato un avviso
- * "missing in pg_cron" così sai che la cron.schedule(...) non è
- * stata ancora eseguita.
+ * /admin/modules/prices/cron — schedule QStash + execution log DB del
+ * modulo Prices Engine. I run log provengono da prices_sync_runs (scritti
+ * dagli endpoint stessi, indipendenti da chi li chiama).
  */
 import {
-  CronJobsTable,
-  type CronRow,
-} from "@/app/(admin)/admin/_components/cron-jobs-table";
-import {
-  buildExpectedCommandBody,
-  buildScheduleStatement,
-  commandsMatch,
-} from "@/lib/cron/expected-command";
-import { listCronJobsWithLastRun, type PgCronJobWithLastRun } from "@/lib/cron/queries";
-import { getCronJobMeta, getModuleJobnames } from "@/lib/cron/registry";
+  QStashScheduleTable,
+  type QStashRow,
+} from "@/app/(admin)/admin/_components/qstash-schedule-table";
+import { getAdminPath } from "@/lib/admin-paths";
+import { CRON_SCHEDULES } from "@/lib/cron/cron-schedules";
+import { getQStashSchedules } from "@/lib/cron/qstash-client";
 import { PRICES_MODULE } from "@/lib/modules/prices/manifest";
-import { getSiteUrl } from "@/lib/seo";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
-import { fetchPricesCronRunsAction, togglePricesCronJobAction } from "./actions";
 
 export const metadata: Metadata = { title: "Prices / Cron Jobs" };
 export const dynamic = "force-dynamic";
 
+const MODULE_SLUG = "prices";
+const MODULE_PATH_PREFIX = `/api/cron/modules/${MODULE_SLUG}/`;
+
 export default async function PricesCronPage() {
-  let allJobs: PgCronJobWithLastRun[] = [];
-  let dbError: string | null = null;
-  try {
-    allJobs = await listCronJobsWithLastRun();
-  } catch (err) {
-    dbError = err instanceof Error ? err.message : "Database error";
-  }
+  const qstashMap = await getQStashSchedules();
+  const qstashServiceHref = await getAdminPath("services-qstash");
 
-  const owned = getModuleJobnames("prices");
-  const presentJobnames = new Set(allJobs.map((j) => j.jobname).filter(Boolean) as string[]);
-  const siteUrl = await getSiteUrl();
+  const moduleJobnames = new Set(PRICES_MODULE.cronJobs.map((j) => j.jobname));
 
-  const rows: CronRow[] = allJobs
-    .filter((job) => job.jobname && owned.has(job.jobname))
-    .map((job) => {
-      const meta = getCronJobMeta(job.jobname) ?? null;
-      if (!meta?.path || !siteUrl) return { job, meta };
-      const expectedBody = buildExpectedCommandBody({
-        path: meta.path,
-        baseUrl: siteUrl,
-      });
-      const expectedCommand = meta.schedule
-        ? buildScheduleStatement({
-            jobname: meta.jobname,
-            schedule: meta.schedule,
-            path: meta.path,
-            baseUrl: siteUrl,
-          })
-        : expectedBody;
-      return {
-        job,
-        meta,
-        expectedCommand,
-        commandDrift: !commandsMatch(job.command, expectedBody),
-      };
-    });
-
-  const missing = PRICES_MODULE.cronJobs
-    .filter((c) => !presentJobnames.has(c.jobname))
-    .map((c) => ({
-      ...c,
-      statement: siteUrl
-        ? buildScheduleStatement({
-            jobname: c.jobname,
-            schedule: c.schedule,
-            path: c.path,
-            baseUrl: siteUrl,
-          })
-        : null,
-    }));
+  const rows: QStashRow[] = CRON_SCHEDULES.filter(
+    (def) => def.path.startsWith(MODULE_PATH_PREFIX) || moduleJobnames.has(def.jobname),
+  ).map((def) => {
+    const manifest = PRICES_MODULE.cronJobs.find((j) => j.jobname === def.jobname);
+    const qs = qstashMap?.get(`gencry-${def.jobname}`) ?? null;
+    return {
+      jobname: def.jobname,
+      label: manifest?.label ?? def.jobname,
+      description: manifest?.description ?? "",
+      purpose: manifest?.purpose ?? "",
+      schedule: def.schedule,
+      path: def.path,
+      qstash: qs ? { isPaused: qs.isPaused, createdAt: qs.createdAt, liveCron: qs.cron } : null,
+    };
+  });
 
   return (
     <div className="space-y-5">
-      {dbError && (
-        <div
-          className="rounded-xl p-4 text-sm"
-          style={{
-            background: "color-mix(in srgb, var(--gc-neg, #dc2626) 8%, var(--admin-card-bg))",
-            border: "1px solid color-mix(in srgb, var(--gc-neg, #dc2626) 30%, transparent)",
-            color: "var(--gc-neg, #dc2626)",
-          }}>
-          <p className="font-semibold mb-1">Cannot read cron jobs from the database.</p>
-          <p className="font-mono text-xs">{dbError}</p>
-        </div>
-      )}
-
-      {missing.length > 0 && (
-        <div
-          className="rounded-xl p-4 text-xs space-y-3"
-          style={{
-            background: "color-mix(in srgb, #d97706 8%, var(--admin-card-bg))",
-            border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
-            color: "#d97706",
-          }}>
-          <p className="font-semibold">Missing jobs</p>
-          <p>
-            The module manifest declares the following jobs that are NOT registered
-            in pg_cron. Run the matching <code>cron.schedule(...)</code> in the
-            Supabase SQL Editor to activate them — the URL is rebuilt from your
-            current site domain.
-          </p>
-          {!siteUrl && (
-            <p className="font-semibold">
-              Site domain is not configured. Set it in Settings → General before
-              installing missing cron jobs, otherwise the schedule statement
-              cannot be generated.
-            </p>
-          )}
-          <ul className="space-y-3">
-            {missing.map((c) => (
-              <li key={c.jobname}>
-                <p className="font-mono">
-                  {c.jobname} <span style={{ color: "var(--admin-text-faint)" }}>· {c.schedule} · {c.path}</span>
-                </p>
-                {c.statement && (
-                  <pre
-                    className="text-[11px] font-mono p-2 rounded overflow-x-auto whitespace-pre-wrap break-all mt-1.5"
-                    style={{
-                      background: "var(--admin-card-bg)",
-                      border: "1px solid var(--admin-input-border)",
-                      color: "var(--admin-text-muted)",
-                    }}>
-                    {c.statement}
-                  </pre>
-                )}
-              </li>
-            ))}
-          </ul>
-          {siteUrl && (
-            <p style={{ color: "var(--admin-text-faint)" }}>
-              Replace <code>&lt;CRON_SECRET&gt;</code> with the real bearer secret before running.
-            </p>
-          )}
-        </div>
-      )}
-
-      <CronJobsTable
+      <QStashBanner configured={qstashMap !== null} serviceHref={qstashServiceHref} />
+      <QStashScheduleTable
         rows={rows}
-        toggleAction={togglePricesCronJobAction}
-        fetchRunsAction={fetchPricesCronRunsAction}
-        emptyMessage="No Prices Engine cron jobs are currently registered in pg_cron."
+        emptyMessage="No Prices Engine cron jobs configured."
       />
+    </div>
+  );
+}
+
+function QStashBanner({ configured, serviceHref }: { configured: boolean; serviceHref: string }) {
+  return (
+    <div
+      className="rounded-xl p-4 text-xs flex items-center gap-3"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+        color: "var(--admin-text-muted)",
+      }}>
+      <ShieldCheck size={14} className="shrink-0" style={{ color: configured ? "var(--gc-pos, #16a34a)" : "var(--admin-text-faint)" }} />
+      <span>
+        These cron jobs run via{" "}
+        <strong style={{ color: "var(--admin-text)" }}>Upstash QStash</strong>.{" "}
+        Delivery logs and schedule management:{" "}
+        <a
+          href={serviceHref}
+          className="inline-flex items-center gap-0.5 underline"
+          style={{ color: "var(--admin-accent)" }}>
+          Services → QStash <ExternalLink size={11} />
+        </a>
+        {!configured && (
+          <span style={{ color: "#d97706" }}>
+            {" "}— QStash token not configured, live status unavailable.
+          </span>
+        )}
+      </span>
     </div>
   );
 }
