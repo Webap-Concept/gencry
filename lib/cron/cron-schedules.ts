@@ -47,7 +47,9 @@ export const CRON_SCHEDULES: CronScheduleDef[] = [
   { jobname: "posts-hard-delete-deleted", path: "/api/cron/modules/posts/hard-delete-deleted", schedule: "0 5 * * *" },
 
   // ── Account / GDPR (core) ──
-  { jobname: "gdpr-export-worker", path: "/api/cron/account/gdpr-export", schedule: "*/5 * * * *" },
+  // 1×/giorno: la legge impone consegna entro 30 giorni dalla richiesta.
+  // Frequenza più alta (*/5) non ha senso operativo e spreca invocazioni.
+  { jobname: "gdpr-export-worker", path: "/api/cron/account/gdpr-export", schedule: "0 3 * * *" },
   { jobname: "consent-records-cleanup", path: "/api/cron/account/consent-records-cleanup", schedule: "0 3 * * *" },
   { jobname: "policy-change-notifications", path: "/api/cron/account/policy-change-notifications", schedule: "0 * * * *" },
 
