@@ -14,7 +14,10 @@ import {
   requestEmailChange,
 } from "@/lib/account/email-change";
 import { changePassword } from "@/lib/account/password-change";
+import { unlinkOAuthAccount } from "@/lib/account/oauth-links";
+import { isSupportedProvider } from "@/lib/auth/oauth/providers";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
+import { revalidatePath } from "next/cache";
 
 // ---------------------------------------------------------------------------
 // Cambio email — step 1: richiedi cambio
@@ -171,5 +174,33 @@ export const changePasswordAction = validatedActionWithUser(
     return {
       success: tAct("passwordUpdated", { count: result.revokedOtherSessions }),
     } satisfies ActionState;
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Scollega un provider OAuth (es. Google)
+// ---------------------------------------------------------------------------
+
+const unlinkOAuthSchema = z.object({
+  provider: z.string().trim().min(1).max(32),
+});
+
+export const unlinkOAuthAction = validatedActionWithUser(
+  unlinkOAuthSchema,
+  async (data, _formData, user) => {
+    const tAct = await getTranslations("core.settings.actions");
+    if (!isSupportedProvider(data.provider)) {
+      return { error: tAct("oauth.errors.not_linked") } satisfies ActionState;
+    }
+
+    const result = await unlinkOAuthAccount(user.id, data.provider);
+    if (!result.ok) {
+      return {
+        error: tAct(`oauth.errors.${result.error}`),
+      } satisfies ActionState;
+    }
+
+    revalidatePath("/settings/account");
+    return { success: tAct("oauth.unlinked") } satisfies ActionState;
   },
 );

@@ -137,6 +137,20 @@
         "confirmLabel": "Conferma nuova password",
         "submitIdle": "Cambia password",
         "submitPending": "Aggiornamento…"
+      },
+      "connectedAccounts": {
+        "sectionTitle": "Account collegati",
+        "sectionDescription": "Collega un provider per accedere con un clic. Puoi scollegarlo quando vuoi, purché ti resti un altro modo per accedere.",
+        "notConnected": "Non collegato",
+        "linkedOn": "Collegato il {date}",
+        "connect": "Collega",
+        "disconnect": "Scollega",
+        "confirm": "Conferma",
+        "cancel": "Annulla",
+        "lastMethodHint": "Imposta prima una password per scollegare questo account.",
+        "successLinked": "{provider} collegato.",
+        "errorAlreadyLinked": "Questo account è già collegato a un altro profilo.",
+        "errorGeneric": "Impossibile collegare l'account. Riprova."
       }
     },
     "profile": {
@@ -413,6 +427,14 @@
           "emailJustTaken": "Questa email è già in uso.",
           "noPending": "Nessun cambio email in attesa. Richiedilo prima di confermare.",
           "emailJustRegistered": "Questa email è stata appena registrata da un altro utente."
+        }
+      },
+      "oauth": {
+        "unlinked": "Account scollegato.",
+        "errors": {
+          "last_method": "Non puoi scollegare il tuo unico metodo di accesso. Imposta prima una password.",
+          "not_linked": "Questo provider non è collegato al tuo account.",
+          "already_linked_other": "Questo account è già collegato a un altro profilo."
         }
       }
     }

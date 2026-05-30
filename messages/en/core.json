@@ -137,6 +137,20 @@
         "confirmLabel": "Confirm new password",
         "submitIdle": "Change password",
         "submitPending": "Updating…"
+      },
+      "connectedAccounts": {
+        "sectionTitle": "Connected accounts",
+        "sectionDescription": "Link a provider to sign in with one click. You can disconnect it anytime, as long as you keep another way to sign in.",
+        "notConnected": "Not connected",
+        "linkedOn": "Connected on {date}",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "lastMethodHint": "Set a password first to disconnect this account.",
+        "successLinked": "{provider} connected.",
+        "errorAlreadyLinked": "That account is already linked to another profile.",
+        "errorGeneric": "Couldn't connect the account. Please try again."
       }
     },
     "profile": {
@@ -413,6 +427,14 @@
           "emailJustTaken": "This email is already in use.",
           "noPending": "No pending email change. Request one before confirming.",
           "emailJustRegistered": "This email was just registered by another user."
+        }
+      },
+      "oauth": {
+        "unlinked": "Account disconnected.",
+        "errors": {
+          "last_method": "You can't disconnect your only sign-in method. Set a password first.",
+          "not_linked": "This provider isn't connected to your account.",
+          "already_linked_other": "That account is already linked to another profile."
         }
       }
     }

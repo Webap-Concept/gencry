@@ -16,7 +16,9 @@
 
 import { isDomainBlacklisted, isIpBlacklisted } from "@/lib/auth/blacklist";
 import { handleGoogleCallback } from "@/lib/auth/oauth/google";
-import { findOrCreateOAuthUser } from "@/lib/auth/oauth/index";
+import { findOrCreateOAuthUser, linkOAuthAccountToUser } from "@/lib/auth/oauth/index";
+import { getUser } from "@/lib/db/queries";
+import { cookies } from "next/headers";
 import { createVerificationCode } from "@/lib/auth/otp";
 import { createSession } from "@/lib/auth/session";
 import {
@@ -65,6 +67,36 @@ export async function GET(req: NextRequest) {
 
   try {
     const { user: googleUser, tokens } = await handleGoogleCallback(code, state);
+
+    // Intent dal cookie (settato in buildGoogleAuthUrl). One-time: lo cancelliamo.
+    const jar = await cookies();
+    const intent = jar.get("oauth_intent")?.value;
+    jar.delete("oauth_intent");
+
+    // ── Ramo LINK: collega Google a un account già loggato ───────────────
+    if (intent === "link") {
+      const sessionUser = await getUser();
+      if (!sessionUser) {
+        // Sessione persa durante il round-trip OAuth.
+        return redirect("/sign-in?error=oauth_link_session");
+      }
+      const linkRes = await linkOAuthAccountToUser(sessionUser.id, {
+        provider:          "google",
+        providerAccountId: googleUser.sub,
+        email:             googleUser.email,
+        emailVerified:     googleUser.email_verified,
+        firstName:         googleUser.given_name ?? null,
+        lastName:          googleUser.family_name ?? null,
+        picture:           googleUser.picture     ?? null,
+        tokens,
+        ipAddress:         ip,
+        userAgent:         headersList.get("user-agent") ?? undefined,
+      });
+      if (linkRes.status === "error") {
+        return redirect("/settings/account?link_error=already_linked_other");
+      }
+      return redirect("/settings/account?linked=google");
+    }
 
     if (await isDomainBlacklisted(googleUser.email)) {
       return redirect("/sign-in?error=oauth_domain_blocked");
