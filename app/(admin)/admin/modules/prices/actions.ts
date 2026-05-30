@@ -71,6 +71,13 @@ export async function savePricesSettings(
     const ccApiKey = ((formData.get("modules.prices.cryptocompare_api_key") as string) ?? "").trim();
     await updateAppSetting("modules.prices.cryptocompare_api_key", ccApiKey || null);
 
+    // Live Prices SSE toggle
+    const liveRaw = formData.get("modules.prices.live_prices_enabled");
+    await updateAppSetting(
+      "modules.prices.live_prices_enabled",
+      liveRaw === "true" || liveRaw === "on" ? "true" : "false",
+    );
+
     // R2 storage settings — campi hidden+text dal form. Salviamo l'intera tupla;
     // il config layer (`getPricesConfig.parseR2Config`) considera R2 attivo solo
     // se TUTTE e 5 le chiavi sono valorizzate non-vuote.

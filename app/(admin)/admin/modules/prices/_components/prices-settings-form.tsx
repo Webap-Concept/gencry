@@ -32,6 +32,7 @@ interface InitialValues {
   "modules.prices.r2.bucket": string | null;
   "modules.prices.r2.public_base_url": string | null;
   r2SecretIsSet: boolean;
+  "modules.prices.live_prices_enabled": string | null;
 }
 
 type NumericFieldName = Extract<
@@ -385,6 +386,58 @@ export function PricesSettingsForm({
             />
           </div>
         </div>
+
+        {/* Live Prices (SSE) toggle */}
+        <div
+          className="rounded-xl shadow-sm p-6"
+          style={{
+            background: "var(--admin-card-bg)",
+            border: "1px solid var(--admin-card-border)",
+          }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--admin-text)" }}>
+            Live Prices (SSE)
+          </h3>
+          <p className="text-[11px] mb-4" style={{ color: "var(--admin-text-faint)" }}>
+            When enabled, the sync cron broadcasts updated prices to connected browsers via Server-Sent
+            Events (Upstash Realtime). Prices update in-place on coin cards without a page refresh.
+          </p>
+
+          {/* Warning Vercel Pro */}
+          <div
+            className="rounded-lg px-3 py-2.5 mb-4 text-[11px] leading-relaxed"
+            style={{
+              background: "color-mix(in srgb, #f59e0b 8%, var(--admin-card-bg))",
+              border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+              color: "var(--admin-text-muted)",
+            }}>
+            <strong style={{ color: "#b45309" }}>Requires Vercel Pro (Fluid Compute).</strong>{" "}
+            On the Free plan, serverless functions time out after 10&nbsp;s — SSE connections would
+            reconnect every 10&nbsp;s, generating excessive Redis commands. Enable this only after
+            upgrading to Vercel Pro and activating Fluid Compute in project settings.
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none max-w-lg">
+            <input
+              type="checkbox"
+              name="modules.prices.live_prices_enabled"
+              value="true"
+              defaultChecked={initial["modules.prices.live_prices_enabled"] === "true"}
+              className="mt-0.5 w-4 h-4 rounded cursor-pointer"
+              style={{ accentColor: "var(--admin-accent)" }}
+            />
+            <span>
+              <span className="block text-sm font-medium" style={{ color: "var(--admin-text)" }}>
+                Enable live price broadcasting
+              </span>
+              <span className="block text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
+                After each sync, prices are pushed to all connected clients via{" "}
+                <code className="font-mono">/api/realtime/prices</code>. Cost: ~96 Redis
+                commands/hour per concurrent user.
+              </span>
+            </span>
+          </label>
+        </div>
+
         </div>
 
         <div

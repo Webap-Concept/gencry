@@ -215,6 +215,7 @@ export type SettingKey =
   | 'modules.prices.coingecko_pro_enabled' // 'true'|'false' — usa endpoint Pro
   | 'modules.prices.coingecko_pro_api_key' // API key Pro (header x-cg-pro-api-key)
   | 'modules.prices.cryptocompare_api_key' // API key CryptoCompare (free, opzionale)
+  | 'modules.prices.live_prices_enabled'   // 'true'|'false' — SSE broadcast (Vercel Pro required)
   // R2 storage per coin images. NB: account_id NON è qui — è tenant-global
   // in `storage.r2.account_id` (vedi project_modular_architecture
   // §"Per-modulo vs globale"). Token + bucket + URL restano per-modulo.
@@ -538,6 +539,7 @@ export type AppSettings = {
   'modules.prices.coingecko_pro_enabled': string
   'modules.prices.coingecko_pro_api_key': string | null
   'modules.prices.cryptocompare_api_key': string | null
+  'modules.prices.live_prices_enabled': string
   'modules.prices.r2.access_key_id': string | null
   'modules.prices.r2.secret_access_key': string | null
   'modules.prices.r2.bucket': string | null
@@ -815,6 +817,7 @@ const DEFAULTS: AppSettings = {
   'modules.prices.coingecko_pro_enabled': 'false',
   'modules.prices.coingecko_pro_api_key': null,
   'modules.prices.cryptocompare_api_key': null,
+  'modules.prices.live_prices_enabled': 'false',
   'modules.prices.r2.access_key_id': null,
   'modules.prices.r2.secret_access_key': null,
   'modules.prices.r2.bucket': null,

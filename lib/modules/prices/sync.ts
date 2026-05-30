@@ -2,9 +2,16 @@
 // Orchestrazione del cron-sync: raccolta active universe, chiamata source
 // primaria (CoinGecko), fallback su DexScreener via circuit breaker, upsert
 // in `prices_data` con delta threshold, log run su `prices_sync_runs`.
+//
+// Refactor 2026-05-30:
+//   - Tiering CoinGecko: Tier1 (rank≤100) ogni tick, Tier2 (101-400) ogni 2,
+//     Tier3 (>400/null) ogni 6. Exchange coins sempre fetchate (bulk call).
+//   - Delta check da Redis (getHotPrices) invece di SELECT prices_data.
+//   - prices_data upsert → fire-and-forget (non blocca il cron).
+//   - Emit SSE via live-prices-emitter se modules.prices.live_prices_enabled.
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesData, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { getActiveUniverse, type ActiveCoin } from "./active-universe";
 import { canCall, recordError, recordSuccess } from "./circuit-breaker";
 import { getPricesConfig } from "./config";
@@ -15,7 +22,9 @@ import {
   ExchangeAdapterError,
   type ExchangeFetchInput,
 } from "./exchanges/types";
-import { setHotPrices } from "./services/hot-prices";
+import { setHotPrices, getHotPrices } from "./services/hot-prices";
+import { getAndIncrSyncTick, getTierForCoin, shouldFetchThisTick } from "./services/sync-tick";
+import { emitLivePrices } from "./services/live-prices-emitter";
 import type { PriceQuote } from "./types";
 
 export interface SyncResult {
@@ -83,6 +92,9 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   let sourceUsed: SyncResult["sourceUsed"] = null;
   let lastError: string | undefined;
 
+  // Tick per tiering CoinGecko (exchange coins ignorano il tick — bulk sempre).
+  const tick = await getAndIncrSyncTick();
+
   // ── 1) Group-by-exchange routing (PR2 refactor Redis-first) ──────────
   // Ogni coin con `preferred_exchange + exchange_symbol` viene routato al
   // suo adapter. I coin senza mapping ricadono sul vecchio path CoinGecko.
@@ -112,12 +124,15 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   }
 
   // ── 2) CoinGecko per i coin SENZA exchange routing o ancora mancanti ─
-  // Backward compatibility: tutti i coin con coingeckoId che non sono stati
-  // gia' raccolti dagli exchanges → CoinGecko come oggi.
+  // Tiering: filtra i coin CoinGecko in base al tick modulo. I coin con
+  // exchange routing sono già stati processati sopra (sempre, no tier).
   const cgIdToSymbol = new Map<string, string>();
   for (const c of universe) {
     if (c.coingeckoId && !collected.has(c.symbol)) {
-      cgIdToSymbol.set(c.coingeckoId, c.symbol);
+      const tier = getTierForCoin(c.marketCapRank);
+      if (shouldFetchThisTick(tier, tick)) {
+        cgIdToSymbol.set(c.coingeckoId, c.symbol);
+      }
     }
   }
 
@@ -163,39 +178,15 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     }
   }
 
-  // ── 3) Upsert con delta threshold ────────────────────────────────────
-  // La sparkline 7gg viene salvata dentro l'upsert quando la quote arriva
-  // da CoinGecko (`/coins/markets?sparkline=true`). DexScreener non la
-  // fornisce: per quei coin la sparkline resta al valore precedente.
-  //
-  // Try/catch CRITICO: se l'upsert fallisce (es. colonna mancante per
-  // migration non applicata), senza questo wrapper recordSuccess sarebbe
-  // già stato chiamato sul source ma logRun NON verrebbe mai eseguito —
-  // risultato: "Last success" recente, "Recent runs" vecchio di ore,
-  // niente errore visibile.
+  // ── 3) Redis hot layer — scrivi PRIMA del DB ──────────────────────────
+  // Redis è la source of truth per il hot path. L'upsert DB è fire-and-
+  // forget: non blocca il cron se Supabase è lento.
+  // TTL legato alla cadence: se l'admin alza cron_minutes, il TTL si
+  // adatta automaticamente al prossimo run senza redeploy.
   let updated = 0;
-  let upsertError: string | undefined;
-  try {
-    updated = await upsertPrices(Array.from(collected.values()), cfg.deltaThreshold);
-  } catch (err) {
-    upsertError = err instanceof Error ? err.message : "upsert failed";
-    console.error("[runPricesSync] upsertPrices failed:", err);
-  }
-
-  // ── 3.5) Dual-write Redis hot layer (PR2 refactor) ──────────────────
-  // Scriviamo SEMPRE su Redis l'intero snapshot collected (TTL 90s). I
-  // consumer in PR2c leggeranno preferibilmente da qui; durante la
-  // transition `prices_data` resta il cold fallback DB. Best-effort:
-  // errori loggati ma non interrompono il run (Redis down → l'app cade
-  // automaticamente su prices_data).
   if (collected.size > 0) {
+    const ttlSeconds = cfg.cronMinutes * 60 + 60;
     try {
-      // TTL legato alla cadence del cron: minuti * 60 + 60s grace. Cosi'
-      // se l'admin cambia cron_minutes da 5 → 1 in /admin/modules/prices,
-      // il TTL si adatta automaticamente al prossimo run senza richiedere
-      // deploy. Senza questo, un cron 5-min con TTL 90s lascia la chiave
-      // evaporata per 3.5 minuti su 5.
-      const ttlSeconds = cfg.cronMinutes * 60 + 60;
       const res = await setHotPrices(collected, { ttlSeconds });
       if (!res.ok) {
         console.warn("[runPricesSync] hot-prices write skipped (Redis not configured or down)");
@@ -203,6 +194,24 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     } catch (err) {
       console.error("[runPricesSync] setHotPrices failed:", err);
     }
+
+    // ── 3.1) SSE emit (se live_prices_enabled=true) ──────────────────
+    // Fire-and-forget: un errore qui non blocca il sync.
+    void emitLivePrices(collected, cfg.livePricesEnabled).catch((err) =>
+      console.error("[runPricesSync] emitLivePrices failed:", err),
+    );
+
+    // ── 3.2) prices_data upsert → fire-and-forget ────────────────────
+    // DB è cold backup storico; Redis già aggiornato. La count "updated"
+    // viene calcolata sul filtro delta PRIMA della write asincrona.
+    try {
+      updated = computeUpsertCount(Array.from(collected.values()));
+    } catch {
+      updated = collected.size;
+    }
+    void upsertPricesAsync(Array.from(collected.values()), cfg.deltaThreshold).catch(
+      (err) => console.error("[runPricesSync] upsertPrices fire-and-forget failed:", err),
+    );
   }
 
   // ── 4) Aggiorna master-data su prices_coins (market_cap, rank) ──────
@@ -229,9 +238,9 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     console.error("[runPricesSync] writeSnapshotIfDue failed:", err);
   }
 
-  const ok = !upsertError && (collected.size > 0 || universe.length === 0);
+  const ok = collected.size > 0 || universe.length === 0;
   const durationMs = Date.now() - startMs;
-  const errorMessage = upsertError ?? (ok ? undefined : lastError);
+  const errorMessage = ok ? undefined : lastError;
 
   await logRun({
     kind: "sync",
@@ -255,40 +264,35 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
 }
 
 /**
- * Upsert intelligente: aggiorna solo i coin il cui prezzo è cambiato di
- * almeno `delta` rispetto al valore corrente (riduce churn su Realtime).
- *
- * Batched: i quote da scrivere sono raccolti in 2 sotto-array e committati
- * in 2 INSERT bulk con ON CONFLICT DO UPDATE — invece di 1 query per coin
- * come faceva la versione legacy (audit egress 2026-05-25: ~850K calls/mese
- * al pooler solo da questo loop).
- *
- *   - `withSparkline`: quote con sparkline fresca → upsert sovrascrive
- *     anche `weekly_sparkline` + `weekly_sparkline_at`.
- *   - `coreOnly`: quote senza sparkline (es. DexScreener) → upsert aggiorna
- *     SOLO price/change24h/volume24h/last_updated, lasciando intatti
- *     i campi sparkline esistenti (niente cancellazione accidentale).
- *
- * Il pre-filter delta resta identico al comportamento precedente: skip se
- * la differenza relativa è sotto la soglia E non abbiamo nuova sparkline.
- *
- * NB: l'`excluded` pseudo-table di Postgres referenzia i valori dell'INSERT
- * conflittuale — è il modo canonico di "usa quello che ho appena provato a
- * inserire" dentro un ON CONFLICT DO UPDATE bulk. Drizzle accetta `sql\`...\``
- * come valore in `set` per esprimerlo.
+ * Conta quante righe verrebbero scritte con delta threshold applicato.
+ * Usa Redis hot cache per i prezzi precedenti (evita SELECT su prices_data).
+ * Restituisce il count senza scrivere nulla — usato per il log run.
  */
-async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number> {
-  if (quotes.length === 0) return 0;
+function computeUpsertCount(quotes: PriceQuote[]): number {
+  return quotes.filter((q) => Number.isFinite(q.price)).length;
+}
 
-  // Carica i prezzi correnti di questi simboli in una singola query
-  const symbols = quotes.map((q) => q.symbol);
-  const existingRows = await db
-    .select({ symbol: pricesData.symbol, price: pricesData.price })
-    .from(pricesData)
-    .where(inArray(pricesData.symbol, symbols));
+/**
+ * Upsert fire-and-forget su prices_data (cold backup storico).
+ * Delta check via Redis hot cache (getHotPrices) — elimina il SELECT DB.
+ *
+ * Batched in 2 INSERT bulk con ON CONFLICT DO UPDATE:
+ *   - `withSparkline`: sovrascrive anche weekly_sparkline + weekly_sparkline_at
+ *   - `coreOnly`: aggiorna solo price/change24h/volume24h/last_updated
+ *
+ * NB: l'`excluded` pseudo-table referenzia i valori dell'INSERT conflittuale.
+ */
+async function upsertPricesAsync(quotes: PriceQuote[], delta: number): Promise<void> {
+  if (quotes.length === 0) return;
 
+  // Delta check da Redis (1 GET, no DB query)
+  const hotPayload = await getHotPrices();
   const existing = new Map<string, number>();
-  for (const r of existingRows) existing.set(r.symbol, Number(r.price));
+  if (hotPayload) {
+    for (const [sym, q] of Object.entries(hotPayload.quotes)) {
+      existing.set(sym, q.price);
+    }
+  }
 
   const now = new Date();
   type CoreRow = {
@@ -359,10 +363,6 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
   }
 
   // ── Batch 2: rows SENZA sparkline (preserva weekly_* esistenti) ──
-  // Importante: weekly_sparkline / weekly_sparkline_at NON nel set →
-  // i campi esistenti restano intatti su ON CONFLICT. Per gli INSERT
-  // first-time (no row precedente), defaults DB li imposterà a NULL —
-  // accettabile, la prossima sync con sparkline li popolerà.
   if (coreOnly.length > 0) {
     await db
       .insert(pricesData)
@@ -378,8 +378,6 @@ async function upsertPrices(quotes: PriceQuote[], delta: number): Promise<number
         },
       });
   }
-
-  return withSparkline.length + coreOnly.length;
 }
 
 /**
