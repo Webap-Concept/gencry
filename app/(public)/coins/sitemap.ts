@@ -17,11 +17,18 @@
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesSyncRuns } from "@/lib/db/schema";
 import { getSiteUrl } from "@/lib/seo";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { MetadataRoute } from "next";
 import { unstable_cache } from "next/cache";
 
 const PRICES_DATA_TAG = "prices-data";
+
+// Sitemap selettiva: solo le top N coin per market cap. Le pagine coin
+// "thin" (small cap, solo prezzo+grafico) sono contenuto duplicato che
+// Google non indicizza e che diluisce il crawl budget su un dominio
+// giovane. Quando il social avrà volume di post, valutare il passaggio a
+// "coin con ≥ N post" invece del rank. Vedi discussione 2026-05-30.
+const SITEMAP_TOP_COINS = 200;
 
 // `lastModified` viene dall'ultimo sync run riuscito (DB, cacheable), NON
 // da Redis: la sitemap deve restare statica/ISR per SEO. Usare getHotPrices
@@ -36,7 +43,11 @@ const fetchActiveCoinsForSitemap = unstable_cache(
         })
         .from(pricesCoins)
         .where(eq(pricesCoins.isActive, true))
-        .orderBy(desc(pricesCoins.marketCap)),
+        // NULLS LAST: i coin senza market cap (import wholesale) NON devono
+        // rubare i primi posti — il DESC default di Postgres li metterebbe
+        // in testa. Stesso pattern di lib/modules/prices/queries.ts.
+        .orderBy(sql`${pricesCoins.marketCap} DESC NULLS LAST`)
+        .limit(SITEMAP_TOP_COINS),
       db
         .select({ finishedAt: pricesSyncRuns.finishedAt })
         .from(pricesSyncRuns)
