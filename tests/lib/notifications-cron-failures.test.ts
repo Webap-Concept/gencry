@@ -19,6 +19,12 @@ vi.mock("@/lib/cron/registry", () => ({
   getModuleJobnames: () => new Set<string>(),
 }));
 vi.mock("@/lib/modules/registry", () => ({ INSTALLED_MODULES: [] }));
+// Il test esercita solo la logica pura `computeCronFailureCandidates`, mai
+// `.run()`: mockiamo il client QStash per non trascinarne la catena
+// (server-only + settings + db) all'import.
+vi.mock("@/lib/cron/qstash-client", () => ({
+  getDlqFailuresByJobname: vi.fn(),
+}));
 
 import {
   computeCronFailureCandidates,

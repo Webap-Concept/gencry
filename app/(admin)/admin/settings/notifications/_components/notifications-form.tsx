@@ -787,9 +787,9 @@ export function NotificationsSettingsForm({
               <p
                 className="text-[12px]"
                 style={{ color: "var(--admin-text-muted)" }}>
-                Il dispatcher controlla <code>cron.job_run_details</code> ogni 5 min.
-                Quando un job fallisce in modo persistente, viene creata una notifica admin (con la severity scelta) e
-                inviata via email digest secondo lo schedule sopra. Dopo N fallimenti consecutivi la severity sale a{" "}
+                Il dispatcher controlla la <code>DLQ</code> di QStash ogni 5 min.
+                Quando un cron esaurisce i retry e finisce in Dead Letter Queue, viene creata una notifica admin (con la severity scelta) e
+                inviata via email digest secondo lo schedule sopra. Dopo N fallimenti recenti la severity sale a{" "}
                 <strong>critical</strong>.
               </p>
             </div>
