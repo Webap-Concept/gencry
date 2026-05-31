@@ -5,6 +5,7 @@
 // `loadMoreFollowList` paginazione keyset (cursor = createdAt ISO).
 import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { loadMoreFollowList } from "@/lib/modules/social-graph/list-actions";
 import type { FollowListItem } from "@/lib/modules/social-graph/queries";
 import { useTranslations } from "next-intl";
@@ -122,25 +123,17 @@ export function FollowListClient({
 }
 
 function Avatar({ item }: { item: FollowListItem }) {
-  const initial = (item.firstName ?? item.username ?? "?")
-    .charAt(0)
-    .toUpperCase();
-  if (item.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={item.avatarUrl}
-        alt={displayName(item)}
-        className="w-12 h-12 rounded-full object-cover border border-gc-line shrink-0"
-      />
-    );
-  }
   return (
-    <div
-      aria-hidden
-      className="w-12 h-12 rounded-full shrink-0 bg-gc-accent text-white flex items-center justify-center text-lg font-serif"
-    >
-      {initial}
-    </div>
+    <UserAvatar
+      user={{
+        id: item.userId,
+        username: item.username,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        avatarUrl: item.avatarUrl,
+      }}
+      size={48}
+      verifiedBusiness={item.isVerifiedBusiness}
+    />
   );
 }

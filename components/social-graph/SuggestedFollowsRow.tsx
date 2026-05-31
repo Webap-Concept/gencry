@@ -13,6 +13,7 @@ import Link from "next/link";
 import { sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/lib/db/drizzle";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { FollowButton } from "./FollowButton";
 
 const SUGGESTED_LIMIT = 8;
@@ -24,22 +25,27 @@ type SuggestedUser = {
   lastName: string | null;
   avatarUrl: string | null;
   headline: string | null;
+  isVerifiedBusiness: boolean;
   followersCount: number;
+};
+
+type SuggestedRow = {
+  user_id: string;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  headline: string | null;
+  account_type: string | null;
+  company_verified_at: Date | string | null;
+  followers_count: number;
 };
 
 async function loadSuggested(viewerUserId: string): Promise<SuggestedUser[]> {
   // Build-time short-circuit
   if (process.env.NEXT_PHASE === "phase-production-build") return [];
 
-  const rows = await db.execute<{
-    user_id: string;
-    username: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    headline: string | null;
-    followers_count: number;
-  }>(sql`
+  const rows = await db.execute<SuggestedRow>(sql`
     SELECT
       c.user_id,
       p.username,
@@ -47,6 +53,8 @@ async function loadSuggested(viewerUserId: string): Promise<SuggestedUser[]> {
       p.last_name,
       p.avatar_url,
       p.headline,
+      p.account_type,
+      p.company_verified_at,
       c.followers_count
     FROM user_social_counters c
     LEFT JOIN user_profiles p ON p.user_id = c.user_id
@@ -66,32 +74,18 @@ async function loadSuggested(viewerUserId: string): Promise<SuggestedUser[]> {
   `);
 
   const list = Array.isArray(rows)
-    ? (rows as Array<{
-        user_id: string;
-        username: string | null;
-        first_name: string | null;
-        last_name: string | null;
-        avatar_url: string | null;
-        headline: string | null;
-        followers_count: number;
-      }>)
-    : ((rows as { rows?: typeof rows }).rows ?? []);
+    ? (rows as SuggestedRow[])
+    : ((rows as { rows?: SuggestedRow[] }).rows ?? []);
 
-  return (list as Array<{
-    user_id: string;
-    username: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    headline: string | null;
-    followers_count: number;
-  }>).map((r) => ({
+  return (list as SuggestedRow[]).map((r) => ({
     userId: r.user_id,
     username: r.username,
     firstName: r.first_name,
     lastName: r.last_name,
     avatarUrl: r.avatar_url,
     headline: r.headline,
+    isVerifiedBusiness:
+      r.account_type === "business" && r.company_verified_at !== null,
     followersCount: Number(r.followers_count) || 0,
   }));
 }
@@ -171,26 +165,18 @@ async function SuggestedFollowsRowInner({
 }
 
 function SuggestedAvatar({ user }: { user: SuggestedUser }) {
-  const initial = (user.firstName ?? user.username ?? "?")
-    .charAt(0)
-    .toUpperCase();
-  if (user.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={user.avatarUrl}
-        alt={displayName(user)}
-        className="w-14 h-14 rounded-full object-cover border border-gc-line"
-      />
-    );
-  }
   return (
-    <div
-      aria-hidden
-      className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-serif text-white bg-gc-accent"
-    >
-      {initial}
-    </div>
+    <UserAvatar
+      user={{
+        id: user.userId,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
+      }}
+      size={56}
+      verifiedBusiness={user.isVerifiedBusiness}
+    />
   );
 }
 

@@ -13,6 +13,7 @@
 import "server-only";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { getTranslations } from "next-intl/server";
 import { listFollowers, type FollowListItem } from "@/lib/modules/social-graph/queries";
 
@@ -43,26 +44,18 @@ function displayName(u: FollowListItem): string {
 }
 
 function Avatar({ item }: { item: FollowListItem }) {
-  const initial = (item.firstName ?? item.username ?? "?")
-    .charAt(0)
-    .toUpperCase();
-  if (item.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={item.avatarUrl}
-        alt={displayName(item)}
-        className="w-9 h-9 rounded-full object-cover border border-gc-line shrink-0"
-      />
-    );
-  }
   return (
-    <div
-      aria-hidden
-      className="w-9 h-9 rounded-full shrink-0 bg-gc-accent text-white flex items-center justify-center text-sm font-serif"
-    >
-      {initial}
-    </div>
+    <UserAvatar
+      user={{
+        id: item.userId,
+        username: item.username,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        avatarUrl: item.avatarUrl,
+      }}
+      size={36}
+      verifiedBusiness={item.isVerifiedBusiness}
+    />
   );
 }
 

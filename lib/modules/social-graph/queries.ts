@@ -73,6 +73,8 @@ export type FollowListItem = {
   lastName: string | null;
   avatarUrl: string | null;
   headline: string | null;
+  /** Account azienda verificato → badge sull'avatar. */
+  isVerifiedBusiness: boolean;
   createdAt: Date;
 };
 
@@ -126,6 +128,8 @@ export async function listFollowers(
       lastName: userProfiles.lastName,
       avatarUrl: userProfiles.avatarUrl,
       headline: userProfiles.headline,
+      accountType: userProfiles.accountType,
+      companyVerifiedAt: userProfiles.companyVerifiedAt,
       createdAt: userFollows.createdAt,
     })
     .from(userFollows)
@@ -142,7 +146,19 @@ export async function listFollowers(
     .limit(cap + 1);
 
   const hasMore = rows.length > cap;
-  const items = hasMore ? rows.slice(0, cap) : rows;
+  const items: FollowListItem[] = (hasMore ? rows.slice(0, cap) : rows).map(
+    (r) => ({
+      userId: r.userId,
+      username: r.username,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      avatarUrl: r.avatarUrl,
+      headline: r.headline,
+      isVerifiedBusiness:
+        r.accountType === "business" && r.companyVerifiedAt !== null,
+      createdAt: r.createdAt,
+    }),
+  );
   const nextCursor =
     hasMore && items.length > 0
       ? items[items.length - 1]!.createdAt.toISOString()
@@ -173,6 +189,8 @@ export async function listFollowing(
       lastName: userProfiles.lastName,
       avatarUrl: userProfiles.avatarUrl,
       headline: userProfiles.headline,
+      accountType: userProfiles.accountType,
+      companyVerifiedAt: userProfiles.companyVerifiedAt,
       createdAt: userFollows.createdAt,
     })
     .from(userFollows)
@@ -189,7 +207,19 @@ export async function listFollowing(
     .limit(cap + 1);
 
   const hasMore = rows.length > cap;
-  const items = hasMore ? rows.slice(0, cap) : rows;
+  const items: FollowListItem[] = (hasMore ? rows.slice(0, cap) : rows).map(
+    (r) => ({
+      userId: r.userId,
+      username: r.username,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      avatarUrl: r.avatarUrl,
+      headline: r.headline,
+      isVerifiedBusiness:
+        r.accountType === "business" && r.companyVerifiedAt !== null,
+      createdAt: r.createdAt,
+    }),
+  );
   const nextCursor =
     hasMore && items.length > 0
       ? items[items.length - 1]!.createdAt.toISOString()
