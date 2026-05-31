@@ -90,11 +90,14 @@ export interface CategoryBreakdown {
 export async function getUserBalanceBreakdown(
   userId: string,
 ): Promise<{ categories: CategoryBreakdown[]; recentLedger: Awaited<ReturnType<typeof getUserLedger>> }> {
+  // db.execute (postgres.js raw) vuole stringhe ISO, non Date objects
   const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setUTCHours(0, 0, 0, 0);
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setUTCDate(startOfToday.getUTCDate() - 6); // ultimi 7 giorni
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const weekStart = new Date(todayStart);
+  weekStart.setUTCDate(todayStart.getUTCDate() - 6);
+  const todayIso = todayStart.toISOString();
+  const weekIso  = weekStart.toISOString();
 
   type Row = {
     event_type: string;
@@ -108,10 +111,10 @@ export async function getUserBalanceBreakdown(
     db.execute<Row>(sql`
       SELECT
         event_type,
-        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${startOfToday}), 0)::text AS today_earned,
-        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${startOfWeek}), 0)::text  AS week_earned,
-        COALESCE(SUM(amount), 0)::text                                               AS total_earned,
-        COUNT(*)::text                                                                AS total_txns
+        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${todayIso}::timestamptz), 0)::text AS today_earned,
+        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${weekIso}::timestamptz), 0)::text  AS week_earned,
+        COALESCE(SUM(amount), 0)::text                                                        AS total_earned,
+        COUNT(*)::text                                                                         AS total_txns
       FROM rewards_ledger
       WHERE user_id = ${userId}
       GROUP BY event_type
