@@ -10,7 +10,7 @@ import "server-only";
 // company_verified_at) o la rifiuta (con motivo). La P.IVA è privata.
 
 import { db } from "@/lib/db/drizzle";
-import { businessUpgradeRequests, userProfiles } from "@/lib/db/schema";
+import { businessUpgradeRequests, userProfiles, users } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isValidSector } from "./business-sectors";
 
@@ -200,6 +200,8 @@ export async function revertToPersonal(userId: string): Promise<void> {
 export interface PendingBusinessRequest {
   id: string;
   userId: string;
+  username: string | null;
+  email: string;
   companyName: string;
   companyWebsite: string;
   companySector: string;
@@ -213,6 +215,8 @@ export async function listPendingBusinessRequests(): Promise<PendingBusinessRequ
     .select({
       id:             businessUpgradeRequests.id,
       userId:         businessUpgradeRequests.userId,
+      username:       userProfiles.username,
+      email:          users.email,
       companyName:    businessUpgradeRequests.companyName,
       companyWebsite: businessUpgradeRequests.companyWebsite,
       companySector:  businessUpgradeRequests.companySector,
@@ -221,6 +225,8 @@ export async function listPendingBusinessRequests(): Promise<PendingBusinessRequ
       requestedAt:    businessUpgradeRequests.requestedAt,
     })
     .from(businessUpgradeRequests)
+    .innerJoin(users, eq(users.id, businessUpgradeRequests.userId))
+    .leftJoin(userProfiles, eq(userProfiles.userId, businessUpgradeRequests.userId))
     .where(eq(businessUpgradeRequests.status, "pending"))
     .orderBy(desc(businessUpgradeRequests.requestedAt));
 }

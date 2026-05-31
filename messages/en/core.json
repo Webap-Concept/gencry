@@ -153,6 +153,19 @@
         "errorGeneric": "Couldn't connect the account. Please try again."
       }
     },
+    "business": {
+      "sectors": {
+        "exchange": "Exchange",
+        "wallet": "Wallet",
+        "defi": "DeFi",
+        "nft": "NFT",
+        "mining": "Mining",
+        "media": "Media / News",
+        "education": "Education",
+        "fund": "Fund / VC",
+        "other": "Other"
+      }
+    },
     "profile": {
       "firstName": "First name",
       "lastName": "Last name",

@@ -1725,6 +1725,32 @@
       "colDate": "Iscritto il",
       "exportCsv": "Esporta CSV"
     },
+    "business": {
+      "metaTitle": "Richieste business",
+      "pageTitle": "Richieste business",
+      "pageSubtitle": "{count, plural, =0 {Nessuna richiesta in attesa} one {# richiesta in attesa} other {# richieste in attesa}} da revisionare.",
+      "emptyState": "Nessuna richiesta di account azienda in attesa.",
+      "colCompany": "Azienda",
+      "colSector": "Settore",
+      "colVat": "P.IVA",
+      "colUser": "Richiesta da",
+      "colActions": "Azioni",
+      "approve": "Approva",
+      "reject": "Rifiuta",
+      "cancel": "Annulla",
+      "confirmReject": "Conferma rifiuto",
+      "rejectReasonLabel": "Motivo del rifiuto (opzionale, mostrato all'utente)",
+      "rejectReasonPlaceholder": "es. la P.IVA non corrisponde al sito aziendale.",
+      "approveConfirmTitle": "Approva account azienda",
+      "approveConfirmMessage": "Il profilo diventerà un account azienda verificato. Continuare?",
+      "approvedToast": "Account azienda approvato.",
+      "rejectedToast": "Richiesta rifiutata.",
+      "errors": {
+        "not_found": "Richiesta non trovata.",
+        "already_reviewed": "Questa richiesta è già stata revisionata.",
+        "invalid": "Richiesta non valida."
+      }
+    },
     "permissions": {
       "metaTitle": "Utenti / Permessi",
       "breadcrumbUsers": "Utenti",

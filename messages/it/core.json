@@ -153,6 +153,19 @@
         "errorGeneric": "Impossibile collegare l'account. Riprova."
       }
     },
+    "business": {
+      "sectors": {
+        "exchange": "Exchange",
+        "wallet": "Wallet",
+        "defi": "DeFi",
+        "nft": "NFT",
+        "mining": "Mining",
+        "media": "Media / News",
+        "education": "Education",
+        "fund": "Fondo / VC",
+        "other": "Altro"
+      }
+    },
     "profile": {
       "firstName": "Nome",
       "lastName": "Cognome",

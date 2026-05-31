@@ -108,6 +108,13 @@ export const ADMIN_NAV: NavItem[] = [
         icon: "MailPlus",
         permission: "admin:users",
       },
+      {
+        key: "users-business",
+        href: "/access/business",
+        label: "Business",
+        icon: "Building2",
+        permission: "admin:users",
+      },
     ],
   },
   {

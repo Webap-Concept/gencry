@@ -1725,6 +1725,32 @@
       "colDate": "Subscribed on",
       "exportCsv": "Export CSV"
     },
+    "business": {
+      "metaTitle": "Business requests",
+      "pageTitle": "Business requests",
+      "pageSubtitle": "{count, plural, =0 {No pending requests} one {# pending request} other {# pending requests}} to review.",
+      "emptyState": "No pending business account requests.",
+      "colCompany": "Company",
+      "colSector": "Sector",
+      "colVat": "VAT",
+      "colUser": "Requested by",
+      "colActions": "Actions",
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm rejection",
+      "rejectReasonLabel": "Rejection reason (optional, shown to the user)",
+      "rejectReasonPlaceholder": "e.g. VAT number doesn't match the company website.",
+      "approveConfirmTitle": "Approve business account",
+      "approveConfirmMessage": "The profile will become a verified business account. Continue?",
+      "approvedToast": "Business account approved.",
+      "rejectedToast": "Request rejected.",
+      "errors": {
+        "not_found": "Request not found.",
+        "already_reviewed": "This request was already reviewed.",
+        "invalid": "Invalid request."
+      }
+    },
     "permissions": {
       "metaTitle": "Users / Permissions",
       "breadcrumbUsers": "Users",
