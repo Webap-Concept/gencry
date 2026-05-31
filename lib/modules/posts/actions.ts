@@ -79,6 +79,7 @@ import {
   type MentionCandidate,
 } from "./services/mention-index";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
+import { earnReward } from "@/lib/modules/rewards/earn-reward";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
 import { extractMentions, extractTickers } from "./lib/parsing";
@@ -408,6 +409,11 @@ export async function createPost(
   } catch {
     // swallow: la preferenza è un nice-to-have, non blocca la pubblicazione
   }
+
+  // Reward post_created — fire-and-forget, non blocca la response
+  earnReward(user.id, "post_created", `post_created:${created.postId}`, created.postId).catch(
+    () => {},
+  );
 
   return { ok: true, data: { postId: created.postId } };
 }

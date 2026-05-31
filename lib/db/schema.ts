@@ -2277,4 +2277,60 @@ export const newsItems = pgTable(
 export type NewsSource    = typeof newsSources.$inferSelect;
 export type NewNewsSource = typeof newsSources.$inferInsert;
 export type NewsItem      = typeof newsItems.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Rewards — virtual coin economy (M_rewards_001)
+// ---------------------------------------------------------------------------
+// Tre tabelle: rules (config), ledger (append-only), balances (denorm saldo).
+// Il saldo viene aggiornato dal trigger rewards_ledger_balance_trg;
+// il like_received viene accreditato dal trigger rewards_reaction_insert_trg.
+// Mai scrivere direttamente su rewards_balances dall'applicazione.
+
+export const REWARD_EVENT_TYPES = [
+  "daily_checkin",
+  "post_created",
+  "like_received",
+] as const;
+export type RewardEventType = (typeof REWARD_EVENT_TYPES)[number];
+
+export const rewardsRules = pgTable("rewards_rules", {
+  eventType: varchar("event_type", { length: 40 })
+    .primaryKey()
+    .$type<RewardEventType>(),
+  amount:    integer("amount").notNull().default(1),
+  // NULL = nessun cap (daily_checkin ha cap naturale via idempotency sulla data)
+  dailyCap:  integer("daily_cap"),
+  enabled:   boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const rewardsLedger = pgTable(
+  "rewards_ledger",
+  {
+    id:             uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    userId:         uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    eventType:      varchar("event_type", { length: 40 }).notNull().$type<RewardEventType>(),
+    amount:         integer("amount").notNull(),
+    idempotencyKey: varchar("idempotency_key", { length: 200 }).notNull(),
+    // Soft-FK: post_id, comment_id ecc. Nullable per daily_checkin.
+    referenceId:    uuid("reference_id"),
+    createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("rewards_ledger_user_idempotency_uq").on(t.userId, t.idempotencyKey),
+    index("idx_rewards_ledger_user_event_date").on(t.userId, t.eventType, t.createdAt),
+  ],
+);
+
+export const rewardsBalances = pgTable("rewards_balances", {
+  userId:         uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  balance:        bigint("balance", { mode: "number" }).notNull().default(0),
+  lifetimeEarned: bigint("lifetime_earned", { mode: "number" }).notNull().default(0),
+  updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RewardsRule    = typeof rewardsRules.$inferSelect;
+export type RewardsLedger  = typeof rewardsLedger.$inferSelect;
+export type RewardsBalance = typeof rewardsBalances.$inferSelect;
 export type NewNewsItem   = typeof newsItems.$inferInsert;

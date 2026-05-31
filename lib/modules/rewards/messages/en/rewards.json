@@ -1,0 +1,15 @@
+{
+  "errors": {
+    "unauthenticated": "You must be signed in to earn rewards."
+  },
+  "ui": {
+    "balance_label": "Coins",
+    "checkin_success": "Daily check-in — you earned {amount} coins!",
+    "checkin_already_claimed": "You already claimed your daily coins today.",
+    "earn_event": {
+      "daily_checkin": "Daily check-in",
+      "post_created": "Post published",
+      "like_received": "Like received"
+    }
+  }
+}

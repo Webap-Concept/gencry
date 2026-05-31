@@ -1,0 +1,15 @@
+{
+  "errors": {
+    "unauthenticated": "Devi aver effettuato l'accesso per guadagnare coin."
+  },
+  "ui": {
+    "balance_label": "Coin",
+    "checkin_success": "Check-in giornaliero — hai guadagnato {amount} coin!",
+    "checkin_already_claimed": "Hai già riscattato i tuoi coin giornalieri oggi.",
+    "earn_event": {
+      "daily_checkin": "Check-in giornaliero",
+      "post_created": "Post pubblicato",
+      "like_received": "Like ricevuto"
+    }
+  }
+}
