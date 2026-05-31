@@ -7,8 +7,8 @@ import { z } from "zod";
 import type { RewardEventType } from "@/lib/modules/rewards/types";
 
 const RuleSchema = z.object({
-  eventType: z.enum(["daily_checkin", "post_created", "like_received"]),
-  amount:    z.coerce.number().int().min(1).max(10_000),
+  eventType: z.enum(["daily_checkin", "post_created", "like_received", "comment_created"]),
+  amount:    z.coerce.number().min(0.01).max(10_000),
   dailyCap:  z.coerce.number().int().min(0).max(10_000).nullable(),
   enabled:   z.boolean(),
 });
@@ -28,7 +28,7 @@ export async function updateRewardRule(
   await db
     .update(rewardsRules)
     .set({
-      amount,
+      amount: String(amount),
       dailyCap: dailyCap === 0 ? null : dailyCap,
       enabled,
       updatedAt: sql`now()`,

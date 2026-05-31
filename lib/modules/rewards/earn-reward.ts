@@ -49,6 +49,9 @@ export async function earnReward(
 
     if (!rule) return { awarded: false, amount: 0 };
 
+    // numeric() in Drizzle ritorna string — parseFloat per i confronti
+    const amount = parseFloat(rule.amount as unknown as string);
+
     // Controlla daily_cap se definito
     if (rule.dailyCap !== null) {
       const [{ value: todayCount }] = await db
@@ -69,7 +72,7 @@ export async function earnReward(
       .values({
         userId,
         eventType,
-        amount: rule.amount,
+        amount: String(amount),
         idempotencyKey,
         referenceId: referenceId ?? null,
       })
@@ -78,7 +81,7 @@ export async function earnReward(
       })
       .returning({ id: rewardsLedger.id });
 
-    return { awarded: rows.length > 0, amount: rows.length > 0 ? rule.amount : 0 };
+    return { awarded: rows.length > 0, amount: rows.length > 0 ? amount : 0 };
   } catch {
     // Fire-and-forget: errori DB non devono bloccare l'azione utente
     return { awarded: false, amount: 0 };

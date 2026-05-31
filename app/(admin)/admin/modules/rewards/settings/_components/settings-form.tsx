@@ -27,7 +27,7 @@ export function RewardsSettingsForm({ rules }: { rules: RewardsRule[] }) {
 }
 
 function RuleCard({ rule }: { rule: RewardsRule }) {
-  const [amount, setAmount]   = useState(rule.amount.toString());
+  const [amount, setAmount]   = useState(String(rule.amount));
   const [dailyCap, setDailyCap] = useState((rule.dailyCap ?? 0).toString());
   const [enabled, setEnabled] = useState(rule.enabled);
   const [error, setError]     = useState<string | null>(null);
@@ -85,8 +85,9 @@ function RuleCard({ rule }: { rule: RewardsRule }) {
           </label>
           <input
             type="number"
-            min={1}
+            min={0.01}
             max={10000}
+            step={0.01}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className="w-24 rounded-md border px-2 py-1 text-sm tabular-nums"

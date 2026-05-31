@@ -11,7 +11,12 @@ export async function getUserBalance(
     .select({ balance: rewardsBalances.balance, lifetimeEarned: rewardsBalances.lifetimeEarned })
     .from(rewardsBalances)
     .where(eq(rewardsBalances.userId, userId));
-  return row ?? null;
+  if (!row) return null;
+  // numeric() in Drizzle ritorna string — convertiamo a number per la UI
+  return {
+    balance:        parseFloat(row.balance as unknown as string),
+    lifetimeEarned: parseFloat(row.lifetimeEarned as unknown as string),
+  };
 }
 
 /** Ultime N transazioni del ledger per un utente (per la history UI). */
@@ -22,6 +27,44 @@ export async function getUserLedger(userId: string, limit = 20) {
     .where(eq(rewardsLedger.userId, userId))
     .orderBy(desc(rewardsLedger.createdAt))
     .limit(limit);
+}
+
+/**
+ * Streak di check-in consecutivi. Conta i giorni consecutivi (UTC) in cui
+ * l'utente ha eseguito il check-in, partendo da oggi o ieri (se oggi non
+ * è ancora stato fatto). Cerca negli ultimi 400 giorni.
+ */
+export async function getCheckinStreak(userId: string): Promise<number> {
+  type Row = { day: string };
+  const rows = await db.execute<Row>(sql`
+    SELECT DISTINCT (created_at AT TIME ZONE 'UTC')::date::text AS day
+    FROM rewards_ledger
+    WHERE user_id = ${userId}
+      AND event_type = 'daily_checkin'
+      AND created_at >= (NOW() - INTERVAL '400 days')
+    ORDER BY day DESC
+  `);
+
+  const days = (Array.isArray(rows) ? rows : (rows as { rows?: Row[] }).rows ?? []).map(
+    (r) => r.day,
+  );
+  if (days.length === 0) return 0;
+
+  const daySet = new Set(days);
+  const cursor = new Date();
+  cursor.setUTCHours(0, 0, 0, 0);
+
+  // Se oggi non è ancora stato fatto il check-in, parte da ieri
+  if (!daySet.has(cursor.toISOString().slice(0, 10))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+
+  let streak = 0;
+  while (daySet.has(cursor.toISOString().slice(0, 10))) {
+    streak++;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
 }
 
 /** Tutte le regole configurate (per la settings page admin). */

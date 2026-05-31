@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { CalendarCheck, Coins, FileText, Heart, MessageSquare } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { getUserBalance, getUserBalanceBreakdown } from "@/lib/modules/rewards/queries";
+import {
+  getUserBalance,
+  getUserBalanceBreakdown,
+  getCheckinStreak,
+} from "@/lib/modules/rewards/queries";
 import { formatCoins } from "@/lib/modules/rewards/format";
 import type { RewardEventType } from "@/lib/modules/rewards/types";
 
@@ -15,38 +19,46 @@ type CategoryConfig = {
   icon: typeof Coins;
   label: string;
   description: string;
-  comingSoon?: boolean;
+  color: string;      // classe Tailwind bg per la barra
+  dotColor: string;   // classe Tailwind text/bg per il dot legenda
 };
 
 const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   daily_checkin: {
     icon: CalendarCheck,
-    label: "Daily Check-in",
-    description: "Accesso giornaliero all'app",
+    label: "Accesso",
+    description: "Check-in giornaliero",
+    color: "bg-orange-400",
+    dotColor: "bg-orange-400",
   },
   post_created: {
     icon: FileText,
-    label: "Post pubblicati",
+    label: "Creazione post",
     description: "Ogni post che pubblichi",
+    color: "bg-emerald-600",
+    dotColor: "bg-emerald-600",
   },
   like_received: {
     icon: Heart,
-    label: "Like ricevuti",
-    description: "Like ricevuti sui tuoi post",
+    label: "Reactions ricevute",
+    description: "Reactions ricevute sui tuoi post",
+    color: "bg-red-700",
+    dotColor: "bg-red-700",
   },
   comment_created: {
     icon: MessageSquare,
     label: "Commenti",
     description: "Ogni commento che scrivi",
+    color: "bg-blue-500",
+    dotColor: "bg-blue-500",
   },
 };
 
-// Ordine di visualizzazione fisso (anche se l'utente non ha mai guadagnato in una categoria)
 const CATEGORY_ORDER: RewardEventType[] = [
   "daily_checkin",
   "post_created",
-  "comment_created",
   "like_received",
+  "comment_created",
 ];
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -56,40 +68,130 @@ export default async function MyCoinsPage() {
   if (!session) redirect("/sign-in");
 
   const userId = session.user.id;
-  const [balance, breakdown] = await Promise.all([
+  const [balance, breakdown, streak] = await Promise.all([
     getUserBalance(userId),
     getUserBalanceBreakdown(userId),
+    getCheckinStreak(userId),
   ]);
 
   const currentBalance = balance?.balance ?? 0;
   const lifetimeEarned = balance?.lifetimeEarned ?? 0;
 
-  // Mappa event_type → dati breakdown
   const byType = Object.fromEntries(
     breakdown.categories.map((c) => [c.eventType, c]),
   );
 
+  // Settimana: somma weekEarned di tutte le categorie
+  const weekTotal = breakdown.categories.reduce((s, c) => s + c.weekEarned, 0);
+
+  // Totale per la barra proporzionale
+  const grandTotal = breakdown.categories.reduce((s, c) => s + c.totalEarned, 0);
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Hero */}
-      <section className="rounded-2xl p-6 flex flex-col gap-1 bg-gc-bg-2 border border-gc-line">
-        <div className="flex items-center gap-2 text-gc-fg-3 text-sm">
-          <Coins size={15} strokeWidth={1.6} className="text-gc-accent" />
-          <span>Il tuo saldo</span>
+
+      {/* ── Hero card ─────────────────────────────────────────────── */}
+      <section
+        className="rounded-2xl p-6 overflow-hidden relative"
+        style={{ background: "#0e2318" }}
+      >
+        {/* Watermark decorativo */}
+        <div
+          className="absolute right-6 top-1/2 -translate-y-1/2 text-[120px] font-black leading-none select-none pointer-events-none opacity-5 text-white"
+          aria-hidden
+        >
+          GEN
         </div>
-        <div className="text-4xl font-bold tabular-nums text-gc-fg mt-1">
-          {currentBalance.toLocaleString("en-US")}
-          <span className="text-xl font-semibold text-gc-fg-3 ml-2">coins</span>
-        </div>
-        <div className="text-sm text-gc-fg-3 mt-1">
-          Guadagnati in totale:{" "}
-          <span className="font-semibold text-gc-fg">
-            {lifetimeEarned.toLocaleString("en-US")}
-          </span>
+
+        <div className="relative flex flex-col gap-5">
+          {/* Label */}
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
+            Saldo totale
+          </p>
+
+          {/* Saldo + stats */}
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            {/* Numero principale */}
+            <div className="flex items-center gap-3">
+              <span className="text-orange-400">
+                <Coins size={28} strokeWidth={1.4} />
+              </span>
+              <div>
+                <span className="text-[42px] font-black tabular-nums leading-none text-white">
+                  {currentBalance.toLocaleString("it-IT")}
+                </span>
+                <span className="ml-2 text-lg font-bold text-white/40 tracking-wide">
+                  GEN
+                </span>
+              </div>
+            </div>
+
+            {/* Stat pills */}
+            <div className="flex gap-3 shrink-0">
+              <StatPill
+                value={weekTotal >= 0 ? `+${formatCoins(weekTotal)}` : formatCoins(weekTotal)}
+                label="Questa settimana"
+              />
+              <StatPill
+                value={`${streak}`}
+                unit="giorni"
+                label="Streak di accesso"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Breakdown categorie */}
+      {/* ── Stacked bar ───────────────────────────────────────────── */}
+      {grandTotal > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-base font-semibold text-gc-fg">
+              Da dove arrivano
+            </h2>
+            <span className="text-[12px] text-gc-fg-3">
+              {CATEGORY_ORDER.filter((e) => byType[e]?.totalEarned > 0).length} categorie di reward
+            </span>
+          </div>
+
+          {/* Barra */}
+          <div className="flex h-3 rounded-full overflow-hidden gap-px">
+            {CATEGORY_ORDER.map((eventType) => {
+              const data = byType[eventType];
+              if (!data || data.totalEarned === 0) return null;
+              const pct = (data.totalEarned / grandTotal) * 100;
+              const cfg = CATEGORY_CONFIG[eventType];
+              return (
+                <div
+                  key={eventType}
+                  className={cfg.color}
+                  style={{ width: `${pct}%` }}
+                  title={`${cfg.label}: ${Math.round(pct)}%`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Legenda */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {CATEGORY_ORDER.map((eventType) => {
+              const data = byType[eventType];
+              if (!data || data.totalEarned === 0) return null;
+              const pct = Math.round((data.totalEarned / grandTotal) * 100);
+              const cfg = CATEGORY_CONFIG[eventType];
+              return (
+                <span key={eventType} className="flex items-center gap-1.5 text-[12.5px] text-gc-fg-2">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dotColor}`} />
+                  {cfg.label}
+                  <span className="text-gc-fg-3">{pct}%</span>
+                </span>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Breakdown categorie ───────────────────────────────────── */}
       <section>
         <h2 className="text-[13px] font-semibold text-gc-fg-3 uppercase tracking-wide mb-3">
           Per categoria
@@ -113,7 +215,6 @@ export default async function MyCoinsPage() {
                     <div className="text-[11.5px] text-gc-fg-3">{config.description}</div>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <StatMini label="Oggi" value={data?.todayEarned ?? 0} />
                   <StatMini label="7 giorni" value={data?.weekEarned ?? 0} />
@@ -125,18 +226,15 @@ export default async function MyCoinsPage() {
         </div>
       </section>
 
-      {/* Storia recente */}
-      {breakdown.recentLedger.length > 0 && (
+      {/* ── Transazioni recenti ───────────────────────────────────── */}
+      {breakdown.recentLedger.length > 0 ? (
         <section>
           <h2 className="text-[13px] font-semibold text-gc-fg-3 uppercase tracking-wide mb-3">
             Transazioni recenti
           </h2>
           <div className="rounded-xl border border-gc-line bg-gc-bg overflow-hidden divide-y divide-gc-line">
             {breakdown.recentLedger.map((tx) => {
-              const config = CATEGORY_CONFIG[tx.eventType] ?? {
-                icon: Coins,
-                label: tx.eventType,
-              };
+              const config = CATEGORY_CONFIG[tx.eventType] ?? { icon: Coins, label: tx.eventType };
               const Icon = config.icon;
               return (
                 <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
@@ -162,19 +260,31 @@ export default async function MyCoinsPage() {
             })}
           </div>
         </section>
-      )}
-
-      {breakdown.recentLedger.length === 0 && (
+      ) : (
         <section className="rounded-xl border border-gc-line bg-gc-bg p-8 text-center">
           <Coins size={32} strokeWidth={1.2} className="text-gc-fg-3 mx-auto mb-3" />
-          <p className="text-sm text-gc-fg-2">
-            Non hai ancora guadagnato coin.
-          </p>
+          <p className="text-sm text-gc-fg-2">Non hai ancora guadagnato coin.</p>
           <p className="text-[12.5px] text-gc-fg-3 mt-1">
             Accedi ogni giorno, pubblica post e commenta per iniziare.
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatPill({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  return (
+    <div className="rounded-xl px-4 py-3 flex flex-col gap-0.5 min-w-[100px]"
+      style={{ background: "rgba(255,255,255,0.08)" }}
+    >
+      <div className="flex items-baseline gap-1">
+        <span className="text-xl font-bold tabular-nums text-white">{value}</span>
+        {unit && <span className="text-xs text-white/50">{unit}</span>}
+      </div>
+      <span className="text-[10.5px] uppercase tracking-wide text-white/40">{label}</span>
     </div>
   );
 }

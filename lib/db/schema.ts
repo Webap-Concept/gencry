@@ -2298,8 +2298,8 @@ export const rewardsRules = pgTable("rewards_rules", {
   eventType: varchar("event_type", { length: 40 })
     .primaryKey()
     .$type<RewardEventType>(),
-  amount:    integer("amount").notNull().default(1),
-  // NULL = nessun cap (daily_checkin ha cap naturale via idempotency sulla data)
+  // numeric(10,2): supporta frazioni es. 0.3, 1.5 (M_rewards_003)
+  amount:    numeric("amount", { precision: 10, scale: 2 }).notNull().default("1"),
   dailyCap:  integer("daily_cap"),
   enabled:   boolean("enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -2312,9 +2312,9 @@ export const rewardsLedger = pgTable(
     id:             uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
     userId:         uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     eventType:      varchar("event_type", { length: 40 }).notNull().$type<RewardEventType>(),
-    amount:         integer("amount").notNull(),
+    // numeric(10,2): es. 0.3 per azioni minori (M_rewards_003)
+    amount:         numeric("amount", { precision: 10, scale: 2 }).notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 200 }).notNull(),
-    // Soft-FK: post_id, comment_id ecc. Nullable per daily_checkin.
     referenceId:    uuid("reference_id"),
     createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2326,8 +2326,9 @@ export const rewardsLedger = pgTable(
 
 export const rewardsBalances = pgTable("rewards_balances", {
   userId:         uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  balance:        bigint("balance", { mode: "number" }).notNull().default(0),
-  lifetimeEarned: bigint("lifetime_earned", { mode: "number" }).notNull().default(0),
+  // numeric(15,2): saldo può avere frazioni, precision alta per lifetime
+  balance:        numeric("balance", { precision: 15, scale: 2 }).notNull().default("0"),
+  lifetimeEarned: numeric("lifetime_earned", { precision: 15, scale: 2 }).notNull().default("0"),
   updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
