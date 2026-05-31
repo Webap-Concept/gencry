@@ -133,6 +133,59 @@ export async function submitBusinessUpgradeRequest(
   return { ok: true };
 }
 
+export interface BusinessAdminDetail {
+  companyName: string | null;
+  companyWebsite: string | null;
+  companySector: string | null;
+  /** P.IVA — visibile SOLO in admin (mai nel profilo pubblico). */
+  vatNumber: string | null;
+  verifiedAt: Date | null;
+  requestedAt: Date | null;
+}
+
+/**
+ * Dettaglio business per la scheda utente admin (include la P.IVA privata).
+ * Ritorna null se l'utente non è un account azienda.
+ */
+export async function getBusinessAdminDetail(
+  userId: string,
+): Promise<BusinessAdminDetail | null> {
+  const [profile] = await db
+    .select({
+      accountType:   userProfiles.accountType,
+      companyName:    userProfiles.companyName,
+      companyWebsite: userProfiles.companyWebsite,
+      companySector:  userProfiles.companySector,
+      vatNumber:      userProfiles.companyVatNumber,
+      verifiedAt:     userProfiles.companyVerifiedAt,
+    })
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, userId))
+    .limit(1);
+  if (!profile || profile.accountType !== "business") return null;
+
+  const [req] = await db
+    .select({ requestedAt: businessUpgradeRequests.requestedAt })
+    .from(businessUpgradeRequests)
+    .where(
+      and(
+        eq(businessUpgradeRequests.userId, userId),
+        eq(businessUpgradeRequests.status, "approved"),
+      ),
+    )
+    .orderBy(desc(businessUpgradeRequests.requestedAt))
+    .limit(1);
+
+  return {
+    companyName:    profile.companyName,
+    companyWebsite: profile.companyWebsite,
+    companySector:  profile.companySector,
+    vatNumber:      profile.vatNumber,
+    verifiedAt:     profile.verifiedAt,
+    requestedAt:    req?.requestedAt ?? null,
+  };
+}
+
 /** Stato per la UI di /settings/account (tipo account + ultima richiesta). */
 export async function getBusinessStatus(userId: string): Promise<BusinessStatus> {
   const [[profile], [latest]] = await Promise.all([

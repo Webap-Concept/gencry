@@ -1,4 +1,5 @@
 import { getUserConsentRecords } from "@/lib/account/consent-queries";
+import { getBusinessAdminDetail } from "@/lib/account/business-profile";
 import { getAdminPath } from "@/lib/admin-paths";
 import { getMfaState } from "@/lib/auth/mfa/queries";
 import { listAdminUserSessions } from "@/lib/db/admin-sessions-queries";
@@ -18,8 +19,11 @@ import { eq } from "drizzle-orm";
 import {
   Activity,
   ArrowLeft,
+  BadgeCheck,
+  Building2,
   Calendar,
   CreditCard,
+  Globe,
   Lock,
   Mail,
   ShieldCheck,
@@ -109,6 +113,7 @@ async function UserContent({
     mfaState,
     strikes,
     reportReasons,
+    businessDetail,
   ] = await Promise.all([
     getAdminUserById(id),
     getAdminUserActivity(id),
@@ -119,6 +124,7 @@ async function UserContent({
     getMfaState(id),
     getStrikeHistory(id),
     getActiveReportReasons(),
+    getBusinessAdminDetail(id),
   ]);
 
   const reasonLabels = Object.fromEntries(
@@ -303,6 +309,88 @@ async function UserContent({
 
   const consentsContent = <UserConsentsTab records={consentRecords} />;
 
+  const tSectors = await getTranslations("core.settings.business.sectors");
+  const businessContent = businessDetail ? (
+    <div
+      className="rounded-xl shadow-sm p-5 max-w-xl"
+      style={{
+        background: "var(--admin-card-bg)",
+        border: "1px solid var(--admin-card-border)",
+      }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Building2 size={15} style={{ color: "var(--admin-text-faint)" }} />
+        <h4 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
+          {t("business.heading")}
+        </h4>
+      </div>
+      <div className="space-y-3">
+        {[
+          {
+            icon: Building2,
+            label: t("business.companyName"),
+            value: businessDetail.companyName ?? "—",
+          },
+          {
+            icon: Globe,
+            label: t("business.website"),
+            value: businessDetail.companyWebsite ? (
+              <a
+                href={businessDetail.companyWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--admin-accent)" }}>
+                {businessDetail.companyWebsite.replace(/^https?:\/\//, "")}
+              </a>
+            ) : (
+              "—"
+            ),
+          },
+          {
+            icon: Activity,
+            label: t("business.sector"),
+            value: businessDetail.companySector
+              ? tSectors(businessDetail.companySector as never)
+              : "—",
+          },
+          {
+            icon: CreditCard,
+            label: t("business.vat"),
+            value: businessDetail.vatNumber ?? "—",
+          },
+          {
+            icon: BadgeCheck,
+            label: t("business.verifiedAt"),
+            value: businessDetail.verifiedAt
+              ? new Date(businessDetail.verifiedAt).toLocaleDateString(dateLocale, {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+              : "—",
+          },
+        ].map(({ icon: Icon, label, value }) => (
+          <div key={label} className="flex items-center gap-3">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "var(--admin-hover-bg)" }}>
+              <Icon size={13} style={{ color: "var(--admin-text-faint)" }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
+                {label}
+              </p>
+              <p
+                className="text-sm font-medium break-words"
+                style={{ color: "var(--admin-text)" }}>
+                {value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6">
       {/* User Header */}
@@ -398,6 +486,7 @@ async function UserContent({
         accessContent={accessContent}
         sessionsContent={sessionsContent}
         consentsContent={consentsContent}
+        businessContent={businessContent}
         overridesCount={overrides.length}
         activeSessionsCount={activeSessionsCount}
         consentsCount={consentRecords.length}

@@ -27,6 +27,7 @@ async function UsersContent({
   role,
   plan,
   verified,
+  accountType,
   status,
   page,
 }: {
@@ -34,6 +35,7 @@ async function UsersContent({
   role: string;
   plan: string;
   verified: string;
+  accountType: string;
   status: AdminUsersStatus;
   page: number;
 }) {
@@ -43,6 +45,7 @@ async function UsersContent({
     role,
     plan,
     verified,
+    accountType,
     status,
     page,
   });
@@ -56,6 +59,7 @@ async function UsersContent({
     if (role) params.set("role", role);
     if (plan) params.set("plan", plan);
     if (verified) params.set("verified", verified);
+    if (accountType) params.set("type", accountType);
     if (status !== "active") params.set("status", status);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
@@ -163,6 +167,7 @@ export default async function AdminUsersPage({
     role?: string;
     plan?: string;
     verified?: string;
+    type?: string;
     status?: string;
     page?: string;
   }>;
@@ -173,6 +178,7 @@ export default async function AdminUsersPage({
   const role = params.role ?? "";
   const plan = params.plan ?? "";
   const verified = params.verified ?? "";
+  const accountType = params.type === "business" ? "business" : "";
   const status = parseStatus(params.status);
   const page = Number(params.page ?? 1);
 
@@ -182,6 +188,7 @@ export default async function AdminUsersPage({
     role ||
     plan ||
     verified ||
+    accountType ||
     status !== "active"
   );
 
@@ -259,6 +266,19 @@ export default async function AdminUsersPage({
           </select>
 
           <select
+            name="type"
+            defaultValue={accountType}
+            className="px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
+            style={{
+              background: "var(--admin-page-bg)",
+              border: "1px solid var(--admin-input-border)",
+              color: accountType ? "var(--admin-text)" : "var(--admin-text-muted)",
+            }}>
+            <option value="">{t("filterTypeAll")}</option>
+            <option value="business">{t("filterTypeBusiness")}</option>
+          </select>
+
+          <select
             name="status"
             defaultValue={status}
             className="px-3 py-2 text-sm rounded-lg focus:outline-none transition-colors"
@@ -307,6 +327,7 @@ export default async function AdminUsersPage({
           role={role}
           plan={plan}
           verified={verified}
+          accountType={accountType}
           status={status}
           page={page}
         />

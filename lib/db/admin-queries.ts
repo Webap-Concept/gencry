@@ -223,6 +223,10 @@ export type AdminUser = {
    *  utente. Aggiornato via trigger DB users_strikes_sync_count_trg.
    *  Al raggiungimento di 3, banned_at viene settato automaticamente. */
   activeStrikesCount: number;
+  /** 'personal' | 'business' (null se profilo mai creato). */
+  accountType: string | null;
+  /** Timestamp verifica azienda; non-null = business verificato. */
+  companyVerifiedAt: Date | null;
 };
 
 export type AdminUsersStatus =
@@ -236,6 +240,7 @@ export async function getAdminUsers({
   role = "",
   plan = "",
   verified = "",
+  accountType = "",
   status = "active",
   page = 1,
   perPage = 20,
@@ -245,6 +250,8 @@ export async function getAdminUsers({
   role?: string;
   plan?: string;
   verified?: string;
+  /** "" = tutti, "business" = solo account azienda. */
+  accountType?: string;
   status?: AdminUsersStatus;
   page?: number;
   perPage?: number;
@@ -295,6 +302,9 @@ export async function getAdminUsers({
         )`
       : undefined,
     role ? eq(users.role, role) : undefined,
+    accountType === "business"
+      ? eq(userProfiles.accountType, "business")
+      : undefined,
     verified === "true"
       ? sql`${users.emailVerified} = true`
       : verified === "false"
@@ -335,6 +345,8 @@ export async function getAdminUsers({
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,
+        accountType: userProfiles.accountType,
+        companyVerifiedAt: userProfiles.companyVerifiedAt,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -412,6 +424,8 @@ export async function getStaffUsers({
         deletedAt: users.deletedAt,
         bannedReason: users.bannedReason,
         avatarUrl: userProfiles.avatarUrl,
+        accountType: userProfiles.accountType,
+        companyVerifiedAt: userProfiles.companyVerifiedAt,
       })
       .from(users)
       .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
