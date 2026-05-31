@@ -53,7 +53,7 @@ export const metadata: Metadata = { title: "Prices / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-27";
+const REVIEWED_AT = "2026-05-31";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -78,7 +78,7 @@ const SCHEMA_DIAGRAM = `erDiagram
 const PIPELINE_DIAGRAM = `graph TD
   CRON[pg_cron Supabase<br/>every 1 min] --> AUTH{HMAC auth}
   AUTH -->|OK| ACT[active-universe.ts<br/>load coin with preferred_exchange OR coingecko_id]
-  ACT --> GROUP[groupByExchange<br/>binance | kucoin | ... | no-routing]
+  ACT --> GROUP[groupByExchange<br/>binance | kucoin | gate | ... | no-routing]
   GROUP --> ADAPT[adapter.fetchCurrentPrices<br/>per exchange in parallel]
   GROUP --> CG[CoinGecko fallback<br/>for unmapped coins]
   ADAPT -->|fails| CG2[CoinGecko fallback<br/>per missing]
@@ -118,9 +118,11 @@ export default function PricesArchitecturePage() {
             <li>
               <strong>Multi-exchange routing</strong>: ogni coin ha
               opzionalmente <code>preferred_exchange + exchange_symbol</code>.
-              Binance + KuCoin sono i primi due adapter; futuri (Gate,
-              Kraken, Coinbase) si aggiungono via registry pattern. Coin
-              senza routing → fallback CoinGecko.
+              Binance + KuCoin + Gate.io sono i tre adapter live; futuri
+              (Kraken, Coinbase) si aggiungono via registry pattern. Gate
+              porta ~1200 coin long-tail non su Binance/KuCoin (import
+              wholesale con gate volume + CoinGecko, token a leva esclusi).
+              Coin senza routing → fallback CoinGecko.
             </li>
             <li>
               <strong>Hot layer Upstash</strong>: chiave singola{" "}
@@ -173,6 +175,7 @@ export default function PricesArchitecturePage() {
             <ArchTechBadge label="pg_cron Supabase (1-min schedule)" variant="accent" />
             <ArchTechBadge label="Binance Spot API (primary)" variant="accent" />
             <ArchTechBadge label="KuCoin Spot API (secondary)" variant="accent" />
+            <ArchTechBadge label="Gate.io Spot API (long-tail)" variant="accent" />
             <ArchTechBadge label="CoinGecko Free (fallback)" />
             <ArchTechBadge label="CryptoCompare API (historical fallback)" />
             <ArchTechBadge label="DexScreener API (long-tail fallback)" />
