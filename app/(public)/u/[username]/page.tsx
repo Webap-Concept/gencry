@@ -19,6 +19,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
+import { BadgeCheck, Globe } from "lucide-react";
+
+import { displayNameForAuthor } from "@/lib/ui/author-display";
 
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
@@ -202,7 +205,12 @@ function ProfileHeader({
     // responsive — vedi project_responsive_strategy.
     <header className="p-5 sm:p-4">
       <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
-        <Avatar avatarUrl={profile.avatarUrl} initial={initial} display={display} />
+        <Avatar
+          avatarUrl={profile.avatarUrl}
+          initial={initial}
+          display={display}
+          verified={profile.isVerifiedBusiness}
+        />
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl sm:text-xl font-serif text-gc-fg leading-tight">
             {display}
@@ -218,6 +226,29 @@ function ProfileHeader({
               {profile.bio}
             </p>
           )}
+          {profile.isVerifiedBusiness &&
+            (profile.companyWebsite || profile.companySector) && (
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 mt-2 text-sm">
+                {profile.companyWebsite && (
+                  <a
+                    href={profile.companyWebsite}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-gc-accent hover:underline"
+                  >
+                    <Globe size={14} aria-hidden />
+                    {profile.companyWebsite
+                      .replace(/^https?:\/\//, "")
+                      .replace(/\/$/, "")}
+                  </a>
+                )}
+                {profile.companySector && (
+                  <span className="text-gc-fg-3">
+                    <SectorLabel sector={profile.companySector} />
+                  </span>
+                )}
+              </div>
+            )}
         </div>
         {/* Follow desktop: inline a destra. Su mobile è nascosto e
             sostituito dalla versione full-width sotto le stat (i due
@@ -293,27 +324,44 @@ function Avatar({
   avatarUrl,
   initial,
   display,
+  verified = false,
 }: {
   avatarUrl: string | null;
   initial: string;
   display: string;
+  verified?: boolean;
 }) {
-  if (avatarUrl) {
+  const inner = avatarUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={avatarUrl}
-        alt={display}
-        className="w-24 h-24 sm:w-16 sm:h-16 rounded-full object-cover border border-gc-line shrink-0"
-      />
-    );
-  }
-  return (
+    <img
+      src={avatarUrl}
+      alt={display}
+      className="w-full h-full rounded-full object-cover border border-gc-line"
+    />
+  ) : (
     <div
-      className="w-24 h-24 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent shrink-0"
+      className="w-full h-full rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent"
       aria-label={display}
     >
       {initial}
+    </div>
+  );
+
+  return (
+    <div className="relative w-24 h-24 sm:w-16 sm:h-16 shrink-0">
+      {inner}
+      {verified && (
+        <BadgeCheck
+          aria-label="Verified business"
+          className="absolute bottom-0 right-0 text-gc-accent w-7 h-7 sm:w-5 sm:h-5"
+          style={{
+            background: "var(--gc-bg)",
+            borderRadius: "9999px",
+            padding: 2,
+            transform: "translate(10%, 10%)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -345,6 +393,17 @@ function StatPlaceholder({ labelKey }: { labelKey: string }) {
 async function StatLabel({ labelKey }: { labelKey: string }) {
   const t = await getTranslations("core.pages.profile.stats");
   return <>{t(labelKey)}</>;
+}
+
+async function SectorLabel({ sector }: { sector: string }) {
+  const t = await getTranslations("core.settings.business.sectors");
+  // `sector` è già validato (enum BUSINESS_SECTORS); fallback al raw se mai
+  // arrivasse un valore fuori catalogo.
+  try {
+    return <>{t(sector as never)}</>;
+  } catch {
+    return <>{sector}</>;
+  }
 }
 
 function JoinedStat({ createdAt }: { createdAt: Date }) {
@@ -421,11 +480,9 @@ function displayName(profile: {
   firstName: string | null;
   lastName: string | null;
   username: string;
+  accountType?: "personal" | "business";
+  companyName?: string | null;
 }): string {
-  const fn = profile.firstName?.trim();
-  const ln = profile.lastName?.trim();
-  if (fn && ln) return `${fn} ${ln}`;
-  if (fn) return fn;
-  if (ln) return ln;
-  return profile.username;
+  // companyName per le aziende, altrimenti nome+cognome, poi username.
+  return displayNameForAuthor(profile, profile.username);
 }

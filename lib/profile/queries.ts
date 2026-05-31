@@ -32,6 +32,13 @@ export interface PublicProfile {
   /** Visibilità: 'public' = aperto a tutti; 'protected' = feed solo a
    *  follower (no-op v1 finché non c'è modulo follows). */
   profileVisibility: "public" | "protected";
+  /** Account azienda. */
+  accountType: "personal" | "business";
+  companyName: string | null;
+  companyWebsite: string | null;
+  companySector: string | null;
+  /** true = azienda verificata → badge + sezione azienda. */
+  isVerifiedBusiness: boolean;
 }
 
 export interface PublicProfileStats {
@@ -65,6 +72,11 @@ export async function getProfileByUsername(
       bio: userProfiles.bio,
       createdAt: users.createdAt,
       profileVisibility: users.profileVisibility,
+      accountType: userProfiles.accountType,
+      companyName: userProfiles.companyName,
+      companyWebsite: userProfiles.companyWebsite,
+      companySector: userProfiles.companySector,
+      companyVerifiedAt: userProfiles.companyVerifiedAt,
     })
     .from(users)
     .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -89,6 +101,12 @@ export async function getProfileByUsername(
     bio: row.bio,
     createdAt: row.createdAt,
     profileVisibility: row.profileVisibility,
+    accountType: row.accountType === "business" ? "business" : "personal",
+    companyName: row.companyName,
+    companyWebsite: row.companyWebsite,
+    companySector: row.companySector,
+    isVerifiedBusiness:
+      row.accountType === "business" && row.companyVerifiedAt !== null,
   };
 }
 
