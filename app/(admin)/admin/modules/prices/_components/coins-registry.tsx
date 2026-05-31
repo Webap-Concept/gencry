@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   addCoinAction,
@@ -43,17 +44,64 @@ import {
   type ActionState,
 } from "../actions";
 
+export interface CoinsRegistryFilters {
+  q: string;
+  /** exchange id | "none" (CoinGecko fallback) | "all". */
+  exchange: string;
+  /** "enriched" | "placeholder" | "all". */
+  enrichment: string;
+  /** market_cap minimo (USD); 0 = nessun minimo. */
+  mcap: number;
+}
+
 interface Props {
+  /** Righe della PAGINA corrente (già filtrate + paginate server-side). */
   coins: PricesCoin[];
+  /** Totale righe che matchano i filtri (per la paginazione). */
+  total: number;
+  page: number;
+  pageSize: number;
   priceMap: Record<string, PriceRow>;
   /** Path admin base per la registry (dipende dallo slug admin configurabile,
    *  es. `/control-panel/modules/prices/coins`). Calcolato server-side. */
   adminCoinsPath: string;
+  /** Conteggio coin per exchange (chiave "none" = fallback, "all" = totale). */
+  exchangeCounts: Record<string, number>;
+  filters: CoinsRegistryFilters;
 }
 
-const PAGE_SIZE = 20;
+/** Preset soglia market cap per il filtro. */
+const MCAP_PRESETS: Array<{ label: string; value: number }> = [
+  { label: "Any market cap", value: 0 },
+  { label: "≥ $1M", value: 1_000_000 },
+  { label: "≥ $10M", value: 10_000_000 },
+  { label: "≥ $100M", value: 100_000_000 },
+  { label: "≥ $1B", value: 1_000_000_000 },
+];
 
-export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
+/** Ordine + label degli exchange nel filtro (count aggiunto a runtime). */
+const EXCHANGE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "all", label: "All exchanges" },
+  { value: "binance", label: "Binance" },
+  { value: "kucoin", label: "KuCoin" },
+  { value: "gate", label: "Gate.io" },
+  { value: "none", label: "CoinGecko fallback" },
+];
+
+export function CoinsRegistry({
+  coins,
+  total,
+  page,
+  pageSize,
+  priceMap,
+  adminCoinsPath,
+  exchangeCounts,
+  filters,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [addState, addAction, isAdding] = useActionState<ActionState, FormData>(addCoinAction, {});
   const [isBackfilling, startBackfill] = useTransition();
@@ -102,30 +150,46 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
     });
   }
 
-  // Search + pagination (client-side: la lista in admin sta tipicamente sotto
-  // i 200 elementi, niente bisogno di paginazione server-side per ora).
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
+  // ── Filtri URL-driven ──────────────────────────────────────────────────
+  // I filtri/search vivono negli URL searchParams: la pagina è un server
+  // component che ri-query-a il DB. Niente più "tutto in memoria".
+  function buildUrl(next: Record<string, string | number | undefined>): string {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(next)) {
+      if (v === undefined || v === "" || v === "all" || v === 0 || v === "0") {
+        params.delete(k);
+      } else {
+        params.set(k, String(v));
+      }
+    }
+    const qs = params.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }
 
-  const filtered = (() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return coins;
-    return coins.filter(
-      (c) =>
-        c.symbol.toLowerCase().includes(q) ||
-        c.name.toLowerCase().includes(q) ||
-        (c.coingeckoId ?? "").toLowerCase().includes(q),
-    );
-  })();
+  /** Cambio filtro: applica + resetta alla pagina 1. */
+  function applyFilter(next: Record<string, string | number | undefined>) {
+    router.push(buildUrl({ ...next, page: undefined }));
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageCoins = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  function goToPage(n: number) {
+    router.push(buildUrl({ page: n <= 1 ? undefined : n }));
+  }
 
-  // Reset alla pagina 1 quando cambia la query
+  // Search con debounce: aggiorna il param `q` quando l'utente smette di
+  // digitare. `searchInput` è locale per reattività immediata della input.
+  const [searchInput, setSearchInput] = useState(filters.q);
   useEffect(() => {
-    setPage(1);
-  }, [query]);
+    setSearchInput(filters.q);
+  }, [filters.q]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput.trim() !== filters.q) {
+        applyFilter({ q: searchInput.trim() || undefined });
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   useEffect(() => {
     if (!("timestamp" in addState)) return;
@@ -137,6 +201,18 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
       setToast({ message: addState.error, type: "error" });
     }
   }, [addState]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasActiveFilter =
+    filters.exchange !== "all" ||
+    filters.enrichment !== "all" ||
+    filters.mcap > 0 ||
+    filters.q.trim() !== "";
+
+  function exchangeLabel(o: { value: string; label: string }): string {
+    const c = exchangeCounts[o.value];
+    return c != null ? `${o.label} (${c})` : o.label;
+  }
 
   return (
     <>
@@ -200,12 +276,12 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h3 className="text-sm font-semibold" style={{ color: "var(--admin-text)" }}>
               Tracked coins
-              {query ? (
+              {hasActiveFilter ? (
                 <span className="font-normal" style={{ color: "var(--admin-text-faint)" }}>
-                  {" "}— {filtered.length} of {coins.length}
+                  {" "}— {total} match
                 </span>
               ) : (
-                <span className="font-normal" style={{ color: "var(--admin-text-faint)" }}> ({coins.length})</span>
+                <span className="font-normal" style={{ color: "var(--admin-text-faint)" }}> ({total})</span>
               )}
             </h3>
             <MaintenanceMenu
@@ -218,7 +294,11 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
               onRefreshMetadata={handleRefreshAll}
               onBackfillHistory={handleBackfillHistory}
             />
-            <div className="relative w-full max-w-sm">
+          </div>
+
+          {/* Filtri (URL-driven, server-side) */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="relative flex-1 min-w-[220px]">
               <Search
                 size={13}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2"
@@ -226,8 +306,8 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
               />
               <input
                 type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search by symbol, name, or CoinGecko ID..."
                 className="w-full pl-8 pr-8 py-2 text-xs rounded-lg focus:outline-none transition-colors"
                 style={{
@@ -236,10 +316,10 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
                   color: "var(--admin-text)",
                 }}
               />
-              {query && (
+              {searchInput && (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={() => setSearchInput("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2"
                   style={{ color: "var(--admin-text-faint)" }}
                   title="Clear search">
@@ -247,7 +327,47 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
                 </button>
               )}
             </div>
+
+            <FilterSelect
+              value={filters.exchange}
+              onChange={(v) => applyFilter({ exchange: v })}
+              options={EXCHANGE_OPTIONS.map((o) => ({
+                value: o.value,
+                label: exchangeLabel(o),
+              }))}
+            />
+            <FilterSelect
+              value={filters.enrichment}
+              onChange={(v) => applyFilter({ enrichment: v })}
+              options={[
+                { value: "all", label: "Any enrichment" },
+                { value: "enriched", label: "Enriched (CoinGecko)" },
+                { value: "placeholder", label: "Placeholder (no match)" },
+              ]}
+            />
+            <FilterSelect
+              value={String(filters.mcap)}
+              onChange={(v) => applyFilter({ mcap: Number(v) || undefined })}
+              options={MCAP_PRESETS.map((p) => ({
+                value: String(p.value),
+                label: p.label,
+              }))}
+            />
+
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => router.push(pathname)}
+                className="flex items-center gap-1 px-2.5 py-2 text-xs rounded-lg transition-colors"
+                style={{
+                  border: "1px solid var(--admin-input-border)",
+                  color: "var(--admin-text-muted)",
+                }}>
+                <X size={12} /> Reset
+              </button>
+            )}
           </div>
+
           <div className="overflow-auto">
             <table className="w-full text-xs">
               <thead>
@@ -267,17 +387,13 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
                 {coins.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
-                      No coins yet. Add one above.
-                    </td>
-                  </tr>
-                ) : pageCoins.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-6 text-center" style={{ color: "var(--admin-text-faint)" }}>
-                      No coins match "{query}".
+                      {hasActiveFilter
+                        ? "No coins match the current filters."
+                        : "No coins yet. Add one above."}
                     </td>
                   </tr>
                 ) : (
-                  pageCoins.map((c) => (
+                  coins.map((c) => (
                     <CoinRow
                       key={c.symbol}
                       coin={c}
@@ -291,20 +407,20 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
             </table>
           </div>
 
-          {/* Pagination */}
-          {filtered.length > PAGE_SIZE && (
+          {/* Pagination (server-side) */}
+          {total > pageSize && (
             <div className="flex items-center justify-between mt-4 pt-3 text-xs" style={{
               borderTop: "1px solid var(--admin-input-border)",
               color: "var(--admin-text-faint)",
             }}>
               <span>
-                Page {safePage} of {totalPages} · showing {pageCoins.length} of {filtered.length}
+                Page {page} of {totalPages} · showing {coins.length} of {total}
               </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
                   className="flex items-center gap-1 px-2 py-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
                     border: "1px solid var(--admin-input-border)",
@@ -314,8 +430,8 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages}
                   className="flex items-center gap-1 px-2 py-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
                     border: "1px solid var(--admin-input-border)",
@@ -331,6 +447,35 @@ export function CoinsRegistry({ coins, priceMap, adminCoinsPath }: Props) {
 
       {toast && <AdminToast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </>
+  );
+}
+
+/** Select compatto in stile admin per i filtri. */
+function FilterSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-2.5 py-2 text-xs rounded-lg focus:outline-none transition-colors"
+      style={{
+        background: "var(--admin-page-bg)",
+        border: "1px solid var(--admin-input-border)",
+        color: "var(--admin-text)",
+      }}>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

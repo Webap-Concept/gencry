@@ -3,7 +3,7 @@
 // (Spark, CoinBadge, ticker) e dall'admin dashboard.
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import {
   getHotPrices,
@@ -195,6 +195,102 @@ export async function getRecentRuns(limit = 20) {
 
 export async function listCoins() {
   return await db.select().from(pricesCoins).orderBy(desc(pricesCoins.marketCap));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Coins registry admin — paginazione + filtri server-side
+//
+// Con multi-exchange (Binance + KuCoin + Gate) il registry arriva a migliaia
+// di righe: niente più "carica tutto + filtra client". La pagina admin passa
+// i filtri via URL searchParams, qui costruiamo il WHERE e carichiamo solo
+// `pageSize` righe + il totale per la paginazione.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CoinRegistryFilter {
+  /** Match su symbol | name | coingecko_id. */
+  q?: string;
+  /** Exchange id (binance/kucoin/gate) | "none" (= CoinGecko fallback, NULL).
+   *  undefined = tutti. */
+  exchange?: string;
+  /** "enriched" = ha coingecko_id; "placeholder" = senza (post-import, da
+   *  arricchire/pulire). undefined = tutti. */
+  enrichment?: "enriched" | "placeholder";
+  /** market_cap >= questa soglia (USD). undefined/0 = nessun minimo. */
+  minMarketCap?: number;
+}
+
+export interface PagedCoins {
+  rows: (typeof pricesCoins.$inferSelect)[];
+  total: number;
+}
+
+function buildCoinFilterWhere(filter: CoinRegistryFilter) {
+  const conds = [];
+  const q = filter.q?.trim().toLowerCase();
+  if (q) {
+    const like = `%${q}%`;
+    conds.push(
+      sql`(lower(${pricesCoins.symbol}) like ${like} or lower(${pricesCoins.name}) like ${like} or lower(coalesce(${pricesCoins.coingeckoId}, '')) like ${like})`,
+    );
+  }
+  if (filter.exchange === "none") {
+    conds.push(isNull(pricesCoins.preferredExchange));
+  } else if (filter.exchange) {
+    conds.push(eq(pricesCoins.preferredExchange, filter.exchange));
+  }
+  if (filter.enrichment === "enriched") {
+    conds.push(isNotNull(pricesCoins.coingeckoId));
+  } else if (filter.enrichment === "placeholder") {
+    conds.push(isNull(pricesCoins.coingeckoId));
+  }
+  if (filter.minMarketCap && filter.minMarketCap > 0) {
+    conds.push(sql`${pricesCoins.marketCap} >= ${filter.minMarketCap}`);
+  }
+  return conds.length > 0 ? and(...conds) : undefined;
+}
+
+/**
+ * Pagina filtrata del registry + totale. Ordine: market_cap_rank ASC NULLS
+ * LAST (i placeholder senza rank finiscono in fondo), poi symbol.
+ */
+export async function listCoinsPaged(
+  filter: CoinRegistryFilter,
+  page: number,
+  pageSize: number,
+): Promise<PagedCoins> {
+  const where = buildCoinFilterWhere(filter);
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(pricesCoins)
+      .where(where)
+      .orderBy(
+        sql`${pricesCoins.marketCapRank} asc nulls last`,
+        asc(pricesCoins.symbol),
+      )
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize),
+    db.select({ n: count() }).from(pricesCoins).where(where),
+  ]);
+  return { rows, total: totalRows[0]?.n ?? 0 };
+}
+
+/** Conteggio coin per `preferred_exchange`, per le chip del filtro Exchange.
+ *  Chiave "none" = CoinGecko fallback (NULL); "all" = totale registry. */
+export async function getCoinExchangeCounts(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ ex: pricesCoins.preferredExchange, n: count() })
+    .from(pricesCoins)
+    .groupBy(pricesCoins.preferredExchange);
+  const out: Record<string, number> = {};
+  let total = 0;
+  for (const r of rows) {
+    out[r.ex ?? "none"] = r.n;
+    total += r.n;
+  }
+  out.all = total;
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
