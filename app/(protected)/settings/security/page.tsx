@@ -1,4 +1,11 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { MonitorSmartphone, ShieldCheck } from "lucide-react";
+import { Accordion } from "@/components/ui/accordion";
+import {
+  SettingsAccordionItem,
+  settingsAccordionClass,
+} from "../_components/settings-accordion";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
 import { getUser } from "@/lib/db/queries";
 import { getDeviceToken } from "@/lib/auth/trusted-device";
@@ -57,6 +64,8 @@ export default async function SecuritySettingsPage({
     isCurrent: s.isCurrent,
   }));
 
+  const t = await getTranslations("core.settings.security");
+
   return (
     <div className="space-y-12">
       <MfaPolicyBanner
@@ -66,18 +75,34 @@ export default async function SecuritySettingsPage({
 
       <MfaSection initialState={mfaState} />
 
-      <SessionsList sessions={sessions} />
+      <Accordion type="multiple" className={settingsAccordionClass}>
+        <SettingsAccordionItem
+          value="sessions"
+          icon={MonitorSmartphone}
+          title={t("sessions.title")}
+          subLabel={t("sessions.subLabel", { count: sessions.length })}
+        >
+          <SessionsList sessions={sessions} />
+        </SettingsAccordionItem>
 
-      <DevicesList
-        devices={devices.map((d) => ({
-          id: d.id,
-          label: d.parsed.label,
-          deviceType: d.parsed.deviceType,
-          createdAt: d.createdAt.toISOString(),
-          lastUsedAt: d.lastUsedAt.toISOString(),
-          isCurrent: d.isCurrent,
-        }))}
-      />
+        <SettingsAccordionItem
+          value="devices"
+          icon={ShieldCheck}
+          title={t("devices.title")}
+          subLabel={t("devices.subLabel", { count: devices.length })}
+        >
+          <DevicesList
+            devices={devices.map((d) => ({
+              id: d.id,
+              label: d.parsed.label,
+              deviceType: d.parsed.deviceType,
+              createdAt: d.createdAt.toISOString(),
+              lastUsedAt: d.lastUsedAt.toISOString(),
+              isCurrent: d.isCurrent,
+            }))}
+          />
+        </SettingsAccordionItem>
+      </Accordion>
     </div>
   );
 }

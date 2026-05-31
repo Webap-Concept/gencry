@@ -277,6 +277,7 @@
       },
       "sessions": {
         "title": "Active sessions",
+        "subLabel": "{count, plural, =0 {No active sessions} one {# active session} other {# active sessions}}",
         "description": "Active sign-ins to your account right now. Revoking a session signs out that device immediately. The session you're using now can't be revoked from here — use sign out.",
         "empty": "No active sessions.",
         "current": "Current session",
@@ -290,6 +291,7 @@
       },
       "devices": {
         "title": "Trusted devices",
+        "subLabel": "{count, plural, =0 {No trusted devices} one {# trusted device} other {# trusted devices}}",
         "description": "From these devices you can sign in without receiving an email verification code. This is different from sessions above: revoking a device doesn't close any active session, but at the next sign-in from there we'll ask for the OTP code again.",
         "empty": "No trusted devices registered.",
         "current": "This device",

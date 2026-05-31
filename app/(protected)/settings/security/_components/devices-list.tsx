@@ -33,27 +33,22 @@ export function DevicesList({ devices }: { devices: DeviceVM[] }) {
   const t = useTranslations("core.settings.security.devices");
 
   return (
-    <div className="space-y-10">
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
-          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">{t("description")}</p>
+
+      {devices.length === 0 ? (
+        <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
+          <p className="text-[13.5px] text-gc-fg-3">{t("empty")}</p>
         </div>
+      ) : (
+        <ul className="space-y-3">
+          {devices.map((device) => (
+            <DeviceRow key={device.id} device={device} />
+          ))}
+        </ul>
+      )}
 
-        {devices.length === 0 ? (
-          <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
-            <p className="text-[13.5px] text-gc-fg-3">{t("empty")}</p>
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {devices.map((device) => (
-              <DeviceRow key={device.id} device={device} />
-            ))}
-          </ul>
-        )}
-
-        {otherCount > 0 && <RevokeAllOthersButton otherCount={otherCount} />}
-      </section>
+      {otherCount > 0 && <RevokeAllOthersButton otherCount={otherCount} />}
     </div>
   );
 }
