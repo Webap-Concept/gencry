@@ -31,15 +31,12 @@ import { PostBody } from "./PostBody";
 import { ReactionPopover } from "./ReactionPopover";
 import { ReportContentDialog } from "./ReportContentDialog";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { displayNameForAuthor } from "@/lib/ui/author-display";
 
 function authorDisplayName(author: CommentCardData["author"], fallback: string): string {
-  // Stesso pattern di PostCard.authorDisplayName: nome+cognome prima,
-  // username SENZA chiocciola come fallback. La `@` resta solo per
-  // le mention inline nel body.
-  const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  if (full) return full;
-  if (author.username) return author.username;
-  return fallback;
+  // companyName per gli account azienda, altrimenti nome+cognome, poi
+  // username (senza @). Logica condivisa con PostCard via author-display.
+  return displayNameForAuthor(author, fallback);
 }
 
 function formatRelativeTime(
@@ -158,6 +155,7 @@ export function CommentItem({
             avatarUrl: comment.author.avatarUrl,
           }}
           size={avatarSize}
+          verifiedBusiness={comment.author.isVerifiedBusiness}
         />
       </Link>
 
