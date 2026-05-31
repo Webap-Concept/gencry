@@ -20,6 +20,12 @@ export type PostAuthorPublic = {
   /** Headline (frase breve LinkedIn-style) — mostrata sotto username
    *  nelle card/commenti dove appare l'autore. Truncate UI-side. */
   headline: string | null;
+  /** Account azienda: 'personal' (default) | 'business'. */
+  accountType: "personal" | "business";
+  /** Ragione sociale (display name quando business). Null per i personali. */
+  companyName: string | null;
+  /** true = azienda approvata/verificata → badge sull'avatar. */
+  isVerifiedBusiness: boolean;
 };
 
 export type PostMediaPublic = {

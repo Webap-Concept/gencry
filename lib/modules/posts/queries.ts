@@ -673,6 +673,9 @@ type RawPostRow = {
   authorLastName: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
+  authorAccountType: string | null;
+  authorCompanyName: string | null;
+  authorCompanyVerifiedAt: Date | null;
 };
 
 function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repostOfTombstone" | "viewer" | "tickers" | "media"> & {
@@ -686,6 +689,10 @@ function rowToCardCore(row: RawPostRow): Omit<PostCardData, "repostOf" | "repost
     lastName: row.authorLastName,
     avatarUrl: row.authorAvatarUrl,
     headline: row.authorHeadline,
+    accountType: row.authorAccountType === "business" ? "business" : "personal",
+    companyName: row.authorCompanyName,
+    isVerifiedBusiness:
+      row.authorAccountType === "business" && row.authorCompanyVerifiedAt !== null,
   };
   const counts: PostCounts = {
     reactions: {
@@ -781,6 +788,9 @@ async function selectPostsCoreCacheable(
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      authorAccountType: userProfiles.accountType,
+      authorCompanyName: userProfiles.companyName,
+      authorCompanyVerifiedAt: userProfiles.companyVerifiedAt,
     })
     .from(posts)
     .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
@@ -832,6 +842,9 @@ async function selectPostsCore(
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      authorAccountType: userProfiles.accountType,
+      authorCompanyName: userProfiles.companyName,
+      authorCompanyVerifiedAt: userProfiles.companyVerifiedAt,
     })
     .from(posts)
     .leftJoin(userProfiles, eq(userProfiles.userId, posts.authorId))
@@ -1011,10 +1024,14 @@ async function selectViewerStateForPosts(
  * Viewer-agnostic. Le Date dopo JSON round-trip sono `string`: il revive
  * a `Date` è in `revivePostHydration`.
  */
-type CachedPostHydration = Omit<RawPostRow, "editedAt" | "createdAt" | "deletedAt"> & {
+type CachedPostHydration = Omit<
+  RawPostRow,
+  "editedAt" | "createdAt" | "deletedAt" | "authorCompanyVerifiedAt"
+> & {
   editedAt: Date | string | null;
   createdAt: Date | string;
   deletedAt: Date | string | null;
+  authorCompanyVerifiedAt: Date | string | null;
   media: PostMediaPublic[];
   tickers: string[];
 };
@@ -1047,6 +1064,11 @@ function revivePostHydration(item: CachedPostHydration): {
     authorLastName: item.authorLastName,
     authorAvatarUrl: item.authorAvatarUrl,
     authorHeadline: item.authorHeadline,
+    authorAccountType: item.authorAccountType,
+    authorCompanyName: item.authorCompanyName,
+    authorCompanyVerifiedAt: item.authorCompanyVerifiedAt
+      ? new Date(item.authorCompanyVerifiedAt)
+      : null,
   };
   return { raw, media: item.media, tickers: item.tickers };
 }
@@ -1491,6 +1513,9 @@ type CommentRowSelection = {
   authorLastName: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
+  authorAccountType: string | null;
+  authorCompanyName: string | null;
+  authorCompanyVerifiedAt: Date | null;
   reactionsLike: number;
   reactionsBullish: number;
   reactionsBearish: number;
@@ -1534,6 +1559,10 @@ function rowToCommentCardData(
       lastName: r.authorLastName,
       avatarUrl: r.authorAvatarUrl,
       headline: r.authorHeadline,
+      accountType: r.authorAccountType === "business" ? "business" : "personal",
+      companyName: r.authorCompanyName,
+      isVerifiedBusiness:
+        r.authorAccountType === "business" && r.authorCompanyVerifiedAt !== null,
     },
     body: r.body,
     editedAt: r.editedAt,
@@ -1579,6 +1608,9 @@ export async function getRootCommentsForPost(opts: {
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      authorAccountType: userProfiles.accountType,
+      authorCompanyName: userProfiles.companyName,
+      authorCompanyVerifiedAt: userProfiles.companyVerifiedAt,
       reactionsLike:      postsComments.reactionsLike,
       reactionsBullish:   postsComments.reactionsBullish,
       reactionsBearish:   postsComments.reactionsBearish,
@@ -1670,6 +1702,9 @@ export async function getInitialRepliesForRoots(opts: {
         up.last_name AS "authorLastName",
         up.avatar_url AS "authorAvatarUrl",
         up.headline AS "authorHeadline",
+        up.account_type AS "authorAccountType",
+        up.company_name AS "authorCompanyName",
+        up.company_verified_at AS "authorCompanyVerifiedAt",
         c.reactions_like         AS "reactionsLike",
         c.reactions_bullish      AS "reactionsBullish",
         c.reactions_bearish      AS "reactionsBearish",
@@ -1729,6 +1764,9 @@ export async function getRepliesForComment(opts: {
       authorLastName: userProfiles.lastName,
       authorAvatarUrl: userProfiles.avatarUrl,
       authorHeadline: userProfiles.headline,
+      authorAccountType: userProfiles.accountType,
+      authorCompanyName: userProfiles.companyName,
+      authorCompanyVerifiedAt: userProfiles.companyVerifiedAt,
       reactionsLike:      postsComments.reactionsLike,
       reactionsBullish:   postsComments.reactionsBullish,
       reactionsBearish:   postsComments.reactionsBearish,
