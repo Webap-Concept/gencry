@@ -154,6 +154,33 @@
       }
     },
     "business": {
+      "sectionTitle": "Business profile",
+      "sectionDescription": "Turn your account into a verified company profile, recognized across the community.",
+      "formIntro": "Tell us about your company. We'll review the details (VAT and website) before activating the verified business badge.",
+      "companyNameLabel": "Company name",
+      "companyNamePlaceholder": "Acme Inc.",
+      "websiteLabel": "Official website",
+      "websitePlaceholder": "https://acme.com",
+      "sectorLabel": "Sector",
+      "sectorPlaceholder": "Select a sector",
+      "vatLabel": "VAT number",
+      "vatPlaceholder": "e.g. IT01234567890",
+      "vatHelp": "VAT and notes are private and used only for verification — never shown on your public profile.",
+      "noteLabel": "Notes for verification (optional)",
+      "notePlaceholder": "Anything that helps us verify your company.",
+      "submitIdle": "Request verification",
+      "submitPending": "Sending…",
+      "rejectedTitle": "Your previous request was not approved.",
+      "rejectedReason": "Reason: {reason}",
+      "pendingTitle": "Request under review",
+      "pendingDescription": "We're verifying your company details. You'll get an email with the outcome.",
+      "approvedTitle": "Verified business account",
+      "fieldName": "Company",
+      "fieldWebsite": "Website",
+      "fieldSector": "Sector",
+      "revert": "Switch back to personal",
+      "revertConfirm": "Confirm",
+      "revertCancel": "Cancel",
       "sectors": {
         "exchange": "Exchange",
         "wallet": "Wallet",
@@ -448,6 +475,18 @@
           "last_method": "You can't disconnect your only sign-in method. Set a password first.",
           "not_linked": "This provider isn't connected to your account.",
           "already_linked_other": "That account is already linked to another profile."
+        }
+      },
+      "business": {
+        "submitted": "Request sent. We'll email you with the outcome.",
+        "reverted": "Your profile is back to personal.",
+        "errors": {
+          "already_business": "Your account is already a verified business.",
+          "pending_exists": "You already have a request under review.",
+          "invalid_name": "Enter a valid company name.",
+          "invalid_sector": "Select a valid sector.",
+          "invalid_website": "Enter a valid website URL.",
+          "invalid_vat": "Enter a valid VAT number (8–20 alphanumeric characters)."
         }
       }
     }

@@ -4,29 +4,42 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { mutate } from "swr";
-import { Check, Eye, EyeOff, Link2, Loader2, X } from "lucide-react";
+import { BadgeCheck, Building2, Check, Eye, EyeOff, Link2, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/auth/middleware";
 import { passwordRules } from "@/lib/account/password-rules";
 import { OAUTH_PROVIDERS } from "@/lib/auth/oauth/providers";
+import { BUSINESS_SECTORS } from "@/lib/account/business-sectors";
 import { checkEmailAction } from "@/app/(login)/actions";
 import {
   cancelEmailChangeAction,
   changePasswordAction,
   confirmEmailChangeAction,
   requestEmailChangeAction,
+  revertToPersonalAction,
+  submitBusinessUpgradeAction,
   unlinkOAuthAction,
 } from "../actions";
 
 type LinkedAccount = { provider: string; linkedAt: string };
+
+type BusinessState = {
+  accountType: "personal" | "business";
+  company: { name: string | null; website: string | null; sector: string | null };
+  latestRequest: {
+    status: "pending" | "approved" | "rejected";
+    reviewNote: string | null;
+  } | null;
+};
 
 type Initial = {
   email: string;
   pendingEmail: string | null;
   hasPassword: boolean;
   linkedAccounts: LinkedAccount[];
+  business: BusinessState;
 };
 
 export function AccountForm({ initial }: { initial: Initial }) {
@@ -43,6 +56,8 @@ export function AccountForm({ initial }: { initial: Initial }) {
         linkedAccounts={initial.linkedAccounts}
         hasPassword={initial.hasPassword}
       />
+      <hr className="border-gc-line" />
+      <BusinessAccountSection business={initial.business} />
     </div>
   );
 }
@@ -783,6 +798,250 @@ function GoogleIcon() {
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
       />
     </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Business account (upgrade request + states)
+// ---------------------------------------------------------------------------
+
+function BusinessAccountSection({ business }: { business: BusinessState }) {
+  const t = useTranslations("core.settings.business");
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-start gap-2.5">
+        <Building2 className="h-5 w-5 mt-0.5 text-gc-fg-3 shrink-0" />
+        <div>
+          <h2 className="text-[15px] font-semibold text-gc-fg">{t("sectionTitle")}</h2>
+          <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("sectionDescription")}</p>
+        </div>
+      </div>
+
+      {business.accountType === "business" ? (
+        <BusinessApprovedView company={business.company} />
+      ) : business.latestRequest?.status === "pending" ? (
+        <BusinessPendingView />
+      ) : (
+        <BusinessRequestForm
+          rejectedNote={
+            business.latestRequest?.status === "rejected"
+              ? business.latestRequest.reviewNote
+              : undefined
+          }
+        />
+      )}
+    </section>
+  );
+}
+
+function BusinessApprovedView({
+  company,
+}: {
+  company: BusinessState["company"];
+}) {
+  const t = useTranslations("core.settings.business");
+  const tSectors = useTranslations("core.settings.business.sectors");
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    revertToPersonalAction,
+    {},
+  );
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (state.success) {
+      setConfirming(false);
+      router.refresh();
+    }
+  }, [state.success, router]);
+
+  return (
+    <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-gc-success-fg">
+        <BadgeCheck className="h-4.5 w-4.5" />
+        <span className="text-[13.5px] font-medium">{t("approvedTitle")}</span>
+      </div>
+
+      <dl className="space-y-1.5 text-[13px]">
+        <Row label={t("fieldName")} value={company.name} />
+        <Row
+          label={t("fieldWebsite")}
+          value={
+            company.website ? (
+              <a
+                href={company.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gc-accent hover:underline break-all"
+              >
+                {company.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
+            ) : null
+          }
+        />
+        <Row
+          label={t("fieldSector")}
+          value={company.sector ? tSectors(company.sector as never) : null}
+        />
+      </dl>
+
+      {confirming ? (
+        <form action={action} className="flex items-center gap-2 pt-1">
+          <Button type="submit" variant="destructive" size="sm" disabled={pending}>
+            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("revertConfirm")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => setConfirming(false)}
+          >
+            {t("revertCancel")}
+          </Button>
+        </form>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-gc-fg-3 hover:text-gc-fg"
+          onClick={() => setConfirming(true)}
+        >
+          {t("revert")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="text-gc-fg-3 min-w-[88px]">{label}</dt>
+      <dd className="text-gc-fg">{value ?? "—"}</dd>
+    </div>
+  );
+}
+
+function BusinessPendingView() {
+  const t = useTranslations("core.settings.business");
+  return (
+    <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-4">
+      <div className="flex items-center gap-2 text-gc-fg">
+        <Loader2 className="h-4 w-4 animate-spin text-gc-fg-3" />
+        <span className="text-[13.5px] font-medium">{t("pendingTitle")}</span>
+      </div>
+      <p className="text-[12.5px] text-gc-fg-3 mt-1">{t("pendingDescription")}</p>
+    </div>
+  );
+}
+
+function BusinessRequestForm({ rejectedNote }: { rejectedNote?: string | null }) {
+  const t = useTranslations("core.settings.business");
+  const tSectors = useTranslations("core.settings.business.sectors");
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    submitBusinessUpgradeAction,
+    {},
+  );
+
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
+
+  return (
+    <form action={action} className="space-y-4">
+      {rejectedNote !== undefined && (
+        <div className="rounded-xl border border-gc-neg/30 bg-gc-neg/5 px-3 py-2.5">
+          <p className="text-[12.5px] font-medium text-gc-neg">{t("rejectedTitle")}</p>
+          {rejectedNote && (
+            <p className="text-[12px] text-gc-fg-2 mt-0.5">
+              {t("rejectedReason", { reason: rejectedNote })}
+            </p>
+          )}
+        </div>
+      )}
+
+      <p className="text-[12.5px] text-gc-fg-3">{t("formIntro")}</p>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="companyName">{t("companyNameLabel")}</Label>
+        <Input
+          id="companyName"
+          name="companyName"
+          required
+          maxLength={120}
+          placeholder={t("companyNamePlaceholder")}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="companyWebsite">{t("websiteLabel")}</Label>
+        <Input
+          id="companyWebsite"
+          name="companyWebsite"
+          required
+          maxLength={255}
+          placeholder={t("websitePlaceholder")}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="companySector">{t("sectorLabel")}</Label>
+          <select
+            id="companySector"
+            name="companySector"
+            required
+            defaultValue=""
+            className="w-full h-9 px-3 text-sm rounded-md border border-gc-line bg-gc-bg text-gc-fg focus:outline-none focus:ring-2 focus:ring-gc-accent/40"
+          >
+            <option value="" disabled>
+              {t("sectorPlaceholder")}
+            </option>
+            {BUSINESS_SECTORS.map((s) => (
+              <option key={s} value={s}>
+                {tSectors(s as never)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="vatNumber">{t("vatLabel")}</Label>
+          <Input
+            id="vatNumber"
+            name="vatNumber"
+            required
+            maxLength={32}
+            placeholder={t("vatPlaceholder")}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="note">{t("noteLabel")}</Label>
+        <textarea
+          id="note"
+          name="note"
+          rows={2}
+          maxLength={500}
+          placeholder={t("notePlaceholder")}
+          className="w-full px-3 py-2 text-sm rounded-md border border-gc-line bg-gc-bg text-gc-fg focus:outline-none focus:ring-2 focus:ring-gc-accent/40"
+        />
+        <p className="text-[11.5px] text-gc-fg-3 px-1">{t("vatHelp")}</p>
+      </div>
+
+      {state.error && <p className="text-[13px] text-gc-neg">{state.error}</p>}
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={pending}>
+          {pending ? t("submitPending") : t("submitIdle")}
+        </Button>
+      </div>
+    </form>
   );
 }
 
