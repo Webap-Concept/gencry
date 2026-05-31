@@ -76,13 +76,13 @@ const SCHEMA_DIAGRAM = `erDiagram
 `;
 
 const PIPELINE_DIAGRAM = `graph TD
-  CRON[pg_cron Supabase<br/>every 1 min] --> AUTH{HMAC auth}
+  CRON[QStash<br/>every 1 min] --> AUTH{HMAC auth}
   AUTH -->|OK| ACT[active-universe.ts<br/>load coin with preferred_exchange OR coingecko_id]
-  ACT --> GROUP[groupByExchange<br/>binance | kucoin | gate | ... | no-routing]
+  ACT --> GROUP[groupByExchange<br/>binance · kucoin · gate · … · no-routing]
   GROUP --> ADAPT[adapter.fetchCurrentPrices<br/>per exchange in parallel]
   GROUP --> CG[CoinGecko fallback<br/>for unmapped coins]
   ADAPT -->|fails| CG2[CoinGecko fallback<br/>per missing]
-  ADAPT --> MERGE[Merge into Map<symbol, PriceQuote>]
+  ADAPT --> MERGE[Merge into Map symbol→PriceQuote]
   CG --> MERGE
   CG2 --> MERGE
   MERGE --> HOT[setHotPrices<br/>Upstash prices:hot:v1<br/>TTL = cron_min*60 + 60]
