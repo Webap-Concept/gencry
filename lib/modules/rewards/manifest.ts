@@ -92,7 +92,7 @@ export const REWARDS_MODULE: ModuleManifest = {
   navChildren: [
     {
       key: "rewards-overview",
-      href: "/admin/modules/rewards",
+      href: "/modules/rewards",
       label: "Overview",
       icon: "Activity",
       permission: REWARDS_PERMISSION,
@@ -100,14 +100,14 @@ export const REWARDS_MODULE: ModuleManifest = {
     },
     {
       key: "rewards-settings",
-      href: "/admin/modules/rewards/settings",
+      href: "/modules/rewards/settings",
       label: "Settings",
       icon: "Settings",
       permission: REWARDS_PERMISSION,
     },
     {
       key: "rewards-architecture",
-      href: "/admin/modules/rewards/architecture",
+      href: "/modules/rewards/architecture",
       label: "Architecture",
       icon: "BookOpen",
       permission: REWARDS_PERMISSION,

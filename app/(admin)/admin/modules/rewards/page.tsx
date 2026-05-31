@@ -5,6 +5,7 @@ import {
   getAllRules,
   getTodayBreakdown,
 } from "@/lib/modules/rewards/queries";
+import { buildAdminPath } from "@/lib/admin-paths";
 
 export const metadata: Metadata = { title: "Rewards / Overview" };
 export const dynamic = "force-dynamic";
@@ -16,10 +17,12 @@ const EVENT_LABEL: Record<string, string> = {
 };
 
 export default async function RewardsOverviewPage() {
-  const [stats, rules, breakdown] = await Promise.all([
+  const [stats, rules, breakdown, settingsPath, archPath] = await Promise.all([
     getAdminOverviewStats(),
     getAllRules(),
     getTodayBreakdown(),
+    buildAdminPath("modules/rewards/settings"),
+    buildAdminPath("modules/rewards/architecture"),
   ]);
 
   return (
@@ -52,7 +55,7 @@ export default async function RewardsOverviewPage() {
             Active earn rules
           </h2>
           <Link
-            href="/admin/modules/rewards/settings"
+            href={settingsPath}
             className="text-xs font-medium hover:underline"
             style={{ color: "var(--admin-accent)" }}
           >
@@ -131,7 +134,7 @@ export default async function RewardsOverviewPage() {
           UI saldo utente e widget previsti in PR-2.
         </p>
         <Link
-          href="/admin/modules/rewards/architecture"
+          href={archPath}
           className="mt-3 inline-block text-xs font-medium hover:underline"
           style={{ color: "var(--admin-accent)" }}
         >
