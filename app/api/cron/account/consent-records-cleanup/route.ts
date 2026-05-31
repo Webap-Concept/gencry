@@ -1,5 +1,6 @@
 import { isAuthorizedCron } from "@/lib/modules/prices/cron-auth";
 import { purgeStaleConsentRecords } from "@/lib/account/consent-ledger";
+import { describeDbError } from "@/lib/cron/db-error";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
     const result = await purgeStaleConsentRecords();
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = describeDbError(err);
     console.error("[cron/consent-records-cleanup] failed:", err);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
