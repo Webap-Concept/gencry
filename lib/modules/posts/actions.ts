@@ -716,6 +716,12 @@ export async function createComment(
       parentCommentId: parsed.data.parentCommentId ?? null,
     });
     await postInvalidate(parsed.data.postId);
+
+    // Reward comment_created — fire-and-forget
+    earnReward(user.id, "comment_created", `comment_created:${comment.id}`, comment.id).catch(
+      () => {},
+    );
+
     return { ok: true, data: { commentId: comment.id } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : I18N.emptyBody;

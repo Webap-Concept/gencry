@@ -2290,6 +2290,7 @@ export const REWARD_EVENT_TYPES = [
   "daily_checkin",
   "post_created",
   "like_received",
+  "comment_created",
 ] as const;
 export type RewardEventType = (typeof REWARD_EVENT_TYPES)[number];
 

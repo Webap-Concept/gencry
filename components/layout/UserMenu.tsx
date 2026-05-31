@@ -9,6 +9,7 @@ import { mutate } from "swr";
 import { signOut } from "@/app/(login)/actions";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useRewardsBalance } from "@/components/modules/rewards/RewardsBalanceProvider";
+import { formatCoins } from "@/lib/modules/rewards/format";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { fullName } from "@/lib/utils";
 
@@ -108,14 +109,18 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         onClick={close}
       />
       <ThemeToggleItem onAction={close} />
-      {/* Saldo coin — riga non-navigabile, sempre visibile nel menu */}
-      <div className="flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-fg-2">
-        <Coins size={16} strokeWidth={1.6} className="text-gc-accent shrink-0" />
-        <span className="flex-1">Coins</span>
-        <span className="tabular-nums font-semibold text-gc-fg">
-          {rewardsBalance.toLocaleString("en-US")}
-        </span>
-      </div>
+      {/* Saldo coin — link a /mycoins */}
+      <MenuItem
+        href="/mycoins"
+        icon={<Coins size={16} strokeWidth={1.6} className="text-gc-accent" />}
+        label="Coins"
+        onClick={close}
+        trailing={
+          <span className="tabular-nums font-semibold text-gc-fg text-[13px]">
+            {formatCoins(rewardsBalance)}
+          </span>
+        }
+      />
       <div className="my-1 h-px bg-gc-line" />
       <button
         type="button"
@@ -285,11 +290,13 @@ function MenuItem({
   icon,
   label,
   onClick,
+  trailing,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
+  trailing?: React.ReactNode;
 }) {
   return (
     <Link
@@ -299,7 +306,8 @@ function MenuItem({
       className="flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-fg hover:bg-gc-bg-3 transition rounded-gc-sm"
     >
       {icon}
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      {trailing}
     </Link>
   );
 }

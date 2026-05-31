@@ -1,5 +1,5 @@
 // lib/modules/rewards/queries.ts — read path del modulo rewards
-import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, sql, sum } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
 import { rewardsBalances, rewardsLedger, rewardsRules } from "@/lib/db/schema";
 
@@ -73,6 +73,64 @@ export async function getAdminOverviewStats() {
     todayEarned:           BigInt(todayRow?.earned ?? "0"),
     todayTransactions:     todayRow?.txns ?? 0,
   };
+}
+
+export interface CategoryBreakdown {
+  eventType: string;
+  todayEarned: number;
+  weekEarned: number;
+  totalEarned: number;
+  totalTxns: number;
+}
+
+/**
+ * Breakdown per-utente suddiviso per event_type con finestre temporali.
+ * Usato dalla pagina /mycoins. 1 sola query con aggregazione condizionale.
+ */
+export async function getUserBalanceBreakdown(
+  userId: string,
+): Promise<{ categories: CategoryBreakdown[]; recentLedger: Awaited<ReturnType<typeof getUserLedger>> }> {
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setUTCHours(0, 0, 0, 0);
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setUTCDate(startOfToday.getUTCDate() - 6); // ultimi 7 giorni
+
+  type Row = {
+    event_type: string;
+    today_earned: string;
+    week_earned: string;
+    total_earned: string;
+    total_txns: string;
+  };
+
+  const [rows, recentLedger] = await Promise.all([
+    db.execute<Row>(sql`
+      SELECT
+        event_type,
+        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${startOfToday}), 0)::text AS today_earned,
+        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${startOfWeek}), 0)::text  AS week_earned,
+        COALESCE(SUM(amount), 0)::text                                               AS total_earned,
+        COUNT(*)::text                                                                AS total_txns
+      FROM rewards_ledger
+      WHERE user_id = ${userId}
+      GROUP BY event_type
+      ORDER BY total_earned DESC
+    `),
+    getUserLedger(userId, 20),
+  ]);
+
+  const categories: CategoryBreakdown[] = (Array.isArray(rows) ? rows : (rows as { rows?: Row[] }).rows ?? []).map(
+    (r) => ({
+      eventType:   r.event_type,
+      todayEarned: parseInt(r.today_earned, 10),
+      weekEarned:  parseInt(r.week_earned, 10),
+      totalEarned: parseInt(r.total_earned, 10),
+      totalTxns:   parseInt(r.total_txns, 10),
+    }),
+  );
+
+  return { categories, recentLedger };
 }
 
 /** Breakdown delle transazioni di oggi per event_type (per l'overview chart). */
