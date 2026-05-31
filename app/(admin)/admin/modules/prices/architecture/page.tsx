@@ -136,7 +136,7 @@ export default function PricesArchitecturePage() {
               Group-by-exchange per parallelizzare le call.
             </li>
             <li>
-              <strong>Cron 1-min via pg_cron Supabase</strong>, chiama
+              <strong>Cron 1-min via Upstash QStash</strong>, chiama
               l'endpoint Vercel. Cadenza configurabile da
               <code className="ml-1">app_settings.modules.prices.cron_minutes</code>.
             </li>
