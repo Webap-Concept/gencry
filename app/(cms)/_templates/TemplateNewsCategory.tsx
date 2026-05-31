@@ -18,7 +18,6 @@
 
 import { getNewsCardsByParentPageId } from "@/lib/cms/news-feed-queries";
 import { NewsFeaturedGrid } from "./news/news-featured-grid";
-import { NewsNewsletter } from "./news/news-newsletter";
 import "./news/news.css";
 import type { TemplateProps } from "./types";
 
@@ -50,8 +49,6 @@ export async function TemplateNewsCategory({ page, fields }: TemplateProps) {
       ) : (
         <NewsFeaturedGrid items={items} />
       )}
-
-      <NewsNewsletter />
     </>
   );
 }

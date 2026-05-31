@@ -16,6 +16,7 @@
 // colorato come se avatarUrl fosse null. Niente flicker su success-path
 // perché lo state parte da false e l'img si carica come al solito.
 import { useState, type CSSProperties } from "react";
+import { BusinessBadge } from "@/components/ui/business-badge";
 import {
   type AvatarUserLike,
   colorForSeed,
@@ -33,6 +34,8 @@ export type UserAvatarProps = {
   className?: string;
   /** Alt text se diverso dal nome derivato; default empty (decorativo). */
   alt?: string;
+  /** Mostra il badge azienda verificata sovrapposto in basso a destra. */
+  verifiedBusiness?: boolean;
 };
 
 function hasValidAvatar(url: string | null | undefined): url is string {
@@ -46,6 +49,7 @@ export function UserAvatar({
   ring = false,
   className,
   alt = "",
+  verifiedBusiness = false,
 }: UserAvatarProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const boxStyle: CSSProperties = {
@@ -60,38 +64,51 @@ export function UserAvatar({
 
   const showImg = hasValidAvatar(user.avatarUrl) && !imgFailed;
 
-  if (showImg) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={user.avatarUrl ?? undefined}
-        alt={alt}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onError={() => setImgFailed(true)}
-        className={`${baseClass} object-cover`}
-        style={boxStyle}
-      />
-    );
-  }
-
-  const initials = initialsFromUser(user);
-  const bg = colorForSeed(seedFromUser(user));
-
-  return (
+  const avatarEl = showImg ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={user.avatarUrl ?? undefined}
+      alt={alt}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setImgFailed(true)}
+      className={`${baseClass} object-cover`}
+      style={boxStyle}
+    />
+  ) : (
     <div
       aria-hidden={alt === "" ? true : undefined}
       aria-label={alt || undefined}
       className={`${baseClass} inline-flex items-center justify-center text-white font-medium leading-none`}
       style={{
         ...boxStyle,
-        background: bg,
+        background: colorForSeed(seedFromUser(user)),
         // Font scala col size (~38% del lato, come il vecchio Avatar shared).
         fontSize: Math.max(10, Math.round(size * 0.38)),
         letterSpacing: "0.02em",
       }}
     >
-      {initials}
+      {initialsFromUser(user)}
     </div>
+  );
+
+  if (!verifiedBusiness) return avatarEl;
+
+  // Badge azienda verificata (valigetta + tooltip) sovrapposto in basso a
+  // destra. Dimensione ~38% del lato (min 14px), come X/Instagram.
+  const badgeSize = Math.max(14, Math.round(size * 0.38));
+  return (
+    <span
+      className="relative inline-flex"
+      style={{ width: size, height: size, flexShrink: 0 }}
+    >
+      {avatarEl}
+      <span
+        className="absolute bottom-0 right-0"
+        style={{ transform: "translate(15%, 15%)" }}
+      >
+        <BusinessBadge size={badgeSize} />
+      </span>
+    </span>
   );
 }

@@ -16,14 +16,15 @@
 import "server-only";
 import { binanceAdapter } from "./binance";
 import { kucoinAdapter } from "./kucoin";
+import { gateAdapter } from "./gate";
 import type { ExchangeId, PriceExchangeAdapter } from "./types";
 
 /** Mapping id → adapter. Source of truth per i consumer. */
 export const EXCHANGE_REGISTRY: Record<ExchangeId, PriceExchangeAdapter> = {
   binance: binanceAdapter,
   kucoin: kucoinAdapter,
+  gate: gateAdapter,
   // Aggiunte future:
-  //   gate:     gateAdapter,
   //   kraken:   krakenAdapter,
   //   coinbase: coinbaseAdapter,
 } as Partial<Record<ExchangeId, PriceExchangeAdapter>> as Record<

@@ -109,6 +109,14 @@ export type SettingKey =
   | 'email_modstrikerevoked_bcc'
   | 'email_modstrikerevoked_body'
   | 'email_modstrikerevoked_footer'
+  | 'email_businessapproved_subject'
+  | 'email_businessapproved_bcc'
+  | 'email_businessapproved_body'
+  | 'email_businessapproved_footer'
+  | 'email_businessrejected_subject'
+  | 'email_businessrejected_bcc'
+  | 'email_businessrejected_body'
+  | 'email_businessrejected_footer'
   // SEO
   | 'robots_txt'
   | 'humans_txt'
@@ -463,6 +471,14 @@ export type AppSettings = {
   email_modstrikerevoked_bcc: string | null
   email_modstrikerevoked_body: string | null
   email_modstrikerevoked_footer: string | null
+  email_businessapproved_subject: string | null
+  email_businessapproved_bcc: string | null
+  email_businessapproved_body: string | null
+  email_businessapproved_footer: string | null
+  email_businessrejected_subject: string | null
+  email_businessrejected_bcc: string | null
+  email_businessrejected_body: string | null
+  email_businessrejected_footer: string | null
   robots_txt: string | null
   humans_txt: string | null
   // Bruteforce — contesti separati
@@ -744,6 +760,14 @@ const DEFAULTS: AppSettings = {
   email_modstrikerevoked_bcc: null,
   email_modstrikerevoked_body: null,
   email_modstrikerevoked_footer: null,
+  email_businessapproved_subject: null,
+  email_businessapproved_bcc: null,
+  email_businessapproved_body: null,
+  email_businessapproved_footer: null,
+  email_businessrejected_subject: null,
+  email_businessrejected_bcc: null,
+  email_businessrejected_body: null,
+  email_businessrejected_footer: null,
   robots_txt: null,
   humans_txt: null,
   // Bruteforce defaults

@@ -15,26 +15,50 @@
 // sitemap index futuro.
 
 import { db } from "@/lib/db/drizzle";
-import { pricesCoins } from "@/lib/db/schema";
+import { pricesCoins, pricesSyncRuns } from "@/lib/db/schema";
 import { getSiteUrl } from "@/lib/seo";
-import { getHotPrices } from "@/lib/modules/prices/services/hot-prices";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { MetadataRoute } from "next";
 import { unstable_cache } from "next/cache";
 
 const PRICES_DATA_TAG = "prices-data";
 
+// Sitemap selettiva: solo le top N coin per market cap. Le pagine coin
+// "thin" (small cap, solo prezzo+grafico) sono contenuto duplicato che
+// Google non indicizza e che diluisce il crawl budget su un dominio
+// giovane. Quando il social avrà volume di post, valutare il passaggio a
+// "coin con ≥ N post" invece del rank. Vedi discussione 2026-05-30.
+const SITEMAP_TOP_COINS = 200;
+
+// `lastModified` viene dall'ultimo sync run riuscito (DB, cacheable), NON
+// da Redis: la sitemap deve restare statica/ISR per SEO. Usare getHotPrices
+// (no-store fetch) la renderebbe dinamica + romperebbe la static generation.
 const fetchActiveCoinsForSitemap = unstable_cache(
   async () => {
-    const rows = await db
-      .select({
-        symbol:        pricesCoins.symbol,
-        marketCapRank: pricesCoins.marketCapRank,
-      })
-      .from(pricesCoins)
-      .where(eq(pricesCoins.isActive, true))
-      .orderBy(desc(pricesCoins.marketCap));
-    return rows;
+    const [rows, lastSync] = await Promise.all([
+      db
+        .select({
+          symbol:        pricesCoins.symbol,
+          marketCapRank: pricesCoins.marketCapRank,
+        })
+        .from(pricesCoins)
+        .where(eq(pricesCoins.isActive, true))
+        // NULLS LAST: i coin senza market cap (import wholesale) NON devono
+        // rubare i primi posti — il DESC default di Postgres li metterebbe
+        // in testa. Stesso pattern di lib/modules/prices/queries.ts.
+        .orderBy(sql`${pricesCoins.marketCap} DESC NULLS LAST`)
+        .limit(SITEMAP_TOP_COINS),
+      db
+        .select({ finishedAt: pricesSyncRuns.finishedAt })
+        .from(pricesSyncRuns)
+        .where(and(eq(pricesSyncRuns.kind, "sync"), eq(pricesSyncRuns.ok, true)))
+        .orderBy(desc(pricesSyncRuns.startedAt))
+        .limit(1),
+    ]);
+    return {
+      rows,
+      lastModifiedMs: lastSync[0]?.finishedAt?.getTime() ?? Date.now(),
+    };
   },
   ["prices-coins-sitemap"],
   { revalidate: 300, tags: [PRICES_DATA_TAG] },
@@ -65,15 +89,14 @@ function rankToChangeFreq(rank: number | null): MetadataRoute.Sitemap[number]["c
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [coins, hot, siteUrl] = await Promise.all([
+  const [{ rows: coins, lastModifiedMs }, siteUrl] = await Promise.all([
     fetchActiveCoinsForSitemap(),
-    getHotPrices(),
     getSiteUrl(),
   ]);
 
   if (!siteUrl) return [];
 
-  const lastModified = hot ? new Date(hot.updatedAt) : new Date();
+  const lastModified = new Date(lastModifiedMs);
 
   return coins.map((c) => ({
     url: `${siteUrl}/coins/${c.symbol.toLowerCase()}`,

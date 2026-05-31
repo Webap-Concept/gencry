@@ -117,6 +117,7 @@ export function Login({
     "oauth_init_failed",
     "oauth_user_failed",
     "oauth_domain_blocked",
+    "oauth_email_unverified",
     "registrations_disabled",
     "maintenance",
     "blocked",

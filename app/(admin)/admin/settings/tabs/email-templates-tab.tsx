@@ -132,6 +132,21 @@ const PLACEHOLDERS: Record<string, { label: string; value: string }[]> = {
     { label: "unbanned",         value: "{{unbanned}}" },
     { label: "appUrl",           value: "{{appUrl}}" },
   ],
+  businessapproved: [
+    { label: "appName",     value: "{{appName}}" },
+    { label: "userEmail",   value: "{{userEmail}}" },
+    { label: "userName",    value: "{{userName}}" },
+    { label: "companyName", value: "{{companyName}}" },
+    { label: "appUrl",      value: "{{appUrl}}" },
+  ],
+  businessrejected: [
+    { label: "appName",     value: "{{appName}}" },
+    { label: "userEmail",   value: "{{userEmail}}" },
+    { label: "userName",    value: "{{userName}}" },
+    { label: "companyName", value: "{{companyName}}" },
+    { label: "reason",      value: "{{reason}}" },
+    { label: "appUrl",      value: "{{appUrl}}" },
+  ],
 };
 
 const TEMPLATE_IDS = [
@@ -152,6 +167,8 @@ const TEMPLATE_IDS = [
   "modstrike",
   "modbanned",
   "modstrikerevoked",
+  "businessapproved",
+  "businessrejected",
 ] as const;
 
 type TemplateId = (typeof TEMPLATE_IDS)[number];
@@ -175,6 +192,8 @@ const TEMPLATE_PREFIX: Record<TemplateId, string> = {
   modstrike: "email_modstrike",
   modbanned: "email_modbanned",
   modstrikerevoked: "email_modstrikerevoked",
+  businessapproved: "email_businessapproved",
+  businessrejected: "email_businessrejected",
 };
 
 const TEMPLATE_FILE: Record<TemplateId, string> = {
@@ -195,6 +214,8 @@ const TEMPLATE_FILE: Record<TemplateId, string> = {
   modstrike: "lib/email/templates/moderation-strike-received.ts",
   modbanned: "lib/email/templates/moderation-banned.ts",
   modstrikerevoked: "lib/email/templates/moderation-strike-revoked.ts",
+  businessapproved: "lib/email/templates/business-approved.ts",
+  businessrejected: "lib/email/templates/business-rejected.ts",
 };
 
 // ---------------------------------------------------------------------------

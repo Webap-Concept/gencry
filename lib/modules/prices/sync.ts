@@ -25,6 +25,7 @@ import {
 import { setHotPrices } from "./services/hot-prices";
 import { getAndIncrSyncTick, getTierForCoin, shouldFetchThisTick } from "./services/sync-tick";
 import { emitLivePrices } from "./services/live-prices-emitter";
+import { getUsdtUsdRate } from "./services/usdt-rate";
 import type { PriceQuote } from "./types";
 
 export interface SyncResult {
@@ -92,14 +93,25 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
   let sourceUsed: SyncResult["sourceUsed"] = null;
   let lastError: string | undefined;
 
-  // Tick per tiering CoinGecko (exchange coins ignorano il tick — bulk sempre).
-  const tick = await getAndIncrSyncTick();
+  // Tick per tiering CoinGecko + tasso USDT/USD per la conversione dei
+  // prezzi exchange. Paralleli: nessuna latenza aggiunta al cron.
+  const [tick, usdtUsdRate] = await Promise.all([
+    getAndIncrSyncTick(),
+    getUsdtUsdRate(),
+  ]);
 
   // ── 1) Group-by-exchange routing (PR2 refactor Redis-first) ──────────
   // Ogni coin con `preferred_exchange + exchange_symbol` viene routato al
   // suo adapter. I coin senza mapping ricadono sul vecchio path CoinGecko.
   // Failure isolation per-exchange: se Binance e' down, gli altri (e
   // CoinGecko per i tail) continuano.
+  //
+  // Conversione USDT→USD: gli adapter quotano in USDT (BTCUSDT, ecc.).
+  // Moltiplichiamo il prezzo per il tasso USDT/USD per allinearci a
+  // CoinMarketCap/CoinGecko (USD reali). change24h (%) e marketCap NON
+  // si toccano: la percentuale è invariante alla valuta, il marketCap
+  // arriva da CoinGecko (già USD). Volume lasciato in USDT (0.15%
+  // irrilevante su una cifra di display).
   const exchangeGroups = groupByExchange(universe);
   let exchangePathUsed = false;
   for (const [exchangeId, inputs] of exchangeGroups) {
@@ -107,7 +119,12 @@ export async function runPricesSync(force = false): Promise<SyncResult> {
     if (!adapter || inputs.length === 0) continue;
     try {
       const map = await adapter.fetchCurrentPrices(inputs);
-      for (const [sym, q] of map) collected.set(sym, q);
+      for (const [sym, q] of map) {
+        collected.set(
+          sym,
+          usdtUsdRate === 1 ? q : { ...q, price: q.price * usdtUsdRate },
+        );
+      }
       exchangePathUsed = true;
     } catch (err) {
       const msg =

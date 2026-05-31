@@ -66,6 +66,11 @@ export type CommentsThreadProps = {
     lastName: string | null;
     avatarUrl: string | null;
     headline: string | null;
+    /** Account azienda del viewer (per il badge sull'optimistic comment).
+     *  Opzionali: i caller che non li passano ricadono su 'personal'. */
+    accountType?: "personal" | "business";
+    companyName?: string | null;
+    isVerifiedBusiness?: boolean;
   };
   canModerate?: boolean;
   /** Realtime mode (subscribe/poll/off) letta da app_settings dal caller. */
@@ -241,6 +246,9 @@ export function CommentsThread({
           lastName: viewerProfile?.lastName ?? null,
           avatarUrl: viewerProfile?.avatarUrl ?? null,
           headline: viewerProfile?.headline ?? null,
+          accountType: viewerProfile?.accountType ?? "personal",
+          companyName: viewerProfile?.companyName ?? null,
+          isVerifiedBusiness: viewerProfile?.isVerifiedBusiness ?? false,
         },
         body,
         editedAt: null,

@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostBody } from "./PostBody";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { displayNameForAuthor } from "@/lib/ui/author-display";
 import { FollowButton } from "@/components/social-graph/FollowButton";
 import {
   useFollowOverride,
@@ -92,13 +93,10 @@ function authorDisplayName(
   author: PostCardData["author"],
   fallback: string,
 ): string {
-  // Priorità: nome+cognome se presenti (UX più umana, ridotto noise di
-  // @username). Username come fallback SENZA chiocciola — la `@` resta
-  // riservata alle mention nel body. Pattern allineato a LinkedIn.
-  const full = [author.firstName, author.lastName].filter(Boolean).join(" ");
-  if (full) return full;
-  if (author.username) return author.username;
-  return fallback;
+  // companyName per gli account azienda, altrimenti nome+cognome, poi
+  // username (senza @, riservata alle mention). Logica centralizzata in
+  // displayNameForAuthor — vedi lib/ui/author-display.ts.
+  return displayNameForAuthor(author, fallback);
 }
 
 // Formatter time relativo. Riceve `t` (namespace "posts.time") + locale BCP-47
@@ -576,6 +574,7 @@ export function PostCard({
                 avatarUrl: post.author.avatarUrl,
               }}
               size={40}
+              verifiedBusiness={post.author.isVerifiedBusiness}
             />
           </Link>
           <div className="flex-1 min-w-0">

@@ -61,7 +61,9 @@ function generateCodeChallenge(verifier: string): string {
 // Step 1 — costruisce URL di redirect verso Google
 // ---------------------------------------------------------------------------
 
-export async function buildGoogleAuthUrl(): Promise<string> {
+export async function buildGoogleAuthUrl(
+  intent: "auth" | "link" = "auth",
+): Promise<string> {
   const { clientId, redirectUri } = await getConfig();
 
   const state         = crypto.randomBytes(24).toString("base64url");
@@ -78,6 +80,9 @@ export async function buildGoogleAuthUrl(): Promise<string> {
   };
   jar.set("oauth_state",         state,        cookieOpts);
   jar.set("oauth_code_verifier", codeVerifier, cookieOpts);
+  // intent distingue login/signup ("auth") dal collegamento di un provider
+  // a un account già loggato ("link"). Letto e cancellato dal callback.
+  jar.set("oauth_intent",        intent,       cookieOpts);
 
   const params = new URLSearchParams({
     client_id:             clientId,

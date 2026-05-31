@@ -1,14 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import {
-  FileCheck2,
-  Cookie,
-  Eye,
-  Download,
-  Trash2,
-  type LucideIcon,
-} from "lucide-react";
+import { FileCheck2, Cookie, Eye, Download, Trash2 } from "lucide-react";
 import { getUser } from "@/lib/db/queries";
 import { getAcceptedConsents, type ConsentSnapshot } from "@/lib/account/consents";
 import { listMyExportJobs } from "@/lib/account/gdpr-export";
@@ -18,12 +11,11 @@ import { getSystemPageSlugs } from "@/lib/db/pages-queries";
 import { getAppSettings } from "@/lib/db/settings-queries";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { sanitizeRichTextHtml } from "@/lib/utils/sanitize-html";
+import { Accordion } from "@/components/ui/accordion";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  SettingsAccordionItem,
+  settingsAccordionClass,
+} from "../_components/settings-accordion";
 import { ConsentsPanel, type ConsentVM } from "./_components/consents-panel";
 import { CookiesPanel } from "./_components/cookies-panel";
 import { DangerZone } from "./_components/danger-zone";
@@ -168,9 +160,9 @@ export default async function PrivacySettingsPage() {
     <Accordion
       type="multiple"
       defaultValue={defaultOpen}
-      className="overflow-hidden rounded-2xl border border-gc-line bg-gc-bg-2"
+      className={settingsAccordionClass}
     >
-      <PrivacyAccordionItem
+      <SettingsAccordionItem
         value="consents"
         icon={FileCheck2}
         title={t("consents.title")}
@@ -182,9 +174,9 @@ export default async function PrivacySettingsPage() {
           privacy={privacyVM}
           marketing={marketingVM}
         />
-      </PrivacyAccordionItem>
+      </SettingsAccordionItem>
 
-      <PrivacyAccordionItem
+      <SettingsAccordionItem
         value="cookies"
         icon={Cookie}
         title={t("cookies.title")}
@@ -208,10 +200,10 @@ export default async function PrivacySettingsPage() {
           policyUrl={slugs.cookie ? `/${slugs.cookie}` : null}
           services={cookieServices}
         />
-      </PrivacyAccordionItem>
+      </SettingsAccordionItem>
 
       {postsEnabled && postsDefaultVisibility ? (
-        <PrivacyAccordionItem
+        <SettingsAccordionItem
           value="posts"
           icon={Eye}
           title={t("posts.title")}
@@ -220,86 +212,27 @@ export default async function PrivacySettingsPage() {
           <PostsPrivacyPanel
             initialDefaultVisibility={postsDefaultVisibility}
           />
-        </PrivacyAccordionItem>
+        </SettingsAccordionItem>
       ) : null}
 
-      <PrivacyAccordionItem
+      <SettingsAccordionItem
         value="export"
         icon={Download}
         title={t("export.title")}
         subLabel={exportSubLabel}
       >
         <ExportPanel jobs={exportJobsVM} />
-      </PrivacyAccordionItem>
+      </SettingsAccordionItem>
 
-      <PrivacyAccordionItem
+      <SettingsAccordionItem
         value="danger"
         icon={Trash2}
         title={t("danger.title")}
         tone="danger"
       >
         <DangerZone hasPassword={user.passwordHash !== null} />
-      </PrivacyAccordionItem>
+      </SettingsAccordionItem>
     </Accordion>
-  );
-}
-
-function PrivacyAccordionItem({
-  value,
-  icon: Icon,
-  title,
-  subLabel,
-  attention,
-  tone,
-  children,
-}: {
-  value: string;
-  icon: LucideIcon;
-  title: string;
-  subLabel?: string | null;
-  attention?: boolean;
-  tone?: "danger";
-  children: React.ReactNode;
-}) {
-  const iconWrapClass =
-    tone === "danger"
-      ? "bg-gc-neg/10 text-gc-neg"
-      : "bg-gc-bg text-gc-fg-3";
-  return (
-    <AccordionItem
-      value={value}
-      className="border-b border-gc-line last:border-b-0"
-    >
-      <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-gc-bg-3/40 transition-colors rounded-none">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconWrapClass}`}
-          >
-            <Icon size={18} strokeWidth={1.7} aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-gc-fg truncate">
-                {title}
-              </span>
-              {attention ? (
-                <span
-                  aria-hidden
-                  className="inline-block h-1.5 w-1.5 rounded-full bg-gc-warning-fg shrink-0"
-                  title="Richiede attenzione"
-                />
-              ) : null}
-            </div>
-            {subLabel ? (
-              <p className="text-[12px] text-gc-fg-3 truncate mt-0.5">
-                {subLabel}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-5 pt-1 pb-5">{children}</AccordionContent>
-    </AccordionItem>
   );
 }
 

@@ -35,11 +35,8 @@ export function SessionsList({ sessions }: { sessions: SessionVM[] }) {
   const t = useTranslations("core.settings.security.sessions");
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-[15px] font-semibold text-gc-fg">{t("title")}</h2>
-        <p className="text-[12.5px] text-gc-fg-3 mt-0.5">{t("description")}</p>
-      </div>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-gc-fg-3">{t("description")}</p>
 
       {sessions.length === 0 ? (
         <div className="rounded-2xl border border-gc-line bg-gc-bg-2 p-6 text-center">
@@ -54,7 +51,7 @@ export function SessionsList({ sessions }: { sessions: SessionVM[] }) {
       )}
 
       {otherCount > 0 && <RevokeAllOthersButton otherCount={otherCount} />}
-    </section>
+    </div>
   );
 }
 

@@ -460,6 +460,18 @@
           "defaultSubject": "A strike was revoked on your '{{appName}}' account",
           "defaultBody": "Hi '{{userName}}',\n\nOne of our moderators revoked one of your strikes after reviewing the case.\n\nRemaining active strikes: '{{activeCountAfter}}'/3.\n\nIf your account was suspended and the revocation brought the counter back below 3, access has been automatically reinstated.",
           "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "businessapproved": {
+          "label": "Business · request approved",
+          "defaultSubject": "Your business account on '{{appName}}' is verified",
+          "defaultBody": "Hi '{{userName}}',\n\nGreat news! The verification request for '{{companyName}}' has been approved.\n\nYour profile is now a verified business account: it shows the business badge, the company name, and the link to your official website. The community now recognizes you as a company.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "businessrejected": {
+          "label": "Business · request rejected",
+          "defaultSubject": "Update on your business account request on '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nWe reviewed the verification request for '{{companyName}}', but we can't approve it for now.\n\nReason: '{{reason}}'\n\nYou can fix the details and submit a new request from your account settings.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
         }
       }
     },
@@ -1248,6 +1260,8 @@
       "filterVerifiedAll": "All (email verification)",
       "filterVerifiedYes": "✓ Verified email",
       "filterVerifiedNo": "✗ Unverified email",
+      "filterTypeAll": "All (account type)",
+      "filterTypeBusiness": "Business only",
       "filterStatusActive": "Active accounts",
       "filterStatusWithStrikes": "With active strikes",
       "filterStatusDeletionRequested": "Deletion requested",
@@ -1325,6 +1339,15 @@
         "tabSessions": "Sessions",
         "tabActivity": "Activity",
         "tabConsents": "Consents",
+        "tabBusiness": "Business",
+        "business": {
+          "heading": "Business account",
+          "companyName": "Company name",
+          "website": "Website",
+          "sector": "Sector",
+          "vat": "VAT number",
+          "verifiedAt": "Verified on"
+        },
         "accountInfoHeading": "Account Information",
         "labelEmail": "Email",
         "labelJoinedOn": "Joined on",
@@ -1724,6 +1747,32 @@
       "colIp": "IP",
       "colDate": "Subscribed on",
       "exportCsv": "Export CSV"
+    },
+    "business": {
+      "metaTitle": "Business requests",
+      "pageTitle": "Business requests",
+      "pageSubtitle": "{count, plural, =0 {No pending requests} one {# pending request} other {# pending requests}} to review.",
+      "emptyState": "No pending business account requests.",
+      "colCompany": "Company",
+      "colSector": "Sector",
+      "colVat": "VAT",
+      "colUser": "Requested by",
+      "colActions": "Actions",
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm rejection",
+      "rejectReasonLabel": "Rejection reason (optional, shown to the user)",
+      "rejectReasonPlaceholder": "e.g. VAT number doesn't match the company website.",
+      "approveConfirmTitle": "Approve business account",
+      "approveConfirmMessage": "The profile will become a verified business account. Continue?",
+      "approvedToast": "Business account approved.",
+      "rejectedToast": "Request rejected.",
+      "errors": {
+        "not_found": "Request not found.",
+        "already_reviewed": "This request was already reviewed.",
+        "invalid": "Invalid request."
+      }
     },
     "permissions": {
       "metaTitle": "Users / Permissions",
@@ -3354,6 +3403,7 @@
     "users-permissions": "Permissions",
     "users-sessions": "Sessions",
     "users-waiting-list": "Waiting list",
+    "users-business": "Business",
     "content-group": "Content",
     "content-pages": "Pages",
     "content-templates": "Templates",

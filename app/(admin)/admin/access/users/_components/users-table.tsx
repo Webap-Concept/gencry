@@ -5,7 +5,7 @@ import { getAdminRelPath } from "@/lib/admin-nav";
 import { buildAdminPathFromSlug } from "@/lib/admin-paths-shared";
 import type { AdminUsersStatus } from "@/lib/db/admin-queries";
 import type { AdminUser } from "@/lib/db/admin-queries";
-import { ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
+import { Building2, ShieldBan, ShieldCheck, Undo2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -174,12 +174,21 @@ function UserRow({
             )}
           </Link>
           <div>
-            <Link
-              href={`${usersBase}/${user.id}`}
-              className="text-sm font-medium transition-colors leading-none admin-user-link"
-              style={{ color: "var(--admin-accent)" }}>
-              {user.username ? `@${user.username}` : user.email}
-            </Link>
+            <span className="flex items-center gap-1.5">
+              <Link
+                href={`${usersBase}/${user.id}`}
+                className="text-sm font-medium transition-colors leading-none admin-user-link"
+                style={{ color: "var(--admin-accent)" }}>
+                {user.username ? `@${user.username}` : user.email}
+              </Link>
+              {user.accountType === "business" && user.companyVerifiedAt && (
+                <Building2
+                  size={13}
+                  style={{ color: "var(--admin-accent)" }}
+                  aria-label="Business"
+                />
+              )}
+            </span>
             <p
               className="text-xs mt-0.5"
               style={{ color: "var(--admin-text-faint)" }}>

@@ -14,7 +14,15 @@ import {
   requestEmailChange,
 } from "@/lib/account/email-change";
 import { changePassword } from "@/lib/account/password-change";
+import { unlinkOAuthAccount } from "@/lib/account/oauth-links";
+import {
+  revertToPersonal,
+  submitBusinessUpgradeRequest,
+} from "@/lib/account/business-profile";
+import { invalidateAuthorPostsCache } from "@/lib/modules/posts/queries";
+import { isSupportedProvider } from "@/lib/auth/oauth/providers";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
+import { revalidatePath } from "next/cache";
 
 // ---------------------------------------------------------------------------
 // Cambio email — step 1: richiedi cambio
@@ -171,5 +179,81 @@ export const changePasswordAction = validatedActionWithUser(
     return {
       success: tAct("passwordUpdated", { count: result.revokedOtherSessions }),
     } satisfies ActionState;
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Scollega un provider OAuth (es. Google)
+// ---------------------------------------------------------------------------
+
+const unlinkOAuthSchema = z.object({
+  provider: z.string().trim().min(1).max(32),
+});
+
+export const unlinkOAuthAction = validatedActionWithUser(
+  unlinkOAuthSchema,
+  async (data, _formData, user) => {
+    const tAct = await getTranslations("core.settings.actions");
+    if (!isSupportedProvider(data.provider)) {
+      return { error: tAct("oauth.errors.not_linked") } satisfies ActionState;
+    }
+
+    const result = await unlinkOAuthAccount(user.id, data.provider);
+    if (!result.ok) {
+      return {
+        error: tAct(`oauth.errors.${result.error}`),
+      } satisfies ActionState;
+    }
+
+    revalidatePath("/settings/account");
+    return { success: tAct("oauth.unlinked") } satisfies ActionState;
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Account azienda — richiesta di upgrade + downgrade
+// ---------------------------------------------------------------------------
+
+const businessUpgradeSchema = z.object({
+  companyName: z.string().trim().min(2, "validation.zod.required").max(120),
+  companyWebsite: z.string().trim().min(3, "validation.zod.required").max(255),
+  companySector: z.string().trim().min(1, "validation.zod.required").max(40),
+  vatNumber: z.string().trim().min(1, "validation.zod.required").max(32),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const submitBusinessUpgradeAction = validatedActionWithUser(
+  businessUpgradeSchema,
+  async (data, _formData, user) => {
+    const tAct = await getTranslations("core.settings.actions");
+    const result = await submitBusinessUpgradeRequest(user.id, {
+      companyName: data.companyName,
+      companyWebsite: data.companyWebsite,
+      companySector: data.companySector,
+      vatNumber: data.vatNumber,
+      note: data.note ?? null,
+    });
+    if (!result.ok) {
+      return {
+        error: tAct(`business.errors.${result.error}`),
+      } satisfies ActionState;
+    }
+    revalidatePath("/settings/account");
+    return { success: tAct("business.submitted") } satisfies ActionState;
+  },
+);
+
+const revertToPersonalSchema = z.object({});
+
+export const revertToPersonalAction = validatedActionWithUser(
+  revertToPersonalSchema,
+  async (_data, _formData, user) => {
+    const tAct = await getTranslations("core.settings.actions");
+    await revertToPersonal(user.id);
+    // Il feed denormalizza badge/nome business nella post-cache: invalidare
+    // i post dell'utente così il downgrade è visibile subito.
+    await invalidateAuthorPostsCache(user.id);
+    revalidatePath("/settings/account");
+    return { success: tAct("business.reverted") } satisfies ActionState;
   },
 );

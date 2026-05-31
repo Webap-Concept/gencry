@@ -32,6 +32,7 @@ import { getWatchlistCountForSymbol } from "@/lib/modules/watchlist/queries";
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import "server-only";
 
@@ -61,8 +62,10 @@ export default async function ExplorePage({
 
   const user = await getUser();
   if (!user) {
-    // Anonimi non dovrebbero atterrare qui (rotta protected), ma defensive.
-    throw new Error("Explore rendered without authenticated user");
+    // Anonimi → login. Il layout (protected) lascia passare i guest senza
+    // shell (per la landing su `/`), quindi il gate auth è per-pagina come
+    // nel resto di (protected) — vedi watchlist/notifiche/settings.
+    redirect("/sign-in");
   }
 
   // Carica la prima pagina del feed scelto + (se ticker) lo snapshot

@@ -1,4 +1,7 @@
 {
+  "badges": {
+    "businessProfile": "Business profile"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",
@@ -137,6 +140,60 @@
         "confirmLabel": "Confirm new password",
         "submitIdle": "Change password",
         "submitPending": "Updating…"
+      },
+      "connectedAccounts": {
+        "sectionTitle": "Connected accounts",
+        "sectionDescription": "Link a provider to sign in with one click. You can disconnect it anytime, as long as you keep another way to sign in.",
+        "notConnected": "Not connected",
+        "linkedOn": "Connected on {date}",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "lastMethodHint": "Set a password first to disconnect this account.",
+        "successLinked": "{provider} connected.",
+        "errorAlreadyLinked": "That account is already linked to another profile.",
+        "errorGeneric": "Couldn't connect the account. Please try again."
+      }
+    },
+    "business": {
+      "sectionTitle": "Business profile",
+      "sectionDescription": "Turn your account into a verified company profile, recognized across the community.",
+      "formIntro": "Tell us about your company. We'll review the details (VAT and website) before activating the verified business badge.",
+      "companyNameLabel": "Company name",
+      "companyNamePlaceholder": "Acme Inc.",
+      "websiteLabel": "Official website",
+      "websitePlaceholder": "https://acme.com",
+      "sectorLabel": "Sector",
+      "sectorPlaceholder": "Select a sector",
+      "vatLabel": "VAT number",
+      "vatPlaceholder": "e.g. IT01234567890",
+      "vatHelp": "VAT and notes are private and used only for verification — never shown on your public profile.",
+      "noteLabel": "Notes for verification (optional)",
+      "notePlaceholder": "Anything that helps us verify your company.",
+      "submitIdle": "Request verification",
+      "submitPending": "Sending…",
+      "rejectedTitle": "Your previous request was not approved.",
+      "rejectedReason": "Reason: {reason}",
+      "pendingTitle": "Request under review",
+      "pendingDescription": "We're verifying your company details. You'll get an email with the outcome.",
+      "approvedTitle": "Verified business account",
+      "fieldName": "Company",
+      "fieldWebsite": "Website",
+      "fieldSector": "Sector",
+      "revert": "Switch back to personal",
+      "revertConfirm": "Confirm",
+      "revertCancel": "Cancel",
+      "sectors": {
+        "exchange": "Exchange",
+        "wallet": "Wallet",
+        "defi": "DeFi",
+        "nft": "NFT",
+        "mining": "Mining",
+        "media": "Media / News",
+        "education": "Education",
+        "fund": "Fund / VC",
+        "other": "Other"
       }
     },
     "profile": {
@@ -220,6 +277,7 @@
       },
       "sessions": {
         "title": "Active sessions",
+        "subLabel": "{count, plural, =0 {No active sessions} one {# active session} other {# active sessions}}",
         "description": "Active sign-ins to your account right now. Revoking a session signs out that device immediately. The session you're using now can't be revoked from here — use sign out.",
         "empty": "No active sessions.",
         "current": "Current session",
@@ -233,6 +291,7 @@
       },
       "devices": {
         "title": "Trusted devices",
+        "subLabel": "{count, plural, =0 {No trusted devices} one {# trusted device} other {# trusted devices}}",
         "description": "From these devices you can sign in without receiving an email verification code. This is different from sessions above: revoking a device doesn't close any active session, but at the next sign-in from there we'll ask for the OTP code again.",
         "empty": "No trusted devices registered.",
         "current": "This device",
@@ -413,6 +472,26 @@
           "emailJustTaken": "This email is already in use.",
           "noPending": "No pending email change. Request one before confirming.",
           "emailJustRegistered": "This email was just registered by another user."
+        }
+      },
+      "oauth": {
+        "unlinked": "Account disconnected.",
+        "errors": {
+          "last_method": "You can't disconnect your only sign-in method. Set a password first.",
+          "not_linked": "This provider isn't connected to your account.",
+          "already_linked_other": "That account is already linked to another profile."
+        }
+      },
+      "business": {
+        "submitted": "Request sent. We'll email you with the outcome.",
+        "reverted": "Your profile is back to personal.",
+        "errors": {
+          "already_business": "Your account is already a verified business.",
+          "pending_exists": "You already have a request under review.",
+          "invalid_name": "Enter a valid company name.",
+          "invalid_sector": "Select a valid sector.",
+          "invalid_website": "Enter a valid website URL.",
+          "invalid_vat": "Enter a valid VAT number (8–20 alphanumeric characters)."
         }
       }
     }

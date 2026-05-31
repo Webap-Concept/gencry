@@ -1,30 +1,31 @@
 /**
  * Generator: alert per cron job in errore.
  *
- * Pattern reconciliation: per ogni jobname nel filtro, leggiamo gli
- * ultimi N run da cron.job_run_details. Se l'ULTIMO run è failed
- * emettiamo un candidato; appena arriva un run riuscito,
- * l'auto-resolve del dispatcher chiude la notifica.
+ * Sorgente: la Dead Letter Queue di QStash. Dopo la migrazione da pg_cron,
+ * i cron girano come schedule QStash che chiamano `/api/cron/*`; quando una
+ * invocazione esaurisce i retry QStash la sposta in DLQ. Una entry DLQ =
+ * un fallimento PERSISTENTE (non un blip). Mappiamo ogni entry recente
+ * (finestra `DLQ_LOOKBACK_MS`) nella shape `CronJobRow` come run "failed",
+ * così la logica pura `computeCronFailureCandidates` resta invariata. Quando
+ * le entry invecchiano oltre la finestra, l'auto-resolve del dispatcher
+ * chiude la notifica.
  *
  * Scoping: il framework supporta un solo `requiredPermission` per
  * generator. Per rispettare la separazione core/moduli, esponiamo
  * un factory `makeCronFailuresGenerator` e registriamo:
- *   - 1 generator "core" (admin:settings) → job core + untracked
+ *   - 1 generator "core" (admin:settings) → job non posseduti da moduli
  *   - 1 generator per modulo installato (modules:<slug>) → solo job
  *     posseduti dal modulo
  * Tutti i generator condividono lo stesso `type` (cron_job_failure)
  * così l'auto-resolve del dispatcher li tratta come un'unica
- * collezione.
+ * collezione. La DLQ è letta una sola volta per tick (React.cache).
  */
-import { db } from "@/lib/db/drizzle";
-import { sql } from "drizzle-orm";
 import { buildAdminPath } from "@/lib/admin-paths";
+import { getCronJobMeta, getModuleJobnames } from "@/lib/cron/registry";
 import {
-  CORE_CRON_JOBS,
-  getAllRegisteredJobnames,
-  getCronJobMeta,
-  getModuleJobnames,
-} from "@/lib/cron/registry";
+  getDlqFailuresByJobname,
+  type QStashDlqFailure,
+} from "@/lib/cron/qstash-client";
 import { INSTALLED_MODULES } from "@/lib/modules/registry";
 import type {
   NotificationCandidate,
@@ -121,83 +122,39 @@ function truncate(s: string, max: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// DB access
+// DLQ access (QStash)
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Carica jobs + ultimi 10 run per ogni jobname richiesto. Filtro
- * jobname-based per non incrociare job di altri moduli/generator.
- *
- * Nota: pg_cron espone cron.job e cron.job_run_details solo al ruolo
- * postgres (la connessione Drizzle attuale). Errori sono inghiottiti
- * dal dispatcher: se la query rompe non emettiamo candidati e nessuna
- * notifica esistente viene auto-resolved per errore.
+ * Adatta i fallimenti DLQ di QStash nella shape `CronJobRow` attesa dalla
+ * logica pura. In DLQ ci sono SOLO fallimenti (mai successi): ogni entry
+ * diventa un run `status: "failed"`. Il conteggio `consecutive` calcolato a
+ * valle = numero di fallimenti recenti nella finestra. Filtra per i jobname
+ * di competenza del generator chiamante.
  */
-async function fetchJobsWithRuns(jobnames: string[]): Promise<CronJobRow[]> {
-  if (jobnames.length === 0) return [];
-
-  // NB: NON usiamo `ANY(${jobnames}::text[])`. Drizzle 0.45 espande gli
-  // array JS in placeholder multipli `($1, $2, $3)`, e Postgres parsa
-  // quella tupla come record — il cast `record::text[]` fallisce con
-  // "cannot cast type record to text[]" (#194 ci aveva provato a fixare
-  // col cast esplicito, ma il bug è prima del cast). Usiamo `IN (...)`
-  // con `sql.join` che produce SQL valido senza dipendere dal binding
-  // di array nativi PG.
-  const inList = sql.join(
-    jobnames.map((n) => sql`${n}`),
-    sql`, `,
-  );
-
-  const rows = await db.execute(sql`
-    SELECT
-      j.jobid,
-      j.jobname,
-      j.active,
-      r.status,
-      r.start_time,
-      r.return_message
-    FROM cron.job j
-    LEFT JOIN LATERAL (
-      SELECT status, start_time, return_message
-      FROM cron.job_run_details
-      WHERE jobid = j.jobid
-      ORDER BY start_time DESC NULLS LAST
-      LIMIT 10
-    ) r ON TRUE
-    WHERE j.jobname IN (${inList})
-    ORDER BY j.jobname, r.start_time DESC NULLS LAST
-  `);
-
-  type FlatRow = {
-    jobid: number;
-    jobname: string;
-    active: boolean;
-    status: string | null;
-    start_time: Date | string | null;
-    return_message: string | null;
-  };
-
-  const byJobname = new Map<string, CronJobRow>();
-  for (const raw of rows as unknown as FlatRow[]) {
-    let entry = byJobname.get(raw.jobname);
-    if (!entry) {
-      entry = {
-        jobid: Number(raw.jobid),
-        jobname: raw.jobname,
-        active: Boolean(raw.active),
-        runs: [],
-      };
-      byJobname.set(raw.jobname, entry);
-    }
-    if (raw.status) {
-      entry.runs.push({
-        status: String(raw.status),
-        startTime: raw.start_time ? new Date(raw.start_time) : null,
-        returnMessage: raw.return_message ?? null,
-      });
-    }
+function dlqToRows(
+  jobnames: Set<string>,
+  dlqByJob: Map<string, QStashDlqFailure[]>,
+): CronJobRow[] {
+  const rows: CronJobRow[] = [];
+  for (const name of jobnames) {
+    const failures = dlqByJob.get(name);
+    if (!failures || failures.length === 0) continue;
+    rows.push({
+      jobid: 0, // QStash non ha un jobid numerico; il jobname è l'identità.
+      jobname: name,
+      active: true,
+      runs: failures.map((f) => ({
+        status: "failed",
+        startTime: new Date(f.createdAt),
+        returnMessage:
+          f.responseStatus !== null
+            ? `HTTP ${f.responseStatus}${f.responseBody ? ` — ${f.responseBody}` : ""}`
+            : (f.responseBody ?? null),
+      })),
+    });
   }
-  return Array.from(byJobname.values());
+  return rows;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -224,49 +181,46 @@ function makeCronFailuresGenerator({
     requiredPermission,
     run: async () => {
       if (jobnames.size === 0) return [];
-      const [jobs, link] = await Promise.all([
-        fetchJobsWithRuns(Array.from(jobnames)),
+      const [dlqByJob, link] = await Promise.all([
+        getDlqFailuresByJobname(),
         buildAdminPath(subPath),
       ]);
-      return computeCronFailureCandidates(jobs, () => link);
+      return computeCronFailureCandidates(
+        dlqToRows(jobnames, dlqByJob),
+        () => link,
+      );
     },
   };
 }
 
-/** Generator core: job dichiarati core + eventuali "Untracked"
- *  presenti in pg_cron e non in nessun manifest. */
+/** Generator core: tutti i fallimenti DLQ NON posseduti da un modulo
+ *  installato (= job core + eventuali schedule "untracked" non in nessun
+ *  manifest). I job dei moduli sono coperti dai rispettivi generator. */
 export const coreCronFailuresGenerator: NotificationGenerator = {
   type: CRON_FAILURE_TYPE,
   requiredPermission: "admin:settings",
   run: async () => {
-    // I core jobnames sono noti staticamente; per gli "untracked"
-    // dobbiamo prima leggere cron.job e filtrare via i moduli.
-    const registered = getAllRegisteredJobnames();
-    const allJobsRows = await db.execute(sql`
-      SELECT jobname FROM cron.job WHERE jobname IS NOT NULL
-    `);
-    const allJobnames = new Set(
-      (allJobsRows as unknown as Array<{ jobname: string }>).map((r) => r.jobname),
-    );
+    const [dlqByJob, link] = await Promise.all([
+      getDlqFailuresByJobname(),
+      buildAdminPath("/settings/cron"),
+    ]);
 
     const moduleOwned = new Set<string>();
     for (const m of INSTALLED_MODULES) {
       for (const c of m.cronJobs) moduleOwned.add(c.jobname);
     }
 
-    const coreNames = new Set(CORE_CRON_JOBS.map((c) => c.jobname));
-    const untracked = new Set<string>();
-    for (const n of allJobnames) {
-      if (!registered.has(n) && !moduleOwned.has(n)) untracked.add(n);
+    // Il core prende ogni fallimento DLQ che nessun modulo possiede.
+    const coreTargets = new Set<string>();
+    for (const jobname of dlqByJob.keys()) {
+      if (!moduleOwned.has(jobname)) coreTargets.add(jobname);
     }
+    if (coreTargets.size === 0) return [];
 
-    const targets = new Set<string>([...coreNames, ...untracked]);
-    if (targets.size === 0) return [];
-    const [jobs, link] = await Promise.all([
-      fetchJobsWithRuns(Array.from(targets)),
-      buildAdminPath("/settings/cron"),
-    ]);
-    return computeCronFailureCandidates(jobs, () => link);
+    return computeCronFailureCandidates(
+      dlqToRows(coreTargets, dlqByJob),
+      () => link,
+    );
   },
 };
 

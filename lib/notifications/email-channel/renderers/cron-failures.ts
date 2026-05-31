@@ -1,9 +1,9 @@
 // lib/notifications/email-channel/renderers/cron-failures.ts
 //
 // Renderer per le notifiche di tipo `cron_job_failure` (popolate dal
-// generator `cron-failures.ts` quando un job pg_cron fallisce in modo
-// persistente). 1 email = 1 digest che riassume tutti i job falliti
-// dal lastSentAt.
+// generator `cron-failures.ts` quando un cron fallisce in modo persistente
+// ed entra nella Dead Letter Queue di QStash). 1 email = 1 digest che
+// riassume tutti i job falliti dal lastSentAt.
 import "server-only";
 import { buildAdminPath } from "@/lib/admin-paths";
 import { getAppSettings } from "@/lib/db/settings-queries";
@@ -66,7 +66,9 @@ export const cronFailuresRenderer: NotificationRenderer = {
         const meta = (n.metadata ?? {}) as Record<string, unknown>;
         const jobname = typeof meta.jobname === "string" ? meta.jobname : "—";
         const lastError =
-          typeof meta.lastError === "string" ? meta.lastError : null;
+          typeof meta.lastErrorMessage === "string"
+            ? meta.lastErrorMessage
+            : null;
         return `
 <tr>
   <td style="padding:12px 16px;border-bottom:1px solid ${t.border};vertical-align:top">

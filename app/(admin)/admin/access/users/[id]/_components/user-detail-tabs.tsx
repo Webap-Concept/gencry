@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Key, Monitor, ScrollText, User } from "lucide-react";
+import { Activity, Building2, Key, Monitor, ScrollText, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -10,6 +10,8 @@ type Props = {
   accessContent: React.ReactNode;
   sessionsContent: React.ReactNode;
   consentsContent: React.ReactNode;
+  /** Presente solo se l'utente è un account azienda. */
+  businessContent?: React.ReactNode;
   overridesCount: number;
   activeSessionsCount: number;
   consentsCount: number;
@@ -21,17 +23,22 @@ export function UserDetailTabs({
   accessContent,
   sessionsContent,
   consentsContent,
+  businessContent,
   overridesCount,
   activeSessionsCount,
   consentsCount,
 }: Props) {
   const t = useTranslations("admin.access.users.detail");
   const [active, setActive] = useState<
-    "info" | "access" | "sessions" | "activity" | "consents"
+    "info" | "access" | "sessions" | "activity" | "consents" | "business"
   >("info");
 
   const tabs = [
     { id: "info" as const, label: t("tabInfo"), icon: User },
+    // Tab Business: solo per gli account azienda.
+    ...(businessContent
+      ? [{ id: "business" as const, label: t("tabBusiness"), icon: Building2 }]
+      : []),
     {
       id: "access" as const,
       label: t("tabAccess"),
@@ -91,6 +98,7 @@ export function UserDetailTabs({
 
       {/* Tab content */}
       {active === "info" && infoContent}
+      {active === "business" && businessContent}
       {active === "access" && accessContent}
       {active === "sessions" && sessionsContent}
       {active === "activity" && activityContent}

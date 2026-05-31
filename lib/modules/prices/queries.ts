@@ -242,6 +242,7 @@ const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]>
       marketCap:    pricesCoins.marketCap,
       marketCapRank: pricesCoins.marketCapRank,
       category:     pricesCoins.category,
+      weeklySparkline: pricesCoins.weeklySparkline,
     })
     .from(pricesCoins)
     .where(eq(pricesCoins.isActive, true))
@@ -267,7 +268,7 @@ const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]>
         price:         q.price,
         change24h:     q.change24h,
         volume24h:     q.volume24h,
-        weeklySparkline: q.sparkline7d,
+        weeklySparkline: c.weeklySparkline,
         lastUpdated:   updatedAt,
       };
     })
@@ -301,6 +302,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
       marketCap:     pricesCoins.marketCap,
       marketCapRank: pricesCoins.marketCapRank,
       category:      pricesCoins.category,
+      weeklySparkline: pricesCoins.weeklySparkline,
     })
     .from(pricesCoins)
     .where(eq(pricesCoins.symbol, upper))
@@ -323,7 +325,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
     price:         q.price,
     change24h:     q.change24h,
     volume24h:     q.volume24h,
-    weeklySparkline: q.sparkline7d,
+    weeklySparkline: c.weeklySparkline,
     lastUpdated:   hot ? new Date(hot.updatedAt) : new Date(),
   };
 };

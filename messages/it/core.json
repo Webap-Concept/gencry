@@ -1,4 +1,7 @@
 {
+  "badges": {
+    "businessProfile": "Profilo Business"
+  },
   "common": {
     "cancel": "Annulla",
     "save": "Salva",
@@ -137,6 +140,60 @@
         "confirmLabel": "Conferma nuova password",
         "submitIdle": "Cambia password",
         "submitPending": "Aggiornamento…"
+      },
+      "connectedAccounts": {
+        "sectionTitle": "Account collegati",
+        "sectionDescription": "Collega un provider per accedere con un clic. Puoi scollegarlo quando vuoi, purché ti resti un altro modo per accedere.",
+        "notConnected": "Non collegato",
+        "linkedOn": "Collegato il {date}",
+        "connect": "Collega",
+        "disconnect": "Scollega",
+        "confirm": "Conferma",
+        "cancel": "Annulla",
+        "lastMethodHint": "Imposta prima una password per scollegare questo account.",
+        "successLinked": "{provider} collegato.",
+        "errorAlreadyLinked": "Questo account è già collegato a un altro profilo.",
+        "errorGeneric": "Impossibile collegare l'account. Riprova."
+      }
+    },
+    "business": {
+      "sectionTitle": "Profilo azienda",
+      "sectionDescription": "Trasforma il tuo account in un profilo azienda verificato, riconosciuto in tutta la community.",
+      "formIntro": "Raccontaci della tua azienda. Verificheremo i dati (P.IVA e sito) prima di attivare il badge azienda verificata.",
+      "companyNameLabel": "Ragione sociale",
+      "companyNamePlaceholder": "Acme S.r.l.",
+      "websiteLabel": "Sito ufficiale",
+      "websitePlaceholder": "https://acme.com",
+      "sectorLabel": "Settore",
+      "sectorPlaceholder": "Seleziona un settore",
+      "vatLabel": "Partita IVA",
+      "vatPlaceholder": "es. IT01234567890",
+      "vatHelp": "P.IVA e note sono private e usate solo per la verifica — non vengono mai mostrate sul profilo pubblico.",
+      "noteLabel": "Note per la verifica (opzionale)",
+      "notePlaceholder": "Qualsiasi informazione utile a verificare la tua azienda.",
+      "submitIdle": "Richiedi verifica",
+      "submitPending": "Invio…",
+      "rejectedTitle": "La tua richiesta precedente non è stata approvata.",
+      "rejectedReason": "Motivo: {reason}",
+      "pendingTitle": "Richiesta in revisione",
+      "pendingDescription": "Stiamo verificando i dati della tua azienda. Riceverai un'email con l'esito.",
+      "approvedTitle": "Account azienda verificato",
+      "fieldName": "Azienda",
+      "fieldWebsite": "Sito",
+      "fieldSector": "Settore",
+      "revert": "Torna a profilo personale",
+      "revertConfirm": "Conferma",
+      "revertCancel": "Annulla",
+      "sectors": {
+        "exchange": "Exchange",
+        "wallet": "Wallet",
+        "defi": "DeFi",
+        "nft": "NFT",
+        "mining": "Mining",
+        "media": "Media / News",
+        "education": "Education",
+        "fund": "Fondo / VC",
+        "other": "Altro"
       }
     },
     "profile": {
@@ -220,6 +277,7 @@
       },
       "sessions": {
         "title": "Sessioni attive",
+        "subLabel": "{count, plural, =0 {Nessuna sessione attiva} one {# sessione attiva} other {# sessioni attive}}",
         "description": "Accessi attivi al tuo account in questo momento. Revocando una sessione esci immediatamente da quel dispositivo. La sessione che stai usando ora non può essere revocata da qui — per uscire fai logout.",
         "empty": "Nessuna sessione attiva.",
         "current": "Sessione corrente",
@@ -233,6 +291,7 @@
       },
       "devices": {
         "title": "Dispositivi fidati",
+        "subLabel": "{count, plural, =0 {Nessun dispositivo fidato} one {# dispositivo fidato} other {# dispositivi fidati}}",
         "description": "Da questi dispositivi puoi accedere senza ricevere il codice di verifica via email. È diverso dalle sessioni qui sopra: revocare un dispositivo non chiude alcuna sessione attiva, ma al prossimo login da lì ti chiederemo il codice OTP.",
         "empty": "Nessun dispositivo fidato registrato.",
         "current": "Questo dispositivo",
@@ -413,6 +472,26 @@
           "emailJustTaken": "Questa email è già in uso.",
           "noPending": "Nessun cambio email in attesa. Richiedilo prima di confermare.",
           "emailJustRegistered": "Questa email è stata appena registrata da un altro utente."
+        }
+      },
+      "oauth": {
+        "unlinked": "Account scollegato.",
+        "errors": {
+          "last_method": "Non puoi scollegare il tuo unico metodo di accesso. Imposta prima una password.",
+          "not_linked": "Questo provider non è collegato al tuo account.",
+          "already_linked_other": "Questo account è già collegato a un altro profilo."
+        }
+      },
+      "business": {
+        "submitted": "Richiesta inviata. Ti avviseremo via email con l'esito.",
+        "reverted": "Il tuo profilo è tornato personale.",
+        "errors": {
+          "already_business": "Il tuo account è già un'azienda verificata.",
+          "pending_exists": "Hai già una richiesta in revisione.",
+          "invalid_name": "Inserisci una ragione sociale valida.",
+          "invalid_sector": "Seleziona un settore valido.",
+          "invalid_website": "Inserisci un URL del sito valido.",
+          "invalid_vat": "Inserisci una Partita IVA valida (8–20 caratteri alfanumerici)."
         }
       }
     }

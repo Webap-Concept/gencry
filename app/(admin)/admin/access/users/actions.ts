@@ -59,6 +59,18 @@ async function syncMentionIndexFor(userId: string): Promise<void> {
   }
 }
 
+/** Invalida la post-cache dell'utente (avatar denormalizzato nel feed). */
+async function invalidatePostsCacheFor(userId: string): Promise<void> {
+  try {
+    const { invalidateAuthorPostsCache } = await import(
+      "@/lib/modules/posts/queries"
+    );
+    await invalidateAuthorPostsCache(userId);
+  } catch (err) {
+    console.warn("[admin/users] invalidateAuthorPostsCache failed:", err);
+  }
+}
+
 export async function banUser(userId: string, reason?: string) {
   await requireAdmin();
   const t = await getTranslations("admin.access.users.actionErrors");
@@ -374,6 +386,8 @@ export async function adminUpdateUserAvatar(
     .set({ avatarUrl: result.url, updatedAt: new Date() })
     .where(eq(userProfiles.userId, targetUserId));
 
+  await invalidatePostsCacheFor(targetUserId);
+
   // Audit log sull'utente target — admin che visita la detail page lo vede
   // nella tab Activity. L'utente NON ha UI di propri activity log lato
   // frontend (decisione product 2026-05-27).
@@ -411,6 +425,8 @@ export async function adminRemoveUserAvatar(
     .update(userProfiles)
     .set({ avatarUrl: null, updatedAt: new Date() })
     .where(eq(userProfiles.userId, targetUserId));
+
+  await invalidatePostsCacheFor(targetUserId);
 
   // Best-effort R2 delete: errore loggato ma non blocca la action
   // (orphan e' recuperabile manualmente o via cleanup futuro).

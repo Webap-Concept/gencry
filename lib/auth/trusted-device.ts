@@ -3,7 +3,7 @@ import { db } from "@/lib/db/drizzle";
 import { trustedDevices } from "@/lib/db/schema";
 import { randomUUID } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 const DEVICE_COOKIE = "device_token";
@@ -64,15 +64,51 @@ export async function isTrustedDevice(
   return false;
 }
 
+/**
+ * Registra il device come fidato. Dedup per (userId, userAgent): se esiste
+ * già un device con lo stesso browser per questo utente, ne AGGIORNA il
+ * token (+ lastUsedAt) invece di crearne uno nuovo, e consolida eventuali
+ * duplicati pregressi dello stesso browser (cleanup progressivo).
+ *
+ * Senza questo la tabella accumulava un record per ogni OTP (la vecchia
+ * onConflictDoNothing era un no-op: nessun unique constraint su cui fare
+ * conflitto). userAgent assente → fallback all'insert puro (non
+ * deduplicabile in modo affidabile).
+ */
 export async function addTrustedDevice(
   userId: string,
   deviceToken: string,
   userAgent?: string,
 ): Promise<void> {
-  await db
-    .insert(trustedDevices)
-    .values({ userId, deviceToken, userAgent })
-    .onConflictDoNothing();
+  if (userAgent) {
+    const existing = await db
+      .select({ id: trustedDevices.id })
+      .from(trustedDevices)
+      .where(
+        and(
+          eq(trustedDevices.userId, userId),
+          eq(trustedDevices.userAgent, userAgent),
+        ),
+      )
+      .orderBy(desc(trustedDevices.lastUsedAt));
+
+    if (existing.length > 0) {
+      // Aggiorna il più recente al nuovo token.
+      await db
+        .update(trustedDevices)
+        .set({ deviceToken, lastUsedAt: new Date() })
+        .where(eq(trustedDevices.id, existing[0].id));
+      // Consolida i duplicati pregressi dello stesso browser.
+      if (existing.length > 1) {
+        await db
+          .delete(trustedDevices)
+          .where(inArray(trustedDevices.id, existing.slice(1).map((e) => e.id)));
+      }
+      return;
+    }
+  }
+
+  await db.insert(trustedDevices).values({ userId, deviceToken, userAgent });
 }
 
 export async function getTrustedDevices(userId: string) {

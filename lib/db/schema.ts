@@ -95,9 +95,54 @@ export const userProfiles = pgTable("user_profiles", {
   bio: text("bio"),
   // Interessi crypto scelti durante l'onboarding (mock — implementazione vera in seguito)
   interests: text("interests").array().notNull().default(sql`'{}'::text[]`),
+  // ── Account azienda (business) ───────────────────────────────────────
+  // 'personal' (default) | 'business'. Settato a 'business' SOLO dopo
+  // approvazione admin di una business_upgrade_request. Il logo aziendale
+  // riusa avatarUrl; il display name diventa companyName.
+  accountType:    varchar("account_type", { length: 16 }).notNull().default("personal"),
+  companyName:    varchar("company_name", { length: 120 }),
+  companyWebsite: varchar("company_website", { length: 255 }),
+  companySector:  varchar("company_sector", { length: 40 }),
+  // P.IVA / VAT: dato PRIVATO per la verifica, MAI esposto nelle query
+  // pubbliche del profilo. Copiato dalla request all'approvazione.
+  companyVatNumber: varchar("company_vat_number", { length: 32 }),
+  // Timestamp dell'approvazione admin (= badge verificato). Null = non azienda.
+  companyVerifiedAt: timestamp("company_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Richieste di upgrade ad account azienda. Coda di approvazione admin:
+// l'utente compila i dati, un admin verifica (P.IVA + sito) e approva o
+// rifiuta. All'approvazione i campi vengono promossi su user_profiles e
+// account_type diventa 'business'. Append-only nello spirito: una nuova
+// richiesta dopo un reject crea una nuova riga (storico conservato).
+export const businessUpgradeRequests = pgTable(
+  "business_upgrade_requests",
+  {
+    id:        uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    userId:    uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    companyName:    varchar("company_name", { length: 120 }).notNull(),
+    companyWebsite: varchar("company_website", { length: 255 }).notNull(),
+    companySector:  varchar("company_sector", { length: 40 }).notNull(),
+    vatNumber:      varchar("vat_number", { length: 32 }).notNull(),
+    note:           text("note"),
+    // pending | approved | rejected
+    status:     varchar("status", { length: 16 }).notNull().default("pending"),
+    reviewNote: text("review_note"),
+    reviewedBy: uuid("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Lookup dello stato corrente per utente + coda admin per status.
+    index("idx_business_requests_user").on(t.userId, t.requestedAt),
+    index("idx_business_requests_status").on(t.status, t.requestedAt),
+  ],
+);
+
+export type BusinessUpgradeRequest    = typeof businessUpgradeRequests.$inferSelect;
+export type NewBusinessUpgradeRequest = typeof businessUpgradeRequests.$inferInsert;
 
 // Strike history (sistema moderazione YouTube-like). Vedi
 // M_users_strikes_001 per schema completo + trigger denorm. Append-only:
@@ -1404,6 +1449,11 @@ export const pricesCoins = pgTable(
     /** Symbol nel formato dell'exchange scelto. Es: Binance "BTCUSDT",
      *  KuCoin "BTC-USDT", Gate "BTC_USDT". L'adapter sa come parsarlo. */
     exchangeSymbol:    varchar("exchange_symbol", { length: 50 }),
+    // Sparkline settimanale pre-aggregata (7 prezzi giornalieri, decorativa,
+    // non trading-grade). Master data semi-statico aggiornato dal cron
+    // metadata-refresh (4h). Spostata qui dal vecchio prices_data.
+    weeklySparkline:   jsonb("weekly_sparkline").$type<number[] | null>(),
+    weeklySparklineAt: timestamp("weekly_sparkline_at", { withTimezone: true }),
     lastSeenAt:   timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
     updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),

@@ -45,8 +45,90 @@ export interface OAuthProfile {
 
 export type FindOrCreateResult =
   | { status: "ok"; user: typeof users.$inferSelect; created: boolean }
-  | { status: "blocked"; reason: "registrations_disabled" }
+  | { status: "blocked"; reason: "registrations_disabled" | "email_unverified" }
   | { status: "error" };
+
+export type LinkResult =
+  | { status: "ok"; alreadyLinked: boolean }
+  | { status: "error"; reason: "already_linked_other" };
+
+/**
+ * Collega un account provider a un utente GIÀ loggato (flusso da
+ * /settings/account, intent=link). Diverso da findOrCreateOAuthUser:
+ * niente login/signup, nessun gate email — è l'utente autenticato a
+ * iniziare il collegamento, quindi nessun rischio di takeover.
+ *
+ *   - (provider, sub) già su QUESTO utente → aggiorna tokens, ok
+ *   - (provider, sub) su un ALTRO utente   → errore already_linked_other
+ *   - nessun match                          → crea il link
+ */
+export async function linkOAuthAccountToUser(
+  userId: string,
+  profile: OAuthProfile,
+): Promise<LinkResult> {
+  const { provider, providerAccountId, picture, tokens } = profile;
+
+  const [existing] = await db
+    .select({ userId: oauthAccounts.userId })
+    .from(oauthAccounts)
+    .where(
+      and(
+        eq(oauthAccounts.provider, provider),
+        eq(oauthAccounts.providerAccountId, providerAccountId),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    if (existing.userId !== userId) {
+      return { status: "error", reason: "already_linked_other" };
+    }
+    await db
+      .update(oauthAccounts)
+      .set({
+        accessToken:  tokens.access_token,
+        refreshToken: tokens.refresh_token ?? undefined,
+        expiresAt:    tokens.expires_at ?? undefined,
+        updatedAt:    new Date(),
+      })
+      .where(
+        and(
+          eq(oauthAccounts.provider, provider),
+          eq(oauthAccounts.providerAccountId, providerAccountId),
+        ),
+      );
+    return { status: "ok", alreadyLinked: true };
+  }
+
+  await db.insert(oauthAccounts).values({
+    userId,
+    provider,
+    providerAccountId,
+    accessToken:  tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt:    tokens.expires_at,
+    scope:        tokens.scope,
+  });
+
+  // Avatar snapshot solo se l'utente non ne ha già uno (stesso criterio
+  // dei casi A/B di findOrCreateOAuthUser).
+  if (picture) {
+    const [prof] = await db
+      .select({ avatarUrl: userProfiles.avatarUrl })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+    if (prof && prof.avatarUrl == null) {
+      const avatarUrl = (await uploadAvatarFromUrlToR2(userId, picture)) ?? picture;
+      await db
+        .update(userProfiles)
+        .set({ avatarUrl, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId));
+    }
+  }
+
+  return { status: "ok", alreadyLinked: false };
+}
 
 export async function findOrCreateOAuthUser(
   profile: OAuthProfile,
@@ -135,6 +217,18 @@ export async function findOrCreateOAuthUser(
     .limit(1);
 
   if (existingUser) {
+    // Hardening account-takeover: collega il provider a un account
+    // pre-esistente SOLO se il provider garantisce l'email come verificata.
+    // Senza questo gate, chi controllasse un account provider con un'email
+    // (non verificata) uguale a quella di un nostro utente registrato via
+    // password potrebbe loggarsi come lui. L'utente legittimo deve invece
+    // accedere col metodo originale e collegare il provider dalle impostazioni.
+    // (Con Google `email_verified` è di fatto sempre true; il gate conta il
+    // giorno che si aggiunge un secondo provider — Apple, Facebook, ecc.)
+    if (!emailVerified) {
+      return { status: "blocked", reason: "email_unverified" };
+    }
+
     await db.insert(oauthAccounts).values({
       userId:            existingUser.id,
       provider,

@@ -51,6 +51,23 @@ const updateProfileSchema = z.object({
   locale: z.string().trim().max(5).optional().default(""),
 });
 
+/**
+ * Invalida la post-cache dei post dell'utente dopo un cambio di profilo:
+ * nome/cognome/username/headline/avatar sono denormalizzati nel payload
+ * cachato dei post, quindi senza questo il feed mostrerebbe i dati vecchi
+ * fino al TTL 5min. Lazy import (no posts nel bundle settings) + best-effort.
+ */
+async function invalidateMyPostsCache(userId: string): Promise<void> {
+  try {
+    const { invalidateAuthorPostsCache } = await import(
+      "@/lib/modules/posts/queries"
+    );
+    await invalidateAuthorPostsCache(userId);
+  } catch (err) {
+    console.warn("[settings/profile] invalidateAuthorPostsCache failed:", err);
+  }
+}
+
 export const updateProfile = validatedActionWithUser(
   updateProfileSchema,
   async (data, _formData, user) => {
@@ -124,6 +141,8 @@ export const updateProfile = validatedActionWithUser(
       console.warn("[settings/profile] syncMentionMember failed:", err);
     }
 
+    await invalidateMyPostsCache(user.id);
+
     // Locale preferito: scriviamo `users.locale` solo se valido (whitelist
     // LOCALES) o esplicitamente svuotato. Sync col cookie NEXT_LOCALE così
     // la preferenza vale anche da guest dopo il logout (e viene letta dal
@@ -178,6 +197,8 @@ export async function uploadAvatar(
     .set({ avatarUrl: result.url, updatedAt: new Date() })
     .where(eq(userProfiles.userId, user.id));
 
+  await invalidateMyPostsCache(user.id);
+
   await db.insert(activityLogs).values({
     userId: user.id,
     action: ActivityType.AVATAR_UPDATED,
@@ -200,6 +221,8 @@ export const removeAvatar = validatedAction(
       .update(userProfiles)
       .set({ avatarUrl: null, updatedAt: new Date() })
       .where(eq(userProfiles.userId, user.id));
+
+    await invalidateMyPostsCache(user.id);
 
     await db.insert(activityLogs).values({
       userId: user.id,
