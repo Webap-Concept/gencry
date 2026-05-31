@@ -19,6 +19,7 @@ import {
   revertToPersonal,
   submitBusinessUpgradeRequest,
 } from "@/lib/account/business-profile";
+import { invalidateAuthorPostsCache } from "@/lib/modules/posts/queries";
 import { isSupportedProvider } from "@/lib/auth/oauth/providers";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { revalidatePath } from "next/cache";
@@ -249,6 +250,9 @@ export const revertToPersonalAction = validatedActionWithUser(
   async (_data, _formData, user) => {
     const tAct = await getTranslations("core.settings.actions");
     await revertToPersonal(user.id);
+    // Il feed denormalizza badge/nome business nella post-cache: invalidare
+    // i post dell'utente così il downgrade è visibile subito.
+    await invalidateAuthorPostsCache(user.id);
     revalidatePath("/settings/account");
     return { success: tAct("business.reverted") } satisfies ActionState;
   },

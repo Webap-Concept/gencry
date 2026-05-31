@@ -8,6 +8,7 @@ import {
 } from "@/lib/account/business-profile";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs } from "@/lib/db/schema";
+import { invalidateAuthorPostsCache } from "@/lib/modules/posts/queries";
 import { sendBusinessApprovedEmail } from "@/lib/email/templates/business-approved";
 import { sendBusinessRejectedEmail } from "@/lib/email/templates/business-rejected";
 import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
@@ -40,6 +41,9 @@ export async function approveBusinessRequestAction(
   if (!res.ok) return { ok: false, error: res.error };
 
   await logAction(admin.id, `business.approve | ${requestId}`);
+  // Il badge/nome business sono denormalizzati nella post-cache: invalidare
+  // i post dell'utente così il feed riflette subito l'approvazione.
+  await invalidateAuthorPostsCache(res.recipient.userId);
   await sendReviewEmail("approved", res.recipient, null);
   revalidatePath(await getAdminPath("users-business"));
   return { ok: true };

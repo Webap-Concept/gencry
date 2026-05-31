@@ -39,6 +39,7 @@ import {
 import { getCachedFeedIds } from "./services/feed-cache";
 import {
   getCachedPostHydrationBatch,
+  invalidatePostCacheBatch,
   setCachedPostHydrationBatch,
 } from "./services/post-cache";
 import {
@@ -2805,6 +2806,28 @@ export async function getTrendingTickers(opts: {
     .limit(limit);
 
   return rows.map((r) => ({ ticker: r.ticker, postCount: r.n }));
+}
+
+/**
+ * Invalida la post-cache di tutti i post di un autore. Da chiamare quando
+ * cambia un campo dell'autore che è DENORMALIZZATO nel payload cachato
+ * (nome, avatar, accountType/companyName per il badge business): senza
+ * questo il feed servirebbe i dati autore vecchi fino al TTL 5min.
+ *
+ * Solo i post DIRETTI dell'autore: i repostOf embed sono risolti live
+ * (non cachati), quindi si aggiornano da soli.
+ *
+ * Cap difensivo a 5000 post: oltre, i più vecchi (raramente in feed
+ * attivo) scadono comunque col TTL. Azione rara (cambio profilo/business),
+ * non hot path.
+ */
+export async function invalidateAuthorPostsCache(authorId: string): Promise<void> {
+  const rows = await db
+    .select({ id: posts.id })
+    .from(posts)
+    .where(eq(posts.authorId, authorId))
+    .limit(5000);
+  await invalidatePostCacheBatch(rows.map((r) => r.id));
 }
 
 // Re-export per i client di queries.ts

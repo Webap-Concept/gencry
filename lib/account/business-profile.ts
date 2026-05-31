@@ -286,6 +286,7 @@ export async function listPendingBusinessRequests(): Promise<PendingBusinessRequ
 
 /** Dati per la notifica email al richiedente (ritornati su esito ok). */
 export interface ReviewRecipient {
+  userId: string;
   email: string;
   firstName: string | null;
   locale: string | null;
@@ -312,6 +313,7 @@ async function loadRecipient(
     .where(eq(users.id, userId))
     .limit(1);
   return {
+    userId,
     email:     u?.email ?? "",
     firstName: u?.firstName ?? null,
     locale:    u?.locale ?? null,
