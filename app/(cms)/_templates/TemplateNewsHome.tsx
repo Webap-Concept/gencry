@@ -28,7 +28,6 @@ import { NewsEssays } from "./news/news-essays";
 import { NewsFeatureStory } from "./news/news-feature-story";
 import { NewsFeaturedGrid } from "./news/news-featured-grid";
 import { NewsHero } from "./news/news-hero";
-import { NewsNewsletter } from "./news/news-newsletter";
 import { NewsTicker } from "./news/news-ticker";
 import "./news/news.css";
 import type { TemplateProps } from "./types";
@@ -71,7 +70,6 @@ export async function TemplateNewsHome(_props: TemplateProps) {
             trovarci a breve.
           </p>
         </div>
-        <NewsNewsletter />
       </>
     );
   }
@@ -103,7 +101,6 @@ export async function TemplateNewsHome(_props: TemplateProps) {
       <NewsFeaturedGrid items={featuredGrid} />
       <NewsColumns groups={groups} />
       <NewsEssays essays={essays} />
-      <NewsNewsletter />
     </>
   );
 }
