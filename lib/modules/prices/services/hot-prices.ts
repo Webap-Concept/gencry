@@ -61,9 +61,15 @@ export async function setHotPrices(
   const client = await getRedisClient();
   if (!client) return { ok: false, commandCount: 0 };
 
+  // Strip della weekly sparkline dal payload hot: è master data semi-statico
+  // che ora vive in prices_coins (letto dalle card via DB), non serve in
+  // Redis. Toglierla alleggerisce la chiave (≈21 numeri × N coin) → meno
+  // egress Upstash ad ogni tick del cron (1/min).
   const payload: HotPricesPayload = {
     updatedAt: Date.now(),
-    quotes: Object.fromEntries(quotes),
+    quotes: Object.fromEntries(
+      Array.from(quotes, ([k, q]) => [k, { ...q, sparkline7d: null }]),
+    ),
   };
   // Clamp difensivo: niente sotto 30s (cron piu' fitto del previsto =
   // ok ma TTL minimo) e niente sopra 1h (sopra non ha senso, vorrebbe

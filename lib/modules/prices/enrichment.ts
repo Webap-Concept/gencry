@@ -28,7 +28,7 @@ import "server-only";
 
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getPricesConfig } from "./config";
 import { mirrorCoinImage } from "./storage";
 
@@ -283,6 +283,8 @@ export async function runMetadataEnrichment(
     const rawSpark = winner.sparkline_in_7d?.price ?? null;
     const compact = downsampleSparkline(rawSpark);
 
+    const hasSpark = compact !== null && compact.length >= 2;
+
     try {
       await db
         .update(pricesCoins)
@@ -292,6 +294,11 @@ export async function runMetadataEnrichment(
           imageUrl,
           marketCap: winner.market_cap ?? null,
           marketCapRank: winner.market_cap_rank ?? null,
+          // weekly_sparkline ora vive in prices_coins: incluso nello stesso
+          // UPDATE (no più query separata su prices_data).
+          ...(hasSpark
+            ? { weeklySparkline: compact, weeklySparklineAt: new Date() }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(pricesCoins.symbol, dbSymbol));
@@ -301,22 +308,6 @@ export async function runMetadataEnrichment(
       }
     } catch {
       errors++;
-    }
-
-    // weekly_sparkline e' in prices_data, non in prices_coins: update
-    // solo se la row esiste (i nuovi coin importati potrebbero non
-    // averla ancora — la creera' il prossimo cron).
-    if (compact && compact.length >= 2) {
-      try {
-        await db.execute(sql`
-          UPDATE prices_data
-          SET weekly_sparkline = ${JSON.stringify(compact)}::jsonb,
-              weekly_sparkline_at = now()
-          WHERE symbol = ${dbSymbol}
-        `);
-      } catch {
-        /* non-fatal */
-      }
     }
   }
 

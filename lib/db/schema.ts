@@ -1449,6 +1449,11 @@ export const pricesCoins = pgTable(
     /** Symbol nel formato dell'exchange scelto. Es: Binance "BTCUSDT",
      *  KuCoin "BTC-USDT", Gate "BTC_USDT". L'adapter sa come parsarlo. */
     exchangeSymbol:    varchar("exchange_symbol", { length: 50 }),
+    // Sparkline settimanale pre-aggregata (7 prezzi giornalieri, decorativa,
+    // non trading-grade). Master data semi-statico aggiornato dal cron
+    // metadata-refresh (4h). Spostata qui dal vecchio prices_data.
+    weeklySparkline:   jsonb("weekly_sparkline").$type<number[] | null>(),
+    weeklySparklineAt: timestamp("weekly_sparkline_at", { withTimezone: true }),
     lastSeenAt:   timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt:    timestamp("created_at",   { withTimezone: true }).notNull().defaultNow(),
     updatedAt:    timestamp("updated_at",   { withTimezone: true }).notNull().defaultNow(),

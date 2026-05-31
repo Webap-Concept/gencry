@@ -17,7 +17,7 @@ import "server-only";
 
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getPricesConfig } from "../config";
 
 const COINGECKO_FREE_BASE = "https://api.coingecko.com/api/v3";
@@ -164,12 +164,15 @@ export async function runMetadataRefresh(): Promise<MetadataRefreshResult> {
       continue;
     }
 
-    // UPDATE per ogni item: market_cap+rank in prices_coins,
-    // weekly_sparkline in prices_data. Loop sequenziale: per 1000 coin
+    // UPDATE unico per item: market_cap + rank + weekly_sparkline tutto in
+    // prices_coins (1 query invece di 2). Loop sequenziale: per 1000 coin
     // sono ~1-2s totali, trascurabile vs cron 4h.
     for (const it of items) {
       const sym = idToSymbol.get(it.id);
       if (!sym) continue;
+
+      const spark = downsampleSparkline(it.sparkline_in_7d?.price ?? null);
+      const hasSpark = spark !== null && spark.length >= 2;
 
       try {
         await db
@@ -177,28 +180,16 @@ export async function runMetadataRefresh(): Promise<MetadataRefreshResult> {
           .set({
             marketCap: it.market_cap ?? null,
             marketCapRank: it.market_cap_rank ?? null,
+            ...(hasSpark
+              ? { weeklySparkline: spark, weeklySparklineAt: new Date() }
+              : {}),
             updatedAt: new Date(),
           })
           .where(eq(pricesCoins.symbol, sym));
         updatedMarketCap++;
+        if (hasSpark) updatedSparkline++;
       } catch {
         errors++;
-      }
-
-      const spark = downsampleSparkline(it.sparkline_in_7d?.price ?? null);
-      if (spark && spark.length >= 2) {
-        try {
-          await db.execute(sql`
-            UPDATE prices_data
-            SET weekly_sparkline = ${JSON.stringify(spark)}::jsonb,
-                weekly_sparkline_at = now()
-            WHERE symbol = ${sym}
-          `);
-          updatedSparkline++;
-        } catch {
-          // non-fatal: la row prices_data potrebbe non esistere ancora
-          // per i coin appena importati senza cron tick completato.
-        }
       }
     }
   }
