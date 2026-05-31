@@ -44,6 +44,7 @@ const NAMESPACES = [
   "notifications",
   "socialGraph",
   "watchlist",
+  "rewards",
 ] as const;
 type Namespace = (typeof NAMESPACES)[number];
 
@@ -66,6 +67,8 @@ const LOADERS: Record<
       import("@/lib/modules/social-graph/messages/en/social-graph.json"),
     watchlist: () =>
       import("@/lib/modules/watchlist/messages/en/watchlist.json"),
+    rewards: () =>
+      import("@/lib/modules/rewards/messages/en/rewards.json"),
   },
   it: {
     core: () => import("@/messages/it/core.json"),
@@ -82,6 +85,8 @@ const LOADERS: Record<
       import("@/lib/modules/social-graph/messages/it/social-graph.json"),
     watchlist: () =>
       import("@/lib/modules/watchlist/messages/it/watchlist.json"),
+    rewards: () =>
+      import("@/lib/modules/rewards/messages/it/rewards.json"),
   },
 };
 

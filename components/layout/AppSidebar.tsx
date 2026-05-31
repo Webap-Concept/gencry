@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   Bell,
   Bookmark,
+  Coins,
   Radar,
   User as UserIcon,
   Zap,
@@ -14,6 +15,7 @@ import useSWR from "swr";
 import { AppLogo } from "@/components/layout/AppLogo";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
+import { useRewardsBalance } from "@/components/modules/rewards/RewardsBalanceProvider";
 import type { UserWithProfile } from "@/lib/db/schema";
 
 // Sidebar fissa della home loggata. Visibile da md in su; su mobile la
@@ -63,6 +65,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const t = useTranslations("core.sidebar");
+  const rewardsBalance = useRewardsBalance();
   const { data: user } = useSWR<UserWithProfile>("/api/user", fetcher, {
     revalidateOnFocus: false,
     revalidateOnMount: true,
@@ -162,6 +165,17 @@ export function AppSidebar({
 
         <NewPostButton variant="sidebar" />
       </div>
+
+      {/* Saldo coin — visibile solo se > 0 (utente ha già guadagnato almeno 1 coin) */}
+      {rewardsBalance > 0 && (
+        <div className="shrink-0 mt-3 flex items-center gap-2 px-3 py-2 rounded-full text-[13px] text-gc-fg-2 bg-gc-bg-2">
+          <Coins size={14} strokeWidth={1.6} className="shrink-0 text-gc-accent" />
+          <span className="tabular-nums font-medium">
+            {rewardsBalance.toLocaleString("en-US")}
+          </span>
+          <span className="text-gc-fg-3">coins</span>
+        </div>
+      )}
 
       {/* User menu in fondo — fuori dal blocco scrollabile, sempre
           visibile anche se la nav cresce. */}

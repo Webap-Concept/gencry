@@ -3,6 +3,10 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
+import { RewardsBalanceProvider } from "@/components/modules/rewards/RewardsBalanceProvider";
+import { CheckinToastLauncher } from "@/components/modules/rewards/CheckinToastLauncher";
+import { claimDailyCheckin } from "@/lib/modules/rewards/earn-reward";
+import { getUserBalance } from "@/lib/modules/rewards/queries";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
@@ -102,25 +106,40 @@ export default async function Layout({
     </>
   );
 
-  // Count unread server-fetched: alimenta il provider unico (1 sola
-  // subscription realtime condivisa da tutti i badge).
-  const unreadCount = await getUnreadNotificationsCount(session.user.id);
+  // Count unread + rewards in parallelo: nessuno blocca l'altro.
+  // checkin + balance in parallelo — se il checkin è appena avvenuto,
+  // compensiamo manualmente l'amount nel balance iniziale.
+  const userId = session.user.id;
+  const [unreadCount, checkinResult, balanceRow] = await Promise.all([
+    getUnreadNotificationsCount(userId),
+    claimDailyCheckin(),
+    getUserBalance(userId),
+  ]);
+
+  // Compensa la race condition: se la balance query era già partita
+  // prima che il trigger DB aggiornasse rewards_balances, sommiamo l'amount.
+  const initialBalance =
+    (balanceRow?.balance ?? 0) +
+    (checkinResult.awarded ? checkinResult.amount : 0);
 
   return (
-    <NotificationsUnreadProvider
-      viewerUserId={session.user.id}
-      initialCount={unreadCount}
-    >
-      <ProtectedShell
-        appLogoUrl={appSettings.app_logo_url}
-        appLogoVariantUrl={appSettings.app_logo_variant_url}
-        banner={banner}
-        notificationsBadge={<NotificationsBadgePill />}
-        notificationsBadgeMobile={<NotificationsBadgePill />}
-      >
-        <Suspense fallback={null}>{children}</Suspense>
-        {modal}
-      </ProtectedShell>
-    </NotificationsUnreadProvider>
+    <RewardsBalanceProvider viewerUserId={userId} initialBalance={initialBalance}>
+      <CheckinToastLauncher
+        awarded={checkinResult.awarded}
+        amount={checkinResult.amount}
+      />
+      <NotificationsUnreadProvider viewerUserId={userId} initialCount={unreadCount}>
+        <ProtectedShell
+          appLogoUrl={appSettings.app_logo_url}
+          appLogoVariantUrl={appSettings.app_logo_variant_url}
+          banner={banner}
+          notificationsBadge={<NotificationsBadgePill />}
+          notificationsBadgeMobile={<NotificationsBadgePill />}
+        >
+          <Suspense fallback={null}>{children}</Suspense>
+          {modal}
+        </ProtectedShell>
+      </NotificationsUnreadProvider>
+    </RewardsBalanceProvider>
   );
 }

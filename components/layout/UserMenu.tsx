@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { LogOut, Palette, Settings, User as UserIcon } from "lucide-react";
+import { Coins, LogOut, Palette, Settings, User as UserIcon } from "lucide-react";
 import { mutate } from "swr";
 import { signOut } from "@/app/(login)/actions";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { useRewardsBalance } from "@/components/modules/rewards/RewardsBalanceProvider";
 import type { UserWithProfile } from "@/lib/db/schema";
 import { fullName } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
   const [mounted, setMounted] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("core.userMenu");
+  const rewardsBalance = useRewardsBalance();
 
   useEffect(() => setMounted(true), []);
 
@@ -106,6 +108,14 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         onClick={close}
       />
       <ThemeToggleItem onAction={close} />
+      {/* Saldo coin — riga non-navigabile, sempre visibile nel menu */}
+      <div className="flex items-center gap-3 px-3 py-2.5 text-[14px] text-gc-fg-2">
+        <Coins size={16} strokeWidth={1.6} className="text-gc-accent shrink-0" />
+        <span className="flex-1">Coins</span>
+        <span className="tabular-nums font-semibold text-gc-fg">
+          {rewardsBalance.toLocaleString("en-US")}
+        </span>
+      </div>
       <div className="my-1 h-px bg-gc-line" />
       <button
         type="button"
