@@ -231,35 +231,68 @@ export async function listPendingBusinessRequests(): Promise<PendingBusinessRequ
     .orderBy(desc(businessUpgradeRequests.requestedAt));
 }
 
+/** Dati per la notifica email al richiedente (ritornati su esito ok). */
+export interface ReviewRecipient {
+  email: string;
+  firstName: string | null;
+  locale: string | null;
+  companyName: string;
+}
+
 export type ReviewResult =
-  | { ok: true }
+  | { ok: true; recipient: ReviewRecipient }
   | { ok: false; error: "not_found" | "already_reviewed" };
+
+/** Carica email/nome/locale del richiedente (per la mail di esito). */
+async function loadRecipient(
+  userId: string,
+  companyName: string,
+): Promise<ReviewRecipient> {
+  const [u] = await db
+    .select({
+      email:     users.email,
+      locale:    users.locale,
+      firstName: userProfiles.firstName,
+    })
+    .from(users)
+    .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+    .where(eq(users.id, userId))
+    .limit(1);
+  return {
+    email:     u?.email ?? "",
+    firstName: u?.firstName ?? null,
+    locale:    u?.locale ?? null,
+    companyName,
+  };
+}
 
 /**
  * Approva: promuove i dati su user_profiles + account_type='business' +
- * company_verified_at. Atomico (transazione): o entrambe le scritture o
- * nessuna.
+ * company_verified_at. Le due scritture sono atomiche (transazione). Il
+ * recipient per la mail viene caricato dopo (non richiede atomicità).
  */
 export async function approveBusinessRequest(
   requestId: string,
   adminId: string,
 ): Promise<ReviewResult> {
-  return db.transaction(async (tx) => {
-    const [req] = await tx
+  const tx = await db.transaction(async (trx) => {
+    const [req] = await trx
       .select()
       .from(businessUpgradeRequests)
       .where(eq(businessUpgradeRequests.id, requestId))
       .limit(1);
-    if (!req) return { ok: false, error: "not_found" as const };
-    if (req.status !== "pending") return { ok: false, error: "already_reviewed" as const };
+    if (!req) return { ok: false as const, error: "not_found" as const };
+    if (req.status !== "pending") {
+      return { ok: false as const, error: "already_reviewed" as const };
+    }
 
     const now = new Date();
-    await tx
+    await trx
       .update(businessUpgradeRequests)
       .set({ status: "approved", reviewedBy: adminId, reviewedAt: now })
       .where(eq(businessUpgradeRequests.id, requestId));
 
-    await tx
+    await trx
       .update(userProfiles)
       .set({
         accountType:       "business",
@@ -272,8 +305,12 @@ export async function approveBusinessRequest(
       })
       .where(eq(userProfiles.userId, req.userId));
 
-    return { ok: true as const };
+    return { ok: true as const, userId: req.userId, companyName: req.companyName };
   });
+
+  if (!tx.ok) return tx;
+  const recipient = await loadRecipient(tx.userId, tx.companyName);
+  return { ok: true, recipient };
 }
 
 export async function rejectBusinessRequest(
@@ -282,7 +319,11 @@ export async function rejectBusinessRequest(
   reviewNote: string | null,
 ): Promise<ReviewResult> {
   const [req] = await db
-    .select({ status: businessUpgradeRequests.status })
+    .select({
+      status:      businessUpgradeRequests.status,
+      userId:      businessUpgradeRequests.userId,
+      companyName: businessUpgradeRequests.companyName,
+    })
     .from(businessUpgradeRequests)
     .where(eq(businessUpgradeRequests.id, requestId))
     .limit(1);
@@ -298,5 +339,7 @@ export async function rejectBusinessRequest(
       reviewedAt: new Date(),
     })
     .where(eq(businessUpgradeRequests.id, requestId));
-  return { ok: true };
+
+  const recipient = await loadRecipient(req.userId, req.companyName);
+  return { ok: true, recipient };
 }

@@ -4,9 +4,13 @@ import { getAdminPath } from "@/lib/admin-paths";
 import {
   approveBusinessRequest,
   rejectBusinessRequest,
+  type ReviewRecipient,
 } from "@/lib/account/business-profile";
 import { db } from "@/lib/db/drizzle";
 import { activityLogs } from "@/lib/db/schema";
+import { sendBusinessApprovedEmail } from "@/lib/email/templates/business-approved";
+import { sendBusinessRejectedEmail } from "@/lib/email/templates/business-rejected";
+import { resolveRecipientLocale } from "@/lib/email/recipient-locale";
 import { requireAdmin } from "@/lib/rbac/guards";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -36,6 +40,7 @@ export async function approveBusinessRequestAction(
   if (!res.ok) return { ok: false, error: res.error };
 
   await logAction(admin.id, `business.approve | ${requestId}`);
+  await sendReviewEmail("approved", res.recipient, null);
   revalidatePath(await getAdminPath("users-business"));
   return { ok: true };
 }
@@ -51,6 +56,40 @@ export async function rejectBusinessRequestAction(
   if (!res.ok) return { ok: false, error: res.error };
 
   await logAction(admin.id, `business.reject | ${requestId}`);
+  await sendReviewEmail("rejected", res.recipient, note);
   revalidatePath(await getAdminPath("users-business"));
   return { ok: true };
+}
+
+/**
+ * Invia la mail di esito al richiedente. Fail-safe: un errore di invio NON
+ * fa fallire l'approvazione/rifiuto (già persistiti) — viene solo loggato.
+ */
+async function sendReviewEmail(
+  outcome: "approved" | "rejected",
+  recipient: ReviewRecipient,
+  note: string | null,
+): Promise<void> {
+  if (!recipient.email) return;
+  try {
+    const locale = await resolveRecipientLocale(recipient.locale);
+    if (outcome === "approved") {
+      await sendBusinessApprovedEmail({
+        to: recipient.email,
+        userName: recipient.firstName ?? undefined,
+        companyName: recipient.companyName,
+        locale,
+      });
+    } else {
+      await sendBusinessRejectedEmail({
+        to: recipient.email,
+        userName: recipient.firstName ?? undefined,
+        companyName: recipient.companyName,
+        reason: note,
+        locale,
+      });
+    }
+  } catch (err) {
+    console.error(`[business] ${outcome} email failed:`, err);
+  }
 }

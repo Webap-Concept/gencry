@@ -460,6 +460,18 @@
           "defaultSubject": "A strike was revoked on your '{{appName}}' account",
           "defaultBody": "Hi '{{userName}}',\n\nOne of our moderators revoked one of your strikes after reviewing the case.\n\nRemaining active strikes: '{{activeCountAfter}}'/3.\n\nIf your account was suspended and the revocation brought the counter back below 3, access has been automatically reinstated.",
           "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "businessapproved": {
+          "label": "Business · request approved",
+          "defaultSubject": "Your business account on '{{appName}}' is verified",
+          "defaultBody": "Hi '{{userName}}',\n\nGreat news! The verification request for '{{companyName}}' has been approved.\n\nYour profile is now a verified business account: it shows the business badge, the company name, and the link to your official website. The community now recognizes you as a company.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
+        },
+        "businessrejected": {
+          "label": "Business · request rejected",
+          "defaultSubject": "Update on your business account request on '{{appName}}'",
+          "defaultBody": "Hi '{{userName}}',\n\nWe reviewed the verification request for '{{companyName}}', but we can't approve it for now.\n\nReason: '{{reason}}'\n\nYou can fix the details and submit a new request from your account settings.",
+          "defaultFooter": "© '{{appName}}' · Automated email, please do not reply"
         }
       }
     },

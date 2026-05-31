@@ -460,6 +460,18 @@
           "defaultSubject": "Uno strike è stato revocato sul tuo account '{{appName}}'",
           "defaultBody": "Ciao '{{userName}}',\n\nUn nostro moderatore ha revocato uno dei tuoi strike dopo una revisione del caso.\n\nStrike attivi residui: '{{activeCountAfter}}'/3.\n\nSe il tuo account era sospeso e la revoca ha riportato il counter sotto 3, l'accesso è stato riattivato automaticamente.",
           "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
+        },
+        "businessapproved": {
+          "label": "Business · richiesta approvata",
+          "defaultSubject": "Il tuo account azienda su '{{appName}}' è verificato",
+          "defaultBody": "Ciao '{{userName}}',\n\nBuone notizie! La richiesta di verifica per '{{companyName}}' è stata approvata.\n\nIl tuo profilo è ora un account azienda verificato: mostra il badge aziendale, la ragione sociale e il link al sito ufficiale. Da questo momento la community ti riconosce come azienda.",
+          "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
+        },
+        "businessrejected": {
+          "label": "Business · richiesta rifiutata",
+          "defaultSubject": "Aggiornamento sulla tua richiesta di account azienda su '{{appName}}'",
+          "defaultBody": "Ciao '{{userName}}',\n\nAbbiamo esaminato la richiesta di verifica per '{{companyName}}', ma per ora non possiamo approvarla.\n\nMotivo: '{{reason}}'\n\nPuoi correggere i dati e inviare una nuova richiesta dalle impostazioni del tuo account.",
+          "defaultFooter": "© '{{appName}}' · Email automatica, non rispondere a questo indirizzo"
         }
       }
     },
