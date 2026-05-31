@@ -19,9 +19,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
-import { BadgeCheck, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 
 import { displayNameForAuthor } from "@/lib/ui/author-display";
+import { BusinessBadge } from "@/components/ui/business-badge";
 
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { PostCard } from "@/components/modules/posts/PostCard";
@@ -351,16 +352,12 @@ function Avatar({
     <div className="relative w-24 h-24 sm:w-16 sm:h-16 shrink-0">
       {inner}
       {verified && (
-        <BadgeCheck
-          aria-label="Verified business"
-          className="absolute bottom-0 right-0 text-gc-accent w-7 h-7 sm:w-5 sm:h-5"
-          style={{
-            background: "var(--gc-bg)",
-            borderRadius: "9999px",
-            padding: 2,
-            transform: "translate(10%, 10%)",
-          }}
-        />
+        <span
+          className="absolute bottom-0 right-0"
+          style={{ transform: "translate(10%, 10%)" }}
+        >
+          <BusinessBadge size={28} />
+        </span>
       )}
     </div>
   );

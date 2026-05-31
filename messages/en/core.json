@@ -1,4 +1,7 @@
 {
+  "badges": {
+    "businessProfile": "Business profile"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

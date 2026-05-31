@@ -16,7 +16,7 @@
 // colorato come se avatarUrl fosse null. Niente flicker su success-path
 // perché lo state parte da false e l'img si carica come al solito.
 import { useState, type CSSProperties } from "react";
-import { BadgeCheck } from "lucide-react";
+import { BusinessBadge } from "@/components/ui/business-badge";
 import {
   type AvatarUserLike,
   colorForSeed,
@@ -94,29 +94,21 @@ export function UserAvatar({
 
   if (!verifiedBusiness) return avatarEl;
 
-  // Badge azienda verificata: spunta sovrapposta in basso a destra, con un
-  // anello del colore di sfondo per staccare dall'avatar. Dimensione ~36%
-  // del lato (min 12px), come X/Instagram.
-  const badgeSize = Math.max(12, Math.round(size * 0.36));
+  // Badge azienda verificata (valigetta + tooltip) sovrapposto in basso a
+  // destra. Dimensione ~38% del lato (min 14px), come X/Instagram.
+  const badgeSize = Math.max(14, Math.round(size * 0.38));
   return (
     <span
       className="relative inline-flex"
       style={{ width: size, height: size, flexShrink: 0 }}
     >
       {avatarEl}
-      <BadgeCheck
-        aria-label="Verified business"
-        className="absolute bottom-0 right-0 text-gc-accent"
-        style={{
-          width: badgeSize,
-          height: badgeSize,
-          // fill bianco dietro la spunta + anello bg per lo stacco
-          background: "var(--gc-bg)",
-          borderRadius: "9999px",
-          padding: 1,
-          transform: "translate(15%, 15%)",
-        }}
-      />
+      <span
+        className="absolute bottom-0 right-0"
+        style={{ transform: "translate(15%, 15%)" }}
+      >
+        <BusinessBadge size={badgeSize} />
+      </span>
     </span>
   );
 }
