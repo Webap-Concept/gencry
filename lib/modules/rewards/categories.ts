@@ -5,7 +5,7 @@
 // Importabile sia in RSC (page.tsx) sia in client components.
 // Mai duplicare questa config in pagine o componenti.
 
-import { Zap, PenLine, Flame, MessageSquare } from "lucide-react";
+import { Zap, PenLine, Gem, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RewardEventType } from "./types";
 
@@ -53,7 +53,7 @@ export const REWARD_CATEGORIES: RewardCategoryConfig[] = [
     label:       "Reactions ricevute",
     description: "Coin per ogni reaction ricevuta sui tuoi post",
     countLabel:  "reactions",
-    icon:        Flame,
+    icon:        Gem,
     iconBg:      "bg-red-700",
     barColor:    "bg-red-600",
     accentColor: "text-red-600",
