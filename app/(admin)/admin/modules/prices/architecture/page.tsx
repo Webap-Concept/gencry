@@ -10,18 +10,12 @@
 // ║   • bump `REVIEWED_AT` qui sotto                                  ║
 // ║   • bump `version` nel manifest.ts se cambia user-visible         ║
 // ║                                                                   ║
-// ║ Vale per: nuove tabelle/colonne (ArchSchemaTable), nuovi cron     ║
-// ║ /trigger (Pipeline + diagram), nuovi servizi hookable             ║
-// ║ (ArchHookBox), nuovi file principali (ArchFileLink), perf         ║
-// ║ numbers, bug/pitfall scoperti (Caveats), future ottimizzazioni   ║
-// ║ realizzate (rimuovi/sposta ArchFutureCard).                      ║
-// ║                                                                   ║
 // ║ Memory di riferimento: feedback_architecture_docs_maintenance     ║
 // ╚═══════════════════════════════════════════════════════════════════╝
 //
 // Pagina di documentazione architetturale del modulo Prices Engine.
-// Statica, zero query DB. Riassume design, source di dati, snapshot
-// pattern R2, cron, fallback chain, e roadmap.
+// Statica, zero query DB. Riassume design, source di dati, hot layer
+// Redis, cron QStash, fallback chain, caching, e roadmap.
 import type { Metadata } from "next";
 import {
   AlertTriangle,
@@ -53,7 +47,7 @@ export const metadata: Metadata = { title: "Prices / Architettura" };
 /** ISO date dell'ultima revisione manuale della pagina vs il codice.
  *  Bump-ala ogni volta che rivedi i contenuti (vedi memory
  *  feedback_architecture_docs_maintenance). */
-const REVIEWED_AT = "2026-05-31";
+const REVIEWED_AT = "2026-06-01";
 
 const SECTIONS = [
   { id: "overview",    label: "Overview" },
@@ -69,25 +63,28 @@ const SECTIONS = [
 ];
 
 const SCHEMA_DIAGRAM = `erDiagram
-  prices_coins ||--o{ prices_history : "snapshots"
-  prices_coins ||--o{ prices_runs : "produced by"
-  prices_coins ||--o{ prices_images : "has"
-  prices_settings ||--o{ prices_coins : "configures universe"
+  price_exchanges ||--o{ prices_coins : "preferred_exchange FK"
+  prices_coins ||--o{ prices_history : "symbol FK (charts)"
 `;
 
+// Pipeline reale post-refactor Redis-first (2026-05-27) + cutover QStash
+// (2026-05-31). NB: il prezzo live finisce SOLO su Redis — prices_data è
+// stata droppata, niente più fallback DB per il prezzo corrente.
 const PIPELINE_DIAGRAM = `graph TD
   CRON[QStash<br/>every 1 min] --> AUTH{HMAC auth}
-  AUTH -->|OK| ACT[active-universe.ts<br/>load coin with preferred_exchange OR coingecko_id]
-  ACT --> GROUP[groupByExchange<br/>binance · kucoin · gate · … · no-routing]
-  GROUP --> ADAPT[adapter.fetchCurrentPrices<br/>per exchange in parallel]
-  GROUP --> CG[CoinGecko fallback<br/>for unmapped coins]
-  ADAPT -->|fails| CG2[CoinGecko fallback<br/>per missing]
-  ADAPT --> MERGE[Merge into Map symbol→PriceQuote]
+  AUTH -->|OK| ACT[active-universe.ts<br/>active+fetchable: recent OR top-rank ≤500]
+  ACT --> GROUP[groupByExchange]
+  GROUP --> ADAPT[Exchange adapters PRIMARY<br/>Binance · KuCoin · Gate · USDT→USD]
+  ACT --> CG[CoinGecko FALLBACK<br/>coin senza routing · tiered by rank]
+  ADAPT -->|coin mancanti| CG
+  CG -->|ancora mancanti| DEX[DexScreener<br/>fallback long-tail]
+  ADAPT --> MERGE[Map symbol→PriceQuote]
   CG --> MERGE
-  CG2 --> MERGE
-  MERGE --> HOT[setHotPrices<br/>Upstash prices:hot:v1<br/>TTL = cron_min*60 + 60]
-  MERGE --> COLD[upsert prices_data<br/>cold DB fallback]
-  HOT --> CDN[Vercel Edge CDN<br/>coin page ISR 60s]
+  DEX --> MERGE
+  MERGE --> HOT[setHotPrices<br/>Upstash prices:hot:v1 — UNICO store live<br/>TTL = cron_min*60 + 60]
+  MERGE --> HIST[prices_history snapshot<br/>gated by snapshot_minutes]
+  HOT --> READ[Read: getHotPrices<br/>NIENTE fallback DB per il prezzo live]
+  READ --> CDN[coin page ISR 60s · cards · ticker]
   CDN --> USER((User / Bot / Anon))
 `;
 
@@ -105,58 +102,71 @@ export default function PricesArchitecturePage() {
           intro={
             <>
               Il modulo Prices Engine è la <strong>pipeline di ingestione
-              prezzi crypto</strong> che alimenta tutta la piattaforma: dal
-              chart in homepage al tooltip <code>$TICKER</code> nei post.
-              Niente componenti UI propri visibili agli utenti — solo dati e
-              admin tooling.{" "}
+              prezzi crypto</strong> che alimenta tutta la piattaforma: dalla
+              coin page pubblica al tooltip <code>$TICKER</code> nei post.
+              Niente componenti UI propri visibili agli utenti — solo dati,
+              hot layer Redis e admin tooling.{" "}
               <strong>
-                Refactor 2026-05-27 → architettura "Redis-first" multi-exchange.
+                Architettura "Redis-first" multi-exchange (refactor 2026-05-27,
+                cron su QStash dal 2026-05-31).
               </strong>
             </>
           }>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Multi-exchange routing</strong>: ogni coin ha
+              <strong>Multi-exchange routing (PRIMARIO)</strong>: ogni coin ha
               opzionalmente <code>preferred_exchange + exchange_symbol</code>.
-              Binance + KuCoin + Gate.io sono i tre adapter live; futuri
-              (Kraken, Coinbase) si aggiungono via registry pattern. Gate
-              porta ~1200 coin long-tail non su Binance/KuCoin (import
-              wholesale con gate volume + CoinGecko, token a leva esclusi).
-              Coin senza routing → fallback CoinGecko.
+              Binance + KuCoin + Gate.io sono i tre adapter live (registry
+              pattern in <code>exchanges/registry.ts</code>). Prezzo+volume
+              dall'exchange, convertiti USDT→USD.
             </li>
             <li>
-              <strong>Hot layer Upstash</strong>: chiave singola{" "}
-              <code>prices:hot:v1</code> con snapshot {`{updatedAt, quotes}`}{" "}
-              di tutti i coin attivi. TTL = <code>cron_minutes * 60 + 60s</code>{" "}
-              (auto-adatta a cambi cadence). Lettura ~5-20ms vs DB 50-200ms.
+              <strong>CoinGecko (FALLBACK, 2 ruoli)</strong>: (1) prezzo per i
+              coin <em>senza</em> routing exchange o quando l'exchange fallisce,
+              con tiering per market-cap rank; (2) refresh <strong>metadata</strong>{" "}
+              (market_cap, rank, weekly_sparkline) ogni 4h via{" "}
+              <code>metadata-refresh.ts</code> — gli exchange non espongono il
+              market cap. <strong>DexScreener</strong> = fallback finale per i
+              coin DEX-only ancora mancanti.{" "}
+              <strong>CryptoCompare</strong> NON è nel cron: solo backfill
+              storico.
             </li>
             <li>
-              <strong>Active universe</strong>: tutti i coin attivi con
-              ALMENO un percorso fetchabile (coingeckoId o preferred_exchange).
-              Group-by-exchange per parallelizzare le call.
+              <strong>Hot layer Upstash = UNICO store del prezzo live</strong>:
+              chiave singola <code>prices:hot:v1</code> con snapshot{" "}
+              {`{updatedAt, quotes}`} di tutti i coin attivi. TTL ={" "}
+              <code>cron_minutes * 60 + 60s</code>.{" "}
+              <strong>
+                La tabella <code>prices_data</code> è stata DROPPATA
+              </strong>{" "}
+              : se Redis è down non c'è fallback DB per il prezzo corrente (i
+              grafici storici sopravvivono via <code>prices_history</code>).
             </li>
             <li>
-              <strong>Cron 1-min via Upstash QStash</strong>, chiama
-              l'endpoint Vercel. Cadenza configurabile da
+              <strong>Active universe</strong>: coin attivi+fetchabili
+              (con <code>coingecko_id</code> o routing exchange) che sono O
+              recenti (<code>last_seen_at</code> entro <code>universe_hours</code>)
+              O <strong>top per market-cap rank (≤500, sempre)</strong>. Il ramo
+              top-rank (aggiunto 2026-06-01) impedisce che un set "fresco"
+              piccolo affami i major — vedi Caveats.
+            </li>
+            <li>
+              <strong>Cron 1-min via Upstash QStash</strong> →
+              <code className="ml-1">/api/cron/modules/prices/sync</code>{" "}
+              (HMAC auth). Cadenza configurabile da
               <code className="ml-1">app_settings.modules.prices.cron_minutes</code>.
             </li>
             <li>
-              <strong>Chart on-demand</strong>:{" "}
-              <code>/api/coins/[symbol]/chart</code> chiama direttamente
-              l'exchange (Binance klines) con edge cache 1-60min. Niente
-              piu' scrittura su <code>prices_history</code> per i coin
-              mappati.
+              <strong>Config in app_settings</strong>: tutte le impostazioni del
+              modulo vivono in <code>app_settings.modules.prices.*</code>
+              (lette da <code>config.ts</code>), servite via snapshot R2.
+              <strong> Non esiste una tabella <code>prices_settings</code></strong>.
             </li>
             <li>
-              <strong>Coin page ISR 60s</strong>: Vercel Edge CDN serve
-              <code className="ml-1">/coins/[symbol]</code> ad anon/bot
-              senza toccare il backend. Anche 10k visit/min ≈ 1 req/min.
-            </li>
-            <li>
-              <strong>Dual-write transitorio</strong>: il cron scrive
-              SEMPRE sia su Upstash sia su <code>prices_data</code> (DB
-              cold fallback). I consumer leggono prima da hot, poi cadono
-              su DB. Verra' rimosso quando Upstash sara' validato in prod.
+              <strong>Coin page ISR 60s + no-404 SEO</strong>: Vercel Edge CDN
+              serve <code>/coins/[symbol]</code> ad anon/bot. La pagina
+              renderizza SEMPRE se il coin esiste (<code>getCoinDetail</code>):
+              se manca il prezzo live nasconde solo prezzo+grafico, niente 404.
             </li>
           </ul>
         </ArchSection>
@@ -166,23 +176,23 @@ export default function PricesArchitecturePage() {
           id="stack"
           title="Stack tecnologico"
           icon={Layers}
-          intro="Niente librerie crypto-specifiche: solo fetch verso REST API esterne + Drizzle per la persistenza. Resilienza fatta in casa (circuit breaker + retry).">
+          intro="Niente librerie crypto-specifiche: solo fetch verso REST API esterne + Drizzle per la persistenza. Resilienza fatta in casa (circuit breaker DB-backed + tiering).">
           <div className="flex flex-wrap gap-2">
             <ArchTechBadge label="Next.js 16 (RSC + edge ISR)" variant="accent" />
-            <ArchTechBadge label="Upstash Redis (hot layer)" variant="accent" />
+            <ArchTechBadge label="Upstash Redis (hot layer = unico store live)" variant="accent" />
+            <ArchTechBadge label="Upstash QStash (cron 1-min)" variant="accent" />
             <ArchTechBadge label="Drizzle ORM" />
             <ArchTechBadge label="Postgres (Supabase)" />
-            <ArchTechBadge label="pg_cron Supabase (1-min schedule)" variant="accent" />
             <ArchTechBadge label="Binance Spot API (primary)" variant="accent" />
-            <ArchTechBadge label="KuCoin Spot API (secondary)" variant="accent" />
+            <ArchTechBadge label="KuCoin Spot API (primary)" variant="accent" />
             <ArchTechBadge label="Gate.io Spot API (long-tail)" variant="accent" />
-            <ArchTechBadge label="CoinGecko Free (fallback)" />
-            <ArchTechBadge label="CryptoCompare API (historical fallback)" />
-            <ArchTechBadge label="DexScreener API (long-tail fallback)" />
-            <ArchTechBadge label="Cloudflare R2 (coin images)" />
+            <ArchTechBadge label="CoinGecko Free (price fallback + metadata 4h)" />
+            <ArchTechBadge label="DexScreener API (DEX-only fallback)" />
+            <ArchTechBadge label="CryptoCompare (solo backfill storico)" />
+            <ArchTechBadge label="Cloudflare R2 (coin images + config snapshot)" />
             <ArchTechBadge label="HMAC auth (cron endpoints)" />
             <ArchTechBadge label="unstable_cache + updateTag" />
-            <ArchTechBadge label="In-house circuit breaker (CoinGecko path)" />
+            <ArchTechBadge label="Circuit breaker DB-backed (prices_source_health)" />
           </div>
         </ArchSection>
 
@@ -193,93 +203,94 @@ export default function PricesArchitecturePage() {
           icon={Database}
           intro={
             <>
-              4 tabelle principali sotto namespace <code>prices_*</code>.
-              Tutte le scritture passano per <code>UPSERT</code> idempotente
-              con conflict-on-unique. Niente trigger DB qui — la coerenza
-              counter non serve, i prezzi sono sostituiti, non aggregati.
+              Tabelle sotto namespace <code>prices_*</code> (+ <code>price_exchanges</code>).
+              Scritture via <code>UPSERT</code> idempotente. Niente trigger.{" "}
+              <strong>
+                Il prezzo live NON è in DB: vive in Redis (<code>prices:hot:v1</code>).
+              </strong>{" "}
+              <code>prices_data</code> droppata; config in <code>app_settings</code>.
             </>
           }>
           <ArchDiagram
             id="prices-schema"
             source={SCHEMA_DIAGRAM}
-            caption="Schema essenziale. prices_settings è singola row con la config del modulo."
+            caption="prices_sync_runs (audit) e prices_source_health (breaker) sono tabelle standalone. Config NON in DB dedicato: vive in app_settings.modules.prices.*."
           />
 
           <div className="space-y-3 mt-4">
             <ArchSchemaTable
               name="prices_coins"
-              description="Registry coin attive + valori 'last' per query veloce homepage/mercati"
+              description="Registry coin + master-data semi-statico. NB: nessuna colonna di prezzo live (sta in Redis)."
               columns={[
                 { name: "symbol",          type: "varchar(20)",  note: "PK, uppercase" },
-                { name: "name",            type: "text",         note: "Nome esteso (Bitcoin, Ethereum...)" },
-                { name: "coingecko_id",    type: "text",         note: "ID upstream per fetch (legacy)" },
-                { name: "preferred_exchange", type: "varchar(20)?", note: "FK → price_exchanges.id. Routing per-coin (migration 0051)" },
-                { name: "exchange_symbol",  type: "varchar(50)?", note: "Symbol formato exchange (es. BTCUSDT). 0051" },
-                { name: "image_url",       type: "text?",        note: "Hosted su R2 (vedi M_prices_003)" },
-                { name: "last_price",      type: "numeric",      note: "Prezzo aggiornato a ogni sync" },
-                { name: "market_cap",      type: "numeric?" },
-                { name: "market_cap_rank", type: "integer?",     note: "M_prices_005 — ordinamento universe" },
-                { name: "change_24h",      type: "numeric?" },
-                { name: "change_7d",       type: "numeric?" },
-                { name: "sparkline_7d",    type: "jsonb?",       note: "M_prices_004 — array prezzi per chart" },
-                { name: "is_active",       type: "boolean",      note: "Filtro hard del feed (false = nascondi)" },
-                { name: "last_updated",    type: "timestamptz",  note: "Per freshness check lato app" },
+                { name: "coingecko_id",    type: "varchar(100)?", note: "UNIQUE. ID upstream per fetch fallback + metadata" },
+                { name: "name",            type: "varchar(120)" },
+                { name: "image_url",       type: "text?",        note: "Hosted su R2" },
+                { name: "market_cap",      type: "bigint?",      note: "Aggiornato dal cron metadata-refresh (4h)" },
+                { name: "market_cap_rank", type: "integer?",     note: "Ordina universe + tiering + soglia top-500" },
+                { name: "category",        type: "varchar(50)?" },
+                { name: "is_active",       type: "boolean",      note: "Filtro hard del universe (false = escluso)" },
+                { name: "preferred_exchange", type: "varchar(20)?", note: "FK → price_exchanges.id. Routing per-coin (null = CoinGecko)" },
+                { name: "exchange_symbol", type: "varchar(50)?", note: "Symbol formato exchange (BTCUSDT, BTC-USDT, BTC_USDT)" },
+                { name: "weekly_sparkline", type: "jsonb?",      note: "7 prezzi decorativi, refresh 4h. (NON sparkline_7d)" },
+                { name: "weekly_sparkline_at", type: "timestamptz?" },
+                { name: "last_seen_at",    type: "timestamptz",  note: "Touch da social/import → finestra universe_hours" },
               ]}
             />
 
             <ArchSchemaTable
               name="price_exchanges"
-              description="Registry exchange disponibili (migration 0051 — refactor Redis-first). 1 row per ogni adapter implementato in lib/modules/prices/exchanges/<id>.ts"
+              description="Registry exchange. 1 row per adapter in lib/modules/prices/exchanges/<id>.ts. Toggle dalla UI /admin/modules/prices/exchanges."
               columns={[
-                { name: "id",                  type: "varchar(20)",  note: "PK lowercase (binance, kucoin, ...). Matcha registry.ts" },
-                { name: "label",               type: "text" },
-                { name: "enabled",             type: "boolean",      note: "Toggle dalla UI /admin/modules/prices/exchanges" },
-                { name: "api_key",             type: "secret?",      note: "Nullable: Binance public no-auth" },
-                { name: "api_secret",          type: "secret?" },
-                { name: "config",              type: "jsonb",        note: "Bag opaco per settings per-exchange" },
-                { name: "last_health_check",   type: "timestamptz?", note: "Aggiornato dal bottone Test connessione" },
-                { name: "last_health_ok",      type: "boolean?" },
-                { name: "last_health_error",   type: "text?" },
+                { name: "id",                  type: "varchar(20)",  note: "PK lowercase (binance, kucoin, gate). Matcha registry.ts" },
+                { name: "label",               type: "varchar(64)" },
+                { name: "enabled",             type: "boolean" },
+                { name: "api_key",             type: "text?",        note: "Nullable: Binance public no-auth" },
+                { name: "api_secret",          type: "text?" },
+                { name: "config",              type: "jsonb",        note: "Bag opaco settings per-exchange" },
+                { name: "last_health_*",       type: "ts/bool/text", note: "Aggiornato dal Test connessione" },
               ]}
             />
 
             <ArchSchemaTable
               name="prices_history"
-              description="Time series. Solo lettura per chart storici."
+              description="Time series per i chart storici. Scritta dal sync (gated da snapshot_minutes) + backfill CryptoCompare."
               columns={[
-                { name: "symbol",        type: "varchar(20)",  note: "FK prices_coins" },
+                { name: "id",            type: "bigserial",    note: "PK" },
+                { name: "symbol",        type: "varchar(20)",  note: "FK prices_coins (cascade)" },
                 { name: "ts",            type: "timestamptz" },
-                { name: "price",         type: "numeric" },
-                { name: "market_cap",    type: "numeric?" },
-                { name: "volume_24h",    type: "numeric?" },
-                { name: "unique idx",    type: "(symbol, ts)", note: "M_prices_006 — idempotency rerun" },
+                { name: "price",         type: "numeric(24,8)" },
+                { name: "idx",           type: "(symbol, ts)", note: "Index NON-unique (no idempotency hard a livello DB)" },
               ]}
             />
 
             <ArchSchemaTable
-              name="prices_runs"
-              description="Audit log dei sync (success/failure/source usata)"
+              name="prices_sync_runs"
+              description="Audit log dei run cron (sync | snapshot | cleanup). Letto dalla pagina Cron + diagnostica."
               columns={[
-                { name: "id",          type: "uuid v7",       note: "PK" },
-                { name: "started_at",  type: "timestamptz" },
-                { name: "finished_at", type: "timestamptz?" },
-                { name: "source",      type: "varchar(32)",   note: "coingecko | cryptocompare | dexscreener" },
-                { name: "coins_count", type: "integer",       note: "quante coin nel batch" },
-                { name: "status",      type: "varchar(16)",   note: "ok | partial | error" },
-                { name: "error",       type: "text?",         note: "stack trace se status=error" },
+                { name: "id",            type: "bigserial",     note: "PK" },
+                { name: "kind",          type: "varchar(20)",   note: "sync | snapshot | cleanup" },
+                { name: "started_at",    type: "timestamptz" },
+                { name: "finished_at",   type: "timestamptz?" },
+                { name: "duration_ms",   type: "integer?" },
+                { name: "coins_total",   type: "integer",       note: "= universe.length nel run" },
+                { name: "coins_updated", type: "integer" },
+                { name: "source_used",   type: "varchar(20)?",  note: "coingecko | dexscreener | mixed | null" },
+                { name: "ok",            type: "boolean" },
+                { name: "error",         type: "text?" },
               ]}
             />
 
             <ArchSchemaTable
-              name="prices_settings"
-              description="Singleton: config del modulo (chiavi API, retention, intervalli, R2 bucket)"
+              name="prices_source_health"
+              description="State del circuit breaker per source — DB-backed (NON in-memory). Apre/chiude il breaker su CoinGecko/DexScreener."
               columns={[
-                { name: "id",                   type: "smallint",   note: "always 1 (CHECK)" },
-                { name: "active_universe_top",  type: "integer",    note: "default 200" },
-                { name: "sync_interval_min",    type: "integer",    note: "default 5" },
-                { name: "history_retention_days", type: "integer",  note: "default 90" },
-                { name: "r2_*",                 type: "text/secret", note: "M_prices_003 — credenziali bucket" },
-                { name: "cryptocompare_api_key", type: "secret?",   note: "M_prices_007" },
+                { name: "source",         type: "varchar(20)",  note: "PK (coingecko, dexscreener)" },
+                { name: "status",         type: "varchar(20)",  note: "closed | open" },
+                { name: "error_count",    type: "integer" },
+                { name: "success_count",  type: "integer" },
+                { name: "open_until",     type: "timestamptz?", note: "Breaker aperto fino a questo istante" },
+                { name: "avg_latency_ms", type: "integer?" },
               ]}
             />
           </div>
@@ -290,11 +301,11 @@ export default function PricesArchitecturePage() {
           id="pipeline"
           title="Pipeline end-to-end"
           icon={GitBranch}
-          intro="Dal cron GitHub Actions all'ultimo write su R2. La pipeline è resiliente: se la primary fallisce si scala al fallback senza svegliare nessuno.">
+          intro="Dal cron QStash al write su Redis. Exchange-first; CoinGecko/DexScreener solo per i coin scoperti. Resiliente: failure isolation per-exchange + circuit breaker.">
           <ArchDiagram
             id="prices-pipeline"
             source={PIPELINE_DIAGRAM}
-            caption="Flow di un sync. Le source sono provate in cascata; il circuit breaker evita di sbattere ripetutamente contro una source down."
+            caption="Flow di un sync. Gli exchange sono primari; CoinGecko/DexScreener coprono solo i coin mancanti. Il prezzo live finisce SOLO su Redis."
           />
 
           <p className="mt-4">
@@ -303,29 +314,37 @@ export default function PricesArchitecturePage() {
           <ul className="list-disc pl-5 space-y-1">
             <li>
               <strong>Auth HMAC sui cron</strong>: gli endpoint{" "}
-              <code>/api/cron/modules/prices/*</code> richiedono header HMAC
-              firmato con shared secret. Niente IP allowlist (GitHub Actions
-              non garantisce range stabili).
+              <code>/api/cron/modules/prices/*</code> richiedono firma HMAC
+              (<code>cron-auth.ts</code>). Chi li chiama è indifferente: i run
+              vengono loggati su <code>prices_sync_runs</code> a prescindere.
             </li>
             <li>
-              <strong>UPSERT idempotente</strong>: due esecuzioni dello stesso
-              cron sullo stesso bucket di 5min non duplicano (unique idx su
-              <code>prices_history(symbol, ts)</code>).
+              <strong>Exchange-first + failure isolation</strong>: ogni gruppo
+              exchange è fetchato in parallelo; se Binance è down gli altri (e
+              CoinGecko per i tail) continuano. I coin non coperti ricadono su
+              CoinGecko, poi DexScreener.
             </li>
             <li>
-              <strong>Source chain con circuit breaker</strong>: se CoinGecko
-              fallisce 3 volte di fila viene marcata unhealthy per 10 min e
-              ignorata, evitando latenza patologica.
+              <strong>Tiering CoinGecko</strong>: Tier1 (rank ≤100) ogni tick,
+              Tier2 (101-400) ogni 2, Tier3 (&gt;400/null) ogni 6 — riduce le
+              call CoinGecko rispettando il rate limit free.
             </li>
             <li>
-              <strong>R2 snapshot</strong>: dopo l'UPSERT scriviamo un JSON
-              statico <code>coins-top.json</code> su R2. Le pagine pubbliche
-              lo leggono direttamente, niente DB hit per ogni request.
+              <strong>Circuit breaker DB-backed</strong>: stato in{" "}
+              <code>prices_source_health</code>. Dopo N errori la source viene
+              marcata <code>open</code> per una finestra (config breaker_*),
+              evitando di sbatterci contro.
             </li>
             <li>
-              <strong>updateTag</strong>: invalidiamo <code>prices:*</code>
-              così tutte le query <code>unstable_cache</code> riprendono il
-              valore fresh al prossimo render.
+              <strong>Redis prima del DB</strong>: <code>setHotPrices</code> è la
+              scrittura critica. <code>prices_history</code> (snapshot) e{" "}
+              <code>syncMasterData</code> (market_cap/rank) sono best-effort,
+              non bloccano il tick.
+            </li>
+            <li>
+              <strong>updateTag dopo il sync</strong>: l'endpoint invalida{" "}
+              <code>PRICES_DATA_TAG</code> + <code>PRICES_HEALTH_TAG</code> così
+              le query <code>unstable_cache</code> dei consumer ripartono fresh.
             </li>
           </ul>
         </ArchSection>
@@ -335,31 +354,31 @@ export default function PricesArchitecturePage() {
           id="caching"
           title="Strategia di caching"
           icon={Boxes}
-          intro="4 layer coordinati. Il pattern R2 snapshot è il più importante: scala a 1M user/giorno senza svegliare il DB per query 'global'.">
+          intro="4 layer. Il prezzo live è 100% Redis; le query 'global' (config) passano da snapshot R2; i consumer per-coin da unstable_cache; le pagine pubbliche da ISR edge.">
           <ol className="list-decimal pl-5 space-y-2">
             <li>
-              <strong>R2 snapshot config</strong>: query "global" (top 200
-              coin, full universe, sparkline) servite da JSON statico in R2.
-              Lettura ~10ms da edge, zero query DB. Pattern documentato in{" "}
-              <code>project_config_snapshot_pattern</code>.
+              <strong>Redis hot (<code>prices:hot:v1</code>)</strong>: unica
+              chiave con tutti i coin. 1 GET = snapshot completo (~5-20ms). È
+              l'<strong>unico</strong> store del prezzo corrente (no fallback DB).
             </li>
             <li>
-              <strong>Next unstable_cache</strong>: query per-coin{" "}
-              <code>getCoinView()</code>, <code>getCoinNameMap()</code>,{" "}
-              <code>getTrendingTickers()</code> cached con tag{" "}
-              <code>prices:*</code>. Invalidate via <code>updateTag()</code>{" "}
-              dopo ogni sync.
+              <strong>app_settings via snapshot R2</strong>: la config del
+              modulo (<code>modules.prices.*</code>) è servita da un JSON R2 con
+              cache in-process 30s/ETag. Pattern in{" "}
+              <code>project_config_snapshot_pattern</code>.{" "}
+              <strong>⚠ Un UPDATE SQL diretto su app_settings è invisibile a
+              prod finché lo snapshot non è risincronizzato</strong>{" "}
+              (<code>forceSyncAppSettingsSnapshot</code>).
             </li>
             <li>
-              <strong>Image proxy</strong>: le coin image servite da R2{" "}
-              <code>gencry-media/coins/&#123;symbol&#125;.png</code>. Una
-              sola volta scaricate da CoinGecko, poi servite dal nostro
-              dominio (zero Hotlink Protection issue).
+              <strong>Next unstable_cache</strong>: <code>getTopCoinsForCards</code>{" "}
+              (pool 200), <code>getCoinForCard</code> / <code>getCoinDetail</code>,{" "}
+              <code>getCoinNameMap</code> — tag <code>PRICES_DATA_TAG</code>,
+              invalidate via <code>updateTag()</code> dopo ogni sync.
             </li>
             <li>
-              <strong>Client-side staleness</strong>: il TickerHoverCard del
-              modulo posts calcola <code>freshUntil = lastUpdated + 5min</code>{" "}
-              così non rifetcha finché il prossimo cron non è girato.
+              <strong>Coin page ISR 60s</strong> + <strong>coin images R2</strong>{" "}
+              (servite dal nostro dominio, no Hotlink issue).
             </li>
           </ol>
 
@@ -370,9 +389,9 @@ export default function PricesArchitecturePage() {
                 "color-mix(in srgb, var(--admin-accent) 8%, transparent)",
               color: "var(--admin-accent)",
             }}>
-            <strong>Anti-pattern noto</strong>: NON usare il pool DB diretto
-            per servire query global a tutto il traffico. La regola{" "}
-            <em>"global query → R2 snapshot"</em> è non-negoziabile.
+            <strong>Anti-pattern noto</strong>: NON servire query global a tutto
+            il traffico dal pool DB. La regola{" "}
+            <em>"global query → Redis / snapshot R2"</em> è non-negoziabile.
           </div>
         </ArchSection>
 
@@ -381,43 +400,49 @@ export default function PricesArchitecturePage() {
           id="hooks"
           title="Hookable services — dove intervenire"
           icon={Wrench}
-          intro="Tutto dietro interfaccia stabile. Aggiungere una source nuova = 1 file in sources/ + push nel chain. Niente toccare il resto.">
+          intro="Tutto dietro interfaccia stabile. Aggiungere un exchange = 1 file in exchanges/ + 1 row in price_exchanges. Aggiungere una source fallback = 1 file in sources/.">
           <div className="space-y-2.5">
             <ArchHookBox
-              title="Source provider"
-              description="Ogni source (CoinGecko, CryptoCompare, DexScreener) implementa la stessa interface 'fetchUniverse(symbols)'. Aggiungerne uno nuovo = 1 file."
+              title="Exchange adapter (PRIMARIO)"
+              description="Ogni exchange implementa fetchCurrentPrices(inputs). Registrato nel registry per id. Binance/KuCoin/Gate live; Kraken/Coinbase = nuovo file + row."
+              filePath="lib/modules/prices/exchanges/<id>.ts (+ registry.ts)"
+              contract="fetchCurrentPrices(inputs: ExchangeFetchInput[]) → Promise<Map<symbol, PriceQuote>>"
+            />
+            <ArchHookBox
+              title="Source fallback (CoinGecko / DexScreener)"
+              description="Source non-exchange per i coin scoperti. CoinGecko = price fallback + metadata. DexScreener = DEX-only."
               filePath="lib/modules/prices/sources/<provider>.ts"
-              contract="fetchUniverse(symbols: string[]) → Promise<PriceTick[]>"
+              contract="fetch<Provider>Prices(ids|symbols) → { quotes: Map, latencyMs }"
             />
             <ArchHookBox
               title="Sync orchestrator"
-              description="sync.ts orchestra il chain. Il loop primary → fallback vive qui. Cambia ordine o aggiungi source nel chain in 5 righe."
+              description="Orchestra exchange → CoinGecko → DexScreener → Redis + prices_history. Il chain vive qui."
               filePath="lib/modules/prices/sync.ts"
-              contract="runSync(opts) → { coins, history, source, took_ms }"
+              contract="runPricesSync(force?) → SyncResult"
             />
             <ArchHookBox
               title="Active universe"
-              description="Calcola quali coin sincronizzare per ogni run. Default = top-N + watchlist union. Estendibile (es. + symbols menzionati negli ultimi N post)."
+              description="Quali coin sincronizzare: recenti (universe_hours) OR top-rank (≤500). Estendibile (watchlist, mention nei post)."
               filePath="lib/modules/prices/active-universe.ts"
-              contract="loadActiveUniverse() → string[] symbols"
+              contract="getActiveUniverse() → ActiveCoin[]"
             />
             <ArchHookBox
-              title="Circuit breaker"
-              description="State in-memory per source. health() ritorna 'healthy' | 'unhealthy'. Reset automatico dopo cooldown."
+              title="Circuit breaker (DB-backed)"
+              description="Stato in prices_source_health. canCall(source) gate; recordSuccess/recordError aggiornano il breaker."
               filePath="lib/modules/prices/circuit-breaker.ts"
-              contract="recordFailure(source) / health(source)"
+              contract="canCall(source) / recordSuccess / recordError"
             />
             <ArchHookBox
-              title="R2 snapshot writer"
-              description="Scrive coins-top.json + sparkline su R2 dopo ogni sync. Bucket configurabile via prices_settings."
-              filePath="lib/modules/prices/storage.ts"
-              contract="writeSnapshot(snapshot) / readSnapshot()"
+              title="Hot layer Redis"
+              description="get/set dello snapshot prezzi. Unico store del prezzo live."
+              filePath="lib/modules/prices/services/hot-prices.ts"
+              contract="setHotPrices(map, {ttl}) / getHotPrices() → {updatedAt, quotes}"
             />
             <ArchHookBox
               title="Queries (consumer-side)"
-              description="getCoinView, getCoinNameMap, getTrendingTickers. Tutte cached con tag invalidabili. Usate dal modulo posts."
+              description="getTopCoinsForCards, getCoinForCard (null se no prezzo), getCoinDetail (no-404 SEO), getCoinNameMap, getHistorySeries. Cached + tagged."
               filePath="lib/modules/prices/queries.ts"
-              contract="getCoinNameMap() → Record<lower_name, SYMBOL>"
+              contract="getCoinDetail(symbol) → CoinView | null (null SOLO se coin inesistente)"
             />
           </div>
         </ArchSection>
@@ -427,31 +452,27 @@ export default function PricesArchitecturePage() {
           id="performance"
           title="Performance"
           icon={Gauge}
-          intro="Universe top-200, sync ogni 5min, ~12s per run. Pubblico = 0 query DB grazie a R2 snapshot.">
+          intro="Universe = tutti i coin attivi+fetchabili (~771 oggi), sync ogni 1 min, exchange-first con tiering CoinGecko. Pubblico = 0 query DB sul prezzo grazie a Redis + ISR.">
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Sync run</strong>: ~12s end-to-end per 200 coin
-              (CoinGecko Pro → UPSERT batch → R2 write). Dominato dal round
-              trip API esterno.
+              <strong>Sync run</strong>: dominato dalle call exchange (bulk) +
+              CoinGecko per i tail. Tiering limita le call CoinGecko per tick.
             </li>
             <li>
-              <strong>R2 snapshot read</strong>: ~10ms da edge Cloudflare
-              (cached in CDN layer). Zero DB hit. Scalabilità lineare col
-              traffico.
+              <strong>Redis hot read</strong>: ~5-20ms, 1 GET per l'intero
+              snapshot. Scala lineare col traffico (no DB hit).
             </li>
             <li>
-              <strong>getCoinNameMap()</strong>: cached con tag{" "}
-              <code>prices:names</code>. Lettura cached &lt;1ms. Usata dal
-              parser di posts per ogni body.
+              <strong>Coin page</strong>: ISR 60s su edge → 10k visit/min ≈ 1
+              req/min al backend.
             </li>
             <li>
-              <strong>Single coin view</strong>: <code>getCoinView(symbol)</code>{" "}
-              cached per symbol. p95 ~5ms (memory cache hit) / ~25ms (DB hit).
+              <strong>getCoinNameMap()</strong>: cached, lookup O(1) per parola
+              nel parser dei post (indipendente dal numero di coin).
             </li>
             <li>
-              <strong>Sparkline</strong>: pre-aggregata in{" "}
-              <code>prices_coins.sparkline_7d</code> come jsonb — niente
-              GROUP BY al render.
+              <strong>weekly_sparkline</strong>: pre-aggregata in{" "}
+              <code>prices_coins</code> (jsonb) — niente GROUP BY al render.
             </li>
           </ul>
         </ArchSection>
@@ -461,43 +482,31 @@ export default function PricesArchitecturePage() {
           id="future"
           title="Future optimizations"
           icon={Rocket}
-          intro="Modulo già in 1.0.0 e in main. Il backlog è sull'estensione (più source, più granularità) più che sull'ottimizzazione (i numeri ci sono).">
+          intro="Modulo in 1.0.0 e in main. Backlog su estensione (più exchange/granularità) e su una pulizia legacy in corso (audit 2026-06-01).">
           <div className="grid sm:grid-cols-2 gap-3">
             <ArchFutureCard
               tier={1}
-              title="Sentiment per coin"
-              description="Aggregare reaction/post counter dal modulo posts per ottenere un sentiment crowd-sourced inline col prezzo."
-              trigger="Quando il modulo posts ha >10k post attivi"
+              title="Cleanup legacy (audit 06/01)"
+              description="Rimuovere runPricesSnapshot no-op, decidere su SSE live-prices (scaffold off), igiene universo (coin spazzatura attivi). Vedi memory dell'audit."
+              trigger="Subito dopo l'audit dead-code"
             />
             <ArchFutureCard
               tier={2}
               title="Granularità 1min per top-20"
-              description="Cron secondario ogni 1min sui top-20 per supportare day-trading UI futura. CoinGecko Pro lo permette."
+              description="Cron secondario sui top-20 per UI day-trading futura."
               trigger="Apertura modulo trading / alerts realtime"
             />
             <ArchFutureCard
               tier={2}
               title="Source on-chain (Pyth/Chainlink)"
-              description="Aggiungere oracoli on-chain come ulteriore fallback per coin DEX-only. Già pronto come pattern, manca solo l'impl provider."
-              trigger="Aggiunta di memecoin / token Solana al universe"
-            />
-            <ArchFutureCard
-              tier={2}
-              title="DefiLlama TVL integration"
-              description="Arricchire prices_coins con TVL per protocolli DeFi. Sync separato (frequenza 30min)."
-              trigger="Modulo DeFi metrics in roadmap"
+              description="Oracoli on-chain come ulteriore fallback per coin DEX-only. Pattern pronto, manca l'impl provider."
+              trigger="Aggiunta memecoin / token Solana al universe"
             />
             <ArchFutureCard
               tier={3}
               title="Edge runtime per /api/modules/prices"
-              description="Sposta gli endpoint API pubblici (es. history per chart) su edge runtime. CDN cache + 0ms cold start."
+              description="Endpoint API pubblici (history per chart) su edge runtime: CDN cache + 0ms cold start."
               trigger="API traffic > 1M req/giorno"
-            />
-            <ArchFutureCard
-              tier={3}
-              title="Predictive caching warmup"
-              description="Pre-cachare le coin trending per evitare cold cache su hot path."
-              trigger="Solo dopo aver attivato KV anche per posts"
             />
           </div>
         </ArchSection>
@@ -507,56 +516,23 @@ export default function PricesArchitecturePage() {
           id="files"
           title="Files map — dove cercare cosa"
           icon={FileText}
-          intro="11 file principali del modulo. Tutti sotto lib/modules/prices/.">
+          intro="Tutto sotto lib/modules/prices/. Layer: orchestrazione, exchanges/, sources/, services/, read (queries).">
           <div className="space-y-2">
-            <ArchFileLink
-              path="lib/modules/prices/manifest.ts"
-              description="Slug, label, permission, 3 cron jobs"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/sync.ts"
-              description="Orchestrator: chain source + UPSERT + R2 write + updateTag"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/active-universe.ts"
-              description="Calcola le coin da sincronizzare (top-N + watchlist)"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/circuit-breaker.ts"
-              description="State in-memory per source health, cooldown su 5xx"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/cron-auth.ts"
-              description="HMAC verification per gli endpoint /api/cron/modules/prices/*"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/sources/coingecko.ts"
-              description="Source primaria. Pro plan, supporta batch + sparkline"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/sources/cryptocompare.ts"
-              description="Fallback secondario, batch limit 100"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/sources/dexscreener.ts"
-              description="Fallback per coin DEX-only (memecoin, low cap)"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/storage.ts"
-              description="R2 snapshot writer + reader (coins-top.json)"
-            />
-            <ArchFileLink
-              path="lib/modules/prices/queries.ts"
-              description="Read-side: getCoinView, getCoinNameMap, getTrendingTickers (cached + tagged)"
-            />
-            <ArchFileLink
-              path="lib/db/migrations/M_prices_001_init.sql"
-              description="Schema iniziale: 4 tabelle + indici"
-            />
-            <ArchFileLink
-              path="lib/db/migrations/M_prices_006_history_unique_index.sql"
-              description="Unique (symbol, ts) per idempotency cron rerun"
-            />
+            <ArchFileLink path="lib/modules/prices/manifest.ts" description="Slug, nav, permission, 4 cron jobs (sync/snapshot/cleanup/metadata-refresh)" />
+            <ArchFileLink path="lib/modules/prices/config.ts" description="getPricesConfig() — legge tutta la config da app_settings.modules.prices.*" />
+            <ArchFileLink path="lib/modules/prices/sync.ts" description="Orchestrator: exchange → CoinGecko → DexScreener → Redis + history + masterdata" />
+            <ArchFileLink path="lib/modules/prices/active-universe.ts" description="Quali coin sincronizzare (recenti OR top-rank ≤500)" />
+            <ArchFileLink path="lib/modules/prices/circuit-breaker.ts" description="Breaker DB-backed (prices_source_health) per CoinGecko/DexScreener" />
+            <ArchFileLink path="lib/modules/prices/cron-auth.ts" description="HMAC verification per /api/cron/modules/prices/*" />
+            <ArchFileLink path="lib/modules/prices/exchanges/registry.ts" description="Registry adapter per id + binance/kucoin/gate.ts" />
+            <ArchFileLink path="lib/modules/prices/services/hot-prices.ts" description="Hot layer Redis prices:hot:v1 (unico store live)" />
+            <ArchFileLink path="lib/modules/prices/services/sync-tick.ts" description="Counter Redis per il tiering CoinGecko" />
+            <ArchFileLink path="lib/modules/prices/services/metadata-refresh.ts" description="Cron 4h: market_cap/rank/sparkline da CoinGecko" />
+            <ArchFileLink path="lib/modules/prices/services/usdt-rate.ts" description="Tasso USDT→USD per convertire i prezzi exchange" />
+            <ArchFileLink path="lib/modules/prices/sources/coingecko.ts" description="Fallback prezzo + endpoint markets (free/pro)" />
+            <ArchFileLink path="lib/modules/prices/sources/dexscreener.ts" description="Fallback coin DEX-only / long-tail" />
+            <ArchFileLink path="lib/modules/prices/queries.ts" description="Read: getTopCoinsForCards, getCoinForCard, getCoinDetail, getCoinNameMap, getHistorySeries" />
+            <ArchFileLink path="lib/db/migrations/M_prices_drop_prices_data.sql" description="Drop prices_data — Redis è ora l'unico store del prezzo live" />
           </div>
         </ArchSection>
 
@@ -565,40 +541,49 @@ export default function PricesArchitecturePage() {
           id="caveats"
           title="Caveats e pitfall noti"
           icon={AlertTriangle}
-          intro="Specifici di questo modulo. Alcuni sono lezioni dolorose.">
+          intro="Specifici di questo modulo. Alcuni sono lezioni dolorose (2026-06-01).">
           <ul className="list-disc pl-5 space-y-2">
             <li>
-              <strong>1-char symbols esistono</strong>: CoinGecko ha coin con
-              symbol di 1 char (es. Sonic = "S"). Il modulo li accetta, ma i
-              consumer (posts) devono filtrare prima di INSERT (vedi
-              <code>VALID_TICKER_SHAPE</code> nel parser di posts).
+              <strong>Redis è l'unico store del prezzo live</strong>: con{" "}
+              <code>prices_data</code> droppata, se Upstash è down i prezzi
+              correnti spariscono (i chart storici da <code>prices_history</code>{" "}
+              sopravvivono). Monitorare la chiave <code>prices:hot:v1</code>.
             </li>
             <li>
-              <strong>Cloudflare Hotlink Protection</strong>: se attivata sul
-              dominio R2, le coin image rompono cross-origin (es. localhost
-              dev). Attualmente OFF; se riattivata serve whitelist o{" "}
-              <code>referrerPolicy="no-referrer"</code>. Vedi memory{" "}
-              <code>project_prices_r2_cloudflare_hotlink</code>.
+              <strong>Universe starvation (FIXATO 06/01)</strong>: con{" "}
+              <code>universe_hours=24</code> e <code>last_seen_at</code>{" "}
+              aggiornato di rado, un seeder che "toccava" pochi coin minori
+              collassava l'universo a quel sottoinsieme → major (BTC/ETH) senza
+              prezzo → coin page 404. Fix: top-rank ≤500 sempre incluso +{" "}
+              <code>universe_hours</code> tenuto alto (8760) finché il social non
+              popola <code>last_seen_at</code>.
             </li>
             <li>
-              <strong>GitHub Actions cron drift</strong>: la schedulazione
-              cron di GH Actions può ritardare 1-2min sotto carico. Per
-              questo il <code>freshUntil</code> client-side ha un margine.
+              <strong>app_settings snapshot staleness</strong>: la config è
+              servita da snapshot R2. Un UPDATE SQL diretto NON si propaga finché
+              non risincronizzi (<code>forceSyncAppSettingsSnapshot</code>); usa
+              sempre il write path (<code>batchUpdateAppSettings</code>).
             </li>
             <li>
-              <strong>CoinGecko Pro rate limit</strong>: 500 req/min sul
-              piano corrente. Batch size massimo per evitare 429.
+              <strong>Coin page NON deve mai 404 per prezzo mancante</strong>{" "}
+              (SEO): usare <code>getCoinDetail</code> (404 solo se il coin non
+              esiste); il prezzo/chart si nascondono con{" "}
+              <code>priceAvailable=false</code>.
             </li>
             <li>
-              <strong>Universe drift</strong>: top-N può cambiare day-to-day
-              (rank shuffling). Coin che cadono fuori dal top-N rimangono
-              nel registry ma <code>is_active=false</code>; non vengono
-              eliminate per non rompere FK in altri moduli.
+              <strong>Cron admin "Not on QStash" = falso negativo</strong>: la
+              pagina cerca <code>scheduleId = gencry-&lt;jobname&gt;</code>; se non
+              combacia mostra "Not on QStash" anche se i job girano davvero su
+              QStash (display WIP della migrazione cron). NON è un problema infra.
             </li>
             <li>
-              <strong>Load test contro prod</strong>: NON fare. Vercel ha
-              firewall automatico che rate-limita 15-60 min. Bug history in
-              memory <code>feedback_no_load_test_against_prod</code>.
+              <strong>Igiene universo</strong>: <code>prices_coins</code>{" "}
+              contiene coin spazzatura attivi (simboli non-ASCII). Da rivedere
+              import + flag <code>is_active</code> (audit).
+            </li>
+            <li>
+              <strong>Load test contro prod</strong>: NON fare. Firewall Vercel
+              rate-limita 15-60 min. Vedi <code>feedback_no_load_test_against_prod</code>.
             </li>
           </ul>
         </ArchSection>
