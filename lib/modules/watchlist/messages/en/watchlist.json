@@ -9,7 +9,10 @@
     "empty_description": "Create your first watchlist to track your favourite crypto and see how the basket moves over time.",
     "empty_cta": "Create your first watchlist",
     "new_button": "New watchlist",
-    "cap_reached_hint": "You've reached the {cap} watchlist cap. Archive one to free up a slot."
+    "cap_reached_hint": "You've reached the {cap} watchlist cap. Archive one to free up a slot.",
+    "slots_used": "{used}/{cap} watchlists",
+    "slots_unlimited": "{used}/∞ watchlists",
+    "buy_more_hint": "You can use your GCC to buy more watchlists"
   },
   "overview": {
     "perf_label": "Overall performance · 30 days",
