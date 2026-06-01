@@ -19,6 +19,7 @@ import {
   userBadges,
 } from "@/lib/db/schema";
 import { getUser } from "@/lib/db/queries";
+import { runAfterPerkRedeemed } from "@/lib/modules/module-hooks";
 
 export type RedeemResult =
   | { ok: true; message: string }
@@ -29,7 +30,10 @@ export async function redeemCatalogItem(catalogSlug: string): Promise<RedeemResu
   if (!user) return { ok: false, error: "Devi essere autenticato." };
   if (user.bannedAt) return { ok: false, error: "Account sospeso." };
 
-  return db.transaction(async (tx) => {
+  // Perk da applicare DOPO il commit (effetto cross-modulo via hook).
+  let perkToGrant: { slug: string; perkData: Record<string, unknown> | null } | null = null;
+
+  const result = await db.transaction(async (tx): Promise<RedeemResult> => {
     // 1. Legge l'item
     const [item] = await tx
       .select()
@@ -99,7 +103,8 @@ export async function redeemCatalogItem(catalogSlug: string): Promise<RedeemResu
       ledgerEntryId: ledgerEntry.id,
     });
 
-    // 6. Assegna badge se type='badge'
+    // 6. Assegna badge se type='badge'; per i perk l'effetto viene applicato
+    //    DOPO il commit via runAfterPerkRedeemed (hook cross-modulo isolato).
     if (item.type === "badge") {
       await tx.insert(userBadges).values({
         userId:        user.id,
@@ -107,8 +112,26 @@ export async function redeemCatalogItem(catalogSlug: string): Promise<RedeemResu
         source:        "purchase",
         catalogItemId: item.id,
       });
+    } else {
+      perkToGrant = {
+        slug: item.slug,
+        perkData: (item.perkData as Record<string, unknown> | null) ?? null,
+      };
     }
 
     return { ok: true, message: `Hai acquistato "${item.label}"! −${cost} GCC.` };
   });
+
+  // Effetto del perk fuori dalla transazione (fire-and-forget come gli altri
+  // module hook). Es: watchlist_slot → il modulo watchlist incrementa lo slot.
+  // `perkToGrant` è assegnato dentro la closure della transaction: TS non lo
+  // traccia (lo vede ancora null) → cast esplicito alla union dichiarata.
+  const grant = perkToGrant as
+    | { slug: string; perkData: Record<string, unknown> | null }
+    | null;
+  if (result.ok && grant) {
+    await runAfterPerkRedeemed(user.id, grant.slug, grant.perkData).catch(() => {});
+  }
+
+  return result;
 }

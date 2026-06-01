@@ -209,6 +209,20 @@ export interface ModuleManifest {
     afterCommentCreated?: (userId: string, commentId: string) => Promise<void>;
   };
 
+  /**
+   * Hook reattivi al riscatto di un PERK dal catalogo rewards (spending).
+   * Chiamati DOPO il commit della redemption, fire-and-forget. Permettono a
+   * un modulo di "applicare" l'effetto del perk senza che rewards/redeem.ts
+   * importi il modulo (es. watchlist incrementa i suoi slot su 'watchlist_slot').
+   */
+  perkHooks?: {
+    afterPerkRedeemed?: (
+      userId: string,
+      slug: string,
+      perkData: Record<string, unknown> | null,
+    ) => Promise<void>;
+  };
+
   // layoutShell è deliberatamente ASSENTE dal manifest:
   // path di componenti UI nel manifest vengono tracciati staticamente dal
   // bundler e finiscono nel client bundle (postgres/fs error). Il layout
