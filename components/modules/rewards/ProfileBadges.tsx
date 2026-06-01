@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BadgeIcon } from "./BadgeIcon";
 
 export interface ProfileBadgeItem {
   id: string;
@@ -29,22 +30,14 @@ export function ProfileBadges({ items }: { items: ProfileBadgeItem[] }) {
           {items.map((b) => (
             <Tooltip key={b.id}>
               <TooltipTrigger asChild>
-                {/* Icona tonda grande, solo icona, centrata ~60% (icona
-                    trasparente → il colore iconBg riempie il badge).
-                    Hover: lieve lift + zoom. */}
-                <div
-                  className="flex h-12 w-12 cursor-default items-center justify-center overflow-hidden rounded-full shadow-md ring-2 ring-gc-line transition-transform duration-200 ease-out hover:-translate-y-1 hover:scale-105"
-                  style={{ background: b.iconBg ?? "#888" }}
-                >
-                  {b.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.iconUrl} alt={b.label} className="h-3/5 w-3/5 object-contain" />
-                  ) : (
-                    <span className="text-lg font-bold text-white">
-                      {b.label.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
+                {/* Hover: lieve lift + zoom (specifico del profilo). */}
+                <BadgeIcon
+                  iconUrl={b.iconUrl}
+                  iconBg={b.iconBg}
+                  label={b.label}
+                  size={48}
+                  className="cursor-default transition-transform duration-200 ease-out hover:-translate-y-1 hover:scale-105"
+                />
               </TooltipTrigger>
               <TooltipContent sideOffset={6}>{b.label}</TooltipContent>
             </Tooltip>

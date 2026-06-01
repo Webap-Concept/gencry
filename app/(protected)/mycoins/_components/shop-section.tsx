@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { ShoppingBag } from "lucide-react";
 import { redeemCatalogItem } from "@/lib/modules/rewards/redeem";
 import { formatCoins } from "@/lib/modules/rewards/format";
+import { BadgeIcon } from "@/components/modules/rewards/BadgeIcon";
 import type { RedeemableItem } from "@/lib/modules/rewards/catalog-queries";
 
 export function ShopSection({
@@ -45,26 +46,23 @@ function ShopCard({ item, canAfford }: { item: RedeemableItem; canAfford: boolea
   const owned = item.alreadyOwned;
 
   return (
-    <div className="rounded-2xl border border-gc-line bg-gc-bg p-4 flex flex-col gap-3">
-      {/* Icona */}
-      <div className="flex items-start justify-between">
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
-          style={{ background: item.iconBg ?? "#888" }}
-        >
-          {item.iconUrl ? (
-            <img src={item.iconUrl} alt={item.label} className="w-full h-full object-contain" />
-          ) : (
-            <span className="text-white text-xl font-bold">{item.label[0]}</span>
-          )}
-        </div>
-        <span
-          className="text-xs font-mono px-2 py-0.5 rounded-full"
-          style={{ background: "var(--gc-bg-2, #f5f0e8)", color: "var(--gc-fg-3)" }}
-        >
-          {item.type}
-        </span>
-      </div>
+    <div className="relative rounded-2xl border border-gc-line bg-gc-bg p-4 flex flex-col gap-3 text-center">
+      {/* Tipo (badge/perk) — angolo alto a destra */}
+      <span
+        className="absolute top-3 right-3 text-xs font-mono px-2 py-0.5 rounded-full"
+        style={{ background: "var(--gc-bg-2, #f5f0e8)", color: "var(--gc-fg-3)" }}
+      >
+        {item.type}
+      </span>
+
+      {/* Icona tonda centrata — stesso componente dei badge nel profilo. */}
+      <BadgeIcon
+        iconUrl={item.iconUrl}
+        iconBg={item.iconBg}
+        label={item.label}
+        size={64}
+        className="mx-auto mt-1"
+      />
 
       {/* Info */}
       <div>
