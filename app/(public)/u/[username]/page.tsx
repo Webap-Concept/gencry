@@ -217,7 +217,7 @@ function ProfileHeader({
     // (avatar a sx, info al centro, Follow a dx). Stesso markup, classi
     // responsive — vedi project_responsive_strategy.
     <header className="p-5 sm:p-4">
-      <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
+      <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-4 sm:gap-5">
         <Avatar
           avatarUrl={profile.avatarUrl}
           initial={initial}
@@ -357,7 +357,7 @@ function Avatar({
     />
   ) : (
     <div
-      className="w-full h-full rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent"
+      className="w-full h-full rounded-full flex items-center justify-center text-4xl font-serif text-white bg-gc-accent"
       aria-label={display}
     >
       {initial}
@@ -365,7 +365,7 @@ function Avatar({
   );
 
   return (
-    <div className="relative w-24 h-24 sm:w-16 sm:h-16 shrink-0">
+    <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
       {inner}
       {verified && (
         <span
