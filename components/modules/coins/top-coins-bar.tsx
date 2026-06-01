@@ -1,23 +1,23 @@
 // components/modules/coins/top-coins-bar.tsx
 //
-// Barra fissa full-width in cima allo shell loggato che mostra le top N
-// coin by market cap. Stessa grafica del ticker news (icona + symbol +
-// prezzo + var%), ma NON animata: la barra è fissa (sta fuori dal <main>
-// scrollabile dello shell) e su overflow le coin si scrollano a mano in
-// orizzontale (decisione UX 2026-06-01).
+// Barra fissa full-width in cima allo shell loggato con le top coin by
+// market cap. Comportamento (decisione UX 2026-06-01):
+//   - Desktop (md+): BTC + ETH SEMPRE FISSI a sinistra; le altre coin
+//     scorrono in marquee automatico infinito (CSS, niente scrollbar).
+//   - Mobile (<md): SOLO BTC + ETH, centrati e ben spaziati. Niente
+//     marquee, niente altre coin.
 //
-// Iniettata nello slot `marketBar` di ProtectedShell dal layout (protected)
-// + PublicAdaptiveShell, guardata da isModuleInstalled("prices") → il core
-// resta module-agnostic.
-//
-// Dati: getTopCoinsForCards(N) è già cache Redis (hot) + React.cache per
-// request → costo trascurabile anche se lo shell ri-renderizza a ogni
-// navigazione. Wrappare in <Suspense> lato chiamante per non bloccare il
-// primo paint.
+// La barra sta fuori dal <main> scrollabile dello shell → resta fissa
+// verticalmente senza position:fixed. Iniettata nello slot `marketBar`
+// di ProtectedShell, guardata da isModuleInstalled("prices") → core
+// module-agnostic. Dati: getTopCoinsForCards (cache Redis), stessa fonte
+// del ticker news.
 import Link from "next/link";
 import { getTopCoinsForCards } from "@/lib/modules/prices/queries";
 
+// Quante coin caricare per il marquee (oltre a BTC/ETH fissi).
 const TOP_N = 24;
+const PINNED = ["BTC", "ETH"] as const;
 
 // Palette fallback stabile per coin senza icona (no random → render stabile).
 const COIN_FALLBACK_BG: Record<string, string> = {
@@ -55,13 +55,27 @@ function formatChange(value: number | null): string {
 
 type Coin = Awaited<ReturnType<typeof getTopCoinsForCards>>[number];
 
-function TickItem({ c }: { c: Coin }) {
+function TickItem({
+  c,
+  bordered = true,
+  ariaHidden = false,
+}: {
+  c: Coin;
+  /** Separatore destro: true per pinned/marquee, false per i due item
+   *  centrati su mobile. */
+  bordered?: boolean;
+  ariaHidden?: boolean;
+}) {
   const pos = (c.change24h ?? 0) >= 0;
   return (
     <Link
       href={`/coins/${c.symbol.toLowerCase()}`}
       prefetch={false}
-      className="flex shrink-0 items-center gap-2.5 border-r border-gc-line px-4 py-2 transition-colors hover:bg-gc-bg-3"
+      aria-hidden={ariaHidden || undefined}
+      tabIndex={ariaHidden ? -1 : undefined}
+      className={`flex shrink-0 items-center gap-2.5 px-4 py-2 transition-colors hover:bg-gc-bg-3 ${
+        bordered ? "border-r border-gc-line" : ""
+      }`}
     >
       <span
         className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] font-display text-sm italic leading-none text-white"
@@ -97,23 +111,58 @@ export async function TopCoinsBar() {
   const coins = await getTopCoinsForCards(TOP_N);
   if (coins.length === 0) return null;
 
+  // BTC + ETH fissi (nell'ordine di PINNED, se tracciati); il resto scorre.
+  const bySymbol = new Map(coins.map((c) => [c.symbol.toUpperCase(), c]));
+  const pinned = PINNED.map((s) => bySymbol.get(s)).filter(
+    (c): c is Coin => Boolean(c),
+  );
+  const pinnedSet = new Set(pinned.map((c) => c.symbol.toUpperCase()));
+  const rest = coins.filter((c) => !pinnedSet.has(c.symbol.toUpperCase()));
+
+  // Velocità marquee costante a vista: ~3s per coin (min 30s).
+  const durationS = Math.max(rest.length * 3, 30);
+
   return (
     <div className="border-b border-gc-line bg-gc-bg-2">
-      <div className="flex items-stretch">
-        {/* Label fissa a sinistra */}
-        <div className="flex shrink-0 items-center gap-2 border-r border-gc-line pr-4 pl-4 font-mono text-[10.5px] uppercase tracking-[0.1em] text-gc-fg-3">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gc-green" />
-          <em className="font-display text-[14px] italic text-gc-accent">
-            Live
-          </em>
-          <span className="hidden sm:inline">Mercati</span>
-        </div>
-        {/* Track scrollabile a mano (niente animazione marquee). */}
-        <div className="flex flex-1 overflow-x-auto [scrollbar-width:thin]">
-          {coins.map((c) => (
+      {/* MOBILE: solo BTC + ETH, centrati e spaziati. */}
+      <div className="flex items-center justify-center gap-10 py-1.5 md:hidden">
+        {pinned.map((c) => (
+          <TickItem key={c.symbol} c={c} bordered={false} />
+        ))}
+      </div>
+
+      {/* DESKTOP: BTC + ETH fissi a sinistra, il resto in marquee. */}
+      <div className="hidden items-stretch md:flex">
+        <div className="flex shrink-0 border-r border-gc-line">
+          {pinned.map((c) => (
             <TickItem key={c.symbol} c={c} />
           ))}
         </div>
+        {rest.length > 0 ? (
+          <div
+            className="gc-marquee-viewport min-w-0 flex-1 overflow-hidden"
+            style={{
+              // Fade ai bordi del track scorrevole (non sui pinned).
+              maskImage:
+                "linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 40px), transparent 100%)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 40px), transparent 100%)",
+            }}
+          >
+            {/* Track con 2 copie consecutive → loop seamless. */}
+            <div
+              className="gc-marquee-track"
+              style={{ animationDuration: `${durationS}s` }}
+            >
+              {rest.map((c) => (
+                <TickItem key={`a-${c.symbol}`} c={c} />
+              ))}
+              {rest.map((c) => (
+                <TickItem key={`b-${c.symbol}`} c={c} ariaHidden />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -123,25 +172,26 @@ export async function TopCoinsBar() {
 export function TopCoinsBarSkeleton() {
   return (
     <div className="border-b border-gc-line bg-gc-bg-2" aria-hidden>
-      <div className="flex items-stretch">
-        <div className="flex shrink-0 items-center gap-2 border-r border-gc-line px-4 font-mono text-[10.5px] uppercase tracking-[0.1em] text-gc-fg-3">
-          <span className="h-1.5 w-1.5 rounded-full bg-gc-green/50" />
-          <em className="font-display text-[14px] not-italic text-gc-accent/60">
-            Live
-          </em>
-          <span className="hidden sm:inline">Mercati</span>
-        </div>
-        <div className="flex flex-1 gap-0 overflow-hidden">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex shrink-0 items-center gap-2.5 border-r border-gc-line px-4 py-2"
-            >
-              <div className="h-[26px] w-[26px] rounded-[7px] bg-gc-bg-3" />
-              <div className="h-3 w-10 rounded bg-gc-bg-3" />
-            </div>
-          ))}
-        </div>
+      {/* Mobile */}
+      <div className="flex items-center justify-center gap-10 py-1.5 md:hidden">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex items-center gap-2.5 px-4 py-2">
+            <div className="h-[26px] w-[26px] rounded-[7px] bg-gc-bg-3" />
+            <div className="h-3 w-10 rounded bg-gc-bg-3" />
+          </div>
+        ))}
+      </div>
+      {/* Desktop */}
+      <div className="hidden items-stretch md:flex">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex shrink-0 items-center gap-2.5 border-r border-gc-line px-4 py-2"
+          >
+            <div className="h-[26px] w-[26px] rounded-[7px] bg-gc-bg-3" />
+            <div className="h-3 w-10 rounded bg-gc-bg-3" />
+          </div>
+        ))}
       </div>
     </div>
   );
