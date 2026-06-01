@@ -74,15 +74,6 @@ const REACTIONS: ReactionInfo[] = [
   },
 ];
 
-// Label corte uppercase per il picker (coerenti con le tooltip i18n).
-const PICKER_LABEL: Record<PostReactionKind, string> = {
-  like: "Like",
-  bullish: "Bullish",
-  bearish: "Bearish",
-  to_the_moon: "Moon",
-  dump: "Dump",
-};
-
 // ─── Footer reazioni: replica fedele della PostCard reale ───────────────
 
 /** Stato CHIUSO: icone top-2 accavallate + totale (come il trigger di
@@ -116,23 +107,35 @@ function GroupedReactions({
   );
 }
 
-/** Stato APERTO: la pill del picker con tutte e 5 le reazioni (come
- *  ReactionPopover in hover), con le label sotto per la demo. */
-function OpenPicker() {
+/** Trigger reazione con il PICKER APERTO sopra, esattamente come il vero
+ *  ReactionPopover in hover: la pill flotta sopra il bottone (le 5 icone),
+ *  il trigger sotto mostra le reazioni già presenti sul post. */
+function OpenReactionTrigger({
+  counts,
+  total,
+}: {
+  counts: PostReactionCounts;
+  total: number;
+}) {
   return (
-    <div className="inline-flex items-end gap-0.5 rounded-full border border-gc-modal-border bg-gc-modal-bg px-2 py-1.5 shadow-xl">
-      {REACTIONS.map(({ kind }) => (
-        <span key={kind} className="flex w-12 flex-col items-center gap-1">
-          {(() => {
-            const Icon = REACTION_ICON[kind];
-            return <Icon size={28} />;
-          })()}
-          <span className="font-mono text-[9px] uppercase tracking-wide text-gc-fg-3">
-            {PICKER_LABEL[kind]}
-          </span>
-        </span>
-      ))}
-    </div>
+    <span className="relative">
+      {/* Pill del picker (5 reazioni), come ReactionPopover aperto. */}
+      <span className="absolute bottom-full left-0 mb-2 inline-flex items-center gap-0.5 rounded-full border border-gc-modal-border bg-gc-modal-bg px-1.5 py-1.5 shadow-xl">
+        {REACTIONS.map(({ kind }) => {
+          const Icon = REACTION_ICON[kind];
+          return (
+            <span
+              key={kind}
+              className="flex h-9 w-9 items-center justify-center rounded-full"
+            >
+              <Icon size={28} />
+            </span>
+          );
+        })}
+      </span>
+      {/* Trigger sotto: reazioni già presenti sul post. */}
+      <GroupedReactions counts={counts} total={total} />
+    </span>
   );
 }
 
@@ -200,6 +203,15 @@ export async function TemplateReaction(_props: TemplateProps) {
     dump: 4,
   };
   const demoTotal = 402;
+  // Conteggi demo (card B): post con qualche reazione + picker aperto sopra.
+  const demoCountsB: PostReactionCounts = {
+    like: 41,
+    bullish: 18,
+    bearish: 2,
+    to_the_moon: 3,
+    dump: 0,
+  };
+  const demoTotalB = 64;
 
   return (
     <main className="bg-gc-bg">
@@ -292,24 +304,33 @@ export async function TemplateReaction(_props: TemplateProps) {
             </p>
           </DemoPostCard>
 
-          {/* Card B — picker aperto (stato hover/long-press) */}
+          {/* Card B — stesso post reale, ma con il picker reazioni APERTO */}
           <DemoPostCard
             initial="G"
             handle="@giulia.defi"
-            meta="Anteprima picker"
-            footer={<OpenPicker />}
+            meta="8 min fa"
+            footer={
+              <>
+                <OpenReactionTrigger counts={demoCountsB} total={demoTotalB} />
+                <CommentAction count={12} />
+                <RepostAction count={3} />
+              </>
+            }
           >
             <p>
-              Tieni premuto sul tasto reazione per scegliere — il picker si apre
-              con tutte e cinque.
-            </p>
-            <p className="mt-4 font-mono text-[11px] uppercase tracking-wide text-gc-fg-3">
-              <strong className="text-gc-fg-2">Tap</strong> reazione default
-              (like) · <strong className="text-gc-fg-2">Long-press</strong> apre
-              il picker
+              Il restaking è la narrativa più sottovalutata del ciclo: TVL in
+              crescita costante ma i prezzi non l&apos;hanno ancora prezzata.
+              Tengo d&apos;occhio i prossimi unlock.
             </p>
           </DemoPostCard>
         </div>
+
+        {/* Caption interazione (comportamento reale: hover apre il picker) */}
+        <p className="mt-5 font-mono text-[11px] uppercase tracking-wide text-gc-fg-3">
+          <strong className="text-gc-fg-2">Clic</strong> sul tasto reazione = like
+          immediato · <strong className="text-gc-fg-2">passa il mouse</strong> per
+          aprire il picker e scegliere tra tutte e cinque
+        </p>
 
         {/* ── Banner finale ── */}
         <div className="mt-16 flex flex-col items-start justify-between gap-6 rounded-gc bg-gc-fg px-8 py-7 sm:flex-row sm:items-center">
