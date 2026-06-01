@@ -3,7 +3,7 @@
 // (Spark, CoinBadge, ticker) e dall'admin dashboard.
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins, pricesHistory, pricesSyncRuns } from "@/lib/db/schema";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import {
   getHotPrices,
@@ -198,6 +198,102 @@ export async function listCoins() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Coins registry admin — paginazione + filtri server-side
+//
+// Con multi-exchange (Binance + KuCoin + Gate) il registry arriva a migliaia
+// di righe: niente più "carica tutto + filtra client". La pagina admin passa
+// i filtri via URL searchParams, qui costruiamo il WHERE e carichiamo solo
+// `pageSize` righe + il totale per la paginazione.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CoinRegistryFilter {
+  /** Match su symbol | name | coingecko_id. */
+  q?: string;
+  /** Exchange id (binance/kucoin/gate) | "none" (= CoinGecko fallback, NULL).
+   *  undefined = tutti. */
+  exchange?: string;
+  /** "enriched" = ha coingecko_id; "placeholder" = senza (post-import, da
+   *  arricchire/pulire). undefined = tutti. */
+  enrichment?: "enriched" | "placeholder";
+  /** market_cap >= questa soglia (USD). undefined/0 = nessun minimo. */
+  minMarketCap?: number;
+}
+
+export interface PagedCoins {
+  rows: (typeof pricesCoins.$inferSelect)[];
+  total: number;
+}
+
+function buildCoinFilterWhere(filter: CoinRegistryFilter) {
+  const conds = [];
+  const q = filter.q?.trim().toLowerCase();
+  if (q) {
+    const like = `%${q}%`;
+    conds.push(
+      sql`(lower(${pricesCoins.symbol}) like ${like} or lower(${pricesCoins.name}) like ${like} or lower(coalesce(${pricesCoins.coingeckoId}, '')) like ${like})`,
+    );
+  }
+  if (filter.exchange === "none") {
+    conds.push(isNull(pricesCoins.preferredExchange));
+  } else if (filter.exchange) {
+    conds.push(eq(pricesCoins.preferredExchange, filter.exchange));
+  }
+  if (filter.enrichment === "enriched") {
+    conds.push(isNotNull(pricesCoins.coingeckoId));
+  } else if (filter.enrichment === "placeholder") {
+    conds.push(isNull(pricesCoins.coingeckoId));
+  }
+  if (filter.minMarketCap && filter.minMarketCap > 0) {
+    conds.push(sql`${pricesCoins.marketCap} >= ${filter.minMarketCap}`);
+  }
+  return conds.length > 0 ? and(...conds) : undefined;
+}
+
+/**
+ * Pagina filtrata del registry + totale. Ordine: market_cap_rank ASC NULLS
+ * LAST (i placeholder senza rank finiscono in fondo), poi symbol.
+ */
+export async function listCoinsPaged(
+  filter: CoinRegistryFilter,
+  page: number,
+  pageSize: number,
+): Promise<PagedCoins> {
+  const where = buildCoinFilterWhere(filter);
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(pricesCoins)
+      .where(where)
+      .orderBy(
+        sql`${pricesCoins.marketCapRank} asc nulls last`,
+        asc(pricesCoins.symbol),
+      )
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize),
+    db.select({ n: count() }).from(pricesCoins).where(where),
+  ]);
+  return { rows, total: totalRows[0]?.n ?? 0 };
+}
+
+/** Conteggio coin per `preferred_exchange`, per le chip del filtro Exchange.
+ *  Chiave "none" = CoinGecko fallback (NULL); "all" = totale registry. */
+export async function getCoinExchangeCounts(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ ex: pricesCoins.preferredExchange, n: count() })
+    .from(pricesCoins)
+    .groupBy(pricesCoins.preferredExchange);
+  const out: Record<string, number> = {};
+  let total = 0;
+  for (const r of rows) {
+    out[r.ex ?? "none"] = r.n;
+    total += r.n;
+  }
+  out.all = total;
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Coin cards (frontend)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -214,7 +310,13 @@ export interface CoinView {
   /** Posizione globale per market cap (1 = top). Null se mai popolato dal sync. */
   marketCapRank: number | null;
   category: string | null;
+  /** Prezzo live. 0 quando `priceAvailable=false` (coin esiste ma quote
+   *  assente dalla hot cache). I consumer "card/list" filtrano i coin senza
+   *  prezzo; la coin page invece li mostra nascondendo prezzo+grafico. */
   price: number;
+  /** false = coin valido (metadata presenti) ma senza quote live → la UI
+   *  deve degradare (niente prezzo/chart) SENZA andare in 404. */
+  priceAvailable: boolean;
   change24h: number | null;
   volume24h: number | null;
   /** 21 punti settimanali oldest → newest (3/giorno). null se mai computata. */
@@ -266,6 +368,7 @@ const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]>
         marketCapRank: c.marketCapRank,
         category:      c.category,
         price:         q.price,
+        priceAvailable: true,
         change24h:     q.change24h,
         volume24h:     q.volume24h,
         weeklySparkline: c.weeklySparkline,
@@ -323,6 +426,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
     marketCapRank: c.marketCapRank,
     category:      c.category,
     price:         q.price,
+    priceAvailable: true,
     change24h:     q.change24h,
     volume24h:     q.volume24h,
     weeklySparkline: c.weeklySparkline,
@@ -338,6 +442,64 @@ const fetchCoinForCardCached = unstable_cache(
 
 export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
   return fetchCoinForCardCached(symbol);
+}
+
+/**
+ * Variante per la **coin page pubblica**: ritorna `null` SOLO se il coin non
+ * esiste nei metadata (`prices_coins`) → vero 404. Se il coin esiste ma la
+ * quote live è assente (hot cache vuota / cron non ha ancora prezzato quel
+ * simbolo), ritorna comunque la CoinView con `priceAvailable=false`,
+ * `price=0`, `change24h/volume24h=null`: la pagina renderizza tutto
+ * (nome, rank, market cap, post correlati, JSON-LD) e nasconde solo
+ * prezzo + grafico. Critico per la SEO: una pagina che esiste non deve
+ * mai diventare 404 per un dato di prezzo mancante.
+ */
+const fetchCoinDetail = async (symbol: string): Promise<CoinView | null> => {
+  const upper = symbol.toUpperCase();
+  const rows = await db
+    .select({
+      symbol:        pricesCoins.symbol,
+      name:          pricesCoins.name,
+      imageUrl:      pricesCoins.imageUrl,
+      marketCap:     pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
+      category:      pricesCoins.category,
+      weeklySparkline: pricesCoins.weeklySparkline,
+    })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  const c = rows[0];
+  if (!c) return null; // coin inesistente → 404 legittimo
+
+  const hot = await getHotPrices();
+  const q = hot?.quotes[upper];
+
+  return {
+    symbol:        c.symbol,
+    name:          c.name,
+    imageUrl:      c.imageUrl,
+    marketCap:     c.marketCap,
+    marketCapRank: c.marketCapRank,
+    category:      c.category,
+    price:         q?.price ?? 0,
+    priceAvailable: Boolean(q),
+    change24h:     q?.change24h ?? null,
+    volume24h:     q?.volume24h ?? null,
+    weeklySparkline: c.weeklySparkline,
+    lastUpdated:   hot ? new Date(hot.updatedAt) : new Date(),
+  };
+};
+
+const fetchCoinDetailCached = unstable_cache(
+  fetchCoinDetail,
+  ["prices-coin-detail"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getCoinDetail(symbol: string): Promise<CoinView | null> {
+  return fetchCoinDetailCached(symbol);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

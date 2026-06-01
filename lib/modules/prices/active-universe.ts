@@ -11,8 +11,18 @@
 // includerà JOIN con watchlist_coins e con i post recenti che referenziano coin.
 import { db } from "@/lib/db/drizzle";
 import { pricesCoins } from "@/lib/db/schema";
-import { and, eq, gte, inArray, isNotNull, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, or } from "drizzle-orm";
 import { getPricesConfig } from "./config";
+
+/**
+ * I coin con market_cap_rank <= questa soglia vengono SEMPRE prezzati,
+ * a prescindere da last_seen_at. È la rete di sicurezza contro lo
+ * "starvation bug" (2026-06-01): se solo pochi coin minori risultano
+ * "freschi" nella finestra universe_hours, senza questa soglia
+ * affamerebbero i major (BTC/ETH/…), lasciando le loro pagine senza
+ * prezzo → 404. I top-N restano sempre nell'universo.
+ */
+const ALWAYS_PRICE_TOP_RANK = 500;
 
 export interface ActiveCoin {
   symbol: string;
@@ -50,20 +60,31 @@ export async function getActiveUniverse(): Promise<ActiveCoin[]> {
     ),
   );
 
-  const fresh = await db
+  // Universo = coin attivi+fetchabili che sono O recenti (last_seen entro la
+  // finestra universe_hours) O top per market cap rank. Il ramo top-rank
+  // garantisce che i major siano SEMPRE prezzati: l'universo non può
+  // collassare su un sottoinsieme "fresco" di coin minori (starvation bug).
+  const primary = await db
     .select(COMMON_SELECT)
     .from(pricesCoins)
     .where(
       and(
         eq(pricesCoins.isActive, true),
-        gte(pricesCoins.lastSeenAt, cutoff),
         hasFetchablePath,
+        or(
+          gte(pricesCoins.lastSeenAt, cutoff),
+          and(
+            isNotNull(pricesCoins.marketCapRank),
+            lte(pricesCoins.marketCapRank, ALWAYS_PRICE_TOP_RANK),
+          ),
+        ),
       ),
     );
 
-  if (fresh.length > 0) return fresh;
+  if (primary.length > 0) return primary;
 
-  // Fallback: stessa query senza filtro last_seen_at (caso bootstrap).
+  // Fallback bootstrap: nessun coin fresco né ranked (es. subito dopo un
+  // seed con rank non ancora popolato) → prezza tutti gli attivi fetchabili.
   return await db
     .select(COMMON_SELECT)
     .from(pricesCoins)

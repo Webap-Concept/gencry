@@ -24,7 +24,7 @@ import {
 import { AddToWatchlistButton } from "@/components/modules/watchlist/add-to-watchlist-button";
 import { PublicAdaptiveShell } from "@/components/layout/PublicAdaptiveShell";
 import { getSession } from "@/lib/auth/session";
-import { getCoinForCard, getHistorySeries } from "@/lib/modules/prices/queries";
+import { getCoinDetail, getHistorySeries } from "@/lib/modules/prices/queries";
 import { getWatchlistCountForSymbol } from "@/lib/modules/watchlist/queries";
 import type { CoinView } from "@/lib/modules/prices/queries";
 import { generatePageMetadata, getSiteUrl } from "@/lib/seo";
@@ -48,14 +48,13 @@ export async function generateMetadata({
   params: Promise<{ symbol: string }>;
 }): Promise<Metadata> {
   const { symbol } = await params;
-  const coin = await getCoinForCard(symbol);
+  const coin = await getCoinDetail(symbol);
   const tPage = await getTranslations("prices.page");
   if (!coin) return { title: tPage("not_found_title") };
 
   const pathname = `/coins/${coin.symbol.toLowerCase()}`;
-  const priceStr = formatPriceSeo(coin.price);
   const changeStr =
-    coin.change24h !== null && Number.isFinite(coin.change24h)
+    coin.priceAvailable && coin.change24h !== null && Number.isFinite(coin.change24h)
       ? tPage("metadata_change_24h", {
           change: `${coin.change24h > 0 ? "+" : ""}${coin.change24h.toFixed(2)}%`,
         })
@@ -67,13 +66,18 @@ export async function generateMetadata({
 
   const title = `${coin.name} (${coin.symbol}) — ${tPage("metadata_title_suffix")}`;
   // SERP: prezzo dinamico (CTR migliore, Google ricrawla periodicamente).
-  const description = tPage("metadata_description", {
-    name: coin.name,
-    symbol: coin.symbol,
-    price: priceStr,
-    change: changeStr,
-    rank: rankStr,
-  });
+  // Se la quote live manca (priceAvailable=false) NON mettiamo "$0" nella
+  // description: usiamo la versione statica nome+symbol così il SERP resta
+  // sensato e la pagina indicizza comunque.
+  const description = coin.priceAvailable
+    ? tPage("metadata_description", {
+        name: coin.name,
+        symbol: coin.symbol,
+        price: formatPriceSeo(coin.price),
+        change: changeStr,
+        rank: rankStr,
+      })
+    : tPage("og_description", { name: coin.name, symbol: coin.symbol });
   // OG/Twitter: statica per evitare card "stale" cachate da Twitter/FB
   // quando il prezzo è cambiato (lo share continuerebbe a mostrare il
   // vecchio valore per giorni/settimane).
@@ -119,7 +123,7 @@ export default async function CoinDetailPage({
   // `app/not-found.tsx` (wrappato dal solo root layout) → 404
   // full-page sia per loggati che per anonimi.
   const { symbol } = await params;
-  const coin = await getCoinForCard(symbol);
+  const coin = await getCoinDetail(symbol);
   if (!coin) notFound();
 
   return (
@@ -145,6 +149,7 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
   const isLoggedIn = Boolean(session);
   const tCommon = await getTranslations("prices.common");
   const tLabels = await getTranslations("prices.labels");
+  const tPage = await getTranslations("prices.page");
 
   const backLink = (
     <Link
@@ -180,7 +185,13 @@ async function CoinDetailBody({ coin }: { coin: CoinView }) {
         }
         sparklineAriaLabel={tLabels("weekly_chart_aria")}
       />
-      <CoinChartLazy symbol={coin.symbol} initialSeries={initialSeries} />
+      {coin.priceAvailable ? (
+        <CoinChartLazy symbol={coin.symbol} initialSeries={initialSeries} />
+      ) : (
+        <div className="rounded-2xl bg-gc-bg-2 border border-dashed border-gc-line aspect-[16/7] flex items-center justify-center">
+          <p className="text-sm text-gc-fg-3">{tPage("price_unavailable")}</p>
+        </div>
+      )}
       <StatsGrid coin={coin} />
       {/* Post recenti che menzionano questo coin. Server Component
           riusa la stessa pipeline visibility/block del feed. Anonimi
@@ -205,6 +216,7 @@ async function CoinHeader({
   sparklineAriaLabel: string;
 }) {
   const tLabels = await getTranslations("prices.labels");
+  const tPage = await getTranslations("prices.page");
   const hasRank =
     typeof coin.marketCapRank === "number" && coin.marketCapRank > 0;
   // Mobile (centrato, alla profilo): icona grande, nome, ticker·category
@@ -241,13 +253,19 @@ async function CoinHeader({
               </>
             )}
           </div>
-          {/* Prezzo grande: solo desktop. Su mobile vive nella riga valori. */}
+          {/* Prezzo grande: solo desktop. Su mobile vive nella riga valori.
+              Se la quote live manca, mostriamo una nota muted invece del
+              prezzo (la pagina resta valida, niente 404). */}
           <div className="hidden sm:block mt-4">
-            <CoinPriceLabel
-              price={coin.price}
-              change24h={coin.change24h}
-              size="lg"
-            />
+            {coin.priceAvailable ? (
+              <CoinPriceLabel
+                price={coin.price}
+                change24h={coin.change24h}
+                size="lg"
+              />
+            ) : (
+              <p className="text-sm text-gc-fg-3">{tPage("price_unavailable")}</p>
+            )}
           </div>
         </div>
         {/* Desktop: sparkline + actions a destra. */}
@@ -265,11 +283,14 @@ async function CoinHeader({
 
       {/* Mobile: riga valori distribuiti con divisori — prezzo | 24h | rank. */}
       <div className="sm:hidden mt-4 flex justify-center divide-x divide-gc-line border-t border-gc-line pt-4">
-        <ValueCell label={tLabels("price")} value={fmtCoinPrice(coin.price)} />
+        <ValueCell
+          label={tLabels("price")}
+          value={coin.priceAvailable ? fmtCoinPrice(coin.price) : "—"}
+        />
         <ValueCell
           label="24h"
-          value={fmtCoinChange(coin.change24h)}
-          tone={changeTone(coin.change24h)}
+          value={coin.priceAvailable ? fmtCoinChange(coin.change24h) : "—"}
+          tone={changeTone(coin.priceAvailable ? coin.change24h : null)}
         />
         {hasRank ? (
           <ValueCell label={tLabels("rank")} value={`#${coin.marketCapRank}`} />
@@ -461,13 +482,19 @@ function CoinJsonLd({ coin, siteUrl }: { coin: CoinView; siteUrl: string }) {
     category: "Cryptocurrency",
     ...(coin.imageUrl ? { image: coin.imageUrl } : {}),
     ...(url ? { url } : {}),
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "USD",
-      price: coin.price.toString(),
-      availability: "https://schema.org/InStock",
-      seller: { "@type": "Organization", name: "CoinGecko" },
-    },
+    // Offer solo se abbiamo un prezzo live: niente offerta a "$0" che
+    // confonderebbe i rich snippet quando la quote manca.
+    ...(coin.priceAvailable
+      ? {
+          offers: {
+            "@type": "Offer",
+            priceCurrency: "USD",
+            price: coin.price.toString(),
+            availability: "https://schema.org/InStock",
+            seller: { "@type": "Organization", name: "CoinGecko" },
+          },
+        }
+      : {}),
   };
 
   // BreadcrumbList: rich snippet "Home › Coins › Bitcoin" sui SERP

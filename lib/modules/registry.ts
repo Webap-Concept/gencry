@@ -18,6 +18,7 @@ import { NEWS_MODULE } from "./news/manifest";
 import { SEEDERS_MODULE } from "./seeders/manifest";
 import { SOCIAL_GRAPH_MODULE } from "./social-graph/manifest";
 import { WATCHLIST_MODULE } from "./watchlist/manifest";
+import { REWARDS_MODULE } from "./rewards/manifest";
 
 // Side-effect imports: registrano estensioni del CMS page-editor
 // (campi custom aggiuntivi + slug resolvers). Vedi
@@ -36,6 +37,7 @@ export const INSTALLED_MODULES: ModuleManifest[] = [
   SEEDERS_MODULE,
   SOCIAL_GRAPH_MODULE,
   WATCHLIST_MODULE,
+  REWARDS_MODULE,
 ];
 
 /** Helper: il modulo con questo slug è installato? */

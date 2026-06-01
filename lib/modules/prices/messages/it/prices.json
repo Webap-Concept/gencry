@@ -33,6 +33,7 @@
   },
   "page": {
     "not_found_title": "Coin non trovato",
+    "price_unavailable": "Prezzo temporaneamente non disponibile",
     "metadata_title_suffix": "Prezzo, grafico e dati",
     "metadata_description": "Prezzo live di {name} ({symbol}): {price} USD.{change}{rank} Grafico storico, market cap e volume 24h.",
     "metadata_change_24h": " Variazione 24h: {change}.",

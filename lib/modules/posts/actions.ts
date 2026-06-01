@@ -79,6 +79,7 @@ import {
   type MentionCandidate,
 } from "./services/mention-index";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
+import { runAfterPostCreated, runAfterCommentCreated } from "@/lib/modules/module-hooks";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
 import { extractMentions, extractTickers } from "./lib/parsing";
@@ -409,6 +410,9 @@ export async function createPost(
     // swallow: la preferenza è un nice-to-have, non blocca la pubblicazione
   }
 
+  // Hook modulari post-write — nessun import diretto da rewards
+  runAfterPostCreated(user.id, created.postId).catch(() => {});
+
   return { ok: true, data: { postId: created.postId } };
 }
 
@@ -710,6 +714,10 @@ export async function createComment(
       parentCommentId: parsed.data.parentCommentId ?? null,
     });
     await postInvalidate(parsed.data.postId);
+
+    // Hook modulari post-write — nessun import diretto da rewards
+    runAfterCommentCreated(user.id, comment.id).catch(() => {});
+
     return { ok: true, data: { commentId: comment.id } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : I18N.emptyBody;

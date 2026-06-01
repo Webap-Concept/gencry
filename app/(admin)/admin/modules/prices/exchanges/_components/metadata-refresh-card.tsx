@@ -2,7 +2,7 @@
 // app/(admin)/admin/modules/prices/exchanges/_components/metadata-refresh-card.tsx
 //
 // "Refresh metadata now" — trigger manuale del cron
-// `modules-prices-metadata-refresh` (gira ogni 4h via pg_cron).
+// `modules-prices-metadata-refresh` (gira ogni 4h via QStash).
 //
 // Differenza vs Enrichment:
 //   - Enrichment: prima volta, popola coingecko_id+name+image+marketCap
@@ -73,7 +73,7 @@ export function MetadataRefreshCard({
             <strong>market cap</strong>, <strong>rank</strong> e{" "}
             <strong>sparkline 7d</strong> per i coin con coingecko_id (anche
             quelli routati su exchange). Gira automaticamente ogni 4h via
-            pg_cron; questo bottone forza un run subito.
+            QStash; questo bottone forza un run subito.
           </p>
           <p
             className="text-[12px] mt-1.5"

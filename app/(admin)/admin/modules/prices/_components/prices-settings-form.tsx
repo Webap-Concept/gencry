@@ -61,7 +61,7 @@ const FIELDS: Array<{
   {
     name: "modules.prices.cron_minutes",
     label: "Min sync interval (minutes)",
-    hint: "Lower bound enforced in the route as an early-exit guard. pg_cron is the actual scheduler — to raise the cadence, run cron.alter_job on the price-sync job. Lowering this here lets you slow the sync without touching SQL.",
+    hint: "Lower bound enforced in the route as an early-exit guard. QStash is the actual scheduler — to change the cadence, edit lib/cron/cron-schedules.ts and run pnpm cron:sync. Lowering this here lets you slow the sync without re-syncing QStash.",
     group: "ingestion",
     type: "number",
     min: 1,
@@ -118,7 +118,7 @@ const FIELDS: Array<{
   {
     name: "modules.prices.snapshot_minutes",
     label: "Min snapshot interval (minutes)",
-    hint: "Lower bound for sparkline snapshots — early-exit guard, same logic as the sync interval. The actual cadence is set in pg_cron.",
+    hint: "Lower bound for sparkline snapshots — early-exit guard, same logic as the sync interval. The actual cadence is set in QStash (cron-schedules.ts + pnpm cron:sync).",
     group: "history",
     type: "number",
     min: 1,
@@ -448,11 +448,11 @@ export function PricesSettingsForm({
             color: "var(--admin-text-muted)",
           }}>
           <strong style={{ color: "var(--admin-text)" }}>Note about the cron schedule.</strong>{" "}
-          The cron is scheduled by Supabase <code className="font-mono">pg_cron</code> + <code className="font-mono">pg_net</code>.
-          The "Sync interval" above is enforced by the route as a minimum — if pg_cron triggers more often
+          The cron is scheduled by <code className="font-mono">Upstash QStash</code> (HTTP scheduler with retries + DLQ).
+          The "Sync interval" above is enforced by the route as a minimum — if QStash triggers more often
           than this value, the route returns immediately without doing work. To actually fire less or
-          more often (e.g. every 1&nbsp;min with Pro enabled), update the schedule in pg_cron with{" "}
-          <code className="font-mono">cron.alter_job</code>.
+          more often, edit <code className="font-mono">lib/cron/cron-schedules.ts</code> and run{" "}
+          <code className="font-mono">pnpm cron:sync</code>.
         </div>
 
         <button

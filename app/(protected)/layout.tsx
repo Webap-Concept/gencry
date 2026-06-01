@@ -3,6 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
+import { isModuleInstalled } from "@/lib/modules/registry";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
@@ -102,15 +103,18 @@ export default async function Layout({
     </>
   );
 
-  // Count unread server-fetched: alimenta il provider unico (1 sola
-  // subscription realtime condivisa da tutti i badge).
-  const unreadCount = await getUnreadNotificationsCount(session.user.id);
+  const userId = session.user.id;
+  const unreadCount = await getUnreadNotificationsCount(userId);
 
-  return (
-    <NotificationsUnreadProvider
-      viewerUserId={session.user.id}
-      initialCount={unreadCount}
-    >
+  // Carica il layout shell del modulo rewards SOLO se installato.
+  // Dynamic import: se il modulo viene rimosso da INSTALLED_MODULES
+  // (uninstall), questo blocco non esegue mai → nessun import rotto.
+  const RewardsShell = isModuleInstalled("rewards")
+    ? (await import("@/components/modules/rewards/rewards-layout-shell")).default
+    : null;
+
+  const shell = (
+    <NotificationsUnreadProvider viewerUserId={userId} initialCount={unreadCount}>
       <ProtectedShell
         appLogoUrl={appSettings.app_logo_url}
         appLogoVariantUrl={appSettings.app_logo_variant_url}
@@ -123,4 +127,8 @@ export default async function Layout({
       </ProtectedShell>
     </NotificationsUnreadProvider>
   );
+
+  return RewardsShell ? (
+    <RewardsShell userId={userId}>{shell}</RewardsShell>
+  ) : shell;
 }

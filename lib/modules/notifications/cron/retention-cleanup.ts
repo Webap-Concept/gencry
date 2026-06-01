@@ -18,6 +18,7 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
+import { describeDbError } from "@/lib/cron/db-error";
 import { getAppSettings } from "@/lib/db/settings-queries";
 
 const BATCH_SIZE = 5_000;
@@ -114,7 +115,7 @@ export async function runNotificationsRetentionCleanup(): Promise<RetentionClean
       durationMs: Date.now() - startedAt,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = describeDbError(err);
     console.error("[notifications/retention-cleanup] delete failed:", err);
     return {
       ok: false,

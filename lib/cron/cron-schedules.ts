@@ -25,7 +25,6 @@ export interface CronScheduleDef {
 export const CRON_SCHEDULES: CronScheduleDef[] = [
   // ── Prices (modulo) ──
   { jobname: "prices-sync", path: "/api/cron/modules/prices/sync", schedule: "*/1 * * * *" },
-  { jobname: "prices-snapshot", path: "/api/cron/modules/prices/snapshot", schedule: "*/5 * * * *" },
   { jobname: "prices-cleanup", path: "/api/cron/modules/prices/cleanup", schedule: "0 3 * * *" },
   { jobname: "prices-metadata-refresh", path: "/api/cron/modules/prices/metadata-refresh", schedule: "0 */4 * * *" },
 
