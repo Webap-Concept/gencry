@@ -27,14 +27,34 @@ import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { unstable_cache } from "next/cache";
 
+// JSON-LD è best-effort: un blip transitorio del pooler Supabase
+// (EAUTHTIMEOUT / 08006 — timeout in fase di auth della connessione) non
+// deve propagare né far loggare la revalidation della cache. Il try/catch
+// sta DENTRO la funzione cached così la inner fn non lancia mai: né in
+// foreground né nella revalidation in background (che è quella che
+// stampava "revalidating cache with key … Error" nei log Vercel). Su
+// errore cade su null/undefined → niente JSON-LD per ≤60s, poi la prossima
+// revalidation che va a buon fine ri-popola.
 const getCachedSeoPage = unstable_cache(
-  (pathname: string) => getSeoPage(pathname),
+  async (pathname: string) => {
+    try {
+      return await getSeoPage(pathname);
+    } catch {
+      return null;
+    }
+  },
   ["json-ld-seo-page"],
   { revalidate: 60, tags: ["seo"] },
 );
 
 const getCachedSettings = unstable_cache(
-  () => getAppSettings(),
+  async () => {
+    try {
+      return await getAppSettings();
+    } catch {
+      return null;
+    }
+  },
   ["json-ld-settings"],
   { revalidate: 60, tags: ["settings"] },
 );
@@ -46,12 +66,17 @@ const getCachedSettings = unstable_cache(
  */
 const getPagePublishedAt = unstable_cache(
   async (slug: string): Promise<Date | null> => {
-    const [row] = await db
-      .select({ publishedAt: pages.publishedAt })
-      .from(pages)
-      .where(and(eq(pages.slug, slug), eq(pages.status, "published")))
-      .limit(1);
-    return row?.publishedAt ?? null;
+    try {
+      const [row] = await db
+        .select({ publishedAt: pages.publishedAt })
+        .from(pages)
+        .where(and(eq(pages.slug, slug), eq(pages.status, "published")))
+        .limit(1);
+      return row?.publishedAt ?? null;
+    } catch {
+      // Vedi nota su getCachedSeoPage: best-effort, niente throw nella cache.
+      return null;
+    }
   },
   ["json-ld-page-published-at"],
   { revalidate: 60, tags: ["pages"] },
@@ -98,7 +123,9 @@ export async function JsonLdScript() {
     getCachedSettings(),
   ]);
 
-  if (!page?.jsonLdEnabled || !page?.jsonLdType) return null;
+  // !settings → un blip DB ha fatto fallire la fetch settings: niente
+  // JSON-LD (best-effort), invece di crashare su settings.app_name.
+  if (!page?.jsonLdEnabled || !page?.jsonLdType || !settings) return null;
 
   const appName = settings.app_name?.trim() || "App";
   let domain = settings.app_domain?.trim() ?? "";
