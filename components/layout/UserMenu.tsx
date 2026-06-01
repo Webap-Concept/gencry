@@ -109,18 +109,20 @@ export function UserMenu({ user, variant, trigger }: UserMenuProps) {
         onClick={close}
       />
       <ThemeToggleItem onAction={close} />
-      {/* Saldo coin — link a /mycoins */}
-      <MenuItem
-        href="/mycoins"
-        icon={<Coins size={16} strokeWidth={1.6} className="text-gc-accent" />}
-        label="Coins"
-        onClick={close}
-        trailing={
-          <span className="tabular-nums font-semibold text-gc-fg text-[13px]">
-            {formatCoins(rewardsBalance)}
-          </span>
-        }
-      />
+      {/* Saldo coin — visibile solo quando il modulo rewards è installato (balance !== null) */}
+      {rewardsBalance !== null && (
+        <MenuItem
+          href="/mycoins"
+          icon={<Coins size={16} strokeWidth={1.6} className="text-gc-accent" />}
+          label="Coins"
+          onClick={close}
+          trailing={
+            <span className="tabular-nums font-semibold text-gc-fg text-[13px]">
+              {formatCoins(rewardsBalance)}
+            </span>
+          }
+        />
+      )}
       <div className="my-1 h-px bg-gc-line" />
       <button
         type="button"

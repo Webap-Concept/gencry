@@ -115,4 +115,24 @@ export const REWARDS_MODULE: ModuleManifest = {
   ],
   cronJobs: [],
   capacityProfiles: [REWARDS_CAPACITY],
+
+  // ── Isolamento: nessun import diretto da core → rewards ────────────────
+  // posts/actions.ts chiama runAfterPostCreated() da module-hooks.ts,
+  // che a sua volta invoca questi hook senza sapere nulla di rewards.
+
+  postHooks: {
+    afterPostCreated: async (userId, postId) => {
+      const { earnReward } = await import("./earn-reward");
+      earnReward(userId, "post_created", `post_created:${postId}`, postId).catch(() => {});
+    },
+    afterCommentCreated: async (userId, commentId) => {
+      const { earnReward } = await import("./earn-reward");
+      earnReward(userId, "comment_created", `comment_created:${commentId}`, commentId).catch(() => {});
+    },
+  },
+
+  // layoutShell NON è nel manifest: il manifest non deve referenziare
+  // componenti UI (path assoluti nel manifest vengono tracciati dal bundler
+  // e finiscono nel client bundle). Il layout (protected) usa isModuleInstalled()
+  // + dynamic import hardcoded — è lui a conoscere il path, non il manifest.
 };

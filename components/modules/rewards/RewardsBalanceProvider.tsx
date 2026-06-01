@@ -15,14 +15,17 @@ import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 import { generateSupabaseRealtimeToken } from "@/lib/auth/supabase-realtime-token";
 
 interface RewardsBalanceContextValue {
-  balance: number;
+  balance: number | null;
 }
 
+// Default null: segnala "provider non montato" (modulo non installato).
+// I consumer (UserMenu) non mostrano il balance row quando null.
 const RewardsBalanceContext = createContext<RewardsBalanceContextValue>({
-  balance: 0,
+  balance: null,
 });
 
-export function useRewardsBalance(): number {
+/** Saldo corrente. null = modulo rewards non installato → non mostrare nulla. */
+export function useRewardsBalance(): number | null {
   return useContext(RewardsBalanceContext).balance;
 }
 
@@ -35,7 +38,7 @@ export function RewardsBalanceProvider({
   initialBalance: number;
   children: React.ReactNode;
 }) {
-  const [balance, setBalance] = useState(initialBalance);
+  const [balance, setBalance] = useState<number | null>(initialBalance);
 
   useEffect(() => {
     const supabase = getBrowserSupabase();

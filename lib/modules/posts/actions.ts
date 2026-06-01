@@ -79,7 +79,7 @@ import {
   type MentionCandidate,
 } from "./services/mention-index";
 import { invalidateFeedCache as feedInvalidate } from "./services/feed-cache";
-import { earnReward } from "@/lib/modules/rewards/earn-reward";
+import { runAfterPostCreated, runAfterCommentCreated } from "@/lib/modules/module-hooks";
 import { invalidatePostCache as postInvalidate } from "./services/post-cache";
 import { checkPostRateLimit as rateLimitCheck } from "./services/rate-limit";
 import { extractMentions, extractTickers } from "./lib/parsing";
@@ -410,10 +410,8 @@ export async function createPost(
     // swallow: la preferenza è un nice-to-have, non blocca la pubblicazione
   }
 
-  // Reward post_created — fire-and-forget, non blocca la response
-  earnReward(user.id, "post_created", `post_created:${created.postId}`, created.postId).catch(
-    () => {},
-  );
+  // Hook modulari post-write — nessun import diretto da rewards
+  runAfterPostCreated(user.id, created.postId).catch(() => {});
 
   return { ok: true, data: { postId: created.postId } };
 }
@@ -717,10 +715,8 @@ export async function createComment(
     });
     await postInvalidate(parsed.data.postId);
 
-    // Reward comment_created — fire-and-forget
-    earnReward(user.id, "comment_created", `comment_created:${comment.id}`, comment.id).catch(
-      () => {},
-    );
+    // Hook modulari post-write — nessun import diretto da rewards
+    runAfterCommentCreated(user.id, comment.id).catch(() => {});
 
     return { ok: true, data: { commentId: comment.id } };
   } catch (err) {

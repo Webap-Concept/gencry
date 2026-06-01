@@ -193,6 +193,26 @@ export interface ModuleManifest {
    *  /admin/capacity (aggrega tutti i scope di tutti i moduli).
    *  Convenzione obbligatoria per moduli con tunables a scala. */
   capacityProfiles?: CapacityProfile[];
+
+  /**
+   * Hook post-write chiamati dal modulo posts dopo eventi di contenuto.
+   * Permettono ai moduli (es. rewards) di reagire a createPost/createComment
+   * SENZA che posts/actions.ts importi direttamente dal modulo.
+   * Isolamento: rimuovere il modulo = rimuoverlo da INSTALLED_MODULES,
+   * senza toccare posts/actions.ts.
+   *
+   * Tutte le funzioni sono fire-and-forget: errori devono essere swallowati
+   * internamente. Non devono mai bloccare o lanciare verso il chiamante.
+   */
+  postHooks?: {
+    afterPostCreated?:    (userId: string, postId: string)    => Promise<void>;
+    afterCommentCreated?: (userId: string, commentId: string) => Promise<void>;
+  };
+
+  // layoutShell è deliberatamente ASSENTE dal manifest:
+  // path di componenti UI nel manifest vengono tracciati staticamente dal
+  // bundler e finiscono nel client bundle (postgres/fs error). Il layout
+  // usa isModuleInstalled(slug) + import() hardcoded per ogni modulo.
 }
 
 /**

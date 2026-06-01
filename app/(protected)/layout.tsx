@@ -3,9 +3,7 @@ import { PublicFooter } from "@/components/layout/PublicFooter";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
-import { RewardsBalanceProvider } from "@/components/modules/rewards/RewardsBalanceProvider";
-import { CheckinToastLauncher } from "@/components/modules/rewards/CheckinToastLauncher";
-import { getUserBalance } from "@/lib/modules/rewards/queries";
+import { isModuleInstalled } from "@/lib/modules/registry";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
 import { getAdminUrlSlug } from "@/lib/admin-paths";
@@ -106,29 +104,31 @@ export default async function Layout({
   );
 
   const userId = session.user.id;
-  const [unreadCount, balanceRow] = await Promise.all([
-    getUnreadNotificationsCount(userId),
-    getUserBalance(userId),
-  ]);
-  const initialBalance = balanceRow?.balance ?? 0;
+  const unreadCount = await getUnreadNotificationsCount(userId);
 
-  return (
-    <RewardsBalanceProvider viewerUserId={userId} initialBalance={initialBalance}>
-      {/* CheckinToastLauncher è self-contained: legge la data locale dal browser
-          e chiama claimDailyCheckin(localDate) — evita il bug timezone UTC */}
-      <CheckinToastLauncher />
-      <NotificationsUnreadProvider viewerUserId={userId} initialCount={unreadCount}>
-        <ProtectedShell
-          appLogoUrl={appSettings.app_logo_url}
-          appLogoVariantUrl={appSettings.app_logo_variant_url}
-          banner={banner}
-          notificationsBadge={<NotificationsBadgePill />}
-          notificationsBadgeMobile={<NotificationsBadgePill />}
-        >
-          <Suspense fallback={null}>{children}</Suspense>
-          {modal}
-        </ProtectedShell>
-      </NotificationsUnreadProvider>
-    </RewardsBalanceProvider>
+  // Carica il layout shell del modulo rewards SOLO se installato.
+  // Dynamic import: se il modulo viene rimosso da INSTALLED_MODULES
+  // (uninstall), questo blocco non esegue mai → nessun import rotto.
+  const RewardsShell = isModuleInstalled("rewards")
+    ? (await import("@/components/modules/rewards/rewards-layout-shell")).default
+    : null;
+
+  const shell = (
+    <NotificationsUnreadProvider viewerUserId={userId} initialCount={unreadCount}>
+      <ProtectedShell
+        appLogoUrl={appSettings.app_logo_url}
+        appLogoVariantUrl={appSettings.app_logo_variant_url}
+        banner={banner}
+        notificationsBadge={<NotificationsBadgePill />}
+        notificationsBadgeMobile={<NotificationsBadgePill />}
+      >
+        <Suspense fallback={null}>{children}</Suspense>
+        {modal}
+      </ProtectedShell>
+    </NotificationsUnreadProvider>
   );
+
+  return RewardsShell ? (
+    <RewardsShell userId={userId}>{shell}</RewardsShell>
+  ) : shell;
 }
