@@ -1,39 +1,43 @@
 "use client";
 // components/modules/rewards/CheckinToastLauncher.tsx
 //
-// Mostra un toast effimero alla prima navigazione del giorno quando il
-// check-in viene accreditato. Montato nel layout (protected) una sola
-// volta per sessione RSC. Il toast sparisce automaticamente dopo 3.5s.
+// Componente self-contained: al mount legge la data LOCALE del browser,
+// chiama claimDailyCheckin(localDateStr) e mostra il toast se awarded.
+//
+// Perché client-side: la data locale del browser è l'unica fonte corretta
+// per "che giorno è oggi" per l'utente. Calcolarla server-side in UTC
+// causerebbe doppi check-in per utenti con offset positivi (es. UTC+3).
+//
 // z-[60] = TOAST layer (sopra modal/drawer, vedi lib/ui/z-index.ts).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coins } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { claimDailyCheckin } from "@/lib/modules/rewards/earn-reward";
 
-export function CheckinToastLauncher({
-  awarded,
-  amount,
-}: {
-  awarded: boolean;
-  amount: number;
-}) {
-  const [visible, setVisible] = useState(false);
-  const [exiting, setExiting] = useState(false);
+export function CheckinToastLauncher() {
+  const [visible, setVisible]   = useState(false);
+  const [exiting, setExiting]   = useState(false);
+  const [amount, setAmount]     = useState(0);
+  const claimed = useRef(false); // previene doppia invocazione in StrictMode
   const t = useTranslations("rewards.ui");
 
   useEffect(() => {
-    if (!awarded || amount <= 0) return;
-    // Piccolo delay per non schiacciarsi sul render iniziale
-    const showTimer = setTimeout(() => setVisible(true), 600);
-    // Auto-dismiss dopo 3.5s
-    const hideTimer = setTimeout(() => {
-      setExiting(true);
-      setTimeout(() => setVisible(false), 300);
-    }, 4100);
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, [awarded, amount]);
+    if (claimed.current) return;
+    claimed.current = true;
+
+    // Data locale del browser nel formato YYYY-MM-DD (en-CA = ISO-like)
+    const localDate = new Date().toLocaleDateString("en-CA");
+
+    claimDailyCheckin(localDate).then((result) => {
+      if (!result.awarded || result.amount <= 0) return;
+      setAmount(result.amount);
+      setTimeout(() => setVisible(true), 600);
+      setTimeout(() => {
+        setExiting(true);
+        setTimeout(() => setVisible(false), 300);
+      }, 4100);
+    });
+  }, []);
 
   if (!visible) return null;
 
@@ -51,9 +55,7 @@ export function CheckinToastLauncher({
       ].join(" ")}
     >
       <Coins size={16} className="text-gc-accent shrink-0" strokeWidth={1.6} />
-      <span>
-        {t("checkin_success", { amount })}
-      </span>
+      <span>{t("checkin_success", { amount })}</span>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { NotificationsBadgePill } from "@/components/modules/notifications/Notif
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
 import { RewardsBalanceProvider } from "@/components/modules/rewards/RewardsBalanceProvider";
 import { CheckinToastLauncher } from "@/components/modules/rewards/CheckinToastLauncher";
-import { claimDailyCheckin } from "@/lib/modules/rewards/earn-reward";
 import { getUserBalance } from "@/lib/modules/rewards/queries";
 import { PageShowRevalidator } from "@/components/pageshow-revalidator";
 import { ImpersonationBanner } from "./_components/impersonation-banner";
@@ -106,28 +105,18 @@ export default async function Layout({
     </>
   );
 
-  // Count unread + rewards in parallelo: nessuno blocca l'altro.
-  // checkin + balance in parallelo — se il checkin è appena avvenuto,
-  // compensiamo manualmente l'amount nel balance iniziale.
   const userId = session.user.id;
-  const [unreadCount, checkinResult, balanceRow] = await Promise.all([
+  const [unreadCount, balanceRow] = await Promise.all([
     getUnreadNotificationsCount(userId),
-    claimDailyCheckin(),
     getUserBalance(userId),
   ]);
-
-  // Compensa la race condition: se la balance query era già partita
-  // prima che il trigger DB aggiornasse rewards_balances, sommiamo l'amount.
-  const initialBalance =
-    (balanceRow?.balance ?? 0) +
-    (checkinResult.awarded ? checkinResult.amount : 0);
+  const initialBalance = balanceRow?.balance ?? 0;
 
   return (
     <RewardsBalanceProvider viewerUserId={userId} initialBalance={initialBalance}>
-      <CheckinToastLauncher
-        awarded={checkinResult.awarded}
-        amount={checkinResult.amount}
-      />
+      {/* CheckinToastLauncher è self-contained: legge la data locale dal browser
+          e chiama claimDailyCheckin(localDate) — evita il bug timezone UTC */}
+      <CheckinToastLauncher />
       <NotificationsUnreadProvider viewerUserId={userId} initialCount={unreadCount}>
         <ProtectedShell
           appLogoUrl={appSettings.app_logo_url}

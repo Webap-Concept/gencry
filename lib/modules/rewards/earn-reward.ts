@@ -89,15 +89,32 @@ export async function earnReward(
 }
 
 /**
- * Server Action pubblica: l'utente riscatta il check-in giornaliero.
- * Idempotente per data UTC: chiamarla più volte nello stesso giorno non
- * accredita più di una volta. Da chiamare dal frontend al primo load
- * di ogni sessione autenticata (PR-2: widget saldo + UI).
+ * Server Action: riscatta il check-in giornaliero con la data LOCALE del
+ * browser (es. "2026-06-01"). Risolve il bug timezone: se usassimo la data
+ * UTC server-side, un utente a UTC+3 alle 01:00 locale (= 22:00 UTC del
+ * giorno prima) e poi alle 11:00 riceverebbe due check-in sullo stesso
+ * giorno locale pur essendo UTC-days diversi.
+ *
+ * Validazione: la data locale deve essere entro ±1 giorno UTC (copre tutti
+ * gli offset da -14 a +14) per prevenire claim su date arbitrarie.
  */
-export async function claimDailyCheckin(): Promise<EarnResult> {
+export async function claimDailyCheckin(localDateStr?: string): Promise<EarnResult> {
   const user = await getUser();
   if (!user) return { awarded: false, amount: 0 };
 
-  const dateKey = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" UTC
+  // Se non viene passata la data locale (chiamata server-side legacy), usa UTC
+  let dateKey: string;
+  if (localDateStr && /^\d{4}-\d{2}-\d{2}$/.test(localDateStr)) {
+    // Valida che la data locale sia entro ±1 giorno UTC
+    const now = Date.now();
+    const yesterday = new Date(now - 86_400_000).toISOString().slice(0, 10);
+    const tomorrow  = new Date(now + 86_400_000).toISOString().slice(0, 10);
+    const utcToday  = new Date(now).toISOString().slice(0, 10);
+    const valid = new Set([yesterday, utcToday, tomorrow]);
+    dateKey = valid.has(localDateStr) ? localDateStr : utcToday;
+  } else {
+    dateKey = new Date().toISOString().slice(0, 10);
+  }
+
   return earnReward(user.id, "daily_checkin", `daily_checkin:${dateKey}`);
 }

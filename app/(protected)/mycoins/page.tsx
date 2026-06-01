@@ -100,7 +100,7 @@ export default async function MyCoinsPage() {
           className="absolute right-6 top-1/2 -translate-y-1/2 text-[120px] font-black leading-none select-none pointer-events-none opacity-5 text-white"
           aria-hidden
         >
-          GEN
+          GCC
         </div>
 
         <div className="relative flex flex-col gap-5">
@@ -121,7 +121,7 @@ export default async function MyCoinsPage() {
                   {currentBalance.toLocaleString("it-IT")}
                 </span>
                 <span className="ml-2 text-lg font-bold text-white/40 tracking-wide">
-                  GEN
+                  GCC
                 </span>
               </div>
             </div>
