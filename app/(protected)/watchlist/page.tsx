@@ -72,9 +72,13 @@ async function WatchlistListBody({
       ? await getWatchlistOverviewStats(userId, watchlists)
       : null;
 
+  // Cap raggiunto (solo non-Pro): il bottone "nuova watchlist" va disabilitato.
+  // Il trigger DB resta il backstop definitivo (vedi actions.ts).
+  const atCap = !isPro && watchlists.length >= cap;
+
   return (
     <>
-      <PageHeader t={t} count={watchlists.length} />
+      <PageHeader t={t} count={watchlists.length} atCap={atCap} cap={cap} />
       {stats ? <WatchlistOverviewCard stats={stats} /> : null}
       {watchlists.length === 0 ? (
         <EmptyState t={t} />
@@ -146,9 +150,13 @@ function SlotsIndicator({
 function PageHeader({
   t,
   count,
+  atCap,
+  cap,
 }: {
   t: Awaited<ReturnType<typeof getTranslations<"watchlist.page">>>;
   count: number;
+  atCap: boolean;
+  cap: number;
 }) {
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -158,7 +166,13 @@ function PageHeader({
         </h1>
         <p className="text-sm text-gc-fg-3 mt-1 max-w-2xl">{t("subtitle")}</p>
       </div>
-      {count > 0 ? <NewWatchlistButton label={t("new_button")} /> : null}
+      {count > 0 ? (
+        <NewWatchlistButton
+          label={t("new_button")}
+          disabled={atCap}
+          disabledTooltip={t("cap_reached_hint", { cap })}
+        />
+      ) : null}
     </header>
   );
 }
