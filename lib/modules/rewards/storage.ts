@@ -107,6 +107,41 @@ export async function signBadgeIconPut(
   };
 }
 
+const COIN_ICON_BASE_KEY = "rewards/branding/coin";
+
+/**
+ * Firma un presigned PUT URL per l'icona GCC (branding globale del modulo).
+ * Key fissa `rewards/branding/coin.<ext>`: il re-upload sovrascrive l'oggetto;
+ * il cache-bust avviene appendendo `?v=<timestamp>` al public URL lato salvataggio.
+ */
+export async function signCoinIconPut(
+  mimeType: string,
+): Promise<BadgeIconTicket | { error: string }> {
+  if (!isAllowedBadgeIconMime(mimeType)) {
+    return { error: `MIME non supportato: ${mimeType}. Usa PNG, JPEG, WebP o SVG.` };
+  }
+  const cfg = await loadRewardsR2Config();
+  if (!cfg) return { error: "R2 rewards non configurato. Vai in Admin → Rewards → Settings → R2." };
+
+  const ext = extFromMime(mimeType as AllowedMime);
+  const key = `${COIN_ICON_BASE_KEY}.${ext}`;
+  const client = createRewardsR2Client(cfg);
+
+  const url = await getSignedUrl(
+    client,
+    new PutObjectCommand({ Bucket: cfg.bucket, Key: key, ContentType: mimeType }),
+    { expiresIn: 300 },
+  );
+
+  return {
+    uploadUrl:     url,
+    uploadHeaders: { "Content-Type": mimeType },
+    contentType:   mimeType,
+    publicUrl:     `${cfg.publicBaseUrl}/${key}`,
+    key,
+  };
+}
+
 /** Verifica che l'oggetto sia stato caricato (HeadObject). */
 export async function verifyBadgeIcon(key: string): Promise<boolean> {
   const cfg = await loadRewardsR2Config();

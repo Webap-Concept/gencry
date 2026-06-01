@@ -174,7 +174,7 @@ export function CatalogForm({ item, backPath }: CatalogFormProps) {
       {/* Cost */}
       <div>
         <label className={labelCls} style={labelStyle}>Costo (GCC)</label>
-        <input type="number" min={0} step={0.01} className={inputCls} style={inputStyle} value={form.costGcc} onChange={field("costGcc")} />
+        <input type="number" min={0} step={0.01} className={inputCls} style={inputStyle} value={form.costGcc as number} onChange={field("costGcc")} />
       </div>
 
       {/* is_unique */}

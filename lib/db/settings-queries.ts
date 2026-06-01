@@ -306,6 +306,7 @@ export type SettingKey =
   | 'modules.rewards.r2.secret_access_key'
   | 'modules.rewards.r2.bucket'
   | 'modules.rewards.r2.public_base_url'
+  | 'modules.rewards.coin_icon_url'        // URL pubblico icona GCC (branding modulo)
   // MFA policy (vedi /<adminSlug>/security/mfa)
   | 'mfa.enabled'             // 'true'|'false' — master switch della feature MFA
   | 'mfa.mode'                // 'optional'|'required-for-staff'|'required-for-all'
@@ -619,6 +620,7 @@ export type AppSettings = {
   'modules.rewards.r2.secret_access_key': string | null
   'modules.rewards.r2.bucket': string | null
   'modules.rewards.r2.public_base_url': string | null
+  'modules.rewards.coin_icon_url': string | null
   // Suspicious sessions / admin alerts
   'notifications.alerts_config': string | null
   'notifications.alerts_last_digest_at': string | null
@@ -933,6 +935,7 @@ const DEFAULTS: AppSettings = {
   'modules.rewards.r2.secret_access_key': null,
   'modules.rewards.r2.bucket': 'rewards',
   'modules.rewards.r2.public_base_url': null,
+  'modules.rewards.coin_icon_url': null,
   // Suspicious sessions: la chiave è null finché l'admin non salva una
   // configurazione dalla UI; il loader applica i defaults Zod-side.
   'notifications.alerts_config': null,

@@ -9,6 +9,7 @@ import {
   getStreakMilestoneStatus,
 } from "@/lib/modules/rewards/queries";
 import { getRedeemableItems } from "@/lib/modules/rewards/catalog-queries";
+import { getGccCoinIconUrl } from "@/lib/modules/rewards/branding";
 import { ShopSection } from "./_components/shop-section";
 import { formatCoins } from "@/lib/modules/rewards/format";
 import { REWARD_CATEGORIES, REWARD_CATEGORY_MAP } from "@/lib/modules/rewards/categories";
@@ -21,12 +22,13 @@ export default async function MyCoinsPage() {
   if (!session) redirect("/sign-in");
 
   const userId = session.user.id;
-  const [balance, breakdown, streakStatus, rules, shopItems] = await Promise.all([
+  const [balance, breakdown, streakStatus, rules, shopItems, coinIconUrl] = await Promise.all([
     getUserBalance(userId),
     getUserBalanceBreakdown(userId),
     getStreakMilestoneStatus(userId),
     getAllRules(),
     getRedeemableItems(userId),
+    getGccCoinIconUrl(),
   ]);
   const { currentStreak: streak, milestones } = streakStatus;
 
@@ -79,15 +81,20 @@ export default async function MyCoinsPage() {
             Saldo totale
           </p>
           <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="text-orange-400">
-                <Coins size={28} strokeWidth={1.4} />
-              </span>
+            <div className="flex items-center gap-4">
+              {coinIconUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={coinIconUrl} alt="GCC" className="w-16 h-16 object-contain shrink-0" />
+              ) : (
+                <span className="text-orange-400">
+                  <Coins size={48} strokeWidth={1.3} />
+                </span>
+              )}
               <div>
-                <span className="text-[42px] font-black tabular-nums leading-none text-white">
+                <span className="text-[64px] font-light tabular-nums leading-none text-white">
                   {currentBalance.toLocaleString("it-IT")}
                 </span>
-                <span className="ml-2 text-lg font-bold text-white/40 tracking-wide">
+                <span className="ml-2 text-xl font-normal text-white/40 tracking-wide">
                   GCC
                 </span>
               </div>

@@ -68,3 +68,19 @@ export async function testRewardsR2Connection(): Promise<{ ok: true; message: st
   const result = await checkRewardsR2Connection();
   return result.ok ? { ok: true, message: "Connessione R2 rewards OK." } : result;
 }
+
+/**
+ * Salva l'URL pubblico dell'icona GCC (branding modulo).
+ * `url` vuoto/null → rimuove l'icona (fallback all'icona di default).
+ * Appende `?v=<timestamp>` per bustare la cache CDN dopo un re-upload (key fissa).
+ */
+export async function saveCoinIconUrl(
+  url: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdminSectionPage("modules:rewards");
+  const clean = (url ?? "").trim();
+  if (clean && clean.length > 500) return { ok: false, error: "URL troppo lungo." };
+  const value = clean ? `${clean.split("?")[0]}?v=${Date.now()}` : null;
+  await batchUpdateAppSettings({ "modules.rewards.coin_icon_url": value });
+  return { ok: true };
+}

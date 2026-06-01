@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getAllRules } from "@/lib/modules/rewards/queries";
 import { RewardsSettingsForm } from "./_components/settings-form";
 import { RewardsR2Form } from "./_components/r2-form";
+import { CoinIconForm } from "./_components/coin-icon-form";
 import { getAppSettings } from "@/lib/db/settings-queries";
 
 export const metadata: Metadata = { title: "Rewards / Settings" };
@@ -46,6 +47,7 @@ export default async function RewardsSettingsPage() {
           publicBaseUrl:   settings["modules.rewards.r2.public_base_url"]   ?? "",
         }}
       />
+      <CoinIconForm initialIconUrl={settings["modules.rewards.coin_icon_url"] ?? null} />
     </div>
   );
 }
