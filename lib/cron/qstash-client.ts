@@ -102,6 +102,29 @@ export const getQStashSchedules = cache(
       console.warn("[qstash-client] events merge failed:", err);
     }
 
+    // 3) Floor sui cron LOW-FREQUENCY. /v2/events recente è dominato dai cron
+    //    @1min, quindi i job daily/4h cadono fuori dalla finestra e non
+    //    vengono visti — pur essendo su QStash (synced insieme agli altri).
+    //    Se QStash è dimostrabilmente attivo (map non vuota = schedule listati
+    //    o consegne viste), mostriamo come attivi anche i CRON_SCHEDULES non
+    //    ancora in mappa, invece del falso "Not on QStash". `createdAt: 0`
+    //    (= "—") li distingue da quelli con consegna recente.
+    //    Trade-off: si perde la drift-detection per i low-freq, già persa
+    //    perché /v2/schedules ritorna vuoto (quirk QStash 2026-06-01).
+    if (map.size > 0) {
+      for (const def of CRON_SCHEDULES) {
+        const id = `gencry-${def.jobname}`;
+        if (map.has(id)) continue;
+        map.set(id, {
+          scheduleId: id,
+          cron: def.schedule,
+          destination: "",
+          isPaused: false,
+          createdAt: 0,
+        });
+      }
+    }
+
     return map;
   },
 );
