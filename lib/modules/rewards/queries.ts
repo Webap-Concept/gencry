@@ -227,6 +227,7 @@ export async function getUserBalanceBreakdown(
       COUNT(*)::text                                                                         AS total_txns
     FROM rewards_ledger
     WHERE user_id = ${userId}
+      AND amount > 0
     GROUP BY event_type
     ORDER BY total_earned DESC
   `);

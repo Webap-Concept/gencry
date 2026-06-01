@@ -42,6 +42,7 @@ import {
   getTopCitedCoins,
 } from "@/lib/profile/queries";
 import { generatePageMetadata } from "@/lib/seo";
+import { isModuleInstalled } from "@/lib/modules/registry";
 
 const PROFILE_FEED_PAGE_SIZE = 20;
 
@@ -110,6 +111,13 @@ export default async function ProfilePage({
   ]);
   const isOwnProfile = viewerUserId === profile.userId;
 
+  // Badge acquistati (modulo rewards) — dynamic import isolato: se il modulo
+  // non è installato, niente import né render. Self-contained (fetcha i suoi dati).
+  const UserBadges = isModuleInstalled("rewards")
+    ? (await import("@/components/modules/rewards/UserBadgesStrip")).default
+    : null;
+  const badgesSlot = UserBadges ? <UserBadges userId={profile.userId} /> : null;
+
   // Layout 2026-05-28b: la profile page e' single-column nel main; le
   // card per-profilo ("Coin piu' citate" + preview Follower) vivono
   // nella VERA right rail dello shell via prop rightRailExtra. Niente
@@ -140,6 +148,7 @@ export default async function ProfilePage({
           viewerUserId={viewerUserId ?? null}
           isOwnProfile={isOwnProfile}
           viewerIsFollowing={viewerFollowing}
+          badgesSlot={badgesSlot}
         />
         <ProfileStickyHeader
           targetUserId={profile.userId}
@@ -187,6 +196,7 @@ function ProfileHeader({
   viewerUserId,
   isOwnProfile,
   viewerIsFollowing,
+  badgesSlot,
 }: {
   profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
   stats: Awaited<ReturnType<typeof getProfileStats>>;
@@ -194,6 +204,8 @@ function ProfileHeader({
   viewerUserId: string | null;
   isOwnProfile: boolean;
   viewerIsFollowing: boolean;
+  /** Badge acquistati dal modulo rewards (null se modulo non installato). */
+  badgesSlot?: React.ReactNode;
 }) {
   const display = displayName(profile);
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
@@ -205,7 +217,7 @@ function ProfileHeader({
     // (avatar a sx, info al centro, Follow a dx). Stesso markup, classi
     // responsive — vedi project_responsive_strategy.
     <header className="p-5 sm:p-4">
-      <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-3">
+      <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-4 sm:gap-5">
         <Avatar
           avatarUrl={profile.avatarUrl}
           initial={initial}
@@ -282,6 +294,10 @@ function ProfileHeader({
         <JoinedStat createdAt={profile.createdAt} />
       </div>
 
+      {/* Badge acquistati (modulo rewards) — sezione sotto le stats,
+          allineati a destra. Vuoto/modulo assente → il componente rende null. */}
+      {badgesSlot}
+
       {/* Follow mobile: full-width sotto le stat. Hidden su sm+. */}
       {showFollow ? (
         <div className="sm:hidden mt-4 w-full [&>div]:w-full [&_button]:w-full [&_button]:justify-center">
@@ -306,18 +322,22 @@ function CounterStatLink({
   labelKey: string;
 }) {
   return (
-    <Link
-      href={href}
-      prefetch={false}
-      className="group block text-center rounded-lg hover:bg-gc-bg-3 px-5 py-1 sm:-mx-2 sm:px-2 transition"
-    >
-      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
-        {value.toLocaleString()}
-      </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
-        <StatLabel labelKey={labelKey} />
-      </p>
-    </Link>
+    // Cella: prende la linea divisoria (divide-x del container). La card
+    // hover sta DENTRO con padding → la linea ha margine e non tocca il radius.
+    <div className="px-2.5 sm:px-0">
+      <Link
+        href={href}
+        prefetch={false}
+        className="group block text-center rounded-lg hover:bg-gc-bg-3 px-3 py-1.5 transition"
+      >
+        <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
+          {value.toLocaleString()}
+        </p>
+        <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
+          <StatLabel labelKey={labelKey} />
+        </p>
+      </Link>
+    </div>
   );
 }
 
@@ -341,7 +361,7 @@ function Avatar({
     />
   ) : (
     <div
-      className="w-full h-full rounded-full flex items-center justify-center text-4xl sm:text-2xl font-serif text-white bg-gc-accent"
+      className="w-full h-full rounded-full flex items-center justify-center text-4xl font-serif text-white bg-gc-accent"
       aria-label={display}
     >
       {initial}
@@ -349,7 +369,7 @@ function Avatar({
   );
 
   return (
-    <div className="relative w-24 h-24 sm:w-16 sm:h-16 shrink-0">
+    <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
       {inner}
       {verified && (
         <span
@@ -365,13 +385,15 @@ function Avatar({
 
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
-    <div className="text-center px-5 py-1 sm:px-0 sm:py-0">
-      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
-        {value.toLocaleString()}
-      </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
-        <StatLabel labelKey={labelKey} />
-      </p>
+    <div className="px-2.5 sm:px-0">
+      <div className="text-center rounded-lg px-3 py-1.5">
+        <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
+          {value.toLocaleString()}
+        </p>
+        <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
+          <StatLabel labelKey={labelKey} />
+        </p>
+      </div>
     </div>
   );
 }

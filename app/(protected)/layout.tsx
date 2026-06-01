@@ -1,5 +1,9 @@
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import {
+  TopCoinsBar,
+  TopCoinsBarSkeleton,
+} from "@/components/modules/coins/top-coins-bar";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
@@ -106,6 +110,15 @@ export default async function Layout({
   const userId = session.user.id;
   const unreadCount = await getUnreadNotificationsCount(userId);
 
+  // Ticker top-coin in cima allo shell. Solo se il modulo prices è
+  // installato (core module-agnostic). Suspense → non blocca il paint
+  // dello shell mentre la query (cache Redis) risolve.
+  const marketBar = isModuleInstalled("prices") ? (
+    <Suspense fallback={<TopCoinsBarSkeleton />}>
+      <TopCoinsBar />
+    </Suspense>
+  ) : null;
+
   // Carica il layout shell del modulo rewards SOLO se installato.
   // Dynamic import: se il modulo viene rimosso da INSTALLED_MODULES
   // (uninstall), questo blocco non esegue mai → nessun import rotto.
@@ -119,6 +132,7 @@ export default async function Layout({
         appLogoUrl={appSettings.app_logo_url}
         appLogoVariantUrl={appSettings.app_logo_variant_url}
         banner={banner}
+        marketBar={marketBar}
         notificationsBadge={<NotificationsBadgePill />}
         notificationsBadgeMobile={<NotificationsBadgePill />}
       >

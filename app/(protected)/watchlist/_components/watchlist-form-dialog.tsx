@@ -78,8 +78,12 @@ export function WatchlistFormDialog({
           setError(formatError(res, tErr));
           return;
         }
-        onOpenChange(false);
+        // refresh PRIMA di chiudere: in Next 16/React 19 un router.refresh()
+        // lanciato mentre il componente che lo chiama si sta smontando (modale
+        // in chiusura) viene scartato → la card non compariva. Stesso ordine
+        // del pattern provato in add-coin-dialog (refresh a modale montata).
         router.refresh();
+        onOpenChange(false);
         return;
       }
       // edit
@@ -104,8 +108,8 @@ export function WatchlistFormDialog({
           return;
         }
       }
-      onOpenChange(false);
       router.refresh();
+      onOpenChange(false);
     });
   };
 

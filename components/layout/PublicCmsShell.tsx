@@ -73,7 +73,12 @@ export async function PublicCmsShell({
     : rawPathname;
 
   const isNews = isNewsPathname(pathname);
-  const showRail = !isLegalsPathname(pathname, slugs) && !isNews;
+  // Pagine di sistema "content-only" con template coded che renderizza il
+  // proprio layout completo (es. /reazioni-post → TemplateReaction): niente
+  // right rail, come i legals. Mostrano SOLO il contenuto, centrato.
+  const firstSegment = pathname.replace(/^\/+/, "").split("/")[0]?.toLowerCase();
+  const isContentOnly = firstSegment === "reazioni-post";
+  const showRail = !isLegalsPathname(pathname, slugs) && !isNews && !isContentOnly;
   const fullBleed = isNews;
 
   // Menu news: 1 query DB cached, eseguita solo in contesto news per non

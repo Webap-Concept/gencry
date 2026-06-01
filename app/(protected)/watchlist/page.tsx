@@ -14,7 +14,9 @@ import {
   getMyWatchlists,
   getWatchlistOverviewStats,
 } from "@/lib/modules/watchlist/queries";
+import { getUserWatchlistCap } from "@/lib/modules/watchlist/slots";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -51,13 +53,17 @@ async function WatchlistListBody({
   userId: string;
   t: Awaited<ReturnType<typeof getTranslations<"watchlist.page">>>;
 }) {
-  const [watchlists, viewer] = await Promise.all([
+  const [watchlists, viewer, cap] = await Promise.all([
     getMyWatchlists(userId),
     getUser(),
+    getUserWatchlistCap(userId),
   ]);
   // viewer non-null garantito dal redirect del parent — il Promise.all
   // qui re-fetcha solo per leggere l'username (React.cache: zero extra DB).
   const ownerUsername = viewer?.username ?? null;
+  // Pro tier non ancora implementato (vedi actions.ts: "quando avremo
+  // subscriptions"). Scaffold: oggi tutti non-Pro → indicatore slot {used}/{cap}.
+  const isPro = false;
 
   // Stats overview: solo se c'e' qualcosa da riepilogare. Riusa la
   // lista watchlist gia' caricata + 1 query extra (count addedAt 30d).
@@ -66,14 +72,20 @@ async function WatchlistListBody({
       ? await getWatchlistOverviewStats(userId, watchlists)
       : null;
 
+  // Cap raggiunto (solo non-Pro): il bottone "nuova watchlist" va disabilitato.
+  // Il trigger DB resta il backstop definitivo (vedi actions.ts).
+  const atCap = !isPro && watchlists.length >= cap;
+
   return (
     <>
-      <PageHeader t={t} count={watchlists.length} />
+      <PageHeader t={t} count={watchlists.length} atCap={atCap} cap={cap} />
       {stats ? <WatchlistOverviewCard stats={stats} /> : null}
       {watchlists.length === 0 ? (
         <EmptyState t={t} />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <>
+          <SlotsIndicator t={t} used={watchlists.length} cap={cap} isPro={isPro} />
+          <ul className="grid gap-4 sm:grid-cols-2">
           {watchlists.map((w) => (
             <li key={w.id}>
               <WatchlistCard
@@ -93,18 +105,58 @@ async function WatchlistListBody({
               />
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
     </>
+  );
+}
+
+function SlotsIndicator({
+  t,
+  used,
+  cap,
+  isPro,
+}: {
+  t: Awaited<ReturnType<typeof getTranslations<"watchlist.page">>>;
+  used: number;
+  cap: number;
+  isPro: boolean;
+}) {
+  return (
+    <div className="flex justify-end">
+      <div className="text-right text-xs text-gc-fg-3">
+        <p className="tabular-nums">
+          {isPro
+            ? t("slots_unlimited", { used })
+            : t("slots_used", { used, cap })}
+        </p>
+        {!isPro ? (
+          <p className="mt-0.5">
+            <Link
+              href="/mycoins"
+              prefetch={false}
+              className="text-gc-accent hover:underline"
+            >
+              {t("buy_more_hint")}
+            </Link>
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
 function PageHeader({
   t,
   count,
+  atCap,
+  cap,
 }: {
   t: Awaited<ReturnType<typeof getTranslations<"watchlist.page">>>;
   count: number;
+  atCap: boolean;
+  cap: number;
 }) {
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -114,7 +166,13 @@ function PageHeader({
         </h1>
         <p className="text-sm text-gc-fg-3 mt-1 max-w-2xl">{t("subtitle")}</p>
       </div>
-      {count > 0 ? <NewWatchlistButton label={t("new_button")} /> : null}
+      {count > 0 ? (
+        <NewWatchlistButton
+          label={t("new_button")}
+          disabled={atCap}
+          disabledTooltip={t("cap_reached_hint", { cap })}
+        />
+      ) : null}
     </header>
   );
 }

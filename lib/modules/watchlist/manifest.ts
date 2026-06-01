@@ -45,4 +45,13 @@ export const WATCHLIST_MODULE: ModuleManifest = {
     },
   ],
   cronJobs: [],
+  // Reagisce al riscatto del perk 'watchlist_slot' dal catalogo rewards:
+  // incrementa gli slot watchlist dell'utente. Dynamic import → niente `db`
+  // nel bundle del manifest (client-safe), come i postHooks di rewards.
+  perkHooks: {
+    afterPerkRedeemed: async (userId, slug, perkData) => {
+      const { grantWatchlistSlotPerk } = await import("./perk-grant");
+      await grantWatchlistSlotPerk(userId, slug, perkData).catch(() => {});
+    },
+  },
 };

@@ -321,6 +321,31 @@
   to { height: 0; }
 }
 
+/* Marquee del ticker top-coin (TopCoinsBar): il track contiene 2 copie
+   consecutive del set di coin → translateX(-50%) fa un loop seamless (la
+   seconda metà entra esattamente quando esce la prima). Durata impostata
+   inline (∝ numero coin) per velocità costante. Il viewport ha
+   overflow:hidden → nessuna scrollbar. */
+@keyframes gc-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.gc-marquee-track {
+  display: inline-flex;
+  width: max-content;
+  animation-name: gc-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+/* Pausa su hover desktop — affordance "voglio leggere meglio". */
+.gc-marquee-viewport:hover .gc-marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-marquee-track { animation: none; transform: none; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

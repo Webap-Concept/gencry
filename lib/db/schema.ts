@@ -1900,6 +1900,16 @@ export const watchlistFollowers = pgTable(
   ],
 );
 
+// Slot watchlist extra acquistati con GCC (perk 'watchlist_slot' del modulo
+// rewards). Di proprietà del modulo watchlist: il redeem rewards chiama l'hook
+// afterPerkRedeemed che incrementa qui. get_user_watchlist_cap somma questo
+// agli slot free. Vedi M_watchlist_002_extra_slots.sql.
+export const watchlistExtraSlots = pgTable("watchlist_extra_slots", {
+  userId:     uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  extraSlots: integer("extra_slots").notNull().default(0),
+  updatedAt:  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const postsOutbox = pgTable(
   "posts_outbox",
   {

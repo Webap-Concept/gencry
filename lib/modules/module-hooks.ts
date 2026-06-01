@@ -37,3 +37,20 @@ export async function runAfterCommentCreated(
       .map((m) => m.postHooks!.afterCommentCreated!(userId, commentId)),
   );
 }
+
+/**
+ * Chiama tutti i moduli installati che reagiscono al riscatto di un perk dal
+ * catalogo rewards (es. watchlist applica 'watchlist_slot'). Fire-and-forget:
+ * il modulo rewards NON conosce i moduli che reagiscono al perk.
+ */
+export async function runAfterPerkRedeemed(
+  userId: string,
+  slug: string,
+  perkData: Record<string, unknown> | null,
+): Promise<void> {
+  await Promise.allSettled(
+    INSTALLED_MODULES
+      .filter((m) => m.perkHooks?.afterPerkRedeemed)
+      .map((m) => m.perkHooks!.afterPerkRedeemed!(userId, slug, perkData)),
+  );
+}

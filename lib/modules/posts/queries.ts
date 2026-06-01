@@ -297,16 +297,41 @@ function decodeHomeCursor(raw: string | undefined): HomeCursor | null {
     const parsed = JSON.parse(
       Buffer.from(raw, "base64").toString("utf8"),
     ) as HomeCursor;
-    if (parsed.mode !== "following" && parsed.mode !== "discovery") return null;
-    if (typeof parsed.cur !== "string") return null;
-    return parsed;
+    if (
+      (parsed.mode === "following" || parsed.mode === "discovery") &&
+      typeof parsed.cur === "string"
+    ) {
+      return parsed;
+    }
   } catch {
-    return null;
+    // Non è un HomeCursor JSON: cade nel fallback sotto.
   }
+  // Backward-compat / difesa: un cursore feed "plain" (base64url "ms:uuid",
+  // prodotto da versioni precedenti o da un ramo che non wrappa) viene
+  // interpretato come continuazione discovery INVECE di ripartire da capo.
+  // Senza questo, un cursore non-wrappato → null → il feed ri-fetchava la
+  // prima pagina (bug "primi 12 duplicati").
+  if (decodeCursor(raw)) return { mode: "discovery", cur: raw };
+  return null;
 }
 
 function encodeHomeCursor(c: HomeCursor): string {
   return Buffer.from(JSON.stringify(c), "utf8").toString("base64");
+}
+
+/**
+ * Wrappa il nextCursor di una pagina (cursore "plain" interno) in un
+ * HomeCursor del `mode` dato. Il Home feed DEVE sempre emettere HomeCursor
+ * (mai un cursore plain), altrimenti il round-trip col client lo rende
+ * indecodificabile → restart da capo. Vedi decodeHomeCursor.
+ */
+function wrapHomePage(page: PostListPage, mode: HomeCursor["mode"]): PostListPage {
+  return {
+    ids: page.ids,
+    nextCursor: page.nextCursor
+      ? encodeHomeCursor({ mode, cur: page.nextCursor })
+      : null,
+  };
 }
 
 /**
@@ -330,7 +355,10 @@ export async function getHomeFeedIds(opts: {
   const parsed = decodeHomeCursor(opts.cursor);
 
   if (!opts.viewerUserId) {
-    return getDiscoverFeedIds({ cursor: parsed?.cur, pageSize });
+    return wrapHomePage(
+      await getDiscoverFeedIds({ cursor: parsed?.cur, pageSize }),
+      "discovery",
+    );
   }
   const viewerUserId = opts.viewerUserId;
 
@@ -340,22 +368,28 @@ export async function getHomeFeedIds(opts: {
   ]);
 
   if (followingSet.size === 0) {
-    return getDiscoverFeedIds({
-      viewerUserId,
-      cursor: parsed?.cur,
-      pageSize,
-    });
+    return wrapHomePage(
+      await getDiscoverFeedIds({
+        viewerUserId,
+        cursor: parsed?.cur,
+        pageSize,
+      }),
+      "discovery",
+    );
   }
 
   if (parsed?.mode === "discovery") {
-    return discoveryFillPage({
-      viewerUserId,
-      excludeAuthorIds: followingSet,
-      blockedIds,
-      followingSet,
-      cursor: parsed.cur,
-      pageSize,
-    });
+    return wrapHomePage(
+      await discoveryFillPage({
+        viewerUserId,
+        excludeAuthorIds: followingSet,
+        blockedIds,
+        followingSet,
+        cursor: parsed.cur,
+        pageSize,
+      }),
+      "discovery",
+    );
   }
 
   // Following-first

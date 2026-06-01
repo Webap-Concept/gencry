@@ -4,11 +4,16 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import {
+  TopCoinsBar,
+  TopCoinsBarSkeleton,
+} from "@/components/modules/coins/top-coins-bar";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getSession } from "@/lib/auth/session";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
+import { isModuleInstalled } from "@/lib/modules/registry";
 
 /**
  * Shell adattivo per le rotte pubbliche SEO-friendly. Estratto dal
@@ -56,7 +61,24 @@ export async function PublicAdaptiveShell({
       </Suspense>
     );
     const unreadCount = await getUnreadNotificationsCount(session.user.id);
-    return (
+
+    // Monta il rewards shell (RewardsBalanceProvider + checkin) anche qui,
+    // identico a (protected)/layout.tsx: senza, il UserMenu su una pagina del
+    // group (public) — es. profilo /u/[username], coin page — non vedrebbe il
+    // provider → useRewardsBalance() = null → il link "Coins" sparisce.
+    const RewardsShell = isModuleInstalled("rewards")
+      ? (await import("@/components/modules/rewards/rewards-layout-shell")).default
+      : null;
+
+    // Parità con (protected)/layout.tsx: stessa barra top-coin anche sulle
+    // pagine pubbliche viste da loggato (es. /coins, /u/[username]).
+    const marketBar = isModuleInstalled("prices") ? (
+      <Suspense fallback={<TopCoinsBarSkeleton />}>
+        <TopCoinsBar />
+      </Suspense>
+    ) : null;
+
+    const shell = (
       <NotificationsUnreadProvider
         viewerUserId={session.user.id}
         initialCount={unreadCount}
@@ -65,6 +87,7 @@ export async function PublicAdaptiveShell({
           appLogoUrl={appSettings.app_logo_url}
           appLogoVariantUrl={appSettings.app_logo_variant_url}
           banner={banner}
+          marketBar={marketBar}
           notificationsBadge={<NotificationsBadgePill />}
           notificationsBadgeMobile={<NotificationsBadgePill />}
           rightRailExtra={rightRailExtra}
@@ -72,6 +95,12 @@ export async function PublicAdaptiveShell({
           <Suspense fallback={null}>{children}</Suspense>
         </ProtectedShell>
       </NotificationsUnreadProvider>
+    );
+
+    return RewardsShell ? (
+      <RewardsShell userId={session.user.id}>{shell}</RewardsShell>
+    ) : (
+      shell
     );
   }
 

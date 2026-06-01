@@ -16,7 +16,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { BookmarkPlus, BookmarkCheck, Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -54,6 +54,9 @@ export function AddToWatchlistButton({
   compact = false,
 }: Props) {
   const t = useTranslations("watchlist.coin_button");
+  // Label sempre presente accanto all'icona: senza testo il bottone è
+  // criptico (decisione UX 2026-06-01). `compact` = "Watchlist" (header
+  // coin), altrimenti "Aggiungi a watchlist".
   const addLabel = compact ? t("add_short") : t("add");
   const [rows, setRows] = useState<WatchlistMembershipRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,7 +90,7 @@ export function AddToWatchlistButton({
     return (
       <Button asChild size={size} variant="secondary">
         <Link href="/sign-in" prefetch={false}>
-          <BookmarkPlus size={14} aria-hidden />
+          <Plus size={16} aria-hidden />
           {compact ? t("add_short") : t("signin_to_save")}
         </Link>
       </Button>
@@ -125,13 +128,15 @@ export function AddToWatchlistButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* Sempre verde menta (secondary), sia "+ Watchlist" sia "Salvata":
-            lo stato lo comunica l'icona (Plus → Check) + il testo. */}
+        {/* Icona +/✓ + testo. Sempre verde menta (secondary): lo stato lo
+            comunicano insieme l'icona (Plus → Check) e il testo
+            (addLabel → "Salvata"). Il testo NON va rimosso: senza, il
+            bottone non si capisce (decisione UX 2026-06-01). */}
         <Button type="button" size={size} variant="secondary">
           {anySaved ? (
-            <BookmarkCheck size={14} aria-hidden />
+            <Check size={16} aria-hidden />
           ) : (
-            <BookmarkPlus size={14} aria-hidden />
+            <Plus size={16} aria-hidden />
           )}
           {anySaved ? t("saved") : addLabel}
         </Button>
