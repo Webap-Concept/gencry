@@ -69,6 +69,16 @@
     font: inherit;
   }
 
+  /* Cursor pointer su TUTTI i bottoni del front: il preflight di Tailwind
+     non lo aggiunge, quindi i <button> "raw" (non passati dal primitive
+     Button, che ce l'ha già) mostravano la freccia. Scoped a frontend.css
+     → non tocca l'admin. I disabilitati restano col cursore di default;
+     in @layer base, così un'utility cursor-* esplicita può sovrascrivere. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   p,
   li {
     text-wrap: pretty;
