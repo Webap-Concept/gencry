@@ -53,6 +53,10 @@ export async function earnReward(
     // numeric() in Drizzle ritorna string — parseFloat per i confronti
     const amount = parseFloat(rule.amount as unknown as string);
 
+    // Amount non positivo (o NaN) = nessun accredito: evitiamo un INSERT a 0
+    // che violerebbe il CHECK rewards_ledger_amount_nonzero (vedi M_rewards_006).
+    if (!(amount > 0)) return { awarded: false, amount: 0 };
+
     // Controlla daily_cap se definito
     if (rule.dailyCap !== null) {
       const [{ value: todayCount }] = await db
