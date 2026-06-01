@@ -54,7 +54,7 @@ function RuleCard({ rule, isStreak = false }: { rule: RewardsRule; isStreak?: bo
     startTransition(async () => {
       const result = await updateRewardRule({
         eventType: rule.eventType as UpdateRuleInput["eventType"],
-        amount:    parseInt(amount, 10),
+        amount:    parseFloat(amount),
         dailyCap:  parseInt(dailyCap, 10) || null,
         enabled,
       });
