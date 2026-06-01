@@ -4,6 +4,10 @@ import { AppRightRail } from "@/components/layout/AppRightRail";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicHeader } from "@/components/layout/PublicHeader";
+import {
+  TopCoinsBar,
+  TopCoinsBarSkeleton,
+} from "@/components/modules/coins/top-coins-bar";
 import { NotificationsUnreadProvider } from "@/components/modules/notifications/NotificationsUnreadProvider";
 import { NotificationsBadgePill } from "@/components/modules/notifications/NotificationsBadgePill";
 import { getSession } from "@/lib/auth/session";
@@ -66,6 +70,14 @@ export async function PublicAdaptiveShell({
       ? (await import("@/components/modules/rewards/rewards-layout-shell")).default
       : null;
 
+    // Parità con (protected)/layout.tsx: stessa barra top-coin anche sulle
+    // pagine pubbliche viste da loggato (es. /coins, /u/[username]).
+    const marketBar = isModuleInstalled("prices") ? (
+      <Suspense fallback={<TopCoinsBarSkeleton />}>
+        <TopCoinsBar />
+      </Suspense>
+    ) : null;
+
     const shell = (
       <NotificationsUnreadProvider
         viewerUserId={session.user.id}
@@ -75,6 +87,7 @@ export async function PublicAdaptiveShell({
           appLogoUrl={appSettings.app_logo_url}
           appLogoVariantUrl={appSettings.app_logo_variant_url}
           banner={banner}
+          marketBar={marketBar}
           notificationsBadge={<NotificationsBadgePill />}
           notificationsBadgeMobile={<NotificationsBadgePill />}
           rightRailExtra={rightRailExtra}

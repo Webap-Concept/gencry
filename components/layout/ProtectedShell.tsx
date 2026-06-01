@@ -18,6 +18,7 @@ export function ProtectedShell({
   appLogoUrl,
   appLogoVariantUrl,
   banner,
+  marketBar,
   notificationsBadge,
   notificationsBadgeMobile,
   rightRailExtra,
@@ -29,6 +30,10 @@ export function ProtectedShell({
   appLogoVariantUrl?: string | null;
   /** Banner opzionale renderizzato sopra la topbar (es. re-consent). */
   banner?: React.ReactNode;
+  /** Barra full-width fissa sotto la topbar (es. ticker top-coin del modulo
+   *  prices). ReactNode così il core resta module-agnostic: lo inietta il
+   *  layout chiamante, guardato da isModuleInstalled. */
+  marketBar?: React.ReactNode;
   /** Server-rendered badge unread per la bell della sidebar (modulo
    *  notifications). Passato come ReactNode così rimane server-only
    *  pur essendo nested in un client component. */
@@ -47,6 +52,7 @@ export function ProtectedShell({
     <div className="gc-app-shell h-dvh bg-gc-bg flex flex-col">
       {banner}
       <AppTopBar />
+      {marketBar}
       <div className="flex-1 min-h-0 mx-auto w-full max-w-[1280px] flex">
         <AppSidebar
           appLogoUrl={appLogoUrl}
