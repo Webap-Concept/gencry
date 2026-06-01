@@ -48,7 +48,7 @@ export default async function MyCoinsPage() {
           <span className="w-1.5 h-1.5 rounded-full bg-gc-accent shrink-0" />
           I tuoi&nbsp;<span className="text-gc-accent">GCC</span>&nbsp;community
         </div>
-        <h1 className="text-3xl font-bold leading-tight text-gc-fg">
+        <h1 className="font-display font-normal text-[38px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
           My<span className="italic text-gc-accent">Coins</span>
         </h1>
         <p className="text-sm text-gc-fg-2 leading-relaxed max-w-lg">
@@ -258,11 +258,15 @@ function StatPill({ value, unit, label }: { value: string; unit?: string; label:
   return (
     <div
       className="rounded-xl px-4 py-3 flex flex-col gap-0.5 min-w-[100px]"
-      style={{ background: "rgba(255,255,255,0.08)" }}
+      style={{
+        background: "rgba(255,255,255,0.07)",
+        border: "1px solid rgba(255,255,255,0.12)",
+      }}
     >
       <div className="flex items-baseline gap-1">
-        <span className="text-xl font-bold tabular-nums text-white">{value}</span>
-        {unit && <span className="text-xs text-white/50">{unit}</span>}
+        {/* Menta: emerald-300 su sfondo scuro */}
+        <span className="text-xl font-bold tabular-nums text-emerald-300">{value}</span>
+        {unit && <span className="text-xs text-white/40">{unit}</span>}
       </div>
       <span className="text-[10.5px] uppercase tracking-wide text-white/40">{label}</span>
     </div>
