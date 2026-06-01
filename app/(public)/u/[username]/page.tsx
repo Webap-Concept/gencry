@@ -322,18 +322,22 @@ function CounterStatLink({
   labelKey: string;
 }) {
   return (
-    <Link
-      href={href}
-      prefetch={false}
-      className="group block text-center rounded-lg hover:bg-gc-bg-3 px-5 py-1 sm:-mx-2 sm:px-2 transition"
-    >
-      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
-        {value.toLocaleString()}
-      </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
-        <StatLabel labelKey={labelKey} />
-      </p>
-    </Link>
+    // Cella: prende la linea divisoria (divide-x del container). La card
+    // hover sta DENTRO con padding → la linea ha margine e non tocca il radius.
+    <div className="px-2.5 sm:px-0">
+      <Link
+        href={href}
+        prefetch={false}
+        className="group block text-center rounded-lg hover:bg-gc-bg-3 px-3 py-1.5 transition"
+      >
+        <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
+          {value.toLocaleString()}
+        </p>
+        <p className="text-[11px] uppercase tracking-wide text-gc-fg-3 group-hover:text-gc-fg-2">
+          <StatLabel labelKey={labelKey} />
+        </p>
+      </Link>
+    </div>
   );
 }
 
@@ -381,13 +385,15 @@ function Avatar({
 
 function Stat({ value, labelKey }: { value: number; labelKey: string }) {
   return (
-    <div className="text-center px-5 py-1 sm:px-0 sm:py-0">
-      <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
-        {value.toLocaleString()}
-      </p>
-      <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
-        <StatLabel labelKey={labelKey} />
-      </p>
+    <div className="px-2.5 sm:px-0">
+      <div className="text-center rounded-lg px-3 py-1.5">
+        <p className="profile-stat-num text-xl font-serif text-gc-fg tabular-nums leading-tight">
+          {value.toLocaleString()}
+        </p>
+        <p className="text-[11px] uppercase tracking-wide text-gc-fg-3">
+          <StatLabel labelKey={labelKey} />
+        </p>
+      </div>
     </div>
   );
 }
