@@ -487,8 +487,8 @@ export default function PricesArchitecturePage() {
             <ArchFutureCard
               tier={1}
               title="Cleanup legacy (audit 06/01)"
-              description="Rimuovere runPricesSnapshot no-op, decidere su SSE live-prices (scaffold off), igiene universo (coin spazzatura attivi). Vedi memory dell'audit."
-              trigger="Subito dopo l'audit dead-code"
+              description="Cron snapshot no-op RIMOSSO. Restano: igiene universo (coin spazzatura attivi) e decisione su SSE live-prices (scaffold off, tenuto per roadmap)."
+              trigger="In corso"
             />
             <ArchFutureCard
               tier={2}
@@ -518,7 +518,7 @@ export default function PricesArchitecturePage() {
           icon={FileText}
           intro="Tutto sotto lib/modules/prices/. Layer: orchestrazione, exchanges/, sources/, services/, read (queries).">
           <div className="space-y-2">
-            <ArchFileLink path="lib/modules/prices/manifest.ts" description="Slug, nav, permission, 4 cron jobs (sync/snapshot/cleanup/metadata-refresh)" />
+            <ArchFileLink path="lib/modules/prices/manifest.ts" description="Slug, nav, permission, 3 cron jobs (sync/cleanup/metadata-refresh)" />
             <ArchFileLink path="lib/modules/prices/config.ts" description="getPricesConfig() — legge tutta la config da app_settings.modules.prices.*" />
             <ArchFileLink path="lib/modules/prices/sync.ts" description="Orchestrator: exchange → CoinGecko → DexScreener → Redis + history + masterdata" />
             <ArchFileLink path="lib/modules/prices/active-universe.ts" description="Quali coin sincronizzare (recenti OR top-rank ≤500)" />
@@ -571,10 +571,16 @@ export default function PricesArchitecturePage() {
               <code>priceAvailable=false</code>.
             </li>
             <li>
-              <strong>Cron admin "Not on QStash" = falso negativo</strong>: la
-              pagina cerca <code>scheduleId = gencry-&lt;jobname&gt;</code>; se non
-              combacia mostra "Not on QStash" anche se i job girano davvero su
-              QStash (display WIP della migrazione cron). NON è un problema infra.
+              <strong>Cron admin "Not on QStash" = bug del display, non infra</strong>:
+              i cron girano davvero su QStash (verificato dai log{" "}
+              <code>/v2/events</code>: <code>gencry-prices-sync</code> DELIVERED
+              ogni minuto), ma <code>GET /v2/schedules</code> ritorna{" "}
+              <strong>vuoto</strong> nonostante gli schedule siano attivi (quirk
+              QStash). La pagina cron + <code>cron:sync --list</code> usano{" "}
+              <code>/v2/schedules</code> → mostrano 0 / "Not on QStash". Fix:
+              derivare lo stato live da <code>/v2/events</code> (ultima consegna
+              per scheduleId). Niente Vercel cron / GitHub Actions / pg_cron sui
+              prezzi: tutto QStash.
             </li>
             <li>
               <strong>Igiene universo</strong>: <code>prices_coins</code>{" "}

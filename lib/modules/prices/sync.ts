@@ -380,26 +380,6 @@ async function writeSnapshotIfDue(
 }
 
 /**
- * Snapshot timeseries — entry point legacy del cron snapshot dedicato.
- *
- * La scrittura di `prices_history` ora avviene INSIDE `runPricesSync` con
- * i quotes freschi raccolti da CoinGecko (vedi `writeSnapshotIfDue`), per
- * evitare il bug "linea piatta": il vecchio path copiava da `prices_data`
- * che resta "settled" con `delta_threshold`, scrivendo lo stesso prezzo a
- * ogni tick. Manteniamo l'endpoint come no-op per non rompere il cron
- * registrato finché non viene rimosso dal manifest/vercel.json.
- */
-export async function runPricesSnapshot(): Promise<SyncResult> {
-  return {
-    ok: true,
-    coinsTotal: 0,
-    coinsUpdated: 0,
-    sourceUsed: null,
-    durationMs: 0,
-  };
-}
-
-/**
  * Cleanup: cancella punti di `prices_history` più vecchi della retention.
  */
 export async function runPricesCleanup(): Promise<SyncResult> {

@@ -76,14 +76,6 @@ export const PRICES_MODULE: ModuleManifest = {
       purpose: "Keeps live prices fresh on the frontend (markets table, watchlists, charts). Il TTL della chiave Redis e' legato a modules.prices.cron_minutes (default 1 ora → TTL 2 min) per evitare gap tra un tick e l'altro.",
     },
     {
-      jobname: "modules-prices-snapshot",
-      path: "/api/cron/modules/prices/snapshot",
-      schedule: "*/5 * * * *",
-      label: "Prices Snapshot",
-      description: "Persists a periodic snapshot of prices into the time-series table for historical charts.",
-      purpose: "Powers historical charts and delta computations (24h, 7d).",
-    },
-    {
       jobname: "modules-prices-cleanup",
       path: "/api/cron/modules/prices/cleanup",
       schedule: "0 3 * * *",
