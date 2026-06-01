@@ -30,38 +30,79 @@ export const getQStashSchedules = cache(
     const token = settings.qstash_token?.trim();
     if (!url || !token) return null;
 
+    const base = url.replace(/\/+$/, "");
+    const headers = { Authorization: `Bearer ${token}` };
+    const map = new Map<string, QStashSchedule>();
+
+    // 1) Schedule "ufficiali" da /v2/schedules.
     try {
-      const res = await fetch(`${url.replace(/\/+$/, "")}/v2/schedules`, {
+      const res = await fetch(`${base}/v2/schedules`, {
         method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         next: { revalidate: 30 }, // cache 30s — admin hot path
       });
-      if (!res.ok) {
+      if (res.ok) {
+        const data = (await res.json()) as Array<{
+          scheduleId: string;
+          cron: string;
+          destination: string;
+          isPaused?: boolean;
+          createdAt?: number;
+        }>;
+        for (const s of data) {
+          map.set(s.scheduleId, {
+            scheduleId: s.scheduleId,
+            cron: s.cron,
+            destination: s.destination,
+            isPaused: s.isPaused ?? false,
+            createdAt: s.createdAt ?? 0,
+          });
+        }
+      } else {
         console.warn("[qstash-client] GET /v2/schedules →", res.status);
-        return new Map();
       }
-      const data = (await res.json()) as Array<{
-        scheduleId: string;
-        cron: string;
-        destination: string;
-        isPaused?: boolean;
-        createdAt?: number;
-      }>;
-      const map = new Map<string, QStashSchedule>();
-      for (const s of data) {
-        map.set(s.scheduleId, {
-          scheduleId: s.scheduleId,
-          cron: s.cron,
-          destination: s.destination,
-          isPaused: s.isPaused ?? false,
-          createdAt: s.createdAt ?? 0,
-        });
-      }
-      return map;
     } catch (err) {
-      console.warn("[qstash-client] fetch failed:", err);
-      return new Map();
+      console.warn("[qstash-client] schedules fetch failed:", err);
     }
+
+    // 2) Merge da /v2/events. QStash a volte NON elenca in /v2/schedules degli
+    //    schedule che però esegue regolarmente (osservato 2026-06-01: lista
+    //    vuota ma deliveries `gencry-*` ogni minuto). Senza questo merge la UI
+    //    mostrerebbe "Not on QStash" per cron in realtà attivi. Per ogni
+    //    scheduleId `gencry-*` visto negli eventi recenti e non già in mappa,
+    //    sintetizziamo una entry "attiva" (cron preso da CRON_SCHEDULES per
+    //    evitare un falso mismatch; createdAt = ultima consegna come proxy).
+    try {
+      const res = await fetch(`${base}/v2/events`, {
+        method: "GET",
+        headers,
+        next: { revalidate: 30 },
+      });
+      if (res.ok) {
+        const body = (await res.json()) as
+          | Array<Record<string, unknown>>
+          | { events?: Array<Record<string, unknown>> };
+        const events = Array.isArray(body) ? body : (body.events ?? []);
+        for (const e of events) {
+          const id = e.scheduleId;
+          if (typeof id !== "string" || !id.startsWith("gencry-") || map.has(id)) continue;
+          const jobname = id.slice("gencry-".length);
+          const def = CRON_SCHEDULES.find((s) => s.jobname === jobname);
+          const ts = typeof e.time === "number" ? e.time : typeof e.createdAt === "number" ? e.createdAt : 0;
+          map.set(id, {
+            scheduleId: id,
+            cron: def?.schedule ?? "",
+            destination: typeof e.url === "string" ? e.url : (typeof e.destination === "string" ? e.destination : ""),
+            isPaused: false,
+            createdAt: ts,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[qstash-client] events merge failed:", err);
+    }
+
+    return map;
   },
 );
 
