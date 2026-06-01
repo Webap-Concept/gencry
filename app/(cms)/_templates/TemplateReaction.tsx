@@ -174,7 +174,7 @@ function DemoPostCard({
   return (
     <article className="rounded-gc border border-gc-line bg-gc-bg-2 p-5">
       <header className="mb-3 flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gc-bg-3 font-mono text-sm text-gc-fg-2">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gc-accent font-mono text-sm font-semibold text-white">
           {initial}
         </span>
         <div className="min-w-0 leading-tight">
@@ -224,8 +224,8 @@ export async function TemplateReaction(_props: TemplateProps) {
           Cinque modi per <em className="italic text-gc-accent">reagire</em>.
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gc-fg-2">
-          Su <em className="italic text-gc-accent">GenerazioneCrypto</em> post e
-          commenti si reagiscono con cinque emoji pensate per il nostro
+          Su <em className="italic text-gc-accent">GenerazioneCrypto</em>{" "}
+          post e commenti si reagiscono con cinque emoji pensate per il nostro
           contesto: niente cuori generici, niente pollici. Solo segnali che un
           trader capisce a colpo d&apos;occhio.
         </p>
