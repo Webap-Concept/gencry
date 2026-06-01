@@ -310,7 +310,13 @@ export interface CoinView {
   /** Posizione globale per market cap (1 = top). Null se mai popolato dal sync. */
   marketCapRank: number | null;
   category: string | null;
+  /** Prezzo live. 0 quando `priceAvailable=false` (coin esiste ma quote
+   *  assente dalla hot cache). I consumer "card/list" filtrano i coin senza
+   *  prezzo; la coin page invece li mostra nascondendo prezzo+grafico. */
   price: number;
+  /** false = coin valido (metadata presenti) ma senza quote live → la UI
+   *  deve degradare (niente prezzo/chart) SENZA andare in 404. */
+  priceAvailable: boolean;
   change24h: number | null;
   volume24h: number | null;
   /** 21 punti settimanali oldest → newest (3/giorno). null se mai computata. */
@@ -362,6 +368,7 @@ const fetchTopCoinsForCards = async (limit = TOP_POOL_SIZE): Promise<CoinView[]>
         marketCapRank: c.marketCapRank,
         category:      c.category,
         price:         q.price,
+        priceAvailable: true,
         change24h:     q.change24h,
         volume24h:     q.volume24h,
         weeklySparkline: c.weeklySparkline,
@@ -419,6 +426,7 @@ const fetchCoinForCard = async (symbol: string): Promise<CoinView | null> => {
     marketCapRank: c.marketCapRank,
     category:      c.category,
     price:         q.price,
+    priceAvailable: true,
     change24h:     q.change24h,
     volume24h:     q.volume24h,
     weeklySparkline: c.weeklySparkline,
@@ -434,6 +442,64 @@ const fetchCoinForCardCached = unstable_cache(
 
 export async function getCoinForCard(symbol: string): Promise<CoinView | null> {
   return fetchCoinForCardCached(symbol);
+}
+
+/**
+ * Variante per la **coin page pubblica**: ritorna `null` SOLO se il coin non
+ * esiste nei metadata (`prices_coins`) → vero 404. Se il coin esiste ma la
+ * quote live è assente (hot cache vuota / cron non ha ancora prezzato quel
+ * simbolo), ritorna comunque la CoinView con `priceAvailable=false`,
+ * `price=0`, `change24h/volume24h=null`: la pagina renderizza tutto
+ * (nome, rank, market cap, post correlati, JSON-LD) e nasconde solo
+ * prezzo + grafico. Critico per la SEO: una pagina che esiste non deve
+ * mai diventare 404 per un dato di prezzo mancante.
+ */
+const fetchCoinDetail = async (symbol: string): Promise<CoinView | null> => {
+  const upper = symbol.toUpperCase();
+  const rows = await db
+    .select({
+      symbol:        pricesCoins.symbol,
+      name:          pricesCoins.name,
+      imageUrl:      pricesCoins.imageUrl,
+      marketCap:     pricesCoins.marketCap,
+      marketCapRank: pricesCoins.marketCapRank,
+      category:      pricesCoins.category,
+      weeklySparkline: pricesCoins.weeklySparkline,
+    })
+    .from(pricesCoins)
+    .where(eq(pricesCoins.symbol, upper))
+    .limit(1);
+
+  const c = rows[0];
+  if (!c) return null; // coin inesistente → 404 legittimo
+
+  const hot = await getHotPrices();
+  const q = hot?.quotes[upper];
+
+  return {
+    symbol:        c.symbol,
+    name:          c.name,
+    imageUrl:      c.imageUrl,
+    marketCap:     c.marketCap,
+    marketCapRank: c.marketCapRank,
+    category:      c.category,
+    price:         q?.price ?? 0,
+    priceAvailable: Boolean(q),
+    change24h:     q?.change24h ?? null,
+    volume24h:     q?.volume24h ?? null,
+    weeklySparkline: c.weeklySparkline,
+    lastUpdated:   hot ? new Date(hot.updatedAt) : new Date(),
+  };
+};
+
+const fetchCoinDetailCached = unstable_cache(
+  fetchCoinDetail,
+  ["prices-coin-detail"],
+  { revalidate: 60, tags: [PRICES_DATA_TAG] },
+);
+
+export async function getCoinDetail(symbol: string): Promise<CoinView | null> {
+  return fetchCoinDetailCached(symbol);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
