@@ -51,7 +51,7 @@ export default async function MyCoinsPage() {
         <h1 className="font-display font-normal text-[38px] leading-[1.05] tracking-[-0.01em] text-gc-fg">
           My<span className="italic text-gc-accent">Coins</span>
         </h1>
-        <p className="text-sm text-gc-fg-2 leading-relaxed max-w-lg">
+        <p className="text-sm text-gc-fg-2 leading-relaxed">
           I GCC (Generazione Crypto Coin) sono <strong className="text-gc-fg font-medium">coin virtuali della piattaforma</strong>,
           non criptovalute reali né strumenti finanziari. La community te li
           riconosce per ogni azione: check-in giornalieri, post pubblicati e
