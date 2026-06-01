@@ -40,9 +40,9 @@ export default async function RewardsOverviewPage() {
       {/* KPI globali */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Users with coins"    value={stats.totalUsersWithBalance.toLocaleString("en-US")} />
-        <StatCard label="Coins circulating"   value={Number(stats.totalCoinsCirculating).toLocaleString("en-US")} />
-        <StatCard label="Lifetime earned"     value={Number(stats.totalLifetimeEarned).toLocaleString("en-US")} />
-        <StatCard label="Earned today"        value={Number(stats.todayEarned).toLocaleString("en-US")} sub={`${stats.todayTransactions} txns`} />
+        <StatCard label="Coins circulating"   value={stats.totalCoinsCirculating.toLocaleString("en-US")} />
+        <StatCard label="Lifetime earned"     value={stats.totalLifetimeEarned.toLocaleString("en-US")} />
+        <StatCard label="Earned today"        value={stats.todayEarned.toLocaleString("en-US")} sub={`${stats.todayTransactions} txns`} />
       </section>
 
       {/* Regole attive */}

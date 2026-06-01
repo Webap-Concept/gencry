@@ -5,28 +5,42 @@ import { updateRewardRule, type UpdateRuleInput } from "../actions";
 import type { RewardsRule } from "@/lib/db/schema";
 
 const EVENT_LABEL: Record<string, string> = {
-  daily_checkin: "Daily check-in",
-  post_created:  "Post published",
-  like_received: "Like received (post author)",
+  daily_checkin:   "Daily check-in",
+  post_created:    "Post published",
+  like_received:   "Reactions received (post author)",
+  comment_created: "Comment created",
+  streak_7:        "7-day streak",
+  streak_14:       "14-day streak",
+  streak_30:       "30-day streak",
 };
 
 const EVENT_DESCRIPTION: Record<string, string> = {
-  daily_checkin: "Accreditato una volta al giorno (idempotency sulla data UTC). Nessun cap necessario.",
-  post_created:  "Accreditato alla creazione di un post. Daily cap anti-spam.",
-  like_received: "Accreditato all'autore del post quando riceve un like (trigger DB). Anti-self-like + daily cap.",
+  daily_checkin:   "Once per local day (idempotency on local date). No cap needed.",
+  post_created:    "On post creation. Daily cap prevents spam.",
+  like_received:   "Awarded to post author on reaction insert (DB trigger). Anti-self + daily cap.",
+  comment_created: "On comment creation. Daily cap prevents spam.",
+  streak_7:        "Bonus when user hits exactly 7 consecutive daily check-ins. Fires once per streak run.",
+  streak_14:       "Bonus at 14 consecutive days. Fires once per streak run.",
+  streak_30:       "Bonus at 30 consecutive days. Fires once per streak run.",
 };
 
-export function RewardsSettingsForm({ rules }: { rules: RewardsRule[] }) {
+export function RewardsSettingsForm({
+  rules,
+  isStreakSection = false,
+}: {
+  rules: RewardsRule[];
+  isStreakSection?: boolean;
+}) {
   return (
     <div className="space-y-4">
       {rules.map((rule) => (
-        <RuleCard key={rule.eventType} rule={rule} />
+        <RuleCard key={rule.eventType} rule={rule} isStreak={isStreakSection} />
       ))}
     </div>
   );
 }
 
-function RuleCard({ rule }: { rule: RewardsRule }) {
+function RuleCard({ rule, isStreak = false }: { rule: RewardsRule; isStreak?: boolean }) {
   const [amount, setAmount]   = useState(String(rule.amount));
   const [dailyCap, setDailyCap] = useState((rule.dailyCap ?? 0).toString());
   const [enabled, setEnabled] = useState(rule.enabled);
@@ -98,7 +112,8 @@ function RuleCard({ rule }: { rule: RewardsRule }) {
             }}
           />
         </div>
-        {rule.eventType !== "daily_checkin" && (
+        {/* Streak milestone: no daily_cap (fires once per streak run by design) */}
+        {!isStreak && rule.eventType !== "daily_checkin" && (
           <div className="space-y-1">
             <label className="text-xs font-medium" style={{ color: "var(--admin-text-muted)" }}>
               Daily cap (0 = none)

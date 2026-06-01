@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { RewardEventType } from "@/lib/modules/rewards/types";
 
 const RuleSchema = z.object({
-  eventType: z.enum(["daily_checkin", "post_created", "like_received", "comment_created"]),
+  eventType: z.enum(["daily_checkin", "post_created", "like_received", "comment_created", "streak_7", "streak_14", "streak_30"]),
   amount:    z.coerce.number().min(0.01).max(10_000),
   dailyCap:  z.coerce.number().int().min(0).max(10_000).nullable(),
   enabled:   z.boolean(),

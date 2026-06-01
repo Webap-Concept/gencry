@@ -2291,7 +2291,14 @@ export const REWARD_EVENT_TYPES = [
   "post_created",
   "like_received",
   "comment_created",
+  "streak_7",
+  "streak_14",
+  "streak_30",
 ] as const;
+
+/** Event types che rappresentano milestone di streak (subset di REWARD_EVENT_TYPES) */
+export const STREAK_MILESTONE_DAYS = [7, 14, 30] as const;
+export type StreakMilestoneDay = (typeof STREAK_MILESTONE_DAYS)[number];
 export type RewardEventType = (typeof REWARD_EVENT_TYPES)[number];
 
 export const rewardsRules = pgTable("rewards_rules", {

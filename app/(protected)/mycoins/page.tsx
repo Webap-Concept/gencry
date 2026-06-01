@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Coins } from "lucide-react";
+import { Coins, Flame as FlameIcon, CheckCircle2, Circle } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import {
   getUserBalance,
   getUserBalanceBreakdown,
-  getCheckinStreak,
   getAllRules,
+  getStreakMilestoneStatus,
 } from "@/lib/modules/rewards/queries";
 import { formatCoins } from "@/lib/modules/rewards/format";
 import { REWARD_CATEGORIES, REWARD_CATEGORY_MAP } from "@/lib/modules/rewards/categories";
@@ -19,12 +19,13 @@ export default async function MyCoinsPage() {
   if (!session) redirect("/sign-in");
 
   const userId = session.user.id;
-  const [balance, breakdown, streak, rules] = await Promise.all([
+  const [balance, breakdown, streakStatus, rules] = await Promise.all([
     getUserBalance(userId),
     getUserBalanceBreakdown(userId),
-    getCheckinStreak(userId),
+    getStreakMilestoneStatus(userId),
     getAllRules(),
   ]);
+  const { currentStreak: streak, milestones } = streakStatus;
 
   const currentBalance = balance?.balance ?? 0;
   const lifetimeEarned = balance?.lifetimeEarned ?? 0;
@@ -98,6 +99,74 @@ export default async function MyCoinsPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Streak milestones ────────────────────────────────────── */}
+      {milestones.some((m) => m.enabled) && (
+        <section className="rounded-2xl border border-gc-line bg-gc-bg p-5 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FlameIcon size={16} className="text-orange-500" strokeWidth={1.8} />
+              <span className="text-sm font-semibold text-gc-fg">Streak di accesso</span>
+            </div>
+            <span className="text-sm font-bold tabular-nums text-gc-fg">
+              {streak} {streak === 1 ? "giorno" : "giorni"}
+            </span>
+          </div>
+
+          {/* Progress bar verso il prossimo milestone */}
+          {(() => {
+            const next = milestones.find((m) => m.enabled && !m.achievedAt && streak < m.days);
+            if (!next) return null;
+            const prev = milestones.filter((m) => m.enabled && (m.achievedAt || m.days < next.days)).at(-1);
+            const from = prev?.days ?? 0;
+            const pct = Math.min(((streak - from) / (next.days - from)) * 100, 100);
+            return (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-gc-fg-3">
+                  <span>{streak} / {next.days} giorni</span>
+                  <span>{next.days - streak} {next.days - streak === 1 ? "giorno" : "giorni"} al prossimo</span>
+                </div>
+                <div className="h-2 rounded-full bg-gc-bg-3 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-orange-400 transition-all"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Lista milestone */}
+          <div className="divide-y divide-gc-line">
+            {milestones.filter((m) => m.enabled).map((m) => {
+              const achieved = !!m.achievedAt;
+              return (
+                <div key={m.days} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  {achieved
+                    ? <CheckCircle2 size={16} className="text-orange-400 shrink-0" strokeWidth={1.8} />
+                    : <Circle size={16} className="text-gc-fg-3 shrink-0" strokeWidth={1.5} />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm ${achieved ? "text-gc-fg font-medium" : "text-gc-fg-2"}`}>
+                      {m.days} giorni consecutivi
+                    </span>
+                    {achieved && m.achievedAt && (
+                      <span className="ml-2 text-xs text-gc-fg-3">
+                        raggiunto il{" "}
+                        {new Date(m.achievedAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-semibold tabular-nums shrink-0 ${achieved ? "text-gc-accent" : "text-gc-fg-3"}`}>
+                    +{m.amount % 1 === 0 ? m.amount : m.amount.toFixed(2)} GCC
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── Stacked bar ───────────────────────────────────────────── */}
       {grandTotal > 0 && (

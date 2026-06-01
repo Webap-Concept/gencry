@@ -1,7 +1,7 @@
 // lib/modules/rewards/queries.ts — read path del modulo rewards
 import { and, count, desc, eq, gte, sql, sum } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { rewardsBalances, rewardsLedger, rewardsRules } from "@/lib/db/schema";
+import { rewardsBalances, rewardsLedger, rewardsRules, STREAK_MILESTONE_DAYS } from "@/lib/db/schema";
 
 /** Saldo corrente di un utente. Null se l'utente non ha mai guadagnato coin. */
 export async function getUserBalance(
@@ -67,6 +67,74 @@ export async function getCheckinStreak(userId: string): Promise<number> {
   return streak;
 }
 
+export interface StreakMilestoneStatus {
+  currentStreak: number;
+  milestones: Array<{
+    days: number;
+    amount: number;
+    enabled: boolean;
+    /** Data in cui il bonus è stato accreditato nel run corrente. Null = non ancora. */
+    achievedAt: Date | null;
+  }>;
+}
+
+/**
+ * Stato streak + milestone per la sezione /mycoins.
+ * Per ogni milestone controlla se è stata raggiunta nel run di streak CORRENTE
+ * (ovvero se c'è un ledger entry streak_N con created_at >= streak start date).
+ */
+export async function getStreakMilestoneStatus(
+  userId: string,
+): Promise<StreakMilestoneStatus> {
+  const currentStreak = await getCheckinStreak(userId);
+
+  // Data di inizio della streak corrente (o oggi se streak=0)
+  const streakStartUtc = new Date();
+  streakStartUtc.setUTCHours(0, 0, 0, 0);
+  if (currentStreak > 1) {
+    streakStartUtc.setUTCDate(streakStartUtc.getUTCDate() - (currentStreak - 1));
+  }
+
+  // Legge le regole milestone + controlla achievement in parallelo
+  const [rules, ...achievedRows] = await Promise.all([
+    db
+      .select({ eventType: rewardsRules.eventType, amount: rewardsRules.amount, enabled: rewardsRules.enabled })
+      .from(rewardsRules)
+      .where(sql`${rewardsRules.eventType} LIKE 'streak_%'`),
+    ...STREAK_MILESTONE_DAYS.map((days) =>
+      db
+        .select({ createdAt: rewardsLedger.createdAt })
+        .from(rewardsLedger)
+        .where(
+          and(
+            eq(rewardsLedger.userId, userId),
+            eq(rewardsLedger.eventType, `streak_${days}` as const),
+            gte(rewardsLedger.createdAt, streakStartUtc),
+          ),
+        )
+        .orderBy(desc(rewardsLedger.createdAt))
+        .limit(1),
+    ),
+  ]);
+
+  const rulesMap = Object.fromEntries(
+    rules.map((r) => [r.eventType, { amount: parseFloat(r.amount as unknown as string), enabled: r.enabled }]),
+  );
+
+  const milestones = STREAK_MILESTONE_DAYS.map((days, i) => {
+    const rule = rulesMap[`streak_${days}`];
+    const row = achievedRows[i]?.[0] ?? null;
+    return {
+      days,
+      amount: rule?.amount ?? 0,
+      enabled: rule?.enabled ?? false,
+      achievedAt: row ? row.createdAt : null,
+    };
+  });
+
+  return { currentStreak, milestones };
+}
+
 /** Tutte le regole configurate (per la settings page admin). */
 export async function getAllRules() {
   return db.select().from(rewardsRules).orderBy(rewardsRules.eventType);
@@ -77,9 +145,9 @@ export async function getAdminOverviewStats() {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return {
       totalUsersWithBalance: 0,
-      totalCoinsCirculating: BigInt(0),
-      totalLifetimeEarned: BigInt(0),
-      todayEarned: BigInt(0),
+      totalCoinsCirculating: 0,
+      totalLifetimeEarned: 0,
+      todayEarned: 0,
       todayTransactions: 0,
     };
   }
@@ -111,9 +179,9 @@ export async function getAdminOverviewStats() {
 
   return {
     totalUsersWithBalance: parseInt(statsRow?.users_with_balance ?? "0", 10),
-    totalCoinsCirculating: BigInt(statsRow?.total_balance ?? "0"),
-    totalLifetimeEarned:   BigInt(statsRow?.total_lifetime ?? "0"),
-    todayEarned:           BigInt(todayRow?.earned ?? "0"),
+    totalCoinsCirculating: parseFloat(statsRow?.total_balance ?? "0"),
+    totalLifetimeEarned:   parseFloat(statsRow?.total_lifetime ?? "0"),
+    todayEarned:           parseFloat(todayRow?.earned ?? "0"),
     todayTransactions:     todayRow?.txns ?? 0,
   };
 }

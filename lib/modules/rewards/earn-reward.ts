@@ -15,9 +15,10 @@
 
 import { and, count, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db/drizzle";
-import { rewardsLedger, rewardsRules } from "@/lib/db/schema";
+import { rewardsLedger, rewardsRules, STREAK_MILESTONE_DAYS } from "@/lib/db/schema";
 import type { EarnResult, RewardEventType } from "./types";
 import { getUser } from "@/lib/db/queries";
+import { getCheckinStreak } from "./queries";
 
 function startOfTodayUtc(): Date {
   const d = new Date();
@@ -98,6 +99,35 @@ export async function earnReward(
  * Validazione: la data locale deve essere entro ±1 giorno UTC (copre tutti
  * gli offset da -14 a +14) per prevenire claim su date arbitrarie.
  */
+/**
+ * Controlla e accredita i bonus milestone di streak dopo un check-in riuscito.
+ * Chiamata fire-and-forget: errori swallowati.
+ * Logica: se la streak corrente è ESATTAMENTE uguale a un milestone, accredita
+ * il bonus con idempotency key `streak_N:dateKey` — univoco per streak run
+ * (se l'utente rompe e ricostruisce la streak, la data è diversa → nuovo bonus).
+ */
+async function checkAndAwardStreakMilestones(
+  userId: string,
+  dateKey: string,
+): Promise<void> {
+  try {
+    const streak = await getCheckinStreak(userId);
+    if (streak === 0) return;
+
+    for (const days of STREAK_MILESTONE_DAYS) {
+      if (streak === days) {
+        await earnReward(
+          userId,
+          `streak_${days}` as RewardEventType,
+          `streak_${days}:${dateKey}`,
+        );
+      }
+    }
+  } catch {
+    // fire-and-forget
+  }
+}
+
 export async function claimDailyCheckin(localDateStr?: string): Promise<EarnResult> {
   const user = await getUser();
   if (!user) return { awarded: false, amount: 0 };
@@ -116,5 +146,12 @@ export async function claimDailyCheckin(localDateStr?: string): Promise<EarnResu
     dateKey = new Date().toISOString().slice(0, 10);
   }
 
-  return earnReward(user.id, "daily_checkin", `daily_checkin:${dateKey}`);
+  const result = await earnReward(user.id, "daily_checkin", `daily_checkin:${dateKey}`);
+
+  // Se il check-in è stato accreditato oggi, controlla i milestone streak
+  if (result.awarded) {
+    checkAndAwardStreakMilestones(user.id, dateKey).catch(() => {});
+  }
+
+  return result;
 }
