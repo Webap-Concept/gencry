@@ -106,6 +106,13 @@ export const REWARDS_MODULE: ModuleManifest = {
       permission: REWARDS_PERMISSION,
     },
     {
+      key: "rewards-catalog",
+      href: "/modules/rewards/catalog",
+      label: "Catalog",
+      icon: "ShoppingBag",
+      permission: REWARDS_PERMISSION,
+    },
+    {
       key: "rewards-architecture",
       href: "/modules/rewards/architecture",
       label: "Architecture",

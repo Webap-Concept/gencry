@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Coins, Flame as FlameIcon, CheckCircle2, Circle } from "lucide-react";
+import { Coins, Flame as FlameIcon, CheckCircle2, Circle, ShoppingBag } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import {
@@ -8,6 +8,8 @@ import {
   getAllRules,
   getStreakMilestoneStatus,
 } from "@/lib/modules/rewards/queries";
+import { getRedeemableItems } from "@/lib/modules/rewards/catalog-queries";
+import { ShopSection } from "./_components/shop-section";
 import { formatCoins } from "@/lib/modules/rewards/format";
 import { REWARD_CATEGORIES, REWARD_CATEGORY_MAP } from "@/lib/modules/rewards/categories";
 
@@ -19,11 +21,12 @@ export default async function MyCoinsPage() {
   if (!session) redirect("/sign-in");
 
   const userId = session.user.id;
-  const [balance, breakdown, streakStatus, rules] = await Promise.all([
+  const [balance, breakdown, streakStatus, rules, shopItems] = await Promise.all([
     getUserBalance(userId),
     getUserBalanceBreakdown(userId),
     getStreakMilestoneStatus(userId),
     getAllRules(),
+    getRedeemableItems(userId),
   ]);
   const { currentStreak: streak, milestones } = streakStatus;
 
@@ -271,6 +274,11 @@ export default async function MyCoinsPage() {
           })}
         </div>
       </section>
+
+      {/* ── Negozio ───────────────────────────────────────────── */}
+      {shopItems.length > 0 && (
+        <ShopSection items={shopItems} currentBalance={currentBalance} />
+      )}
 
       {/* Empty state quando non c'è ancora nessuna attività */}
       {grandTotal === 0 && (

@@ -2294,6 +2294,7 @@ export const REWARD_EVENT_TYPES = [
   "streak_7",
   "streak_14",
   "streak_30",
+  "redemption",
 ] as const;
 
 /** Event types che rappresentano milestone di streak (subset di REWARD_EVENT_TYPES) */
@@ -2342,4 +2343,97 @@ export const rewardsBalances = pgTable("rewards_balances", {
 export type RewardsRule    = typeof rewardsRules.$inferSelect;
 export type RewardsLedger  = typeof rewardsLedger.$inferSelect;
 export type RewardsBalance = typeof rewardsBalances.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Rewards — catalog, badge assignments, redemptions (M_rewards_005)
+// ---------------------------------------------------------------------------
+
+export const REWARDS_CATALOG_TYPES = ["badge", "perk"] as const;
+export type RewardsCatalogType = (typeof REWARDS_CATALOG_TYPES)[number];
+
+/**
+ * Catalogo degli item acquistabili con GCC. L'admin crea e configura
+ * da /admin/modules/rewards/catalog. Un item ha un slug stabile (chiave
+ * di business) e può essere di tipo "badge" (assegna un badge all'utente)
+ * o "perk" (sblocca una funzionalità, es. slot watchlist extra).
+ *
+ * Lock logic: se is_unique=true e almeno 1 redemption esiste, slug, type
+ * e perk_data diventano readonly (non cambiano la semantica di chi li possiede).
+ * cost_gcc, label, description, icon, is_active rimangono editabili.
+ */
+export const rewardsCatalog = pgTable(
+  "rewards_catalog",
+  {
+    id:          uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    slug:        varchar("slug", { length: 50 }).notNull().unique(),
+    label:       varchar("label", { length: 100 }).notNull(),
+    description: text("description"),
+    type:        varchar("type", { length: 20 }).notNull().$type<RewardsCatalogType>(),
+    // Icona: URL R2 nel bucket rewards
+    iconUrl:     text("icon_url"),
+    // Colore sfondo del badge (hex, es. "#f97316")
+    iconBg:      varchar("icon_bg", { length: 20 }),
+    costGcc:     numeric("cost_gcc", { precision: 10, scale: 2 }).notNull().default("0"),
+    isActive:    boolean("is_active").notNull().default(true),
+    // true = acquistabile 1 sola volta per utente
+    isUnique:    boolean("is_unique").notNull().default(true),
+    // Dati extra per perk: es. { "slots_granted": 1 } per watchlist_slot
+    perkData:    jsonb("perk_data"),
+    createdAt:   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_rewards_catalog_active").on(t.isActive, t.type),
+  ],
+);
+
+/**
+ * Badge assegnati agli utenti. Append-friendly: revocare = settare revoked_at,
+ * non cancellare. Source 'purchase' → creato da redeemCatalogItem();
+ * source 'system' → creato da trigger o da admin action (es. business badge futuro).
+ *
+ * Nota: il badge business in V1 usa ancora account_type su user_profiles
+ * (dual-source). La migrazione a user_badges avverrà in un PR dedicato.
+ */
+export const userBadges = pgTable(
+  "user_badges",
+  {
+    id:            uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    userId:        uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    badgeSlug:     varchar("badge_slug", { length: 50 }).notNull(),
+    source:        varchar("source", { length: 20 }).notNull().$type<"purchase" | "system">(),
+    catalogItemId: uuid("catalog_item_id").references(() => rewardsCatalog.id, { onDelete: "set null" }),
+    grantedAt:     timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt:     timestamp("revoked_at", { withTimezone: true }),
+    expiresAt:     timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("idx_user_badges_user_active").on(t.userId, t.revokedAt),
+    index("idx_user_badges_slug").on(t.badgeSlug),
+  ],
+);
+
+/**
+ * Audit trail degli acquisti GCC. Punta alla entry negativa nel ledger
+ * (event_type='redemption') per la tracciabilità completa del flusso.
+ */
+export const rewardsRedemptions = pgTable(
+  "rewards_redemptions",
+  {
+    id:            uuid("id").primaryKey().default(sql`uuid_generate_v7()`),
+    userId:        uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    catalogItemId: uuid("catalog_item_id").notNull().references(() => rewardsCatalog.id, { onDelete: "restrict" }),
+    gccSpent:      numeric("gcc_spent", { precision: 10, scale: 2 }).notNull(),
+    ledgerEntryId: uuid("ledger_entry_id").references(() => rewardsLedger.id, { onDelete: "set null" }),
+    redeemedAt:    timestamp("redeemed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_rewards_redemptions_user").on(t.userId, t.redeemedAt),
+    index("idx_rewards_redemptions_item").on(t.catalogItemId),
+  ],
+);
+
+export type RewardsCatalogItem  = typeof rewardsCatalog.$inferSelect;
+export type UserBadge           = typeof userBadges.$inferSelect;
+export type RewardsRedemption   = typeof rewardsRedemptions.$inferSelect;
 export type NewNewsItem   = typeof newsItems.$inferInsert;

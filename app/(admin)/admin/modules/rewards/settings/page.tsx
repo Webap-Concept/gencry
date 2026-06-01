@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { getAllRules } from "@/lib/modules/rewards/queries";
 import { RewardsSettingsForm } from "./_components/settings-form";
+import { RewardsR2Form } from "./_components/r2-form";
+import { getAppSettings } from "@/lib/db/settings-queries";
 
 export const metadata: Metadata = { title: "Rewards / Settings" };
 export const dynamic = "force-dynamic";
 
 export default async function RewardsSettingsPage() {
-  const rules = await getAllRules();
-  const baseRules = rules.filter((r) => !r.eventType.startsWith("streak_"));
+  const [rules, settings] = await Promise.all([getAllRules(), getAppSettings()]);
+  const baseRules = rules.filter((r) => !r.eventType.startsWith("streak_") && r.eventType !== "redemption");
   const streakRules = rules.filter((r) => r.eventType.startsWith("streak_"));
 
   return (
@@ -36,6 +38,14 @@ export default async function RewardsSettingsPage() {
         </header>
         <RewardsSettingsForm rules={streakRules} isStreakSection />
       </div>
+      <RewardsR2Form
+        initialValues={{
+          accessKeyId:     settings["modules.rewards.r2.access_key_id"]     ?? "",
+          secretAccessKey: settings["modules.rewards.r2.secret_access_key"] ?? "",
+          bucket:          settings["modules.rewards.r2.bucket"]             ?? "rewards",
+          publicBaseUrl:   settings["modules.rewards.r2.public_base_url"]   ?? "",
+        }}
+      />
     </div>
   );
 }
