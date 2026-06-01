@@ -234,10 +234,12 @@ export async function getUserBalanceBreakdown(
   const categories: CategoryBreakdown[] = (Array.isArray(rows) ? rows : (rows as { rows?: Row[] }).rows ?? []).map(
     (r) => ({
       eventType:   r.event_type,
-      todayEarned: parseInt(r.today_earned, 10),
-      weekEarned:  parseInt(r.week_earned, 10),
-      totalEarned: parseInt(r.total_earned, 10),
-      totalTxns:   parseInt(r.total_txns, 10),
+      // parseFloat, non parseInt: gli amount sono numeric(10,2) (frazioni di coin).
+      // parseInt("0.1") troncava a 0 → le reactions sotto 1 GCC sparivano dalla UI.
+      todayEarned: parseFloat(r.today_earned),
+      weekEarned:  parseFloat(r.week_earned),
+      totalEarned: parseFloat(r.total_earned),
+      totalTxns:   parseInt(r.total_txns, 10), // conteggio: resta intero
     }),
   );
 
