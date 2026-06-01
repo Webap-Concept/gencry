@@ -93,10 +93,15 @@ async function resolveRecipientEmails(
 async function getLastSentForTypes(types: string[]): Promise<Date | null> {
   if (types.length === 0) return null;
   const rows = await db
-    .select({ max: sql<Date | null>`MAX(${adminNotifications.emailSentAt})` })
+    .select({ max: sql<string | null>`MAX(${adminNotifications.emailSentAt})` })
     .from(adminNotifications)
     .where(inArray(adminNotifications.type, types));
-  return rows[0]?.max ?? null;
+  // postgres.js ritorna gli aggregati timestamp come STRINGA: il cast
+  // sql<...> è solo compile-time. Senza il wrap in Date, scheduleAllowsSend
+  // chiama .getTime() su una stringa → "getTime is not a function" → 500 a
+  // ogni run del cron email-dispatch (una volta che esiste un primo invio).
+  const max = rows[0]?.max ?? null;
+  return max ? new Date(max) : null;
 }
 
 export type EmailDispatchResult = {
