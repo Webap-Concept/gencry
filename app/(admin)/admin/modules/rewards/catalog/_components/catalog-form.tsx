@@ -64,7 +64,10 @@ export function CatalogForm({ item, backPath }: CatalogFormProps) {
       if (!res.ok || ticket.error) throw new Error(ticket.error ?? "Errore ticket upload");
       await uploadToR2WithProgress(iconFile, ticket, { onProgress: setUploadProgress });
       setUploadProgress(100);
-      return ticket.publicUrl as string;
+      // Cache-bust: la key R2 è fissa (rewards/badges/<id>.<ext>), quindi un
+      // re-upload sovrascrive lo STESSO URL → senza ?v= browser/CDN servono la
+      // vecchia icona ("rimane il vecchio"). Il timestamp forza il refresh.
+      return `${ticket.publicUrl}?v=${Date.now()}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload icona fallito");
       return null;
@@ -171,6 +174,15 @@ export function CatalogForm({ item, backPath }: CatalogFormProps) {
               style={{ background: c }}
             />
           ))}
+          {/* Color picker nativo: swatch sempre visibile (anche per colori
+              custom) + selezione visuale. Il value deve essere #rrggbb valido. */}
+          <input
+            type="color"
+            aria-label="Colore custom"
+            className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+            value={/^#[0-9a-fA-F]{6}$/.test(form.iconBg ?? "") ? (form.iconBg as string) : "#f97316"}
+            onChange={field("iconBg")}
+          />
           <input type="text" className="w-24 rounded-md border px-2 py-1 text-xs font-mono" style={inputStyle} value={form.iconBg ?? ""} onChange={field("iconBg")} placeholder="#f97316" />
         </div>
       </div>
