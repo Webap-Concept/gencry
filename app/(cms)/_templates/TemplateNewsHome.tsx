@@ -28,7 +28,7 @@ import { NewsEssays } from "./news/news-essays";
 import { NewsFeatureStory } from "./news/news-feature-story";
 import { NewsFeaturedGrid } from "./news/news-featured-grid";
 import { NewsHero } from "./news/news-hero";
-import { NewsTicker } from "./news/news-ticker";
+import { TopCoinsBar } from "@/components/modules/coins/top-coins-bar";
 import "./news/news.css";
 import type { TemplateProps } from "./types";
 
@@ -62,7 +62,7 @@ export async function TemplateNewsHome(_props: TemplateProps) {
   if (recent.length === 0) {
     return (
       <>
-        <NewsTicker />
+        <TopCoinsBar className="sticky top-[80px] z-20" />
         <NewsHero picks={[]} />
         <div className="news-container">
           <p className="news-empty">
@@ -95,7 +95,7 @@ export async function TemplateNewsHome(_props: TemplateProps) {
 
   return (
     <>
-      <NewsTicker />
+      <TopCoinsBar className="sticky top-[80px] z-20" />
       <NewsHero picks={picks} />
       <NewsFeatureStory featured={featureStory} />
       <NewsFeaturedGrid items={featuredGrid} />

@@ -107,7 +107,7 @@ function TickItem({
   );
 }
 
-export async function TopCoinsBar() {
+export async function TopCoinsBar({ className }: { className?: string } = {}) {
   const coins = await getTopCoinsForCards(TOP_N);
   if (coins.length === 0) return null;
 
@@ -123,7 +123,7 @@ export async function TopCoinsBar() {
   const durationS = Math.max(rest.length * 3, 30);
 
   return (
-    <div className="border-b border-gc-line bg-gc-bg-2">
+    <div className={`border-b border-gc-line bg-gc-bg-2 ${className ?? ""}`}>
       {/* MOBILE: solo BTC + ETH, centrati e spaziati. */}
       <div className="flex items-center justify-center gap-10 py-1.5 md:hidden">
         {pinned.map((c) => (
