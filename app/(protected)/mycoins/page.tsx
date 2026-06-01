@@ -203,44 +203,8 @@ export default async function MyCoinsPage() {
         </div>
       </section>
 
-      {/* ── Transazioni recenti ───────────────────────────────────── */}
-      {breakdown.recentLedger.length > 0 ? (
-        <section>
-          <h2 className="text-[13px] font-semibold text-gc-fg-3 uppercase tracking-wide mb-3">
-            Transazioni recenti
-          </h2>
-          <div className="rounded-2xl border border-gc-line bg-gc-bg overflow-hidden divide-y divide-gc-line">
-            {breakdown.recentLedger.map((tx) => {
-              const cfg = REWARD_CATEGORY_MAP[tx.eventType];
-              const Icon = cfg?.icon ?? Coins;
-              const iconBg = cfg?.iconBg ?? "bg-gc-bg-3";
-              const label = cfg?.label ?? tx.eventType;
-              const amount = parseFloat(tx.amount as unknown as string);
-              return (
-                <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className={`p-1.5 rounded-lg shrink-0 ${iconBg}`}>
-                    <Icon size={13} className="text-white" strokeWidth={1.8} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gc-fg truncate">{label}</div>
-                    <div className="text-[11.5px] text-gc-fg-3">
-                      {new Date(tx.createdAt).toLocaleDateString("it-IT", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-                  <div className="text-sm font-semibold tabular-nums text-gc-accent shrink-0">
-                    +{amount % 1 === 0 ? amount : amount.toFixed(2)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : (
+      {/* Empty state quando non c'è ancora nessuna attività */}
+      {grandTotal === 0 && (
         <section className="rounded-2xl border border-gc-line bg-gc-bg p-8 text-center">
           <Coins size={32} strokeWidth={1.2} className="text-gc-fg-3 mx-auto mb-3" />
           <p className="text-sm text-gc-fg-2">Non hai ancora guadagnato GCC.</p>

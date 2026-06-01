@@ -132,7 +132,7 @@ export interface CategoryBreakdown {
  */
 export async function getUserBalanceBreakdown(
   userId: string,
-): Promise<{ categories: CategoryBreakdown[]; recentLedger: Awaited<ReturnType<typeof getUserLedger>> }> {
+): Promise<{ categories: CategoryBreakdown[] }> {
   // db.execute (postgres.js raw) vuole stringhe ISO, non Date objects
   const now = new Date();
   const todayStart = new Date(now);
@@ -150,21 +150,18 @@ export async function getUserBalanceBreakdown(
     total_txns: string;
   };
 
-  const [rows, recentLedger] = await Promise.all([
-    db.execute<Row>(sql`
-      SELECT
-        event_type,
-        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${todayIso}::timestamptz), 0)::text AS today_earned,
-        COALESCE(SUM(amount) FILTER (WHERE created_at >= ${weekIso}::timestamptz), 0)::text  AS week_earned,
-        COALESCE(SUM(amount), 0)::text                                                        AS total_earned,
-        COUNT(*)::text                                                                         AS total_txns
-      FROM rewards_ledger
-      WHERE user_id = ${userId}
-      GROUP BY event_type
-      ORDER BY total_earned DESC
-    `),
-    getUserLedger(userId, 20),
-  ]);
+  const rows = await db.execute<Row>(sql`
+    SELECT
+      event_type,
+      COALESCE(SUM(amount) FILTER (WHERE created_at >= ${todayIso}::timestamptz), 0)::text AS today_earned,
+      COALESCE(SUM(amount) FILTER (WHERE created_at >= ${weekIso}::timestamptz), 0)::text  AS week_earned,
+      COALESCE(SUM(amount), 0)::text                                                        AS total_earned,
+      COUNT(*)::text                                                                         AS total_txns
+    FROM rewards_ledger
+    WHERE user_id = ${userId}
+    GROUP BY event_type
+    ORDER BY total_earned DESC
+  `);
 
   const categories: CategoryBreakdown[] = (Array.isArray(rows) ? rows : (rows as { rows?: Row[] }).rows ?? []).map(
     (r) => ({
@@ -176,7 +173,7 @@ export async function getUserBalanceBreakdown(
     }),
   );
 
-  return { categories, recentLedger };
+  return { categories };
 }
 
 /** Breakdown delle transazioni di oggi per event_type (per l'overview chart). */
