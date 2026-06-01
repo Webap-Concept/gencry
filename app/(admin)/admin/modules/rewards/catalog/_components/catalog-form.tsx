@@ -142,9 +142,13 @@ export function CatalogForm({ item, backPath }: CatalogFormProps) {
         <label className={labelCls} style={labelStyle}>Icona badge</label>
         <div className="flex items-center gap-3">
           {iconPreview ? (
-            <img src={iconPreview} alt="preview" className="w-12 h-12 rounded-xl object-contain" style={{ background: form.iconBg || "#f97316" }} />
+            // Anteprima = badge finale: tondo, icona centrata ~60% così su
+            // icona trasparente il colore iconBg riempie il badge.
+            <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-black/10 shadow-sm" style={{ background: form.iconBg || "#f97316" }}>
+              <img src={iconPreview} alt="preview" className="w-3/5 h-3/5 object-contain" />
+            </div>
           ) : (
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg" style={{ background: form.iconBg || "#f97316" }}>?</div>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg ring-2 ring-black/10" style={{ background: form.iconBg || "#f97316" }}>?</div>
           )}
           <div className="flex-1">
             <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={handleIconSelect} className="text-xs" />
