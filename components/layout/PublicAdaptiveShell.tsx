@@ -9,6 +9,7 @@ import { NotificationsBadgePill } from "@/components/modules/notifications/Notif
 import { getSession } from "@/lib/auth/session";
 import { getUnreadNotificationsCount } from "@/lib/modules/notifications/queries";
 import { getAppSettingsSafe } from "@/lib/db/settings-queries";
+import { isModuleInstalled } from "@/lib/modules/registry";
 
 /**
  * Shell adattivo per le rotte pubbliche SEO-friendly. Estratto dal
@@ -56,7 +57,16 @@ export async function PublicAdaptiveShell({
       </Suspense>
     );
     const unreadCount = await getUnreadNotificationsCount(session.user.id);
-    return (
+
+    // Monta il rewards shell (RewardsBalanceProvider + checkin) anche qui,
+    // identico a (protected)/layout.tsx: senza, il UserMenu su una pagina del
+    // group (public) — es. profilo /u/[username], coin page — non vedrebbe il
+    // provider → useRewardsBalance() = null → il link "Coins" sparisce.
+    const RewardsShell = isModuleInstalled("rewards")
+      ? (await import("@/components/modules/rewards/rewards-layout-shell")).default
+      : null;
+
+    const shell = (
       <NotificationsUnreadProvider
         viewerUserId={session.user.id}
         initialCount={unreadCount}
@@ -72,6 +82,12 @@ export async function PublicAdaptiveShell({
           <Suspense fallback={null}>{children}</Suspense>
         </ProtectedShell>
       </NotificationsUnreadProvider>
+    );
+
+    return RewardsShell ? (
+      <RewardsShell userId={session.user.id}>{shell}</RewardsShell>
+    ) : (
+      shell
     );
   }
 
