@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bell, Bookmark, Radar, Zap } from "lucide-react";
+import { Bell, Coins, Radar, Zap } from "lucide-react";
 import { NewPostButton } from "@/components/modules/posts/NewPostButton";
 
 // Bottom nav mobile. Visibile <md, pattern social classico:
@@ -25,7 +25,7 @@ const SLOTS: (LinkSlot | null)[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
   null,
-  { href: "/watchlist", labelKey: "watchlist", icon: Bookmark },
+  { href: "/watchlist", labelKey: "watchlist", icon: Coins },
   { href: "/notifiche", labelKey: "notifications", icon: Bell },
 ];
 

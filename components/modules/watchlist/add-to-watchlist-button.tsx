@@ -16,7 +16,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { BookmarkPlus, BookmarkCheck, Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,10 +51,8 @@ export function AddToWatchlistButton({
   isLoggedIn,
   initialSaved = false,
   size = "sm",
-  compact = false,
 }: Props) {
   const t = useTranslations("watchlist.coin_button");
-  const addLabel = compact ? t("add_short") : t("add");
   const [rows, setRows] = useState<WatchlistMembershipRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -85,10 +83,9 @@ export function AddToWatchlistButton({
 
   if (!isLoggedIn) {
     return (
-      <Button asChild size={size} variant="secondary">
+      <Button asChild size={size} variant="secondary" aria-label={t("add")}>
         <Link href="/sign-in" prefetch={false}>
-          <BookmarkPlus size={14} aria-hidden />
-          {compact ? t("add_short") : t("signin_to_save")}
+          <Plus size={16} aria-hidden />
         </Link>
       </Button>
     );
@@ -125,15 +122,19 @@ export function AddToWatchlistButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* Sempre verde menta (secondary), sia "+ Watchlist" sia "Salvata":
-            lo stato lo comunica l'icona (Plus → Check) + il testo. */}
-        <Button type="button" size={size} variant="secondary">
+        {/* Solo-icona: + (da salvare) / ✓ (salvata). Sempre verde menta
+            (secondary). aria-label per l'accessibilità (niente testo). */}
+        <Button
+          type="button"
+          size={size}
+          variant="secondary"
+          aria-label={anySaved ? t("saved") : t("add")}
+        >
           {anySaved ? (
-            <BookmarkCheck size={14} aria-hidden />
+            <Check size={16} aria-hidden />
           ) : (
-            <BookmarkPlus size={14} aria-hidden />
+            <Plus size={16} aria-hidden />
           )}
-          {anySaved ? t("saved") : addLabel}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">

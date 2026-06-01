@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Bell,
-  Bookmark,
+  Coins,
   Radar,
   User as UserIcon,
   Zap,
@@ -43,7 +43,7 @@ type NavItem = {
 const NAV_STATIC: NavItem[] = [
   { href: "/", labelKey: "feed", icon: Zap },
   { href: "/explore", labelKey: "explore", icon: Radar },
-  { href: "/watchlist", labelKey: "watchlist", icon: Bookmark },
+  { href: "/watchlist", labelKey: "watchlist", icon: Coins },
 ];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
