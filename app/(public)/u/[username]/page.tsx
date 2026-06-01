@@ -42,6 +42,7 @@ import {
   getTopCitedCoins,
 } from "@/lib/profile/queries";
 import { generatePageMetadata } from "@/lib/seo";
+import { isModuleInstalled } from "@/lib/modules/registry";
 
 const PROFILE_FEED_PAGE_SIZE = 20;
 
@@ -110,6 +111,13 @@ export default async function ProfilePage({
   ]);
   const isOwnProfile = viewerUserId === profile.userId;
 
+  // Badge acquistati (modulo rewards) — dynamic import isolato: se il modulo
+  // non è installato, niente import né render. Self-contained (fetcha i suoi dati).
+  const UserBadges = isModuleInstalled("rewards")
+    ? (await import("@/components/modules/rewards/UserBadgesStrip")).default
+    : null;
+  const badgesSlot = UserBadges ? <UserBadges userId={profile.userId} /> : null;
+
   // Layout 2026-05-28b: la profile page e' single-column nel main; le
   // card per-profilo ("Coin piu' citate" + preview Follower) vivono
   // nella VERA right rail dello shell via prop rightRailExtra. Niente
@@ -140,6 +148,7 @@ export default async function ProfilePage({
           viewerUserId={viewerUserId ?? null}
           isOwnProfile={isOwnProfile}
           viewerIsFollowing={viewerFollowing}
+          badgesSlot={badgesSlot}
         />
         <ProfileStickyHeader
           targetUserId={profile.userId}
@@ -187,6 +196,7 @@ function ProfileHeader({
   viewerUserId,
   isOwnProfile,
   viewerIsFollowing,
+  badgesSlot,
 }: {
   profile: NonNullable<Awaited<ReturnType<typeof getProfileByUsername>>>;
   stats: Awaited<ReturnType<typeof getProfileStats>>;
@@ -194,6 +204,8 @@ function ProfileHeader({
   viewerUserId: string | null;
   isOwnProfile: boolean;
   viewerIsFollowing: boolean;
+  /** Badge acquistati dal modulo rewards (null se modulo non installato). */
+  badgesSlot?: React.ReactNode;
 }) {
   const display = displayName(profile);
   const initial = (profile.firstName ?? profile.username).charAt(0).toUpperCase();
@@ -281,6 +293,10 @@ function ProfileHeader({
         <Stat value={stats.postsTotal} labelKey="posts" />
         <JoinedStat createdAt={profile.createdAt} />
       </div>
+
+      {/* Badge acquistati (modulo rewards) — sezione sotto le stats,
+          allineati a destra. Vuoto/modulo assente → il componente rende null. */}
+      {badgesSlot}
 
       {/* Follow mobile: full-width sotto le stat. Hidden su sm+. */}
       {showFollow ? (
