@@ -51,8 +51,13 @@ export function AddToWatchlistButton({
   isLoggedIn,
   initialSaved = false,
   size = "sm",
+  compact = false,
 }: Props) {
   const t = useTranslations("watchlist.coin_button");
+  // Label sempre presente accanto all'icona: senza testo il bottone è
+  // criptico (decisione UX 2026-06-01). `compact` = "Watchlist" (header
+  // coin), altrimenti "Aggiungi a watchlist".
+  const addLabel = compact ? t("add_short") : t("add");
   const [rows, setRows] = useState<WatchlistMembershipRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -83,9 +88,10 @@ export function AddToWatchlistButton({
 
   if (!isLoggedIn) {
     return (
-      <Button asChild size={size} variant="secondary" aria-label={t("add")}>
+      <Button asChild size={size} variant="secondary">
         <Link href="/sign-in" prefetch={false}>
           <Plus size={16} aria-hidden />
+          {compact ? t("add_short") : t("signin_to_save")}
         </Link>
       </Button>
     );
@@ -122,19 +128,17 @@ export function AddToWatchlistButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* Solo-icona: + (da salvare) / ✓ (salvata). Sempre verde menta
-            (secondary). aria-label per l'accessibilità (niente testo). */}
-        <Button
-          type="button"
-          size={size}
-          variant="secondary"
-          aria-label={anySaved ? t("saved") : t("add")}
-        >
+        {/* Icona +/✓ + testo. Sempre verde menta (secondary): lo stato lo
+            comunicano insieme l'icona (Plus → Check) e il testo
+            (addLabel → "Salvata"). Il testo NON va rimosso: senza, il
+            bottone non si capisce (decisione UX 2026-06-01). */}
+        <Button type="button" size={size} variant="secondary">
           {anySaved ? (
             <Check size={16} aria-hidden />
           ) : (
             <Plus size={16} aria-hidden />
           )}
+          {anySaved ? t("saved") : addLabel}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
